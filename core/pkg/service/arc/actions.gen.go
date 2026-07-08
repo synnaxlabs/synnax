@@ -24,7 +24,7 @@ const (
 	ActionTypeRename          = "rename"
 	ActionTypeSetNode         = "set_node"
 	ActionTypeSetNodePosition = "set_node_position"
-	ActionTypeSetNodeConfig   = "set_node_config"
+	ActionTypeSetNodeInputs   = "set_node_inputs"
 	ActionTypeRemoveNode      = "remove_node"
 	ActionTypeAddEdge         = "add_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
@@ -41,7 +41,7 @@ type RenamePayload struct {
 
 // SetNodePayload inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place. Operates only on the node's position; the node's
-// function type and config are set separately via SetNodeConfig.
+// function type and inputs are set separately via SetNodeInputs.
 type SetNodePayload struct {
 	Node graph.Node `json:"node" msgpack:"node"`
 }
@@ -52,16 +52,16 @@ type SetNodePositionPayload struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
-// SetNodeConfigPayload merges the given config into the entry for the given key in the
-// graph configs map. Top-level fields present in the payload overwrite existing fields;
+// SetNodeInputsPayload merges the given inputs into the entry for the given key in the
+// graph inputs map. Top-level fields present in the payload overwrite existing fields;
 // fields absent from the payload are preserved. The node's function type is held under
 // "type".
-type SetNodeConfigPayload struct {
+type SetNodeInputsPayload struct {
 	Key    string              `json:"key" msgpack:"key"`
-	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
+	Inputs msgpack.EncodedJSON `json:"inputs" msgpack:"inputs"`
 }
 
-// RemoveNodePayload removes the node with the given key along with its config entry and
+// RemoveNodePayload removes the node with the given key along with its inputs entry and
 // any edges connected to it.
 type RemoveNodePayload struct {
 	Key string `json:"key" msgpack:"key"`
@@ -120,7 +120,7 @@ type Action struct {
 	Rename          *RenamePayload          `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	SetNode         *SetNodePayload         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
 	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
-	SetNodeConfig   *SetNodeConfigPayload   `json:"set_node_config,omitempty" msgpack:"set_node_config,omitempty"`
+	SetNodeInputs   *SetNodeInputsPayload   `json:"set_node_inputs,omitempty" msgpack:"set_node_inputs,omitempty"`
 	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
 	AddEdge         *AddEdgePayload         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
 	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
@@ -154,11 +154,11 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetNodePosition.Handle(state)
-		case ActionTypeSetNodeConfig:
-			if a.SetNodeConfig == nil {
+		case ActionTypeSetNodeInputs:
+			if a.SetNodeInputs == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetNodeConfig.Handle(state)
+			state, err = a.SetNodeInputs.Handle(state)
 		case ActionTypeRemoveNode:
 			if a.RemoveNode == nil {
 				return state, union.MissingPayload(a.Type)
@@ -219,9 +219,9 @@ func NewSetNodePositionAction(p SetNodePositionPayload) Action {
 	return Action{Type: ActionTypeSetNodePosition, SetNodePosition: &p}
 }
 
-// NewSetNodeConfigAction wraps a SetNodeConfigPayload in an Action envelope.
-func NewSetNodeConfigAction(p SetNodeConfigPayload) Action {
-	return Action{Type: ActionTypeSetNodeConfig, SetNodeConfig: &p}
+// NewSetNodeInputsAction wraps a SetNodeInputsPayload in an Action envelope.
+func NewSetNodeInputsAction(p SetNodeInputsPayload) Action {
+	return Action{Type: ActionTypeSetNodeInputs, SetNodeInputs: &p}
 }
 
 // NewRemoveNodeAction wraps a RemoveNodePayload in an Action envelope.

@@ -141,7 +141,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(got.Graph.Nodes).To(HaveLen(2))
 
 		_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
-		alarmCfg := got.Graph.Configs["alarm"]
+		alarmCfg := got.Graph.Inputs["alarm"]
 		Expect(alarmCfg["type"]).To(Equal("status.set"))
 		Expect(alarmCfg["key_or_name"]).To(Equal("ox_alarm"))
 		Expect(alarmCfg["variant"]).To(Equal("error"))
@@ -150,7 +150,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(alarmCfg).ToNot(HaveKey("description"))
 
 		_ = MustBeOk(got.Graph.Nodes.Find("scale"))
-		scaleCfg := got.Graph.Configs["scale"]
+		scaleCfg := got.Graph.Inputs["scale"]
 		Expect(scaleCfg["type"]).To(Equal("scale"))
 		Expect(scaleCfg["factor"]).To(Equal("2"))
 	})
@@ -183,7 +183,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
-		alarmCfg := got.Graph.Configs["alarm"]
+		alarmCfg := got.Graph.Inputs["alarm"]
 		Expect(alarmCfg["type"]).To(Equal("status.set"))
 		Expect(alarmCfg["key_or_name"]).To(Equal(""))
 		Expect(alarmCfg["variant"]).To(Equal("success"))

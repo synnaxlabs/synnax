@@ -498,9 +498,6 @@ func (s *Server) getUserSymbolHover(
 	case symbol.KindOutput:
 		d = doc.New(doc.TitleWithKind(displayName, "Output Parameter"))
 		d.Add(doc.Detail("Type", sym.Type.String(), true))
-	case symbol.KindConfig:
-		d = doc.New(doc.TitleWithKind(displayName, "Configuration Parameter"))
-		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindChannel:
 		d = doc.New(doc.TitleWithKind(displayName, "Channel"))
 		d.Add(doc.Detail("Type", sym.Type.String(), true))
