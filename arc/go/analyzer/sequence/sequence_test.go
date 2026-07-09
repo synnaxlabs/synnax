@@ -354,6 +354,13 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "cannot rebind alias p"),
+			Entry("reassigning a variable that was never declared", `
+				sequence main {
+					stage s1 {
+						missing = 1
+					}
+				}
+			`, "undefined symbol: missing"),
 			Entry("using a variable before it is declared in a sequence body", `
 				sequence main {
 					a := b

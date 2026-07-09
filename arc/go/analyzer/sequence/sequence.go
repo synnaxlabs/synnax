@@ -38,7 +38,7 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	name := assign.IDENTIFIER().GetText()
 	sym, err := ctx.Resolve(name)
 	if err != nil {
-		rejectReactiveAssignment(ctx.Diagnostics, assign)
+		ctx.Diagnostics.Add(diagnostics.Error(err, assign))
 		return
 	}
 	if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
