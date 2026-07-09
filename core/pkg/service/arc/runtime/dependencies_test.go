@@ -115,6 +115,19 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(hasVarDigest).To(BeTrue())
 		})
 
+		It("Should fail closed when a variable key carries a real leaseholder", func(ctx SpecContext) {
+			const overlappingKey uint32 = 1 << 20 // leaseholder 1: persisted key space, never a program-local var
+			prog := arc.Program{
+				IR: ir.IR{
+					Nodes:       []ir.Node{},
+					VarChannels: []uint32{overlappingKey},
+				},
+			}
+			Expect(runtime.NewDependencies(ctx, channelSvc, prog)).Error().To(
+				MatchError(ContainSubstring("overlaps the persisted channel key space")),
+			)
+		})
+
 		It("Should add channels from write nodes to writes set", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "actuator_1",

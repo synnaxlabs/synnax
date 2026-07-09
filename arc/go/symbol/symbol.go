@@ -362,6 +362,10 @@ func (s *Symbol) AutoName(prefix string) *Symbol {
 	return s
 }
 
+// maxProgramLocalChannelKey is the exclusive upper bound on top-level variable
+// channel keys.
+const maxProgramLocalChannelKey = 1 << 20
+
 // Add creates a new child Symbol from sym and appends it to s.children.
 //
 // If sym has a non-empty Name, Add checks for naming conflicts in the lexical
@@ -397,6 +401,12 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Kind == KindVariable || sym.Kind == KindStatefulVariable {
 		if _, err := s.ClosestAncestorOfKind(KindFunction); err != nil {
 			child.ID = s.Root().addIndex()
+			if child.ID >= maxProgramLocalChannelKey {
+				return nil, errors.Newf(
+					"program exceeds the maximum of %d program-local channels",
+					maxProgramLocalChannelKey,
+				)
+			}
 		} else {
 			child.ID = s.addIndex()
 		}
