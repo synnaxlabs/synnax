@@ -507,7 +507,7 @@ func irVarKind(k symbol.VarKind) ir.VarKind {
 func scopeResetChannels(scopeSym *symbol.Symbol) []uint32 {
 	var out []uint32
 	for _, c := range scopeSym.Children() {
-		if c.Kind == symbol.KindVariable &&
+		if !c.Internal && c.Kind == symbol.KindVariable &&
 			c.VarKind == symbol.VarKindConstant && c.DefaultValue != nil {
 			out = append(out, channelKey(c))
 		}
@@ -670,7 +670,7 @@ func collectSeededVars(root *symbol.Symbol) []*symbol.Symbol {
 			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
 				continue
 			}
-			if isVarChannel(c) && c.DefaultValue != nil {
+			if !c.Internal && isVarChannel(c) && c.DefaultValue != nil {
 				out = append(out, c)
 			}
 			walk(c)
@@ -691,7 +691,8 @@ func collectExprVars(root *symbol.Symbol) []*symbol.Symbol {
 			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
 				continue
 			}
-			if c.Kind == symbol.KindVariable && isVarChannel(c) && c.DefaultValue == nil {
+			if !c.Internal && c.Kind == symbol.KindVariable && isVarChannel(c) &&
+				c.DefaultValue == nil {
 				if lv, ok := c.AST.(parser.ILocalVariableContext); ok && lv.Expression() != nil {
 					out = append(out, c)
 				}
@@ -817,10 +818,13 @@ func lowerReExpr[T antlr.ParserRuleContext](
 	if !ok {
 		return nil, nil, false
 	}
+	// The switch channel is compiler-internal: it stays out of user-facing
+	// resolution and the value-variable collectors (seed, flow, reset).
 	sw, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-		Kind:    symbol.KindVariable,
-		VarKind: symbol.VarKindReactive,
-		Type:    types.U8(),
+		Kind:     symbol.KindVariable,
+		VarKind:  symbol.VarKindReactive,
+		Type:     types.U8(),
+		Internal: true,
 	})
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))

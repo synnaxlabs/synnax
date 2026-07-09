@@ -235,7 +235,24 @@ var _ = Describe("Text", func() {
 			}
 			Expect(machine).ToNot(BeNil(), "expected a sequential feeder machine")
 			Expect(machine.Steps).To(HaveLen(2))
-			Expect(machine.Transitions).To(HaveLen(1))
+			Expect(machine.Transitions).To(HaveLen(2))
+		})
+
+		It("backs the re-expression switch channel but never seeds it", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				k := 5
+				r := count_ch + 1
+				r = count_ch + 2
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			// k (constant), r (reactive), and the reassignment's switch channel are backed.
+			Expect(inter.VarChannels).To(HaveLen(3))
+			// Only the literal constant is seeded; the reactive variable and the
+			// compiler-internal switch channel are not.
+			Expect(inter.VarSeeds).To(HaveLen(1))
 		})
 
 		It("DUMP", func(ctx SpecContext) {
