@@ -151,6 +151,74 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	Describe("Channel alias re-expression", func() {
+		src := `
+    sequence main {
+        ra := ch_init
+        stage r_entry {
+            ra -> ra_out
+            e_to_c >= 1 => r_c
+        }
+        stage r_a {
+            ra -> ra_out
+        }
+        stage r_c {
+            ra = chc
+            ra -> ra_out
+            c_to_a >= 1 => r_a
+        }
+    }
+    start_cmd => main`
+		newH := func(ctx SpecContext) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"ch_init":   {types.U8(), 201},
+				"chc":       {types.U8(), 202},
+				"ra_out":    {types.U8(), 102},
+				"e_to_c":    {types.U8(), 103},
+				"c_to_a":    {types.U8(), 104},
+			})
+			return newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+				channels.Digest{Key: 202, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+			)
+		}
+		pushC := func(h *runtimeHarness, ctx SpecContext, v uint8) {
+			h.Ingest(202, telem.NewSeriesV[uint8](v))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+
+		It("reads a rebind made in a stage reached by skipping earlier stages", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 100)
+			trigger(h, ctx, 103) // r_entry => r_c, skipping r_a
+			pushC(h, ctx, 42)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(42))) // r_c: ra = chc
+		})
+
+		It("reads a rebind from an earlier-source stage reached after it", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 100)
+			trigger(h, ctx, 103) // r_entry => r_c
+			pushC(h, ctx, 42)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(42)))
+			trigger(h, ctx, 104) // r_c => r_a, compiled before the rebind
+			pushC(h, ctx, 99)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(99))) // r_a reads chc's latest, not stale ch_init
+		})
+	})
+
 	Describe("Negative literal variable seeds", func() {
 		chanFor := func(expected any) (types.Type, telem.DataType) {
 			switch expected.(type) {

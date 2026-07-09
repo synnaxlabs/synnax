@@ -180,34 +180,61 @@ sequence reset_matrix_main {
     }
 }
 
-// ---------- reactive re-expr across jumps (skip + reorder) ----------
-vars_start => rx_main
+// ------------ reassignment across jumps (skip + reorder) ------------
+vars_start => reassign_main
 
-sequence rx_main {
+sequence reassign_main {
     rx str := "init: " + rx_src
+    ra := ch_init
+    rc str := "init"
+    rs str $= "init"
 
-    stage rx_entry {
+    stage r_entry {
         rx -> rx_out
-        e_to_b >= 1 => rx_b
-        e_to_c >= 1 => rx_c
+        ra -> ra_out
+        rc -> rc_out
+        rs -> rs_out
+        e_to_b >= 1 => r_b
+        e_to_c >= 1 => r_c
     }
-    stage rx_a {
+    stage r_a {
         rx = "a: " + rx_src
         rx -> rx_out
-        a_to_d >= 1 => rx_d
+        ra -> ra_out
+        rc -> rc_out
+        rs -> rs_out
+        a_to_d >= 1 => r_d
     }
-    stage rx_b {
+    stage r_b {
         rx = "b: " + rx_src
         rx -> rx_out
+        ra = chb
+        ra -> ra_out
+        rc = "b"
+        rc -> rc_out
+        rs = "b"
+        rs -> rs_out
     }
-    stage rx_c {
+    stage r_c {
         rx = "c: " + rx_src
         rx -> rx_out
-        c_to_a >= 1 => rx_a
+        ra = chc
+        ra -> ra_out
+        rc = "c"
+        rc -> rc_out
+        rs = "c"
+        rs -> rs_out
+        c_to_a >= 1 => r_a
     }
-    stage rx_d {
+    stage r_d {
         rx = "d: " + rx_src
         rx -> rx_out
+        ra = chd
+        ra -> ra_out
+        rc = "d"
+        rc -> rc_out
+        rs = "d"
+        rs -> rs_out
     }
 }
 """
@@ -247,6 +274,9 @@ RESET_OUTPUTS = [
 ]
 REEXPR_OUTPUTS = [
     "rx_out",
+    "ra_out",
+    "rc_out",
+    "rs_out",
 ]
 OUTPUTS = VAR_OUTPUTS + INHERIT_OUTPUTS + SCOPE_OUTPUTS + RESET_OUTPUTS + REEXPR_OUTPUTS
 
@@ -298,6 +328,13 @@ STR_CHANNELS = [
     "inherit_react_direct",
     "rx_src",
     "rx_out",
+    "ch_init",
+    "chb",
+    "chc",
+    "chd",
+    "ra_out",
+    "rc_out",
+    "rs_out",
 ]
 U8_CHANNELS = [
     "inherit_to_run_cmd",
@@ -434,17 +471,34 @@ class Variables(ArcCase):
 
     def _verify_reexpr(self) -> None:
         self.log("=== reactive re-expr across jumps (skip + reorder) ===")
-        # rx is re-expressed by jumping stages out of source order (entry->c->a->d,
-        # skipping b). A reassignment only swaps rx's derivation and fires on the
-        # next rx_src write, so each hop writes a fresh rx_src and asserts on it.
+        # rx/rc/rs/ra share the jump path entry->c->a->d (skip b): each is rebound in c
+        # and d but only READ in a. Only ra fails, because its rebind mutates a compile-
+        # time channel key, so a (earlier in source) reads ch_init not c's chc. rx/rc/rs
+        # keep runtime state in a fixed channel. ra is asserted last so it doesn't abort.
         self.writer.write("rx_src", "1")
+        self.writer.write("ch_init", "init")
         self.wait_for_eq("rx_out", "init: 1")
+        self.wait_for_eq("rc_out", "init")
+        self.wait_for_eq("rs_out", "init")
+        self.wait_for_eq("ra_out", "init")
         self.writer.write("e_to_c", 1)
         self.writer.write("rx_src", "2")
+        self.writer.write("chc", "c1")
         self.wait_for_eq("rx_out", "c: 2")
+        self.wait_for_eq("rc_out", "c")
+        self.wait_for_eq("rs_out", "c")
+        self.wait_for_eq("ra_out", "c1")
         self.writer.write("c_to_a", 1)
         self.writer.write("rx_src", "3")
+        self.writer.write("chc", "c2")
         self.wait_for_eq("rx_out", "a: 3")
+        self.wait_for_eq("rc_out", "c")
+        self.wait_for_eq("rs_out", "c")
+        self.wait_for_eq("ra_out", "c2")
         self.writer.write("a_to_d", 1)
         self.writer.write("rx_src", "4")
+        self.writer.write("chd", "d")
         self.wait_for_eq("rx_out", "d: 4")
+        self.wait_for_eq("rc_out", "d")
+        self.wait_for_eq("rs_out", "d")
+        self.wait_for_eq("ra_out", "d")
