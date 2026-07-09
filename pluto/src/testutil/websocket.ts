@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi } from "vitest";
 import { WebSocket } from "ws";
 
 // jsdom installs its own `Event` global but reuses Node's native `EventTarget`. Node's
@@ -24,9 +23,12 @@ import { WebSocket } from "ws";
 // Swapping it in for the global `WebSocket` in tests lets freighter's WebSocket client
 // talk to a live cluster while leaving jsdom's DOM untouched.
 //
-// The swap is registered via `vi.stubGlobal` so Vitest's global-stub cleanup restores
-// the original jsdom/undici `WebSocket`, preventing the `ws` implementation from
-// leaking into other test files that share the worker.
+// installTestWebSocket runs unconditionally for every spec file, so no test ever
+// depends on the native/undici WebSocket being present. The swap is therefore a plain,
+// permanent global assignment rather than a `vi.stubGlobal` — a stub gets reverted to
+// the crashing native implementation at every file boundary, and live-cluster clients
+// closing at that same boundary (their own `afterAll`) can have a connection still
+// completing its handshake right as the revert happens, crashing the whole run.
 export const installTestWebSocket = (): void => {
-  vi.stubGlobal("WebSocket", WebSocket);
+  globalThis.WebSocket = WebSocket as unknown as typeof globalThis.WebSocket;
 };
