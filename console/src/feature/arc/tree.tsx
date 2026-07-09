@@ -41,4 +41,4 @@ const TreeItem = Tree.createItem({
   useOnSelect,
 });
 
-export const TREE_ITEMS: Tree.Items = { arc: TreeItem };
+export const TREE_ITEMS = { arc: TreeItem } satisfies Tree.Items;

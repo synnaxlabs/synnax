@@ -20,7 +20,6 @@ import {
   createBaseProps,
   createSelection,
   createState,
-  createTreeItems,
 } from "@/platform/tree/testutil";
 import { createConsoleWrapper, createTestStore, type TestStore } from "@/testutil";
 
@@ -87,7 +86,7 @@ export const renderTreeContextMenu = async (
 
 export interface RenderToolbarOptions {
   client: Client;
-  /** Real tree items keyed by resource type; other types fall back to Tree.DEFAULT_ITEM. */
+  /** Real tree items keyed by resource type; other types fall back to Tree.DefaultItem. */
   items?: Tree.Items;
 }
 
@@ -108,7 +107,7 @@ export const renderToolbar = async (
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
       <Haul.Provider>
-        <Tree.Provider items={createTreeItems(items)}>{children}</Tree.Provider>
+        <Tree.Provider items={items ?? {}}>{children}</Tree.Provider>
       </Haul.Provider>
     </Console>
   );

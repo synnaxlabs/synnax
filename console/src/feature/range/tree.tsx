@@ -47,4 +47,4 @@ const TreeItem = Tree.createItem({
   haulItems,
 });
 
-export const TREE_ITEMS: Tree.Items = { range: TreeItem };
+export const TREE_ITEMS = { range: TreeItem } satisfies Tree.Items;

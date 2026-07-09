@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, group, ontology } from "@synnaxlabs/client";
+import { group, ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -18,15 +19,11 @@ import {
   expandTreeRow as expandRow,
   getTreeRow as rowOf,
 } from "@/platform/tree/menuTestutil";
-import { createTreeItems } from "@/platform/tree/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const renderTree = async (
-  root: ontology.ID | null,
-  items: Tree.Items = createTreeItems(),
-) => {
+const renderTree = async (root: ontology.ID | null, items: Tree.Items = {}) => {
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
@@ -88,9 +85,9 @@ describe("Tree.Tree", () => {
         menuSpy(props);
         return <span>group service menu</span>;
       };
-      const items = createTreeItems({
+      const items: Tree.Items = {
         group: Tree.createItem({ type: "group", ContextMenu: TreeContextMenu }),
-      });
+      };
       await renderTree(parentID, items);
       await screen.findByText(childName);
       fireEvent.contextMenu(rowOf(childName));
@@ -114,9 +111,9 @@ describe("Tree.Tree", () => {
       name: childName,
     });
     const onSelect = vi.fn();
-    const items = createTreeItems({
+    const items: Tree.Items = {
       group: Tree.createItem({ type: "group", useOnSelect: () => onSelect }),
-    });
+    };
     await renderTree(group.ontologyID(parent.key), items);
     const item = await screen.findByText(childName);
     fireEvent.doubleClick(item);
@@ -143,9 +140,9 @@ describe("Tree.Tree", () => {
       parent: group.ontologyID(source.key),
       name: uniqueName("moved"),
     });
-    const items = createTreeItems({
+    const items: Tree.Items = {
       group: Tree.createItem({ type: "group", canDrop: () => true }),
-    });
+    };
     await renderTree(containerID, items);
     await screen.findByText(source.name);
     expandRow(source.name);

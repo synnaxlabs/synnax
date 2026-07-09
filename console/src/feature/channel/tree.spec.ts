@@ -9,7 +9,6 @@
 
 import {
   channel as channelClient,
-  createTestClient,
   DataType,
   group,
   lineplot,
@@ -17,6 +16,7 @@ import {
   ontology,
   project,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -32,7 +32,6 @@ import {
 } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditingElement,
   commitTextEdit,
   resolveFocusedTab,
@@ -41,8 +40,7 @@ import {
 
 const client = createTestClient();
 
-const item = Channel.TREE_ITEMS.channel;
-assertDefined(item, "no channel tree item");
+const Item = Channel.TREE_ITEMS.channel;
 
 const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
   await client.channels.create({
@@ -79,7 +77,7 @@ describe("channel/ontology", () => {
   describe("haulItems", () => {
     it("hauls a regular channel as a channel item", async () => {
       const ch = await createChannel();
-      const items = item.haulItems(
+      const items = Item.haulItems(
         createResource(channelClient.ontologyID(ch.key), ch.name, {
           internal: false,
         }),
@@ -91,7 +89,7 @@ describe("channel/ontology", () => {
 
     it("hauls an internal channel as a schematic value element only", async () => {
       const ch = await createChannel();
-      const items = item.haulItems(
+      const items = Item.haulItems(
         createResource(channelClient.ontologyID(ch.key), ch.name, {
           internal: true,
         }),
@@ -138,7 +136,11 @@ describe("channel/ontology", () => {
         root: {
           variant: "leaf",
           tabs: [
-            { variant: "resource", key: tabKey, resource: lineplot.ontologyID(plot.key) },
+            {
+              variant: "resource",
+              key: tabKey,
+              resource: lineplot.ontologyID(plot.key),
+            },
           ],
         },
       });

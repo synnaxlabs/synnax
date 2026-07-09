@@ -13,10 +13,10 @@ import { type ReactElement } from "react";
 import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
 import { Panel } from "@/feature/panel";
+import { Project } from "@/feature/project";
+import { Version } from "@/feature/version";
 import { Nav as PlatformNav } from "@/platform/nav";
-import { Project } from "@/platform/project";
 import { User } from "@/platform/user";
-import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 
 export const Top = (): ReactElement | null => (

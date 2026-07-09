@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, createTestClient, DataType, ontology } from "@synnaxlabs/client";
+import { channel, DataType, ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Channel as PChannel, List, Text } from "@synnaxlabs/pluto";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";

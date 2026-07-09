@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { getIcon, getMake, type Make, useConfigureModal } from "@/feature/device/make";
 import { getKeyFromStatus } from "@/feature/device/useListenForChanges";
-import { type Notifications } from "@/platform/notifications";
+import { Notifications } from "@/platform/notifications";
 
 const shouldShowConfigureButton = (make: Make): boolean =>
   make === "NI" || make === "LabJack" || make === "ethercat";
@@ -50,4 +50,7 @@ export const Notification: Notifications.Notification = ({ status, silence }) =>
 };
 Notification.match = (status) => getKeyFromStatus(status) != null;
 
-export const NOTIFICATIONS: Notifications.Notification[] = [Notification];
+export const NOTIFICATIONS: Notifications.Notification[] = [
+  Notifications.createSuppressRoutineForPrefix("device"),
+  Notification,
+];

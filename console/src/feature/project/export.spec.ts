@@ -7,14 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createTestClient,
-  log,
-  type panel,
-  project,
-  type status,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { log, type panel, project, type status, type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";

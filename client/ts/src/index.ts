@@ -8,8 +8,11 @@
 // included in the file licenses/APL.txt.
 
 export { access } from "@/access";
+export type { Policy } from "@/access/policy/types.gen";
+export type { Role } from "@/access/role/types.gen";
 export { actions } from "@/actions";
 export { arc } from "@/arc";
+export type { Param } from "@/arc/types/types.gen";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export {
@@ -48,13 +51,9 @@ export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";
 export { status } from "@/status";
+export type { StatusZodObject } from "@/status/types.gen";
 export { table } from "@/table";
 export { task } from "@/task";
-export {
-  createTestClient,
-  createTestClientWithPolicy,
-  TEST_CLIENT_PARAMS,
-} from "@/testutil";
 export { user } from "@/user";
 export { view } from "@/view";
 export {

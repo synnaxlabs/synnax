@@ -14,7 +14,7 @@ import { Notifications } from "@/app/notifications";
 import { Selector } from "@/app/selector";
 import { Auth } from "@/feature/auth";
 import { Panel } from "@/feature/panel";
-import { Project as PlatformProject } from "@/platform/project";
+import { Project } from "@/feature/project";
 
 /**
  * Aux is the shell for every non-main window: a pure panel viewport with the
@@ -24,11 +24,11 @@ export const Aux = (): ReactElement => (
   <>
     <Notifications.Feed />
     <Auth.Guard>
-      <PlatformProject.Guard>
+      <Project.Guard>
         <Flex.Box x gap="tiny" grow style={{ padding: "0 1rem 1rem 1rem" }}>
           <Panel.Mosaic onCreateTab={Selector.createEmptyTab} />
         </Flex.Box>
-      </PlatformProject.Guard>
+      </Project.Guard>
     </Auth.Guard>
   </>
 );

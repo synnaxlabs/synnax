@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, user } from "@synnaxlabs/client";
+import { NotFoundError, user } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,8 +19,7 @@ import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const item = User.TREE_ITEMS.user;
-assertDefined(item, "no user tree item");
+const Item = User.TREE_ITEMS.user;
 
 const createUser = async () =>
   await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
@@ -30,8 +30,8 @@ const userResource = (key: string, username: string, rootUser = false) =>
 const renderMenu = async (
   resources: ReturnType<typeof userResource>[],
 ): Promise<void> => {
-  assertDefined(item.ContextMenu);
-  await renderTreeContextMenu(item.ContextMenu, {
+  assertDefined(Item.ContextMenu);
+  await renderTreeContextMenu(Item.ContextMenu, {
     client,
     resources,
   });
@@ -76,15 +76,11 @@ describe("user ontology service", () => {
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${u.username}?`);
     fireEvent.click(findModalButton("Delete"));
-    const userExists = async (): Promise<boolean> => {
-      try {
-        await client.users.retrieve({ key: u.key });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    await waitFor(async () => expect(await userExists()).toBe(false));
+    await waitFor(async () => {
+      await expect(client.users.retrieve({ key: u.key })).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
+      );
+    });
   });
 
   it("should build user haul items from the resource payload", () => {
@@ -95,9 +91,9 @@ describe("user ontology service", () => {
       lastName: "",
       rootUser: false,
     };
-    const items = item.haulItems(createResource(user.ontologyID("u1"), "u", data));
+    const items = Item.haulItems(createResource(user.ontologyID("u1"), "u", data));
     expect(items).toHaveLength(1);
     expect(items[0].key).toBe("u1");
-    expect(item.haulItems(createResource(user.ontologyID("u2"), "u2"))).toHaveLength(0);
+    expect(Item.haulItems(createResource(user.ontologyID("u2"), "u2"))).toHaveLength(0);
   });
 });

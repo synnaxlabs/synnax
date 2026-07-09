@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
-  createTestClient,
   type ontology,
   panel,
   type ranger,
   ranger as rangerClient,
   schematic,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import {

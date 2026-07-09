@@ -71,4 +71,4 @@ const TreeItem = Tree.createItem({
   },
 });
 
-export const TREE_ITEMS: Tree.Items = { role: TreeItem };
+export const TREE_ITEMS = { role: TreeItem } satisfies Tree.Items;

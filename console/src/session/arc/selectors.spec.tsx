@@ -8,16 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
+import { access, arc, channel, framer, type Synnax, user } from "@synnaxlabs/client";
 import {
-  access,
-  arc,
-  channel,
   createTestClient,
   createTestClientWithPolicy,
-  framer,
-  type Synnax,
-  user,
-} from "@synnaxlabs/client";
+} from "@synnaxlabs/client/testutil";
 import { Arc as PArc } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";

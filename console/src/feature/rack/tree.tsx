@@ -26,9 +26,9 @@ const useRename = Tree.createUseRename({
   convertKey: Number,
 });
 
-const Content = ({ id, resource, icon: _icon, ...rest }: Tree.ContentProps) => {
+const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const res = Rack.useRetrieve({ key: Number(id.key) });
+  const res = Rack.useRetrieve({ key: Number(resource.id.key) });
   const status = res.data?.status;
 
   return (
@@ -116,4 +116,4 @@ const TreeItem = Tree.createItem({
   Content,
 });
 
-export const TREE_ITEMS: Tree.Items = { rack: TreeItem };
+export const TREE_ITEMS = { rack: TreeItem } satisfies Tree.Items;

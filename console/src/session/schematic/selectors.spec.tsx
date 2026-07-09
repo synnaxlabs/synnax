@@ -11,13 +11,15 @@ import { configureStore } from "@reduxjs/toolkit";
 import {
   access,
   channel,
-  createTestClient,
-  createTestClientWithPolicy,
   framer,
   schematic,
   type Synnax,
   user,
 } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { Access, Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";

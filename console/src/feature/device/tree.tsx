@@ -105,15 +105,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
 
-const Content = ({
-  id,
-  resource,
-  className,
-  icon: _icon,
-  ...rest
-}: Tree.ContentProps) => {
+const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const devStatus = Device.useRetrieve({ key: id.key }).data?.status;
+  const devStatus = Device.useRetrieve({ key: resource.id.key }).data?.status;
   return (
     <PTree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
@@ -148,4 +142,4 @@ const TreeItem = Tree.createItem({
   Content,
 });
 
-export const TREE_ITEMS: Tree.Items = { device: TreeItem };
+export const TREE_ITEMS = { device: TreeItem } satisfies Tree.Items;

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, group, ontology, ranger } from "@synnaxlabs/client";
+import { group, ontology, ranger } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -16,12 +17,11 @@ import { createTestRange } from "@/platform/range/testutil";
 import { createResource } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { assertDefined, resolveFocusedTab, uniqueName } from "@/testutil";
+import { resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const item = Range.TREE_ITEMS.range;
-assertDefined(item, "no range tree item");
+const Item = Range.TREE_ITEMS.range;
 
 describe("range/ontology", () => {
   describe("onSelect", () => {
@@ -60,14 +60,14 @@ describe("range/ontology", () => {
         name: rng.name,
         timeRange: rng.timeRange,
       });
-      const items = item.haulItems(resource);
+      const items = Item.haulItems(resource);
       expect(items).toHaveLength(1);
       expect(items[0].key).toBe(rng.key);
     });
 
     it("returns nothing when the resource has no data payload", () => {
       const resource = createResource(ranger.ontologyID("some-key"), "no-data");
-      expect(item.haulItems(resource)).toHaveLength(0);
+      expect(Item.haulItems(resource)).toHaveLength(0);
     });
   });
 });

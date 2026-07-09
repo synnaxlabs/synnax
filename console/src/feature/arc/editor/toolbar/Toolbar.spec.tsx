@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, createTestClient, panel } from "@synnaxlabs/client";
+import { arc, panel } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Flux, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import {

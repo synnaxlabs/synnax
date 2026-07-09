@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, group, ontology } from "@synnaxlabs/client";
+import { group, ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Tree as PTree } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -19,8 +20,7 @@ import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const item = Group.TREE_ITEMS.group;
-assertDefined(item, "no group tree item");
+const Item = Group.TREE_ITEMS.group;
 
 const createGroup = async (parent: ontology.ID) =>
   await client.groups.create({ parent, name: uniqueName("group") });
@@ -30,15 +30,15 @@ const groupResource = (key: string, name: string) =>
 
 describe("group ontology service", () => {
   it("should always accept drops and haul the group's own id", () => {
-    expect(item.canDrop({ source: { key: "s", type: "t" }, items: [] })).toBe(true);
+    expect(Item.canDrop({ source: { key: "s", type: "t" }, items: [] })).toBe(true);
     const res = groupResource("g1", "g");
-    expect(item.haulItems(res)).toEqual([res.id]);
+    expect(Item.haulItems(res)).toEqual([res.id]);
   });
 
   it("should hide rename and ungroup for a zero-depth selection", async () => {
     const g = await createGroup(ontology.ROOT_ID);
-    assertDefined(item.ContextMenu);
-    await renderTreeContextMenu(item.ContextMenu, {
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [groupResource(g.key, g.name)],
     });
@@ -70,8 +70,8 @@ describe("group ontology service", () => {
       groupResource(child.key, child.name),
       groupResource(grandchild.key, grandchild.name),
     ];
-    assertDefined(item.ContextMenu);
-    await renderTreeContextMenu(item.ContextMenu, {
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources,
       selected: [childID],
@@ -98,8 +98,8 @@ describe("group ontology service", () => {
       { key: parentKey, children: [{ key: childKey }] },
     ];
     const shape = PTree.flatten({ nodes, expanded: [parentKey] });
-    assertDefined(item.ContextMenu);
-    await renderTreeContextMenu(item.ContextMenu, {
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [
         groupResource(parent.key, parent.name),

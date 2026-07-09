@@ -9,10 +9,32 @@
 
 import { type PropsWithChildren } from "react";
 
-import { EXTRACTORS } from "@/app/imex/extractors";
-import { FILE_INGESTERS } from "@/app/imex/ingesters";
+import { Arc } from "@/feature/arc";
+import { LinePlot } from "@/feature/lineplot";
+import { Log } from "@/feature/log";
+import { Schematic } from "@/feature/schematic";
+import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
 import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
+
+const EXTRACTORS: Export.Extractors = {
+  ...Arc.EXTRACTORS,
+  ...LinePlot.EXTRACTORS,
+  ...Log.EXTRACTORS,
+  ...Schematic.EXTRACTORS,
+  ...Table.EXTRACTORS,
+  ...Task.EXTRACTORS,
+};
+
+const FILE_INGESTERS: Import.FileIngesters = {
+  ...Arc.FILE_INGESTERS,
+  ...Log.FILE_INGESTERS,
+  ...LinePlot.FILE_INGESTERS,
+  ...Schematic.FILE_INGESTERS,
+  ...Table.FILE_INGESTERS,
+  ...Task.FILE_INGESTERS,
+};
 
 export interface ContextProps extends PropsWithChildren<{}> {}
 

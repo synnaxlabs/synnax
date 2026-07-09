@@ -44,14 +44,4 @@ describe("app notifications", () => {
     await addStatus({ key: "rack-1", variant: "error", message: "Rack failed" });
     expect(screen.getByText("Rack failed")).toBeTruthy();
   });
-
-  it("suppresses a routine hardware success notification", async () => {
-    await addStatus({ key: "rack-1", variant: "success", message: "Rack connected" });
-    expect(screen.queryByText("Rack connected")).toBeNull();
-  });
-
-  it("suppresses a routine hardware loading notification", async () => {
-    await addStatus({ key: "task-1", variant: "loading", message: "Task starting" });
-    expect(screen.queryByText("Task starting")).toBeNull();
-  });
 });

@@ -13,11 +13,10 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Tree } from "@/platform/tree";
-import { createTreeItems } from "@/platform/tree/testutil";
 
 describe("Provider", () => {
   const channelItem = Tree.createItem({ type: "channel", icon: <Icon.Channel /> });
-  const items = createTreeItems({ channel: channelItem });
+  const items: Tree.Items = { channel: channelItem };
 
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Tree.Provider items={items}>{children}</Tree.Provider>

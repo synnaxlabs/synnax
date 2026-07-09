@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, createTestClient } from "@synnaxlabs/client";
+import { access, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Haul, User } from "@synnaxlabs/pluto";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -19,10 +20,8 @@ import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const roleItem = Access.Role.TREE_ITEMS.role;
-assertDefined(roleItem, "no role tree item");
-const policyItem = Access.Policy.TREE_ITEMS.policy;
-assertDefined(policyItem, "no policy tree item");
+const RoleItem = Access.Role.TREE_ITEMS.role;
+const PolicyItem = Access.Policy.TREE_ITEMS.policy;
 
 const createRole = async () =>
   await client.access.roles.create({ name: uniqueName("role") });
@@ -33,8 +32,8 @@ const roleResource = (key: string, name: string, internal: boolean) =>
 describe("role ontology service", () => {
   it("should expose rename and delete for a non-internal role", async () => {
     const role = await createRole();
-    assertDefined(roleItem.ContextMenu);
-    await renderTreeContextMenu(roleItem.ContextMenu, {
+    assertDefined(RoleItem.ContextMenu);
+    await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
       resources: [roleResource(role.key, role.name, false)],
     });
@@ -45,8 +44,8 @@ describe("role ontology service", () => {
 
   it("should hide rename and delete for internal roles", async () => {
     const role = await createRole();
-    assertDefined(roleItem.ContextMenu);
-    await renderTreeContextMenu(roleItem.ContextMenu, {
+    assertDefined(RoleItem.ContextMenu);
+    await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
       resources: [roleResource(role.key, role.name, true)],
     });
@@ -57,27 +56,23 @@ describe("role ontology service", () => {
 
   it("should delete the role on the cluster after confirmation", async () => {
     const role = await createRole();
-    assertDefined(roleItem.ContextMenu);
-    await renderTreeContextMenu(roleItem.ContextMenu, {
+    assertDefined(RoleItem.ContextMenu);
+    await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
       resources: [roleResource(role.key, role.name, false)],
     });
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${role.name}?`);
     fireEvent.click(findModalButton("Delete"));
-    const roleExists = async (): Promise<boolean> => {
-      try {
-        await client.access.roles.retrieve({ key: role.key });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    await waitFor(async () => expect(await roleExists()).toBe(false));
+    await waitFor(async () => {
+      await expect(client.access.roles.retrieve({ key: role.key })).rejects.toSatisfy(
+        (e) => NotFoundError.matches(e),
+      );
+    });
   });
 
   it("should accept only non-root user haul items on drop", () => {
-    const { canDrop } = roleItem;
+    const { canDrop } = RoleItem;
     const source: Haul.Item = { key: "tree", type: "Tree.Item" };
     const userItem = (rootUser: boolean): Haul.Item =>
       User.createHaulItem({
@@ -97,10 +92,10 @@ describe("role ontology service", () => {
 
 describe("policy ontology service", () => {
   it("should stay hidden in the tree and declare no children", () => {
-    expect(policyItem.type).toBe("policy");
+    expect(PolicyItem.type).toBe("policy");
     expect(
-      policyItem.visible?.(createResource(access.policy.ontologyID("p1"), "p1")),
+      PolicyItem.visible?.(createResource(access.policy.ontologyID("p1"), "p1")),
     ).toBe(false);
-    expect(policyItem.hasChildren).toBe(false);
+    expect(PolicyItem.hasChildren).toBe(false);
   });
 });

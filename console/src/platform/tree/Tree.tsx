@@ -40,7 +40,7 @@ import { useStore } from "react-redux";
 import { ContextMenu } from "@/platform/context-menu";
 import { Panel } from "@/platform/panel";
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
-import { DEFAULT_ITEM, type Item } from "@/platform/tree/item";
+import { DefaultItem, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
 import { useItems } from "@/platform/tree/Provider";
 import {
@@ -79,7 +79,7 @@ const itemRenderProp = Component.renderProp(
     const { itemKey } = rest;
     const id = ontology.idZ.parse(itemKey);
     const resource = List.useItem<string, ontology.Resource>(itemKey);
-    const Item = useItems()[id.type] ?? DEFAULT_ITEM;
+    const Item = useItems()[id.type] ?? DefaultItem;
     const { onDrop, useLoading, onDragStart, onDragEnd } =
       useContext("Tree.itemRenderProp");
     const handleDragStart = useCallback(
@@ -110,7 +110,6 @@ const itemRenderProp = Component.renderProp(
         draggingOver={draggingOver}
         onDragStart={handleDragStart}
         draggable
-        id={id}
         {...onDropDrops}
         onDragLeave={() => setDraggingOver(false)}
         onDragEnd={onDragEnd}
@@ -124,7 +123,7 @@ const itemRenderProp = Component.renderProp(
 const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const items = useItems();
   const resolveItem = useCallback(
-    (type: ontology.ResourceType): Item => items[type] ?? DEFAULT_ITEM,
+    (type: ontology.ResourceType): Item => items[type] ?? DefaultItem,
     [items],
   );
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);

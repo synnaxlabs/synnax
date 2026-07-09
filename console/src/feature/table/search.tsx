@@ -18,7 +18,7 @@ const useOpen = () => {
   return ({ id }: ontology.Resource) => openTab({ variant: "resource", resource: id });
 };
 
-export const SearchListItem = Search.createListItem({
+const SearchListItem = Search.createListItem({
   icon: <Icon.Table />,
   useOnSelect: useOpen,
 });

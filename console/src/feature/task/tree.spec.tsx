@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createTestClient,
-  group,
-  NotFoundError,
-  ontology,
-  type task,
-} from "@synnaxlabs/client";
+import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Text } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -45,9 +40,8 @@ import {
 
 const client = createTestClient();
 
-const item = Task.TREE_ITEMS.task;
-assertDefined(item, "no task tree item");
-const { ContextMenu: Menu } = item;
+const Item = Task.TREE_ITEMS.task;
+const { ContextMenu: Menu } = Item;
 assertDefined(Menu, "task ontology service has no ContextMenu");
 
 const createTask = async () => {

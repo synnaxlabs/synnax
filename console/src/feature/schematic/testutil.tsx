@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, panel, project, schematic } from "@synnaxlabs/client";
+import { panel, project, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
   Flux,
   Haul,
@@ -29,7 +30,6 @@ import {
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
-import { createTreeItems } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
@@ -177,7 +177,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
       </Triggers.Provider>
     </Console>
   );
-  const items = createTreeItems(Schematic.TREE_ITEMS);
+  const items = Schematic.TREE_ITEMS;
   const result = render(
     <Tree.Provider items={items}>
       <Tree.Tree root={rootID} />

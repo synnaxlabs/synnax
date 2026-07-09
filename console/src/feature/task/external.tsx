@@ -29,6 +29,7 @@ import { type Range } from "@/platform/range";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/task/link";
+export * from "@/feature/task/notifications";
 export * from "@/feature/task/search";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/Toolbar";

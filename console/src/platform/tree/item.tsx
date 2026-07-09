@@ -16,7 +16,6 @@ import { type ContextMenu } from "@/platform/tree/types";
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
 // own icon and double-click behavior, so neither is threaded through here.
 export interface ItemProps extends Omit<Base.ItemProps<string>, "id" | "resource"> {
-  id: ontology.ID;
   resource: ontology.Resource;
   loading: boolean;
 }
@@ -48,14 +47,13 @@ const DefaultRow = ({
   onDoubleClick,
   resource,
   icon,
-  id,
   loading,
   ...rest
 }: ContentProps): ReactElement => (
   <Base.Item {...rest} onDoubleClick={onDoubleClick}>
     {icon}
     <Text.MaybeEditable
-      id={List.itemNameID(ontology.idToString(id))}
+      id={List.itemNameID(ontology.idToString(resource.id))}
       value={resource.name}
       onChange
       allowDoubleClick={false}
@@ -112,7 +110,6 @@ export const createItem = ({
   return item;
 };
 
-// DEFAULT_ITEM is the fallback used for resource types with no registered Item. It
-// reproduces the previous NOOP service: an unadorned name row with expandable children
-// and no drag or drop behavior.
-export const DEFAULT_ITEM: Item = createItem({ type: "builtin" });
+// DefaultItem is the fallback used for resource types with no registered Item: an
+// unadorned name row with expandable children and no drag or drop behavior.
+export const DefaultItem: Item = createItem({ type: "builtin" });

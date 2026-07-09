@@ -193,4 +193,4 @@ const TreeItem = Tree.createItem({
     items.every(({ key }) => VALID_CHILDREN.some((c) => key.toString().includes(c))),
 });
 
-export const TREE_ITEMS: Tree.Items = { project: TreeItem };
+export const TREE_ITEMS = { project: TreeItem } satisfies Tree.Items;

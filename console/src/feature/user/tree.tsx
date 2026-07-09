@@ -117,4 +117,4 @@ const TreeItem = Tree.createItem({
     data == null ? [] : [User.createHaulItem(data as user.User)],
 });
 
-export const TREE_ITEMS: Tree.Items = { user: TreeItem };
+export const TREE_ITEMS = { user: TreeItem } satisfies Tree.Items;

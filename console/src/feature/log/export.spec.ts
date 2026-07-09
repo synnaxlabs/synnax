@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, DisconnectedError, log } from "@synnaxlabs/client";
+import { DisconnectedError, log } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";

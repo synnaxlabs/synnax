@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  createTestClient,
   type ontology,
   panel,
   project,
@@ -16,6 +15,7 @@ import {
   type Synnax,
   table,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Access, Flux, type Pluto } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";

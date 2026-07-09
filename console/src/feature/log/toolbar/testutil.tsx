@@ -7,12 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  createTestClient,
-  log as clientLog,
-  type log,
-  panel,
-} from "@synnaxlabs/client";
+import { log as clientLog, type log, panel } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Flux, Log, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, within } from "@testing-library/react";

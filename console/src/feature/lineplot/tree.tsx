@@ -122,4 +122,4 @@ const TreeItem = Tree.createItem({
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS: Tree.Items = { lineplot: TreeItem };
+export const TREE_ITEMS = { lineplot: TreeItem } satisfies Tree.Items;

@@ -27,7 +27,7 @@ const useOpen = () => {
   };
 };
 
-export const SearchListItem = Search.createListItem({
+const SearchListItem = Search.createListItem({
   icon: <Icon.Task />,
   useOnSelect: useOpen,
 });

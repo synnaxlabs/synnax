@@ -19,7 +19,7 @@ import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { Panel } from "@/feature/panel";
-import { Project as PlatformProject } from "@/platform/project";
+import { Project } from "@/feature/project";
 import { Range } from "@/platform/range";
 import { Status } from "@/platform/status";
 
@@ -28,7 +28,7 @@ const SideEffect = (): null => {
   Cluster.useSyncClusterKey();
   Device.useListenForChanges();
   Range.useListenForChanges();
-  PlatformProject.useCheckCore();
+  Project.useCheckCore();
   Status.useListenForChanges();
   Link.useDeep();
   Triggers.use();
@@ -45,7 +45,7 @@ export const Main = (): ReactElement => (
     <Notifications.Feed />
     <SideEffect />
     <Auth.Guard>
-      <PlatformProject.Guard>
+      <Project.Guard>
         <Nav.Bar.Top />
         <Flex.Box
           x
@@ -62,7 +62,7 @@ export const Main = (): ReactElement => (
             <Nav.Drawer.Bottom />
           </Flex.Box>
         </Flex.Box>
-      </PlatformProject.Guard>
+      </Project.Guard>
     </Auth.Guard>
   </>
 );
