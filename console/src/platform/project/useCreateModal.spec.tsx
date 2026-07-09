@@ -38,7 +38,9 @@ describe("Project.useCreateModal", () => {
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Project Name")).toBeTruthy(),
     );
-    const createBtn = screen.getByRole("button", { name: "Create" });
+    const createBtn = await waitFor(() =>
+      screen.getByRole("button", { name: "Create" }),
+    );
     expect(createBtn.className).toContain("pluto--disabled");
   });
 
