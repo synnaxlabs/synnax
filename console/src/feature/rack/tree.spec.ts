@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, rack } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, rack } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,8 +18,7 @@ import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const item = Rack.TREE_ITEMS.rack;
-assertDefined(item, "no rack tree item");
+const Item = Rack.TREE_ITEMS.rack;
 
 const createRack = async () => await client.racks.create({ name: uniqueName("rack") });
 
@@ -27,8 +26,8 @@ const rackResource = (key: number, name: string) =>
   createResource(rack.ontologyID(key), name);
 
 const renderMenu = async (racks: { key: number; name: string }[]) => {
-  assertDefined(item.ContextMenu);
-  return await renderTreeContextMenu(item.ContextMenu, {
+  assertDefined(Item.ContextMenu);
+  return await renderTreeContextMenu(Item.ContextMenu, {
     client,
     resources: racks.map((r) => rackResource(r.key, r.name)),
   });
@@ -59,15 +58,11 @@ describe("rack ontology service", () => {
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${r.name}?`);
     fireEvent.click(findModalButton("Delete"));
-    const rackExists = async (): Promise<boolean> => {
-      try {
-        await client.racks.retrieve({ key: r.key });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    await waitFor(async () => expect(await rackExists()).toBe(false));
+    await waitFor(async () => {
+      await expect(client.racks.retrieve({ key: r.key })).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
+      );
+    });
   });
 
   it("should open the arc creation modal from the context menu", async () => {

@@ -15,7 +15,6 @@ import { describe, expect, it } from "vitest";
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
-import { createTreeItems } from "@/platform/tree/testutil";
 import { renderOntologyTree } from "@/platform/tree/treeTestutil";
 import {
   awaitTextEditingElement,
@@ -47,9 +46,9 @@ const setup = async () => {
     parent: parentID,
     name: uniqueName("child_b"),
   });
-  const items = createTreeItems({
+  const items: Tree.Items = {
     group: Tree.createItem({ type: "group", ContextMenu: GroupSelectionMenu }),
-  });
+  };
   await renderOntologyTree({ client, root: parentID, items });
   await screen.findByText(a.name);
   await screen.findByText(b.name);
@@ -95,9 +94,9 @@ describe("useCreateFromSelection", () => {
     const subID = group.ontologyID(sub.key);
     const a = await client.groups.create({ parent: subID, name: uniqueName("nest_a") });
     const b = await client.groups.create({ parent: subID, name: uniqueName("nest_b") });
-    const items = createTreeItems({
+    const items: Tree.Items = {
       group: Tree.createItem({ type: "group", ContextMenu: GroupSelectionMenu }),
-    });
+    };
     await renderOntologyTree({ client, root: parentID, items });
     await screen.findByText(sub.name);
     expandTreeRow(sub.name);

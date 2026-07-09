@@ -23,7 +23,6 @@ import {
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
-import { createTreeItems } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
@@ -144,7 +143,7 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
       </Triggers.Provider>
     </Console>
   );
-  const items = createTreeItems(Schematic.TREE_ITEMS);
+  const items = Schematic.TREE_ITEMS;
   const result = render(
     <Tree.Provider items={items}>
       <Tree.Tree root={rootID} />

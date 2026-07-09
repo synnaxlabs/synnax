@@ -20,7 +20,7 @@ const useOpen = () => {
     placeLayout(Schematic.create({ key: id.key, name }));
 };
 
-export const SearchListItem = Search.createListItem({
+const SearchListItem = Search.createListItem({
   icon: <Icon.Schematic />,
   useOnSelect: useOpen,
 });

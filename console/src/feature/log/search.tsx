@@ -20,7 +20,7 @@ const useOpen = () => {
     placeLayout(Log.create({ key: id.key, name }));
 };
 
-export const SearchListItem = Search.createListItem({
+const SearchListItem = Search.createListItem({
   icon: <Icon.Log />,
   useOnSelect: useOpen,
 });

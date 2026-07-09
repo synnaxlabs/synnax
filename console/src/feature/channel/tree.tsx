@@ -280,10 +280,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const Content = ({ id, resource, icon: _, ...rest }: Tree.ContentProps) => {
+const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const activeRange = Session.Range.useSelectState();
   const res = PChannel.useRetrieve({
-    key: Number(id.key),
+    key: Number(resource.id.key),
     rangeKey: activeRange?.key,
   }).data;
   let name = resource.name;
@@ -295,7 +295,7 @@ const Content = ({ id, resource, icon: _, ...rest }: Tree.ContentProps) => {
     <PTree.Item {...rest}>
       <DataTypeIcon color={10} />
       <Text.MaybeEditable
-        id={List.itemNameID(ontology.idToString(id))}
+        id={List.itemNameID(ontology.idToString(resource.id))}
         allowDoubleClick={false}
         value={name}
         overflow="ellipsis"
@@ -327,4 +327,4 @@ const TreeItem = Tree.createItem({
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS: Tree.Items = { channel: TreeItem };
+export const TREE_ITEMS = { channel: TreeItem } satisfies Tree.Items;

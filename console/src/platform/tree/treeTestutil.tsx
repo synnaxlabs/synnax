@@ -13,13 +13,12 @@ import { fireEvent, render, type RenderResult, screen } from "@testing-library/r
 
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
-import { createTreeItems } from "@/platform/tree/testutil";
 import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 export interface RenderOntologyTreeOptions {
   client: Synnax;
   root: ontology.ID | null;
-  /** Real item overrides; every other resource type falls back to Tree.DEFAULT_ITEM. */
+  /** Real item overrides; every other resource type falls back to Tree.DefaultItem. */
   items?: Tree.Items;
 }
 
@@ -42,7 +41,7 @@ export const renderOntologyTree = async ({
   const rendered = render(
     <Triggers.Provider>
       <Haul.Provider>
-        <Tree.Provider items={createTreeItems(items)}>
+        <Tree.Provider items={items}>
           <Tree.Tree root={root} />
           <Modals.Stack />
         </Tree.Provider>

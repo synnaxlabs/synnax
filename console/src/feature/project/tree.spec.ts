@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, project } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, project } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -25,8 +25,7 @@ import {
 
 const client = createTestClient();
 
-const item = Project.TREE_ITEMS.project;
-assertDefined(item, "no project tree item");
+const Item = Project.TREE_ITEMS.project;
 
 const createProject = async () =>
   await client.projects.create({ name: uniqueName("project"), layout: {} });
@@ -46,8 +45,8 @@ const createStoreWithActive = async (key: string) =>
 describe("project ontology service", () => {
   it("should expose creation, import, export, and link actions", async () => {
     const p = await createProject();
-    assertDefined(item.ContextMenu);
-    await renderTreeContextMenu(item.ContextMenu, {
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [projectResource(p.key, p.name)],
       store: await createStoreWithActive(p.key),
@@ -65,8 +64,8 @@ describe("project ontology service", () => {
 
   it("should create a log inside the project from the context menu", async () => {
     const p = await createProject();
-    assertDefined(item.ContextMenu);
-    const { store } = await renderTreeContextMenu(item.ContextMenu, {
+    assertDefined(Item.ContextMenu);
+    const { store } = await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [projectResource(p.key, p.name)],
       store: await createStoreWithActive(p.key),
@@ -81,8 +80,8 @@ describe("project ontology service", () => {
   it("should clear the active project when it is deleted", async () => {
     const p = await createProject();
     const store = await createStoreWithActive(p.key);
-    assertDefined(item.ContextMenu);
-    await renderTreeContextMenu(item.ContextMenu, {
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [projectResource(p.key, p.name)],
       store,
@@ -93,15 +92,11 @@ describe("project ontology service", () => {
     await waitFor(() =>
       expect(Session.Project.selectOptionalSelected(store.getState())).toBeUndefined(),
     );
-    const projectExists = async (): Promise<boolean> => {
-      try {
-        await client.projects.retrieve(p.key);
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    await waitFor(async () => expect(await projectExists()).toBe(false));
+    await waitFor(async () => {
+      await expect(client.projects.retrieve(p.key)).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
+      );
+    });
   });
 
   it("should select the project when the row is double-clicked", async () => {
@@ -119,7 +114,7 @@ describe("project ontology service", () => {
   });
 
   it("should only accept mosaic-compatible children on drop", () => {
-    const { canDrop } = item;
+    const { canDrop } = Item;
     const source = { key: "s", type: "t" };
     expect(canDrop({ source, items: [{ key: "log:abc", type: "log" }] })).toBe(true);
     expect(canDrop({ source, items: [{ key: "schematic:abc", type: "x" }] })).toBe(

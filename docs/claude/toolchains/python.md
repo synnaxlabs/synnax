@@ -89,6 +89,37 @@ class Channel(BaseModel):
     is_index: bool = False
 ```
 
+## Comments
+
+Only add a comment when it clarifies obscure or surprising behavior the code itself
+can't convey — a subtle invariant, a workaround for an upstream bug, a non-obvious
+ordering constraint. Well-named variables, functions, and classes should make the code
+self-explanatory otherwise. Docstrings on classes and test functions are still
+encouraged (see Testing below).
+
+Do not write comments that reference a removed, renamed, or historical implementation
+the reader has no way to see (e.g. "reproduces the previous NOOP service", "used to work
+like X before the refactor"). Describe what the code does now, not what it replaced —
+that context belongs in the PR description or commit message, not in a comment that will
+outlive its relevance.
+
+**Incorrect:**
+
+```python
+# retrieve() reproduces the previous polling-based client: it blocks until data
+# arrives.
+def retrieve(self, key: str) -> Channel:
+    ...
+```
+
+**Correct:**
+
+```python
+# retrieve() blocks until the channel is available or the timeout elapses.
+def retrieve(self, key: str) -> Channel:
+    ...
+```
+
 ## Testing with pytest
 
 ### Structure

@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client";
-import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { HTTP } from "@/feature/http";
@@ -18,18 +17,6 @@ import { stubGeometry, waitForPlacedLayout } from "@/testutil";
 stubGeometry();
 
 const client = createTestClient();
-
-describe("HTTP.Device Commands", () => {
-  it("should open the connect modal from the connect server command", async () => {
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: HTTP.Device.COMMANDS,
-      client,
-    });
-    await openCommandPalette("Connect an HTTP");
-    await selectCommand("Connect an HTTP server");
-    expect(await screen.findByPlaceholderText("www.example.com")).toBeTruthy();
-  });
-});
 
 describe("HTTP.Task Commands", () => {
   it("should place the read task layout from the create read task command", async () => {

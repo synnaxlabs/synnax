@@ -20,7 +20,7 @@ const useOpen = () => {
     placeLayout(LinePlot.create({ key: id.key, name }));
 };
 
-export const SearchListItem = Search.createListItem({
+const SearchListItem = Search.createListItem({
   icon: <Icon.LinePlot />,
   useOnSelect: useOpen,
 });

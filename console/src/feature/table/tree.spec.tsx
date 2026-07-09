@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  NotFoundError,
   ontology,
   project as clientProject,
   table as clientTable,
@@ -32,7 +33,6 @@ import {
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditing,
   captureBrowserDownloads,
   commitTextEdit,
@@ -42,20 +42,10 @@ import {
   uniqueName,
 } from "@/testutil";
 
-const item = Table.TREE_ITEMS.table;
-assertDefined(item, "no table tree item");
+const Item = Table.TREE_ITEMS.table;
 
 const createTable = async (): Promise<table.Table> =>
   await client.tables.create(await project(), { name: uniqueName("table") });
-
-const tableExists = async (key: string): Promise<boolean> => {
-  try {
-    await client.tables.retrieve({ key });
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 interface SetupArgs {
   tables: table.Table[];
@@ -77,7 +67,7 @@ const renderMenu = async ({ tables, overrides, withCluster = false }: SetupArgs)
     state: createState(tables.map((t, i) => createResource(ids[i], t.name))),
   };
   const { wrapper } = await createConsoleWrapper({ client, store });
-  const Menu = item.ContextMenu;
+  const Menu = Item.ContextMenu;
   if (Menu == null) throw new Error("TreeContextMenu not defined");
   const itemID = List.itemNameID(ontology.idToString(ids[0]));
   render(
@@ -125,7 +115,11 @@ describe("table/ontology", () => {
         ).toBeTruthy(),
       );
       fireEvent.click(findLastButton("Delete"));
-      await waitFor(async () => expect(await tableExists(t.key)).toBe(false));
+      await waitFor(async () => {
+        await expect(client.tables.retrieve({ key: t.key })).rejects.toSatisfy((e) =>
+          NotFoundError.matches(e),
+        );
+      });
       expect(removeLayout).toHaveBeenCalledWith(t.key);
       expect(
         Session.Table.selectSliceState(store.getState()).tables[t.key],
@@ -188,7 +182,7 @@ describe("table/ontology", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientTable.ontologyID("11111111-1111-1111-1111-111111111111");
-      const items = item.haulItems(createResource(id, "My Table"));
+      const items = Item.haulItems(createResource(id, "My Table"));
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("table:11111111-1111-1111-1111-111111111111");
     });

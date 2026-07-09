@@ -132,4 +132,4 @@ const TreeItem = Tree.createItem({
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS: Tree.Items = { table: TreeItem };
+export const TREE_ITEMS = { table: TreeItem } satisfies Tree.Items;

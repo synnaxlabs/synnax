@@ -45,9 +45,8 @@ import {
 
 const client = createTestClient();
 
-const item = Task.TREE_ITEMS.task;
-assertDefined(item, "no task tree item");
-const { ContextMenu: Menu } = item;
+const Item = Task.TREE_ITEMS.task;
+const { ContextMenu: Menu } = Item;
 assertDefined(Menu, "task ontology service has no ContextMenu");
 
 const createTask = async () => {

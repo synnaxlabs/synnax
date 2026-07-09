@@ -9,7 +9,6 @@
 
 import { NotFoundError, project, ranger, schematic } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/pluto";
-import { errors } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -31,7 +30,6 @@ import {
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditingElement,
   captureBrowserDownloads,
   commitTextEdit,
@@ -44,24 +42,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const schematicExists = async (key: schematic.Key): Promise<boolean> => {
-  try {
-    await client.schematics.retrieve({ key });
-    return true;
-  } catch (e) {
-    if (NotFoundError.matches(e)) return false;
-    throw errors.fromUnknown(e);
-  }
-};
-
-const item = Schematic.TREE_ITEMS.schematic;
-assertDefined(item, "no schematic tree item");
+const Item = Schematic.TREE_ITEMS.schematic;
 
 describe("Schematic.TREE_ITEMS", () => {
   it("hauls a mosaic tab create item keyed by the ontology id", async () => {
     const s = await createSchematic();
     const id = schematic.ontologyID(s.key);
-    const items = item.haulItems(createResource(id, s.name));
+    const items = Item.haulItems(createResource(id, s.name));
     expect(items).toHaveLength(1);
     expect(items[0].key).toContain(s.key);
   });
@@ -172,7 +159,11 @@ describe("Schematic TreeContextMenu", () => {
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${s.name}?`);
     fireEvent.click(findButton("Delete"));
-    await waitFor(async () => expect(await schematicExists(s.key)).toBe(false));
+    await waitFor(async () => {
+      await expect(client.schematics.retrieve({ key: s.key })).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
+      );
+    });
     result.unmount();
   });
 

@@ -30,17 +30,11 @@ import {
   renderOntologyTree,
 } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import {
-  assertDefined,
-  awaitTextEditingElement,
-  commitTextEdit,
-  uniqueName,
-} from "@/testutil";
+import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const item = Channel.TREE_ITEMS.channel;
-assertDefined(item, "no channel tree item");
+const Item = Channel.TREE_ITEMS.channel;
 
 const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
   await client.channels.create({
@@ -77,7 +71,7 @@ describe("channel/ontology", () => {
   describe("haulItems", () => {
     it("hauls a regular channel as a channel item", async () => {
       const ch = await createChannel();
-      const items = item.haulItems(
+      const items = Item.haulItems(
         createResource(channelClient.ontologyID(ch.key), ch.name, {
           internal: false,
         }),
@@ -89,7 +83,7 @@ describe("channel/ontology", () => {
 
     it("hauls an internal channel as a schematic value element only", async () => {
       const ch = await createChannel();
-      const items = item.haulItems(
+      const items = Item.haulItems(
         createResource(channelClient.ontologyID(ch.key), ch.name, {
           internal: true,
         }),

@@ -18,4 +18,4 @@ const TreeItem = Tree.createItem({
   visible: () => false,
 });
 
-export const TREE_ITEMS: Tree.Items = { policy: TreeItem };
+export const TREE_ITEMS = { policy: TreeItem } satisfies Tree.Items;

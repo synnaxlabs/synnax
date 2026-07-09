@@ -9,8 +9,14 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { SNAPSHOT_SERVICES } from "@/app/range/snapshots";
+import { Schematic } from "@/feature/schematic";
+import { Task } from "@/feature/task";
 import { Range } from "@/platform/range";
+
+const SNAPSHOT_SERVICES: Range.SnapshotServices = {
+  ...Schematic.SNAPSHOT_SERVICES,
+  ...Task.SNAPSHOT_SERVICES,
+};
 
 export interface ContextProps extends PropsWithChildren<{}> {}
 

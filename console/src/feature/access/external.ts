@@ -14,4 +14,7 @@ import { type Tree } from "@/platform/tree";
 export * from "@/feature/access/policy";
 export * from "@/feature/access/role";
 
-export const TREE_ITEMS: Tree.Items = { ...Policy.TREE_ITEMS, ...Role.TREE_ITEMS };
+export const TREE_ITEMS = {
+  ...Policy.TREE_ITEMS,
+  ...Role.TREE_ITEMS,
+} satisfies Tree.Items;

@@ -15,13 +15,6 @@ import { type Tree } from "@/platform/tree";
 import { type Session } from "@/session";
 
 /**
- * Builds a {@link Tree.Items} registry from the given overrides. Unregistered resource
- * types fall back to {@link Tree.DEFAULT_ITEM} in the tree, so tests only need to supply
- * the items whose behavior they assert on.
- */
-export const createTreeItems = (overrides: Tree.Items = {}): Tree.Items => overrides;
-
-/**
  * Builds a {@link Tree.TreeState} backed by the given resources. getResource resolves
  * against the supplied resources; the mutating members are no-ops unless overridden.
  */

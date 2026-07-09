@@ -16,4 +16,4 @@ const TreeItem = Tree.createItem({
   icon: <Icon.Schematic />,
 });
 
-export const TREE_ITEMS: Tree.Items = { schematic_symbol: TreeItem };
+export const TREE_ITEMS = { schematic_symbol: TreeItem } satisfies Tree.Items;

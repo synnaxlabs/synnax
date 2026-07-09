@@ -210,7 +210,7 @@ const TreeItem = Tree.createItem({
   ContextMenu: TreeContextMenu,
 });
 
-export const TREE_ITEMS: Tree.Items = {
+export const TREE_ITEMS = {
   schematic: TreeItem,
   ...Symbol.TREE_ITEMS,
-};
+} satisfies Tree.Items;

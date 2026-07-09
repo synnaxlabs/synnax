@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/search/List";
-export * from "@/platform/search/external";
+export * from "@/platform/search/ListItem";

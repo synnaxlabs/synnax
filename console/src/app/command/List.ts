@@ -7,7 +7,47 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { COMMANDS } from "@/app/command/commands";
+import { Arc } from "@/feature/arc";
+import { Channel } from "@/feature/channel";
+import { Cluster } from "@/feature/cluster";
 import { Command } from "@/feature/command";
+import { Device } from "@/feature/device";
+import { Docs } from "@/feature/docs";
+import { Framer } from "@/feature/framer";
+import { Import } from "@/feature/import";
+import { Label } from "@/feature/label";
+import { LinePlot } from "@/feature/lineplot";
+import { Log } from "@/feature/log";
+import { Persist } from "@/feature/persist";
+import { Project } from "@/feature/project";
+import { Range } from "@/feature/range";
+import { Schematic } from "@/feature/schematic";
+import { Status } from "@/feature/status";
+import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
+import { Theme } from "@/feature/theme";
+import { User } from "@/feature/user";
+
+const COMMANDS: Command.Command[] = [
+  ...Channel.COMMANDS,
+  ...Cluster.COMMANDS,
+  ...Device.COMMANDS,
+  ...Docs.COMMANDS,
+  ...Framer.COMMANDS,
+  ...Import.COMMANDS,
+  ...Label.COMMANDS,
+  ...LinePlot.COMMANDS,
+  ...Log.COMMANDS,
+  ...Persist.COMMANDS,
+  ...Range.COMMANDS,
+  ...Schematic.COMMANDS,
+  ...Table.COMMANDS,
+  ...Task.COMMANDS,
+  ...User.COMMANDS,
+  ...Project.COMMANDS,
+  ...Arc.COMMANDS,
+  ...Status.COMMANDS,
+  ...Theme.COMMANDS,
+];
 
 export const List = Command.createList(COMMANDS);

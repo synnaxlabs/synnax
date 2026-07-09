@@ -10,6 +10,7 @@
 import {
   lineplot as clientLineplot,
   type lineplot,
+  NotFoundError,
   ontology,
   project as clientProject,
 } from "@synnaxlabs/client";
@@ -32,7 +33,6 @@ import {
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
-  assertDefined,
   awaitTextEditing,
   captureBrowserDownloads,
   commitTextEdit,
@@ -42,20 +42,10 @@ import {
   uniqueName,
 } from "@/testutil";
 
-const item = LinePlot.TREE_ITEMS.lineplot;
-assertDefined(item, "no lineplot tree item");
+const Item = LinePlot.TREE_ITEMS.lineplot;
 
 const createLinePlot = async (): Promise<lineplot.LinePlot> =>
   await client.lineplots.create(await project(), { name: uniqueName("plot") });
-
-const plotExists = async (key: string): Promise<boolean> => {
-  try {
-    await client.lineplots.retrieve({ key });
-    return true;
-  } catch {
-    return false;
-  }
-};
 
 interface SetupArgs {
   plots: lineplot.LinePlot[];
@@ -70,7 +60,7 @@ const renderMenu = async ({ plots, overrides, withCluster = false }: SetupArgs) 
       ...(withCluster ? createClusterState([createCluster("test")], "test") : {}),
     },
   });
-  const Menu = item.ContextMenu;
+  const Menu = Item.ContextMenu;
   if (Menu == null) throw new Error("TreeContextMenu not defined");
   const buildUI = (current: lineplot.LinePlot[]) => {
     const ids = current.map((p) => clientLineplot.ontologyID(p.key));
@@ -131,7 +121,11 @@ describe("lineplot/ontology", () => {
         ).toBeTruthy(),
       );
       fireEvent.click(findLastButton("Delete"));
-      await waitFor(async () => expect(await plotExists(plot.key)).toBe(false));
+      await waitFor(async () => {
+        await expect(client.lineplots.retrieve({ key: plot.key })).rejects.toSatisfy(
+          (e) => NotFoundError.matches(e),
+        );
+      });
       expect(removeLayout).toHaveBeenCalledWith(plot.key);
       expect(
         Session.LinePlot.selectSliceState(store.getState()).plots[plot.key],
@@ -196,8 +190,12 @@ describe("lineplot/ontology", () => {
         ).toBeTruthy(),
       );
       fireEvent.click(findLastButton("Delete"));
-      await waitFor(async () => expect(await plotExists(control.key)).toBe(false));
-      expect(await plotExists(plot.key)).toBe(true);
+      await waitFor(async () => {
+        await expect(client.lineplots.retrieve({ key: control.key })).rejects.toSatisfy(
+          (e) => NotFoundError.matches(e),
+        );
+      });
+      await expect(client.lineplots.retrieve({ key: plot.key })).resolves.toBeDefined();
     });
   });
 
@@ -222,7 +220,7 @@ describe("lineplot/ontology", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientLineplot.ontologyID("11111111-1111-1111-1111-111111111111");
-      const items = item.haulItems(createResource(id, "My Plot"));
+      const items = Item.haulItems(createResource(id, "My Plot"));
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
     });

@@ -20,7 +20,7 @@ const useOpen = () => {
     placeLayout(Table.create({ key: id.key, name }));
 };
 
-export const SearchListItem = Search.createListItem({
+const SearchListItem = Search.createListItem({
   icon: <Icon.Table />,
   useOnSelect: useOpen,
 });

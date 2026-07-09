@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, log, project } from "@synnaxlabs/client";
+import { createTestClient, log, NotFoundError, project } from "@synnaxlabs/client";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -20,8 +20,7 @@ import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const item = Log.TREE_ITEMS.log;
-assertDefined(item, "no log tree item");
+const Item = Log.TREE_ITEMS.log;
 
 const createLog = async () => {
   const proj = await client.projects.create({
@@ -37,8 +36,8 @@ const logResource = (key: string, name: string) =>
 describe("log ontology service", () => {
   it("should expose rename, group, delete, export, and link actions", async () => {
     const l = await createLog();
-    assertDefined(item.ContextMenu);
-    await renderTreeContextMenu(item.ContextMenu, {
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [logResource(l.key, l.name)],
     });
@@ -52,8 +51,8 @@ describe("log ontology service", () => {
   it("should delete the log, its layout, and its session state", async () => {
     const l = await createLog();
     const removeLayout = vi.fn();
-    assertDefined(item.ContextMenu);
-    await renderTreeContextMenu(item.ContextMenu, {
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [logResource(l.key, l.name)],
       baseOverrides: { removeLayout },
@@ -62,15 +61,11 @@ describe("log ontology service", () => {
     await screen.findByText(`Are you sure you want to delete ${l.name}?`);
     fireEvent.click(findModalButton("Delete"));
     await waitFor(() => expect(removeLayout).toHaveBeenCalledWith(l.key));
-    const logExists = async (): Promise<boolean> => {
-      try {
-        await client.logs.retrieve({ key: l.key });
-        return true;
-      } catch {
-        return false;
-      }
-    };
-    await waitFor(async () => expect(await logExists()).toBe(false));
+    await waitFor(async () => {
+      await expect(client.logs.retrieve({ key: l.key })).rejects.toSatisfy((e) =>
+        NotFoundError.matches(e),
+      );
+    });
   });
 
   it("should place a log layout when the resource is double-clicked", async () => {
@@ -92,7 +87,7 @@ describe("log ontology service", () => {
 
   it("should haul a mosaic tab creation item", () => {
     const res = logResource("abc", "l");
-    const items = item.haulItems(res);
+    const items = Item.haulItems(res);
     expect(items).toHaveLength(1);
   });
 });

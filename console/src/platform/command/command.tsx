@@ -10,10 +10,9 @@
 import { Flex, type Icon, type List, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, useCallback } from "react";
 
+import { Layout } from "@/platform/layout";
 import { Palette } from "@/platform/palette";
 import { type Session } from "@/session";
-
-import { Layout } from "../layout";
 
 export interface CommandProps extends List.ItemProps<string> {}
 

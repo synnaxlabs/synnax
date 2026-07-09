@@ -13,4 +13,4 @@ import { Tree } from "@/platform/tree";
 
 const TreeItem = Tree.createItem({ type: "label", icon: <Icon.Label /> });
 
-export const TREE_ITEMS: Tree.Items = { label: TreeItem };
+export const TREE_ITEMS = { label: TreeItem } satisfies Tree.Items;
