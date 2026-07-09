@@ -1069,6 +1069,93 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](99)))).To(BeTrue())
 		})
 
+		It("Should warn when a write channel is controlled by a higher-authority writer", func(ctx SpecContext) {
+			ch := createVirtualCh(ctx, "auth_warn", telem.Uint8T)
+
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:           channel.Keys{ch.Key()},
+				Start:          telem.Now(),
+				Authorities:    []control.Authority{control.Authority(200)},
+				ControlSubject: control.Subject{Key: "op-1", Name: "operator"},
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 100
+					func output() {
+						%s = 42
+					}
+					interval{period=50ms} -> output{}
+				`, ch.Name),
+			}
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 4473),
+				Name:   "test-arc-warn",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			arcTask := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
+			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(arcTask.Stop()).To(Succeed()) }()
+
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Description).To(ContainSubstring(ch.Name))
+				g.Expect(stat.Description).To(ContainSubstring("operator"))
+			}).Should(Succeed())
+		})
+
+		It("Should clear the warning on regain and stop cleanly during live transfers", func(ctx SpecContext) {
+			ch := createVirtualCh(ctx, "auth_live", telem.Uint8T)
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 100
+					func output() {
+						%s = 42
+					}
+					interval{period=50ms} -> output{}
+				`, ch.Name),
+			}
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 4474),
+				Name:   "test-arc-live",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			arcTask := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
+			Expect(arcTask.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+
+			statusVariant := func(g Gomega) status.Variant {
+				var stat task.Status
+				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				return stat.Variant
+			}
+
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:           channel.Keys{ch.Key()},
+				Start:          telem.Now(),
+				Authorities:    []control.Authority{control.Authority(200)},
+				ControlSubject: control.Subject{Key: "op-1", Name: "operator"},
+			}))
+			Eventually(func(g Gomega) {
+				g.Expect(statusVariant(g)).To(Equal(status.VariantWarning))
+			}).Should(Succeed())
+
+			Expect(w.Close()).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(statusVariant(g)).To(Equal(status.VariantSuccess))
+			}).Should(Succeed())
+
+			Expect(arcTask.Stop()).To(Succeed())
+		})
+
 		It("Should block lower-authority competing writers", func(ctx SpecContext) {
 			ch := createVirtualCh(ctx, "auth_block", telem.Uint8T)
 			prog := arc.Text{
