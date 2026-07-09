@@ -9,12 +9,12 @@
 
 import {
   channel as channelClient,
-  createTestClient,
   DataType,
   group,
   NotFoundError,
   ontology,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 

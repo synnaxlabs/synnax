@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
-  createTestClient,
   device as deviceClient,
   group,
   NotFoundError,
   ontology,
   rack,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
