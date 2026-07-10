@@ -286,7 +286,11 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   },
 });
 
-export const formSchema = arc.arcZ
+export interface FormValues extends Omit<arc.Arc, "key"> {
+  key?: arc.Key;
+}
+
+export const formSchema: z.ZodType<FormValues> = arc.arcZ
   .partial({ key: true, name: true })
   .extend({ name: z.string() });
 

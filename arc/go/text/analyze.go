@@ -1023,8 +1023,7 @@ func buildReExprMachine(
 	}
 	var readers []ir.Node
 	for i := range stateNodes {
-		for k := len(feeders) - 1; k >= 0; k-- {
-			f := feeders[k]
+		for k, f := range slices.Backward(feeders) {
 			read, ok := buildChannelReadNode(f.switchSym.Name, f.switchSym, kg)
 			if !ok {
 				return ir.Scope{}, nil, false
