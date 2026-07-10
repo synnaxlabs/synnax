@@ -17,13 +17,11 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { TOOLBAR } from "@/feature/task/Toolbar";
 import { getIcon, parseType } from "@/feature/task/types";
 import { retrieveAndOpenTab } from "@/feature/task/views";
 import { type Command } from "@/platform/command";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Nav } from "@/platform/nav";
 import { type Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
 import { type Task } from "@/platform/task";
@@ -79,8 +77,6 @@ export const TABS: Panel.Tabs = {
   ...OPC.Task.TABS,
   ...PagerDuty.Task.TABS,
 };
-
-export const TOOLBARS: Nav.Toolbar[] = [TOOLBAR];
 
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   task: {

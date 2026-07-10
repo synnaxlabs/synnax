@@ -7,14 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, rack } from "@synnaxlabs/client";
+import { arc, rack, task } from "@synnaxlabs/client";
 import { Access, Icon, List, Menu, Rack, Text, Tree as PTree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { Arc } from "@/feature/arc";
+import { NI } from "@/feature/ni";
 import { ContextMenu } from "@/platform/context-menu";
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
+
+const NI_INTEGRATION_NAME = "ni";
 
 const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,
@@ -67,11 +70,17 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
+  const hasTaskUpdatePermission = Access.useUpdateGranted(task.TYPE_ONTOLOGY_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const create = Arc.useCreate();
   const isSingle = ids.length === 1;
+  const rackKey = Number(ids[0]?.key ?? 0);
+  const rackRes = Rack.useRetrieve({ key: rackKey });
+  const hasNIIntegration =
+    rackRes.data?.integrations.includes(NI_INTEGRATION_NAME) ?? false;
+  const toggleNIScanner = NI.Task.useToggleScanner(rackKey);
   const handleCreate = useCallback(() => create(), [create]);
   return (
     <ContextMenu.Menu>
@@ -91,6 +100,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             <Menu.Item itemKey="createArc" onClick={handleCreate}>
               <CreateArcIcon />
               Create Arc automation
+            </Menu.Item>
+          )}
+          {hasTaskUpdatePermission && hasNIIntegration && (
+            <Menu.Item itemKey="toggleNIScanner" onClick={toggleNIScanner}>
+              <Icon.Logo.NI />
+              Toggle NI Device Scanner
             </Menu.Item>
           )}
           <Menu.Divider />

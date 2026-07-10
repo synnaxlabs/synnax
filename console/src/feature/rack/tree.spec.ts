@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { NI } from "@/feature/ni";
 import { Rack } from "@/feature/rack";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
@@ -22,6 +23,22 @@ const client = createTestClient();
 const Item = Rack.TREE_ITEMS.rack;
 
 const createRack = async () => await client.racks.create({ name: uniqueName("rack") });
+
+const createNIRackWithScanner = async () => {
+  const r = await client.racks.create({
+    name: uniqueName("ni_rack"),
+    integrations: ["ni"],
+  });
+  const scanTask = await r.createTask(
+    {
+      name: uniqueName("ni_scanner"),
+      type: NI.Task.SCAN_TYPE,
+      config: { enabled: true },
+    },
+    NI.Task.SCAN_SCHEMAS,
+  );
+  return { rack: r, scanTask };
+};
 
 const rackResource = (key: number, name: string) =>
   createResource(rack.ontologyID(key), name);
@@ -71,5 +88,25 @@ describe("rack ontology service", () => {
     await renderMenu([r]);
     fireEvent.click(await screen.findByText("Create Arc automation"));
     expect(await screen.findByText("Create Automation")).toBeTruthy();
+  });
+
+  it("should hide the toggle scanner item for a rack without the NI integration", async () => {
+    const r = await createRack();
+    await renderMenu([r]);
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Toggle NI Device Scanner")).toBeNull();
+  });
+
+  it("should toggle the NI scanner's enabled flag from the rack context menu", async () => {
+    const { rack: r, scanTask } = await createNIRackWithScanner();
+    await renderMenu([r]);
+    fireEvent.click(await screen.findByText("Toggle NI Device Scanner"));
+    await waitFor(async () => {
+      const after = await client.tasks.retrieve({
+        key: scanTask.key,
+        schemas: NI.Task.SCAN_SCHEMAS,
+      });
+      expect(after.config.enabled).toBe(!scanTask.config.enabled);
+    });
   });
 });

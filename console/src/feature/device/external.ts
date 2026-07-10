@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TOOLBAR } from "@/feature/device/Toolbar";
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
 import { OPC } from "@/feature/opc";
 import { type Command } from "@/platform/command";
-import { type Nav } from "@/platform/nav";
 
 export * from "@/feature/device/link";
 export * from "@/feature/device/notifications";
@@ -26,5 +24,3 @@ export const COMMANDS: Command.Command[] = [
   ...Modbus.Device.COMMANDS,
   ...OPC.Device.COMMANDS,
 ];
-
-export const TOOLBARS: Nav.Toolbar[] = [TOOLBAR];

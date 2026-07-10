@@ -10,7 +10,7 @@
 import { arc, type ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Select } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -28,7 +28,7 @@ const client = createTestClient();
 
 describe("arc/search", () => {
   it("opens the arc as a tab when the search result is selected", async () => {
-    const key = id.create();
+    const key = uuid.create();
     const name = uniqueName("arc");
     const resource = createResource(arc.ontologyID(key), name);
     const SearchListItem = Arc.SEARCH_LIST_ITEMS.arc;

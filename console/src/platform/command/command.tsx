@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex, type Icon, type List, Text } from "@synnaxlabs/pluto";
-import { type FC, type ReactElement } from "react";
+import { type FC, type ReactElement, useCallback } from "react";
 
 import { Palette } from "@/platform/palette";
 
@@ -70,9 +70,11 @@ export const create = ({
   useVisible,
   sortOrder,
 }: CreateParams): Command => {
-  const Cmd: Command = (listProps) => (
-    <ListItem {...listProps} name={name} icon={icon} onSelect={useOnSelect()} />
-  );
+  const Cmd: Command = (listProps) => {
+    const handleSelect = useOnSelect();
+    const onSelect = useCallback(() => handleSelect(), [handleSelect]);
+    return <ListItem {...listProps} name={name} icon={icon} onSelect={onSelect} />;
+  };
   Cmd.key = key;
   Cmd.commandName = name;
   Cmd.sortOrder = sortOrder;
