@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/project/Splash.css";
+import "@/feature/project/Splash.css";
 
 import { project, status, UnexpectedError } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
@@ -26,10 +26,10 @@ import {
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 
+import { Version } from "@/feature/version";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Triggers } from "@/platform/triggers";
-import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 import { Session } from "@/session";
 

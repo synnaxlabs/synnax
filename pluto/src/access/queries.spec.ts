@@ -10,14 +10,16 @@
 import {
   access,
   channel,
-  createTestClient,
-  createTestClientWithPolicy,
   framer,
   type ontology,
   project,
   ranger,
   user,
 } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";

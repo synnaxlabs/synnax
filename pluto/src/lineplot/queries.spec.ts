@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  createTestClient,
   DataType,
   lineplot as lineplotClient,
   NotFoundError,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";

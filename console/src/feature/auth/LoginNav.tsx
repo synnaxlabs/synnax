@@ -10,8 +10,8 @@
 import { Nav, OS } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Version } from "@/feature/version";
 import { Nav as PlatformNav } from "@/platform/nav";
-import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 
 export const LoginNav = (): ReactElement => {
