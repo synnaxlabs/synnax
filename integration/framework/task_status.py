@@ -103,6 +103,25 @@ class TaskStatus:
                     return False
                 self._cond.wait(remaining)
 
+    def wait_for_clear(
+        self, task_key: int, text: str, timeout: float = DEFAULT_WAIT_TIMEOUT
+    ) -> bool:
+        """Return True if the latest status for task_key stops containing text.
+
+        Unlike wait_for, which scans history, this inspects only the most recent
+        status so a warning that appeared and then resolved reads as cleared.
+        """
+        timer = sy.Timer()
+        with self._cond:
+            while True:
+                latest = self._latest.get(task_key)
+                if latest is None or text not in latest.message:
+                    return True
+                remaining = timeout - timer.elapsed().seconds
+                if remaining <= 0:
+                    return False
+                self._cond.wait(remaining)
+
     def latest(self, task_key: int) -> sy.task.Status | None:
         """Return the most recent recorded status for task_key, or None."""
         with self._cond:
