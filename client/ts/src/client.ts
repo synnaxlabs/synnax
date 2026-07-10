@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, TimeSpan, TimeStamp, url, zod } from "@synnaxlabs/x";
+import { breaker, id, TimeSpan, TimeStamp, url, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -65,6 +65,7 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
  * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax extends framer.Client {
+  readonly key: string;
   readonly createdAt: TimeStamp;
   readonly params: ParsedSynnaxParams;
   readonly ranges: ranger.Client;
@@ -138,6 +139,7 @@ export default class Synnax extends framer.Client {
     this.auth = new auth.Client(transport.unary, { username, password });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary, chRetriever);
+    this.key = id.create();
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
     this.transport = transport;
@@ -184,10 +186,6 @@ export default class Synnax extends framer.Client {
     this.tables = new table.Client(this.transport.unary);
     this.groups = new group.Client(this.transport.unary);
     this.imex = new imex.Client(this.transport.file);
-  }
-
-  get key(): string {
-    return this.createdAt.valueOf().toString();
   }
 
   close(): void {
