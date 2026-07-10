@@ -28,19 +28,18 @@ import (
 	"go.uber.org/zap"
 )
 
-// demand represents a demand for streaming data from a specific entity.
-// this entity should generate a unique address (preferably through address.Rand)
-// and use it throughout its lifecycle. To update the requested keys, the entity
-// should send a demand with variant Label, and to remove the demand, it should
-// send a demand with variant DeleteChannel.
+// demand represents a demand for streaming data from a specific entity. this entity
+// should generate a unique address (preferably through address.Rand) and use it
+// throughout its lifecycle. To update the requested keys, the entity should send a
+// demand with variant Label, and to remove the demand, it should send a demand with
+// variant DeleteChannel.
 type demand struct {
 	change.Change[address.Address, Request]
-	// ack, when non-nil, is closed by the tapper after it has fully applied this
-	// demand to all local taps. It lets a streamer block until the relay is
-	// actually filtering its channels in before acknowledging readiness, closing
-	// the window where a write could be dropped between open and the demand
-	// propagating. nil for demands that need no acknowledgment (deletes and
-	// mid-stream key reconfigurations).
+	// ack, when non-nil, is closed by the tapper after it has fully applied this demand
+	// to all local taps. It lets a streamer block until the relay is actually filtering
+	// its channels in before acknowledging readiness, closing the window where a write
+	// could be dropped between open and the demand propagating. nil for demands that
+	// need no acknowledgment (deletes and mid-stream key reconfigurations).
 	ack chan struct{}
 }
 
@@ -69,8 +68,8 @@ type tapper struct {
 	// UnarySink is where we receive demands from, using them to update the set of
 	// relay's we tap into.
 	confluence.UnarySink[demand]
-	// AbstractUnarySource is where we send our responses to, which are the frames
-	// we receive from the tapController relays.
+	// AbstractUnarySource is where we send our responses to, which are the frames we
+	// receive from the tapController relays.
 	confluence.AbstractUnarySource[Response]
 	// demands track the current channels demanded by each entity.
 	demands map[address.Address]channel.Keys
@@ -128,8 +127,8 @@ func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 // into remote nodes or the host time-series db.
 func (t *tapper) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	t.UnarySink.Flow(sCtx, append(opts,
-		// Order is very important here, we need to make sure the tapper deferral
-		// runs before we close the inlet to the delta.
+		// Order is very important here, we need to make sure the tapper deferral runs
+		// before we close the inlet to the delta.
 		confluence.WithClosables(t.Out),
 		confluence.Defer(t.close),
 	)...)
