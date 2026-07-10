@@ -25,7 +25,7 @@ class CreateReq(BaseModel):
 
 
 class RetrieveReq(BaseModel):
-    keys: list[UUID]
+    keys: list[UUID] | None = None
 
 
 class RetrieveRes(BaseModel):
@@ -73,8 +73,6 @@ class Client:
         is_single = key is not None
         if key is not None:
             keys = [key]
-        if not keys:
-            raise ValueError("Either key or a non-empty keys must be provided")
         res = self._client.send(
             "/ontology/retrieve-group", RetrieveReq(keys=keys), RetrieveRes
         )
