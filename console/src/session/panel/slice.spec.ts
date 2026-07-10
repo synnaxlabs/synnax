@@ -78,9 +78,9 @@ describe("Panel Slice", () => {
   describe("startOverlaying / stopOverlaying", () => {
     it("should set then clear the active window's overlaid flag", () => {
       expect(overlaid(run(Panel.startOverlaying({})))).toBe(true);
-      expect(
-        overlaid(run(Panel.startOverlaying({}), Panel.stopOverlaying({}))),
-      ).toBe(false);
+      expect(overlaid(run(Panel.startOverlaying({}), Panel.stopOverlaying({})))).toBe(
+        false,
+      );
     });
   });
 

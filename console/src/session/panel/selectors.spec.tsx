@@ -47,8 +47,9 @@ const window = (overrides: Partial<Panel.WindowState>): Panel.WindowState => ({
 
 const createWrapper =
   (store: ReturnType<typeof createStore>) =>
-  ({ children }: PropsWithChildren): ReactElement =>
-    <Provider store={store}>{children}</Provider>;
+  ({ children }: PropsWithChildren): ReactElement => (
+    <Provider store={store}>{children}</Provider>
+  );
 
 const PANEL = uuid.create();
 const OTHER_PANEL = uuid.create();

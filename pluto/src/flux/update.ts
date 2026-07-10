@@ -283,7 +283,8 @@ const useObservable = <
       data: Input,
       opts: base.FetchOptions & { extra?: Extra } = {},
     ): Promise<boolean> => {
-      const { signal, extra = undefined as Extra } = opts;
+      const { signal, extra: rawExtra } = opts;
+      const extra: Extra = rawExtra as Extra;
 
       const rollbacks: destructor.Destructor[] = [];
       const runRollbacks = () => {
@@ -407,7 +408,7 @@ const useObservable = <
   return {
     update: handleUpdate,
     updateAsync: runUpdate,
-  } as UseObservableUpdateReturn<Input, Extra>;
+  };
 };
 
 const useDirect = <

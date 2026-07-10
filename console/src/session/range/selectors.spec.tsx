@@ -51,8 +51,9 @@ const createStore = (initial: Range.SliceState = EMPTY_STATE) =>
 
 const createWrapper =
   (store: ReturnType<typeof createStore>) =>
-  ({ children }: PropsWithChildren): ReactElement =>
-    <Provider store={store}>{children}</Provider>;
+  ({ children }: PropsWithChildren): ReactElement => (
+    <Provider store={store}>{children}</Provider>
+  );
 
 describe("range selectors", () => {
   describe("raw selectors", () => {

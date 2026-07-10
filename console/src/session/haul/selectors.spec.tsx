@@ -69,10 +69,9 @@ describe("haul selectors", () => {
 
   describe("PROVIDER_PROPS", () => {
     const renderProviderState = (store: ReturnType<typeof createStore>) =>
-      renderHook(
-        () => Haul.PROVIDER_PROPS.useState?.(Haul.ZERO_SLICE_STATE.state),
-        { wrapper: createWrapper(store) },
-      );
+      renderHook(() => Haul.PROVIDER_PROPS.useState?.(Haul.ZERO_SLICE_STATE.state), {
+        wrapper: createWrapper(store),
+      });
 
     it("exposes a useState hook reflecting the dragging state", () => {
       const store = createStore();

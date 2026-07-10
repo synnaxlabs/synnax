@@ -49,7 +49,9 @@ describe("useLogout", () => {
     expect(
       before[Panel.SLICE_NAME].windows[MAIN_WINDOW].panels[PANEL_KEY]?.selectedTabs,
     ).toEqual([TAB_KEY]);
-    expect(before[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.left.selected).toBe("resources");
+    expect(before[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.left.selected).toBe(
+      "resources",
+    );
     expect(before[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom.visible).toBe(true);
 
     act(() => {

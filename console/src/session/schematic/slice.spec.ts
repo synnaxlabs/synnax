@@ -288,12 +288,12 @@ describe("Schematic Slice", () => {
         },
       };
       const purged = Schematic.purgeSliceState(state);
-      expect(purged[Schematic.SLICE_NAME].schematics["schematic-1"].control.status).toBe(
-        "released",
-      );
-      expect(purged[Schematic.SLICE_NAME].schematics["schematic-2"].control.status).toBe(
-        "released",
-      );
+      expect(
+        purged[Schematic.SLICE_NAME].schematics["schematic-1"].control.status,
+      ).toBe("released");
+      expect(
+        purged[Schematic.SLICE_NAME].schematics["schematic-2"].control.status,
+      ).toBe("released");
     });
   });
 });

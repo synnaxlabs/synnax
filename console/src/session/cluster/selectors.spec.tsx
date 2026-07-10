@@ -35,7 +35,11 @@ const CLUSTER_B: Cluster.Cluster = {
   secure: true,
 };
 
-const EMPTY_STATE: Cluster.SliceState = { version: 0, selected: undefined, clusters: {} };
+const EMPTY_STATE: Cluster.SliceState = {
+  version: 0,
+  selected: undefined,
+  clusters: {},
+};
 
 const stateWith = (
   clusters: Cluster.Cluster[],
@@ -59,8 +63,9 @@ const createStore = (initial: Cluster.SliceState = EMPTY_STATE) =>
 
 const createWrapper =
   (store: ReturnType<typeof createStore>) =>
-  ({ children }: PropsWithChildren): ReactElement =>
-    <Provider store={store}>{children}</Provider>;
+  ({ children }: PropsWithChildren): ReactElement => (
+    <Provider store={store}>{children}</Provider>
+  );
 
 describe("cluster selectors", () => {
   describe("raw selectors", () => {

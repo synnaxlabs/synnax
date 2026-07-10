@@ -16,12 +16,10 @@ import { type FormViewArgs } from "@/platform/task/Form";
 // returned callback takes optional args (an existing task key, a device key, or an
 // imported config) and is safe to hand to a trigger surface, which invokes it with no
 // arguments to open a blank form.
-export const createOpenView =
-  (type: string) =>
-  (): ((args?: FormViewArgs) => void) => {
-    const openTab = Panel.useOpenTab();
-    return useCallback(
-      (args: FormViewArgs = {}) => openTab({ variant: "view", type, args }),
-      [openTab],
-    );
-  };
+export const createOpenView = (type: string) => (): ((args?: FormViewArgs) => void) => {
+  const openTab = Panel.useOpenTab();
+  return useCallback(
+    (args: FormViewArgs = {}) => openTab({ variant: "view", type, args }),
+    [openTab],
+  );
+};

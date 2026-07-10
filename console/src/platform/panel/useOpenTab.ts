@@ -15,8 +15,7 @@ import { useCallback } from "react";
 import { Session } from "@/session";
 
 export type OpenTabParams =
-  | optional.Optional<panel.TabResource, "key">
-  | optional.Optional<panel.TabView, "key">;
+  optional.Optional<panel.TabResource, "key"> | optional.Optional<panel.TabView, "key">;
 
 export type OpenTab = (params: OpenTabParams) => void;
 

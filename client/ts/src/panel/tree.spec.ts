@@ -81,7 +81,7 @@ describe("tree", () => {
     });
 
     it("should return null when the tab is absent", () => {
-      expect(panel.findTab(TREE, "nope")).toBeNull();
+      expect(panel.findTab(TREE, "nope")).toBeUndefined();
     });
   });
 

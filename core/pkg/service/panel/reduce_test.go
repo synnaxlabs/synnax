@@ -93,7 +93,7 @@ var _ = Describe("Reduce", func() {
 
 	It("Should route a SetTabView action", func() {
 		k := uuid.New()
-		view := panel.View{Type: "docs", Name: "Docs"}
+		view := panel.View{Type: "docs"}
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k))},
 			panel.NewSetTabViewAction(panel.SetTabViewPayload{Key: k, View: view}),

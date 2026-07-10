@@ -46,7 +46,6 @@ func viewTab() panel.Tab {
 		TabBase: panel.TabBase{Key: uuid.New()},
 		View: panel.View{
 			Type: "docs",
-			Name: "Docs",
 			Args: msgpack.EncodedJSON{"path": "/intro", "pinned": true},
 		},
 	}}

@@ -621,7 +621,7 @@ var _ = Describe("Actions", func() {
 	Describe("SetTabView", func() {
 		It("Should swap a resource tab to the view in place", func() {
 			p := panel.Panel{Root: leafNode(tab(tab1))}
-			view := panel.View{Type: "docs", Name: "Docs"}
+			view := panel.View{Type: "docs"}
 			next := MustSucceed(panel.SetTabViewPayload{Key: tab1, View: view}.Handle(p))
 			leaf := MustBeOk(asLeaf(next.Root))
 			Expect(leaf.Tabs[0]).To(Equal(panel.Tab{Variant: panel.TabView{

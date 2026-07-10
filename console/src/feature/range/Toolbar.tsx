@@ -106,9 +106,7 @@ export const useRename = () => {
         const oldName = rng.name;
         if (!rng.persisted) return false;
         dispatch(Session.Range.rename({ key, name }));
-        rollbacks.push(() =>
-          dispatch(Session.Range.rename({ key, name: oldName })),
-        );
+        rollbacks.push(() => dispatch(Session.Range.rename({ key, name: oldName })));
         return data;
       },
       [getRangeState],
