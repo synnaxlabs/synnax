@@ -11,15 +11,19 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
+import { Rack } from "@/feature/rack";
+import { Task } from "@/feature/task";
+import { Version } from "@/feature/version";
 import { Notifications as Base } from "@/platform/notifications";
-import { Version } from "@/platform/version";
 
-const NOTIFICATION_ADAPTERS: Base.Adapter[] = [
-  ...Cluster.NOTIFICATION_ADAPTERS,
-  ...Device.NOTIFICATION_ADAPTERS,
-  ...Version.NOTIFICATION_ADAPTERS,
+const NOTIFICATIONS: Base.Notification[] = [
+  ...Cluster.NOTIFICATIONS,
+  ...Device.NOTIFICATIONS,
+  ...Rack.NOTIFICATIONS,
+  ...Task.NOTIFICATIONS,
+  ...Version.NOTIFICATIONS,
 ];
 
 export const Notifications = (): ReactElement => (
-  <Base.Notifications adapters={NOTIFICATION_ADAPTERS} />
+  <Base.Notifications notifications={NOTIFICATIONS} />
 );

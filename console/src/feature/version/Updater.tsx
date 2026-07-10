@@ -16,8 +16,8 @@ import {
 import { id, TimeSpan } from "@synnaxlabs/x";
 import { check } from "@tauri-apps/plugin-updater";
 
-import { type Notifications } from "@/platform/notifications";
-import { useInfoModal } from "@/platform/version/useInfoModal";
+import { useInfoModal } from "@/feature/version/useInfoModal";
+import { Notifications } from "@/platform/notifications";
 import { Session } from "@/session";
 
 const STATUS_KEY_PREFIX = "versionUpdate";
@@ -52,10 +52,14 @@ export const useCheckForUpdates = (): boolean => {
   return available;
 };
 
-export const notificationAdapter: Notifications.Adapter = (status) => {
-  if (!status.key.startsWith(STATUS_KEY_PREFIX)) return null;
-  return { ...status, actions: [<OpenUpdateDialogAction key="update" />] };
-};
+export const Notification: Notifications.Notification = ({ status, silence }) => (
+  <Status.Notification
+    status={status}
+    silence={silence}
+    actions={[<OpenUpdateDialogAction key="update" />]}
+  />
+);
+Notification.match = Notifications.matchPrefix(STATUS_KEY_PREFIX);
 
 export const OpenUpdateDialogAction = () => {
   const openInfo = useInfoModal();

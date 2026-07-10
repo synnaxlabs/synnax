@@ -31,8 +31,8 @@ vi.mock("@tauri-apps/plugin-updater", () => ({
   check: vi.fn(async () => mocks.update),
 }));
 
+import { Version } from "@/feature/version";
 import { renderWithModals } from "@/platform/modals/testutil";
-import { Version } from "@/platform/version";
 
 describe("version Badge", () => {
   beforeEach(() => {

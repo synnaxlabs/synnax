@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/project/export";
+export * from "@/feature/project/Guard";
 export * from "@/feature/project/import";
 export * from "@/feature/project/link";
 export * from "@/feature/project/ontology";
 export * from "@/feature/project/palette";
+export * from "@/feature/project/Selector";
+export * from "@/feature/project/Splash";
 export * from "@/feature/project/Toolbar";
+export * from "@/feature/project/useCheckCore";
 export * from "@/feature/project/useSyncLayout";
 export * from "@/platform/project/external";
