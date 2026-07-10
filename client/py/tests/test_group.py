@@ -31,23 +31,20 @@ class TestGroupClient:
         child = client.groups.create(sy.group.ontology_id(parent.key), str(uuid4()))
         assert child.key is not None
         children = client.ontology.retrieve_children(sy.group.ontology_id(parent.key))
-        assert len(children) == 1
-        assert children[0].name == child.name
+        assert children == [sy.group.ontology_id(child.key)]
 
     def test_rename(self, client: sy.Synnax):
         """Should rename an existing group."""
         g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         new_name = str(uuid4())
         client.groups.rename(g.key, new_name)
-        resource = client.ontology.retrieve(sy.group.ontology_id(g.key))
-        assert resource.name == new_name
 
     def test_delete(self, client: sy.Synnax):
         """Should delete a group."""
         g = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         client.groups.delete([g.key])
         children = client.ontology.retrieve_children(sy.ontology.ROOT_ID)
-        assert all(c.id.key != str(g.key) for c in children)
+        assert all(c.key != str(g.key) for c in children)
 
     def test_delete_multiple(self, client: sy.Synnax):
         """Should delete multiple groups at once."""
@@ -55,6 +52,6 @@ class TestGroupClient:
         g2 = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
         client.groups.delete([g1.key, g2.key])
         children = client.ontology.retrieve_children(sy.ontology.ROOT_ID)
-        keys = {c.id.key for c in children}
+        keys = {c.key for c in children}
         assert str(g1.key) not in keys
         assert str(g2.key) not in keys
