@@ -29,7 +29,6 @@ import (
 var _ = Describe("Channel", Ordered, func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db *cesium.DB
 				fs fs.FS
@@ -37,10 +36,7 @@ var _ = Describe("Channel", Ordered, func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 
 			Describe("Create", func() {
@@ -263,20 +259,12 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(err).To(MatchError(channel.ErrNotFound))
 					Expect(MustSucceed(fs.Exists(channelKeyToPath(virtualKey)))).To(BeFalse())
 
-					By("Asserting the channel and data can be found at the new key")
+					By("Asserting the channel can be found at the new key")
 					ch := MustSucceed(db.RetrieveChannel(ctx, virtualKeyNew))
 					Expect(ch.Key).To(Equal(virtualKeyNew))
 
-					By("Asserting that the meta file got changed too", func() {
-						f := MustSucceed(fs.Open(channelKeyToPath(virtualKeyNew)+"/meta.json", os.O_RDWR))
-						s := MustSucceed(f.Stat()).Size()
-						buf := make([]byte, s)
-						MustSucceed(f.Read(buf))
-						Expect(jsonDecoder.Decode(ctx, buf, &ch)).To(Succeed())
-
-						Expect(ch.Key).To(Equal(virtualKeyNew))
-						Expect(f.Close()).To(Succeed())
-					})
+					By("Asserting that no directory exists at the new key")
+					Expect(MustSucceed(fs.Exists(channelKeyToPath(virtualKeyNew)))).To(BeFalse())
 				})
 
 				It("Should rekey an index channel", func(ctx SpecContext) {
@@ -412,16 +400,8 @@ var _ = Describe("Channel", Ordered, func() {
 						ch := MustSucceed(db.RetrieveChannel(ctx, errorKey2New))
 						Expect(ch.Key).To(Equal(errorKey2New))
 
-						By("Asserting that the meta file got changed too", func() {
-							f := MustSucceed(fs.Open(channelKeyToPath(errorKey2New)+"/meta.json", os.O_RDWR))
-							s := MustSucceed(f.Stat()).Size()
-							buf := make([]byte, s)
-							MustSucceed(f.Read(buf))
-							Expect(jsonDecoder.Decode(ctx, buf, &ch)).To(Succeed())
-
-							Expect(ch.Key).To(Equal(errorKey2New))
-							Expect(f.Close()).To(Succeed())
-						})
+						By("Asserting that no directory exists at the new key")
+						Expect(fs.Exists(channelKeyToPath(errorKey2New))).To(BeFalse())
 					})
 				})
 
@@ -498,80 +478,66 @@ var _ = Describe("Channel", Ordered, func() {
 	}
 })
 
-var _ = Describe("Transient Channels", func() {
+var _ = Describe("Virtual Channels", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db  *cesium.DB
-				xFS fs.FS
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				xFS = openFS()
-				db = openDBOnFS(ctx, xFS)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				fs = openFS()
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 
 			Describe("Create", func() {
-				It("Should create and retrieve a transient virtual channel", func(ctx SpecContext) {
+				It("Should create and retrieve a virtual channel", func(ctx SpecContext) {
 					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, transientChannel(key, "ephemeral"))).To(Succeed())
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "ephemeral"))).To(Succeed())
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch.Name).To(Equal("ephemeral"))
-					Expect(ch.Transient).To(BeTrue())
-				})
-
-				It("Should reject a transient channel that is not virtual", func(ctx SpecContext) {
-					Expect(db.CreateChannel(ctx, cesium.Channel{
-						Key:       GenerateChannelKey(),
-						Name:      "not_virtual",
-						DataType:  telem.TimeStampT,
-						IsIndex:   true,
-						Transient: true,
-					})).To(MatchError(ContainSubstring("only virtual channels can be transient")))
+					Expect(ch.Virtual).To(BeTrue())
 				})
 
 				It("Should not create a directory for the channel on the file system", func(ctx SpecContext) {
 					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, transientChannel(key, "no_dir"))).To(Succeed())
-					Expect(xFS.Exists(channelKeyToPath(key))).To(BeFalse())
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "no_dir"))).To(Succeed())
+					Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 				})
 			})
 
 			Describe("Rename", func() {
-				It("Should rename a transient channel in memory", func(ctx SpecContext) {
+				It("Should rename a virtual channel in memory", func(ctx SpecContext) {
 					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, transientChannel(key, "old_name"))).To(Succeed())
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "old_name"))).To(Succeed())
 					Expect(db.RenameChannel(ctx, key, "new_name")).To(Succeed())
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch.Name).To(Equal("new_name"))
-					Expect(xFS.Exists(channelKeyToPath(key))).To(BeFalse())
+					Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 				})
 			})
 
 			Describe("Rekey", func() {
-				It("Should rekey a transient channel in memory", func(ctx SpecContext) {
+				It("Should rekey a virtual channel in memory", func(ctx SpecContext) {
 					oldKey := GenerateChannelKey()
 					newKey := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, transientChannel(oldKey, "rekeyed"))).To(Succeed())
+					Expect(db.CreateChannel(ctx, virtualChannel(oldKey, "rekeyed"))).To(Succeed())
 					Expect(db.RekeyChannel(ctx, oldKey, newKey)).To(Succeed())
 					ch := MustSucceed(db.RetrieveChannel(ctx, newKey))
 					Expect(ch.Name).To(Equal("rekeyed"))
-					Expect(ch.Transient).To(BeTrue())
+					Expect(ch.Virtual).To(BeTrue())
 					Expect(db.RetrieveChannel(ctx, oldKey)).Error().
 						To(MatchError(cesium.ErrChannelNotFound))
-					Expect(xFS.Exists(channelKeyToPath(newKey))).To(BeFalse())
+					Expect(fs.Exists(channelKeyToPath(newKey))).To(BeFalse())
 				})
 			})
 		})
 	}
 
 	Describe("FS Interaction", func() {
-		It("Should perform no file system writes for a transient channel's full lifecycle", func(ctx SpecContext) {
-			// Transient channels are defined as never being persisted; this test pins
+		It("Should perform no file system writes for a virtual channel's full lifecycle", func(ctx SpecContext) {
+			// Virtual channels are defined as never being persisted; this test pins
 			// that contract directly by recording every operation against the
 			// underlying FS across create, write, rename, and delete.
 			rec := fs.NewRecorder(fs.NewMem())
@@ -579,7 +545,7 @@ var _ = Describe("Transient Channels", func() {
 			rec.Reset()
 
 			key := GenerateChannelKey()
-			Expect(db.CreateChannel(ctx, transientChannel(key, "fs_check"))).To(Succeed())
+			Expect(db.CreateChannel(ctx, virtualChannel(key, "fs_check"))).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{key},
 				Start:    10 * telem.SecondTS,
@@ -598,14 +564,10 @@ var _ = Describe("Transient Channels", func() {
 var _ = Describe("Virtual Index Channel Creation", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = openDBOnFS(ctx, openFS())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
 			It("Should create a virtual index channel and a virtual data channel indexed by it", func(ctx SpecContext) {
@@ -668,7 +630,7 @@ var _ = Describe("Virtual Index Channel Creation", func() {
 
 			It("Should reject a virtual channel indexed by a non-index virtual channel", func(ctx SpecContext) {
 				nonIdx := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx, transientChannel(nonIdx, "non_idx"))).To(Succeed())
+				Expect(db.CreateChannel(ctx, virtualChannel(nonIdx, "non_idx"))).To(Succeed())
 				Expect(db.CreateChannel(ctx,
 					virtualDataChannel(GenerateChannelKey(), nonIdx, "on_non_idx"),
 				)).To(MatchError(ContainSubstring("is not an index")))
@@ -678,18 +640,6 @@ var _ = Describe("Virtual Index Channel Creation", func() {
 				Expect(db.CreateChannel(ctx,
 					virtualDataChannel(GenerateChannelKey(), GenerateChannelKey(), "dangling"),
 				)).To(MatchError(ContainSubstring("does not exist")))
-			})
-
-			It("Should reject a persistent virtual channel indexed by a transient index", func(ctx SpecContext) {
-				idx := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx, virtualIndexChannel(idx, "transient_idx"))).To(Succeed())
-				Expect(db.CreateChannel(ctx, cesium.Channel{
-					Key:      GenerateChannelKey(),
-					Name:     "persistent_member",
-					DataType: telem.Int64T,
-					Index:    idx,
-					Virtual:  true,
-				})).To(MatchError(ContainSubstring("persistent channel cannot be indexed by transient channel")))
 			})
 		})
 	}

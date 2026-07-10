@@ -47,18 +47,20 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("OpenService", func() {
-		It("Should register free channels found in the channel table at startup", func(ctx SpecContext) {
+		// expectStartupRegistration creates a virtual channel with the given
+		// leaseholder, drops its storage registration to mirror a process restart (the
+		// channel table survives on disk while virtual channel registrations do not),
+		// and asserts that reopening the service re-registers it.
+		expectStartupRegistration := func(ctx context.Context, leaseholder node.Key) {
 			n := mock.NewNode(ctx)
-			first := openService(ctx, n)
+			first := MustOpen(channel.OpenService(ctx, serviceConfig(ctx, n)))
 			ch := channel.Channel{
 				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: node.KeyFree,
+				Leaseholder: leaseholder,
 			}
 			Expect(first.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			// Drop the transient registration to mirror a process restart: the channel
-			// table survives on disk while transient channel registrations do not.
 			Expect(n.Storage.TS.DeleteChannel(ch.Key().StorageKey())).To(Succeed())
 			Expect(n.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).Error().
 				To(MatchError(query.ErrNotFound))
@@ -66,7 +68,13 @@ var _ = Describe("Service", func() {
 			stored := MustSucceed(
 				n.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
 			)
-			Expect(stored.Transient).To(BeTrue())
+			Expect(stored.Virtual).To(BeTrue())
+		}
+		It("Should register free channels found in the channel table at startup", func(ctx SpecContext) {
+			expectStartupRegistration(ctx, node.KeyFree)
+		})
+		It("Should register virtual channels leased to the node at startup", func(ctx SpecContext) {
+			expectStartupRegistration(ctx, 1)
 		})
 	})
 

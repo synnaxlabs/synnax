@@ -11,7 +11,7 @@ package cesium_test
 
 import (
 	"context"
-	"runtime"
+	"io"
 	"strconv"
 	"testing"
 
@@ -19,12 +19,14 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func openDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
+func openDBOnFS(ctx context.Context, fs fs.FS) *cesium.DB {
 	return MustSucceed(cesium.Open(ctx,
 		"",
 		cesium.WithFS(fs),
@@ -32,52 +34,65 @@ func openDBOnFS(ctx context.Context, fs xfs.FS) *cesium.DB {
 	))
 }
 
-func channelKeyToPath(key cesium.ChannelKey) string {
-	return strconv.Itoa(int(key))
+func mustOpenDBOnFS(ctx context.Context, fs fs.FS) *cesium.DB {
+	return DeferClose(openDBOnFS(ctx, fs))
 }
 
-// transientChannel returns a transient virtual channel with the given key and name.
-func transientChannel(key cesium.ChannelKey, name string) cesium.Channel {
+func channelKeyToPath(key cesium.ChannelKey) string { return strconv.Itoa(int(key)) }
+
+// openStreamer opens a streamer on db with the given config and starts it in an
+// isolated signal context, returning the streamer's request inlet, its response
+// outlet, and a closer that shuts the streamer down.
+func openStreamer(db *cesium.DB, cfg cesium.StreamerConfig) (
+	confluence.Inlet[cesium.StreamerRequest],
+	confluence.Outlet[cesium.StreamerResponse],
+	io.Closer,
+) {
+	streamer := MustSucceed(db.NewStreamer(context.Background(), cfg))
+	requests := confluence.NewStream[cesium.StreamerRequest](1)
+	responses := confluence.NewStream[cesium.StreamerResponse](2)
+	streamer.InFrom(requests)
+	streamer.OutTo(responses)
+	sCtx, cancel := signal.Isolated()
+	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	return requests, responses, signal.NewHardShutdown(sCtx, cancel)
+}
+
+// virtualChannel returns a virtual channel with the given key and name.
+func virtualChannel(key cesium.ChannelKey, name string) cesium.Channel {
 	return cesium.Channel{
-		Key:       key,
-		Name:      name,
-		DataType:  telem.Int64T,
-		Virtual:   true,
-		Transient: true,
+		Key:      key,
+		Name:     name,
+		DataType: telem.Int64T,
+		Virtual:  true,
 	}
 }
 
-// virtualIndexChannel returns a transient virtual index channel with the given key
-// and name.
+// virtualIndexChannel returns a virtual index channel with the given key and name.
 func virtualIndexChannel(key cesium.ChannelKey, name string) cesium.Channel {
 	return cesium.Channel{
-		Key:       key,
-		Name:      name,
-		DataType:  telem.TimeStampT,
-		IsIndex:   true,
-		Virtual:   true,
-		Transient: true,
+		Key:      key,
+		Name:     name,
+		DataType: telem.TimeStampT,
+		IsIndex:  true,
+		Virtual:  true,
 	}
 }
 
-// virtualDataChannel returns a transient virtual channel indexed by index.
+// virtualDataChannel returns a virtual channel indexed by index.
 func virtualDataChannel(key, index cesium.ChannelKey, name string) cesium.Channel {
 	return cesium.Channel{
-		Key:       key,
-		Name:      name,
-		DataType:  telem.Int64T,
-		Index:     index,
-		Virtual:   true,
-		Transient: true,
+		Key:      key,
+		Name:     name,
+		DataType: telem.Int64T,
+		Index:    index,
+		Virtual:  true,
 	}
 }
 
 func TestCesium(t *testing.T) {
-	runtime.GOMAXPROCS(4)
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
 
-var _ = BeforeSuite(func() {
-	ShouldNotLeakGoroutines()
-})
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package version
+import { Notification } from "@/feature/version/Updater";
+import { type Notifications } from "@/platform/notifications";
 
-type Version = uint8
+export * from "@/feature/version/Badge";
+export * from "@/feature/version/Updater";
+export * from "@/feature/version/useInfoModal";
 
-const Version1 Version = 1
-const Version2 Version = 2
-const VersionCurrent = Version2
+export const NOTIFICATIONS: Notifications.Notification[] = [Notification];

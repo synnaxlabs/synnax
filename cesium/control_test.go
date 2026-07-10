@@ -89,25 +89,18 @@ var _ = Describe("Control", func() {
 
 	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, Ordered, func() {
-			var (
-				fs fs.FS
-			)
+			var fs fs.FS
+
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 			})
-			AfterAll(func() {
-			})
-
 			Describe("Nominal", func() {
 				var db *cesium.DB
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = openDBOnFS(ctx, fs)
+					db = mustOpenDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32, "control")).To(Succeed())
-				})
-				AfterAll(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 
 				Describe("Single Channel, Two Writer Contention", func() {
@@ -140,14 +133,10 @@ var _ = Describe("Control", func() {
 							ErrOnUnauthorized: new(false),
 							Sync:              new(true),
 						}))
-						streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						_, stOut, stCloser := openStreamer(db, cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
-						}))
-						sCtx, cancel := signal.Isolated()
-						defer cancel()
-						stIn, stOut := confluence.Attach(streamer, 2)
-						streamer.Flow(sCtx)
+						})
 						Eventually(stOut.Outlet()).Should(Receive())
 
 						By("Writing to the first writer")
@@ -188,8 +177,7 @@ var _ = Describe("Control", func() {
 						By("Shutting down the writers")
 						Expect(w1.Close()).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
-						stIn.Close()
-						Expect(sCtx.Wait()).To(Succeed())
+						Expect(stCloser.Close()).To(Succeed())
 
 						By("Reading the data")
 						f := MustSucceed(db.Read(
@@ -213,15 +201,12 @@ var _ = Describe("Control", func() {
 						)).To(Succeed())
 						start := telem.SecondTS * 10
 
-						streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						_, stOut, stCloser := openStreamer(db, cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
-						}))
-
-						stIn, stOut := confluence.Attach(streamer, 2)
+						})
 						ctx2, cancel2 := signal.Isolated()
 						defer cancel2()
-						streamer.Flow(ctx2, confluence.CloseOutputInletsOnExit())
 						Eventually(stOut.Outlet()).Should(Receive())
 
 						By("Opening the first writer")
@@ -306,8 +291,8 @@ var _ = Describe("Control", func() {
 
 						By("Shutting down the second writer")
 						w2In.Close()
-						stIn.Close()
 						Expect(ctx2.Wait()).To(Succeed())
+						Expect(stCloser.Close()).To(Succeed())
 
 						By("Reading the data")
 						f := MustSucceed(db.Read(
@@ -325,9 +310,8 @@ var _ = Describe("Control", func() {
 						indexChKey, dataChKey, virtualChKey cesium.ChannelKey
 						w1                                  *cesium.Writer
 						w2                                  *cesium.Writer
-						dataStreamerIn, controlStreamerIn   confluence.Inlet[cesium.StreamerRequest]
 						dataStreamerOut, controlStreamerOut confluence.Outlet[cesium.StreamerResponse]
-						shutdown                            io.Closer
+						dataShutdown, controlShutdown       io.Closer
 					)
 					BeforeEach(func(ctx SpecContext) {
 						indexChKey = GenerateChannelKey()
@@ -358,32 +342,25 @@ var _ = Describe("Control", func() {
 							ErrOnUnauthorized: new(false),
 							Sync:              new(true),
 						}))
-						dataStreamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						_, dataStreamerOut, dataShutdown = openStreamer(db, cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{virtualChKey, indexChKey, dataChKey},
 							SendOpenAck: true,
-						}))
-						sCtx, cancel := signal.Isolated()
-						shutdown = signal.NewHardShutdown(sCtx, cancel)
-						dataStreamerIn, dataStreamerOut = confluence.Attach(dataStreamer, 2)
-						dataStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						})
 						Eventually(dataStreamerOut.Outlet()).Should(Receive())
 
-						controlStateStreamer := MustSucceed(db.NewStreamer(sCtx, cesium.StreamerConfig{
+						_, controlStreamerOut, controlShutdown = openStreamer(db, cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
-						}))
-						controlStreamerIn, controlStreamerOut = confluence.Attach(controlStateStreamer, 2)
-						controlStateStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						})
 						Eventually(controlStreamerOut.Outlet()).Should(Receive())
 					})
 					AfterEach(func() {
 						Expect(w1.Close()).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
-						dataStreamerIn.Close()
-						controlStreamerIn.Close()
+						Expect(dataShutdown.Close()).To(Succeed())
+						Expect(controlShutdown.Close()).To(Succeed())
 						Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
 						Eventually(controlStreamerOut.Outlet()).Should(BeClosed())
-						Expect(shutdown.Close()).To(Succeed())
 					})
 
 					// Set up:

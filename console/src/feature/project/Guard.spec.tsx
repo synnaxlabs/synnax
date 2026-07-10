@@ -11,7 +11,7 @@ import { screen } from "@testing-library/react";
 import { act } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Project } from "@/platform/project";
+import { Project } from "@/feature/project";
 import { Session } from "@/session";
 import { renderWithConsole } from "@/testutil";
 

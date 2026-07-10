@@ -10,6 +10,7 @@
 package cesium_test
 
 import (
+	"fmt"
 	"os"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,15 +26,10 @@ import (
 var _ = Describe("Open", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
-			var (
-				fs fs.FS
-			)
+			var fs fs.FS
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-			})
-			AfterAll(func() {
 			})
 			Describe("Opening db on existing folder", func() {
 				It("Should not panic when opening a db in a directory with already existing files", func(ctx SpecContext) {
@@ -148,57 +144,53 @@ var _ = Describe("Open", func() {
 	}
 })
 
-var _ = Describe("Transient Channels On Reopen", func() {
+var _ = Describe("Virtual Channels On Reopen", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
-			var xFS fs.FS
+			var fs fs.FS
 			BeforeAll(func() {
 				ShouldNotLeakGoroutines()
-				xFS = openFS()
+				fs = openFS()
 			})
 
-			It("Should not survive a database reopen, while persistent virtual channels do", func(ctx SpecContext) {
-				subFS := MustSucceed(xFS.Sub("restart"))
+			It("Should not survive a database reopen, while stored channels do", func(ctx SpecContext) {
+				subFS := MustSucceed(fs.Sub("restart"))
 				restartDB := openDBOnFS(ctx, subFS)
-				transientKey := GenerateChannelKey()
-				persistentKey := GenerateChannelKey()
+				virtualKey := GenerateChannelKey()
+				storedKey := GenerateChannelKey()
 				Expect(restartDB.CreateChannel(ctx,
-					transientChannel(transientKey, "gone_on_restart"),
+					virtualChannel(virtualKey, "gone_on_restart"),
 					cesium.Channel{
-						Key:      persistentKey,
+						Key:      storedKey,
 						Name:     "kept_on_restart",
-						DataType: telem.Int64T,
-						Virtual:  true,
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
 					},
 				)).To(Succeed())
 				Expect(restartDB.Close()).To(Succeed())
 
-				restartDB = openDBOnFS(ctx, subFS)
-				Expect(restartDB.RetrieveChannel(ctx, transientKey)).Error().
+				restartDB = mustOpenDBOnFS(ctx, subFS)
+				Expect(restartDB.RetrieveChannel(ctx, virtualKey)).Error().
 					To(MatchError(cesium.ErrChannelNotFound))
-				ch := MustSucceed(restartDB.RetrieveChannel(ctx, persistentKey))
+				ch := MustSucceed(restartDB.RetrieveChannel(ctx, storedKey))
 				Expect(ch.Name).To(Equal("kept_on_restart"))
-				Expect(restartDB.Close()).To(Succeed())
 			})
 
-			It("Should persist renames of persistent virtual channels across reopens", func(ctx SpecContext) {
-				subFS := MustSucceed(xFS.Sub("rename-restart"))
-				restartDB := openDBOnFS(ctx, subFS)
+			It("Should remove directories persisted for virtual channels by previous versions", func(ctx SpecContext) {
+				subFS := MustSucceed(fs.Sub("legacy"))
 				key := GenerateChannelKey()
-				Expect(restartDB.CreateChannel(ctx, cesium.Channel{
-					Key:      key,
-					Name:     "before",
-					DataType: telem.Int64T,
-					Virtual:  true,
-				})).To(Succeed())
-				Expect(restartDB.RenameChannel(ctx, key, "after")).To(Succeed())
-				Expect(restartDB.Close()).To(Succeed())
+				chFS := MustSucceed(subFS.Sub(channelKeyToPath(key)))
+				f := MustSucceed(chFS.Open("meta.json", os.O_CREATE|os.O_WRONLY))
+				MustSucceed(f.Write(fmt.Appendf(nil,
+					`{"key":%d,"name":"legacy_virtual","data_type":"int64","virtual":true,"version":2}`,
+					key,
+				)))
+				Expect(f.Close()).To(Succeed())
 
-				restartDB = openDBOnFS(ctx, subFS)
-				ch := MustSucceed(restartDB.RetrieveChannel(ctx, key))
-				Expect(ch.Name).To(Equal("after"))
-				Expect(restartDB.Close()).To(Succeed())
+				db := mustOpenDBOnFS(ctx, subFS)
+				Expect(db.RetrieveChannel(ctx, key)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+				Expect(subFS.Exists(channelKeyToPath(key))).To(BeFalse())
 			})
 		})
 	}

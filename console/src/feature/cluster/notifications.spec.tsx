@@ -17,15 +17,15 @@ import { Notifications } from "@/platform/notifications";
 import { renderWithConsole } from "@/testutil";
 
 interface HarnessProps {
-  seed: status.Crude;
+  crude: status.Crude;
 }
 
-const Harness = ({ seed }: HarnessProps) => {
+const Harness = ({ crude }: HarnessProps) => {
   const add = Status.useAdder();
   return (
     <>
-      <button onClick={() => add(seed)}>add</button>
-      <Notifications.Notifications adapters={Cluster.NOTIFICATION_ADAPTERS} />
+      <button onClick={() => add(crude)}>add</button>
+      <Notifications.Notifications notifications={Cluster.NOTIFICATIONS} />
     </>
   );
 };
@@ -34,7 +34,7 @@ Harness.displayName = "Harness";
 const addStatus = async (details?: Record<string, unknown>): Promise<void> => {
   await renderWithConsole(
     <Harness
-      seed={{
+      crude={{
         key: "version",
         variant: "warning",
         message: "Version mismatch",
@@ -45,7 +45,7 @@ const addStatus = async (details?: Record<string, unknown>): Promise<void> => {
   fireEvent.click(screen.getByText("add"));
 };
 
-describe("versionOutdatedAdapter", () => {
+describe("cluster notification", () => {
   beforeEach(() => {
     const root = document.createElement("div");
     root.id = "root";

@@ -38,7 +38,6 @@ import (
 var _ = Describe("Writer Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db         *cesium.DB
 				fs         fs.FS
@@ -47,13 +46,10 @@ var _ = Describe("Writer Behavior", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
+				db = mustOpenDBOnFS(ctx, fs)
 				Expect(db.ConfigureControlUpdateChannel(
 					ctx, controlKey, "sy_cesium_control",
 				)).To(Succeed())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {
@@ -1908,22 +1904,18 @@ var _ = Describe("Writer Behavior", func() {
 	}
 })
 
-var _ = Describe("Transient Channel Writes", func() {
+var _ = Describe("Virtual Channel Writes", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = openDBOnFS(ctx, openFS())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
 			It("Should validate series data types on write", func(ctx SpecContext) {
 				key := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx, transientChannel(key, "validated"))).To(Succeed())
+				Expect(db.CreateChannel(ctx, virtualChannel(key, "validated"))).To(Succeed())
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{key},
 					Start:    10 * telem.SecondTS,
@@ -1943,14 +1935,10 @@ var _ = Describe("Transient Channel Writes", func() {
 var _ = Describe("Virtual Index Write Alignment", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var db *cesium.DB
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				db = openDBOnFS(ctx, openFS())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 
 			openGroup := func(ctx SpecContext) (idx, d1, d2 cesium.ChannelKey) {
@@ -1965,19 +1953,12 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 				return idx, d1, d2
 			}
 
-			streamInto := func(ctx SpecContext, keys ...cesium.ChannelKey) (
+			streamInto := func(keys ...cesium.ChannelKey) (
 				confluence.Outlet[cesium.StreamerResponse],
 				func(),
 			) {
-				r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: keys}))
-				i, o := confluence.Attach(r, 5)
-				sCtx, cancel := signal.WithCancel(ctx)
-				r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-				return o, func() {
-					i.Close()
-					Expect(sCtx.Wait()).To(Succeed())
-					cancel()
-				}
+				_, o, closer := openStreamer(db, cesium.StreamerConfig{Channels: keys})
+				return o, func() { Expect(closer.Close()).To(Succeed()) }
 			}
 
 			It("Should stamp every series in an index group with the same alignment and advance on index writes", func(ctx SpecContext) {
@@ -1986,7 +1967,7 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 					Channels: []cesium.ChannelKey{idx, d1, d2},
 					Start:    10 * telem.SecondTS,
 				}))
-				o, stop := streamInto(ctx, idx, d1, d2)
+				o, stop := streamInto(idx, d1, d2)
 				defer stop()
 
 				MustSucceed(w.Write(telem.MultiFrame(
@@ -2028,7 +2009,7 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 					Channels: []cesium.ChannelKey{idx, d1},
 					Start:    10 * telem.SecondTS,
 				}))
-				o, stop := streamInto(ctx, idx, d1)
+				o, stop := streamInto(idx, d1)
 				defer stop()
 
 				MustSucceed(w.Write(telem.UnaryFrame(d1, telem.NewSeriesV[int64](1, 2))))
@@ -2043,12 +2024,12 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 			})
 
 			It("Should allocate the group domain from the index channel even when the index is not in the writer's channel set", func(ctx SpecContext) {
-				idx, d1, d2 := openGroup(ctx)
+				_, d1, d2 := openGroup(ctx)
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 					Channels: []cesium.ChannelKey{d1, d2},
 					Start:    10 * telem.SecondTS,
 				}))
-				o, stop := streamInto(ctx, d1, d2)
+				o, stop := streamInto(d1, d2)
 				defer stop()
 
 				MustSucceed(w.Write(telem.MultiFrame(
@@ -2065,7 +2046,6 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 				Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 0)))
 				Expect(res.Frame.SeriesAt(1).Alignment).To(Equal(alignment.Leading(1, 0)))
 				Expect(w.Close()).To(Succeed())
-				_ = idx
 			})
 
 			It("Should allocate a fresh domain for each writer on the same group", func(ctx SpecContext) {
@@ -2078,7 +2058,7 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 					Channels: []cesium.ChannelKey{idx, d1},
 					Start:    20 * telem.SecondTS,
 				}))
-				o, stop := streamInto(ctx, idx, d1)
+				o, stop := streamInto(idx, d1)
 				defer stop()
 
 				MustSucceed(w1.Write(telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(10))))
@@ -2103,7 +2083,7 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 					Channels: []cesium.ChannelKey{idxA, dA, idxB, dB},
 					Start:    10 * telem.SecondTS,
 				}))
-				o, stop := streamInto(ctx, idxA, dA, idxB, dB)
+				o, stop := streamInto(idxA, dA, idxB, dB)
 				defer stop()
 
 				MustSucceed(w.Write(telem.MultiFrame(
@@ -2138,18 +2118,14 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 		It("Should leave alignment behavior for index-free virtual channels unchanged", func(ctx SpecContext) {
 			db := openDBOnFS(ctx, fs.NewMem())
 			key := GenerateChannelKey()
-			Expect(db.CreateChannel(ctx, transientChannel(key, "ungrouped"))).To(Succeed())
+			Expect(db.CreateChannel(ctx, virtualChannel(key, "ungrouped"))).To(Succeed())
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: []cesium.ChannelKey{key},
 				Start:    10 * telem.SecondTS,
 			}))
-			r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+			_, o, closer := openStreamer(db, cesium.StreamerConfig{
 				Channels: []cesium.ChannelKey{key},
-			}))
-			i, o := confluence.Attach(r, 1)
-			sCtx, cancel := signal.WithCancel(ctx)
-			defer cancel()
-			r.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			})
 
 			MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3))))
 			var res cesium.StreamerResponse
@@ -2160,8 +2136,7 @@ var _ = Describe("Virtual Index Write Alignment", func() {
 			Eventually(o.Outlet()).Should(Receive(&res))
 			Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 3)))
 
-			i.Close()
-			Expect(sCtx.Wait()).To(Succeed())
+			Expect(closer.Close()).To(Succeed())
 			Expect(w.Close()).To(Succeed())
 			Expect(db.Close()).To(Succeed())
 		})

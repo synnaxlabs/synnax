@@ -45,8 +45,11 @@ var _ = Describe("Migration Test", func() {
 				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
 				for _, ch := range testdata.Channels {
 					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
-					if ch.Key == testdata.LegacyRateKey {
+					if ch.Key == testdata.LegacyRateKey || ch.Key == testdata.VirtualKey {
 						Expect(err).To(MatchError(query.ErrNotFound))
+						if ch.Key == testdata.VirtualKey {
+							Expect(fs.Exists(strconv.Itoa(int(ch.Key)))).To(BeFalse())
+						}
 						continue
 					} else {
 						Expect(err).ToNot(HaveOccurred())

@@ -127,21 +127,21 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 // information are consistent.
 type controlledWriter struct {
 	*domain.Writer
-	channelKey channel.Key
+	// tracker holds per-domain offset state shared across every Writer that takes
+	// control of this resource. It is created once when the resource is opened and
+	// survives control handoffs (where a higher-authority Writer joins an existing
+	// region) so that per-sample byte offsets, the cumulative session sample count, and
+	// the current domain start remain consistent across owners. Reset on rollover via
+	// the domain.Writer's OnRollover hook.
+	tracker *offsetTracker
 	// alignment tracks the current write position as a packed domain index (upper 32
 	// bits) and sample index (lower 32 bits). This field is accessed atomically because
 	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
 	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it through
-	// PeekResource concurrently.
-	alignment atomic.Uint64
-	// tracker holds per-domain offset state shared across every Writer that takes
-	// control of this resource. It is created once when the resource is opened and
-	// survives control handoffs (where a higher-authority Writer joins an existing
-	// region) so that per-sample byte offsets, the cumulative session sample count,
-	// and the current domain start remain consistent across owners. Reset on rollover
-	// via the domain.Writer's OnRollover hook.
-	tracker *offsetTracker
+	// one goroutine may write alignment through Authorize while another reads it
+	// through PeekResource concurrently.
+	alignment  atomic.Uint64
+	channelKey channel.Key
 }
 
 var _ control.Resource = &controlledWriter{}

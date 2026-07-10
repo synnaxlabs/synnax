@@ -10,32 +10,25 @@
 package virtual_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/encoding/json"
-	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("DB Metadata Operations", func() {
-	var (
-		dbKey channel.Key
-		db    *virtual.DB
-	)
+	var db *virtual.DB
 
-	BeforeEach(func(ctx SpecContext) {
-		dbKey = GenerateChannelKey()
-		db = MustSucceed(virtual.Open(ctx, virtual.Config{
+	BeforeEach(func() {
+		db = MustOpen(virtual.Open(virtual.Config{
 			Channel: channel.Channel{
-				Key:      dbKey,
+				Key:      GenerateChannelKey(),
 				Name:     "test",
 				DataType: telem.Int64T,
 				Virtual:  true,
@@ -43,84 +36,29 @@ var _ = Describe("DB Metadata Operations", func() {
 		}))
 	})
 
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
-	})
-
 	Describe("RenameChannel", func() {
-		It("Should rename the channel in memory", func(ctx SpecContext) {
-			Expect(db.RenameChannel(ctx, "new_name")).To(Succeed())
+		It("Should rename the channel in memory", func() {
+			Expect(db.RenameChannel("new_name")).To(Succeed())
 			Expect(db.Channel().Name).To(Equal("new_name"))
 		})
 	})
 
 	Describe("SetChannelKey", func() {
-		It("Should change the channel key in memory", func(ctx SpecContext) {
+		It("Should change the channel key in memory", func() {
 			newKey := GenerateChannelKey()
-			Expect(db.SetChannelKey(ctx, newKey)).To(Succeed())
+			Expect(db.SetChannelKey(newKey)).To(Succeed())
 			Expect(db.Channel().Key).To(Equal(newKey))
 		})
 	})
 
-	Describe("Metadata Persistence", func() {
-		var (
-			fs xfs.FS
-			ch channel.Channel
-		)
-
-		BeforeEach(func() {
-			fs = MustSucceed(xfs.NewMem().Sub("virtual"))
-			ch = channel.Channel{
-				Key:      GenerateChannelKey(),
-				Name:     "persisted",
-				DataType: telem.Int64T,
-				Virtual:  true,
-			}
-		})
-
-		openWithFS := func(ctx context.Context) *virtual.DB {
-			return MustSucceed(virtual.Open(ctx, virtual.Config{
-				Channel:   ch,
-				FS:        fs,
-				MetaCodec: json.Codec,
-			}))
-		}
-
-		It("Should create the metadata file on open and read it back on reopen", func(ctx SpecContext) {
-			db := openWithFS(ctx)
-			Expect(db.Close()).To(Succeed())
-			reopened := MustSucceed(virtual.Open(ctx, virtual.Config{
-				Channel:   channel.Channel{Key: ch.Key},
-				FS:        fs,
-				MetaCodec: json.Codec,
-			}))
-			Expect(reopened.Channel().Name).To(Equal("persisted"))
-			Expect(reopened.Channel().Virtual).To(BeTrue())
-			Expect(reopened.Close()).To(Succeed())
-		})
-
-		It("Should persist a rename across reopens", func(ctx SpecContext) {
-			db := openWithFS(ctx)
-			Expect(db.RenameChannel(ctx, "renamed")).To(Succeed())
-			Expect(db.Close()).To(Succeed())
-			reopened := openWithFS(ctx)
-			Expect(reopened.Channel().Name).To(Equal("renamed"))
-			Expect(reopened.Close()).To(Succeed())
-		})
-
-		It("Should persist a key change across reopens", func(ctx SpecContext) {
-			db := openWithFS(ctx)
-			newKey := GenerateChannelKey()
-			Expect(db.SetChannelKey(ctx, newKey)).To(Succeed())
-			Expect(db.Close()).To(Succeed())
-			reopened := openWithFS(ctx)
-			Expect(reopened.Channel().Key).To(Equal(newKey))
-			Expect(reopened.Close()).To(Succeed())
-		})
-
-		It("Should reject a file system without a meta codec", func(ctx SpecContext) {
-			Expect(virtual.Open(ctx, virtual.Config{Channel: ch, FS: fs})).Error().
-				To(MatchError(ContainSubstring("meta_codec")))
+	Describe("AllocateLeadingAlignment", func() {
+		It("Should allocate distinct, increasing alignment domains in the leading region", func() {
+			first := db.AllocateLeadingAlignment()
+			second := db.AllocateLeadingAlignment()
+			Expect(first.DomainIndex()).To(BeNumerically(">", alignment.ZeroLeading))
+			Expect(second.DomainIndex()).To(Equal(first.DomainIndex() + 1))
+			Expect(first.SampleIndex()).To(BeZero())
+			Expect(second.SampleIndex()).To(BeZero())
 		})
 	})
 
@@ -129,8 +67,8 @@ var _ = Describe("DB Metadata Operations", func() {
 			Expect(db.LeadingControlState()).To(BeNil())
 		})
 
-		It("Should return the leading control state when there are writers open on the DB", func(ctx SpecContext) {
-			w, transfer := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
+		It("Should return the leading control state when there are writers open on the DB", func() {
+			w, transfer := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
 				Start:     10 * telem.SecondTS,
 				Authority: control.AuthorityAbsolute,
 				Subject:   control.Subject{Key: "foo"},
@@ -145,8 +83,8 @@ var _ = Describe("DB Metadata Operations", func() {
 	})
 
 	Describe("Close", func() {
-		It("Should return an error when methods are called on a closed DB", func(ctx SpecContext) {
-			db := MustSucceed(virtual.Open(ctx, virtual.Config{
+		It("Should return an error when methods are called on a closed DB", func() {
+			db := MustSucceed(virtual.Open(virtual.Config{
 				Channel: channel.Channel{
 					Key:      GenerateChannelKey(),
 					Name:     "test",
@@ -155,12 +93,12 @@ var _ = Describe("DB Metadata Operations", func() {
 				},
 			}))
 			Expect(db.Close()).To(Succeed())
-			Expect(db.RenameChannel(ctx, "new_name")).To(MatchError(virtual.ErrDBClosed))
-			Expect(db.SetChannelKey(ctx, GenerateChannelKey())).To(MatchError(virtual.ErrDBClosed))
+			Expect(db.RenameChannel("new_name")).To(MatchError(virtual.ErrDBClosed))
+			Expect(db.SetChannelKey(GenerateChannelKey())).To(MatchError(virtual.ErrDBClosed))
 		})
 
-		It("Should return an error when a DB is closed while writers are still accessing it", func(ctx SpecContext) {
-			db := MustSucceed(virtual.Open(ctx, virtual.Config{
+		It("Should return an error when a DB is closed while writers are still accessing it", func() {
+			db := MustSucceed(virtual.Open(virtual.Config{
 				Channel: channel.Channel{
 					Key:      GenerateChannelKey(),
 					Name:     "test",
@@ -168,11 +106,14 @@ var _ = Describe("DB Metadata Operations", func() {
 					Virtual:  true,
 				},
 			}))
-			writer, _ := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
+			writer, transfer := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
 				Subject: control.Subject{Key: "string"},
 			}))
+			Expect(transfer.Occurred()).To(BeTrue())
 			Expect(db.Close()).To(MatchError(resource.ErrOpen))
-			_ = MustSucceed(writer.Close())
+			transfer = MustSucceed(writer.Close())
+			Expect(transfer.Occurred()).To(BeTrue())
+			Expect(transfer.IsRelease()).To(BeTrue())
 			Expect(db.Close()).To(Succeed())
 		})
 	})

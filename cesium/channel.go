@@ -14,8 +14,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -23,25 +23,25 @@ import (
 	"go.uber.org/zap"
 )
 
-// CreateChannel creates the given channels in the database. Index channels are
-// created before the other channels in the batch, so a channel may reference an
-// index defined anywhere within the same call.
-func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
+// CreateChannel creates the given channels in the database. Index channels are created
+// before the other channels in the batch, so a channel may reference an index defined
+// anywhere within the same call.
+func (db *DB) CreateChannel(ctx context.Context, channels ...Channel) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	for _, c := range ch {
-		if c.IsIndex {
-			if err := db.createChannel(ctx, c); err != nil {
+	for _, ch := range channels {
+		if ch.IsIndex {
+			if err := db.createChannel(ctx, ch); err != nil {
 				return err
 			}
 		}
 	}
-	for _, c := range ch {
-		if !c.IsIndex {
-			if err := db.createChannel(ctx, c); err != nil {
+	for _, ch := range channels {
+		if !ch.IsIndex {
+			if err := db.createChannel(ctx, ch); err != nil {
 				return err
 			}
 		}
@@ -130,7 +130,7 @@ func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string)
 		return nil
 	}
 	if v, ok := db.mu.dbs.virtual[key]; ok {
-		if err := v.RenameChannel(ctx, newName); err != nil {
+		if err := v.RenameChannel(newName); err != nil {
 			return err
 		}
 		db.mu.dbs.virtual[key] = v
@@ -157,9 +157,18 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
-	ch.Version = version.VersionCurrent
-	err = db.openVirtualOrUnary(ctx, ch)
-	return err
+	ch.Version = channel.VersionCurrent
+	if ch.Virtual {
+		return db.openVirtual(ch)
+	}
+	fs, err := db.fs.Sub(keyToDirName(ch.Key))
+	if err != nil {
+		return err
+	}
+	if ch, err = meta.Open(ctx, fs, ch, db.metaCodec); err != nil {
+		return err
+	}
+	return db.openUnary(ctx, ch, fs)
 }
 
 func indexChannelNotFoundError(key ChannelKey) error {
@@ -190,12 +199,6 @@ func (db *DB) validateNewChannel(ch Channel) error {
 			if !indexDB.Channel().IsIndex {
 				return validate.PathedError(
 					errors.Wrapf(validate.ErrValidation, "channel %v is not an index", indexDB.Channel()),
-					"index",
-				)
-			}
-			if indexDB.Channel().Transient && !ch.Transient {
-				return validate.PathedError(
-					errors.Wrapf(validate.ErrValidation, "persistent channel cannot be indexed by transient channel %v", indexDB.Channel()),
 					"index",
 				)
 			}
@@ -298,26 +301,11 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 		}
 		newChannel := vDB.Channel()
 		newChannel.Key = newKey
-		cfg := virtual.Config{
+		newDB, err := virtual.Open(virtual.Config{
 			Instrumentation: db.Instrumentation,
 			Channel:         newChannel,
-		}
-		if !newChannel.Transient {
-			if err := db.fs.Rename(oldDir, newDir); err != nil {
-				return err
-			}
-			newFS, err := db.fs.Sub(newDir)
-			if err != nil {
-				return err
-			}
-			cfg.FS = newFS
-			cfg.MetaCodec = db.metaCodec
-		}
-		newDB, err := virtual.Open(ctx, cfg)
+		})
 		if err != nil {
-			return err
-		}
-		if err = newDB.SetChannelKey(ctx, newKey); err != nil {
 			return err
 		}
 		delete(db.mu.dbs.virtual, oldKey)

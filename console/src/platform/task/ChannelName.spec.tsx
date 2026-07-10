@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, DataType } from "@synnaxlabs/client";
+import { DataType } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Text } from "@synnaxlabs/pluto";
 import { screen, waitFor } from "@testing-library/react";
 import { act } from "react";

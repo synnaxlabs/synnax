@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, createTestClient, Frame, type framer } from "@synnaxlabs/client";
+import { type channel, Frame, type framer } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { EOF } from "@synnaxlabs/freighter";
 import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";

@@ -138,7 +138,7 @@ func (s *Service) allocateFree(
 	// gateway-leased channels. Every free create executes here on the bootstrapper, so
 	// a newly created channel can never collide with an existing storage registration;
 	// other nodes register free channels when they scan the channel table at startup
-	// (see RegisterFreeStorage).
+	// (see RegisterVirtualStorage).
 	if err := s.cfg.TS.CreateChannel(ctx, lo.Map(chs, func(c Channel, _ int) ts.Channel {
 		return c.Storage()
 	})...); err != nil {
@@ -172,11 +172,11 @@ func (s *Service) allocateRemote(
 	return nil
 }
 
-// RegisterFreeStorage registers the given free channels in this node's local storage
-// engine as transient virtual channels. Free channels are transient in storage and
-// vanish on restart, so each node registers the cluster's free channels once at
-// startup; creates after startup register on the bootstrapper through Create.
-func (s *Service) RegisterFreeStorage(ctx context.Context, channels []Channel) error {
+// RegisterVirtualStorage registers the given virtual channels in this node's local
+// storage engine. Virtual channels are never persisted by the storage layer and vanish
+// on restart, so each node re-registers the virtual channels it serves writes for once
+// at startup; creates after startup register through Create.
+func (s *Service) RegisterVirtualStorage(ctx context.Context, channels []Channel) error {
 	return s.cfg.TS.CreateChannel(ctx, lo.Map(channels, func(c Channel, _ int) ts.Channel {
 		return c.Storage()
 	})...)

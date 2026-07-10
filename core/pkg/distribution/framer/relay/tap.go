@@ -47,37 +47,19 @@ type demand struct {
 // tap is a tap into a source of frames, whether another node's distribution relay or
 // the host's local storage engine. A tap streams the frames it receives to the relay's
 // delta until closed.
-type tap interface {
-	io.Closer
-	// setChannels replaces the set of channels the tap subscribes to. Gateway taps
-	// apply the new set before returning, which is what lets a demand acknowledged by
-	// the tapper guarantee its keys are already being filtered in (see demand.ack).
-	// Peer taps apply the new set asynchronously over the network and carry no such
-	// guarantee.
-	setChannels(channel.Keys)
-}
-
-// gatewayTap streams frames from the host's local storage engine, which serves both
-// host-leased and free channels.
-type gatewayTap struct {
-	io.Closer
-	streamer cesium.Streamer[Request, Response]
-}
-
-// setChannels implements tap.
-func (g *gatewayTap) setChannels(keys channel.Keys) {
-	g.streamer.SetChannels(keys.Storage())
-}
-
-// peerTap streams frames from another node's relay.
-type peerTap struct {
+type tap struct {
 	io.Closer
 	requests confluence.Inlet[Request]
 }
 
-// setChannels implements tap.
-func (p *peerTap) setChannels(keys channel.Keys) {
-	p.requests.Inlet() <- Request{Keys: keys}
+// setChannels replaces the set of channels the tap subscribes to by sending a request
+// to the underlying segment. Gateway taps apply the new set to every frame written
+// after setChannels returns (the cesium streamer drains pending requests before
+// filtering each frame), which is what lets a demand acknowledged by the tapper
+// guarantee its keys are already being filtered in (see demand.ack). Peer taps apply
+// the new set asynchronously over the network and carry no such guarantee.
+func (t tap) setChannels(keys channel.Keys) {
+	t.requests.Inlet() <- Request{Keys: keys}
 }
 
 // tapper tracks readers demands for channel's to stream. It uses these demands to tap
@@ -131,8 +113,8 @@ func (t *tapper) updateDemands(d demand) map[node.Key]channel.Keys {
 	for _, d := range t.demands {
 		for _, k := range d {
 			nk := k.Lease()
-			// Free channels are registered transiently in every node's local storage,
-			// so their writes are served by the gateway tap.
+			// Free channels are registered in every node's local storage, so their
+			// writes are served by the gateway tap.
 			if nk.IsFree() {
 				nk = host
 			}
@@ -226,10 +208,10 @@ func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
 		resFromStorage,
 	)
 	if err != nil {
-		return nil, err
+		return tap{}, err
 	}
-	_, closer := t.startTap(str, "gateway_tap")
-	return &gatewayTap{Closer: closer, streamer: str}, nil
+	requests, closer := t.startTap(str, "gateway_tap")
+	return tap{Closer: closer, requests: requests}, nil
 }
 
 // tapIntoPeer opens a new tap that sends requests and receives responses
@@ -237,11 +219,11 @@ func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
 func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error) {
 	addr, err := t.HostResolver.Resolve(nodeKey)
 	if err != nil {
-		return nil, err
+		return tap{}, err
 	}
 	stream, err := t.Transport.Client().Stream(ctx, addr)
 	if err != nil {
-		return nil, err
+		return tap{}, err
 	}
 	receiver := &freightfluence.Receiver[Response]{Receiver: stream}
 	sender := &freightfluence.Sender[Request]{Sender: stream}
@@ -252,5 +234,5 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey node.Key) (tap, error)
 	lo.Must0(seg.RouteOutletFrom("receiver"))
 	lo.Must0(seg.RouteInletTo("sender"))
 	requests, closer := t.startTap(seg, fmt.Sprintf("peer_tap_%v", nodeKey))
-	return &peerTap{Closer: closer, requests: requests}, nil
+	return tap{Closer: closer, requests: requests}, nil
 }

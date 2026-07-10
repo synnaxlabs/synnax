@@ -12,14 +12,26 @@ package channel
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Key is a unique identifier to the channel within Cesium.
 type Key = uint32
+
+// Version is the format of files stored in this channel.
+type Version = uint8
+
+// Version1 is the original channel version with rate fields.
+const Version1 Version = 1
+
+// Version2 is the channel version without rate fields.
+const Version2 Version = 2
+
+// VersionCurrent is the current version of the channel format.
+const VersionCurrent = Version2
 
 // Channel is a logical collection of telemetry samples across a time-range. The data
 // within a channel typically arrives from a single source. This can be a physical
@@ -27,52 +39,49 @@ type Key = uint32
 // values. A channel can also be used for storing derived data, such as a moving average
 // or signal processing result.
 type Channel struct {
-	// Name is a non-unique, human-readable identifier to the channel within Cesium. It
-	// is never used to index or retrieve a channel.
+	// Name is a human-readable identifier to the channel within Cesium. It is never
+	// used to index or retrieve a channel.
 	//
 	// [REQUIRED]
-	Name string `json:"name" msgpack:"name"`
+	Name string `json:"name"`
 	// DataType is the type of data stored in the channel.
 	//
 	// [REQUIRED]
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// Key is a unique identifier to the channel within Cesium.
+	DataType telem.DataType `json:"data_type"`
+	// Key is a unique identifier for the channel within Cesium.
 	//
 	// [REQUIRED]
-	Key Key `json:"key" msgpack:"key"`
+	Key Key `json:"key"`
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value in a data channel with a corresponding timestamp. For
 	// virtual channels, Index is optional and groups the channel with a virtual index
 	// channel for shared write alignment.
 	//
 	// [OPTIONAL if IsIndex or Virtual is true, REQUIRED otherwise]
-	Index Key `json:"index" msgpack:"index"`
-	// IsIndex determines whether the channel acts as an index channel. If false, then
-	// the channel is a data channel, and the Index field must be set to the key of an
-	// existing, valid index channel.
+	Index Key `json:"index"`
+	// IsIndex determines whether the channel acts as an index channel. If false and the
+	// channel is not virtual, then the channel is a data channel, and the Index field
+	// must be set to the key of an existing, valid index channel.
 	//
 	// [OPTIONAL]
 	IsIndex bool
 	// Virtual specifies whether the channel is virtual. Virtual channels do not store
-	// any data and do not require an index.
+	// any data and do not require an index. Their registration is kept purely in
+	// memory: nothing is written to the file system, and the channel ceases to exist
+	// when the database is closed. Because only non-virtual channels are ever
+	// persisted, the field is excluded from serialization.
 	//
 	// [OPTIONAL]
-	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Transient specifies whether the channel's registration is kept purely in memory:
-	// no directory or metadata is written to the file system, and the channel ceases to
-	// exist when the database is closed. Only virtual channels can be transient.
-	//
-	// [OPTIONAL]
-	Transient bool `json:"transient" msgpack:"transient"`
+	Virtual bool `json:"-"`
 	// Concurrency specifies the concurrency setting for the channel's controller
 	// (Exclusive or Shared).
 	//
 	// [OPTIONAL]
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency control.Concurrency `json:"concurrency"`
 	// Version specifies the format of files stored in this channel.
 	//
 	// [OPTIONAL]
-	Version version.Version `json:"version" msgpack:"version"`
+	Version Version `json:"version"`
 }
 
 // String implements fmt.Stringer to return nicely formatted channel info.
@@ -88,39 +97,33 @@ func (c Channel) String() string {
 func (c Channel) ValidateSeries(series telem.Series) error {
 	sDt := series.DataType
 	cDt := c.DataType
-	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) && (cDt == telem.Int64T || cDt == telem.TimeStampT)
-	if cDt != sDt && !isEquivalent {
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"invalid data type for channel %v, expected %s, got %s",
-			c,
-			cDt,
-			sDt,
-		)
+	if (cDt == sDt) ||
+		(cDt == telem.Int64T && sDt == telem.TimeStampT) ||
+		(cDt == telem.TimeStampT && sDt == telem.Int64T) {
+		return nil
 	}
-	return nil
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"invalid data type for channel %v, expected %s, got %s",
+		c,
+		cDt,
+		sDt,
+	)
 }
 
 // Validate checks that all channel fields are valid, and returns an error if they are
 // not.
 func (c Channel) Validate() error {
 	v := validate.New("meta")
-	validate.Positive(v, "key", c.Key)
-	validate.NotEmptyString(v, "data_type", c.DataType)
 	validate.NotEmptyString(v, "name", c.Name)
-	if c.Virtual {
-		if c.IsIndex {
-			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")
-		}
-	} else {
-		v.Ternary("transient", c.Transient, "only virtual channels can be transient")
-		if c.IsIndex {
-			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")
-		} else {
-			v.Ternaryf("index", c.Index == 0, "non-indexed channel must have an index")
-		}
+	validate.NotEmptyString(v, "data_type", c.DataType)
+	validate.Positive(v, "key", c.Key)
+	if c.IsIndex {
+		v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+		v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")
+	}
+	if !c.Virtual && !c.IsIndex {
+		v.Ternaryf("index", c.Index == 0, "non-indexed channel must have an index")
 	}
 	return v.Error()
 }
