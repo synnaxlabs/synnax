@@ -288,6 +288,12 @@ var _ = Describe("Service", func() {
 			inlet.Close()
 			Eventually(outlet.Outlet()).Should(BeClosed())
 		})
+
+		It("Should return an error if a channel is not found", func(ctx SpecContext) {
+			Expect(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
+				Keys: []channel.Key{12345},
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
 	})
 
 	Describe("DeleteTimeRange", func() {
