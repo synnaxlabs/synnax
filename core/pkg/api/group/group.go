@@ -69,6 +69,36 @@ func (s *Service) Create(
 	return CreateResponse{Group: g}, nil
 }
 
+type (
+	RetrieveRequest struct {
+		Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
+	}
+	RetrieveResponse struct {
+		Groups []group.Group `json:"groups" msgpack:"groups"`
+	}
+)
+
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: group.OntologyIDs(req.Keys),
+	}); err != nil {
+		return RetrieveResponse{}, err
+	}
+	var res RetrieveResponse
+	if err := s.internal.NewRetrieve().
+		Where(group.MatchKeys(req.Keys...)).
+		Entries(&res.Groups).
+		Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
+}
+
 type DeleteRequest struct {
 	Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
 }

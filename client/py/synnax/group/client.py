@@ -7,11 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import overload
 from uuid import UUID
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax.exceptions import NotFoundError
 from synnax.group.types_gen import Group
 from synnax.ontology.payload import ID, CrudeID
 
@@ -20,6 +22,14 @@ class CreateReq(BaseModel):
     parent: ID
     key: UUID | None = None
     name: str
+
+
+class RetrieveReq(BaseModel):
+    keys: list[UUID]
+
+
+class RetrieveRes(BaseModel):
+    groups: list[Group] = []
 
 
 class CreateRes(BaseModel):
@@ -47,6 +57,30 @@ class Client:
             CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),
             CreateRes,
         ).group
+
+    @overload
+    def retrieve(self, key: UUID) -> Group: ...
+
+    @overload
+    def retrieve(self, *, keys: list[UUID]) -> list[Group]: ...
+
+    def retrieve(
+        self,
+        key: UUID | None = None,
+        *,
+        keys: list[UUID] | None = None,
+    ) -> Group | list[Group]:
+        is_single = key is not None
+        if key is not None:
+            keys = [key]
+        res = self._client.send(
+            "/ontology/retrieve-group", RetrieveReq(keys=keys or []), RetrieveRes
+        )
+        if not is_single:
+            return res.groups
+        if len(res.groups) == 0:
+            raise NotFoundError(f"Group matching {key} not found")
+        return res.groups[0]
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send(
