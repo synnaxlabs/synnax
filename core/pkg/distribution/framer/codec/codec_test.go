@@ -32,7 +32,8 @@ import (
 )
 
 // mapResolver is a codec.ChannelResolver backed by a static key-to-data-type map. Keys
-// absent from the map are omitted from the result, mirroring the channel service.
+// absent from the map are omitted from the result, so an unmapped key yields a slice
+// shorter than the requested keys.
 type mapResolver map[channel.Key]telem.DataType
 
 var _ codec.ChannelResolver = mapResolver{}
