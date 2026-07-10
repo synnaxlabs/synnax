@@ -23,10 +23,6 @@ import { WebSocket } from "ws";
 // than the native `EventTarget`/`Event` pair, so it is immune to the realm mismatch.
 // Swapping it in for the global `WebSocket` in tests lets freighter's WebSocket client
 // talk to a live cluster while leaving jsdom's DOM untouched.
-//
-// The swap is registered via `vi.stubGlobal` so Vitest's global-stub cleanup restores
-// the original jsdom/undici `WebSocket`, preventing the `ws` implementation from
-// leaking into other test files that share the worker.
 export const installTestWebSocket = (): void => {
   vi.stubGlobal("WebSocket", WebSocket);
 };
