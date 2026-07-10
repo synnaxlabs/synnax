@@ -144,9 +144,8 @@ func (c Channel) String() string {
 }
 
 // Storage returns the storage layer representation of the channel for creation in the
-// storage ts.DB. Free channels have no leaseholder, so their storage registration is
-// transient: each node registers them in its local ts.DB on demand, and the
-// registration is never persisted.
+// storage ts.DB. Virtual channels are never persisted by the storage layer: they are
+// registered at create time and re-registered from the channel table on boot.
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
 		Key:         c.Key().StorageKey(),
@@ -155,7 +154,6 @@ func (c Channel) Storage() ts.Channel {
 		DataType:    c.DataType,
 		Index:       c.Index().StorageKey(),
 		Virtual:     c.Virtual,
-		Transient:   c.Free(),
 		Concurrency: c.Concurrency,
 	}
 }

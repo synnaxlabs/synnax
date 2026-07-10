@@ -449,6 +449,9 @@ Do **not** write comments that:
 - Label sections of a function (`// setup`, `// act`, `// assert`).
 - Narrate each step of a procedure.
 - Describe the current task, ticket, or author.
+- Reference a removed, renamed, or historical implementation the reader cannot see (e.g.
+  "reproduces the previous NOOP service", "used to work like X before the refactor").
+  Describe what the code does now, not what it replaced.
 
 **Incorrect:**
 
@@ -483,6 +486,21 @@ func (s *Service) Create(ctx context.Context, name string) (Channel, error) {
 // Must hold s.mu before calling; gossip's ordering guarantee depends on the caller
 // serializing writes against incoming SIR updates.
 func (s *Service) applyUpdate(u Update) { /* ... */ }
+```
+
+**Incorrect — references an implementation the reader has no way to see:**
+
+```go
+// DefaultTask reproduces the previous NOOP service: it runs on a timer and does
+// nothing.
+var DefaultTask = newTask()
+```
+
+**Correct — describes current behavior only:**
+
+```go
+// DefaultTask is a no-op fallback that runs on a timer and performs no work.
+var DefaultTask = newTask()
 ```
 
 Doc comments on identifier declarations (types, functions, constants, package-level

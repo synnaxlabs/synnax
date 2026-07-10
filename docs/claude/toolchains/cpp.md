@@ -150,6 +150,34 @@ struct Date {
 };
 ```
 
+### Comment Content
+
+Only add a comment when it clarifies obscure or surprising behavior the code itself
+can't convey — a subtle invariant, a workaround for an upstream bug, a non-obvious
+ordering constraint. Well-named types, functions, and variables should make the code
+self-explanatory otherwise.
+
+Do not write comments that reference a removed, renamed, or historical implementation
+the reader has no way to see (e.g. "reproduces the previous NOOP task", "used to work
+like X before the refactor"). Describe what the code does now, not what it replaced —
+that context belongs in the PR description or commit message, not in a comment that will
+outlive its relevance.
+
+**Incorrect:**
+
+```cpp
+/// @brief reproduces the previous synchronous read loop: polls the device on a
+/// fixed interval.
+class PollingSource : public Source { ... };
+```
+
+**Correct:**
+
+```cpp
+/// @brief polls the device on a fixed interval and emits a frame per cycle.
+class PollingSource : public Source { ... };
+```
+
 ## Memory Management
 
 ### RAII Pattern

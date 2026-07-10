@@ -18,10 +18,10 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
-import { type Item } from "@/platform/nav/item";
+import { type Toolbar } from "@/platform/nav/toolbar";
 
 interface MenuItemProps {
-  item: Item;
+  item: Toolbar;
   selected: boolean;
   onStartHover: (key: string) => void;
   onStopHover: () => void;
@@ -115,7 +115,7 @@ export interface MenuProps
   extends
     Omit<PMenu.MenuProps, "children" | "onChange">,
     Pick<MenuItemProps, "onStartHover" | "onStopHover" | "onToggle" | "onPin"> {
-  items: Item | Item[];
+  items: Toolbar | Toolbar[];
   selected?: string;
   onSelect: (key: string) => void;
 }

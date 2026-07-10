@@ -18,7 +18,7 @@ import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 
 export const makeZ = z.enum([
   EtherCAT.Device.MAKE,
@@ -75,7 +75,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
 };
 
 const CONTEXT_MENU_ITEMS: Partial<
-  Record<Make, (props: Ontology.TreeContextMenuProps) => ReactElement | null>
+  Record<Make, (props: Tree.ContextMenuProps) => ReactElement | null>
 > = {
   [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
   [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,

@@ -86,28 +86,22 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	// in case the channel is repeatedly created and deleted.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	var transient bool
+	var virtual bool
 	if err := (func() error {
 		db.mu.Lock()
 		defer db.mu.Unlock()
-		if v, ok := db.mu.dbs.virtual[ch]; ok {
-			transient = v.Channel().Transient
-		}
+		_, virtual = db.mu.dbs.virtual[ch]
 		if err := db.removeChannel(ch); err != nil {
 			return err
 		}
-		if transient {
+		if virtual {
 			return nil
 		}
-		err := db.fs.Rename(oldName, newName)
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
-		return err
+		return errors.Skip(db.fs.Rename(oldName, newName), fs.ErrNotExist)
 	})(); err != nil {
 		return err
 	}
-	if transient {
+	if virtual {
 		return nil
 	}
 	return db.fs.Remove(newName)
@@ -138,8 +132,20 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 	// Do a pass first to remove all non-index channels
 	for _, ch := range chs {
-		udb, uok := db.mu.dbs.unary[ch]
+		if vdb, vok := db.mu.dbs.virtual[ch]; vok {
+			if vdb.Channel().IsIndex {
+				indexChannels = append(indexChannels, ch)
+				continue
+			}
+			// Virtual channels are registered in memory only, so no directories need
+			// to be renamed or removed.
+			if err = db.removeChannel(ch); err != nil {
+				return
+			}
+			continue
+		}
 
+		udb, uok := db.mu.dbs.unary[ch]
 		if !uok || udb.Channel().IsIndex {
 			if udb.Channel().IsIndex {
 				indexChannels = append(indexChannels, ch)
@@ -166,9 +172,13 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 	// Do another pass to remove all index channels
 	for _, ch := range indexChannels {
+		_, virtual := db.mu.dbs.virtual[ch]
 		err = db.removeChannel(ch)
 		if err != nil {
 			return
+		}
+		if virtual {
+			continue
 		}
 
 		oldName := keyToDirName(ch)
@@ -192,8 +202,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 			for otherDBKey, otherDB := range db.mu.dbs.unary {
 				if otherDBKey != ch && otherDB.Channel().Index == uDB.Channel().Key {
 					return errors.Newf(
-						"cannot delete channel %v "+
-							"because it indexes data in channel %v",
+						"cannot delete channel %v because it indexes channel %v",
 						uDB.Channel(),
 						otherDB.Channel(),
 					)
@@ -211,8 +220,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 			for otherDBKey, otherDB := range db.mu.dbs.virtual {
 				if otherDBKey != ch && otherDB.Channel().Index == vDB.Channel().Key {
 					return errors.Newf(
-						"cannot delete channel %v "+
-							"because it indexes data in channel %v",
+						"cannot delete channel %v because it indexes channel %v",
 						vDB.Channel(),
 						otherDB.Channel(),
 					)

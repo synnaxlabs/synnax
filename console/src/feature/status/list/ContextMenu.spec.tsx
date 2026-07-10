@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { xy } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 
 import { List } from "@/feature/status/list";
 import { Modals } from "@/platform/modals";
-import { findModalButton } from "@/platform/ontology/menuTestutil";
+import { findModalButton } from "@/platform/tree/menuTestutil";
 import { Session } from "@/session";
 import {
   createConsoleWrapper,

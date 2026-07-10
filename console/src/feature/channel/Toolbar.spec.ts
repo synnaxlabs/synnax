@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { getSwitch } from "@/platform/modals/testutil";
-import { renderToolbar } from "@/platform/ontology/menuTestutil";
+import { renderToolbar } from "@/platform/tree/menuTestutil";
 import { getIconButton, getIconButtons } from "@/testutil";
 
 const client = createTestClient();
@@ -21,7 +21,7 @@ const client = createTestClient();
 const renderChannelToolbar = async (): Promise<void> => {
   await renderToolbar(Channel.TOOLBAR.content, {
     client,
-    services: { channel: Channel.ONTOLOGY_SERVICE },
+    items: Channel.TREE_ITEMS,
   });
   await screen.findByText("Channels");
 };

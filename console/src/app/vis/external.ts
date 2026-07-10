@@ -14,6 +14,6 @@ export * from "@/app/vis/Selector";
 export * from "@/app/vis/Toolbar";
 export * from "@/platform/vis/Canvas";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [SELECTOR_LAYOUT_TYPE]: Selector,
 };

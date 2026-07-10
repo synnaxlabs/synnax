@@ -10,20 +10,16 @@
 package virtual
 
 import (
-	"context"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
 	xcontrol "github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -35,10 +31,12 @@ type controlResource struct {
 	// bits) and sample index (lower 32 bits). This field is accessed atomically because
 	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
 	// the region's RWMutex is released before the caller accesses the field. This means
-	// one goroutine may write alignment through Authorize while another reads it through
-	// PeekResource concurrently.
+	// one goroutine may write alignment through Authorize while another reads it
+	// through PeekResource concurrently.
 	alignment atomic.Uint64
 }
+
+var _ control.Resource = &controlResource{}
 
 func (r *controlResource) ChannelKey() channel.Key { return r.ck }
 
@@ -50,6 +48,9 @@ func (r *controlResource) storeAlignment(a telem.Alignment) {
 	r.alignment.Store(uint64(a))
 }
 
+// DB is a purely in-memory engine for a single virtual channel: it registers the
+// channel and coordinates control handoff and write alignment between writers opened on
+// it. Nothing about the channel is ever written to the file system.
 type DB struct {
 	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
@@ -59,36 +60,21 @@ type DB struct {
 	cfg              Config
 }
 
-var (
-	// ErrNotVirtual is returned when the caller opens a DB on a non-virtual channel.
-	ErrNotVirtual = errors.New("channel is not virtual")
-	// ErrDBClosed is returned when an operation is attempted on a closed DB.
-	ErrDBClosed = resource.NewClosedError("virtual.db")
-)
+// ErrDBClosed is returned when an operation is attempted on a closed DB.
+var ErrDBClosed = resource.NewClosedError("virtual.db")
 
-// Config is the configuration for opening a DB. The DB's data path is purely
-// in-memory; when FS is provided, the DB also owns persistence of the channel's
-// metadata, mirroring the unary engine.
+// Config is the configuration for opening a DB. The DB is a purely in-memory engine:
+// nothing about the channel is ever written to the file system.
 type Config struct {
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// Channel that the database will operate on. When FS is not provided, all fields
-	// must be fully resolved by the caller before opening the DB. When FS is provided
-	// and a metadata file already exists, the channel is read from it instead.
+	// Channel that the database will operate on. All fields must be fully resolved by
+	// the caller before opening the DB.
 	//
 	// [REQUIRED]
 	Channel channel.Channel
-	// FS is the file system the DB persists its channel metadata to. When nil, the
-	// channel's registration is kept purely in memory (transient channels).
-	//
-	// [OPTIONAL]
-	FS fs.FS
-	// MetaCodec is used to encode and decode metadata about the channel.
-	//
-	// [REQUIRED when FS is provided]
-	MetaCodec encoding.Codec
 }
 
 var _ config.Config[Config] = Config{}
@@ -97,9 +83,6 @@ var _ config.Config[Config] = Config{}
 func (cfg Config) Validate() error {
 	v := validate.New("cesium.virtual")
 	validate.Positive(v, "channel.key", cfg.Channel.Key)
-	if cfg.FS != nil {
-		validate.NotNil(v, "meta_codec", cfg.MetaCodec)
-	}
 	return v.Error()
 }
 
@@ -109,24 +92,19 @@ func (cfg Config) Override(other Config) Config {
 		cfg.Channel = other.Channel
 	}
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.FS = override.Nil(cfg.FS, other.FS)
-	cfg.MetaCodec = override.Nil(cfg.MetaCodec, other.MetaCodec)
 	return cfg
 }
 
-func Open(ctx context.Context, configs ...Config) (*DB, error) {
+// Open opens a DB on the virtual channel in the given configuration. It returns a
+// validation error if the configuration is invalid or the channel is not virtual.
+func Open(configs ...Config) (*DB, error) {
 	cfg, err := config.New(Config{}, configs...)
 	if err != nil {
 		return nil, err
 	}
-	if cfg.FS != nil {
-		if cfg.Channel, err = meta.Open(ctx, cfg.FS, cfg.Channel, cfg.MetaCodec); err != nil {
-			return nil, err
-		}
-	}
 	wrapError := channel.NewErrorWrapper(cfg.Channel)
 	if !cfg.Channel.Virtual {
-		return nil, wrapError(ErrNotVirtual)
+		return nil, wrapError(errors.New("channel is not virtual"))
 	}
 	c, err := control.New[*controlResource](control.Config{
 		Concurrency:     xcontrol.ConcurrencyShared,
@@ -147,9 +125,8 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) Channel() channel.Channel {
-	return db.cfg.Channel
-}
+// Channel returns the channel the DB operates on.
+func (db *DB) Channel() channel.Channel { return db.cfg.Channel }
 
 // AllocateLeadingAlignment reserves and returns a fresh leading alignment domain for
 // the channel. Writers on an index group allocate one domain per group from the group's
@@ -158,48 +135,58 @@ func (db *DB) AllocateLeadingAlignment() telem.Alignment {
 	return telem.NewAlignment(db.leadingAlignment.Add(1), 0)
 }
 
+// LeadingControlState returns the control state of the subject currently in control of
+// the channel, or nil if no writers are open on the DB.
 func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 
+// Close closes the DB. It returns an error wrapping resource.ErrOpen if any writers are
+// still open on the DB, in which case the DB remains usable. Closing an already-closed
+// DB is a no-op.
 func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
 	count := db.openWriters.Load()
 	if count > 0 {
-		err := db.wrapError(errors.Wrapf(resource.ErrOpen, "cannot close channel because there are %d unclosed writers accessing it", count))
+		err := db.wrapError(errors.Wrapf(
+			resource.ErrOpen,
+			"cannot close channel because there are %d unclosed writers accessing it",
+			count,
+		))
 		db.closed.Store(false)
 		return err
 	}
 	return nil
 }
 
-// RenameChannel renames the DB's channel to the given name, persisting the change to
-// the metadata file when the DB was opened with a file system.
-func (db *DB) RenameChannel(ctx context.Context, newName string) error {
+// RenameChannel renames the DB's channel to the given name. It returns ErrDBClosed if
+// the DB is closed.
+func (db *DB) RenameChannel(newName string) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	if db.cfg.Channel.Name == newName {
-		return nil
-	}
 	db.cfg.Channel.Name = newName
-	if db.cfg.FS == nil {
-		return nil
-	}
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	return nil
 }
 
-// SetChannelKey sets the key of the channel for this DB, persisting the change to the
-// metadata file when the DB was opened with a file system.
-func (db *DB) SetChannelKey(ctx context.Context, key channel.Key) error {
+// SetChannelKey sets the key of the channel for this DB. It returns ErrDBClosed if the
+// DB is closed.
+func (db *DB) SetChannelKey(key channel.Key) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
 	db.cfg.Channel.Key = key
-	if db.cfg.FS == nil {
-		return nil
+	return nil
+}
+
+// SetIndexKey sets the key of the index channel that the DB's channel is grouped with.
+// It returns ErrDBClosed if the DB is closed.
+func (db *DB) SetIndexKey(key channel.Key) error {
+	if db.closed.Load() {
+		return ErrDBClosed
 	}
-	return meta.Create(ctx, db.cfg.FS, db.cfg.MetaCodec, db.cfg.Channel)
+	db.cfg.Channel.Index = key
+	return nil
 }

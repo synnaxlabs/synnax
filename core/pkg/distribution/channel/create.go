@@ -26,39 +26,35 @@ import (
 // the host node.
 func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, error) {
 	out := make([]Channel, len(channels))
-	indicesByTarget := make(map[node.Key][]int)
-	freeIndices := make([]int, 0)
+	copy(out, channels)
 	host := s.cfg.HostResolver.HostKey()
-	for i, ch := range channels {
-		out[i] = ch
+	for i := range out {
 		if out[i].Leaseholder == 0 {
 			out[i].Leaseholder = host
 		}
-		lease := out[i].Lease()
-		if lease.IsFree() {
-			freeIndices = append(freeIndices, i)
-		} else {
-			indicesByTarget[lease] = append(indicesByTarget[lease], i)
-		}
 	}
+	indicesByTarget := lo.GroupBy(
+		lo.Range(len(out)),
+		func(i int) node.Key { return out[i].Lease() },
+	)
 	for target, indices := range indicesByTarget {
-		if target == host {
-			if err := s.allocateGateway(ctx, out, indices); err != nil {
-				return nil, err
-			}
-			continue
+		chs := lo.Map(indices, func(i int, _ int) Channel { return out[i] })
+		var err error
+		switch {
+		case target == host:
+			err = s.allocateGateway(ctx, chs)
+		case target.IsFree() && host.IsBootstrapper():
+			err = s.allocateFree(ctx, chs)
+		case target.IsFree():
+			err = s.allocateRemote(ctx, node.KeyBootstrapper, chs)
+		default:
+			err = s.allocateRemote(ctx, target, chs)
 		}
-		if err := s.allocateRemote(ctx, target, out, indices); err != nil {
+		if err != nil {
 			return nil, err
 		}
-	}
-	if len(freeIndices) > 0 {
-		if host.IsBootstrapper() {
-			if err := s.allocateFree(ctx, out, freeIndices); err != nil {
-				return nil, err
-			}
-		} else if err := s.allocateRemote(ctx, node.KeyBootstrapper, out, freeIndices); err != nil {
-			return nil, err
+		for j, i := range indices {
+			out[i] = chs[j]
 		}
 	}
 	return out, nil
@@ -99,84 +95,58 @@ func assignKeys(ctx context.Context, c *counter, channels []Channel) error {
 	return nil
 }
 
-func pick(channels []Channel, indices []int) []Channel {
-	out := make([]Channel, len(indices))
-	for j, i := range indices {
-		out[j] = channels[i]
-	}
-	return out
-}
-
-func putBack(channels []Channel, indices []int, picked []Channel) {
-	for j, i := range indices {
-		channels[i] = picked[j]
-	}
-}
-
-func (s *Service) allocateGateway(ctx context.Context, out []Channel, indices []int) error {
-	chs := pick(out, indices)
-	if err := assignKeys(ctx, s.leasedCounter, chs); err != nil {
+func (s *Service) allocateGateway(ctx context.Context, channels []Channel) error {
+	if err := assignKeys(ctx, s.leasedCounter, channels); err != nil {
 		return err
 	}
-	if err := s.cfg.TS.CreateChannel(ctx, lo.Map(chs, func(c Channel, _ int) ts.Channel {
+	return s.cfg.TS.CreateChannel(ctx, lo.Map(channels, func(c Channel, _ int) ts.Channel {
 		return c.Storage()
-	})...); err != nil {
-		return err
-	}
-	putBack(out, indices, chs)
-	return nil
+	})...)
 }
 
-func (s *Service) allocateFree(
-	ctx context.Context, out []Channel, indices []int,
-) error {
-	chs := pick(out, indices)
-	if err := assignKeys(ctx, s.freeCounter, chs); err != nil {
+func (s *Service) allocateFree(ctx context.Context, channels []Channel) error {
+	if err := assignKeys(ctx, s.freeCounter, channels); err != nil {
 		return err
 	}
 	// Free channels are created in the local storage engine on the same path as
 	// gateway-leased channels. Every free create executes here on the bootstrapper, so
 	// a newly created channel can never collide with an existing storage registration;
 	// other nodes register free channels when they scan the channel table at startup
-	// (see RegisterFreeStorage).
-	if err := s.cfg.TS.CreateChannel(ctx, lo.Map(chs, func(c Channel, _ int) ts.Channel {
+	// (see RegisterVirtualStorage).
+	return s.cfg.TS.CreateChannel(ctx, lo.Map(channels, func(c Channel, _ int) ts.Channel {
 		return c.Storage()
-	})...); err != nil {
-		return err
-	}
-	putBack(out, indices, chs)
-	return nil
+	})...)
 }
 
 func (s *Service) allocateRemote(
 	ctx context.Context,
 	target node.Key,
-	out []Channel,
-	indices []int,
+	channels []Channel,
 ) error {
 	addr, err := s.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
 	}
-	res, err := s.cfg.Transport.CreateClient().Send(ctx, addr, CreateMessage{Channels: pick(out, indices)})
+	res, err := s.cfg.Transport.CreateClient().
+		Send(ctx, addr, CreateMessage{Channels: channels})
 	if err != nil {
 		return err
 	}
-	if len(res.Channels) != len(indices) {
+	if len(res.Channels) != len(channels) {
 		return errors.Newf(
 			"[channel.Service] - allocator received %d channels from %v, expected %d",
-			len(res.Channels), target, len(indices),
+			len(res.Channels), target, len(channels),
 		)
 	}
-	putBack(out, indices, res.Channels)
+	copy(channels, res.Channels)
 	return nil
 }
 
-// RegisterFreeStorage registers the given free channels in this node's local storage
-// engine as transient virtual channels. Free channels are transient in storage and
-// vanish on restart, so each node registers the cluster's free channels once at
-// startup; creates after startup register on the bootstrapper through Create.
-func (s *Service) RegisterFreeStorage(ctx context.Context, channels []Channel) error {
+// RegisterVirtualStorage registers the given virtual channels in this node's local
+// storage engine. Virtual channels are never persisted by the storage layer and vanish
+// on restart, so each node re-registers the virtual channels it serves writes for once
+// at startup; creates after startup register through Create.
+func (s *Service) RegisterVirtualStorage(ctx context.Context, channels []Channel) error {
 	return s.cfg.TS.CreateChannel(ctx, lo.Map(channels, func(c Channel, _ int) ts.Channel {
 		return c.Storage()
 	})...)

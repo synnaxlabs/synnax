@@ -29,6 +29,9 @@ export const providerStateZ = z.object({});
 
 interface InternalState {
   instrumentation: Instrumentation;
+  /** Error handler bound from the current afterUpdate's context, reused by afterDelete
+   * (which has no update-triggering context of its own to derive one from). */
+  runAsync: status.ErrorHandler;
 }
 
 export const PROVIDER_TYPE = "telem.Provider";
@@ -46,16 +49,12 @@ export const createProvider = (
     afterUpdate(ctx: aether.Context): void {
       const { internal: i } = this;
       const core = synnax.use(ctx);
-      const runAsync = status.useErrorHandler(ctx);
       i.instrumentation = alamos.useInstrumentation(ctx, "telem").child("provider");
+      i.runAsync = status.useErrorHandler(ctx);
       const shouldSwap = core !== this.prevCore || !ctx.wasSetPreviously(CONTEXT_KEY);
       if (!shouldSwap) return;
       this.prevCore = core;
-      if (this.client != null)
-        runAsync(async () => {
-          if (this.client == null) throw new Error("no client to close");
-          await this.client.close();
-        }, "failed to close client");
+      this.closeClient();
 
       this.client =
         core == null
@@ -64,6 +63,19 @@ export const createProvider = (
       const f = createFactory(this.client);
       const value = new Context(f);
       setContext(ctx, value);
+    }
+
+    afterDelete(): void {
+      this.closeClient();
+    }
+
+    private closeClient(): void {
+      const { client: current } = this;
+      if (current == null) return;
+      this.client = null;
+      this.internal.runAsync(async () => {
+        await current.close();
+      }, "failed to close client");
     }
   }
   return BaseProvider;

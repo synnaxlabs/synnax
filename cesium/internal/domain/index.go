@@ -22,6 +22,7 @@ import (
 
 type index struct {
 	indexPersist *indexPersist
+	totalSize    *atomic.Int64
 	alamos.Instrumentation
 	mu struct {
 		pointers []pointer
@@ -29,7 +30,6 @@ type index struct {
 	}
 	persistHead int
 	deleteLock  sync.RWMutex
-	totalSize   *atomic.Int64
 }
 
 // insert adds a new pointer to the index.

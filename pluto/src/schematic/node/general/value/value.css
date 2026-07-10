@@ -44,7 +44,7 @@
             padding: 0 2rem;
         }
 
-        & small {
+        & .pluto-text {
             color: var(--pluto-symbol-contrast);
             font-weight: 500;
         }

@@ -9,14 +9,14 @@
 
 import { type ReactElement, useCallback } from "react";
 
-import { Items } from "@/app/nav/items";
+import { Toolbars } from "@/app/toolbars";
 import { Nav } from "@/platform/nav";
 import { Session } from "@/session";
 
 export const Left = (): ReactElement => {
   const { selected, hover, size } = Session.Nav.useSelectLeft();
   const dispatch = Session.useDispatch();
-  const item = Items.LEFT.find((i) => i.key === selected);
+  const item = Toolbars.LEFT.find((i) => i.key === selected);
   const handleResizeEnd = useCallback(
     (size: number) => dispatch(Session.Nav.resizeLeft({ size })),
     [dispatch],
@@ -29,7 +29,7 @@ export const Left = (): ReactElement => {
     () => dispatch(Session.Nav.stopLeftHover({})),
     [dispatch],
   );
-  const { initialSize = Items.DEFAULT_SIZE, sizeBounds, content } = item ?? {};
+  const { initialSize = Toolbars.DEFAULT_SIZE, sizeBounds, content } = item ?? {};
   return (
     <Nav.Drawer
       location="left"
