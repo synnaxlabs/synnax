@@ -10,6 +10,8 @@
 package cesium_test
 
 import (
+	"context"
+	"io"
 	"runtime"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,11 +19,31 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// openStreamer opens a streamer on db with the given config and starts it in an
+// isolated signal context, returning the streamer's request inlet, its response outlet,
+// and a closer that shuts the streamer down.
+func openStreamer(db *cesium.DB, cfg cesium.StreamerConfig) (
+	confluence.Inlet[cesium.StreamerRequest],
+	confluence.Outlet[cesium.StreamerResponse],
+	io.Closer,
+) {
+	streamer := MustSucceed(db.NewStreamer(context.Background(), cfg))
+	requests := confluence.NewStream[cesium.StreamerRequest](1)
+	responses := confluence.NewStream[cesium.StreamerResponse](2)
+	streamer.InFrom(requests)
+	streamer.OutTo(responses)
+	sCtx, cancel := signal.Isolated()
+	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+	return requests, responses, signal.NewHardShutdown(sCtx, cancel)
+}
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, openFS := range FileSystems {
