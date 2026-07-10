@@ -57,6 +57,7 @@ export * from "@/feature/ni/task/CounterRead";
 export * from "@/feature/ni/task/DigitalRead";
 export * from "@/feature/ni/task/DigitalWrite";
 export * from "@/feature/ni/task/types";
+export * from "@/feature/ni/task/useToggleScanner";
 
 export const EXTRACTORS: Export.Extractors = {
   [ANALOG_READ_TYPE]: Task.extract,

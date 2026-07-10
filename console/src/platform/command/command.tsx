@@ -78,9 +78,11 @@ export const create = ({
   useVisible,
   sortOrder,
 }: CreateParams): Command => {
-  const Cmd: Command = (listProps) => (
-    <ListItem {...listProps} name={name} icon={icon} onSelect={useOnSelect()} />
-  );
+  const Cmd: Command = (listProps) => {
+    const handleSelect = useOnSelect();
+    const onSelect = useCallback(() => handleSelect(), [handleSelect]);
+    return <ListItem {...listProps} name={name} icon={icon} onSelect={onSelect} />;
+  };
   Cmd.key = key;
   Cmd.commandName = name;
   Cmd.sortOrder = sortOrder;

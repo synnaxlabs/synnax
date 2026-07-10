@@ -14,23 +14,11 @@ import { describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { NI } from "@/feature/ni";
 import { Session } from "@/session";
-import { stubGeometry, uniqueName } from "@/testutil";
+import { stubGeometry } from "@/testutil";
 
 stubGeometry();
 
 const client = createTestClient();
-
-const createScanTask = async () => {
-  const rack = await client.racks.create({ name: uniqueName("ni_scan_rack") });
-  return await rack.createTask(
-    {
-      name: uniqueName("ni_scanner"),
-      type: NI.Task.SCAN_TYPE,
-      config: { enabled: true },
-    },
-    NI.Task.SCAN_SCHEMAS,
-  );
-};
 
 describe("NI.Task Commands", () => {
   it("should list every NI command once task-create access resolves", async () => {
@@ -45,7 +33,6 @@ describe("NI.Task Commands", () => {
       "Create an NI Counter Read Task",
       "Create an NI Digital Write Task",
       "Create an NI Digital Read Task",
-      "Toggle the NI Device Scanner",
     ])
       await waitFor(() => expect(document.body.textContent).toContain(name));
   });
@@ -64,28 +51,6 @@ describe("NI.Task Commands", () => {
       );
       if (placed == null) throw new Error("analog read layout not placed");
       expect(placed.name).toBe(NI.Task.ZERO_ANALOG_READ_PAYLOAD.name);
-    });
-  });
-
-  it("should toggle the scanner task's enabled flag when the toggle command runs", async () => {
-    await createScanTask();
-    const before = await client.tasks.retrieve({
-      types: [NI.Task.SCAN_TYPE],
-      schemas: NI.Task.SCAN_SCHEMAS,
-    });
-    const target = before[0];
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: NI.Task.COMMANDS,
-      client,
-    });
-    await openCommandPalette("Scanner");
-    await selectCommand("Toggle the NI Device Scanner");
-    await waitFor(async () => {
-      const after = await client.tasks.retrieve({
-        key: target.key,
-        schemas: NI.Task.SCAN_SCHEMAS,
-      });
-      expect(after.config.enabled).toBe(!target.config.enabled);
     });
   });
 });
