@@ -398,7 +398,8 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Kind == KindFunction {
 		child.Channels = types.NewChannels()
 	}
-	if sym.Kind == KindVariable || sym.Kind == KindStatefulVariable {
+	switch sym.Kind {
+	case KindVariable, KindStatefulVariable:
 		if _, err := s.ClosestAncestorOfKind(KindFunction); err != nil {
 			child.ID = s.Root().addIndex()
 			if child.ID >= maxProgramLocalChannelKey {
@@ -410,9 +411,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 		} else {
 			child.ID = s.addIndex()
 		}
-	} else if sym.Kind == KindInput ||
-		sym.Kind == KindOutput ||
-		sym.Kind == KindLoopVariable {
+	case KindInput, KindOutput, KindLoopVariable:
 		child.ID = s.addIndex()
 	}
 	s.children = append(s.children, child)
