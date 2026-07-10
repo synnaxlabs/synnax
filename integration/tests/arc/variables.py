@@ -186,12 +186,14 @@ vars_start => reassign_main
 sequence reassign_main {
     rx str := "init: " + rx_src
     ra := ch_init
+    wa := wa_init
     rc str := "init"
     rs str $= "init"
 
     stage r_entry {
         rx -> rx_out
         ra -> ra_out
+        "entry" -> wa
         rc -> rc_out
         rs -> rs_out
         e_to_b >= 1 => r_b
@@ -201,6 +203,7 @@ sequence reassign_main {
         rx = "a: " + rx_src
         rx -> rx_out
         ra -> ra_out
+        "a" -> wa
         rc -> rc_out
         rs -> rs_out
         a_to_d >= 1 => r_d
@@ -210,6 +213,7 @@ sequence reassign_main {
         rx -> rx_out
         ra = chb
         ra -> ra_out
+        wa = wa_b
         rc = "b"
         rc -> rc_out
         rs = "b"
@@ -220,6 +224,7 @@ sequence reassign_main {
         rx -> rx_out
         ra = chc
         ra -> ra_out
+        wa = wa_c
         rc = "c"
         rc -> rc_out
         rs = "c"
@@ -231,9 +236,19 @@ sequence reassign_main {
         rx -> rx_out
         ra = chd
         ra -> ra_out
+        wa = wa_d
         rc = "d"
         rc -> rc_out
         rs = "d"
+        rs -> rs_out
+        d_to_e >= 1 => r_e
+    }
+    stage r_e {
+        rx = "e: " + rx_src
+        rx -> rx_out
+        ra -> ra_out
+        "e" -> wa
+        rc -> rc_out
         rs -> rs_out
     }
 }
@@ -277,6 +292,9 @@ REEXPR_OUTPUTS = [
     "ra_out",
     "rc_out",
     "rs_out",
+    "wa_init",
+    "wa_c",
+    "wa_d",
 ]
 OUTPUTS = VAR_OUTPUTS + INHERIT_OUTPUTS + SCOPE_OUTPUTS + RESET_OUTPUTS + REEXPR_OUTPUTS
 
@@ -332,6 +350,10 @@ STR_CHANNELS = [
     "chb",
     "chc",
     "chd",
+    "wa_init",
+    "wa_b",
+    "wa_c",
+    "wa_d",
     "ra_out",
     "rc_out",
     "rs_out",
@@ -343,6 +365,7 @@ U8_CHANNELS = [
     "e_to_b",
     "c_to_a",
     "a_to_d",
+    "d_to_e",
 ]
 
 CHANNELS: list[tuple[str, sy.DataType]] = (
@@ -471,16 +494,17 @@ class Variables(ArcCase):
 
     def _verify_reexpr(self) -> None:
         self.log("=== reactive re-expr across jumps (skip + reorder) ===")
-        # rx/rc/rs/ra share the jump path entry->c->a->d (skip b): each is rebound in c
-        # and d but only READ in a. Only ra fails, because its rebind mutates a compile-
-        # time channel key, so a (earlier in source) reads ch_init not c's chc. rx/rc/rs
-        # keep runtime state in a fixed channel. ra is asserted last so it doesn't abort.
+        # ra (read) and wa (write) share the jump path entry->c->a->d->e (skip b), rebound in
+        # c/d. ra reads converge on the live binding each stage. wa writes are one-shot and must
+        # land a stage after their rebind (same-stage races - all stage nodes fire at once):
+        # "entry"->wa_init, out-of-order "a"->wa_c, forward "e"->wa_d; a final sweep checks no leak.
         self.writer.write("rx_src", "1")
         self.writer.write("ch_init", "init")
         self.wait_for_eq("rx_out", "init: 1")
         self.wait_for_eq("rc_out", "init")
         self.wait_for_eq("rs_out", "init")
         self.wait_for_eq("ra_out", "init")
+        self.wait_for_eq("wa_init", "entry")
         self.writer.write("e_to_c", 1)
         self.writer.write("rx_src", "2")
         self.writer.write("chc", "c1")
@@ -495,6 +519,7 @@ class Variables(ArcCase):
         self.wait_for_eq("rc_out", "c")
         self.wait_for_eq("rs_out", "c")
         self.wait_for_eq("ra_out", "c2")
+        self.wait_for_eq("wa_c", "a")
         self.writer.write("a_to_d", 1)
         self.writer.write("rx_src", "4")
         self.writer.write("chd", "d")
@@ -502,3 +527,9 @@ class Variables(ArcCase):
         self.wait_for_eq("rc_out", "d")
         self.wait_for_eq("rs_out", "d")
         self.wait_for_eq("ra_out", "d")
+        self.writer.write("d_to_e", 1)
+        self.writer.write("rx_src", "5")
+        self.wait_for_eq("rx_out", "e: 5")
+        self.wait_for_eq("wa_d", "e")
+        self.wait_for_eq("wa_c", "a")
+        self.wait_for_eq("wa_init", "entry")

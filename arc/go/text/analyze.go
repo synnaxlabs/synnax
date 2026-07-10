@@ -101,6 +101,20 @@ type shellBuilder struct {
 	reExprs []reExprFeeder
 	// aliasBacking maps each reassigned channel alias to the reactive channel its reads use.
 	aliasBacking map[*symbol.Symbol]*symbol.Symbol
+	// aliasWriteBackings maps each reassigned channel alias to its write-redirection machine.
+	aliasWriteBackings map[*symbol.Symbol]*aliasWriteMux
+	// aliasWriteOrder lists reassigned aliases in first-seen order for deterministic lowering.
+	aliasWriteOrder []*symbol.Symbol
+}
+
+// aliasWriteMux holds the write-redirection machine for one reassigned alias.
+type aliasWriteMux struct {
+	// backing is the reactive channel the alias's writes are redirected to.
+	backing *symbol.Symbol
+	// initBinding is the channel the alias is bound to at its declaration.
+	initBinding *symbol.Symbol
+	// feeders forward backing to each rebind's channel, selected by the shared switch.
+	feeders []reExprFeeder
 }
 
 // reExprFeeder records a reactive re-expression: its feeder subgraph and switch channel.
@@ -156,10 +170,11 @@ func (s *shellBuilder) reExprsFor(target *symbol.Symbol) []reExprFeeder {
 
 func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
 	return &shellBuilder{
-		activations:  map[string]ir.Handle{},
-		synthByAST:   synthByAST,
-		varChannels:  set.New[uint32](),
-		aliasBacking: map[*symbol.Symbol]*symbol.Symbol{},
+		activations:        map[string]ir.Handle{},
+		synthByAST:         synthByAST,
+		varChannels:        set.New[uint32](),
+		aliasBacking:       map[*symbol.Symbol]*symbol.Symbol{},
+		aliasWriteBackings: map[*symbol.Symbol]*aliasWriteMux{},
 	}
 }
 
@@ -408,6 +423,9 @@ func analyzeIdentifierByRole(
 			shell.varChannels.Add(channelKey(sym))
 		}
 		if isSink {
+			if mux, ok := shell.aliasWriteBackings[sym]; ok {
+				sym = mux.backing
+			}
 			r, ok := buildChannelWriteNode(name, sym, kg)
 			return flowNodeResult{node: r}, ok
 		}
@@ -809,10 +827,7 @@ func lowerAssignment[T antlr.ParserRuleContext](
 		return lowerVarWrite(ctx, target, expr, kg, shell)
 	case symbol.VarKindChannelAlias:
 		rebindAlias(ctx, target, expr)
-		if backing, ok := shell.aliasBacking[target]; ok {
-			return lowerReExpr(ctx, backing, expr, kg, shell)
-		}
-		return nil, nil, true
+		return lowerAliasRebind(ctx, target, expr, kg, shell)
 	case symbol.VarKindReactive:
 		return lowerReExpr(ctx, target, expr, kg, shell)
 	default:
@@ -833,6 +848,27 @@ func lowerReExpr[T antlr.ParserRuleContext](
 	if !ok {
 		return nil, nil, false
 	}
+	sw, stepNodes, stepEdges, ok := buildFeederSwitch(ctx, target, kg, shell)
+	if !ok {
+		return nil, nil, false
+	}
+	shell.recordReExpr(reExprFeeder{
+		target:    target,
+		nodes:     feederNodes,
+		edges:     feederEdges,
+		switchSym: sw,
+	})
+	return stepNodes, stepEdges, true
+}
+
+// buildFeederSwitch creates the program-local switch a reassignment writes to advance its
+// feeder machine, returning the switch symbol and the pulse->write step nodes.
+func buildFeederSwitch[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	target *symbol.Symbol,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (*symbol.Symbol, []ir.Node, []ir.Edge, bool) {
 	// The switch channel is compiler-internal: it stays out of user-facing
 	// resolution and the value-variable collectors (seed, flow, reset).
 	sw, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
@@ -843,23 +879,94 @@ func lowerReExpr[T antlr.ParserRuleContext](
 	})
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return nil, nil, false
+		return nil, nil, nil, false
 	}
 	sw.Name = fmt.Sprintf("__reexpr_switch_%s_%d", target.Name, sw.ID)
 	write, ok := buildChannelWriteNode(sw.Name, sw, kg)
 	if !ok {
-		return nil, nil, false
+		return nil, nil, nil, false
 	}
 	shell.varChannels.Add(channelKey(sw))
 	pulse := buildActivationPulse(kg)
+	stepEdge := ir.Edge{Source: pulse.output, Target: write.input, Kind: ir.EdgeKindContinuous}
+	return sw, []ir.Node{pulse.node, write.node}, []ir.Edge{stepEdge}, true
+}
+
+// lowerAliasRebind records a reassigned alias's read and write feeders off one shared
+// switch, so both its read and write machines advance to the new binding together.
+func lowerAliasRebind[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	alias *symbol.Symbol,
+	expr parser.IExpressionContext,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) ([]ir.Node, []ir.Edge, bool) {
+	readBacking, ok := shell.aliasBacking[alias]
+	if !ok {
+		return nil, nil, true
+	}
+	mux, ok := shell.aliasWriteBackings[alias]
+	if !ok {
+		return nil, nil, true
+	}
+	readNodes, readEdges, ok := lowerVarWrite(ctx, readBacking, expr, kg, shell)
+	if !ok {
+		return nil, nil, false
+	}
+	writeNodes, writeEdges, ok := buildAliasWriteFeeder(ctx, mux.backing, expr, kg)
+	if !ok {
+		return nil, nil, false
+	}
+	sw, stepNodes, stepEdges, ok := buildFeederSwitch(ctx, alias, kg, shell)
+	if !ok {
+		return nil, nil, false
+	}
 	shell.recordReExpr(reExprFeeder{
-		target:    target,
-		nodes:     feederNodes,
-		edges:     feederEdges,
+		target:    readBacking,
+		nodes:     readNodes,
+		edges:     readEdges,
 		switchSym: sw,
 	})
-	stepEdge := ir.Edge{Source: pulse.output, Target: write.input, Kind: ir.EdgeKindContinuous}
-	return []ir.Node{pulse.node, write.node}, []ir.Edge{stepEdge}, true
+	mux.feeders = append(mux.feeders, reExprFeeder{
+		target:    mux.backing,
+		nodes:     writeNodes,
+		edges:     writeEdges,
+		switchSym: sw,
+	})
+	return stepNodes, stepEdges, true
+}
+
+// buildAliasWriteFeeder forwards a reassigned alias's write backing to the channel named
+// by expr, the write machine's per-rebind feeder.
+func buildAliasWriteFeeder[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	writeBacking *symbol.Symbol,
+	expr parser.IExpressionContext,
+	kg *keyGenerator,
+) ([]ir.Node, []ir.Edge, bool) {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil, nil, false
+	}
+	binding, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		return nil, nil, false
+	}
+	return buildBackingForward(writeBacking, binding, kg)
+}
+
+// buildBackingForward builds read(backing) -> write(dst), the write machine's per-state forward.
+func buildBackingForward(backing, dst *symbol.Symbol, kg *keyGenerator) ([]ir.Node, []ir.Edge, bool) {
+	read, ok := buildChannelReadNode(backing.Name, backing, kg)
+	if !ok {
+		return nil, nil, false
+	}
+	write, ok := buildChannelWriteNode(dst.Name, dst, kg)
+	if !ok {
+		return nil, nil, false
+	}
+	edge := ir.Edge{Source: read.output, Target: write.input, Kind: ir.EdgeKindContinuous}
+	return []ir.Node{read.node, write.node}, []ir.Edge{edge}, true
 }
 
 // buildReExprMachine builds target's feeder machine (init + reassignment states) and
@@ -921,10 +1028,12 @@ func rebindAlias[T antlr.ParserRuleContext](
 	target.SourceID = &id
 }
 
-// createAliasBacking adds the reactive channel a reassigned alias's reads resolve to.
+// createAliasBacking adds a reactive channel that redirects a reassigned alias's reads
+// or writes; role distinguishes the two so each alias gets a distinct backing.
 func createAliasBacking[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	alias *symbol.Symbol,
+	role string,
 	shell *shellBuilder,
 ) (*symbol.Symbol, bool) {
 	backing, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
@@ -938,9 +1047,29 @@ func createAliasBacking[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(diagnostics.Error(err, alias.AST))
 		return nil, false
 	}
-	backing.Name = fmt.Sprintf("__alias_backing_%s_%d", alias.Name, backing.ID)
+	backing.Name = fmt.Sprintf("__alias_backing_%s_%s_%d", role, alias.Name, backing.ID)
 	shell.varChannels.Add(channelKey(backing))
 	return backing, true
+}
+
+// resolveAliasInit resolves the channel an alias is bound to at its declaration.
+func resolveAliasInit[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	alias *symbol.Symbol,
+) (*symbol.Symbol, bool) {
+	lv, ok := alias.AST.(parser.ILocalVariableContext)
+	if !ok || lv.Expression() == nil {
+		return nil, false
+	}
+	primary := parser.GetPrimaryExpression(lv.Expression())
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil, false
+	}
+	src, err := alias.Parent.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		return nil, false
+	}
+	return src, true
 }
 
 // collectAliasBackings backs every reassigned alias before the main walk.
@@ -988,9 +1117,21 @@ func recordAliasRebind[T antlr.ParserRuleContext](
 	if _, ok := shell.aliasBacking[sym]; ok {
 		return
 	}
-	if backing, ok := createAliasBacking(ctx, sym, shell); ok {
-		shell.aliasBacking[sym] = backing
+	readBacking, ok := createAliasBacking(ctx, sym, "read", shell)
+	if !ok {
+		return
 	}
+	writeBacking, ok := createAliasBacking(ctx, sym, "write", shell)
+	if !ok {
+		return
+	}
+	initBinding, ok := resolveAliasInit(ctx, sym)
+	if !ok {
+		return
+	}
+	shell.aliasBacking[sym] = readBacking
+	shell.aliasWriteBackings[sym] = &aliasWriteMux{backing: writeBacking, initBinding: initBinding}
+	shell.aliasWriteOrder = append(shell.aliasWriteOrder, sym)
 }
 
 // analyzeNextToken emits a transition intent that advances the enclosing
@@ -1322,6 +1463,28 @@ func Analyze(
 		i.Nodes = append(i.Nodes, initNodes...)
 		i.Edges = append(i.Edges, initEdges...)
 		for _, f := range feeders {
+			i.Nodes = append(i.Nodes, f.nodes...)
+			i.Edges = append(i.Edges, f.edges...)
+		}
+		i.Nodes = append(i.Nodes, readers...)
+		rootMembers = append(rootMembers, ir.Member{Scope: &machine})
+	}
+
+	// Assemble each reassigned alias's write machine, forwarding its write backing to the
+	// binding current at runtime; the mirror of the read machine above.
+	for _, alias := range shell.aliasWriteOrder {
+		mux := shell.aliasWriteBackings[alias]
+		initNodes, initEdges, ok := buildBackingForward(mux.backing, mux.initBinding, kg)
+		if !ok {
+			return i, aCtx.Diagnostics
+		}
+		machine, readers, ok := buildReExprMachine(mux.backing, initNodes, mux.feeders, kg)
+		if !ok {
+			return i, aCtx.Diagnostics
+		}
+		i.Nodes = append(i.Nodes, initNodes...)
+		i.Edges = append(i.Edges, initEdges...)
+		for _, f := range mux.feeders {
 			i.Nodes = append(i.Nodes, f.nodes...)
 			i.Edges = append(i.Edges, f.edges...)
 		}
