@@ -56,9 +56,9 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"expression":  zyn.String(),
 })
 
-// ToPayload returns a map representation of the channel for use in ontology
-// resources and signal marshaling. The "operations" key is omitted when the
-// channel has no operations.
+// ToPayload returns a map representation of the channel for use in ontology resources
+// and signal marshaling. The "operations" key is omitted when the channel has no
+// operations.
 func (c Channel) ToPayload() map[string]any {
 	p := map[string]any{
 		"key":         c.Key(),
