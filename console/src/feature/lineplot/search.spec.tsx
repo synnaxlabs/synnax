@@ -9,7 +9,7 @@
 
 import { lineplot, type ontology } from "@synnaxlabs/client";
 import { List, Select } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -21,7 +21,7 @@ import { renderWithConsole, uniqueName } from "@/testutil";
 
 describe("lineplot/search", () => {
   it("places the plot's layout when the search result is selected", async () => {
-    const key = id.create();
+    const key = uuid.create();
     const name = uniqueName("plot");
     const resource = createResource(lineplot.ontologyID(key), name);
     const SearchListItem = LinePlot.SEARCH_LIST_ITEMS.lineplot;

@@ -9,7 +9,7 @@
 
 import { type ontology, schematic } from "@synnaxlabs/client";
 import { List, Select } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -21,7 +21,7 @@ import { renderWithConsole, uniqueName } from "@/testutil";
 
 describe("schematic/search", () => {
   it("places the schematic's layout when the search result is selected", async () => {
-    const key = id.create();
+    const key = uuid.create();
     const name = uniqueName("schematic");
     const resource = createResource(schematic.ontologyID(key), name);
     const SearchListItem = Schematic.SEARCH_LIST_ITEMS.schematic;

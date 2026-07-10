@@ -9,7 +9,7 @@
 
 import { log, type ontology } from "@synnaxlabs/client";
 import { List, Select } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -21,7 +21,7 @@ import { renderWithConsole, uniqueName } from "@/testutil";
 
 describe("log/search", () => {
   it("places the log's layout when the search result is selected", async () => {
-    const key = id.create();
+    const key = uuid.create();
     const name = uniqueName("log");
     const resource = createResource(log.ontologyID(key), name);
     const SearchListItem = Log.SEARCH_LIST_ITEMS.log;

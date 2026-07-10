@@ -27,6 +27,7 @@ import { type ReactElement, useCallback, useEffect } from "react";
 import { Imex } from "@/app/imex";
 import { Layout } from "@/app/layout";
 import { Range } from "@/app/range";
+import { Task } from "@/app/task";
 import { Tree } from "@/app/tree";
 import { Vis } from "@/app/vis";
 import { Errors } from "@/platform/errors";
@@ -119,7 +120,9 @@ export const App = (): ReactElement => {
             <Tree.Context>
               <Range.Context>
                 <Imex.Context>
-                  <AppUnderContext />
+                  <Task.Context>
+                    <AppUnderContext />
+                  </Task.Context>
                 </Imex.Context>
               </Range.Context>
             </Tree.Context>

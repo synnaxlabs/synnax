@@ -9,7 +9,7 @@
 
 import { arc, type ontology } from "@synnaxlabs/client";
 import { List, Select } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -21,7 +21,7 @@ import { renderWithConsole, uniqueName } from "@/testutil";
 
 describe("arc/search", () => {
   it("places the arc editor layout when the search result is selected", async () => {
-    const key = id.create();
+    const key = uuid.create();
     const name = uniqueName("arc");
     const resource = createResource(arc.ontologyID(key), name);
     const SearchListItem = Arc.SEARCH_LIST_ITEMS.arc;
