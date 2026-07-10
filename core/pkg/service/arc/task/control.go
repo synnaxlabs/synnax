@@ -26,8 +26,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// controlConflict is a write channel currently controlled by a higher-or-equal authority
-// subject other than this task.
+// controlConflict is a write channel currently controlled by a subject other than this
+// task.
 type controlConflict struct {
 	channel channel.Channel
 	holder  control.Subject
@@ -94,19 +94,6 @@ func declaredWriteKeys(prog arc.Arc) channel.Keys {
 	return keys
 }
 
-// declaredAuthority returns the static authority the program declares for a write channel,
-// falling back to the program default and then the absolute default.
-func declaredAuthority(prog arc.Arc, key channel.Key) control.Authority {
-	auth := prog.Program.Authorities
-	if v, ok := auth.Channels[uint32(key)]; ok {
-		return control.Authority(v)
-	}
-	if auth.Default != nil {
-		return control.Authority(*auth.Default)
-	}
-	return DefaultAuthority
-}
-
 // configureControlConflicts reports the write channels already held by another writer at
 // configure time, read from a synchronous control snapshot local to this node.
 func (f *factory) configureControlConflicts(
@@ -129,24 +116,20 @@ func (f *factory) configureControlConflicts(
 		}
 	}
 	self := control.Subject{Name: prog.Name, Key: t.Key.String()}
-	return evaluateControlConflicts(states, writeChannels, self, prog), nil
+	return evaluateControlConflicts(states, writeChannels, self), nil
 }
 
-// evaluateControlConflicts returns the write channels held by another subject at an
-// authority at least the program's own declared authority, sorted by channel key.
+// evaluateControlConflicts returns the write channels held by a subject other than self,
+// sorted by channel key for stable output.
 func evaluateControlConflicts(
 	states *arccontrol.States,
 	writes []channel.Channel,
 	self control.Subject,
-	prog arc.Arc,
 ) []controlConflict {
 	var conflicts []controlConflict
 	for _, ch := range writes {
 		holder, ok := states.Holder(ch.Key())
 		if !ok || holder.Subject == self {
-			continue
-		}
-		if holder.Authority < declaredAuthority(prog, ch.Key()) {
 			continue
 		}
 		conflicts = append(conflicts, controlConflict{channel: ch, holder: holder.Subject})
@@ -268,7 +251,7 @@ func (w *controlWarner) run(ctx context.Context) {
 		case <-w.done:
 			return
 		case <-w.notify:
-			conflicts := evaluateControlConflicts(w.states, w.writes, w.self, w.task.prog)
+			conflicts := evaluateControlConflicts(w.states, w.writes, w.self)
 			w.task.setConflicts(ctx, conflicts)
 		}
 	}
