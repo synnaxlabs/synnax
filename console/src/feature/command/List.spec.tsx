@@ -30,7 +30,7 @@ const command = (
     ...opts,
   });
 
-describe("Command.createList", () => {
+describe("Command.List", () => {
   it("should hide commands whose useVisible returns false", async () => {
     const { openCommandPalette } = await renderPalette({
       commands: [
