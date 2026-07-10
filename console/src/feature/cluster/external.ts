@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/feature/cluster/commands";
 export * from "@/feature/cluster/ConnectionBadge";
 export * from "@/feature/cluster/link";
 export * from "@/feature/cluster/notifications";
-export * from "@/feature/cluster/palette";
+export * from "@/feature/cluster/tree";
 export * from "@/platform/cluster/external";

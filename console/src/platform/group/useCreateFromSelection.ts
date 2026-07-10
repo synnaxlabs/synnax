@@ -8,20 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { group, ontology } from "@synnaxlabs/client";
-import { Flux, Group, List, Text, Tree } from "@synnaxlabs/pluto";
+import { Flux, Group, List, Text, Tree as PTree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { getResourcesToGroup } from "@/platform/group/getResourcesToGroup";
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 
 export interface CreateFromSelection {
-  (props: Ontology.TreeContextMenuProps): void;
+  (props: Tree.ContextMenuProps): void;
 }
 
-interface CreateParams extends Ontology.TreeContextMenuProps {
+interface CreateParams extends Tree.ContextMenuProps {
   group: group.Group;
-  prevNodes?: Tree.Node<string>[];
+  prevNodes?: PTree.Node<string>[];
 }
 
 const base = Flux.createUpdate<CreateParams, Group.FluxSubStore>({
@@ -53,18 +53,18 @@ const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => 
   const newID = group.ontologyID(key);
   const newIDString = ontology.idToString(newID);
   const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
-  const prevNodes = Tree.deepCopy(nodes);
+  const prevNodes = PTree.deepCopy(nodes);
   const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
   setResource(res);
   const destination = ontology.idsEqual(selection.rootID, selection.parentID)
     ? null
     : ontology.idToString(selection.parentID);
-  let nextNodes = Tree.setNode({
+  let nextNodes = PTree.setNode({
     tree: nodes,
     destination,
     additions: { key: ontology.idToString(newID), children: [] },
   });
-  nextNodes = Tree.moveNode({
+  nextNodes = PTree.moveNode({
     tree: nextNodes,
     destination: ontology.idToString(newID),
     keys: resourcesToGroup.map((id) => ontology.idToString(id)),
@@ -96,7 +96,7 @@ const afterFailure = async ({
 export const useCreateFromSelection = () => {
   const { update } = base.useUpdate({ beforeUpdate, afterFailure });
   return useCallback(
-    (props: Ontology.TreeContextMenuProps) =>
+    (props: Tree.ContextMenuProps) =>
       update({ ...props, group: { key: uuid.create(), name: "" } }),
     [update],
   );

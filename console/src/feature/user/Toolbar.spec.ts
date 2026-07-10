@@ -16,7 +16,7 @@ import {
   expandTreeRow,
   findModalButton,
   renderToolbar,
-} from "@/platform/ontology/menuTestutil";
+} from "@/platform/tree/menuTestutil";
 import { getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();

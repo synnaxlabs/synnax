@@ -97,7 +97,7 @@ describe("device/notifications", () => {
       return (
         <>
           <button onClick={() => add(crude)}>add</button>
-          <Notifications.Notifications notifications={Device.NOTIFICATIONS} />
+          <Notifications.Feed notifications={Device.NOTIFICATIONS} />
         </>
       );
     };
