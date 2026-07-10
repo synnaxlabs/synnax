@@ -255,6 +255,59 @@ var _ = Describe("Sequence", func() {
 			out, _ := h.Flush()
 			Expect(lastU8(out, 202)).To(Equal(uint8(9))) // w_a writes the current binding chc, not ch_init
 		})
+
+		It("reads the latest of two rebinds made across stages before a jump back", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"ch_init":   {types.U8(), 201},
+				"chc":       {types.U8(), 202},
+				"chd":       {types.U8(), 203},
+				"ra_out":    {types.U8(), 102},
+				"e_to_c":    {types.U8(), 103},
+				"c_to_d":    {types.U8(), 104},
+				"d_to_a":    {types.U8(), 105},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        ra := ch_init
+        stage r_entry {
+            e_to_c >= 1 => r_c
+        }
+        stage r_a {
+            ra -> ra_out
+        }
+        stage r_c {
+            ra = chc
+            c_to_d >= 1 => r_d
+        }
+        stage r_d {
+            ra = chd
+            d_to_a >= 1 => r_a
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+				channels.Digest{Key: 202, DataType: telem.Uint8T},
+				channels.Digest{Key: 203, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+				channels.Digest{Key: 103, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+				channels.Digest{Key: 105, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			trigger(h, ctx, 103) // r_entry => r_c (ra = chc)
+			trigger(h, ctx, 104) // r_c => r_d (ra = chd)
+			trigger(h, ctx, 105) // r_d => r_a, earliest in source
+			h.Ingest(203, telem.NewSeriesV[uint8](7))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(7))) // r_a reads chd, the last rebind, not chc or ch_init
+		})
 	})
 
 	Describe("Negative literal variable seeds", func() {
