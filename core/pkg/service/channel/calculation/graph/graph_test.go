@@ -956,7 +956,7 @@ var _ = Describe("Graph", func() {
 			Expect(graph.Open(ctx, graph.Config{
 				Channel: channelSvc,
 				Status:  statusSvc,
-			})).Error().To(HaveOccurred())
+			})).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 
 		It("Should handle Close being called twice", func(ctx SpecContext) {

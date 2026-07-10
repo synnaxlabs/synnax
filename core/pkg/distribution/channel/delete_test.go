@@ -38,11 +38,16 @@ var _ = Describe("Delete", Ordered, func() {
 			MatchError(query.ErrNotFound),
 		)
 	})
-	It("Should skip free-virtual channels without error", func(ctx SpecContext) {
+	It("Should delete the local transient registration of a free-virtual channel", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 			{Name: "free-delete", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
 		}))
-		Expect(n.Channel.Delete(ctx, channel.Keys{out[0].Key()})).To(Succeed())
+		key := out[0].Key()
+		MustSucceed(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
+		Expect(n.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
+		Expect(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey())).Error().To(
+			MatchError(query.ErrNotFound),
+		)
 	})
 	It("Should return an error when a key's leaseholder is not in the cluster", func(ctx SpecContext) {
 		Expect(n.Channel.Delete(ctx, channel.Keys{channel.NewKey(node.Key(99), 1)})).To(
@@ -78,9 +83,16 @@ var _ = Describe("Delete", Ordered, func() {
 				{Name: "gateway-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: gateway.Cluster.HostKey()},
 				{Name: "peer-delete", DataType: telem.TimeStampT, IsIndex: true, Leaseholder: peer.Cluster.HostKey()},
 			}))
-			key := out[0].Key()
-			Expect(gateway.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
-			Expect(peer.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
+			gatewayKey := out[0].Key()
+			peerKey := out[1].Key()
+			Expect(gateway.Channel.Delete(ctx, channel.Keys{gatewayKey})).To(Succeed())
+			Expect(peer.Channel.Delete(ctx, channel.Keys{peerKey})).To(Succeed())
+			Expect(gateway.Storage.TS.RetrieveChannel(ctx, gatewayKey.StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
+			Expect(peer.Storage.TS.RetrieveChannel(ctx, peerKey.StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
 		})
 		It("Should route a mixed batch to each key's leaseholder", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{

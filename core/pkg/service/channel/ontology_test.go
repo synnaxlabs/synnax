@@ -137,13 +137,12 @@ var _ = Describe("Ontology", Ordered, func() {
 					Virtual:  true,
 				}
 				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
-				Eventually(func(g Gomega) {
-					c := <-changes
-					g.Expect(c).To(HaveLen(1))
-					v := c[0]
-					g.Expect(v.Variant).To(Equal(change.VariantSet))
-					g.Expect(v.Key).To(Equal(channel.OntologyID(ch.Key()).String()))
-				}).Should(Succeed())
+				var c []ontology.Change
+				Eventually(changes).Should(Receive(&c))
+				Expect(c).To(HaveLen(1))
+				v := c[0]
+				Expect(v.Variant).To(Equal(change.VariantSet))
+				Expect(v.Key).To(Equal(channel.OntologyID(ch.Key()).String()))
 			})
 		})
 	})
