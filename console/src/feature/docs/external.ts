@@ -10,11 +10,11 @@
 import { Docs } from "@/platform/docs";
 import { type Layout } from "@/platform/layout";
 
-export * from "@/feature/docs/palette";
+export * from "@/feature/docs/commands";
 export * from "@/platform/docs/external";
 export * from "@/session/docs/selectors";
 export * from "@/session/docs/slice";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [Docs.LAYOUT_TYPE]: Docs.Docs,
 };

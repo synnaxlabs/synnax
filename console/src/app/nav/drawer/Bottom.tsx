@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback } from "react";
 
-import { Items } from "@/app/nav/items";
+import { Toolbars } from "@/app/toolbars";
 import { Nav } from "@/platform/nav";
 import { Session } from "@/session";
 
@@ -28,7 +28,7 @@ export const Bottom = (): ReactElement | null => {
     () => dispatch(Session.Nav.stopBottomHover({})),
     [dispatch],
   );
-  const { initialSize = Items.DEFAULT_SIZE, sizeBounds, content } = Items.BOTTOM;
+  const { initialSize = Toolbars.DEFAULT_SIZE, sizeBounds, content } = Toolbars.BOTTOM;
   return (
     <Nav.Drawer
       location="bottom"

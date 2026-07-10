@@ -24,8 +24,8 @@ import { type FC } from "react";
 
 import { CSS } from "@/platform/css";
 import { Layout } from "@/platform/layout";
-import { Ontology as PlatformOntology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
+import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
@@ -34,7 +34,7 @@ const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const promptConfirm = PlatformOntology.useConfirmDelete({ type: "Snapshot" });
+  const promptConfirm = Tree.useConfirmDelete({ type: "Snapshot" });
   if (entry == null) return null;
   const { id, name } = entry;
   const svc = services[id.type];
