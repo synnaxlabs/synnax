@@ -103,38 +103,30 @@ var _ = Describe("Delete", func() {
 							By("Creating a channel")
 							Expect(db.CreateChannel(ctx, vChannel)).To(Succeed())
 							By("Opening a streamer on the channel")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{vChannelKey}}))
-							sCtx, cancel := signal.WithCancel(ctx)
-
-							By("Start streaming")
-							i, _ := confluence.Attach(s, 1)
-							s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+							_, _, closer := openStreamer(db, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{vChannelKey},
+							})
 
 							By("Expecting delete channel to fail because there is an open streamer")
 							Expect(db.DeleteChannel(vChannelKey)).To(Succeed())
 
 							By("All other operations should still happen without error")
-							cancel()
-							i.Close()
+							Expect(closer.Close()).To(Succeed())
 						})
 
 						Specify("Unary Channel", func(ctx SpecContext) {
 							By("Creating a channel")
 							Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
 							By("Opening a streamer on the channel")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{uChannelKey}}))
-							sCtx, cancel := signal.WithCancel(ctx)
-
-							By("Start streaming")
-							i, _ := confluence.Attach(s, 1)
-							s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+							_, _, closer := openStreamer(db, cesium.StreamerConfig{
+								Channels: []cesium.ChannelKey{uChannelKey},
+							})
 
 							By("Expecting delete channel to fail because there is an open streamer")
 							Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
 
 							By("All other operations should still happen without error")
-							cancel()
-							i.Close()
+							Expect(closer.Close()).To(Succeed())
 						})
 
 						Describe("StreamIterator", func() {

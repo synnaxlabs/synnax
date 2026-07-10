@@ -18,18 +18,11 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-// StreamerRequest can be used to update the channel set a Streamer subscribes
-// to.
-type StreamerRequest struct {
-	// Channels sets the channels the Streamer subscribes to.
-	Channels []channel.Key
-}
-
 // StreamerConfig sets the configuration parameters used when opening the Streamer.
 type StreamerConfig struct {
-	// Channels sets the channels the Streamer subscribes to.
+	// Channels sets the channels the Streamer initially subscribes to.
 	Channels []channel.Key
-	// OnSuccessfulStart is closed when the Streamer is successfully opened.
+	// SendOpenAck emits an empty response once the streamer starts flowing.
 	SendOpenAck bool
 }
 
@@ -43,75 +36,53 @@ type StreamerResponse struct {
 	Group uint32
 }
 
-// Streamer allows the caller to tap into the DB's write pipeline using a confluence
-// Segment based interface. To use a Streamer, call DB.NewStreamer with a list of
-// channels whose series you'd like to receive. Then, call Streamer.Flow to start
-// receiving frames.
+// Streamer allows the caller to tap into the DB's write pipeline, emitting a response
+// for every frame written to its subscribed channels. To use a Streamer, call
+// DB.NewStreamer with a list of channels whose series you'd like to receive. Then, call
+// Streamer.Flow to start receiving frames.
 //
 // Streamer must be used carefully, as it can clog the write pipeline if the caller does
 // not receive the incoming frames fast enough. It's recommended that you use a buffered
 // channel for the readers output.
 //
-// Issuing a new StreamerRequest updates the set of channels the stream reader
-// subscribes to.
-//
-// To stop receiving values, simply close the inlet of the streamer. The streamer will
-// then gracefully exit and close its output channel.
-type Streamer[RQ any, RS any] interface {
-	confluence.Segment[RQ, RS]
-	// SetChannels replaces the set of channels the Streamer subscribes to. Unlike a
-	// StreamerRequest, which is applied asynchronously by the streaming goroutine,
-	// the new set applies to every frame written after SetChannels returns, so it
-	// can be used as a readiness barrier. Callers should update the channel set
-	// through SetChannels or through requests, not both.
+// To stop the Streamer, cancel the signal context passed to Flow.
+type Streamer[O any] interface {
+	confluence.Source[O]
+	// SetChannels replaces the set of channels the Streamer subscribes to. The new set
+	// applies to every frame written after SetChannels returns, so it can be used as a
+	// readiness barrier.
 	SetChannels([]channel.Key)
 }
 
-func passThroughStreamerRequestTranslator(req StreamerRequest) StreamerRequest {
-	return req
-}
-
-func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerResponse {
-	return res
-}
-
 // NewStreamer opens a new Streamer using the given configuration. To start receiving
-// frames, call Streamer.Flow. The provided context is only used for opening the
-// streamer, and cancelling it has no implications after NewStreamer returns.
-func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
-	return NewTranslatedStreamer(
-		db,
-		cfg,
-		passThroughStreamerRequestTranslator,
-		passThroughStreamerResponseTranslator,
-	)
-
+// frames, call Streamer.Flow.
+func (db *DB) NewStreamer(cfg StreamerConfig) (Streamer[StreamerResponse], error) {
+	return NewTranslatedStreamer(db, cfg, func(res StreamerResponse) StreamerResponse {
+		return res
+	})
 }
 
-func NewTranslatedStreamer[I any, O any](
+// NewTranslatedStreamer opens a new Streamer whose responses are translated to the
+// given output type before being sent to the streamer's outlet. It allows callers to
+// consume the streamer's output in their own type without an intermediate translation
+// segment.
+func NewTranslatedStreamer[O any](
 	db *DB,
 	cfg StreamerConfig,
-	translateRequest func(I) StreamerRequest,
-	translateResponse func(StreamerResponse) O,
-) (Streamer[I, O], error) {
+	translate func(StreamerResponse) O,
+) (Streamer[O], error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
-	s := &streamer[I, O]{
-		relay:             db.relay,
-		translateResponse: translateResponse,
-		translateRequest:  translateRequest,
-		sendOpenAck:       cfg.SendOpenAck,
-	}
+	s := &streamer[O]{relay: db.relay, translate: translate, sendOpenAck: cfg.SendOpenAck}
 	s.SetChannels(cfg.Channels)
 	return s, nil
 }
 
-type streamer[I any, O any] struct {
-	confluence.AbstractLinear[I, O]
-	relay             *relay
-	translateRequest  func(I) StreamerRequest
-	translateResponse func(StreamerResponse) O
+type streamer[O any] struct {
+	confluence.AbstractUnarySource[O]
+	relay     *relay
+	translate func(StreamerResponse) O
 	// channels is the currently subscribed channel set. Stored atomically so
 	// SetChannels can apply updates synchronously while Flow's delivery loop reads the
 	// set on every frame.
@@ -121,13 +92,13 @@ type streamer[I any, O any] struct {
 	sendOpenAck bool
 }
 
-// SetChannels implements Streamer.
-func (s *streamer[I, O]) SetChannels(keys []channel.Key) { s.channels.Store(&keys) }
+var _ Streamer[StreamerResponse] = (*streamer[StreamerResponse])(nil)
 
-var _ Streamer[StreamerRequest, StreamerResponse] = (*streamer[StreamerRequest, StreamerResponse])(nil)
+// SetChannels implements Streamer.
+func (s *streamer[O]) SetChannels(keys []channel.Key) { s.channels.Store(&keys) }
 
 // Flow implements confluence.Flow.
-func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
+func (s *streamer[O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
 	frames, disconnect := s.relay.connect()
@@ -137,7 +108,7 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			if err := signal.SendUnderContext(
 				ctx,
 				s.Out.Inlet(),
-				s.translateResponse(StreamerResponse{}),
+				s.translate(StreamerResponse{}),
 			); err != nil {
 				return err
 			}
@@ -146,17 +117,12 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
-			case req, ok := <-s.In.Outlet():
-				if !ok {
-					return nil
-				}
-				s.SetChannels(s.translateRequest(req).Channels)
 			case rf := <-frames.Outlet():
 				if filtered := rf.frame.KeepKeys(*s.channels.Load()); !filtered.Empty() {
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),
-						s.translateResponse(StreamerResponse{Frame: filtered, Group: rf.group}),
+						s.translate(StreamerResponse{Frame: filtered, Group: rf.group}),
 					); err != nil {
 						return err
 					}

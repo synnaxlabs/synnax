@@ -61,7 +61,7 @@ type tap interface {
 // host-leased and free channels.
 type gatewayTap struct {
 	io.Closer
-	streamer cesium.Streamer[Request, Response]
+	streamer cesium.Streamer[Response]
 }
 
 // setChannels implements tap.
@@ -222,14 +222,18 @@ func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
 	str, err := cesium.NewTranslatedStreamer(
 		t.TS,
 		ts.StreamerConfig{Channels: keys.Storage()},
-		reqToStorage,
 		resFromStorage,
 	)
 	if err != nil {
 		return nil, err
 	}
-	_, closer := t.startTap(str, "gateway_tap")
-	return &gatewayTap{Closer: closer, streamer: str}, nil
+	str.OutTo(t.Out)
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.Child("gateway_tap")))
+	str.Flow(sCtx, confluence.RecoverWithErrOnPanic(), confluence.WithAddress("gateway_tap"))
+	return &gatewayTap{
+		Closer:   signal.NewHardShutdown(sCtx, cancel),
+		streamer: str,
+	}, nil
 }
 
 // tapIntoPeer opens a new tap that sends requests and receives responses

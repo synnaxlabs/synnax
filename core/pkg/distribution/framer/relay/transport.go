@@ -32,10 +32,6 @@ type Response struct {
 	Group uint32 `json:"group" msgpack:"group"`
 }
 
-func reqToStorage(req Request) ts.StreamerRequest {
-	return ts.StreamerRequest{Channels: req.Keys.Storage()}
-}
-
 func resFromStorage(res ts.StreamerResponse) Response {
 	return Response{Frame: frame.NewFromStorage(res.Frame), Group: res.Group}
 }
