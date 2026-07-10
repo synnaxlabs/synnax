@@ -327,7 +327,7 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("value f32"))
 		})
 
-		It("should provide hover for stages with config", func(ctx SpecContext) {
+		It("should provide hover for stages with input", func(ctx SpecContext) {
 			content := `func threshold{
     limit f64
 } (value f64) u8 {
