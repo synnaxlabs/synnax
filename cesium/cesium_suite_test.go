@@ -41,19 +41,21 @@ func mustOpenDBOnFS(ctx context.Context, fs fs.FS) *cesium.DB {
 func channelKeyToPath(key cesium.ChannelKey) string { return strconv.Itoa(int(key)) }
 
 // openStreamer opens a streamer on db with the given config and starts it in an
-// isolated signal context, returning the streamer, its response outlet, and a closer
-// that shuts the streamer down.
+// isolated signal context, returning the streamer's request inlet, its response
+// outlet, and a closer that shuts the streamer down.
 func openStreamer(db *cesium.DB, cfg cesium.StreamerConfig) (
-	cesium.Streamer[cesium.StreamerResponse],
+	confluence.Inlet[cesium.StreamerRequest],
 	confluence.Outlet[cesium.StreamerResponse],
 	io.Closer,
 ) {
-	streamer := MustSucceed(db.NewStreamer(cfg))
+	streamer := MustSucceed(db.NewStreamer(context.Background(), cfg))
+	requests := confluence.NewStream[cesium.StreamerRequest](1)
 	responses := confluence.NewStream[cesium.StreamerResponse](2)
+	streamer.InFrom(requests)
 	streamer.OutTo(responses)
 	sCtx, cancel := signal.Isolated()
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-	return streamer, responses, signal.NewHardShutdown(sCtx, cancel)
+	return requests, responses, signal.NewHardShutdown(sCtx, cancel)
 }
 
 // virtualChannel returns a virtual channel with the given key and name.
@@ -92,3 +94,5 @@ func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

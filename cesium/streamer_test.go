@@ -69,7 +69,7 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 
-				It("Should deliver writes issued after SetChannels returns", func(ctx SpecContext) {
+				It("Should deliver writes issued after a subscription update is sent", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
@@ -81,7 +81,7 @@ var _ = Describe("Streamer Behavior", func() {
 					}))
 					r, o, closer := openStreamer(db, cesium.StreamerConfig{})
 
-					r.SetChannels([]cesium.ChannelKey{key})
+					r.Inlet() <- cesium.StreamerRequest{Channels: []cesium.ChannelKey{key}}
 					MustSucceed(w.Write(telem.MultiFrame(
 						[]cesium.ChannelKey{key},
 						[]telem.Series{telem.NewSeriesSecondsTSV(10, 11)},
@@ -261,7 +261,7 @@ var _ = Describe("Streamer Behavior", func() {
 						IsIndex:  true,
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
-					Expect(subDB.NewStreamer(cesium.StreamerConfig{
+					Expect(subDB.NewStreamer(ctx, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{key},
 					})).Error().To(MatchError(cesium.ErrDBClosed))
 

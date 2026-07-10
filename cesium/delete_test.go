@@ -215,9 +215,15 @@ var _ = Describe("Delete", func() {
 							Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 						})
 						Specify("Deleting control digest channel should error", func(ctx SpecContext) {
+							// Configuring a control update channel starts a digest writer
+							// that lives until the DB closes, so use a dedicated DB to
+							// keep the spec goroutine-clean.
+							sub := MustSucceed(fs.Sub("control-digest-delete"))
+							subDB := openDBOnFS(ctx, sub)
 							controlKey := GenerateChannelKey()
-							Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
-							Expect(db.DeleteChannel(controlKey)).To(MatchError(ContainSubstring("1 unclosed writers")))
+							Expect(subDB.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
+							Expect(subDB.DeleteChannel(controlKey)).To(MatchError(ContainSubstring("1 unclosed writers")))
+							Expect(subDB.Close()).To(Succeed())
 						})
 					})
 				})

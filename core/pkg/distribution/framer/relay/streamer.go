@@ -139,10 +139,11 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 			// Wait for the relay to confirm our demand has been applied before
 			// signaling readiness. For channels served from local storage (host-leased
 			// and free channels alike) this is a true happens-before barrier:
-			// updateTaps opens the gateway tap and applies its key updates
-			// synchronously, so a write issued after the open ack is guaranteed to be
-			// delivered. Peer taps receive key updates asynchronously and are not
-			// covered by this barrier.
+			// updateTaps opens the gateway tap with the demanded keys or sends the
+			// updated key set before the ack fires, and the cesium streamer applies
+			// pending key updates to every frame written afterward, so a write issued
+			// after the open ack is guaranteed to be delivered. Peer taps receive key
+			// updates asynchronously and are not covered by this barrier.
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
