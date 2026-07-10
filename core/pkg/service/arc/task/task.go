@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"sync"
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -71,7 +72,9 @@ type impl struct {
 	cfg        Config
 	prog       arc.Arc
 
-	closer io.Closer
+	closer      io.Closer
+	status      statusState
+	tickErrored bool
 }
 
 var _ driver.Task = (*impl)(nil)
@@ -93,10 +96,11 @@ func (t *impl) start(ctx context.Context) (err error) {
 	if t.isRunning() {
 		return nil
 	}
-	drt := dataRuntime{}
+	t.resetStatus()
+	drt := dataRuntime{task: t}
 	deps, err := runtime.NewDependencies(ctx, t.factoryCfg.Channel, *t.prog.Program)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 
@@ -123,36 +127,36 @@ func (t *impl) start(ctx context.Context) (err error) {
 
 	timeMod, err := time.NewHost(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 	channelMod, err := channels.NewHost(ctx, wasmRT, drt.state.channel, drt.state.strings)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 	statefulMod, err := stateful.NewHost(ctx, wasmRT, drt.state.series, drt.state.strings)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 	if _, err = series.NewHost(ctx, wasmRT, drt.state.series); err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 	stringsMod, err := strings.NewHost(ctx, wasmRT, drt.state.strings, nil)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 	mathMod, err := math.NewHost(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 	errorsMod, err := stlerrors.NewHost(ctx, wasmRT, nil)
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
@@ -162,7 +166,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 		Reporter: t.reporter(),
 	})
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 	rangesMod, err := ranges.NewModule(ctx, ranges.ModuleConfig{
@@ -172,7 +176,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 		Reporter: t.reporter(),
 	})
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
 
@@ -193,7 +197,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 	if len(t.prog.Program.WASM) > 0 {
 		guest, guestErr := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
 		if guestErr != nil {
-			t.setStatus(ctx, status.VariantError, false, guestErr.Error())
+			t.setTerminal(ctx, status.VariantError, guestErr.Error())
 			return guestErr
 		}
 		stringsMod.SetMemory(guest.Memory())
@@ -217,7 +221,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
 		if nodeErr != nil {
-			t.setStatus(ctx, status.VariantError, false, nodeErr.Error())
+			t.setTerminal(ctx, status.VariantError, nodeErr.Error())
 			return nodeErr
 		}
 		nodes[irNode.Key] = n
@@ -233,19 +237,15 @@ func (t *impl) start(ctx context.Context) (err error) {
 			zap.Error(err),
 		)
 		t.setRuntimeError(ctx, nodeKey, err)
+		t.tickErrored = true
 	}))
 
 	drt.startTime = telem.Now()
 	drt.writeKeys = deps.Writes.Slice()
 
-	var (
-		controlStates *arccontrol.States
-		warner        *controlWarner
-	)
+	var warner *controlWarner
 	if len(deps.Writes) > 0 {
-		controlStates = arccontrol.New()
 		drt.subject = control.Subject{Name: t.prog.Name, Key: t.task.Key.String()}
-		drt.states = controlStates
 	}
 
 	pipeline := plumber.New()
@@ -267,7 +267,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 			framer.StreamerConfig{Keys: deps.Reads.Slice()},
 		)
 		if err != nil {
-			t.setStatus(ctx, status.VariantError, false, err.Error())
+			t.setTerminal(ctx, status.VariantError, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, streamerAddr, streamer)
@@ -284,6 +284,40 @@ func (t *impl) start(ctx context.Context) (err error) {
 		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
 		writeKeys := deps.Writes.Slice()
+
+		// Resolve the control-conflict inputs before opening the writer so a retrieval
+		// failure cannot leak the writer's acquired control gate.
+		declared := declaredWriteKeys(t.prog).Unique()
+		digestKeys, digestErr := controlDigestKeys(ctx, t.factoryCfg.Channel, declared)
+		if digestErr != nil {
+			t.setTerminal(ctx, status.VariantError, digestErr.Error())
+			return digestErr
+		}
+		var writeChannels []channel.Channel
+		if len(digestKeys) > 0 {
+			writeChannels, err = retrieveWriteChannels(ctx, t.factoryCfg.Channel, declared)
+			if err != nil {
+				t.setTerminal(ctx, status.VariantError, err.Error())
+				return err
+			}
+		} else if len(declared) > 0 {
+			t.factoryCfg.L.Warn(
+				"no control digest channels resolved; control warnings disabled",
+				zap.Uint64("key", uint64(t.task.Key)),
+			)
+		}
+
+		// Open the digest streamer before the writer so the writer, which acquires the
+		// control gate, is the last fallible open before Flow.
+		var digestStreamer framer.Streamer
+		if len(digestKeys) > 0 {
+			digestStreamer, err = t.factoryCfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: digestKeys})
+			if err != nil {
+				t.setTerminal(ctx, status.VariantError, err.Error())
+				return err
+			}
+		}
+
 		writerCfg := framer.WriterConfig{
 			ControlSubject: drt.subject,
 			Start:          drt.startTime,
@@ -298,7 +332,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 		var wrt framer.StreamWriter
 		wrt, err = t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
-			t.setStatus(ctx, status.VariantError, false, err.Error())
+			t.setTerminal(ctx, status.VariantError, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, writerAddr, wrt)
@@ -311,7 +345,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 						zap.Int("seqNum", res.SeqNum),
 						zap.Error(res.Err),
 					)
-					t.setStatus(ctx, status.VariantError, false, res.Err.Error())
+					t.setTerminal(ctx, status.VariantError, res.Err.Error())
 					return res.Err
 				} else if !res.Authorized {
 					t.factoryCfg.L.Warn("unauthorized writer response",
@@ -327,29 +361,10 @@ func (t *impl) start(ctx context.Context) (err error) {
 		plumber.SetSink(pipeline, writerResponsesAddr, writerResponses)
 		plumber.MustConnect[framer.WriterResponse](pipeline, writerAddr, writerResponsesAddr, 10)
 
-		digestKeys, digestErr := controlDigestKeys(ctx, t.factoryCfg.Channel, writeKeys)
-		if digestErr != nil {
-			t.setStatus(ctx, status.VariantError, false, digestErr.Error())
-			return digestErr
-		}
-		if len(digestKeys) > 0 {
-			writeChannels, chErr := retrieveWriteChannels(
-				ctx,
-				t.factoryCfg.Channel,
-				declaredWriteKeys(t.prog).Unique(),
-			)
-			if chErr != nil {
-				t.setStatus(ctx, status.VariantError, false, chErr.Error())
-				return chErr
-			}
-			var digestStreamer framer.Streamer
-			digestStreamer, err = t.factoryCfg.Framer.NewStreamer(ctx, framer.StreamerConfig{Keys: digestKeys})
-			if err != nil {
-				t.setStatus(ctx, status.VariantError, false, err.Error())
-				return err
-			}
+		if digestStreamer != nil {
+			states := arccontrol.New()
 			plumber.SetSegment(pipeline, controlStreamerAddr, digestStreamer)
-			warner = newControlWarner(t, controlStates, writeChannels, drt.subject)
+			warner = newControlWarner(t, states, writeChannels, drt.subject)
 			plumber.SetSink(pipeline, controlSinkAddr, warner.sink())
 			plumber.MustConnect[framer.StreamerResponse](pipeline, controlStreamerAddr, controlSinkAddr, 10)
 			digestRequests := confluence.NewStream[framer.StreamerRequest]()
@@ -358,6 +373,9 @@ func (t *impl) start(ctx context.Context) (err error) {
 		}
 	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.factoryCfg.Instrumentation))
+	// Establish the running baseline before launching the warner so a first-frame
+	// conflict cannot be clobbered by a later baseline write.
+	t.setRunning(ctx, true)
 	if warner != nil {
 		sCtx.Go(func(ctx context.Context) error {
 			warner.run(ctx)
@@ -373,7 +391,6 @@ func (t *impl) start(ctx context.Context) (err error) {
 	}
 	t.closer = closers
 	closers = nil
-	t.setStatus(ctx, status.VariantSuccess, true, "Task started successfully")
 	pipeline.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
@@ -393,26 +410,91 @@ func (t *impl) Stop() error {
 	// https://linear.app/synnax/issue/SY-4002/refactor-usages-of-contextcontext
 	ctx := context.TODO()
 	if err != nil {
-		t.setStatus(ctx, status.VariantError, false, err.Error())
+		t.setTerminal(ctx, status.VariantError, err.Error())
 		return err
 	}
-	t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
+	t.setTerminal(ctx, status.VariantSuccess, "Task stopped successfully")
 	return nil
 }
 
-func (t *impl) reporter() taskreporter.Reporter {
-	return func(ctx context.Context, variant status.Variant, message string) {
-		t.setStatus(ctx, variant, t.isRunning(), fmt.Sprintf("[%s] %s", t.task.Name, message))
+// statusContribution is one source's contribution to the composed task status.
+type statusContribution struct {
+	variant     status.Variant
+	message     string
+	description string
+}
+
+// statusState composes one task status from the conditions that can hold at once, so one
+// writer clearing its condition never erases another's. Safe for concurrent use.
+type statusState struct {
+	// mu guards every field and is held across the status write to serialize writers.
+	mu sync.Mutex
+	// running reports whether the task has started and not yet stopped.
+	running bool
+	// terminal is the final status after the task stops or fails; it outranks all others.
+	terminal *statusContribution
+	// runtimeErr, when set, is the latest node runtime error. Sticky until stop.
+	runtimeErr *statusContribution
+	// conflicts is the current set of out-ranked write channels.
+	conflicts []controlConflict
+	// reported, when set, is the latest status reported by an stl module.
+	reported *statusContribution
+	// lastRendered is the last status written, used to skip identical writes.
+	lastRendered *task.Status
+}
+
+// top returns the highest-precedence active condition, or nil when only the running
+// baseline applies. Callers must hold mu.
+func (s *statusState) top() *statusContribution {
+	switch {
+	case s.terminal != nil:
+		return s.terminal
+	case s.runtimeErr != nil:
+		return s.runtimeErr
+	case len(s.conflicts) > 0:
+		msg, desc := controlWarning(s.conflicts)
+		return &statusContribution{variant: status.VariantWarning, message: msg, description: desc}
+	case s.reported != nil:
+		return s.reported
+	default:
+		return nil
 	}
 }
 
-func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
+// renderStatus composes the current status. Callers must hold t.status.mu.
+func (t *impl) renderStatus() task.Status {
+	s := &t.status
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
-		Variant: variant,
-		Message: message,
+		Name:    t.task.Name,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.task.Key, Running: running},
+		Details: task.StatusDetails{Task: t.task.Key, Running: s.running && s.terminal == nil},
+	}
+	if c := s.top(); c != nil {
+		stat.Variant, stat.Message, stat.Description = c.variant, c.message, c.description
+	} else {
+		stat.Variant, stat.Message = status.VariantSuccess, "Task started successfully"
+	}
+	return stat
+}
+
+// statusEqual reports whether two rendered statuses are equal ignoring Time.
+func statusEqual(a, b task.Status) bool {
+	return a.Variant == b.Variant &&
+		a.Message == b.Message &&
+		a.Description == b.Description &&
+		a.Details.Running == b.Details.Running
+}
+
+// updateStatus applies mutate then writes the recomposed status, skipping the write when
+// the render is unchanged. It holds the lock across the write so writers cannot interleave.
+func (t *impl) updateStatus(ctx context.Context, mutate func(s *statusState)) {
+	t.status.mu.Lock()
+	defer t.status.mu.Unlock()
+	mutate(&t.status)
+	stat := t.renderStatus()
+	if t.status.lastRendered != nil && statusEqual(*t.status.lastRendered, stat) {
+		return
 	}
 	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
@@ -421,6 +503,51 @@ func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bo
 			zap.String("name", t.task.Name),
 			zap.Error(err),
 		)
+		return
+	}
+	t.status.lastRendered = &stat
+}
+
+// resetStatus clears the composed status for a fresh start after a prior run stopped.
+func (t *impl) resetStatus() {
+	t.status.mu.Lock()
+	defer t.status.mu.Unlock()
+	t.status.running = false
+	t.status.terminal = nil
+	t.status.runtimeErr = nil
+	t.status.conflicts = nil
+	t.status.reported = nil
+	t.status.lastRendered = nil
+}
+
+func (t *impl) setRunning(ctx context.Context, running bool) {
+	t.updateStatus(ctx, func(s *statusState) { s.running = running })
+}
+
+func (t *impl) setConflicts(ctx context.Context, conflicts []controlConflict) {
+	t.updateStatus(ctx, func(s *statusState) { s.conflicts = conflicts })
+}
+
+// setTerminal records the final stop/fail status; the first write wins so a shutdown
+// cannot mask the failure that triggered it. Callers must hold mu.
+func (s *statusState) setTerminal(variant status.Variant, message string) {
+	if s.terminal == nil {
+		s.terminal = &statusContribution{variant: variant, message: message}
+	}
+}
+
+func (t *impl) setTerminal(ctx context.Context, variant status.Variant, message string) {
+	t.updateStatus(ctx, func(s *statusState) { s.setTerminal(variant, message) })
+}
+
+func (t *impl) reporter() taskreporter.Reporter {
+	return func(ctx context.Context, variant status.Variant, message string) {
+		t.updateStatus(ctx, func(s *statusState) {
+			s.reported = &statusContribution{
+				variant: variant,
+				message: fmt.Sprintf("[%s] %s", t.task.Name, message),
+			}
+		})
 	}
 }
 
@@ -429,17 +556,19 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
-	stat := task.Status{
-		Key:         task.OntologyID(t.task.Key).String(),
-		Variant:     status.VariantWarning,
-		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
-		Description: err.Error(),
-		Time:        telem.Now(),
-		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
-	}
-	if setErr := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); setErr != nil {
-		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
-	}
+	t.updateStatus(ctx, func(s *statusState) {
+		s.runtimeErr = &statusContribution{
+			variant:     status.VariantWarning,
+			message:     fmt.Sprintf("Runtime error in %s", nodeType),
+			description: err.Error(),
+		}
+	})
+}
+
+// clearRuntimeError drops a runtime error once a tick runs clean, so a recovered error
+// stops masking a later control conflict.
+func (t *impl) clearRuntimeError(ctx context.Context) {
+	t.updateStatus(ctx, func(s *statusState) { s.runtimeErr = nil })
 }
 
 type state struct {
@@ -452,11 +581,12 @@ type state struct {
 
 type dataRuntime struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
+	// task is the owning task, used to reconcile per-tick runtime-error status.
+	task      *impl
 	startTime telem.TimeStamp
 	scheduler *scheduler.Scheduler
 	writeKeys channel.Keys
 	subject   control.Subject
-	states    *arccontrol.States
 	state     state
 }
 
@@ -465,8 +595,12 @@ func (d *dataRuntime) next(
 	res framer.StreamerResponse,
 	reason node.RunReason,
 ) error {
+	d.task.tickErrored = false
 	d.state.channel.Ingest(res.Frame.ToStorage())
 	d.scheduler.Next(ctx, telem.Since(d.startTime), reason)
+	if !d.task.tickErrored {
+		d.task.clearRuntimeError(ctx)
+	}
 	d.state.channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {
@@ -494,19 +628,12 @@ func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
 	for _, change := range changes {
 		authority := control.Authority(change.Authority)
 		if change.Channel != nil {
-			key := channel.Key(*change.Channel)
-			cfg.Keys = append(cfg.Keys, key)
+			cfg.Keys = append(cfg.Keys, channel.Key(*change.Channel))
 			cfg.Authorities = append(cfg.Authorities, authority)
-			if d.states != nil {
-				d.states.ApplyIncrease(d.subject, key, authority)
-			}
 		} else {
 			cfg.Keys = append(cfg.Keys, d.writeKeys...)
-			for _, key := range d.writeKeys {
+			for range d.writeKeys {
 				cfg.Authorities = append(cfg.Authorities, authority)
-				if d.states != nil {
-					d.states.ApplyIncrease(d.subject, key, authority)
-				}
 			}
 		}
 	}

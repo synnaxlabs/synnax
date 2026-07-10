@@ -20,15 +20,14 @@ import (
 	arccontrol "github.com/synnaxlabs/synnax/pkg/service/arc/control"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
-// controlConflict is a write channel currently controlled by a different subject.
+// controlConflict is a write channel currently controlled by a higher-or-equal authority
+// subject other than this task.
 type controlConflict struct {
 	channel channel.Channel
 	holder  control.Subject
@@ -95,6 +94,19 @@ func declaredWriteKeys(prog arc.Arc) channel.Keys {
 	return keys
 }
 
+// declaredAuthority returns the static authority the program declares for a write channel,
+// falling back to the program default and then the absolute default.
+func declaredAuthority(prog arc.Arc, key channel.Key) control.Authority {
+	auth := prog.Program.Authorities
+	if v, ok := auth.Channels[uint32(key)]; ok {
+		return control.Authority(v)
+	}
+	if auth.Default != nil {
+		return control.Authority(*auth.Default)
+	}
+	return DefaultAuthority
+}
+
 // configureControlConflicts reports the write channels already held by another writer at
 // configure time, read from a synchronous control snapshot local to this node.
 func (f *factory) configureControlConflicts(
@@ -112,23 +124,29 @@ func (f *factory) configureControlConflicts(
 	}
 	states := arccontrol.New()
 	for _, s := range f.cfg.Framer.ControlStates(ctx).ToStorage().SeriesSlice() {
-		states.ApplySeries(s)
+		if err := states.ApplySeries(s); err != nil {
+			f.cfg.L.Warn("failed to decode control digest at configure", zap.Error(err))
+		}
 	}
 	self := control.Subject{Name: prog.Name, Key: t.Key.String()}
-	return evaluateControlConflicts(states, writeChannels, self), nil
+	return evaluateControlConflicts(states, writeChannels, self, prog), nil
 }
 
-// evaluateControlConflicts returns the write channels held by a subject other than self,
-// sorted by channel key for stable output.
+// evaluateControlConflicts returns the write channels held by another subject at an
+// authority at least the program's own declared authority, sorted by channel key.
 func evaluateControlConflicts(
 	states *arccontrol.States,
 	writes []channel.Channel,
 	self control.Subject,
+	prog arc.Arc,
 ) []controlConflict {
 	var conflicts []controlConflict
 	for _, ch := range writes {
 		holder, ok := states.Holder(ch.Key())
 		if !ok || holder.Subject == self {
+			continue
+		}
+		if holder.Authority < declaredAuthority(prog, ch.Key()) {
 			continue
 		}
 		conflicts = append(conflicts, controlConflict{channel: ch, holder: holder.Subject})
@@ -137,15 +155,6 @@ func evaluateControlConflicts(
 		return conflicts[i].channel.Key() < conflicts[j].channel.Key()
 	})
 	return conflicts
-}
-
-// conflictKey is a stable identity for a conflict set, used to debounce repeated warnings.
-func conflictKey(conflicts []controlConflict) string {
-	parts := make([]string, len(conflicts))
-	for i, c := range conflicts {
-		parts[i] = fmt.Sprintf("%d:%s", c.channel.Key(), c.holder.Key)
-	}
-	return strings.Join(parts, ",")
 }
 
 // controlHolderName returns the holder's name, falling back to its key.
@@ -186,21 +195,26 @@ func controlWarning(conflicts []controlConflict) (message, description string) {
 	return message, strings.Join(lines, "\n")
 }
 
-// controlWarner mirrors control state and emits task warnings off the streamer callback,
-// so status writes cannot backpressure the relay that feeds the digest.
+// controlWarner folds the control digest and emits task conflict warnings off the streamer
+// callback, so status writes cannot backpressure the relay that feeds the digest.
 type controlWarner struct {
-	task     *impl
-	states   *arccontrol.States
-	writes   []channel.Channel
-	self     control.Subject
-	notify   chan struct{}
-	done     chan struct{}
+	// task is the Arc task whose status is updated when the conflict set changes.
+	task *impl
+	// states is the control-state fold this warner reads conflicts from.
+	states *arccontrol.States
+	// writes is the set of channels the program writes, named in the warning.
+	writes []channel.Channel
+	// self identifies this task as a control subject, excluded from its own conflicts.
+	self control.Subject
+	// notify wakes run after a digest frame is folded. Buffered so observe never blocks.
+	notify chan struct{}
+	// done signals run to exit before the task context is cancelled.
+	done chan struct{}
+	// stopOnce guards done against a double close.
 	stopOnce sync.Once
-	mu       sync.Mutex
-	// lastKey identifies the last published conflict set, so repeats are not re-emitted.
-	lastKey string
-	// latest is the conflict set the writer goroutine should publish next.
-	latest []controlConflict
+	// decodeErrLogged makes a malformed digest log once. Only touched by observe, which
+	// runs on the single sink goroutine, so no synchronization is needed.
+	decodeErrLogged bool
 }
 
 func newControlWarner(
@@ -219,8 +233,8 @@ func newControlWarner(
 	}
 }
 
-// sink returns the digest streamer sink. It only mutates the in-memory mirror and flags a
-// status update, never writing status inline.
+// sink returns the digest streamer sink. It only folds the digest and wakes run, never
+// writing status inline.
 func (w *controlWarner) sink() *confluence.UnarySink[framer.StreamerResponse] {
 	return &confluence.UnarySink[framer.StreamerResponse]{
 		Sink: func(_ context.Context, res framer.StreamerResponse) error {
@@ -230,23 +244,13 @@ func (w *controlWarner) sink() *confluence.UnarySink[framer.StreamerResponse] {
 	}
 }
 
-// observe folds a digest frame into the mirror and signals the writer when the conflict
-// set changes. It performs no I/O and never blocks on the status write.
+// observe folds a digest frame and wakes run. It performs no status I/O and never blocks.
 func (w *controlWarner) observe(res framer.StreamerResponse) {
 	for _, s := range res.Frame.ToStorage().SeriesSlice() {
-		w.states.ApplySeries(s)
-	}
-	conflicts := evaluateControlConflicts(w.states, w.writes, w.self)
-	key := conflictKey(conflicts)
-	w.mu.Lock()
-	changed := key != w.lastKey
-	if changed {
-		w.lastKey = key
-		w.latest = conflicts
-	}
-	w.mu.Unlock()
-	if !changed {
-		return
+		if err := w.states.ApplySeries(s); err != nil && !w.decodeErrLogged {
+			w.decodeErrLogged = true
+			w.task.factoryCfg.L.Error("failed to fold control digest", zap.Error(err))
+		}
 	}
 	select {
 	case w.notify <- struct{}{}:
@@ -254,8 +258,8 @@ func (w *controlWarner) observe(res framer.StreamerResponse) {
 	}
 }
 
-// run publishes conflict-set changes as task statuses until ctx is cancelled. It runs in
-// its own goroutine so a slow status write never stalls the digest streamer.
+// run re-evaluates conflicts on each digest wake-up and hands them to the status composer.
+// It runs in its own goroutine so a slow status write never stalls the digest streamer.
 func (w *controlWarner) run(ctx context.Context) {
 	for {
 		select {
@@ -264,10 +268,8 @@ func (w *controlWarner) run(ctx context.Context) {
 		case <-w.done:
 			return
 		case <-w.notify:
-			w.mu.Lock()
-			conflicts := w.latest
-			w.mu.Unlock()
-			w.task.setControlStatus(ctx, conflicts)
+			conflicts := evaluateControlConflicts(w.states, w.writes, w.self, w.task.prog)
+			w.task.setConflicts(ctx, conflicts)
 		}
 	}
 }
@@ -275,22 +277,3 @@ func (w *controlWarner) run(ctx context.Context) {
 // stop signals run to exit before the task context is cancelled. It is safe to call more
 // than once.
 func (w *controlWarner) stop() { w.stopOnce.Do(func() { close(w.done) }) }
-
-// setControlStatus emits a warning naming the conflicting channels, or restores a healthy
-// running status when there are none.
-func (t *impl) setControlStatus(ctx context.Context, conflicts []controlConflict) {
-	stat := task.Status{
-		Key:     task.OntologyID(t.task.Key).String(),
-		Variant: status.VariantSuccess,
-		Message: "Task running",
-		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.task.Key, Running: true},
-	}
-	if len(conflicts) > 0 {
-		stat.Variant = status.VariantWarning
-		stat.Message, stat.Description = controlWarning(conflicts)
-	}
-	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
-		t.factoryCfg.L.Error("failed to set control status for Arc task", zap.Error(err))
-	}
-}
