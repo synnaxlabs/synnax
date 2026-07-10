@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi } from "vitest";
 import { WebSocket } from "ws";
 
 // jsdom installs its own `Event` global but reuses Node's native `EventTarget`. Node's
@@ -23,6 +22,12 @@ import { WebSocket } from "ws";
 // than the native `EventTarget`/`Event` pair, so it is immune to the realm mismatch.
 // Swapping it in for the global `WebSocket` in tests lets freighter's WebSocket client
 // talk to a live cluster while leaving jsdom's DOM untouched.
+//
+// This is a permanent global assignment, not `vi.stubGlobal` — a stub reverts to the
+// crashing native WebSocket at every file boundary, and a connection whose handshake is
+// still in flight at that moment crashes the run. Confirmed on CI: this still happens
+// even after closing clients properly, since that only fixes the close-time race, not
+// in-flight connects.
 export const installTestWebSocket = (): void => {
-  vi.stubGlobal("WebSocket", WebSocket);
+  globalThis.WebSocket = WebSocket as unknown as typeof globalThis.WebSocket;
 };
