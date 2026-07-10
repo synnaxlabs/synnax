@@ -10,10 +10,10 @@
 import { device } from "@synnaxlabs/client";
 import { Access, Icon, Menu } from "@synnaxlabs/pluto";
 
-import { type Ontology } from "@/platform/ontology";
+import { type Tree } from "@/platform/tree";
 
 export interface ConfigureMenuItemProps extends Pick<
-  Ontology.TreeContextMenuProps,
+  Tree.ContextMenuProps,
   "selection" | "state"
 > {
   onConfigure: (deviceKey: device.Key) => void;

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/feature/user/ontology";
-export * from "@/feature/user/palette";
+export * from "@/feature/user/commands";
 export * from "@/feature/user/Toolbar";
+export * from "@/feature/user/tree";
 export * from "@/platform/user/external";

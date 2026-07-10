@@ -16,8 +16,8 @@ import { ContextMenu as Base } from "@/platform/context-menu";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
-import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
@@ -36,7 +36,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const someAreNotFavorites = ranges.some((r) => !favoriteKeys.includes(r.key));
   const dispatch = Session.useDispatch();
   const renameModal = Modals.useRename();
-  const confirm = Ontology.useConfirmDelete({
+  const confirm = Tree.useConfirmDelete({
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });

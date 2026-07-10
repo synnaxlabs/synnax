@@ -13,8 +13,8 @@ import { describe, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { createTestDevice } from "@/platform/device/testutil";
-import { renderToolbar } from "@/platform/ontology/menuTestutil";
-import { findTreeRow } from "@/platform/ontology/treeTestutil";
+import { renderToolbar } from "@/platform/tree/menuTestutil";
+import { findTreeRow } from "@/platform/tree/treeTestutil";
 
 const client = createTestClient();
 
@@ -24,7 +24,7 @@ describe("device/Toolbar", () => {
     const rack = await client.racks.retrieve({ key: dev.rack });
     await renderToolbar(Device.TOOLBAR.content, {
       client,
-      services: { device: Device.ONTOLOGY_SERVICE },
+      items: Device.TREE_ITEMS,
     });
     await screen.findByText("Devices");
     fireEvent.click(await findTreeRow(rack.name));

@@ -64,9 +64,11 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"expression":  zyn.String(),
 })
 
-// ToPayload returns the ontology resource payload representation of c.
-func ToPayload(c Channel) map[string]any {
-	return map[string]any{
+// ToPayload returns a map representation of the channel for use in ontology resources
+// and signal marshaling. The "operations" key is omitted when the channel has no
+// operations.
+func (c Channel) ToPayload() map[string]any {
+	p := map[string]any{
 		"key":         c.Key(),
 		"name":        c.Name,
 		"leaseholder": c.Leaseholder,
@@ -76,12 +78,15 @@ func ToPayload(c Channel) map[string]any {
 		"internal":    c.Internal,
 		"virtual":     c.Virtual,
 		"expression":  c.Expression,
-		"operations":  c.Operations,
 	}
+	if len(c.Operations) > 0 {
+		p["operations"] = c.Operations
+	}
+	return p
 }
 
 func newResource(c Channel) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, ToPayload(c))
+	return ontology.NewResource(schema, OntologyID(c.Key()), c.Name, c.ToPayload())
 }
 
 var (

@@ -77,6 +77,20 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(ch.OntologyID()).To(Equal(channel.OntologyID(ch.Key())))
 		})
 	})
+	Describe("ToPayload", func() {
+		It("Should include operations when the channel has them", func() {
+			ch := channel.Channel{
+				Name:       "with_ops",
+				DataType:   telem.Float64T,
+				Operations: []channel.Operation{{Type: channel.OperationTypeAvg}},
+			}
+			Expect(ch.ToPayload()).To(HaveKeyWithValue("operations", ch.Operations))
+		})
+		It("Should omit the operations key when the channel has no operations", func() {
+			ch := channel.Channel{Name: "no_ops", DataType: telem.Float64T}
+			Expect(ch.ToPayload()).ToNot(HaveKey("operations"))
+		})
+	})
 	Describe("OpenNexter", func() {
 		It("Should correctly iterate over all channels", func(ctx SpecContext) {
 			Expect(channelWriter.Create(ctx, &channel.Channel{
