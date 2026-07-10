@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import {
-  createTestClient,
   type ontology,
   type ranger,
   ranger as rangerClient,
   schematic,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
