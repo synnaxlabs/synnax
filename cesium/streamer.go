@@ -19,13 +19,16 @@ import (
 
 // StreamerRequest can be used to update the channel set a Streamer subscribes to.
 type StreamerRequest struct {
-	// Channels sets the channels the Streamer subscribes to.
+	// Channels sets the channels the Streamer subscribes to. Unlike the initial
+	// StreamerConfig.Channels, the set is applied as a pure filter: keys that do not
+	// exist in the database yield no error and no frames.
 	Channels []channel.Key
 }
 
 // StreamerConfig sets the configuration parameters used when opening the Streamer.
 type StreamerConfig struct {
-	// Channels sets the channels the Streamer initially subscribes to.
+	// Channels sets the channels the Streamer initially subscribes to. Every channel
+	// must exist in the database.
 	Channels []channel.Key
 	// SendOpenAck emits an empty response once the streamer starts flowing.
 	SendOpenAck bool
@@ -68,7 +71,8 @@ func passThroughStreamerResponseTranslator(res StreamerResponse) StreamerRespons
 
 // NewStreamer opens a new Streamer using the given configuration. To start receiving
 // frames, call Streamer.Flow. The provided context is only used for opening the
-// streamer, and cancelling it has no implications after NewStreamer returns.
+// streamer, and cancelling it has no implications after NewStreamer returns. It returns
+// ErrChannelNotFound if any of the configured channels do not exist in the database.
 func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[StreamerRequest, StreamerResponse], error) {
 	return NewTranslatedStreamer(
 		db,
@@ -80,7 +84,8 @@ func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer[Str
 
 // NewTranslatedStreamer opens a new Streamer whose requests and responses are
 // translated to the given input and output types. It allows callers to consume the
-// streamer in their own types without intermediate translation segments.
+// streamer in their own types without intermediate translation segments. It returns
+// ErrChannelNotFound if any of the configured channels do not exist in the database.
 func NewTranslatedStreamer[I any, O any](
 	db *DB,
 	cfg StreamerConfig,
@@ -89,6 +94,17 @@ func NewTranslatedStreamer[I any, O any](
 ) (Streamer[I, O], error) {
 	if db.closed.Load() {
 		return nil, ErrDBClosed
+	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	for _, key := range cfg.Channels {
+		if _, ok := db.mu.dbs.unary[key]; ok {
+			continue
+		}
+		if _, ok := db.mu.dbs.virtual[key]; ok {
+			continue
+		}
+		return nil, channel.NewNotFoundError(key)
 	}
 	return &streamer[I, O]{
 		StreamerConfig:    cfg,

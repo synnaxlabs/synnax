@@ -88,8 +88,8 @@ func ReadVirtualFlag(
 	var probe struct {
 		Virtual bool `json:"virtual"`
 	}
-	if err := decoder.DecodeStream(ctx, metaF, &probe); err != nil {
-		return false, err
+	if decodeErr := decoder.DecodeStream(ctx, metaF, &probe); decodeErr != nil {
+		return false, nil
 	}
 	return probe.Virtual, nil
 }

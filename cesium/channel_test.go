@@ -531,6 +531,32 @@ var _ = Describe("Virtual Channels", func() {
 						To(MatchError(cesium.ErrChannelNotFound))
 					Expect(fs.Exists(channelKeyToPath(newKey))).To(BeFalse())
 				})
+
+				It("Should update dependent virtual channels when rekeying a virtual index", func(ctx SpecContext) {
+					oldIdx := GenerateChannelKey()
+					newIdx := GenerateChannelKey()
+					data := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx,
+						virtualIndexChannel(oldIdx, "rekeyed_idx"),
+						virtualDataChannel(data, oldIdx, "rekeyed_dependent"),
+					)).To(Succeed())
+					Expect(db.RekeyChannel(ctx, oldIdx, newIdx)).To(Succeed())
+
+					By("Asserting the index references itself at the new key")
+					idxCh := MustSucceed(db.RetrieveChannel(ctx, newIdx))
+					Expect(idxCh.Index).To(Equal(newIdx))
+
+					By("Asserting the dependent channel references the new index key")
+					dataCh := MustSucceed(db.RetrieveChannel(ctx, data))
+					Expect(dataCh.Index).To(Equal(newIdx))
+
+					By("Asserting a writer resolves its index group through the new key")
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{data},
+						Start:    10 * telem.SecondTS,
+					}))
+					Expect(w.Close()).To(Succeed())
+				})
 			})
 		})
 	}
