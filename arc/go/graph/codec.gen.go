@@ -80,10 +80,10 @@ func (g Graph) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(g.Configs != nil)
-	if g.Configs != nil {
-		w.Uint32(uint32(len(g.Configs)))
-		for key, val := range g.Configs {
+	w.Bool(g.Inputs != nil)
+	if g.Inputs != nil {
+		w.Uint32(uint32(len(g.Inputs)))
+		for key, val := range g.Inputs {
 			w.String(key)
 			{
 				b, err := json.Marshal(val)
@@ -162,7 +162,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Configs = make(map[string]msgpack.EncodedJSON, n)
+			g.Inputs = make(map[string]msgpack.EncodedJSON, n)
 			for range n {
 				var key string
 				var val msgpack.EncodedJSON
@@ -178,7 +178,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 						return err
 					}
 				}
-				g.Configs[key] = val
+				g.Inputs[key] = val
 			}
 		}
 	}

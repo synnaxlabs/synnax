@@ -83,7 +83,7 @@ describe("arc import", () => {
           },
         }),
       );
-      expect(migrated.pendingUpload?.graph.configs.n1).toEqual({
+      expect(migrated.pendingUpload?.graph.inputs.n1).toEqual({
         type: "status.set",
         key_or_name: "alarm",
         variant: "warning",
@@ -93,7 +93,7 @@ describe("arc import", () => {
 
     it("should default missing legacy fields when rewriting set_status", () => {
       const migrated = Arc.anyStateZ.parse(v1State({ n1: { key: "set_status" } }));
-      expect(migrated.pendingUpload?.graph.configs.n1).toEqual({
+      expect(migrated.pendingUpload?.graph.inputs.n1).toEqual({
         type: "status.set",
         key_or_name: "",
         variant: "success",
@@ -105,7 +105,7 @@ describe("arc import", () => {
       const migrated = Arc.anyStateZ.parse(
         v1State({ n1: { key: "channel.read", channel: 42 } }),
       );
-      expect(migrated.pendingUpload?.graph.configs.n1).toEqual({
+      expect(migrated.pendingUpload?.graph.inputs.n1).toEqual({
         type: "channel.read",
         channel: 42,
       });
@@ -120,7 +120,7 @@ describe("arc import", () => {
       );
       expect(result.name).toBe("Imported Arc");
       expect(result.mode).toBe("graph");
-      expect(result.graph?.configs?.n1).toEqual({ type: "channel.read", channel: 42 });
+      expect(result.graph?.inputs?.n1).toEqual({ type: "channel.read", channel: 42 });
       expect(result.text?.raw).toBe("x = 1");
     });
 

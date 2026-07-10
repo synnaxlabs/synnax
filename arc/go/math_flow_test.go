@@ -125,7 +125,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 					"a broken reset would give (10+20+30+1000)/4 = 265")
 		})
 
-		It("avg{} with no window config accumulates indefinitely", func(ctx SpecContext) {
+		It("avg{} with no window input accumulates indefinitely", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"sensor":  {types.F64(), 100},
 				"avg_out": {types.F64(), 200},
@@ -154,7 +154,7 @@ my_sensor -> math.avg{} -> output_sensor`, resolver,
 			Expect(step(20.0)).To(BeNumerically("~", 15.0, 0.001))
 			Expect(step(30.0)).To(BeNumerically("~", 20.0, 0.001))
 			Expect(step(1000.0)).To(BeNumerically("~", 265.0, 0.001),
-				"no config → no reset → running avg over all four samples = 265; "+
+				"no input → no reset → running avg over all four samples = 265; "+
 					"a reset here would give 1000 (only the fresh sample)")
 		})
 	})

@@ -45,7 +45,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 		return
 	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
-	args := inputArguments(ctx, ctx.AST.ConfigValues())
+	args := inputArguments(ctx, ctx.AST.InputValues())
 	expression.AnalyzeCall(ctx, name, freshType, args, funcType.AnalyzeArguments, ctx.AST, funcType.Trigger.Target)
 }
 
@@ -93,7 +93,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 	}
 
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
-	args := inputArguments(ctx, ctx.AST.ConfigValues())
+	args := inputArguments(ctx, ctx.AST.InputValues())
 
 	var externallySatisfied []string
 	if prevNode != nil && funcType.Trigger.Target != "" {
@@ -364,14 +364,14 @@ func resolveFuncOutput[T antlr.ParserRuleContext](
 // unified []symbol.Argument shape, analyzing each value expression as it goes.
 func inputArguments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	braceBlock parser.IConfigValuesContext,
+	braceBlock parser.IInputValuesContext,
 ) []symbol.Argument {
 	if braceBlock == nil {
 		return nil
 	}
 	var args []symbol.Argument
-	if namedVals := braceBlock.NamedConfigValues(); namedVals != nil {
-		for _, val := range namedVals.AllNamedConfigValue() {
+	if namedVals := braceBlock.NamedInputValues(); namedVals != nil {
+		for _, val := range namedVals.AllNamedInputValue() {
 			expr := val.Expression()
 			if expr == nil {
 				continue
@@ -385,7 +385,7 @@ func inputArguments[T antlr.ParserRuleContext](
 		}
 		return args
 	}
-	if anonVals := braceBlock.AnonymousConfigValues(); anonVals != nil {
+	if anonVals := braceBlock.AnonymousInputValues(); anonVals != nil {
 		for i, expr := range anonVals.AllExpression() {
 			expression.Analyze(context.Child(ctx, expr))
 			args = append(args, symbol.Argument{
@@ -654,7 +654,7 @@ func analyzeRoutingTargetWithParam(
 			return
 		}
 
-		args := inputArguments(ctx, fn.ConfigValues())
+		args := inputArguments(ctx, fn.InputValues())
 		var externallySatisfied []string
 		if fnType.Trigger.Target != "" {
 			externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)

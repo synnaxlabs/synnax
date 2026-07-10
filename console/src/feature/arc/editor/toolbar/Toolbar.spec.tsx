@@ -79,7 +79,7 @@ describe("arc editor toolbar", () => {
   it("shows the selected node's form and breadcrumb on the properties tab", async () => {
     const arc = await createGraphArc({
       nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
-      configs: { n1: { type: "constant", value: 42 } },
+      inputs: { n1: { type: "constant", value: 42 } },
     });
     const { store } = await renderToolbar(arc.key);
     await screen.findByText("Basic");
@@ -96,7 +96,7 @@ describe("arc editor toolbar", () => {
         { key: "n1", position: { x: 0, y: 0 } },
         { key: "n2", position: { x: 10, y: 10 } },
       ],
-      configs: {
+      inputs: {
         n1: { type: "constant", value: 1 },
         n2: { type: "constant", value: 2 },
       },
@@ -114,7 +114,7 @@ describe("arc editor toolbar", () => {
         { key: "n1", position: { x: 0, y: 0 } },
         { key: "n2", position: { x: 10, y: 10 } },
       ],
-      configs: {
+      inputs: {
         n1: { type: "constant", value: 1 },
         n2: { type: "constant", value: 2 },
       },
