@@ -105,6 +105,32 @@ type shellBuilder struct {
 	aliasWriteBackings map[*symbol.Symbol]*aliasWriteMux
 	// aliasWriteOrder lists reassigned aliases in first-seen order for deterministic lowering.
 	aliasWriteOrder []*symbol.Symbol
+	// aliasBindingBody maps a reassigned alias to the leaf body of its most recent binding.
+	aliasBindingBody map[*symbol.Symbol]*symbol.Symbol
+	// aliasCrossBodyRead and aliasCrossBodyWrite hold aliases whose reads or writes routed
+	// through the machine; a direction with none needs none.
+	aliasCrossBodyRead  set.Set[*symbol.Symbol]
+	aliasCrossBodyWrite set.Set[*symbol.Symbol]
+}
+
+// leafBody returns the nearest enclosing stage or sequence scope.
+func leafBody(scope *symbol.Symbol) *symbol.Symbol {
+	for s := scope; s != nil; s = s.Parent {
+		if s.Kind == symbol.KindStage || s.Kind == symbol.KindSequence {
+			return s
+		}
+	}
+	return scope
+}
+
+// boundInSameBody reports whether alias's current binding was set in refScope's leaf body,
+// in which case the reference bakes that binding instead of routing through the machine.
+func (s *shellBuilder) boundInSameBody(alias, refScope *symbol.Symbol) bool {
+	bind, ok := s.aliasBindingBody[alias]
+	if !ok {
+		return false
+	}
+	return leafBody(bind) == leafBody(refScope)
 }
 
 // aliasWriteMux holds the write-redirection machine for one reassigned alias.
@@ -170,11 +196,14 @@ func (s *shellBuilder) reExprsFor(target *symbol.Symbol) []reExprFeeder {
 
 func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
 	return &shellBuilder{
-		activations:        map[string]ir.Handle{},
-		synthByAST:         synthByAST,
-		varChannels:        set.New[uint32](),
-		aliasBacking:       map[*symbol.Symbol]*symbol.Symbol{},
-		aliasWriteBackings: map[*symbol.Symbol]*aliasWriteMux{},
+		activations:         map[string]ir.Handle{},
+		synthByAST:          synthByAST,
+		varChannels:         set.New[uint32](),
+		aliasBacking:        map[*symbol.Symbol]*symbol.Symbol{},
+		aliasWriteBackings:  map[*symbol.Symbol]*aliasWriteMux{},
+		aliasBindingBody:    map[*symbol.Symbol]*symbol.Symbol{},
+		aliasCrossBodyRead:  set.New[*symbol.Symbol](),
+		aliasCrossBodyWrite: set.New[*symbol.Symbol](),
 	}
 }
 
@@ -423,13 +452,15 @@ func analyzeIdentifierByRole(
 			shell.varChannels.Add(channelKey(sym))
 		}
 		if isSink {
-			if mux, ok := shell.aliasWriteBackings[sym]; ok {
+			if mux, ok := shell.aliasWriteBackings[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
+				shell.aliasCrossBodyWrite.Add(sym)
 				sym = mux.backing
 			}
 			r, ok := buildChannelWriteNode(name, sym, kg)
 			return flowNodeResult{node: r}, ok
 		}
-		if backing, ok := shell.aliasBacking[sym]; ok {
+		if backing, ok := shell.aliasBacking[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
+			shell.aliasCrossBodyRead.Add(sym)
 			sym = backing
 		}
 		r, ok := buildChannelReadNode(name, sym, kg)
@@ -604,7 +635,8 @@ func buildExprReadTriggers[T antlr.ParserRuleContext](
 		if rerr != nil {
 			continue
 		}
-		if backing, ok := shell.aliasBacking[chanSym]; ok {
+		if backing, ok := shell.aliasBacking[chanSym]; ok && !shell.boundInSameBody(chanSym, ctx.Scope) {
+			shell.aliasCrossBodyRead.Add(chanSym)
 			chanSym = backing
 		}
 		read, ok := buildChannelReadNode(chName, chanSym, kg)
@@ -827,6 +859,7 @@ func lowerAssignment[T antlr.ParserRuleContext](
 		return lowerVarWrite(ctx, target, expr, kg, shell)
 	case symbol.VarKindChannelAlias:
 		rebindAlias(ctx, target, expr)
+		shell.aliasBindingBody[target] = ctx.Scope
 		return lowerAliasRebind(ctx, target, expr, kg, shell)
 	case symbol.VarKindReactive:
 		return lowerReExpr(ctx, target, expr, kg, shell)
@@ -990,7 +1023,8 @@ func buildReExprMachine(
 	}
 	var readers []ir.Node
 	for i := range stateNodes {
-		for k, f := range feeders {
+		for k := len(feeders) - 1; k >= 0; k-- {
+			f := feeders[k]
 			read, ok := buildChannelReadNode(f.switchSym.Name, f.switchSym, kg)
 			if !ok {
 				return ir.Scope{}, nil, false
@@ -1132,6 +1166,7 @@ func recordAliasRebind[T antlr.ParserRuleContext](
 	shell.aliasBacking[sym] = readBacking
 	shell.aliasWriteBackings[sym] = &aliasWriteMux{backing: writeBacking, initBinding: initBinding}
 	shell.aliasWriteOrder = append(shell.aliasWriteOrder, sym)
+	shell.aliasBindingBody[sym] = sym.Parent
 }
 
 // analyzeNextToken emits a transition intent that advances the enclosing
@@ -1450,7 +1485,14 @@ func Analyze(
 	}
 
 	// Assemble each re-expressed reactive variable's feeder state machine.
+	aliasByReadBacking := make(map[*symbol.Symbol]*symbol.Symbol, len(shell.aliasBacking))
+	for alias, backing := range shell.aliasBacking {
+		aliasByReadBacking[backing] = alias
+	}
 	for _, target := range shell.reExprTargets() {
+		if alias, ok := aliasByReadBacking[target]; ok && !shell.aliasCrossBodyRead.Contains(alias) {
+			continue
+		}
 		initNodes, initEdges, ok := lowerVarInit(aCtx, target, kg, shell)
 		if !ok {
 			return i, aCtx.Diagnostics
@@ -1473,6 +1515,10 @@ func Analyze(
 	// Assemble each reassigned alias's write machine, forwarding its write backing to the
 	// binding current at runtime; the mirror of the read machine above.
 	for _, alias := range shell.aliasWriteOrder {
+		// An alias whose writes all baked needs no machine.
+		if !shell.aliasCrossBodyWrite.Contains(alias) {
+			continue
+		}
 		mux := shell.aliasWriteBackings[alias]
 		initNodes, initEdges, ok := buildBackingForward(mux.backing, mux.initBinding, kg)
 		if !ok {
