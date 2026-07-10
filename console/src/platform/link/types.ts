@@ -28,3 +28,13 @@ export interface HandlerArgs {
 export interface Handler {
   (args: HandlerArgs): Promise<void>;
 }
+
+// UseHandler is a hook that returns a Handler for a single resource type. Feature
+// packages register one per resource type in a Registry, keyed by resource type.
+export interface UseHandler {
+  (): Handler;
+}
+
+// Registry maps a resource type (the segment after the cluster key in a deep link) to
+// the hook that produces its Handler.
+export type Registry = Record<string, UseHandler>;

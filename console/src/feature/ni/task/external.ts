@@ -52,11 +52,12 @@ import { Task } from "@/platform/task";
 
 export * from "@/feature/ni/task/AnalogRead";
 export * from "@/feature/ni/task/AnalogWrite";
+export * from "@/feature/ni/task/commands";
 export * from "@/feature/ni/task/CounterRead";
 export * from "@/feature/ni/task/DigitalRead";
 export * from "@/feature/ni/task/DigitalWrite";
-export * from "@/feature/ni/task/palette";
 export * from "@/feature/ni/task/types";
+export * from "@/feature/ni/task/useToggleScanner";
 
 export const EXTRACTORS: Export.Extractors = {
   [ANALOG_READ_TYPE]: Task.extract,
@@ -74,7 +75,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [DIGITAL_WRITE_TYPE]: Task.createIngester(digitalWriteConfigZ, DIGITAL_WRITE_LAYOUT),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [ANALOG_READ_TYPE]: AnalogRead,
   [ANALOG_WRITE_TYPE]: AnalogWrite,
   [COUNTER_READ_TYPE]: CounterRead,

@@ -95,6 +95,35 @@ actually type the username and password into the fields before clicking Log In.
 - `@typescript-eslint/no-floating-promises` - Require await/void for promises
 - `@typescript-eslint/no-unused-vars` - Allow underscore-prefixed vars
 
+## Comments
+
+Only add a comment when it clarifies obscure or surprising behavior the code itself
+can't convey — a subtle invariant, a workaround for an upstream bug, a non-obvious
+ordering constraint. Well-named variables, functions, and components should make the
+code self-explanatory otherwise.
+
+Do not write comments that reference a removed, renamed, or historical implementation
+the reader has no way to see (e.g. "reproduces the previous NOOP service", "used to work
+like X before the refactor"). Describe what the code does now, not what it replaced —
+that context belongs in the PR description or commit message, not in a comment that will
+outlive its relevance.
+
+**Incorrect:**
+
+```ts
+// DefaultItem reproduces the previous NOOP service: an unadorned row with no drag
+// or drop behavior.
+export const DefaultItem: Item = createItem({ type: "builtin" });
+```
+
+**Correct:**
+
+```ts
+// DefaultItem is the fallback used for resource types with no registered Item: an
+// unadorned name row with expandable children and no drag or drop behavior.
+export const DefaultItem: Item = createItem({ type: "builtin" });
+```
+
 ## Testing with Vitest
 
 ### Structure

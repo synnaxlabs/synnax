@@ -35,3 +35,5 @@ export const useLink = (): Link.Handler => {
     [store, placeLayout],
   );
 };
+
+export const LINKS: Link.Registry = { channel: useLink };

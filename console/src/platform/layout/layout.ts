@@ -75,3 +75,5 @@ export interface ContextMenuProps {
 }
 
 export type ContextMenuRenderer = ComponentType<ContextMenuProps>;
+
+export interface ContextMenuRenderers extends Record<string, ContextMenuRenderer> {}

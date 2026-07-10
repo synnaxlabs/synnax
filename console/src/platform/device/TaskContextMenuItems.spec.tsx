@@ -15,8 +15,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
-import { createSelection, createState } from "@/platform/ontology/testutil";
 import { Task } from "@/platform/task";
+import { createSelection, createState } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 
 const client = createTestClient();
