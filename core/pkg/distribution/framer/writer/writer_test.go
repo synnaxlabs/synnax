@@ -182,6 +182,38 @@ var _ = Describe("Writer", func() {
 				MatchError(ContainSubstring("not found")),
 			))
 		})
+		It("Should release peer control when the gateway writer fails to open", func(ctx SpecContext) {
+			cluster := mock.NewCluster(ctx, 2)
+			dist := cluster.Nodes[1]
+			peerCh := channel.Channel{
+				Name:        "cleanup_peer",
+				Virtual:     true,
+				DataType:    telem.Int64T,
+				Leaseholder: 2,
+			}
+			peerCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{peerCh}))[0]
+			Expect(dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  []channel.Key{peerCh.Key(), channel.NewKey(1, 22)},
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			})).Error().To(MatchError(query.ErrNotFound))
+			// A lower-authority writer can only take control of the peer channel once
+			// the remote writer opened by the failed mixed open has released it, so an
+			// authorized write proves the peer stream was cleaned up.
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:        []channel.Key{peerCh.Key()},
+				Start:       10 * telem.SecondTS,
+				Sync:        new(true),
+				Authorities: []control.Authority{control.AuthorityAbsolute - 1},
+			}))
+			Eventually(func() (bool, error) {
+				return w.Write(frame.NewUnary(
+					peerCh.Key(),
+					telem.NewSeriesV[int64](1, 2, 3),
+				))
+			}).Should(BeTrue())
+			Expect(w.Close()).To(Succeed())
+		})
 	})
 
 	Describe("Frame Errors", Ordered, func() {
