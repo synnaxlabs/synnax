@@ -28,8 +28,8 @@ import (
 )
 
 // openStreamer opens a streamer on db with the given config and starts it in an
-// isolated signal context, returning the streamer's request inlet, its response
-// outlet, and a closer that shuts the streamer down.
+// isolated signal context, returning the streamer's request inlet, its response outlet,
+// and a closer that shuts the streamer down.
 func openStreamer(db *cesium.DB, cfg cesium.StreamerConfig) (
 	confluence.Inlet[cesium.StreamerRequest],
 	confluence.Outlet[cesium.StreamerResponse],

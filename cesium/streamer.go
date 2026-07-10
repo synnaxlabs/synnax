@@ -51,8 +51,8 @@ type StreamerResponse struct {
 // channel for the readers output.
 //
 // Issuing a new StreamerRequest updates the set of channels the stream reader
-// subscribes to. A request applies to every frame written after the request is sent,
-// so it can be used as a readiness barrier.
+// subscribes to. A request applies to every frame written after the request is sent, so
+// it can be used as a readiness barrier.
 //
 // To stop receiving values, simply close the inlet of the streamer. The streamer will
 // then gracefully exit and close its output channel.
