@@ -344,6 +344,10 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			sequence.AnalyzeTopLevelStage(acontext.Child(ctx, stageDecl))
 		} else if varDecl := item.VariableDeclaration(); varDecl != nil {
 			statement.AnalyzeVariableDeclaration(acontext.Child(ctx, varDecl))
+		} else if assign := item.Assignment(); assign != nil {
+			ctx.Diagnostics.Add(diagnostics.Errorf(assign,
+				"cannot reassign a top-level variable; assignment is only valid "+
+					"inside a sequence, stage, or function"))
 		}
 	}
 	sequence.AnalyzeSynthInlines(ctx)

@@ -370,6 +370,18 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.String()).To(ContainSubstring("cannot rebind alias a of type"))
 		})
 
+		It("Should reject reassigning a variable at the top level", func(ctx SpecContext) {
+			source := `
+			a := count_ch
+			a = out_ch`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"cannot reassign a top-level variable; assignment is only valid " +
+					"inside a sequence, stage, or function"))
+		})
+
 		It("Should reject compound reassignment of a variable", func(ctx SpecContext) {
 			source := `
 			sequence main {

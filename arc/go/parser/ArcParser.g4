@@ -29,6 +29,7 @@ topLevelItem
     | sequenceDeclaration
     | stageDeclaration
     | variableDeclaration
+    | assignment
     ;
 
 // =============================================================================
