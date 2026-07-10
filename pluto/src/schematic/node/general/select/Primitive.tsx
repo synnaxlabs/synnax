@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/select/select.css";
 
 import { type CSSProperties, type ReactElement, useMemo } from "react";
@@ -17,6 +18,7 @@ import { Flex } from "@/flex";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/select/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 import { Select as BaseSelect } from "@/select";
 
 interface RenderProps extends Omit<Config, "sink" | "variant"> {
@@ -48,7 +50,8 @@ export const Select = ({
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS(CSS.B("select-symbol"), className)}
+      className={CSS(CSS.B("select-symbol"), CSS.B("symbol-colored"), className)}
+      style={{ [CSS.var("symbol-color")]: symbolColorVar(color) }}
     >
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -88,17 +91,17 @@ export const Select = ({
           onChange={(key: string | null) => onChange(key)}
           disabled={disabled}
           resourceName="option"
-          triggerProps={{ color, size }}
+          triggerProps={{ size }}
           style={{ minWidth: inlineSize }}
         />
         {onSend != null && (
           <BaseButton.Button
             variant="filled"
             size={size}
+            className={CSS.B("symbol-button")}
             onClick={() => {
               if (matched != null) onSend?.(matched.value);
             }}
-            color={color}
             disabled={disabled}
           >
             Send
