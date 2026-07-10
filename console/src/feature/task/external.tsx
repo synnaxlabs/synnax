@@ -19,13 +19,11 @@ import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
 import { createLayout, retrieveAndPlaceLayout } from "@/feature/task/layouts";
 import { Selector } from "@/feature/task/Selector";
-import { TOOLBAR } from "@/feature/task/Toolbar";
 import { getIcon, parseType } from "@/feature/task/types";
 import { type Command } from "@/platform/command";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
-import { type Nav } from "@/platform/nav";
 import { type Range } from "@/platform/range";
 import { Task } from "@/platform/task";
 
@@ -82,8 +80,6 @@ export const LAYOUTS: Layout.Renderers = {
   ...PagerDuty.Task.LAYOUTS,
   [Task.SELECTOR_LAYOUT_TYPE]: Selector,
 };
-
-export const TOOLBARS: Nav.Toolbar[] = [TOOLBAR];
 
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   task: {
