@@ -9,13 +9,14 @@
 
 import { arc as clientArc, group, ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/pluto";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { uniqueName } from "@/testutil";
+import { CaptureStatuses, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -46,6 +47,37 @@ describe("arc/ontology", () => {
       );
       expect(Session.Layout.select(store.getState(), arc.key)?.type).toBe(
         Arc.EDITOR_LAYOUT_TYPE,
+      );
+    });
+
+    it("should report an error when the arc cannot be loaded", async () => {
+      const arc = await client.arcs.create({
+        name: uniqueName("arc"),
+        mode: "graph",
+        graph: { nodes: [], edges: [] },
+      });
+      const grp = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("arcgrp"),
+      });
+      await client.ontology.addChildren(
+        group.ontologyID(grp.key),
+        clientArc.ontologyID(arc.key),
+      );
+      let statuses: Status.NotificationSpec[] = [];
+      await renderOntologyTree({
+        client,
+        root: group.ontologyID(grp.key),
+        items: Arc.TREE_ITEMS,
+        extra: <CaptureStatuses onStatuses={(s) => (statuses = s)} />,
+      });
+      const row = await findTreeRow(arc.name);
+      await client.arcs.delete(arc.key);
+      fireEvent.doubleClick(row);
+      await waitFor(() =>
+        expect(statuses.some((s) => s.message === `Failed to load ${arc.name}`)).toBe(
+          true,
+        ),
       );
     });
   });

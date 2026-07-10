@@ -10,6 +10,7 @@
 import { type ontology, type Synnax } from "@synnaxlabs/client";
 import { Haul, Triggers } from "@synnaxlabs/pluto";
 import { fireEvent, render, type RenderResult, screen } from "@testing-library/react";
+import { type ReactNode } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
@@ -20,6 +21,8 @@ export interface RenderOntologyTreeOptions {
   root: ontology.ID | null;
   /** Real item overrides; every other resource type falls back to Tree.DefaultItem. */
   items?: Tree.Items;
+  /** Extra siblings rendered alongside the tree, e.g. CaptureStatuses. */
+  extra?: ReactNode;
 }
 
 export interface OntologyTreeHandle extends RenderResult {
@@ -36,6 +39,7 @@ export const renderOntologyTree = async ({
   client,
   root,
   items = {},
+  extra,
 }: RenderOntologyTreeOptions): Promise<OntologyTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const rendered = render(
@@ -46,6 +50,7 @@ export const renderOntologyTree = async ({
           <Modals.Stack />
         </Tree.Provider>
       </Haul.Provider>
+      {extra}
     </Triggers.Provider>,
     { wrapper },
   );
