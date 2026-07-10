@@ -36,26 +36,27 @@ const emptyContent = (
 
 export const PREFIX = ">";
 
-export const createList = (commands: Command.Command[]) => {
-  const List: Palette.List<Command.Command> = (props) => {
-    // The list of commands is statically defined, which makes it safe to
-    // call these hooks using a map function.
-    const visibilities = commands.map((cmd) => cmd.useVisible?.() ?? true);
-    const data = useMemo(
-      () => commands.filter((_, i) => visibilities[i]),
-      [commands, visibilities],
-    );
-    const listProps = Base.useStaticData<string, Command.Command>({ data, sort });
-    return (
-      <Palette.BaseList
-        {...listProps}
-        {...props}
-        prefix={PREFIX}
-        listItem={listItem}
-        emptyContent={emptyContent}
-      />
-    );
-  };
-  List.displayName = "Command.List";
-  return List;
+export interface ListProps extends Palette.ListProps<Command.Command> {
+  commands: Command.Command[];
+}
+
+export const List = ({ commands, ...rest }: ListProps): ReactElement => {
+  // The list of commands is statically defined, which makes it safe to
+  // call these hooks using a map function.
+  const visibilities = commands.map((cmd) => cmd.useVisible?.() ?? true);
+  const data = useMemo(
+    () => commands.filter((_, i) => visibilities[i]),
+    [commands, visibilities],
+  );
+  const listProps = Base.useStaticData<string, Command.Command>({ data, sort });
+  return (
+    <Palette.BaseList
+      {...listProps}
+      {...rest}
+      prefix={PREFIX}
+      listItem={listItem}
+      emptyContent={emptyContent}
+    />
+  );
 };
+List.displayName = "Command.List";

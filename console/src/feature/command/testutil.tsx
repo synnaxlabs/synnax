@@ -51,12 +51,19 @@ const paletteInput = (): HTMLInputElement => {
 };
 
 interface CommandPaletteProps {
-  list: ReturnType<typeof Command.createList>;
+  commands: Command.Command[];
 }
 
-const CommandPalette = ({ list: List }: CommandPaletteProps): ReactElement => {
+const CommandPalette = ({ commands }: CommandPaletteProps): ReactElement => {
   const [value, setValue] = useState(COMMAND_PREFIX);
-  return <List value={value} inputPlaceholder={PLACEHOLDER} onChange={setValue} />;
+  return (
+    <Command.List
+      commands={commands}
+      value={value}
+      inputPlaceholder={PLACEHOLDER}
+      onChange={setValue}
+    />
+  );
 };
 
 /**
@@ -73,11 +80,10 @@ export const renderPalette = async ({
   extractors = {},
 }: RenderPaletteArgs = {}): Promise<PaletteHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client, preloadedState });
-  const list = Command.createList(commands);
   render(
     <Import.FileIngestersProvider fileIngesters={fileIngesters}>
       <Export.ExtractorsProvider extractors={extractors}>
-        <CommandPalette list={list} />
+        <CommandPalette commands={commands} />
         <Modals.Stack />
       </Export.ExtractorsProvider>
     </Import.FileIngestersProvider>,

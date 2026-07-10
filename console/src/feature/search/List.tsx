@@ -9,6 +9,7 @@
 
 import { type ontology } from "@synnaxlabs/client";
 import { Component, Icon, List as Base, Ontology, Text } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Palette } from "@/platform/palette";
 import { type Search } from "@/platform/search";
@@ -20,27 +21,33 @@ const emptyContent = (
   </Text.Text>
 );
 
-export const createList = (items: Search.ListItems) => {
-  const filter = (item: ontology.Resource) => items[item.id.type] != null;
-  const ListItem = (props: Base.ItemProps<string>) => {
-    const item = Base.useItem<string, ontology.Resource>(props.itemKey);
-    if (item == null) return null;
-    const Item = items[item.id.type];
-    if (Item == null) return null;
-    return <Item {...props} />;
-  };
-  const listItem = Component.renderProp(ListItem);
-  const List: Palette.List<ontology.Resource> = (props) => {
-    const listProps = Ontology.useResourceList({ filter });
-    return (
-      <Palette.BaseList
-        emptyContent={emptyContent}
-        listItem={listItem}
-        {...listProps}
-        {...props}
-      />
-    );
-  };
-  List.displayName = "Search.List";
-  return List;
+export interface ListProps extends Palette.ListProps<ontology.Resource> {
+  items: Search.ListItems;
+}
+
+export const List = ({ items, ...rest }: ListProps): ReactElement => {
+  const filter = useCallback(
+    (item: ontology.Resource) => items[item.id.type] != null,
+    [items],
+  );
+  const listItem = useMemo(() => {
+    const ListItem = (props: Base.ItemProps<string>) => {
+      const item = Base.useItem<string, ontology.Resource>(props.itemKey);
+      if (item == null) return null;
+      const Item = items[item.id.type];
+      if (Item == null) return null;
+      return <Item {...props} />;
+    };
+    return Component.renderProp(ListItem);
+  }, [items]);
+  const listProps = Ontology.useResourceList({ filter });
+  return (
+    <Palette.BaseList
+      emptyContent={emptyContent}
+      listItem={listItem}
+      {...listProps}
+      {...rest}
+    />
+  );
 };
+List.displayName = "Search.List";

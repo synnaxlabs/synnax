@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ReactElement } from "react";
+
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Cluster } from "@/feature/cluster";
@@ -27,6 +29,7 @@ import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
+import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
   ...Channel.COMMANDS,
@@ -50,4 +53,6 @@ const COMMANDS: Command.Command[] = [
   ...Theme.COMMANDS,
 ];
 
-export const List = Command.createList(COMMANDS);
+export const List = (props: Palette.ListProps<Command.Command>): ReactElement => (
+  <Command.List commands={COMMANDS} {...props} />
+);
