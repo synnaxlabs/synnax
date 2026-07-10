@@ -83,8 +83,8 @@ virtual writer, in every case equal or weaker:
 | `free.go`                                                                                 | Cesium virtual                                                                             |
 | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | Alignment counters seeded at `ZeroLeadingAlignment` — it imports the constant from Cesium | `leadingAlignment` allocation per writer open (`virtual/db.go`, `virtual/writer.go`)       |
-| No validation of any kind                                                                 | `Channel.ValidateSeries` on every write (`virtual/writer.go:119`)                          |
-| No control semantics; every writer always authorized                                      | Control gates with `ConcurrencyShared` (`virtual/db.go:122`) — concurrent writers all pass |
+| No validation of any kind                                                                 | `Channel.ValidateSeries` on every write (`virtual/writer.go:143`)                          |
+| No control semantics; every writer always authorized                                      | Control gates with `ConcurrencyShared` (`virtual/db.go:110`) — concurrent writers all pass |
 | Dedicated `FreeWrites` inlet plumbed into the relay                                       | Writes surface through the standard Cesium streamer the relay already taps                 |
 
 The alignment logic is the one piece `free.go` has that Cesium lacks: it stamps a
@@ -108,7 +108,7 @@ streamer's keys before acking the open. An entire `Ordered` test suite in
 
 Cesium already performs exact data-type validation on every write path it owns: the
 unary writer (`internal/unary/writer.go:257`) and the virtual writer
-(`internal/virtual/writer.go:119`) both call `Channel.ValidateSeries`, which enforces an
+(`internal/virtual/writer.go:143`) both call `Channel.ValidateSeries`, which enforces an
 exact match with the int64/timestamp equivalence carve-out. The distribution writer's
 validator (`writer/validator.go`) applies the _identical_ rule — compare
 `validateSeriesDataType` with `cesium/internal/channel.Channel.ValidateSeries` — making
@@ -149,7 +149,7 @@ stream: relay → gateway tap → Cesium streamer
 ```
 
 Node-locality is preserved by construction. Free streaming is already node-local: relay
-demands route by `key.Lease()` (`relay/tap.go:115`), so a streamer only ever sees free
+demands route by `key.Lease()` (`relay/tap.go:114`), so a streamer only ever sees free
 writes that entered through its own node. Hosting free channels in each node's local
 Cesium reproduces that behavior exactly.
 
@@ -214,12 +214,12 @@ registration). New channels are registered at create time on the same node set, 
 boot scan and the create path are the only two storage-registration points.
 
 Storage-key collision is impossible by construction: the storage key is the full
-distribution key verbatim (`distribution/channel/channel.go:56`), the boot scan runs
+distribution key verbatim (`distribution/channel/channel.go:97`), the boot scan runs
 against a registry that is empty of virtual channels, and legacy on-disk virtual
 directories are removed by Cesium before the scan's creates execute (§3.1).
 
 Streamers require no registration at all. The Cesium streamer's key set is a pure filter
-(`cesium/streamer.go:134`): demanding a channel that does not exist locally yields no
+(`cesium/streamer.go:145`): demanding a channel that does not exist locally yields no
 error and no frames, and frames begin flowing the moment a writer's channel is
 registered and written. This matches today's behavior, where a free streamer with no
 matching writer simply receives nothing.
@@ -242,10 +242,17 @@ Deleted outright:
   configs.
 - The relay's `freeWriteTap`, its atomic key publication, and the free-specific
   `SendOpenAck` wait. Free-channel demands route to the gateway tap like every other
-  locally-serviced key, and the open-ack guarantee falls out of the generic
-  demand-acknowledgement flow.
+  locally-serviced key, and the open-ack guarantee generalizes rather than vanishes: the
+  relay acknowledges a streamer's demand only after the tapper has applied it to every
+  local tap, and the Cesium streamer applies pending subscription requests before
+  filtering each frame, so a write issued after the open ack is delivered for any
+  locally-served channel — free and stored alike.
 - The writer's `validator` segment and `validateSeriesDataType`. Cesium validates every
-  write, including free writes, against authoritative local metadata.
+  write, including free writes, against authoritative local metadata; its stream writer
+  also rejects frames targeting channels outside the writer's channel set, the
+  validator's other load-bearing check. The validator's one non-validation duty —
+  stamping requests with sequence numbers for the synchronizer — survives as a thin
+  `sequencer` segment.
 - `Config.Channels` and its cross-validation against `Keys`. The distribution writer
   config becomes `Keys` plus the existing behavioral knobs, matching what the wire
   already carries.
@@ -263,7 +270,7 @@ registration happens at boot and at create time (§3.3), so writer open pays not
 - **Alignment scheme**: identical constants, identical per-group semantics, identical
   restart-reset behavior.
 - **Group tagging / `ExcludeGroups`**: preserved; Cesium streamer responses carry the
-  writer's group (`cesium/streamer.go:139`), and the existing `ExcludeGroups` tests
+  writer's group (`cesium/streamer.go:149`), and the existing `ExcludeGroups` tests
   already pass for gateway writes.
 - **Validation**: strictly improved. Free writes gain exact data-type validation against
   authoritative metadata; stored channels lose only a redundant duplicate check.
