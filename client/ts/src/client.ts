@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, id, TimeSpan, TimeStamp, url, zod } from "@synnaxlabs/x";
+import { breaker, TimeSpan, TimeStamp, url, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -139,7 +139,7 @@ export default class Synnax extends framer.Client {
     this.auth = new auth.Client(transport.unary, { username, password });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary, chRetriever);
-    this.key = id.create();
+    this.key = uuid.create();
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
     this.transport = transport;
