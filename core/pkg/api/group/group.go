@@ -82,18 +82,18 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: group.OntologyIDs(req.Keys),
-	}); err != nil {
-		return RetrieveResponse{}, err
-	}
 	var res RetrieveResponse
 	if err := s.internal.NewRetrieve().
 		Where(group.MatchKeys(req.Keys...)).
 		Entries(&res.Groups).
 		Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: group.OntologyIDsFromGroups(res.Groups),
+	}); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil

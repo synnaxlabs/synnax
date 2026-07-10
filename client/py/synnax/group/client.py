@@ -73,8 +73,10 @@ class Client:
         is_single = key is not None
         if key is not None:
             keys = [key]
+        if not keys:
+            raise ValueError("Either key or a non-empty keys must be provided")
         res = self._client.send(
-            "/ontology/retrieve-group", RetrieveReq(keys=keys or []), RetrieveRes
+            "/ontology/retrieve-group", RetrieveReq(keys=keys), RetrieveRes
         )
         if not is_single:
             return res.groups
