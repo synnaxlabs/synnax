@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -189,6 +190,11 @@ func (w Writer) RenameMany(
 // ontology resources.
 func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOptions) error {
 	channels := *_channels
+	for i := range channels {
+		if err := channels[i].Validate(); err != nil {
+			return validate.PathedError(err, strconv.Itoa(i))
+		}
+	}
 	if *w.svc.cfg.ValidateNames {
 		skipExisting := opts.retrieveIfNameExists || opts.overwriteIfNameExistsAndDifferentProperties
 		if err := w.validateChannelNames(ctx, KeysFromChannels(channels), Names(channels), skipExisting); err != nil {
@@ -245,6 +251,80 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 		}
 	}
 
+	// Auto-create index channels for calculated channels that do not yet have one (both
+	// brand-new calculated channels and existing ones missing an index). Synthesis
+	// happens before the overwrite and retrieve-existing steps so the auto-created
+	// index names flow through the same name-collision machinery as caller-provided
+	// channels.
+	indexChannels := make([]Channel, 0, len(channels))
+	calcNeedingIndex := make([]int, 0)
+	batchIsIndexByName := make(map[string]bool, len(channels))
+	for _, ch := range channels {
+		batchIsIndexByName[ch.Name] = ch.IsIndex
+	}
+	for i, ch := range channels {
+		if !ch.IsCalculated() || ch.LocalIndex != 0 {
+			continue
+		}
+		indexName := ch.Name + calculatedIndexNameSuffix
+		if isIndex, inBatch := batchIsIndexByName[indexName]; inBatch {
+			if !isIndex {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"cannot auto-create index %q for calculated channel %q: a non-index channel with that name is in the same request",
+					indexName,
+					ch.Name,
+				)
+			}
+			calcNeedingIndex = append(calcNeedingIndex, i)
+			continue
+		}
+		indexChannels = append(indexChannels, Channel{
+			Name:        indexName,
+			DataType:    telem.TimeStampT,
+			IsIndex:     true,
+			Virtual:     true,
+			Leaseholder: node.KeyFree,
+			Internal:    ch.Internal,
+		})
+		calcNeedingIndex = append(calcNeedingIndex, i)
+	}
+	// Resolve auto-created index names against existing channels: a compatible index
+	// (e.g. one left behind by a deleted calculated channel) is adopted instead of
+	// creating a duplicate name, while an incompatible channel is a validation error —
+	// unless the overwrite option is set, in which case the overwrite step below
+	// deletes and replaces it.
+	if len(indexChannels) != 0 {
+		indexNames := Names(indexChannels)
+		var existing []Channel
+		if err := w.svc.newRetrieve().
+			Where(MatchNames(indexNames...)).
+			Entries(&existing).
+			Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
+		for _, ex := range existing {
+			idx := lo.IndexOf(indexNames, ex.Name)
+			if idx < 0 {
+				continue
+			}
+			if ex.IsIndex && ex.Virtual && ex.Leaseholder == node.KeyFree &&
+				ex.DataType == telem.TimeStampT {
+				indexChannels[idx] = ex
+				continue
+			}
+			if opts.overwriteIfNameExistsAndDifferentProperties {
+				continue
+			}
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"channel %q already exists and cannot serve as the index for a calculated channel",
+				ex.Name,
+			)
+		}
+	}
+	channels = append(channels, indexChannels...)
+
 	if opts.overwriteIfNameExistsAndDifferentProperties {
 		// Delete existing channels of the same name whose properties differ from the
 		// ones being created, so the create can replace them. Channels that match an
@@ -280,25 +360,6 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 		}
 	}
 
-	// Auto-create index channels for calculated channels that do not yet have one (both
-	// brand-new calculated channels and existing ones missing an index).
-	indexChannels := make([]Channel, 0, len(channels))
-	calcNeedingIndex := make([]int, 0)
-	for i, ch := range channels {
-		if ch.IsCalculated() && ch.LocalIndex == 0 {
-			indexChannels = append(indexChannels, Channel{
-				Name:        ch.Name + calculatedIndexNameSuffix,
-				DataType:    telem.TimeStampT,
-				IsIndex:     true,
-				Virtual:     true,
-				Leaseholder: node.KeyFree,
-				Internal:    ch.Internal,
-			})
-			calcNeedingIndex = append(calcNeedingIndex, i)
-		}
-	}
-	channels = append(channels, indexChannels...)
-
 	for _, ch := range channels {
 		if len(ch.Name) == 0 {
 			return validate.PathedError(validate.ErrRequired, "name")
@@ -307,8 +368,7 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 
 	// Resolve channels that already exist by name (when RetrieveIfNameExists is set,
 	// reusing their stored records), then allocate local keys and storage for the
-	// remaining new channels through the distribution allocator. toCreate collects the
-	// channels that were newly created.
+	// remaining new channels through the distribution allocator.
 	if opts.retrieveIfNameExists {
 		names := Names(channels)
 		var existing []Channel
@@ -334,65 +394,9 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
-	var toCreate []Channel
-	if len(minimal) != 0 {
-		allocated, err := w.svc.cfg.Channel.Create(ctx, minimal)
-		if err != nil {
-			return err
-		}
-		toCreate = make([]Channel, 0, len(newIndices))
-		for j, i := range newIndices {
-			channels[i].LocalKey = allocated[j].LocalKey
-			channels[i].LocalIndex = allocated[j].LocalIndex
-			toCreate = append(toCreate, channels[i])
-		}
-	}
-
-	// Link each calculated channel to its auto-created index channel by setting the
-	// calculated channel's LocalIndex to the index channel's assigned LocalKey. Applied
-	// to both the newly created channels and the full set (which includes existing
-	// ones).
-	indexKeyByName := make(map[string]LocalKey, len(channels))
-	for _, ch := range channels {
-		if ch.IsIndex {
-			indexKeyByName[ch.Name] = ch.LocalKey
-		}
-	}
-	linkCalculatedIndexes := func(set []Channel) {
-		for i := range set {
-			if !set[i].IsCalculated() || set[i].LocalIndex != 0 {
-				continue
-			}
-			if k, ok := indexKeyByName[set[i].Name+calculatedIndexNameSuffix]; ok {
-				set[i].LocalIndex = k
-			}
-		}
-	}
-	linkCalculatedIndexes(toCreate)
-	linkCalculatedIndexes(channels)
-
-	// Enforce the external-channel overflow cap and write the newly created channels to
-	// the table, updating the external/non-virtual key set under the service lock.
-	externalCreatedKeys := make(Keys, 0, len(toCreate))
-	for _, ch := range toCreate {
-		if !ch.Internal && !ch.Virtual {
-			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
-		}
-	}
-	// The lock is held across the table write so the overflow check, write, and set
-	// update are atomic: concurrent creates cannot interleave and exceed the cap.
-	w.svc.mu.Lock()
-	count := w.svc.mu.externalNonVirtualSet.Size()
-	if err := w.svc.cfg.IntOverflowCheck(types.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
-		w.svc.mu.Unlock()
+	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal); err != nil {
 		return err
 	}
-	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
-		w.svc.mu.Unlock()
-		return err
-	}
-	w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
-	w.svc.mu.Unlock()
 
 	// Persist updated LocalIndex links for existing calculated channels (those already
 	// in the table) whose index channel was just created.
@@ -438,6 +442,79 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 		ontology.RelationshipTypeParentOf,
 		externalIDs...,
 	)
+}
+
+// allocateAndWrite enforces the external-channel overflow cap, allocates local keys and
+// storage for the new channels (those at newIndices, mirrored in minimal) through the
+// distribution allocator, links calculated channels to their index channels, writes the
+// newly created channels to the table, and records their keys in the external
+// non-virtual set. The service lock is held for the whole sequence so the cap check,
+// allocation, table write, and set update are atomic: a create rejected by the cap
+// allocates no keys or storage, and concurrent creates cannot interleave past the cap.
+func (w Writer) allocateAndWrite(
+	ctx context.Context,
+	channels []Channel,
+	newIndices []int,
+	minimal []channel.Channel,
+) error {
+	externalNewCount := 0
+	for _, i := range newIndices {
+		if !channels[i].Internal && !channels[i].Virtual {
+			externalNewCount++
+		}
+	}
+	w.svc.mu.Lock()
+	defer w.svc.mu.Unlock()
+	count := w.svc.mu.externalNonVirtualSet.Size()
+	if err := w.svc.cfg.IntOverflowCheck(types.Uint20(int(count) + externalNewCount)); err != nil {
+		return err
+	}
+	toCreate := make([]Channel, 0, len(newIndices))
+	if len(minimal) != 0 {
+		allocated, err := w.svc.cfg.Channel.Create(ctx, minimal)
+		if err != nil {
+			return err
+		}
+		for j, i := range newIndices {
+			channels[i].LocalKey = allocated[j].LocalKey
+			channels[i].LocalIndex = allocated[j].LocalIndex
+			toCreate = append(toCreate, channels[i])
+		}
+	}
+
+	// Link each calculated channel to its index channel by setting the calculated
+	// channel's LocalIndex to the index channel's assigned LocalKey. Applied to both
+	// the newly created channels and the full set (which includes existing ones).
+	indexKeyByName := make(map[string]LocalKey, len(channels))
+	for _, ch := range channels {
+		if ch.IsIndex {
+			indexKeyByName[ch.Name] = ch.LocalKey
+		}
+	}
+	linkCalculatedIndexes := func(chs []Channel) {
+		for i := range chs {
+			if !chs[i].IsCalculated() || chs[i].LocalIndex != 0 {
+				continue
+			}
+			if k, ok := indexKeyByName[chs[i].Name+calculatedIndexNameSuffix]; ok {
+				chs[i].LocalIndex = k
+			}
+		}
+	}
+	linkCalculatedIndexes(toCreate)
+	linkCalculatedIndexes(channels)
+
+	externalCreatedKeys := make(Keys, 0, len(toCreate))
+	for _, ch := range toCreate {
+		if !ch.Internal && !ch.Virtual {
+			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
+		}
+	}
+	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	return nil
 }
 
 // validNamePattern matches valid channel names: a leading letter or underscore followed
@@ -523,7 +600,11 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
 			if c.Internal && !allowInternal {
-				return errors.Newf("can't delete internal channel %q", c.Name)
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"can't delete internal channel %q",
+					c.Name,
+				)
 			}
 			return nil
 		}).
