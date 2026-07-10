@@ -72,8 +72,9 @@ type impl struct {
 	cfg        Config
 	prog       arc.Arc
 
-	closer      io.Closer
-	status      statusState
+	closer io.Closer
+	status statusState
+	// tickErrored flags a node error this tick; only the dataRuntime goroutine touches it.
 	tickErrored bool
 }
 
