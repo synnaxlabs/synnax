@@ -1110,6 +1110,45 @@ var _ = Describe("Task", Ordered, func() {
 			}).Should(Succeed())
 		})
 
+		It("Should warn at configure time when a write channel is already controlled", func(ctx SpecContext) {
+			ch := createVirtualCh(ctx, "auth_configure", telem.Uint8T)
+
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:           channel.Keys{ch.Key()},
+				Start:          telem.Now(),
+				Authorities:    []control.Authority{control.Authority(200)},
+				ControlSubject: control.Subject{Key: "op-1", Name: "operator"},
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+
+			prog := arc.Text{
+				Raw: fmt.Sprintf(`
+					authority 100
+					func output() {
+						%s = 42
+					}
+					interval{period=50ms} -> output{}
+				`, ch.Name),
+			}
+			svcTask := task.Task{
+				Key:    task.NewKey(rack.NewKey(1, 1), 4475),
+				Name:   "test-arc-configure-warn",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
+
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+					Entry(&stat).Exec(ctx, nil)).To(Succeed())
+				g.Expect(stat.Variant).To(Equal(status.VariantWarning))
+				g.Expect(stat.Description).To(ContainSubstring(ch.Name))
+				g.Expect(stat.Description).To(ContainSubstring("operator"))
+			}).Should(Succeed())
+		})
+
 		It("Should clear the warning on regain and stop cleanly during live transfers", func(ctx SpecContext) {
 			ch := createVirtualCh(ctx, "auth_live", telem.Uint8T)
 			prog := arc.Text{

@@ -188,4 +188,10 @@ func (s *Service) DeleteTimeRange(
 	return s.cfg.Framer.DeleteTimeRange(ctx, keys, tr)
 }
 
+// ControlStates returns the current control state of every channel as a single digest
+// frame, identical to the snapshot a new streamer receives on subscribe.
+func (s *Service) ControlStates(ctx context.Context) Frame {
+	return s.cfg.Framer.ControlStates(ctx)
+}
+
 func (s *Service) Close() error { return s.closer.Close() }

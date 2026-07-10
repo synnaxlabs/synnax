@@ -119,12 +119,12 @@ func (f *factory) ConfigureTask(
 	}
 	var cfg Config
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
+		f.setConfigStatus(ctx, t, status.VariantError, err.Error(), "")
 		return nil, err
 	}
 	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
 	if err != nil {
-		f.setConfigStatus(ctx, t, status.VariantError, err.Error())
+		f.setConfigStatus(ctx, t, status.VariantError, err.Error(), "")
 		return nil, err
 	}
 	arcTask := &impl{
@@ -138,9 +138,18 @@ func (f *factory) ConfigureTask(
 			return nil, err
 		}
 	} else {
-		f.setConfigStatus(
-			ctx, t, status.VariantSuccess, "Task configured successfully",
-		)
+		variant, message, description := status.VariantSuccess, "Task configured successfully", ""
+		if conflicts, cErr := f.configureControlConflicts(ctx, t, prog); cErr != nil {
+			f.cfg.L.Warn(
+				"failed to evaluate control conflicts at configure",
+				zap.Uint64("key", uint64(t.Key)),
+				zap.Error(cErr),
+			)
+		} else if len(conflicts) > 0 {
+			variant = status.VariantWarning
+			message, description = controlWarning(conflicts)
+		}
+		f.setConfigStatus(ctx, t, variant, message, description)
 	}
 	return arcTask, nil
 }
@@ -150,13 +159,15 @@ func (f *factory) setConfigStatus(
 	t task.Task,
 	variant status.Variant,
 	message string,
+	description string,
 ) {
 	stat := task.Status{
-		Key:     task.OntologyID(t.Key).String(),
-		Name:    t.Name,
-		Variant: variant,
-		Message: message,
-		Time:    telem.Now(),
+		Key:         task.OntologyID(t.Key).String(),
+		Name:        t.Name,
+		Variant:     variant,
+		Message:     message,
+		Description: description,
+		Time:        telem.Now(),
 		Details: task.StatusDetails{
 			Task:    t.Key,
 			Running: false,

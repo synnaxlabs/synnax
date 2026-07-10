@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arccontrol "github.com/synnaxlabs/synnax/pkg/service/arc/control"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -77,6 +78,44 @@ func retrieveWriteChannels(
 		return nil, err
 	}
 	return out, nil
+}
+
+// declaredWriteKeys collects the channels the program writes to across all nodes and
+// authority overrides. Index channels are excluded so only explicit writes are named.
+func declaredWriteKeys(prog arc.Arc) channel.Keys {
+	var keys channel.Keys
+	for _, n := range prog.Program.Nodes {
+		for k := range n.Channels.Write {
+			keys = append(keys, channel.Key(k))
+		}
+	}
+	for k := range prog.Program.Authorities.Channels {
+		keys = append(keys, channel.Key(k))
+	}
+	return keys
+}
+
+// configureControlConflicts reports the write channels already held by another writer at
+// configure time, read from a synchronous control snapshot local to this node.
+func (f *factory) configureControlConflicts(
+	ctx context.Context,
+	t task.Task,
+	prog arc.Arc,
+) ([]controlConflict, error) {
+	writeKeys := declaredWriteKeys(prog).Unique()
+	if len(writeKeys) == 0 {
+		return nil, nil
+	}
+	writeChannels, err := retrieveWriteChannels(ctx, f.cfg.Channel, writeKeys)
+	if err != nil {
+		return nil, err
+	}
+	states := arccontrol.New()
+	for _, s := range f.cfg.Framer.ControlStates(ctx).ToStorage().SeriesSlice() {
+		states.ApplySeries(s)
+	}
+	self := control.Subject{Name: prog.Name, Key: t.Key.String()}
+	return evaluateControlConflicts(states, writeChannels, self), nil
 }
 
 // evaluateControlConflicts returns the write channels held by a subject other than self,

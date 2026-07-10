@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -214,6 +215,12 @@ func (s *Service) ConfigureControlUpdateChannel(
 ) error {
 	s.controlStateKey = ch
 	return s.cfg.TS.ConfigureControlUpdateChannel(ctx, ts.ChannelKey(ch), name)
+}
+
+// ControlStates returns the current control state of every channel as a single digest
+// frame, identical to the snapshot a new streamer receives on subscribe.
+func (s *Service) ControlStates(ctx context.Context) Frame {
+	return frame.NewFromStorage(s.cfg.TS.ControlUpdateToFrame(ctx, s.cfg.TS.ControlStates()))
 }
 
 // Close closes the Service.

@@ -333,16 +333,11 @@ func (t *impl) start(ctx context.Context) (err error) {
 			return digestErr
 		}
 		if len(digestKeys) > 0 {
-			var declaredWriteKeys channel.Keys
-			for _, n := range t.prog.Program.Nodes {
-				for k := range n.Channels.Write {
-					declaredWriteKeys = append(declaredWriteKeys, channel.Key(k))
-				}
-			}
-			for k := range t.prog.Program.Authorities.Channels {
-				declaredWriteKeys = append(declaredWriteKeys, channel.Key(k))
-			}
-			writeChannels, chErr := retrieveWriteChannels(ctx, t.factoryCfg.Channel, declaredWriteKeys.Unique())
+			writeChannels, chErr := retrieveWriteChannels(
+				ctx,
+				t.factoryCfg.Channel,
+				declaredWriteKeys(t.prog).Unique(),
+			)
 			if chErr != nil {
 				t.setStatus(ctx, status.VariantError, false, chErr.Error())
 				return chErr
