@@ -271,6 +271,38 @@ var _ = Describe("Streamer Behavior", func() {
 				})
 			})
 
+			Describe("Channel Validation", func() {
+				It("Should not allow opening a streamer on a channel that does not exist", func(ctx SpecContext) {
+					Expect(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{GenerateChannelKey()},
+					})).Error().To(MatchError(cesium.ErrChannelNotFound))
+				})
+
+				It("Should allow subscription updates for channels that do not exist", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: key, Name: "Noether", DataType: telem.TimeStampT, IsIndex: true},
+					)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
+						Start:    10 * telem.SecondTS,
+					}))
+					r, o, closer := openStreamer(db, cesium.StreamerConfig{})
+
+					r.Inlet() <- cesium.StreamerRequest{
+						Channels: []cesium.ChannelKey{key, GenerateChannelKey()},
+					}
+					MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesSecondsTSV(10, 11))))
+
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Frame.KeysSlice()).To(ConsistOf(key))
+					Expect(closer.Close()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
+			})
+
 			Describe("Closed", func() {
 				It("Should not allow opening a streamer on a closed db", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("closed-fs"))

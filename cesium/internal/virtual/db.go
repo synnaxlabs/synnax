@@ -180,3 +180,13 @@ func (db *DB) SetChannelKey(key channel.Key) error {
 	db.cfg.Channel.Key = key
 	return nil
 }
+
+// SetIndexKey sets the key of the index channel that the DB's channel is grouped with.
+// It returns ErrDBClosed if the DB is closed.
+func (db *DB) SetIndexKey(key channel.Key) error {
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
+	db.cfg.Channel.Index = key
+	return nil
+}

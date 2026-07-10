@@ -684,7 +684,6 @@ func (s *Service) rename(
 	}
 	keys, names = unzipRenameBatch(append(batch.Gateway, batch.Free...))
 	return s.renameGateway(ctx, tx, keys, names, allowInternal)
-
 }
 
 func (s *Service) renameRemote(ctx context.Context, target node.Key, keys Keys, names []string) error {

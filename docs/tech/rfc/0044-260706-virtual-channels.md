@@ -218,11 +218,13 @@ distribution key verbatim (`distribution/channel/channel.go:97`), the boot scan 
 against a registry that is empty of virtual channels, and legacy on-disk virtual
 directories are removed by Cesium before the scan's creates execute (§3.1).
 
-Streamers require no registration at all. The Cesium streamer's key set is a pure filter
-(`cesium/streamer.go:145`): demanding a channel that does not exist locally yields no
+Streamers lean on the same registration: opening a Cesium streamer validates its initial
+key set against the local registry, which the boot scan and the create path keep
+populated with every channel the node serves writes for. Mid-stream subscription updates
+act as a pure filter (`cesium/streamer.go`): keys that do not exist locally yield no
 error and no frames, and frames begin flowing the moment a writer's channel is
-registered and written. This matches today's behavior, where a free streamer with no
-matching writer simply receives nothing.
+registered and written. A free streamer with no matching writer simply receives nothing,
+matching today's behavior.
 
 Deletes and renames need no cross-node coordination: they apply to the local
 registration where present, and a node that never registered the channel has nothing to

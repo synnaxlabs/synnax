@@ -303,6 +303,9 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 		}
 		newChannel := vDB.Channel()
 		newChannel.Key = newKey
+		if newChannel.IsIndex {
+			newChannel.Index = newKey
+		}
 		newDB, err := virtual.Open(virtual.Config{
 			Instrumentation: db.Instrumentation,
 			Channel:         newChannel,
@@ -312,6 +315,20 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 		}
 		delete(db.mu.dbs.virtual, oldKey)
 		db.mu.dbs.virtual[newKey] = *newDB
+
+		// If the DB is an index channel, update every virtual DB that referenced the
+		// old key as its index.
+		if newChannel.IsIndex {
+			for otherDBKey := range db.mu.dbs.virtual {
+				otherDB := db.mu.dbs.virtual[otherDBKey]
+				if otherDB.Channel().Index == oldKey && otherDBKey != newKey {
+					if err = otherDB.SetIndexKey(newKey); err != nil {
+						return err
+					}
+					db.mu.dbs.virtual[otherDBKey] = otherDB
+				}
+			}
+		}
 	}
 
 	return nil

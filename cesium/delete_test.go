@@ -855,6 +855,41 @@ var _ = Describe("Virtual Channel Deletion", func() {
 				Expect(db.DeleteChannel(data)).To(Succeed())
 				Expect(db.DeleteChannel(idx)).To(Succeed())
 			})
+
+			It("Should delete a batch of virtual channels along with their index", func(ctx SpecContext) {
+				idx := GenerateChannelKey()
+				data := GenerateChannelKey()
+				Expect(db.CreateChannel(ctx,
+					virtualIndexChannel(idx, "batch_idx"),
+					virtualDataChannel(data, idx, "batch_data"),
+				)).To(Succeed())
+				Expect(db.DeleteChannels([]cesium.ChannelKey{idx, data})).To(Succeed())
+				Expect(db.RetrieveChannel(ctx, data)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+				Expect(db.RetrieveChannel(ctx, idx)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+			})
+
+			It("Should delete a mixed batch of virtual and stored channels", func(ctx SpecContext) {
+				virtualKey := GenerateChannelKey()
+				storedKey := GenerateChannelKey()
+				Expect(db.CreateChannel(ctx,
+					virtualChannel(virtualKey, "mixed_virtual"),
+					cesium.Channel{
+						Key:      storedKey,
+						Name:     "mixed_stored",
+						DataType: telem.TimeStampT,
+						IsIndex:  true,
+					},
+				)).To(Succeed())
+				Expect(db.DeleteChannels(
+					[]cesium.ChannelKey{virtualKey, storedKey},
+				)).To(Succeed())
+				Expect(db.RetrieveChannel(ctx, virtualKey)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+				Expect(db.RetrieveChannel(ctx, storedKey)).Error().
+					To(MatchError(cesium.ErrChannelNotFound))
+			})
 		})
 	}
 })

@@ -179,6 +179,14 @@ var _ = Describe("Meta", func() {
 					))
 					Expect(meta.ReadVirtualFlag(ctx, subFs, json.Codec)).To(BeFalse())
 				})
+
+				It("Should report false for a meta file that cannot be decoded", func(ctx SpecContext) {
+					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(GenerateChannelKey()))))
+					f := MustSucceed(subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY))
+					MustSucceed(f.Write([]byte("not-json")))
+					Expect(f.Close()).To(Succeed())
+					Expect(meta.ReadVirtualFlag(ctx, subFs, json.Codec)).To(BeFalse())
+				})
 			})
 		})
 	}

@@ -132,8 +132,20 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 	// Do a pass first to remove all non-index channels
 	for _, ch := range chs {
-		udb, uok := db.mu.dbs.unary[ch]
+		if vdb, vok := db.mu.dbs.virtual[ch]; vok {
+			if vdb.Channel().IsIndex {
+				indexChannels = append(indexChannels, ch)
+				continue
+			}
+			// Virtual channels are registered in memory only, so no directories need
+			// to be renamed or removed.
+			if err = db.removeChannel(ch); err != nil {
+				return
+			}
+			continue
+		}
 
+		udb, uok := db.mu.dbs.unary[ch]
 		if !uok || udb.Channel().IsIndex {
 			if udb.Channel().IsIndex {
 				indexChannels = append(indexChannels, ch)
@@ -160,9 +172,13 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 	// Do another pass to remove all index channels
 	for _, ch := range indexChannels {
+		_, virtual := db.mu.dbs.virtual[ch]
 		err = db.removeChannel(ch)
 		if err != nil {
 			return
+		}
+		if virtual {
+			continue
 		}
 
 		oldName := keyToDirName(ch)
