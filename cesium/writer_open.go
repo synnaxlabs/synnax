@@ -266,7 +266,11 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
-			virtualWriters[key], transfer, err = v.OpenWriter(virtual.WriterConfig{
+			// Assign into the map only after checking the error: a direct
+			// multi-assignment would store a nil writer that the deferred cleanup
+			// then calls Close on.
+			var vW *virtual.Writer
+			vW, transfer, err = v.OpenWriter(virtual.WriterConfig{
 				Subject:               cfg.ControlSubject,
 				Start:                 cfg.Start,
 				Authority:             cfg.authority(i),
@@ -275,6 +279,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if err != nil {
 				return nil, err
 			}
+			virtualWriters[key] = vW
 		} else {
 			var uW *unary.Writer
 			uW, transfer, err = u.OpenWriter(

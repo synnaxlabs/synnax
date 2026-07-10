@@ -497,6 +497,32 @@ var _ = Describe("Control", func() {
 					Expect(db.ConfigureControlUpdateChannel(ctx, key, "dog")).To(MatchError(ContainSubstring("must be a string virtual")))
 					Expect(db.Close()).To(Succeed())
 				})
+
+				It("Should return an unauthorized error when opening a writer on a controlled virtual channel", func(ctx SpecContext) {
+					db := openDBOnFS(ctx, fs)
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Name:     "gated_virtual",
+						Key:      key,
+						DataType: telem.Uint8T,
+						Virtual:  true,
+					})).To(Succeed())
+					w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						ControlSubject: xcontrol.Subject{Name: "Holder"},
+						Channels:       []cesium.ChannelKey{key},
+						Authorities:    []xcontrol.Authority{xcontrol.AuthorityAbsolute},
+						Start:          telem.SecondTS,
+					}))
+					Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+						ControlSubject:    xcontrol.Subject{Name: "Contender"},
+						Channels:          []cesium.ChannelKey{key},
+						Authorities:       []xcontrol.Authority{xcontrol.AuthorityAbsolute - 1},
+						Start:             telem.SecondTS,
+						ErrOnUnauthorized: new(true),
+					})).Error().To(MatchError(xcontrol.ErrUnauthorized))
+					Expect(w1.Close()).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+				})
 			})
 
 		})
