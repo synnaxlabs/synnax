@@ -180,10 +180,13 @@ sequence reset_matrix_main {
     }
 }
 
-// ------------ reassignment across jumps (skip + reorder) ------------
+// ─────────────── reassignment across jumps (skip + reorder) ───────────────
 vars_start => reassign_main
 
 sequence reassign_main {
+    // Five reassignables on one jump path: rx reactive, ra alias-read, wa
+    // alias-write, rc constant, rs stateful. Each stage mutates its vars (first
+    // block) then emits the readable ones (second block); wa is write-only.
     rx str := "init: " + rx_src
     ra := ch_init
     wa := wa_init
@@ -191,63 +194,79 @@ sequence reassign_main {
     rs str $= "init"
 
     stage r_entry {
+        // initial bindings; "entry" -> wa_init
+        "entry" -> wa
+
         rx -> rx_out
         ra -> ra_out
-        "entry" -> wa
         rc -> rc_out
         rs -> rs_out
+
         e_to_b >= 1 => r_b
         e_to_c >= 1 => r_c
     }
     stage r_a {
+        // jumped back from r_c; out-of-order "a" -> live wa_c
         rx = "a: " + rx_src
+        "a" -> wa
+
         rx -> rx_out
         ra -> ra_out
-        "a" -> wa
         rc -> rc_out
         rs -> rs_out
+
         a_to_d >= 1 => r_d
     }
     stage r_b {
+        // skipped on this path (the e_to_b branch)
         rx = "b: " + rx_src
-        rx -> rx_out
         ra = chb
-        ra -> ra_out
         wa = wa_b
         rc = "b"
-        rc -> rc_out
         rs = "b"
+
+        rx -> rx_out
+        ra -> ra_out
+        rc -> rc_out
         rs -> rs_out
     }
     stage r_c {
+        // rebind ra -> chc, wa -> wa_c
         rx = "c: " + rx_src
-        rx -> rx_out
         ra = chc
-        ra -> ra_out
         wa = wa_c
         rc = "c"
-        rc -> rc_out
         rs = "c"
+
+        rx -> rx_out
+        ra -> ra_out
+        rc -> rc_out
         rs -> rs_out
+
         c_to_a >= 1 => r_a
     }
     stage r_d {
+        // rebind ra -> chd, wa -> wa_d
         rx = "d: " + rx_src
-        rx -> rx_out
         ra = chd
-        ra -> ra_out
         wa = wa_d
         rc = "d"
-        rc -> rc_out
         rs = "d"
+
+        rx -> rx_out
+        ra -> ra_out
+        rc -> rc_out
         rs -> rs_out
+
         d_to_e >= 1 => r_e
     }
     stage r_e {
+            // forward: "e" -> wa_d (rebound in r_d)
         rx = "e: " + rx_src
+        "e" -> wa
+
         rx -> rx_out
         ra -> ra_out
-        "e" -> wa
         rc -> rc_out
         rs -> rs_out
     }
@@ -493,11 +512,19 @@ class Variables(ArcCase):
         self.wait_for_eq("counter_out_7", 3)
 
     def _verify_reexpr(self) -> None:
-        self.log("=== reactive re-expr across jumps (skip + reorder) ===")
-        # ra (read) and wa (write) share the jump path entry->c->a->d->e (skip b), rebound in
-        # c/d. ra reads converge on the live binding each stage. wa writes are one-shot and must
-        # land a stage after their rebind (same-stage races - all stage nodes fire at once):
-        # "entry"->wa_init, out-of-order "a"->wa_c, forward "e"->wa_d; a final sweep checks no leak.
+        self.log("=== reassignment across jumps (skip + reorder) ===")
+        # reassign_main drives five reassignable variables through one jump path,
+        # entry -> c -> a -> d -> e (skipping b), so each is exercised across the
+        # out-of-order jump back into r_a (earlier in source than r_c / r_d):
+        #   rx: reactive re-expr    ra: channel-alias read
+        #   rc: constant re-expr    wa: channel-alias write
+        #   rs: stateful re-expr
+        # Reads (rx / ra / rc / rs) converge on the live binding every stage. wa
+        # writes are one-shot, so each lands a stage after its rebind (a same-stage
+        # rebind+write races - all nodes in a stage fire at once): "entry" -> wa_init,
+        # out-of-order "a" -> wa_c, forward "e" -> wa_d, then a sweep proves no leak.
+
+        # entry: seed initial values; "entry" lands in the initial binding wa_init.
         self.writer.write("rx_src", "1")
         self.writer.write("ch_init", "init")
         self.wait_for_eq("rx_out", "init: 1")
@@ -505,6 +532,8 @@ class Variables(ArcCase):
         self.wait_for_eq("rs_out", "init")
         self.wait_for_eq("ra_out", "init")
         self.wait_for_eq("wa_init", "entry")
+
+        # c: rebind ra -> chc and wa -> wa_c; reads reflect the new bindings.
         self.writer.write("e_to_c", 1)
         self.writer.write("rx_src", "2")
         self.writer.write("chc", "c1")
@@ -512,6 +541,9 @@ class Variables(ArcCase):
         self.wait_for_eq("rc_out", "c")
         self.wait_for_eq("rs_out", "c")
         self.wait_for_eq("ra_out", "c1")
+
+        # a: jump back to the earlier-in-source r_a. Reads still track chc, and the
+        # out-of-order "a" write lands in the live wa_c, not the baked wa_init.
         self.writer.write("c_to_a", 1)
         self.writer.write("rx_src", "3")
         self.writer.write("chc", "c2")
@@ -520,6 +552,8 @@ class Variables(ArcCase):
         self.wait_for_eq("rs_out", "c")
         self.wait_for_eq("ra_out", "c2")
         self.wait_for_eq("wa_c", "a")
+
+        # d: rebind ra -> chd and wa -> wa_d.
         self.writer.write("a_to_d", 1)
         self.writer.write("rx_src", "4")
         self.writer.write("chd", "d")
@@ -527,6 +561,8 @@ class Variables(ArcCase):
         self.wait_for_eq("rc_out", "d")
         self.wait_for_eq("rs_out", "d")
         self.wait_for_eq("ra_out", "d")
+
+        # e: forward "e" write lands in wa_d; sweep confirms wa_c / wa_init intact.
         self.writer.write("d_to_e", 1)
         self.writer.write("rx_src", "5")
         self.wait_for_eq("rx_out", "e: 5")
