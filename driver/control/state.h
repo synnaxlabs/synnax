@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <optional>
 #include <shared_mutex>
 #include <unordered_map>
 
@@ -138,6 +139,16 @@ public:
         auto it = this->states.find(key);
         if (it == this->states.end()) return true;
         return it->second.subject == subject;
+    }
+
+    /// @brief returns the current holder state for a channel, or nullopt if the channel
+    /// is uncontrolled.
+    std::optional<x::control::State<synnax::channel::Key>>
+    holder(synnax::channel::Key key) const {
+        std::shared_lock lock(this->mu);
+        auto it = this->states.find(key);
+        if (it == this->states.end()) return std::nullopt;
+        return it->second;
     }
 };
 }

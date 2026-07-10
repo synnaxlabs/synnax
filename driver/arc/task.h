@@ -24,6 +24,7 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/arc/authority.h"
 #include "driver/arc/ranges/ranges.h"
 #include "driver/arc/status/status.h"
 #include "driver/bypass/pipeline/factory.h"
@@ -77,6 +78,9 @@ class Task final : public task::Task {
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
     common::StatusHandler state;
+    /// @brief detects control-authority conflicts on the write channels and surfaces
+    /// them as task warnings.
+    std::unique_ptr<authority::Warner> warner;
 
     /// @brief source that reads output data from the arc runtime.
     class Source final : public pipeline::Source {
@@ -98,6 +102,8 @@ class Task final : public task::Task {
                     authorities.keys.push_back(*c.channel_key);
                 authorities.authorities.push_back(c.authority);
             }
+            if (this->task.warner != nullptr)
+                this->task.warner->report(this->task.state);
             return x::errors::NIL;
         }
 
@@ -197,6 +203,29 @@ public:
         if (err) return {nullptr, err};
 
         task->runtime = std::move(rt);
+        const x::control::Subject self{
+            .key = std::to_string(task_meta.key),
+            .name = task_meta.name,
+        };
+        auto control_states = ctx->control_states();
+        std::vector<synnax::channel::Channel> conflict_channels;
+        if (control_states != nullptr && !task->runtime->write_channels.empty()) {
+            auto [write_chs, ch_err] = ctx->client->channels.retrieve(
+                task->runtime->write_channels
+            );
+            if (ch_err)
+                LOG(WARNING) << "[arc] failed to retrieve write channels for control "
+                                "conflict detection: "
+                             << ch_err;
+            else
+                for (auto &ch: write_chs)
+                    if (!ch.is_index) conflict_channels.push_back(ch);
+        }
+        task->warner = std::make_unique<authority::Warner>(
+            std::move(control_states),
+            std::move(conflict_channels),
+            self
+        );
 
         if (!writer_factory)
             writer_factory = bypass::pipeline::create_writer_factory(ctx);
@@ -217,11 +246,7 @@ public:
                     .channels = task->runtime->write_channels,
                     .start = x::telem::TimeStamp::now(),
                     .authorities = std::move(initial_authorities),
-                    .subject =
-                        x::control::Subject{
-                            .key = std::to_string(task_meta.key),
-                            .name = task_meta.name,
-                        },
+                    .subject = self,
                     .mode = common::data_saving_writer_mode(cfg.data_saving),
                 },
                 std::move(source),
