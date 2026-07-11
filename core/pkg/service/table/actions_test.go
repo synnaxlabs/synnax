@@ -27,9 +27,9 @@ func cellWithProps(key, variant string, props msgpack.EncodedJSON) table.Cell {
 	return table.Cell{Key: key, Variant: variant, Props: props}
 }
 
-// seed2x2 returns a 2x2 table with cells a,b across row 0 and c,d across row 1.
+// create2x2 returns a 2x2 table with cells a,b across row 0 and c,d across row 1.
 // Variant is "text" with no props on every cell.
-func seed2x2() table.Table {
+func create2x2() table.Table {
 	return table.Table{
 		Name: "t",
 		Rows: []table.Row{
@@ -46,9 +46,9 @@ func seed2x2() table.Table {
 	}
 }
 
-// seed3x3 returns a 3x3 table with cells a..i in row-major order. Variant is
+// create3x3 returns a 3x3 table with cells a..i in row-major order. Variant is
 // "value" on every cell; props are nil.
-func seed3x3() table.Table {
+func create3x3() table.Table {
 	keys := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i"}
 	cells := make(map[string]table.Cell, len(keys))
 	for _, k := range keys {
@@ -69,7 +69,7 @@ func seed3x3() table.Table {
 var _ = Describe("Reducer", func() {
 	Describe("Rename", func() {
 		It("Should replace the table's name", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewRenameAction(table.RenamePayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewRenameAction(table.RenamePayload{
 				Name: "renamed",
 			})))
 			Expect(out.Name).To(Equal("renamed"))
@@ -78,7 +78,7 @@ var _ = Describe("Reducer", func() {
 
 	Describe("AddRow", func() {
 		It("Should append a row with the given cells to the cells map", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewAddRowAction(table.AddRowPayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewAddRowAction(table.AddRowPayload{
 				Index: 2,
 				Size:  40,
 				Cells: []table.Cell{
@@ -92,7 +92,7 @@ var _ = Describe("Reducer", func() {
 		})
 
 		It("Should clamp out-of-range indices to the end of the rows slice", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewAddRowAction(table.AddRowPayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewAddRowAction(table.AddRowPayload{
 				Index: 999,
 				Size:  50,
 				Cells: []table.Cell{cell("z", "text")},
@@ -116,7 +116,7 @@ var _ = Describe("Reducer", func() {
 
 	Describe("RemoveRow", func() {
 		It("Should remove the row and drop every cell it referenced", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewRemoveRowAction(table.RemoveRowPayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewRemoveRowAction(table.RemoveRowPayload{
 				Index: 0,
 			})))
 			Expect(out.Rows).To(HaveLen(1))
@@ -126,7 +126,7 @@ var _ = Describe("Reducer", func() {
 		})
 
 		It("Should be a no-op when the index is out of range", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewRemoveRowAction(table.RemoveRowPayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewRemoveRowAction(table.RemoveRowPayload{
 				Index: 99,
 			})))
 			Expect(out.Rows).To(HaveLen(2))
@@ -136,7 +136,7 @@ var _ = Describe("Reducer", func() {
 
 	Describe("AddCol", func() {
 		It("Should insert a column at the given index across every row", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewAddColAction(table.AddColPayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewAddColAction(table.AddColPayload{
 				Index: 1,
 				Size:  90,
 				Cells: []table.Cell{
@@ -165,7 +165,7 @@ var _ = Describe("Reducer", func() {
 
 	Describe("RemoveCol", func() {
 		It("Should remove the column and drop every cell in it across every row", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewRemoveColAction(table.RemoveColPayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewRemoveColAction(table.RemoveColPayload{
 				Index: 0,
 			})))
 			Expect(out.Columns).To(HaveLen(1))
@@ -190,14 +190,14 @@ var _ = Describe("Reducer", func() {
 					To(Equal("text"))
 			},
 			Entry("AddRow against two existing columns",
-				seed2x2(),
+				create2x2(),
 				table.NewAddRowAction(table.AddRowPayload{
 					Index: 2, Size: 36, CellTemplate: template,
 				}),
 				[]string{"a", "b"}, // existing row unchanged; new row's keys checked via Cells map
 			),
 			Entry("AddCol against two existing rows",
-				seed2x2(),
+				create2x2(),
 				table.NewAddColAction(table.AddColPayload{
 					Index: 2, Size: 72, CellTemplate: template,
 				}),
@@ -243,7 +243,7 @@ var _ = Describe("Reducer", func() {
 
 		DescribeTable("clamps sizes below the minimum cell dimension",
 			func(action table.Action, projection func(table.Table) float64) {
-				out := MustSucceed(table.Reduce(seed2x2(), action))
+				out := MustSucceed(table.Reduce(create2x2(), action))
 				Expect(projection(out)).To(Equal(minDim))
 			},
 			Entry("AddRow",
@@ -269,7 +269,7 @@ var _ = Describe("Reducer", func() {
 		)
 
 		It("Should resize a row and a column independently", func() {
-			out := MustSucceed(table.Reduce(seed2x2(),
+			out := MustSucceed(table.Reduce(create2x2(),
 				table.NewResizeRowAction(table.ResizeRowPayload{Index: 0, Size: 55}),
 				table.NewResizeColAction(table.ResizeColPayload{Index: 1, Size: 200}),
 			))
@@ -280,7 +280,7 @@ var _ = Describe("Reducer", func() {
 
 	Describe("SetCell", func() {
 		It("Should replace the cell stored under the given key", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewSetCellAction(table.SetCellPayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewSetCellAction(table.SetCellPayload{
 				Cell: cellWithProps("a", "value", msgpack.EncodedJSON{"units": "psi"}),
 			})))
 			Expect(out.Cells["a"].Variant).To(Equal("value"))
@@ -289,7 +289,7 @@ var _ = Describe("Reducer", func() {
 		})
 
 		It("Should be a no-op when no cell with the given key exists", func() {
-			out := MustSucceed(table.Reduce(seed2x2(), table.NewSetCellAction(table.SetCellPayload{
+			out := MustSucceed(table.Reduce(create2x2(), table.NewSetCellAction(table.SetCellPayload{
 				Cell: cell("ghost", "text"),
 			})))
 			Expect(out.Cells).NotTo(HaveKey("ghost"))
@@ -302,7 +302,7 @@ var _ = Describe("Reducer", func() {
 
 		DescribeTable("removes fully-selected axes and resets surviving cells",
 			func(selection []string, wantRows int, wantCols int, wantRow0 []string) {
-				out := MustSucceed(table.Reduce(seed3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
+				out := MustSucceed(table.Reduce(create3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
 					Cells: selection, Template: template,
 				})))
 				Expect(out.Rows).To(HaveLen(wantRows))
@@ -326,7 +326,7 @@ var _ = Describe("Reducer", func() {
 		)
 
 		It("Should reset partial selections to the template variant", func() {
-			out := MustSucceed(table.Reduce(seed3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
+			out := MustSucceed(table.Reduce(create3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
 				Cells: []string{"b", "e"}, Template: template,
 			})))
 			Expect(out.Cells["b"].Variant).To(Equal("text"))
@@ -335,7 +335,7 @@ var _ = Describe("Reducer", func() {
 		})
 
 		It("Should drop cells from the cells map when their row is fully removed", func() {
-			out := MustSucceed(table.Reduce(seed3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
+			out := MustSucceed(table.Reduce(create3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
 				Cells: []string{"d", "e", "f"}, Template: template,
 			})))
 			for _, k := range []string{"d", "e", "f"} {
@@ -344,7 +344,7 @@ var _ = Describe("Reducer", func() {
 		})
 
 		It("Should be a no-op for an empty selection", func() {
-			out := MustSucceed(table.Reduce(seed3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
+			out := MustSucceed(table.Reduce(create3x3(), table.NewEraseCellsAction(table.EraseCellsPayload{
 				Cells: []string{}, Template: template,
 			})))
 			Expect(out.Rows).To(HaveLen(3))
