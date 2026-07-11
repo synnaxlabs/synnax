@@ -131,28 +131,40 @@ Node.displayName = "Panel.Mosaic.Node";
 
 const EMPTY_SELECTED: string[] = [];
 
-const PortaledContents = ({
-  onSelect,
-  children,
-}: Pick<MosaicProps, "onSelect" | "children">): ReactElement => {
-  const tabKeys = useSelectTabKeys();
-  return (
-    <>
-      {tabKeys.map((tabKey) => (
-        <Portal.In
-          key={tabKey}
-          itemKey={tabKey}
-          attrs={PORTAL_NODE_ATTRS}
-          onClick={onSelect}
-        >
-          <Errors.Boundary>
-            <Content tabKey={tabKey}>{children}</Content>
-          </Errors.Boundary>
-        </Portal.In>
-      ))}
-    </>
-  );
-};
+const PortalIn = memo(
+  ({
+    itemKey,
+    onSelect,
+    children,
+  }: Pick<Portal.InProps, "itemKey"> &
+    Pick<MosaicProps, "children" | "onSelect">): ReactElement => (
+    <Portal.In itemKey={itemKey} attrs={PORTAL_NODE_ATTRS} onClick={onSelect}>
+      <Errors.Boundary>
+        <Content tabKey={itemKey}>{children}</Content>
+      </Errors.Boundary>
+    </Portal.In>
+  ),
+);
+PortalIn.displayName = "Panel.Mosaic.PortalIn";
+
+const PortaledContents = memo(
+  ({
+    onSelect,
+    children,
+  }: Pick<MosaicProps, "onSelect" | "children">): ReactElement => {
+    const keys = useSelectTabKeys();
+    return (
+      <>
+        {keys.map((key) => (
+          <PortalIn key={key} itemKey={key} onSelect={onSelect}>
+            {children}
+          </PortalIn>
+        ))}
+      </>
+    );
+  },
+);
+PortaledContents.displayName = "Panel.Mosaic.PortaledContents";
 
 export const Mosaic = ({
   focused,
@@ -178,7 +190,7 @@ export const Mosaic = ({
   );
 
   const handleClose = useCallback(
-    (tabKey: string) => dispatch(panel.removeTab({ key: tabKey })),
+    (key: string) => dispatch(panel.removeTab({ key })),
     [dispatch],
   );
 
