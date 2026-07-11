@@ -79,7 +79,7 @@ const resolveRegion = (el: HTMLElement, event: React.DragEvent): Region => {
 
 export interface LeafProps extends Omit<Flex.BoxProps, "onDrop" | "onDragOver"> {
   /** The key identifying this leaf, passed to the Frame's drop handlers. */
-  leafKey: number;
+  nodeKey: number;
 }
 
 /**
@@ -95,7 +95,7 @@ export interface LeafProps extends Omit<Flex.BoxProps, "onDrop" | "onDragOver"> 
  * both rendered by the Tabs parts composed inside it.
  */
 export const Leaf = ({
-  leafKey,
+  nodeKey,
   className,
   children,
   onDragLeave,
@@ -132,23 +132,23 @@ export const Leaf = ({
       if (event == null || el == null) return [];
       const { location, index } = resolveRegion(el, event);
       if (Haul.filterByType(Haul.FILE_TYPE, items).length > 0) {
-        onFileDrop?.({ leafKey, location, event });
+        onFileDrop?.({ nodeKey, location, event });
         return items;
       }
       const dropped = filterTabDropHaulItems(items);
       if (dropped.length > 0)
-        onDrop?.({ leafKey, tabKey: dropped[0].key, location, index });
+        onDrop?.({ nodeKey, tabKey: dropped[0].key, location, index });
       const created = filterTabCreateHaulItems(items);
       if (created.length > 0)
         onCreate?.({
-          leafKey,
+          nodeKey,
           location,
           tabKeys: created.map(({ key }) => key),
           index,
         });
       return dropped;
     },
-    [leafKey, onDrop, onCreate, onFileDrop],
+    [nodeKey, onDrop, onCreate, onFileDrop],
   );
 
   const handleDragOver = useCallback(({ event }: Haul.OnDragOverProps): void => {
@@ -166,7 +166,7 @@ export const Leaf = ({
 
   const haulProps = Haul.useDrop({
     type: "Mosaic",
-    key: leafKey,
+    key: nodeKey,
     canDrop,
     onDrop: handleDrop,
     onDragOver: handleDragOver,

@@ -41,10 +41,10 @@ const TREE: panel.Node = {
 describe("tree", () => {
   describe("childPath", () => {
     it("should derive child path keys from the parent", () => {
-      expect(panel.childPath(panel.ROOT_PATH, "first")).toEqual(2);
-      expect(panel.childPath(panel.ROOT_PATH, "last")).toEqual(3);
-      expect(panel.childPath(2, "first")).toEqual(4);
-      expect(panel.childPath(2, "last")).toEqual(5);
+      expect(panel.childNodeKey(panel.ROOT_NODE_KEY, "first")).toEqual(2);
+      expect(panel.childNodeKey(panel.ROOT_NODE_KEY, "last")).toEqual(3);
+      expect(panel.childNodeKey(2, "first")).toEqual(4);
+      expect(panel.childNodeKey(2, "last")).toEqual(5);
     });
   });
 
@@ -59,7 +59,7 @@ describe("tree", () => {
 
   describe("walkPath", () => {
     it("should return the root for ROOT_PATH", () => {
-      expect(panel.findNode(TREE, panel.ROOT_PATH)).toBe(TREE);
+      expect(panel.findNode(TREE, panel.ROOT_NODE_KEY)).toBe(TREE);
     });
 
     it("should walk nested splits", () => {
@@ -70,7 +70,7 @@ describe("tree", () => {
 
     it("should return null for a path that does not exist", () => {
       expect(panel.findNode(TREE, 6)).toBeUndefined();
-      expect(panel.findNode(undefined, panel.ROOT_PATH)).toBeUndefined();
+      expect(panel.findNode(undefined, panel.ROOT_NODE_KEY)).toBeUndefined();
     });
   });
 
@@ -135,7 +135,7 @@ describe("tree", () => {
   describe("firstLeafPath", () => {
     it("should return the first leaf in traversal order", () => {
       expect(panel.firstLeafPath(TREE)).toEqual(4);
-      expect(panel.firstLeafPath(leaf("a"))).toEqual(panel.ROOT_PATH);
+      expect(panel.firstLeafPath(leaf("a"))).toEqual(panel.ROOT_NODE_KEY);
     });
   });
 });

@@ -13,14 +13,7 @@ import {
   panel,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import {
-  array,
-  compare,
-  deep,
-  type optional,
-  primitive,
-  type record,
-} from "@synnaxlabs/x";
+import { array, compare, deep, type optional, type record } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
@@ -182,7 +175,7 @@ const nodeStructure = (node: panel.Node): NodeStructure => {
 };
 
 export interface SelectNodeArgs extends SelectKeyArgs {
-  path: number;
+  nodeKey: number;
 }
 
 // useSelectNode selects the structural descriptor of the single node at the given path: a
@@ -192,9 +185,9 @@ export interface SelectNodeArgs extends SelectKeyArgs {
 export const [useSelectNode, useGetNode] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectNodeArgs, NodeStructure, panel.Node>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key, path }) => {
-      const node = panel.findNode(requirePanel(store, key).root, path);
-      if (node == null) throw new NotFoundError(`Node at path ${path} not found`);
+    select: (store, { key, nodeKey }) => {
+      const node = panel.findNode(requirePanel(store, key).root, nodeKey);
+      if (node == null) throw new NotFoundError(`Node at path ${nodeKey} not found`);
       return node;
     },
     transform: nodeStructure,

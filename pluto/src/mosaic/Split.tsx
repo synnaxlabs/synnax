@@ -14,7 +14,7 @@ import { Resize } from "@/resize";
 
 export interface SplitProps extends Omit<Resize.SplitProps, "onResizeEnd"> {
   /** The key identifying this split, passed to the Frame's onResize handler. */
-  splitKey: number;
+  nodeKey: number;
 }
 
 /**
@@ -23,11 +23,11 @@ export interface SplitProps extends Omit<Resize.SplitProps, "onResizeEnd"> {
  * with the split's key and the committed ratio. Children are typically Leaf parts
  * or nested Splits.
  */
-export const Split = ({ splitKey, ...rest }: SplitProps): ReactElement => {
+export const Split = ({ nodeKey, ...rest }: SplitProps): ReactElement => {
   const { onResize } = useContext("Mosaic.Split");
   const handleResizeEnd = useCallback(
-    (size: number) => onResize?.(splitKey, size),
-    [onResize, splitKey],
+    (size: number) => onResize?.(nodeKey, size),
+    [onResize, nodeKey],
   );
   return <Resize.Split onResizeEnd={handleResizeEnd} {...rest} />;
 };

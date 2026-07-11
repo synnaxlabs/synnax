@@ -66,21 +66,20 @@ const Content = ({ tabKey, children }: ContentProps): ReactElement => (
 const resolveSelected = (tabs: string[], preference: string[]): string | undefined =>
   preference.find((key) => tabs.includes(key)) ?? tabs[0];
 
-interface LeafProps {
-  path: number;
+interface LeafProps extends Pick<Base.LeafProps, "nodeKey"> {
   tabs: string[];
 }
 
 // Leaf renders one mosaic leaf: its tab strip and the portal host for its selected tab.
 // It is memoized on path and tab keys; a content change never reaches it, and a resize of
 // another split never reaches it.
-const Leaf = memo(({ path, tabs }: LeafProps): ReactElement => {
+const Leaf = memo(({ nodeKey, tabs }: LeafProps): ReactElement => {
   const { preference, focused, onSelect, onClose, onAdd, tabName } =
     useContext("Panel.Leaf");
   const { startDrag, onDragEnd } = Base.useDragTab();
   const selected = resolveSelected(tabs, preference);
   return (
-    <Base.Leaf leafKey={path} grow>
+    <Base.Leaf nodeKey={nodeKey} grow>
       <Tabs.Frame value={selected} onChange={onSelect} onClose={onClose} grow>
         <Tabs.Selector altColor={focused != null && focused === selected}>
           {tabs.map((tabKey) => (
@@ -98,7 +97,7 @@ const Leaf = memo(({ path, tabs }: LeafProps): ReactElement => {
             </Tabs.Tab>
           ))}
           <Flex.Box grow />
-          <Button.Button variant="text" sharp onClick={() => onAdd(path)}>
+          <Button.Button variant="text" sharp onClick={() => onAdd(nodeKey)}>
             <Icon.Add />
           </Button.Button>
         </Tabs.Selector>
@@ -112,20 +111,21 @@ const Leaf = memo(({ path, tabs }: LeafProps): ReactElement => {
 });
 Leaf.displayName = "Panel.Mosaic.Leaf";
 
-interface NodeProps {
-  path: number;
-}
+interface NodeProps extends Pick<Base.SplitProps, "nodeKey" | "direction" | "size"> {}
 
-const Node = memo(({ path }: NodeProps): ReactElement => {
-  const node = useSelectNode({ path });
+const Split = memo(({ nodeKey, direction, size }: NodeProps): ReactElement => (
+  <Base.Split nodeKey={nodeKey} direction={direction} size={size}>
+    <Node nodeKey={panel.childNodeKey(nodeKey, "first")} />
+    <Node nodeKey={panel.childNodeKey(nodeKey, "last")} />
+  </Base.Split>
+));
+Split.displayName = "Panel.Mosaic.Split";
+
+const Node = memo(({ nodeKey }: NodeProps): ReactElement => {
+  const node = useSelectNode({ nodeKey });
   if (node.variant === "split")
-    return (
-      <Base.Split splitKey={path} direction={node.direction} size={node.size}>
-        <Node path={panel.childPath(path, "first")} />
-        <Node path={panel.childPath(path, "last")} />
-      </Base.Split>
-    );
-  return <Leaf path={path} tabs={node.tabs} />;
+    return <Split nodeKey={nodeKey} direction={node.direction} size={node.size} />;
+  return <Leaf nodeKey={nodeKey} tabs={node.tabs} />;
 });
 Node.displayName = "Panel.Mosaic.Node";
 
@@ -179,8 +179,8 @@ export const Mosaic = ({
   const dispatch = useSingleDispatch();
 
   const handleDrop = useCallback(
-    ({ leafKey, tabKey, location, index }: Base.OnDropProps) =>
-      dispatch(panel.moveTab({ key: tabKey, targetLeaf: leafKey, index, location })),
+    ({ nodeKey, tabKey, location, index }: Base.OnDropProps) =>
+      dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location })),
     [dispatch],
   );
 
@@ -206,18 +206,19 @@ export const Mosaic = ({
   );
 
   const handleCreate = useCallback(
-    ({ leafKey, location, tabKeys, index }: Base.OnCreateProps) => {
-      const node = Number(leafKey);
+    ({ nodeKey, location, tabKeys, index }: Base.OnCreateProps) => {
       const tabs = tabKeys
         .map((tabKey) => resolveDroppedTab?.(tabKey))
         .filter((tab): tab is panel.NewTab => tab != null);
       if (tabs.length === 0) return;
       const restLeaf =
-        location === "center" ? node : panel.childPath(node, panel.splitSide(location));
+        location === "center"
+          ? nodeKey
+          : panel.childNodeKey(nodeKey, panel.splitSide(location));
       const actions = tabs.map((tab, i) =>
         panel.insertTab(
           i === 0
-            ? { tab, targetLeaf: node, location, index }
+            ? { tab, targetLeaf: nodeKey, location, index }
             : { tab, targetLeaf: restLeaf },
         ),
       );
@@ -250,7 +251,7 @@ export const Mosaic = ({
           onResize={handleResize}
           {...rest}
         >
-          <Node path={panel.ROOT_PATH} />
+          <Node nodeKey={panel.ROOT_NODE_KEY} />
         </Base.Frame>
       </Context>
     </Portal.Provider>

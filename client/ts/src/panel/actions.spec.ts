@@ -72,7 +72,7 @@ describe("reduceAll", () => {
 
     it("should split the target leaf and move the tab into the new sibling when location is present", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
-        panel.moveTab({ key: b, targetLeaf: panel.ROOT_PATH, location: "right" }),
+        panel.moveTab({ key: b, targetLeaf: panel.ROOT_NODE_KEY, location: "right" }),
       ]);
       const root = asSplit(next.root);
       expect(root.direction).toEqual("x");
@@ -82,7 +82,7 @@ describe("reduceAll", () => {
 
     it("should place the new sibling first for a top location", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
-        panel.moveTab({ key: b, targetLeaf: panel.ROOT_PATH, location: "top" }),
+        panel.moveTab({ key: b, targetLeaf: panel.ROOT_NODE_KEY, location: "top" }),
       ]);
       const root = asSplit(next.root);
       expect(root.direction).toEqual("y");
@@ -92,7 +92,7 @@ describe("reduceAll", () => {
 
     it("should no-op when moving a leaf's only tab to an edge of its own leaf", () => {
       const { next } = panel.reduceAll(state(leaf(a)), [
-        panel.moveTab({ key: a, targetLeaf: panel.ROOT_PATH, location: "left" }),
+        panel.moveTab({ key: a, targetLeaf: panel.ROOT_NODE_KEY, location: "left" }),
       ]);
       expect(next.root.variant).toEqual("leaf");
       expect(tabKeys(next.root)).toEqual([a]);
@@ -160,7 +160,7 @@ describe("reduceAll", () => {
     it("should return the same state reference when the size is unchanged", () => {
       const prev = state(split("x", 0.5, leaf(a), leaf(b)));
       const { next } = panel.reduceAll(prev, [
-        panel.resizeSplit({ split: panel.ROOT_PATH, size: 0.5 }),
+        panel.resizeSplit({ split: panel.ROOT_NODE_KEY, size: 0.5 }),
       ]);
       expect(next).toBe(prev);
     });
@@ -168,7 +168,7 @@ describe("reduceAll", () => {
     it("should resize the split when the size differs", () => {
       const prev = state(split("x", 0.5, leaf(a), leaf(b)));
       const { next } = panel.reduceAll(prev, [
-        panel.resizeSplit({ split: panel.ROOT_PATH, size: 0.7 }),
+        panel.resizeSplit({ split: panel.ROOT_NODE_KEY, size: 0.7 }),
       ]);
       expect(next).not.toBe(prev);
       expect(asSplit(next.root).size).toEqual(0.7);
@@ -180,7 +180,7 @@ describe("reduceAll", () => {
       const { next } = panel.reduceAll(state(leaf(a)), [
         panel.insertTab({
           tab: viewTab(b),
-          targetLeaf: panel.ROOT_PATH,
+          targetLeaf: panel.ROOT_NODE_KEY,
           location: "bottom",
         }),
       ]);
@@ -194,7 +194,7 @@ describe("reduceAll", () => {
       const { next } = panel.reduceAll(state(leaf(a)), [
         panel.insertTab({
           tab: viewTab(b),
-          targetLeaf: panel.ROOT_PATH,
+          targetLeaf: panel.ROOT_NODE_KEY,
           location: "center",
         }),
       ]);
@@ -206,7 +206,7 @@ describe("reduceAll", () => {
       const { next } = panel.reduceAll(state(leaf()), [
         panel.insertTab({
           tab: viewTab(a),
-          targetLeaf: panel.ROOT_PATH,
+          targetLeaf: panel.ROOT_NODE_KEY,
           location: "right",
         }),
       ]);
@@ -284,7 +284,7 @@ describe("reduceAll", () => {
       const { next } = panel.reduceAll(prev, [
         panel.insertTab({
           tab: resourceTab(c, a),
-          targetLeaf: panel.ROOT_PATH,
+          targetLeaf: panel.ROOT_NODE_KEY,
           location: "right",
         }),
       ]);
@@ -295,7 +295,7 @@ describe("reduceAll", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
         panel.insertTab({
           tab: resourceTab(b),
-          targetLeaf: panel.ROOT_PATH,
+          targetLeaf: panel.ROOT_NODE_KEY,
           location: "right",
         }),
       ]);

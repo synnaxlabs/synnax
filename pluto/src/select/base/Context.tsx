@@ -34,6 +34,15 @@ const isSelected = <K extends record.Key>(value: Value<K>, key: K): boolean => {
   return value === key;
 };
 
+// Focus is only defined for ordered multi-selections: the key heading the value
+// array is the focused key. A scalar selection carries no ordering, so nothing is
+// focused.
+const isFocused = <K extends record.Key>(value: Value<K>, key: K): boolean =>
+  Array.isArray(value) && value.length > 0 && value[0] === key;
+
+const head = <K extends record.Key>(value: Value<K>): K | undefined =>
+  Array.isArray(value) ? value[0] : undefined;
+
 interface ContextValue<K extends record.Key = record.Key> extends Pick<
   Store.UseKeyedListenersReturn<K>,
   "subscribe"
@@ -52,6 +61,11 @@ export interface ContextProps<K extends record.Key = record.Key>
 
 export interface UseItemStateReturn {
   selected: boolean;
+  /**
+   * focused is true when the key heads an ordered multi-selection: the value is an
+   * array and this key is its first element. Always false for scalar selections.
+   */
+  focused: boolean;
   hovered: boolean;
   onSelect: () => void;
 }

@@ -20,7 +20,7 @@ import {
   findTab,
   findTabByResource,
   firstLeafPath,
-  ROOT_PATH,
+  ROOT_NODE_KEY,
   tabLeafPath,
 } from "@/panel/tree";
 import { type Node, type NodeLeaf, type Panel, type Tab } from "@/panel/types.gen";
@@ -37,7 +37,7 @@ const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<NodeLeaf> | null =>
 // the parent split (or the panel root for ROOT_PATH). Returns false when the
 // path does not resolve to a node.
 const replaceNodeAt = (state: Draft<Panel>, pathKey: number, next: Node): boolean => {
-  if (pathKey === ROOT_PATH) {
+  if (pathKey === ROOT_NODE_KEY) {
     state.root = next;
     return true;
   }

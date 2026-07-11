@@ -19,7 +19,7 @@ import { Flex } from "@/flex";
 /** Passed to a Frame's onDrop handler when a tab lands on a {@link Leaf}. */
 export interface OnDropProps {
   /** The key of the leaf the tab was dropped on. */
-  leafKey: number;
+  nodeKey: number;
   /** The key of the dropped tab. */
   tabKey: string;
   /** Where the tab landed relative to the leaf: an edge splits, center inserts. */
@@ -31,7 +31,7 @@ export interface OnDropProps {
 /** Passed to a Frame's onCreate handler when creation items land on a {@link Leaf}. */
 export interface OnCreateProps {
   /** The key of the leaf the items were dropped on. */
-  leafKey: number;
+  nodeKey: number;
   /** Where the items landed relative to the leaf: an edge splits, center inserts. */
   location: location.Location;
   /** The keys of the dropped creation items, e.g. ontology ID strings. */
@@ -43,7 +43,7 @@ export interface OnCreateProps {
 /** Passed to a Frame's onFileDrop handler when OS files land on a {@link Leaf}. */
 export interface OnFileDropProps {
   /** The key of the leaf the files were dropped on. */
-  leafKey: number;
+  nodeKey: number;
   /** Where the files landed relative to the leaf: an edge splits, center inserts. */
   location: location.Location;
   /** The native drag event carrying the dropped files. */

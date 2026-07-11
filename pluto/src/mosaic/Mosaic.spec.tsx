@@ -378,7 +378,7 @@ describe("Mosaic", () => {
     it("should render both children", () => {
       render(
         <Mosaic.Frame>
-          <Mosaic.Split splitKey="1">
+          <Mosaic.Split nodeKey="1">
             <p>First</p>
             <p>Last</p>
           </Mosaic.Split>
@@ -392,7 +392,7 @@ describe("Mosaic", () => {
       const onResize = vi.fn();
       const c = render(
         <Mosaic.Frame onResize={onResize}>
-          <Mosaic.Split splitKey="root.first">
+          <Mosaic.Split nodeKey="root.first">
             <p>First</p>
             <p>Last</p>
           </Mosaic.Split>

@@ -17,10 +17,10 @@ import { type Node, type NodeLeaf, type Tab } from "@/panel/types.gen";
 // The scheme is shared with the Go and TypeScript reducers; every consumer that
 // addresses nodes (dispatching InsertTab/MoveTab, adapting the tree for
 // rendering) must use these helpers rather than re-deriving the math.
-export const ROOT_PATH = 1;
+export const ROOT_NODE_KEY = 1;
 
 /** childPath returns the path key of a split's child on the given side. */
-export const childPath = (pathKey: number, side: spatial.Order): number =>
+export const childNodeKey = (pathKey: number, side: spatial.Order): number =>
   side === "first" ? pathKey * 2 : pathKey * 2 + 1;
 
 /**
@@ -32,9 +32,9 @@ export const splitSide = (loc: location.Outer): spatial.Order =>
   loc === "left" || loc === "top" ? "first" : "last";
 
 const pathDirections = (pathKey: number): boolean[] => {
-  if (pathKey <= ROOT_PATH) return [];
+  if (pathKey <= ROOT_NODE_KEY) return [];
   const bits: boolean[] = [];
-  while (pathKey > ROOT_PATH) {
+  while (pathKey > ROOT_NODE_KEY) {
     bits.unshift((pathKey & 1) === 1);
     pathKey >>= 1;
   }
@@ -100,8 +100,8 @@ const findLeafPath = (
   if (node == null) return undefined;
   if (node.variant === "leaf") return match(node.tabs) ? path : undefined;
   return (
-    findLeafPath(node.first, childPath(path, "first"), match) ??
-    findLeafPath(node.last, childPath(path, "last"), match)
+    findLeafPath(node.first, childNodeKey(path, "first"), match) ??
+    findLeafPath(node.last, childNodeKey(path, "last"), match)
   );
 };
 
@@ -110,7 +110,7 @@ export const tabLeafPath = (
   root: Node | undefined,
   tabKey: string,
 ): number | undefined =>
-  findLeafPath(root, ROOT_PATH, (tabs) => tabs.some((t) => t.key === tabKey));
+  findLeafPath(root, ROOT_NODE_KEY, (tabs) => tabs.some((t) => t.key === tabKey));
 
 /** findTabLeaf returns the leaf node holding the given tab, or null when absent. */
 export const findTabLeaf = (
@@ -138,4 +138,4 @@ export const canSplitTab = (root: Node | undefined, tabKey: string): boolean => 
 
 /** firstLeafPath returns the path key of the first leaf in traversal order. */
 export const firstLeafPath = (root: Node | undefined): number | undefined =>
-  findLeafPath(root, ROOT_PATH, () => true);
+  findLeafPath(root, ROOT_NODE_KEY, () => true);
