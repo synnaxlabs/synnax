@@ -92,6 +92,9 @@ bazel build //driver/cmd:driver # Build driver binary
 - **Comments**: Only add comments when they provide non-obvious context. Never add
   comments that merely restate what the code does (e.g., `# Open the file` before
   `open(file)`). Code should be self-documenting through clear naming.
+- **Naming**: Never use `seed` in the name of a function that seeds/populates data
+  (e.g., test fixtures, initial database records). Always use `create` instead:
+  `createChannels`, not `seedChannels`.
 
 ## Key Conventions
 
