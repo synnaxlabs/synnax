@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import { type ReactElement, useCallback, useMemo } from "react";
+import {
+  createContext,
+  memo,
+  type ReactElement,
+  type RefObject,
+  useCallback,
+  useContext,
+  useMemo,
+} from "react";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
@@ -17,7 +25,7 @@ import { Errors } from "@/errors";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Mosaic as Base } from "@/mosaic";
-import { useDispatch, useSelectRoot } from "@/panel/queries";
+import { useDispatch, useSelectLeafTabGroups, useSelectNode } from "@/panel/queries";
 import { Scope, TabScope } from "@/panel/scope";
 import { useKey } from "@/panel/Suspended";
 import { Portal } from "@/portal";
@@ -45,6 +53,28 @@ export interface MosaicProps extends Omit<
   onCreateTab?: () => panel.NewTab | undefined;
   resolveDroppedTab?: (key: string) => panel.NewTab | undefined;
 }
+
+// LeafContext carries the per-leaf render dependencies down to the granular Leaf nodes.
+// Split nodes never read it, so a selection or focus change re-renders the leaf strips
+// without touching the split tree.
+interface LeafContextValue {
+  portalRef: RefObject<Map<string, Portal.Node>>;
+  preference: string[];
+  focused?: string;
+  onSelect?: (tabKey: string) => void;
+  onClose: (tabKey: string) => void;
+  onAdd: (path: number) => void;
+  tabName?: Component.RenderProp<MosaicTabNameProps>;
+}
+
+const LeafContext = createContext<LeafContextValue | null>(null);
+
+const useLeafContext = (): LeafContextValue => {
+  const ctx = useContext(LeafContext);
+  if (ctx == null)
+    throw new Error("[Panel.Mosaic] leaf rendered outside of a Mosaic frame");
+  return ctx;
+};
 
 interface ContentProps extends Pick<MosaicProps, "children"> {
   tabKey: string;
@@ -94,46 +124,41 @@ export const DefaultTabName = ({
   );
 };
 
-// resolveSelected picks the leaf's selected tab: the first preference present in
-// the leaf's own tabs, falling back to the leaf's first tab.
-const resolveSelected = (tabs: panel.Tab[], preference: string[]): string | undefined =>
-  preference.find((key) => tabs.some((t) => t.key === key)) ?? tabs[0]?.key;
+// resolveSelected picks the leaf's selected tab: the first preference present in the
+// leaf's own tabs, falling back to the leaf's first tab.
+const resolveSelected = (tabs: string[], preference: string[]): string | undefined =>
+  preference.find((key) => tabs.includes(key)) ?? tabs[0];
 
-interface LeafProps extends Pick<MosaicProps, "focused" | "onSelect" | "tabName"> {
+const EMPTY_TABS: string[] = [];
+
+interface LeafProps {
   path: number;
-  tabs: panel.Tab[];
-  selected?: string;
-  onClose: (tabKey: string) => void;
-  onAdd: (path: number) => void;
-  contentNode?: Portal.Node;
+  tabs: string[];
 }
 
-const Leaf = ({
-  path,
-  tabs,
-  selected,
-  focused,
-  onSelect,
-  onClose,
-  onAdd,
-  tabName,
-  contentNode,
-}: LeafProps): ReactElement => {
+// Leaf renders one mosaic leaf: its tab strip and the portal host for its selected tab.
+// It is memoized on path and tab keys; a content change never reaches it, and a resize of
+// another split never reaches it.
+const Leaf = memo(({ path, tabs }: LeafProps): ReactElement => {
+  const { portalRef, preference, focused, onSelect, onClose, onAdd, tabName } =
+    useLeafContext();
   const { startDrag, onDragEnd } = Base.useDragTab();
+  const selected = resolveSelected(tabs, preference);
+  const contentNode = selected != null ? portalRef.current.get(selected) : undefined;
   return (
     <Base.Leaf leafKey={path.toString()} grow>
       <Tabs.Frame value={selected} onChange={onSelect} onClose={onClose} grow>
         <Tabs.Selector altColor={focused != null && focused === selected}>
-          {tabs.map(({ key }) => (
+          {tabs.map((tabKey) => (
             <Tabs.Tab
-              key={key}
-              itemKey={key}
+              key={tabKey}
+              itemKey={tabKey}
               draggable
-              onDragStart={(e) => startDrag(e, key)}
+              onDragStart={(e) => startDrag(e, tabKey)}
               onDragEnd={onDragEnd}
             >
               {tabName != null && (
-                <TabScope.Provider value={key}>{tabName({})}</TabScope.Provider>
+                <TabScope.Provider value={tabKey}>{tabName({})}</TabScope.Provider>
               )}
               <Tabs.Close />
             </Tabs.Tab>
@@ -149,7 +174,33 @@ const Leaf = ({
       </Tabs.Frame>
     </Base.Leaf>
   );
-};
+});
+Leaf.displayName = "Panel.Mosaic.Leaf";
+
+interface NodeProps {
+  path: number;
+}
+
+// Node subscribes to the structural descriptor of a single tree position and renders
+// either a split (with its two child Nodes) or a leaf. It is memoized on path alone, so a
+// parent re-render never cascades; each Node re-renders only when its own node changes.
+const Node = memo(({ path }: NodeProps): ReactElement | null => {
+  const node = useSelectNode({ path });
+  if (node == null) return null;
+  if (node.variant === "split")
+    return (
+      <Base.Split
+        splitKey={path.toString()}
+        direction={node.direction}
+        size={node.size}
+      >
+        <Node path={panel.childPath(path, "first")} />
+        <Node path={panel.childPath(path, "last")} />
+      </Base.Split>
+    );
+  return <Leaf path={path} tabs={node.tabs ?? EMPTY_TABS} />;
+});
+Node.displayName = "Panel.Mosaic.Node";
 
 export const Mosaic = ({
   focused,
@@ -163,7 +214,7 @@ export const Mosaic = ({
 }: MosaicProps): ReactElement | null => {
   const key = useKey();
   const { dispatch } = useDispatch();
-  const root = useSelectRoot({ key });
+  const groups = useSelectLeafTabGroups({ key });
   const preference = useMemo(() => selected ?? [], [selected]);
 
   const handleDrop = useCallback(
@@ -225,24 +276,15 @@ export const Mosaic = ({
     [dispatch, key, onSelect, resolveDroppedTab],
   );
 
-  // One traversal derives both portal enumeration inputs: every tab key in the tree
-  // and the set of keys visible as their leaf's resolved selection.
-  const [tabKeys, visibleKeys] = useMemo(() => {
-    const keys: string[] = [];
+  const tabKeys = useMemo(() => groups.flat(), [groups]);
+  const visibleKeys = useMemo(() => {
     const visible = new Set<string>();
-    const visit = (node: panel.Node): void => {
-      if (node.variant === "split") {
-        visit(node.first);
-        visit(node.last);
-        return;
-      }
-      node.tabs.forEach((t) => keys.push(t.key));
-      const sel = resolveSelected(node.tabs, preference);
+    groups.forEach((group) => {
+      const sel = resolveSelected(group, preference);
       if (sel != null) visible.add(sel);
-    };
-    visit(root);
-    return [keys, visible];
-  }, [root, preference]);
+    });
+    return visible;
+  }, [groups, preference]);
 
   const [portalRef, portalNodes] = Portal.useNodes({
     keys: tabKeys,
@@ -257,47 +299,32 @@ export const Mosaic = ({
     ),
   });
 
-  const renderNode = (node: panel.Node, path: number): ReactElement => {
-    if (node.variant === "split")
-      return (
-        <Base.Split
-          key={path}
-          splitKey={path.toString()}
-          direction={node.direction}
-          size={node.size}
-        >
-          {renderNode(node.first, panel.childPath(path, "first"))}
-          {renderNode(node.last, panel.childPath(path, "last"))}
-        </Base.Split>
-      );
-    const sel = resolveSelected(node.tabs, preference);
-    return (
-      <Leaf
-        key={path}
-        path={path}
-        tabs={node.tabs}
-        selected={sel}
-        focused={focused}
-        onSelect={onSelect}
-        onClose={handleClose}
-        onAdd={handleAdd}
-        tabName={tabName}
-        contentNode={sel != null ? portalRef.current.get(sel) : undefined}
-      />
-    );
-  };
+  const ctx = useMemo<LeafContextValue>(
+    () => ({
+      portalRef,
+      preference,
+      focused,
+      onSelect,
+      onClose: handleClose,
+      onAdd: handleAdd,
+      tabName,
+    }),
+    [portalRef, preference, focused, onSelect, handleClose, handleAdd, tabName],
+  );
 
   return (
     <Scope.Provider value={key}>
       {portalNodes}
-      <Base.Frame
-        onDrop={handleDrop}
-        onCreate={handleCreate}
-        onResize={handleResize}
-        {...rest}
-      >
-        {renderNode(root, panel.ROOT_PATH)}
-      </Base.Frame>
+      <LeafContext.Provider value={ctx}>
+        <Base.Frame
+          onDrop={handleDrop}
+          onCreate={handleCreate}
+          onResize={handleResize}
+          {...rest}
+        >
+          <Node path={panel.ROOT_PATH} />
+        </Base.Frame>
+      </LeafContext.Provider>
     </Scope.Provider>
   );
 };

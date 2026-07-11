@@ -779,12 +779,12 @@ describe("Panel queries", () => {
       return { created, ops };
     };
 
-    it("useSelectStructure stays referentially stable across a content-only change", async () => {
+    it("useSelectNode stays referentially stable across a content-only change", async () => {
       const tab = newTab();
       const { created, ops } = await seedTab(tab);
 
       const structure = await loadAndCount(created.key, () =>
-        Panel.useSelectStructure({ key: created.key }),
+        Panel.useSelectNode({ key: created.key, path: panel.ROOT_PATH }),
       );
       const args = await loadAndCount(created.key, () =>
         Panel.useSelectTabArgs({ key: created.key, tabKey: tab.key }),

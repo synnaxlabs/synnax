@@ -28,10 +28,12 @@ const client = createTestClient();
 
 const ROUND_TRIP = { timeout: 5000 };
 
+const resourceID = (): ontology.ID => ({ type: "lineplot", key: uuid.create() });
+
 const resourceTab = (): panel.Tab => ({
   variant: "resource",
   key: uuid.create(),
-  resource: { type: "lineplot", key: uuid.create() },
+  resource: resourceID(),
 });
 
 const viewTab = (): panel.Tab => ({
@@ -102,6 +104,13 @@ const TabContentProbe = ({
 const TabNameProbe = (): ReactElement => {
   const type = Panel.useSelectTabType({});
   return <span>{`name:${type}`}</span>;
+};
+
+// TabKeyNameProbe renders a per-tab clickable name from the tab key in scope, so gesture
+// specs can target an individual tab's handle by its visible text.
+const TabKeyNameProbe = (): ReactElement => {
+  const tabKey = Panel.TabScope.use();
+  return <span>{`name:${tabKey}`}</span>;
 };
 
 const children: Panel.MosaicProps["children"] = ({ tabKey, visible }) => (
@@ -259,10 +268,8 @@ describe("Panel.Mosaic", () => {
       };
       const p = await createPanel(a, b);
       const onSelect = vi.fn();
-      const tabName = vi.fn(({ tabKey }: Panel.MosaicTabNameProps) => (
-        <span>{`name:${tabKey}`}</span>
-      ));
-      const { utils } = await renderMosaic({
+      const tabName = vi.fn(() => <TabKeyNameProbe />);
+      const utils = await renderMosaic({
         panelKey: p.key,
         selected: [a.key],
         onSelect,

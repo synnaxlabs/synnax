@@ -18,10 +18,8 @@ import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
-import { type Mosaic } from "@/mosaic";
 import { Ontology } from "@/ontology";
 import { Scope, TabScope } from "@/panel/scope";
-import { type Tabs } from "@/tabs";
 
 export const FLUX_STORE_KEY = "panels";
 const RESOURCE_NAME = "panel";
@@ -168,53 +166,71 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
   return [boundUseSelect, boundUseGet];
 };
 
-// adaptStructure projects the panel tree onto the structural Base.Mosaic node: keys,
-// splits, sizes, per-leaf tab keys, and selection — but no tab content (type/args). Paired
-// with a deep-equal selector, a content-only dispatch yields an equal projection so the
-// mosaic does not re-render.
-const adaptStructure = (
-  root: panel.Node,
-  preference: string[] | undefined,
-): Mosaic.Node => {
-  console.log("EVAL");
-  const pref = preference ?? [];
-  const visit = (node: panel.Node | undefined, key: number): Mosaic.Node => {
-    if (node == null) return { key };
-    if (node.variant === "split")
-      return {
-        key,
-        direction: node.direction,
-        size: node.size,
-        first: visit(node.first, panel.childPath(key, "first")),
-        last: visit(node.last, panel.childPath(key, "last")),
-      };
-    const tabs: Tabs.Tab[] = node.tabs.map((t) => ({
-      tabKey: t.key,
-      name: "",
-      closable: true,
-      editable: !(t.variant === "view" && t.type === "selector"),
-    }));
-    const selected =
-      pref.find((k) => tabs.some((t) => t.tabKey === k)) ?? tabs[0]?.tabKey;
-    console.log(selected);
-    return { key, tabs, selected };
-  };
-  return visit(root, panel.ROOT_PATH);
-};
-
-export interface SelectStructureArgs {
-  key: panel.Key;
-  selected?: string[];
+export interface NodeStructure {
+  /** variant discriminates a split node from a leaf node. */
+  variant: panel.Node["variant"];
+  /** tabs holds the ordered tab keys of a leaf node. */
+  tabs?: string[];
+  /** direction is the split axis of a split node. */
+  direction?: Extract<panel.Node, { variant: "split" }>["direction"];
+  /** size is the split ratio of a split node as a decimal in [0, 1]. */
+  size?: number;
 }
 
-// useSelectStructure selects the structural Base.Mosaic projection of the panel tree,
-// deep-equal compared so it re-renders only on structural changes (split, move, resize,
-// insert, remove, selection) — never on a tab's type/args change.
-export const [useSelectStructure, useGetStructure] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectStructureArgs, Mosaic.Node, panel.Node>({
+const structureOf = (node: panel.Node | null): NodeStructure | null => {
+  if (node == null) return null;
+  if (node.variant === "split")
+    return { variant: "split", direction: node.direction, size: node.size };
+  return { variant: "leaf", tabs: node.tabs.map((t) => t.key) };
+};
+
+export interface SelectNodeArgs extends SelectKeyArgs {
+  path: number;
+}
+
+// useSelectNode selects the structural descriptor of the single node at the given path: a
+// split's direction and size, or a leaf's ordered tab keys. It carries no tab content and
+// is deep-equal compared, so a node re-renders only when its own structure changes — a
+// resize touches one split, a tab insert one leaf, and a tab's content change nothing.
+export const [useSelectNode, useGetNode] = Scope.bindSelector(
+  Flux.createSelector<
+    FluxSubStore,
+    SelectNodeArgs,
+    NodeStructure | null,
+    panel.Node | null
+  >({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key }) => requirePanel(store, key).root,
-    transform: (root, { selected }) => adaptStructure(root, selected),
+    select: (store, { key, path }) =>
+      panel.walkPath(requirePanel(store, key).root, path),
+    transform: structureOf,
+    equal: deep.equal,
+  }),
+);
+
+// leafTabGroups returns each leaf's ordered tab keys, in traversal order. It is the
+// whole-tree input the mosaic root needs to enumerate stable portal nodes and resolve the
+// visible tab per leaf, without re-deriving structure inside the render path.
+export const leafTabGroups = (store: FluxSubStore, key: panel.Key): string[][] => {
+  const p = store.panels.get(key);
+  if (p == null) return [];
+  const groups: string[][] = [];
+  const visit = (node: panel.Node | undefined) => {
+    if (node == null) return;
+    if (node.variant === "split") {
+      visit(node.first);
+      visit(node.last);
+    } else groups.push(node.tabs.map((t) => t.key));
+  };
+  visit(p.root);
+  return groups;
+};
+
+// useSelectLeafTabGroups selects each leaf's tab keys, deep-equal compared so the mosaic
+// root re-renders only when tab membership changes — not on a resize or a content change.
+export const [useSelectLeafTabGroups, useGetLeafTabGroups] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string[][]>({
+    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+    select: (store, { key }) => leafTabGroups(store, key),
     equal: deep.equal,
   }),
 );
