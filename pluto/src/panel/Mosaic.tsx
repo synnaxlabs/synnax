@@ -8,38 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import {
-  createContext,
-  memo,
-  type ReactElement,
-  type RefObject,
-  useCallback,
-  useContext,
-  useMemo,
-} from "react";
+import { memo, type ReactElement, type RefObject, useCallback, useMemo } from "react";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
-import { CSS } from "@/css";
+import { context } from "@/context";
 import { Errors } from "@/errors";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Mosaic as Base } from "@/mosaic";
-import { useDispatch, useSelectLeafTabGroups, useSelectNode } from "@/panel/queries";
-import { Scope, TabScope } from "@/panel/scope";
-import { useKey } from "@/panel/Suspended";
+import {
+  useSelectLeafTabGroups,
+  useSelectNode,
+  useSingleDispatch,
+} from "@/panel/queries";
+import { TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Tabs } from "@/tabs";
-import { Text } from "@/text";
-
-export interface MosaicTabRenderProps {
-  tabKey: string;
-  visible: boolean;
-}
-
-export interface MosaicTabNameProps extends Omit<Tabs.NameProps, "value"> {
-  onRename?: (tabKey: string, name: string) => void;
-}
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
@@ -48,16 +33,13 @@ export interface MosaicProps extends Omit<
   focused?: string;
   selected?: string[];
   onSelect?: (tabKey: string) => void;
-  children: Component.RenderProp<MosaicTabRenderProps>;
-  tabName?: Component.RenderProp<MosaicTabNameProps>;
+  children: Component.RenderProp<{}>;
+  tabName?: Component.RenderProp<{}>;
   onCreateTab?: () => panel.NewTab | undefined;
   resolveDroppedTab?: (key: string) => panel.NewTab | undefined;
 }
 
-// LeafContext carries the per-leaf render dependencies down to the granular Leaf nodes.
-// Split nodes never read it, so a selection or focus change re-renders the leaf strips
-// without touching the split tree.
-interface LeafContextValue {
+interface ContextValue {
   portalRef: RefObject<Map<string, Portal.Node>>;
   preference: string[];
   focused?: string;
@@ -67,69 +49,23 @@ interface LeafContextValue {
   tabName?: Component.RenderProp<MosaicTabNameProps>;
 }
 
-const LeafContext = createContext<LeafContextValue | null>(null);
-
-const useLeafContext = (): LeafContextValue => {
-  const ctx = useContext(LeafContext);
-  if (ctx == null)
-    throw new Error("[Panel.Mosaic] leaf rendered outside of a Mosaic frame");
-  return ctx;
-};
+const [Context, useContext] = context.create<ContextValue>({
+  displayName: "LeafContext",
+  providerName: "LeafProvider",
+});
 
 interface ContentProps extends Pick<MosaicProps, "children"> {
   tabKey: string;
-  visible: boolean;
 }
 
-// Content publishes the tab scope around the consumer's render so it can read the tab's
-// type/args with the granular tab-scoped selectors instead of receiving them as props.
-const Content = ({ tabKey, visible, children }: ContentProps): ReactElement => (
-  <TabScope.Provider value={tabKey}>{children({ tabKey, visible })}</TabScope.Provider>
+const Content = ({ tabKey, children }: ContentProps): ReactElement => (
+  <TabScope.Provider value={tabKey}>{children({})}</TabScope.Provider>
 );
-
-export interface DefaultTabNameProps extends MosaicTabNameProps {
-  name?: string;
-  icon?: Icon.ReactElement;
-}
-
-// DefaultTabName renders a tab's name from the surrounding tab scope, so callers that
-// don't supply a custom tabName get the standard name bound to the active tab. When an
-// onRename handler is provided the name becomes editable and commits through it.
-export const DefaultTabName = ({
-  name,
-  icon,
-  onRename,
-  level = "p",
-  ...rest
-}: DefaultTabNameProps): ReactElement => {
-  const tabKey = TabScope.use();
-  return (
-    <>
-      {icon != null && Icon.resolve(icon)}
-      {onRename == null ? (
-        <Text.Text level={level} overflow="ellipsis" {...rest}>
-          {name}
-        </Text.Text>
-      ) : (
-        <Text.Editable
-          id={CSS.B(`tab-${tabKey}`)}
-          level={level}
-          value={name ?? ""}
-          onChange={(next: string) => onRename(tabKey, next)}
-          overflow="ellipsis"
-          {...rest}
-        />
-      )}
-    </>
-  );
-};
 
 // resolveSelected picks the leaf's selected tab: the first preference present in the
 // leaf's own tabs, falling back to the leaf's first tab.
 const resolveSelected = (tabs: string[], preference: string[]): string | undefined =>
   preference.find((key) => tabs.includes(key)) ?? tabs[0];
-
-const EMPTY_TABS: string[] = [];
 
 interface LeafProps {
   path: number;
@@ -140,8 +76,7 @@ interface LeafProps {
 // It is memoized on path and tab keys; a content change never reaches it, and a resize of
 // another split never reaches it.
 const Leaf = memo(({ path, tabs }: LeafProps): ReactElement => {
-  const { portalRef, preference, focused, onSelect, onClose, onAdd, tabName } =
-    useLeafContext();
+  const { portalRef, onClose, onAdd, tabName } = useContext("Panel.Leaf");
   const { startDrag, onDragEnd } = Base.useDragTab();
   const selected = resolveSelected(tabs, preference);
   const contentNode = selected != null ? portalRef.current.get(selected) : undefined;
@@ -182,12 +117,8 @@ interface NodeProps {
   path: number;
 }
 
-// Node subscribes to the structural descriptor of a single tree position and renders
-// either a split (with its two child Nodes) or a leaf. It is memoized on path alone, so a
-// parent re-render never cascades; each Node re-renders only when its own node changes.
-const Node = memo(({ path }: NodeProps): ReactElement | null => {
+const Node = memo(({ path }: NodeProps): ReactElement => {
   const node = useSelectNode({ path });
-  if (node == null) return null;
   if (node.variant === "split")
     return (
       <Base.Split
@@ -199,13 +130,15 @@ const Node = memo(({ path }: NodeProps): ReactElement | null => {
         <Node path={panel.childPath(path, "last")} />
       </Base.Split>
     );
-  return <Leaf path={path} tabs={node.tabs ?? EMPTY_TABS} />;
+  return <Leaf path={path} tabs={node.tabs} />;
 });
 Node.displayName = "Panel.Mosaic.Node";
 
+const EMPTY_SELECTED: string[] = [];
+
 export const Mosaic = ({
   focused,
-  selected,
+  selected = EMPTY_SELECTED,
   onSelect,
   children,
   tabName,
@@ -213,34 +146,26 @@ export const Mosaic = ({
   resolveDroppedTab,
   ...rest
 }: MosaicProps): ReactElement | null => {
-  const key = useKey();
-  const { dispatch } = useDispatch();
-  const groups = useSelectLeafTabGroups({ key });
-  const preference = useMemo(() => selected ?? [], [selected]);
+  const dispatch = useSingleDispatch();
+  const groups = useSelectLeafTabGroups();
 
   const handleDrop = useCallback(
     ({ leafKey, tabKey, location, index }: Base.OnDropProps) =>
-      dispatch({
-        key,
-        actions: [
-          panel.moveTab({ key: tabKey, targetLeaf: Number(leafKey), index, location }),
-        ],
-      }),
-    [dispatch, key],
+      dispatch(
+        panel.moveTab({ key: tabKey, targetLeaf: Number(leafKey), index, location }),
+      ),
+    [dispatch],
   );
 
   const handleResize = useCallback(
     (splitKey: string, size: number) =>
-      dispatch({
-        key,
-        actions: [panel.resizeSplit({ split: Number(splitKey), size })],
-      }),
-    [dispatch, key],
+      dispatch(panel.resizeSplit({ split: Number(splitKey), size })),
+    [dispatch],
   );
 
   const handleClose = useCallback(
-    (tabKey: string) => dispatch({ key, actions: [panel.removeTab({ key: tabKey })] }),
-    [dispatch, key],
+    (tabKey: string) => dispatch(panel.removeTab({ key: tabKey })),
+    [dispatch],
   );
 
   const handleAdd = useCallback(
@@ -248,10 +173,10 @@ export const Mosaic = ({
       const tab = onCreateTab?.();
       if (tab == null) return;
       const action = panel.insertTab({ tab, targetLeaf: path });
-      dispatch({ key, actions: [action] });
+      dispatch(action);
       if (action.type === "insert_tab") onSelect?.(action.insertTab.tab.key);
     },
-    [dispatch, key, onSelect, onCreateTab],
+    [dispatch, onSelect, onCreateTab],
   );
 
   const handleCreate = useCallback(
@@ -270,22 +195,12 @@ export const Mosaic = ({
             : { tab, targetLeaf: restLeaf },
         ),
       );
-      dispatch({ key, actions });
+      dispatch(actions);
       const last = actions.at(-1);
       if (last?.type === "insert_tab") onSelect?.(last.insertTab.tab.key);
     },
-    [dispatch, key, onSelect, resolveDroppedTab],
+    [dispatch, onSelect, resolveDroppedTab],
   );
-
-  const tabKeys = useMemo(() => groups.flat(), [groups]);
-  const visibleKeys = useMemo(() => {
-    const visible = new Set<string>();
-    groups.forEach((group) => {
-      const sel = resolveSelected(group, preference);
-      if (sel != null) visible.add(sel);
-    });
-    return visible;
-  }, [groups, preference]);
 
   const [portalRef, portalNodes] = Portal.useNodes({
     keys: tabKeys,
@@ -293,30 +208,26 @@ export const Mosaic = ({
     onClick: onSelect,
     children: (tabKey) => (
       <Errors.Boundary>
-        <Content tabKey={tabKey} visible={visibleKeys.has(tabKey)}>
-          {children}
-        </Content>
+        <Content tabKey={tabKey}>{children}</Content>
       </Errors.Boundary>
     ),
   });
 
-  const ctx = useMemo<LeafContextValue>(
+  const ctx = useMemo<ContextValue>(
     () => ({
       portalRef,
-      preference,
-      focused,
       onSelect,
       onClose: handleClose,
       onAdd: handleAdd,
       tabName,
     }),
-    [portalRef, preference, focused, onSelect, handleClose, handleAdd, tabName],
+    [portalRef, onSelect, handleClose, handleAdd, tabName],
   );
 
   return (
-    <Scope.Provider value={key}>
+    <>
       {portalNodes}
-      <LeafContext.Provider value={ctx}>
+      <Context value={ctx}>
         <Base.Frame
           onDrop={handleDrop}
           onCreate={handleCreate}
@@ -325,7 +236,7 @@ export const Mosaic = ({
         >
           <Node path={panel.ROOT_PATH} />
         </Base.Frame>
-      </LeafContext.Provider>
-    </Scope.Provider>
+      </Context>
+    </>
   );
 };

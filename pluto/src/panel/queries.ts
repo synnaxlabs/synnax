@@ -159,6 +159,7 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
     const get = useGet();
     return useCallback(
       (args?: optional.Optional<Args, "key" | "tabKey">) =>
+        // eslint-disable-next-line
         get({ key, tabKey, ...args } as Args),
       [get, key, tabKey],
     );
@@ -166,22 +167,12 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
   return [boundUseSelect, boundUseGet];
 };
 
-export interface NodeStructure {
-  /** variant discriminates a split node from a leaf node. */
-  variant: panel.Node["variant"];
-  /** tabs holds the ordered tab keys of a leaf node. */
-  tabs?: string[];
-  /** direction is the split axis of a split node. */
-  direction?: Extract<panel.Node, { variant: "split" }>["direction"];
-  /** size is the split ratio of a split node as a decimal in [0, 1]. */
-  size?: number;
-}
+export type NodeStructure =
+  panel.NodeSplit | (Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] });
 
-const structureOf = (node: panel.Node | null): NodeStructure | null => {
-  if (node == null) return null;
-  if (node.variant === "split")
-    return { variant: "split", direction: node.direction, size: node.size };
-  return { variant: "leaf", tabs: node.tabs.map((t) => t.key) };
+const nodeStructure = (node: panel.Node): NodeStructure => {
+  if (node.variant === "split") return node;
+  return { ...node, tabs: node.tabs.map((t) => t.key) };
 };
 
 export interface SelectNodeArgs extends SelectKeyArgs {
@@ -193,16 +184,14 @@ export interface SelectNodeArgs extends SelectKeyArgs {
 // is deep-equal compared, so a node re-renders only when its own structure changes — a
 // resize touches one split, a tab insert one leaf, and a tab's content change nothing.
 export const [useSelectNode, useGetNode] = Scope.bindSelector(
-  Flux.createSelector<
-    FluxSubStore,
-    SelectNodeArgs,
-    NodeStructure | null,
-    panel.Node | null
-  >({
+  Flux.createSelector<FluxSubStore, SelectNodeArgs, NodeStructure, panel.Node>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key, path }) =>
-      panel.walkPath(requirePanel(store, key).root, path),
-    transform: structureOf,
+    select: (store, { key, path }) => {
+      const node = panel.findNode(requirePanel(store, key).root, path);
+      if (node == null) throw new NotFoundError(`Node at path ${path} not found`);
+      return node;
+    },
+    transform: nodeStructure,
     equal: deep.equal,
   }),
 );

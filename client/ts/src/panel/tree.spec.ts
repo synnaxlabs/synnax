@@ -59,18 +59,18 @@ describe("tree", () => {
 
   describe("walkPath", () => {
     it("should return the root for ROOT_PATH", () => {
-      expect(panel.walkPath(TREE, panel.ROOT_PATH)).toBe(TREE);
+      expect(panel.findNode(TREE, panel.ROOT_PATH)).toBe(TREE);
     });
 
     it("should walk nested splits", () => {
-      expect(panel.walkPath(TREE, 4)).toEqual(leaf("a"));
-      expect(panel.walkPath(TREE, 5)).toEqual(leaf("b"));
-      expect(panel.walkPath(TREE, 3)).toEqual(leaf("c"));
+      expect(panel.findNode(TREE, 4)).toEqual(leaf("a"));
+      expect(panel.findNode(TREE, 5)).toEqual(leaf("b"));
+      expect(panel.findNode(TREE, 3)).toEqual(leaf("c"));
     });
 
     it("should return null for a path that does not exist", () => {
-      expect(panel.walkPath(TREE, 6)).toBeNull();
-      expect(panel.walkPath(undefined, panel.ROOT_PATH)).toBeNull();
+      expect(panel.findNode(TREE, 6)).toBeUndefined();
+      expect(panel.findNode(undefined, panel.ROOT_PATH)).toBeUndefined();
     });
   });
 
@@ -105,9 +105,8 @@ describe("tree", () => {
     it("should return null when no tab backs the resource", () => {
       expect(
         panel.findTabByResource(withResource, { type: "schematic", key: "lp-1" }),
-      ).toBeNull();
-      expect(panel.findTabByResource(TREE, lp)).toBeNull();
-      expect(panel.findTabByResource(null, lp)).toBeNull();
+      ).toBeUndefined();
+      expect(panel.findTabByResource(TREE, lp)).toBeUndefined();
     });
   });
 
@@ -117,8 +116,7 @@ describe("tree", () => {
     });
 
     it("should return null for an empty tree", () => {
-      expect(panel.firstTab(leaf())).toBeNull();
-      expect(panel.firstTab(null)).toBeNull();
+      expect(panel.firstTab(leaf())).toBeUndefined();
     });
   });
 
@@ -130,7 +128,7 @@ describe("tree", () => {
     });
 
     it("should return null when the tab is absent", () => {
-      expect(panel.tabLeafPath(TREE, "nope")).toBeNull();
+      expect(panel.tabLeafPath(TREE, "nope")).toBeUndefined();
     });
   });
 
@@ -138,10 +136,6 @@ describe("tree", () => {
     it("should return the first leaf in traversal order", () => {
       expect(panel.firstLeafPath(TREE)).toEqual(4);
       expect(panel.firstLeafPath(leaf("a"))).toEqual(panel.ROOT_PATH);
-    });
-
-    it("should return null for an empty tree", () => {
-      expect(panel.firstLeafPath(null)).toBeNull();
     });
   });
 });

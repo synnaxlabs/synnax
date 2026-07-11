@@ -67,7 +67,7 @@ const Content = ({ visible }: Panel.MosaicTabRenderProps): ReactElement => {
                 <Nav.Bar.Start>
                   <Breadcrumb.Breadcrumb>
                     <Breadcrumb.Segment>
-                      <Name level="h5" selected={false} />
+                      <Name level="h5" />
                     </Breadcrumb.Segment>
                   </Breadcrumb.Breadcrumb>
                 </Nav.Bar.Start>
@@ -97,7 +97,6 @@ const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
 
 const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelectedTabs();
-  console.log(selected);
   const handleSelect = Session.Panel.useSelectTab();
   return (
     <Panel.Mosaic

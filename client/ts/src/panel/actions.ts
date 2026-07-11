@@ -16,19 +16,19 @@ import {
   type Handlers,
 } from "@/panel/actions.gen";
 import {
+  findNode,
   findTab,
   findTabByResource,
   firstLeafPath,
   ROOT_PATH,
   tabLeafPath,
-  walkPath,
 } from "@/panel/tree";
 import { type Node, type NodeLeaf, type Panel, type Tab } from "@/panel/types.gen";
 
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
 const walkLeaf = (root: Draft<Node>, pathKey: number): Draft<NodeLeaf> | null => {
-  const n = walkPath(root, pathKey);
+  const n = findNode(root, pathKey);
   if (n == null || n.variant !== "leaf") return null;
   return n;
 };
@@ -41,7 +41,7 @@ const replaceNodeAt = (state: Draft<Panel>, pathKey: number, next: Node): boolea
     state.root = next;
     return true;
   }
-  const parent = walkPath(state.root, pathKey >> 1);
+  const parent = findNode(state.root, pathKey >> 1);
   if (parent == null || parent.variant !== "split") return false;
   if ((pathKey & 1) === 1) parent.last = next;
   else parent.first = next;
@@ -115,7 +115,7 @@ const splitLeafAt = (
   loc: spatial.Location,
   size: number,
 ): number | null => {
-  const node = walkPath(state.root, leafPath);
+  const node = findNode(state.root, leafPath);
   if (node == null || node.variant !== "leaf") return null;
   const ds = directionAndSideForLocation(loc);
   if (ds == null) return null;
@@ -172,7 +172,7 @@ const handlers: Handlers = {
       replaceTab(state.root, tab.key, tab);
       return { inverse: [], targets: [tab.key] };
     }
-    let targetLeaf: number | null;
+    let targetLeaf: number | undefined;
     if (payload.targetTab != null)
       targetLeaf = tabLeafPath(state.root, payload.targetTab);
     else if (payload.targetLeaf != null) targetLeaf = payload.targetLeaf;
@@ -250,7 +250,7 @@ const handlers: Handlers = {
   },
 
   resizeSplit: (state, payload) => {
-    const node = walkPath(state.root, payload.split);
+    const node = findNode(state.root, payload.split);
     if (node == null || node.variant !== "split") return NO_OP;
     // An equal size must not touch the draft: the dispatch substrate detects
     // no-op vectors by reference equality and skips the server send.

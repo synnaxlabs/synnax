@@ -42,27 +42,21 @@ const pathDirections = (pathKey: number): boolean[] => {
 };
 
 /**
- * walkPath returns the node at the given path key, or null when the path does
+ * findNode returns the node at the given path key, or null when the path does
  * not exist in the tree.
  */
-export const walkPath = (
-  root: Node | undefined | null,
-  pathKey: number,
-): Node | null => {
-  if (root == null) return null;
+export const findNode = (root: Node | undefined, pathKey: number): Node | undefined => {
+  if (root == null) return undefined;
   let n: Node = root;
   for (const isLast of pathDirections(pathKey)) {
-    if (n.variant !== "split") return null;
+    if (n.variant !== "split") return undefined;
     n = isLast ? n.last : n.first;
   }
   return n;
 };
 
 /** findTab returns the tab with the given key, or null when absent. */
-export const findTab = (
-  node: Node | undefined | null,
-  key?: string,
-): Tab | undefined => {
+export const findTab = (node: Node | undefined, key?: string): Tab | undefined => {
   if (node == null || key == null) return undefined;
   if (node.variant === "leaf") return node.tabs.find((t) => t.key === key);
   return findTab(node.first, key) ?? findTab(node.last, key);
@@ -75,18 +69,16 @@ export const findTab = (
  * instead of inserting a duplicate.
  */
 export const findTabByResource = (
-  node: Node | undefined | null,
+  node: Node | undefined,
   resource: ontology.ID,
-): Tab | null => {
-  if (node == null) return null;
+): Tab | undefined => {
+  if (node == null) return undefined;
   if (node.variant === "leaf")
-    return (
-      node.tabs.find(
-        (t) =>
-          t.variant === "resource" &&
-          t.resource.type === resource.type &&
-          t.resource.key === resource.key,
-      ) ?? null
+    return node.tabs.find(
+      (t) =>
+        t.variant === "resource" &&
+        t.resource.type === resource.type &&
+        t.resource.key === resource.key,
     );
   return (
     findTabByResource(node.first, resource) ?? findTabByResource(node.last, resource)
@@ -94,19 +86,19 @@ export const findTabByResource = (
 };
 
 /** firstTab returns the first tab in traversal order, or null for an empty tree. */
-export const firstTab = (node: Node | undefined | null): Tab | null => {
-  if (node == null) return null;
-  if (node.variant === "leaf") return node.tabs[0] ?? null;
+export const firstTab = (node: Node | undefined): Tab | undefined => {
+  if (node == null) return undefined;
+  if (node.variant === "leaf") return node.tabs[0];
   return firstTab(node.first) ?? firstTab(node.last);
 };
 
 const findLeafPath = (
-  node: Node | undefined | null,
+  node: Node | undefined,
   path: number,
   match: (tabs: Tab[]) => boolean,
-): number | null => {
-  if (node == null) return null;
-  if (node.variant === "leaf") return match(node.tabs) ? path : null;
+): number | undefined => {
+  if (node == null) return undefined;
+  if (node.variant === "leaf") return match(node.tabs) ? path : undefined;
   return (
     findLeafPath(node.first, childPath(path, "first"), match) ??
     findLeafPath(node.last, childPath(path, "last"), match)
@@ -115,20 +107,20 @@ const findLeafPath = (
 
 /** tabLeafPath returns the path key of the leaf holding the given tab, or null. */
 export const tabLeafPath = (
-  root: Node | undefined | null,
+  root: Node | undefined,
   tabKey: string,
-): number | null =>
+): number | undefined =>
   findLeafPath(root, ROOT_PATH, (tabs) => tabs.some((t) => t.key === tabKey));
 
 /** findTabLeaf returns the leaf node holding the given tab, or null when absent. */
 export const findTabLeaf = (
-  root: Node | undefined | null,
+  root: Node | undefined,
   tabKey: string,
-): NodeLeaf | null => {
+): NodeLeaf | undefined => {
   const leafPath = tabLeafPath(root, tabKey);
-  if (leafPath == null) return null;
-  const leaf = walkPath(root, leafPath);
-  return leaf?.variant === "leaf" ? leaf : null;
+  if (leafPath == null) return undefined;
+  const leaf = findNode(root, leafPath);
+  return leaf?.variant === "leaf" ? leaf : undefined;
 };
 
 /**
@@ -137,13 +129,13 @@ export const findTabLeaf = (
  * tab in a leaf is a no-op (the SplitTab action rejects it), so menu
  * affordances for the split should gate on this.
  */
-export const canSplitTab = (root: Node | undefined | null, tabKey: string): boolean => {
+export const canSplitTab = (root: Node | undefined, tabKey: string): boolean => {
   const leafPath = tabLeafPath(root, tabKey);
   if (leafPath == null) return false;
-  const leaf = walkPath(root, leafPath);
+  const leaf = findNode(root, leafPath);
   return leaf?.variant === "leaf" && leaf.tabs.length >= 2;
 };
 
 /** firstLeafPath returns the path key of the first leaf in traversal order. */
-export const firstLeafPath = (root: Node | undefined | null): number | null =>
+export const firstLeafPath = (root: Node | undefined): number | undefined =>
   findLeafPath(root, ROOT_PATH, () => true);

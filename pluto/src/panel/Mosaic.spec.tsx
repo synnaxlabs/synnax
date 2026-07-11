@@ -82,10 +82,8 @@ const records = new Map<string, Recorded>();
 
 // TabContentProbe reads its tab's content from the surrounding tab scope (the content
 // delivery contract), records it, and renders the visible content text.
-const TabContentProbe = ({
-  tabKey,
-  visible,
-}: Panel.MosaicTabRenderProps): ReactElement => {
+const TabContentProbe = ({ visible }: Panel.MosaicTabRenderProps): ReactElement => {
+  const tabKey = Panel.useTabKey();
   const type = Panel.useSelectTabType({});
   const resource = Panel.useSelectTabResource({});
   const args = Panel.useSelectTabArgs({});
@@ -113,8 +111,8 @@ const TabKeyNameProbe = (): ReactElement => {
   return <span>{`name:${tabKey}`}</span>;
 };
 
-const children: Panel.MosaicProps["children"] = ({ tabKey, visible }) => (
-  <TabContentProbe tabKey={tabKey} visible={visible} />
+const children: Panel.MosaicProps["children"] = ({ visible }) => (
+  <TabContentProbe visible={visible} />
 );
 
 // Bootstrap pre-warms the flux cache with the suspending hook alone, so the
