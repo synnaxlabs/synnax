@@ -12,22 +12,23 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useCallback,
-  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
 } from "react";
 
 import { context } from "@/context";
-import { useSyncedRef } from "@/hooks/ref";
 import { Store } from "@/store";
 
+type Value<K extends record.Key = record.Key> = K | K[] | undefined;
+
 interface SelectionState<K extends record.Key = record.Key> {
-  value: K | K[] | null | undefined;
+  value: Value<K>;
   hover?: K;
 }
 
-const [Context, useCtx] = context.create<ContextValue>({
+const [BaseContext, useCtx] = context.create<ContextValue>({
   defaultValue: {
     clear: () => {},
     getState: () => ({ value: undefined, hover: undefined }),
@@ -35,14 +36,11 @@ const [Context, useCtx] = context.create<ContextValue>({
     setSelected: () => {},
     subscribe: () => () => {},
   },
-  displayName: "Select.Context",
+  displayName: "Selection.Context",
 });
 
-const isSelected = <K extends record.Key>(
-  value: K | K[] | null | undefined,
-  key: K,
-): boolean => {
-  if (value === null || value === undefined) return false;
+const isSelected = <K extends record.Key>(value: Value<K>, key: K): boolean => {
+  if (value === undefined) return false;
   if (Array.isArray(value)) return value.includes(key);
   return value === key;
 };
@@ -57,28 +55,27 @@ interface ContextValue<K extends record.Key = record.Key> extends Pick<
   getState: () => SelectionState<K>;
 }
 
-export interface ProviderProps<
-  K extends record.Key = record.Key,
-> extends PropsWithChildren {
-  value: K | K[] | null | undefined;
-  onSelect?: (key: K) => void;
-  setSelected?: (keys: K[]) => void;
-  clear?: () => void;
-  hover?: K;
-}
+export interface ContextProps<K extends record.Key = record.Key>
+  extends
+    PropsWithChildren,
+    Partial<Pick<ContextValue<K>, "onSelect" | "setSelected" | "clear">>,
+    SelectionState<K> {}
 
 const NOOP = () => {};
 
-export const Provider = <K extends record.Key = record.Key>({
+// Context distributes a controlled selection to keyed item consumers. It diffs
+// value changes and notifies only the listeners whose keys entered or left the
+// selection, so item re-renders stay surgical via useItemState.
+export const Context = <K extends record.Key = record.Key>({
   value,
   onSelect = NOOP,
   clear = NOOP,
   setSelected = NOOP,
   children,
   hover,
-}: ProviderProps<K>): ReactElement => {
-  const valueRef = useRef(array.toArray(value));
-  const hoverRef = useSyncedRef(hover);
+}: ContextProps<K>): ReactElement => {
+  const valueRef = useRef(value);
+  const hoverRef = useRef(hover);
 
   const { notifyListeners, subscribe } = Store.useKeyedListeners<K>();
 
@@ -86,31 +83,34 @@ export const Provider = <K extends record.Key = record.Key>({
     () => ({ value: valueRef.current, hover: hoverRef.current }),
     [],
   );
-  const ctx = useMemo(
+  const ctx = useMemo<ContextValue<K>>(
     () => ({
       onSelect,
       setSelected,
       clear,
-      hover,
       subscribe,
       getState,
     }),
-    [getState, onSelect, setSelected, clear, hover, subscribe],
+    [getState, onSelect, setSelected, clear, subscribe],
   );
-  useEffect(() => {
-    const prev = valueRef.current;
-    const next = array.toArray(value);
-    const prevSet = new Set(prev);
-    const nextSet = new Set(next);
-    const changed: K[] = [];
-    for (const k of prev) if (!nextSet.has(k)) changed.push(k);
-    for (const k of next) if (!prevSet.has(k)) changed.push(k);
-    valueRef.current = next;
-    if (changed.length > 0) notifyListeners(changed);
-  }, [value, notifyListeners]);
+  useLayoutEffect(() => {
+    const changed = new Set(array.toArray(valueRef.current)).symmetricDifference(
+      new Set(array.toArray(value)),
+    );
+    valueRef.current = value;
+    const prevHover = hoverRef.current;
+    if (prevHover !== hover) {
+      if (prevHover != null) changed.add(prevHover);
+      if (hover != null) changed.add(hover);
+      hoverRef.current = hover;
+    }
+    if (changed.size > 0) notifyListeners(Array.from(changed));
+  }, [value, hover, notifyListeners]);
 
   return (
-    <Context value={ctx as unknown as ContextValue<record.Key>}>{children}</Context>
+    <BaseContext value={ctx as unknown as ContextValue<record.Key>}>
+      {children}
+    </BaseContext>
   );
 };
 
@@ -125,6 +125,8 @@ export const useContext = <K extends record.Key = record.Key>(): ContextValue<K>
 
 type ItemState = "none" | "selected" | "hovered" | "selected-hovered";
 
+// useItemState subscribes a single keyed item to the enclosing Provider,
+// re-rendering only when that key's selected or hovered state flips.
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
   const { getState, onSelect, subscribe } = useContext();
   const handleSelect = useCallback(() => onSelect(key), [key, onSelect]);
@@ -151,17 +153,15 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
   );
 };
 
-export const useSelection = <K extends record.Key>(): K[] => {
+// useSelected returns the currently selected keys.
+export const useSelected = <K extends record.Key>(): K[] => {
   const { getState, subscribe } = useContext<K>();
   const res = useSyncExternalStore(
     subscribe,
     () => getState().value,
     () => null,
   );
-  return useMemo((): K[] => {
-    if (res == null) return [];
-    return array.toArray(res);
-  }, [res]);
+  return useMemo((): K[] => (res == null ? [] : array.toArray(res)), [res]);
 };
 
 export const useClear = () => useContext().clear;

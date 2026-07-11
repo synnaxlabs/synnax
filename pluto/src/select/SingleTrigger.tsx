@@ -15,8 +15,8 @@ import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
+import { Select } from "@/select/base";
 import { staticCanDrop } from "@/select/MultipleTrigger";
-import { useContext, useSelection } from "@/select/Provider";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
@@ -40,8 +40,8 @@ export const SingleTrigger = <K extends record.Key>({
   renderIcon,
   ...rest
 }: SingleTriggerProps) => {
-  const allSelected = useSelection<K>();
-  const { setSelected } = useContext<K>();
+  const allSelected = Select.useSelected<K>();
+  const { setSelected } = Select.useContext<K>();
   const [selected] = allSelected;
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};

@@ -18,6 +18,6 @@
     transition: opacity 0.1s ease-in-out;
 }
 
-.pluto-tabs-content:hover .console-controls {
+.pluto-tabs__content:hover .console-controls {
     opacity: 1;
 }

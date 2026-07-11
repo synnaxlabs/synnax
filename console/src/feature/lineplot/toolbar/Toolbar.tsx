@@ -19,7 +19,7 @@ import {
   Panel as PlutoPanel,
   Tabs,
 } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { useExport } from "@/feature/lineplot/export";
 import { Annotations } from "@/feature/lineplot/toolbar/Annotations";
@@ -34,19 +34,6 @@ import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
-interface Tab {
-  tabKey: Session.LinePlot.ToolbarTab;
-  name: string;
-}
-
-const TABS: Tab[] = [
-  { tabKey: "data", name: "Data" },
-  { tabKey: "lines", name: "Lines" },
-  { tabKey: "axes", name: "Axes" },
-  { tabKey: "properties", name: "Properties" },
-  { tabKey: "annotations", name: "Rules" },
-];
-
 const Internal = (): ReactElement => {
   const key = LinePlot.useKey();
   const name = LinePlot.useSelectName();
@@ -54,23 +41,6 @@ const Internal = (): ReactElement => {
   const handleExport = useExport();
   const activeTab = Session.LinePlot.useSelectActiveToolbarTab();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
-  const content = useCallback(
-    ({ tabKey }: Tabs.Tab) => {
-      switch (tabKey) {
-        case "lines":
-          return <Lines />;
-        case "axes":
-          return <Axes />;
-        case "properties":
-          return <Properties />;
-        case "annotations":
-          return <Annotations />;
-        default:
-          return <Data />;
-      }
-    },
-    [key],
-  );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(
@@ -83,18 +53,9 @@ const Internal = (): ReactElement => {
     [dispatch, key],
   );
   const downloadAsCSV = useDownloadPlotAsCSV(key);
-  const value = useMemo(
-    () => ({
-      tabs: TABS,
-      selected: activeTab,
-      content,
-      onSelect: handleTabSelect,
-    }),
-    [activeTab, content, handleTabSelect],
-  );
   return (
     <Base.Content className={CSS.B("line-plot-toolbar")}>
-      <Tabs.Provider value={value}>
+      <Tabs.Frame value={activeTab} onChange={handleTabSelect} grow>
         <Base.Header>
           <Base.Title icon={<Icon.LinePlot />}>{name}</Base.Title>
           <Flex.Box x align="center" empty>
@@ -115,12 +76,32 @@ const Internal = (): ReactElement => {
               />
             </Flex.Box>
             {hasUpdatePermission && (
-              <Tabs.Selector className={CSS.BE("line-plot", "toolbar", "selector")} />
+              <Tabs.Selector className={CSS.BE("line-plot", "toolbar", "selector")}>
+                <Tabs.Tab itemKey="data">Data</Tabs.Tab>
+                <Tabs.Tab itemKey="lines">Lines</Tabs.Tab>
+                <Tabs.Tab itemKey="axes">Axes</Tabs.Tab>
+                <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
+                <Tabs.Tab itemKey="annotations">Rules</Tabs.Tab>
+              </Tabs.Selector>
             )}
           </Flex.Box>
         </Base.Header>
-        <Tabs.Content />
-      </Tabs.Provider>
+        <Tabs.Content itemKey="data">
+          <Data />
+        </Tabs.Content>
+        <Tabs.Content itemKey="lines">
+          <Lines />
+        </Tabs.Content>
+        <Tabs.Content itemKey="axes">
+          <Axes />
+        </Tabs.Content>
+        <Tabs.Content itemKey="properties">
+          <Properties />
+        </Tabs.Content>
+        <Tabs.Content itemKey="annotations">
+          <Annotations />
+        </Tabs.Content>
+      </Tabs.Frame>
     </Base.Content>
   );
 };

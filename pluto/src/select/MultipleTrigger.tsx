@@ -19,7 +19,7 @@ import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { useContext, useItemState, useSelection } from "@/select/Provider";
+import { Select } from "@/select/base";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -45,7 +45,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   renderIcon,
 }: MultipleTagProps<K>): ReactElement | null => {
   const item = List.useItem<K, E>(itemKey);
-  const { onSelect } = useItemState(itemKey);
+  const { onSelect } = Select.useItemState(itemKey);
   let label: string = itemKey.toString();
   if (primitive.isNonZero(item?.alias)) label = item.alias;
   else if (primitive.isNonZero(item?.name)) label = item.name;
@@ -105,9 +105,9 @@ export const MultipleTrigger = <
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
 }: MultipleTriggerProps<K, E>): ReactElement => {
-  const value = useSelection<K>();
+  const value = Select.useSelected<K>();
   const valueRef = useSyncedRef(value);
-  const { setSelected } = useContext<K>();
+  const { setSelected } = Select.useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
   const { toggle, visible } = Dialog.useContext();
   const canDrop = useCallback(

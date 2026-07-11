@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/select/base/external";
 export * from "@/select/Button";
 export * from "@/select/Dialog";
 export * from "@/select/flex";
@@ -14,7 +15,6 @@ export * from "@/select/Frame";
 export * from "@/select/ListItem";
 export * from "@/select/Multiple";
 export * from "@/select/MultipleTrigger";
-export * from "@/select/Provider";
 export * from "@/select/Single";
 export * from "@/select/SingleTrigger";
 export * from "@/select/Static";

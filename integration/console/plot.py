@@ -120,7 +120,7 @@ class Plot(ConsolePage):
         """Set axis configuration with the given parameters."""
         self.notifications.close_all()
         self.page.get_by_text("Axes").click(timeout=5000)
-        self.page.wait_for_selector(".pluto-tabs-selector__btn", timeout=5000)
+        self.page.wait_for_selector(".pluto-tabs__tab", timeout=5000)
 
         self._select_axis_tab(axis)
 
@@ -134,7 +134,7 @@ class Plot(ConsolePage):
         selectors = [
             f"#{axis.lower()}",
             f"#{axis}",
-            f".pluto-tabs-selector__btn:has-text('{axis}')",
+            f".pluto-tabs__tab:has-text('{axis}')",
         ]
 
         for selector in selectors:
