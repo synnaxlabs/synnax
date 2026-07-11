@@ -9,7 +9,16 @@
 
 import "@/platform/cluster/list/List.css";
 
-import { Cluster, Flex, List, Status, Synnax, Text, Tooltip, Select } from "@synnaxlabs/pluto";
+import {
+  Cluster,
+  Flex,
+  List,
+  Select,
+  Status,
+  Synnax,
+  Text,
+  Tooltip,
+} from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 

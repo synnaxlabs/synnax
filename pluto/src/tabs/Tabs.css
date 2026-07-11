@@ -58,6 +58,15 @@
     }
 }
 
+/* An idle editable name is a text-selection island inside the draggable tab: a
+   pointer drag starting on it would begin a text selection instead of the tab's
+   drag. Making it non-selectable until it enters edit mode keeps the whole tab a
+   drag handle. */
+.pluto-tabs__tab .pluto-text--editable:not([contenteditable="true"]) {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 .pluto-tabs__selector--default {
     .pluto-tabs__tab > .pluto-icon {
         flex-shrink: 0;

@@ -15,7 +15,7 @@ import React, {
   type DragEventHandler,
   memo,
   type PropsWithChildren,
-  type ReactElement,
+  type ReactNode,
   type RefObject,
   useCallback,
   useId,
@@ -90,10 +90,13 @@ interface DragEndInterceptor {
   (state: DraggingState, cursor: xy.XY): DropProps | null;
 }
 
-/** Haul drag-and-drop context: current state plus imperative drag/drop controls. */
+/**
+ * Haul drag-and-drop controls: the imperative drag/drop callbacks plus a live-state
+ * ref. Its identity is stable across drags, so subscribing to it does not re-render
+ * on drag-state changes. Read the live dragging state via {@link useDraggingState}
+ * (re-renders) or {@link useDraggingRef} (does not).
+ */
 export interface ContextValue {
-  /** The active drag, or {@link ZERO_DRAGGING_STATE} when nothing is dragging. */
-  state: DraggingState;
   /** Begins a drag of `items` originating from `source`. */
   start: (
     source: Item,
@@ -110,14 +113,25 @@ export interface ContextValue {
   // returning false if another target already claimed it. Drop events bubble, so
   // the innermost target claims first and nested targets do not multi-fire.
   claimDropEvent: (event: Event) => boolean;
+  /** A live ref to the current dragging state, readable at event time. */
+  stateRef: RefObject<DraggingState>;
 }
 
 const [Context, useContext] = context.create<ContextValue | null>({
   defaultValue: null,
   displayName: "Haul.Context",
 });
-/** Accesses the ambient {@link ContextValue}; null if no {@link Provider} mounted. */
+/**
+ * Accesses the ambient drag/drop controls; null if no {@link Provider} is mounted.
+ * The controls are identity-stable, so consuming them does not re-render on drag-state
+ * changes.
+ */
 export { useContext };
+
+const [StateContext, useStateContext] = context.create<DraggingState>({
+  defaultValue: ZERO_DRAGGING_STATE,
+  displayName: "Haul.StateContext",
+});
 
 /** Props for {@link Provider}. */
 export interface ProviderProps extends PropsWithChildren {
@@ -136,7 +150,7 @@ const HAUL_REF: ProviderRef = {
 
 /** Provides haul drag-and-drop state to descendants. */
 export const Provider = memo(
-  ({ children, useState = React.useState }: ProviderProps): ReactElement => {
+  ({ children, useState = React.useState }: ProviderProps): ReactNode => {
     const ctx = useContext();
 
     const [state, setState] = useState(ZERO_DRAGGING_STATE);
@@ -187,30 +201,31 @@ export const Provider = memo(
       return () => interceptors.current.delete(interceptor);
     }, []);
 
-    const oCtx = useMemo<ContextValue>(
-      () => ctx ?? { state, start, end, drop, bind, claimDropEvent },
-      [state, start, end, drop, ctx, claimDropEvent],
+    const controls = useMemo<ContextValue>(
+      () => ({ start, end, drop, bind, claimDropEvent, stateRef: ref }),
+      [start, end, drop, bind, claimDropEvent],
     );
-    return <Context value={oCtx}>{children}</Context>;
+    // A nested Provider reuses the outer one's contexts, which are already in scope,
+    // so it renders children without re-providing.
+    if (ctx != null) return children;
+    return (
+      <Context value={controls}>
+        <StateContext value={state}>{children}</StateContext>
+      </Context>
+    );
   },
 );
 Provider.displayName = "HaulProvider";
 
 /** Returns a ref tracking the live {@link DraggingState} without re-rendering. */
 export const useDraggingRef = (): RefObject<DraggingState> => {
-  const ref = useRef<DraggingState>(ZERO_DRAGGING_STATE);
+  const fallback = useRef<DraggingState>(ZERO_DRAGGING_STATE);
   const ctx = useContext();
-  if (ctx == null) return ref;
-  ref.current = ctx.state;
-  return ref;
+  return ctx?.stateRef ?? fallback;
 };
 
 /** Returns the current {@link DraggingState}, re-rendering on change. */
-export const useDraggingState = (): DraggingState => {
-  const ctx = useContext();
-  if (ctx == null) return ZERO_DRAGGING_STATE;
-  return ctx.state;
-};
+export const useDraggingState = (): DraggingState => useStateContext();
 
 /** Passed to a drag's `onSuccessfulDrop` callback once a drop completes. */
 export interface OnSuccessfulDropProps {

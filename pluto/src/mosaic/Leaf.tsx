@@ -15,7 +15,6 @@ import {
   type DragEventHandler,
   type ReactElement,
   useCallback,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -173,17 +172,6 @@ export const Leaf = ({
     onDragOver: handleDragOver,
   });
 
-  const draggingItems = Haul.useDraggingState().items;
-  // The shield covers the leaf's content while a relevant drag is in flight so
-  // that drag events reach the leaf instead of being swallowed by embedded
-  // content (canvases, iframes).
-  const shield = useMemo(
-    () =>
-      filterTabDropHaulItems(draggingItems).length > 0 ||
-      filterTabCreateHaulItems(draggingItems).length > 0,
-    [draggingItems],
-  );
-
   const handleDragLeave: DragEventHandler<HTMLDivElement> = useCallback(
     (e) => {
       onDragLeave?.(e);
@@ -205,7 +193,6 @@ export const Leaf = ({
       <Tabs.InsertionIndexProvider value={insertionIndex}>
         {children}
       </Tabs.InsertionIndexProvider>
-      {shield && <div className={CSS.BE("mosaic", "shield")} />}
       {mask != null && (
         <div className={CSS.BE("mosaic", "mask")} style={MASK_STYLE[mask]} />
       )}

@@ -32,11 +32,13 @@ import {
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, type direction } from "@synnaxlabs/x";
 import {
+  createContext,
   memo,
   type ReactElement,
   type RefObject,
+  use,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -261,47 +263,61 @@ const TabName = ({ tab, onRename }: TabNameProps): ReactElement => {
   return <TabNameContent tab={tab} />;
 };
 
-interface LeafProps {
-  node: Session.Layout.Mosaic.Node;
-  activeTab: string | null;
-  onSelect: (key: string) => void;
-  onClose: (key: string) => void;
-  onRename: (key: string, name: string) => void;
-  onAdd?: (nodeKey: number) => void;
+// Only the portal map genuinely needs to be shared from Internal: the select,
+// close, rename, and add handlers are thin wrappers around dispatch/placer hooks
+// that each node calls itself, and the window key comes from the active window.
+interface ContextValue {
   portalRef: RefObject<Map<string, Portal.Node>>;
 }
 
-const Leaf = ({
-  node,
-  activeTab,
-  onSelect,
-  onClose,
-  onRename,
-  onAdd,
-  portalRef,
-}: LeafProps): ReactElement => {
-  const { key, tabs = [], selected } = node;
+const Context = createContext<ContextValue | null>(null);
+Context.displayName = "Mosaic.Context";
+
+const useMosaicContext = (): ContextValue => {
+  const ctx = use(Context);
+  if (ctx == null) throw new Error("mosaic node rendered outside of a Mosaic context");
+  return ctx;
+};
+
+interface LeafNodeProps {
+  nodeKey: number;
+  selected: string | null;
+  tabs: Session.Layout.Mosaic.Tab[];
+}
+
+const LeafNode = memo(({ nodeKey, selected, tabs }: LeafNodeProps): ReactElement => {
+  const { portalRef } = useMosaicContext();
+  const dispatch = Session.useDispatch();
+  const remove = Layout.useRemover();
+  const placeLayout = Layout.usePlacer();
+  const selectorVisible = Selector.useVisible();
+  const active = Session.Layout.useSelectIsActiveMosaicTab(selected);
   const menuProps = Menu.useContextMenu();
   const { startDrag, onDragEnd } = Base.useDragTab();
+  const handleRename = useCallback(
+    (tabKey: string, name: string) =>
+      dispatch(Session.Layout.rename({ key: tabKey, name })),
+    [dispatch],
+  );
   const selectedNode = selected != null ? portalRef.current.get(selected) : undefined;
   return (
-    <Base.Leaf leafKey={key.toString()} grow>
+    <Base.Leaf leafKey={nodeKey.toString()} grow>
       <Tabs.Frame
         value={selected ?? ""}
-        onChange={onSelect}
-        onClose={onClose}
-        onRename={onRename}
+        onChange={(tabKey) => dispatch(Session.Layout.selectMosaicTab({ tabKey }))}
+        onClose={remove}
+        onRename={handleRename}
         grow
       >
         <Menu.ContextMenu
-          style={{ height: "fit-content" }}
           {...menuProps}
+          className={CSS(menuProps.className, CSS.B("mosaic-context-menu"))}
           menu={contextMenu}
         />
         <Tabs.Selector
           className={menuProps.className}
           onContextMenu={menuProps.open}
-          altColor={activeTab != null && activeTab === selected}
+          altColor={active}
         >
           {tabs.map((tab) => (
             <Tabs.Tab
@@ -311,16 +327,20 @@ const Leaf = ({
               onDragStart={(e) => startDrag(e, tab.tabKey)}
               onDragEnd={onDragEnd}
             >
-              <TabName tab={tab} onRename={onRename} />
+              <TabName tab={tab} onRename={handleRename} />
               {tab.closable !== false && <Tabs.Close />}
             </Tabs.Tab>
           ))}
           <Flex.Box grow />
-          {onAdd != null && (
+          {selectorVisible && (
             <Button.Button
               variant="text"
               sharp
-              onClick={() => onAdd(key)}
+              onClick={() =>
+                placeLayout(
+                  Selector.create({ tab: { mosaicKey: nodeKey, location: "center" } }),
+                )
+              }
               tooltip="Create component"
             >
               <Icon.Add />
@@ -333,11 +353,58 @@ const Leaf = ({
           ) : (
             <ModalContent key={selected} tabKey={selected} node={selectedNode} />
           )}
+          <Base.Shield />
         </Tabs.Content>
       </Tabs.Frame>
     </Base.Leaf>
   );
-};
+});
+LeafNode.displayName = "LeafNode";
+
+interface SplitNodeProps {
+  nodeKey: number;
+  direction: direction.Direction;
+  size?: number;
+  firstKey: number;
+  lastKey: number;
+}
+
+const SplitNode = memo(
+  ({ nodeKey, direction, size, firstKey, lastKey }: SplitNodeProps): ReactElement => (
+    <Base.Split
+      splitKey={nodeKey.toString()}
+      id={`mosaic-${nodeKey}`}
+      direction={direction}
+      size={size}
+    >
+      <MosaicNode nodeKey={firstKey} />
+      <MosaicNode nodeKey={lastKey} />
+    </Base.Split>
+  ),
+);
+SplitNode.displayName = "SplitNode";
+
+/**
+ * MosaicNode renders one node of the mosaic tree, subscribing to only that node's
+ * slice of the store. Because it is memoized on its key, a change to one node
+ * re-renders only the components on that node's path, not the whole tree.
+ */
+const MosaicNode = memo(({ nodeKey }: { nodeKey: number }): ReactElement | null => {
+  const data = Session.Layout.useSelectMosaicNode(nodeKey);
+  if (data == null) return null;
+  if (data.variant === "leaf")
+    return <LeafNode nodeKey={nodeKey} selected={data.selected} tabs={data.tabs} />;
+  return (
+    <SplitNode
+      nodeKey={nodeKey}
+      direction={data.direction}
+      size={data.size}
+      firstKey={data.firstKey}
+      lastKey={data.lastKey}
+    />
+  );
+});
+MosaicNode.displayName = "MosaicNode";
 
 interface MosaicProps {
   windowKey: string;
@@ -367,7 +434,6 @@ const PORTAL_NODE_ATTRS = {
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = Session.useStore();
-  const activeTab = Session.Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const dispatch = Session.useDispatch();
@@ -408,26 +474,11 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [placeLayout, mosaicDrops],
   );
 
-  const handleAdd = useCallback(
-    (nodeKey: number) =>
-      placeLayout(Selector.create({ tab: { mosaicKey: nodeKey, location: "center" } })),
-    [placeLayout],
-  );
-
   LinePlot.useTriggerHold();
-
-  const handleClose = Layout.useRemover();
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
       dispatch(Session.Layout.selectMosaicTab({ tabKey }));
-    },
-    [dispatch],
-  );
-
-  const handleRename = useCallback(
-    (tabKey: string, name: string): void => {
-      dispatch(Session.Layout.rename({ key: tabKey, name }));
     },
     [dispatch],
   );
@@ -495,37 +546,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
 
   const selectorVisible = Selector.useVisible();
 
-  const renderNode = (node: Session.Layout.Mosaic.Node): ReactElement | null => {
-    if (node.tabs != null)
-      return (
-        <Leaf
-          key={node.key}
-          node={node}
-          activeTab={activeTab.layoutKey}
-          onSelect={handleSelect}
-          onClose={handleClose}
-          onRename={handleRename}
-          onAdd={selectorVisible ? handleAdd : undefined}
-          portalRef={portalRef}
-        />
-      );
-    if (node.first == null || node.last == null) {
-      console.warn("mosaic tree is malformed");
-      return null;
-    }
-    return (
-      <Base.Split
-        key={node.key}
-        splitKey={node.key.toString()}
-        id={`mosaic-${node.key}`}
-        direction={node.direction}
-        size={node.size}
-      >
-        {renderNode(node.first)}
-        {renderNode(node.last)}
-      </Base.Split>
-    );
-  };
+  const ctx = useMemo<ContextValue>(() => ({ portalRef }), [portalRef]);
 
   return (
     <>
@@ -541,7 +562,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onCreate={selectorVisible ? handleCreate : undefined}
         onFileDrop={handleFileDrop}
       >
-        {renderNode(mosaic)}
+        <Context value={ctx}>
+          <MosaicNode nodeKey={mosaic.key} />
+        </Context>
       </Base.Frame>
     </>
   );
@@ -557,13 +580,7 @@ export const Window = memo<Layout.Renderer>(({ layoutKey }: Layout.RendererProps
   return (
     <>
       <AppNav.Bar.AuxTop />
-      <Flex.Box
-        y
-        gap="tiny"
-        grow
-        className={CSS.B("mosaic-window")}
-        style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
-      >
+      <Flex.Box y gap="tiny" grow className={CSS.B("mosaic-window")}>
         <Internal windowKey={windowKey} mosaic={mosaic} />
         <AppNav.Drawer.Bottom />
       </Flex.Box>

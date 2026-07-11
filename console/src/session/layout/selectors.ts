@@ -9,6 +9,7 @@
 
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
 import { Color, type Haul } from "@synnaxlabs/pluto";
+import { type direction } from "@synnaxlabs/x";
 import { useMemo, useSyncExternalStore } from "react";
 
 import type * as Mosaic from "@/session/layout/mosaic";
@@ -121,6 +122,77 @@ export const useSelectFocused = (): UseSelectFocusedReturn =>
 
 export const useSelectMosaic = (): [string, Mosaic.Node] | [null, null] =>
   Select.useMemo(selectMosaic, []);
+
+/**
+ * The data a single mosaic node needs to render, discriminated into a leaf (tab
+ * strip) or a split (two child panes). Deriving one node at a time lets each node
+ * component be its own re-render boundary.
+ */
+export type MosaicNodeData =
+  | { variant: "leaf"; selected: string | null; tabs: Mosaic.Tab[] }
+  | {
+      variant: "split";
+      direction: direction.Direction;
+      size?: number;
+      firstKey: number;
+      lastKey: number;
+    };
+
+// descendToKey navigates from the root to the node at the given heap key (root = 1,
+// children of k are 2k and 2k+1), reading only the nodes along that path. Unlike a
+// depth-first search it never touches sibling subtrees, so a proxy-memoized selector
+// built on it stays cached when an unrelated node changes.
+const descendToKey = (root: Mosaic.Node, key: number): Mosaic.Node | undefined => {
+  if (key <= 1) return root;
+  const bits: number[] = [];
+  for (let k = key; k > 1; k = Math.floor(k / 2)) bits.push(k % 2);
+  let node: Mosaic.Node | undefined = root;
+  for (let i = bits.length - 1; i >= 0 && node != null; i--)
+    node = bits[i] === 0 ? node.first : node.last;
+  return node;
+};
+
+export const selectMosaicNode = (
+  state: StoreState & Drift.StoreState,
+  key: number,
+  windowKey?: string,
+): MosaicNodeData | null => {
+  const winKey = selectWindowKey(state, windowKey);
+  if (winKey == null) return null;
+  const mosaic = selectSliceState(state).mosaics[winKey];
+  if (mosaic == null) return null;
+  const node = descendToKey(mosaic.root, key);
+  if (node == null) return null;
+  if (node.tabs != null)
+    return { variant: "leaf", selected: node.selected ?? null, tabs: node.tabs };
+  if (node.first == null || node.last == null) return null;
+  return {
+    variant: "split",
+    direction: node.direction ?? "x",
+    size: node.size,
+    firstKey: node.first.key,
+    lastKey: node.last.key,
+  };
+};
+
+/** Selects the render data for a single node of the active window's mosaic. */
+export const useSelectMosaicNode = (key: number): MosaicNodeData | null =>
+  Select.useMemo(
+    (state: StoreState & Drift.StoreState) => selectMosaicNode(state, key),
+    [key],
+  );
+
+/**
+ * Reports whether the given tab is the window's active mosaic tab. Returns a
+ * boolean so consumers re-render only when their own active state flips, not on
+ * every active-tab change.
+ */
+export const useSelectIsActiveMosaicTab = (tabKey: string | null): boolean =>
+  Select.useMemo(
+    (state: StoreState & Drift.StoreState) =>
+      tabKey != null && selectActiveMosaicTabState(state).layoutKey === tabKey,
+    [tabKey],
+  );
 
 export const selectMany = (state: StoreState, keys?: string[]): State[] =>
   Select.byKeys<string, State>(selectSliceState(state).layouts, keys);

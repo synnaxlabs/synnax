@@ -93,6 +93,7 @@ export const Tab = ({
         aria-selected={selected}
         aria-controls={getPanelID(itemKey)}
         data-tab-key={itemKey}
+        data-menu-key={itemKey}
         tabIndex={selected ? 0 : -1}
         size={size}
         className={CSS(

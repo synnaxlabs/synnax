@@ -17,5 +17,5 @@ import { CSS } from "@/platform/css";
 export interface ControlsProps extends Flex.BoxProps {}
 
 export const Controls = ({ className, ...rest }: ControlsProps): ReactElement => (
-  <Flex.Box className={CSS(CSS.B("controls"), className)} gap="small" {...rest} />
+  <Flex.Box x className={CSS(CSS.B("controls"), className)} gap="small" {...rest} />
 );
