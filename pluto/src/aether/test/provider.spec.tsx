@@ -53,23 +53,22 @@ describe("createProvider", () => {
       [TestLeaf.TYPE]: TestLeaf,
     });
 
-    const TestComponent: FC = () => {
-      const [, state] = Aether.use({
-        type: TestLeaf.TYPE,
-        aetherKey: "test-key",
-        schema: testStateZ,
-        initialState: { value: 42 },
-      });
-      return <div data-testid="value">{state.value}</div>;
-    };
-
-    const { getByTestId } = render(
-      <Provider>
-        <TestComponent />
-      </Provider>,
+    const wrapper: FC<PropsWithChildren> = ({ children }) => (
+      <Provider>{children}</Provider>
     );
 
-    await expect.poll(() => getByTestId("value").textContent).toBe("42");
+    const { result } = renderHook(
+      () =>
+        Aether.use({
+          type: TestLeaf.TYPE,
+          aetherKey: "test-key",
+          schema: testStateZ,
+          initialState: { value: 42 },
+        }),
+      { wrapper },
+    );
+
+    await expect.poll(() => result.current[1].value).toBe(42);
   });
 
   it("should create isolated instances for each call", () => {

@@ -9,7 +9,7 @@
 
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Icon, Menu, Mosaic, Text } from "@synnaxlabs/pluto";
+import { Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { type direction } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { useStore } from "react-redux";
@@ -117,7 +117,7 @@ const splitMenuItemFactory = (
     const dispatch = Session.useDispatch();
     const [windowKey, mosaic] = Session.Layout.useSelectMosaic();
     if (windowKey == null || mosaic == null) return null;
-    const canSplit = Mosaic.canSplit(mosaic, layoutKey);
+    const canSplit = Session.Layout.Mosaic.canSplit(mosaic, layoutKey);
     if (!canSplit) return null;
     return (
       <Menu.Item

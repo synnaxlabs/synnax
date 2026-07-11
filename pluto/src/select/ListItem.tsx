@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 
 import { type Button } from "@/button";
 import { List } from "@/list";
-import { useItemState } from "@/select/Provider";
+import { Select } from "@/select/base";
 
 export type ListItemProps<
   K extends record.Key = record.Key,
@@ -25,6 +25,6 @@ export const ListItem = <
   props: ListItemProps<K, E>,
 ) => {
   const { itemKey } = props;
-  const selectProps = useItemState(itemKey);
+  const selectProps = Select.useItemState(itemKey);
   return <List.Item<K, E> {...selectProps} {...props} />;
 };

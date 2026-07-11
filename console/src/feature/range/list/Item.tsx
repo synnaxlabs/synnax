@@ -14,7 +14,7 @@ import {
   Input,
   List,
   Ranger,
-  Select,
+  Selection,
   stopPropagation,
   Tag,
   Telem,
@@ -41,7 +41,7 @@ const Base = ({
   ...props
 }: ItemProps) => {
   const { itemKey } = props;
-  const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
+  const { onSelect, selected, ...selectProps } = Selection.useItemState(itemKey);
   const placeLayout = Layout.usePlacer();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {

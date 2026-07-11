@@ -13,7 +13,7 @@ import {
   Cluster,
   Flex,
   List,
-  Select,
+  Selection,
   Status,
   Synnax,
   Text,
@@ -38,7 +38,7 @@ const Base = ({
   ...rest
 }: ListItemProps): ReactElement | null => {
   const dispatch = Session.useDispatch();
-  const { selected, onSelect } = Select.useItemState(rest.itemKey);
+  const { selected, onSelect } = Selection.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
     if (!validateName(value) || item == null) return;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));

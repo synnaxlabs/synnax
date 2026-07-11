@@ -259,6 +259,37 @@ describe("Panel.Mosaic", () => {
   });
 
   describe("gestures", () => {
+    it("should call onSelect when an unselected tab is clicked", async () => {
+      const a: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const p = await createPanel(a, b);
+      const onSelect = vi.fn();
+      const tabName = vi.fn(({ tabKey }: Panel.MosaicTabNameProps) => (
+        <span>{`name:${tabKey}`}</span>
+      ));
+      const { utils } = await renderMosaic({
+        panelKey: p.key,
+        selected: [a.key],
+        onSelect,
+        tabName,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+
+      await act(async () => {
+        fireEvent.click(utils.getByText(`name:${b.key}`));
+      });
+
+      expect(onSelect).toHaveBeenCalledWith(b.key);
+    });
+
     it("should remove a tab from the document when its close button is clicked", async () => {
       const a: panel.TabResource = {
         variant: "resource",

@@ -21,6 +21,7 @@ import {
   Menu,
   Schematic,
   Select,
+  Selection,
   Status,
   Text,
   Theming,
@@ -281,7 +282,7 @@ const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
 const GroupListItem = (props: List.ItemProps<group.Key>): ReactElement | null => {
   const { itemKey } = props;
   const group = List.useItem<group.Key, group.Group & { Icon?: Icon.FC }>(itemKey);
-  const { selected, onSelect } = Select.useItemState(itemKey);
+  const { selected, onSelect } = Selection.useItemState(itemKey);
   if (group == null) return null;
   const { Icon: GroupIcon } = group;
   return (

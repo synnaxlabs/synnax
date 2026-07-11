@@ -14,7 +14,7 @@ import {
   Form,
   Input,
   List,
-  Select,
+  Selection,
   stopPropagation,
   Text,
 } from "@synnaxlabs/pluto";
@@ -28,7 +28,7 @@ export interface ItemProps extends List.ItemProps<arc.Key> {
 export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
+  const { onSelect, selected, ...selectProps } = Selection.useItemState(itemKey);
   const initialValues = useMemo(() => {
     if (arc == null) return undefined;
     return {

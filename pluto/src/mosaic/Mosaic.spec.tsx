@@ -7,684 +7,423 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { render } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Haul } from "@/haul";
 import { Mosaic } from "@/mosaic";
+import { Tabs } from "@/tabs";
+import { mockBoundingClientRect } from "@/testutil/dom";
 
-const TestMosaic = (props: Mosaic.UseProps): ReactElement => {
-  const props_ = Mosaic.use(props);
-  return <Mosaic.Mosaic {...props_}>{() => null}</Mosaic.Mosaic>;
+const stubRect = (el: Element, x: number, y: number, w: number, h: number): void => {
+  vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
+    x,
+    y,
+    width: w,
+    height: h,
+    top: y,
+    bottom: y + h,
+    left: x,
+    right: x + w,
+    toJSON: () => ({}),
+  });
 };
 
+/**
+ * Gives the leaf a 400x300 rect with a 32px tall strip across the top holding
+ * 100px wide tabs, so cursor positions resolve to deterministic regions.
+ */
+const stubLeafRects = (leaf: HTMLElement): void => {
+  stubRect(leaf, 0, 0, 400, 300);
+  const tabList = leaf.querySelector('[role="tablist"]');
+  if (tabList != null) stubRect(tabList, 0, 0, 400, 32);
+  leaf
+    .querySelectorAll("[data-tab-key]")
+    .forEach((tab, i) => stubRect(tab, i * 100, 0, 100, 32));
+};
+
+interface DragSourceProps {
+  items: Haul.Item[];
+}
+
+const DragSource = ({ items }: DragSourceProps): ReactElement => {
+  const { startDrag } = Haul.useDrag({ type: "test-source", key: "source" });
+  return <button data-testid="drag-source" onClick={() => startDrag(items)} />;
+};
+
+interface LeafTabsProps {
+  leafKey: string;
+  tabs: string[];
+}
+
+const LeafTabs = ({ leafKey, tabs }: LeafTabsProps): ReactElement => {
+  const { startDrag, onDragEnd } = Mosaic.useDragTab();
+  return (
+    <Mosaic.Leaf leafKey={leafKey} data-testid={`leaf-${leafKey}`}>
+      <Tabs.Frame initialValue={tabs[0] ?? ""}>
+        <Tabs.Selector>
+          {tabs.map((tab) => (
+            <Tabs.Tab
+              key={tab}
+              itemKey={tab}
+              draggable
+              onDragStart={(e) => startDrag(e, tab)}
+              onDragEnd={onDragEnd}
+            >
+              Tab {tab}
+            </Tabs.Tab>
+          ))}
+        </Tabs.Selector>
+        {tabs.map((tab) => (
+          <Tabs.Content key={tab} itemKey={tab}>
+            <span>Content {tab}</span>
+          </Tabs.Content>
+        ))}
+      </Tabs.Frame>
+    </Mosaic.Leaf>
+  );
+};
+
+interface HarnessProps extends Omit<Mosaic.FrameProps, "children"> {
+  tabs?: string[];
+  items?: Haul.Item[];
+}
+
+const Harness = ({
+  tabs = ["a", "b", "c"],
+  items = [],
+  ...rest
+}: HarnessProps): ReactElement => (
+  <Haul.Provider>
+    <DragSource items={items} />
+    <Mosaic.Frame {...rest}>
+      <LeafTabs leafKey="1" tabs={tabs} />
+    </Mosaic.Frame>
+  </Haul.Provider>
+);
+
+const leaf = (key: string = "1"): HTMLElement => screen.getByTestId(`leaf-${key}`);
+
+const beginDrag = (target: HTMLElement): void => {
+  fireEvent.click(screen.getByTestId("drag-source"));
+  stubLeafRects(target);
+};
+
+// jsdom has no DragEvent, so testing-library falls back to a plain Event for drag
+// event types and the cursor coordinates in the init are lost. Define them on the
+// event directly.
+const fireDragEvent = (
+  target: HTMLElement,
+  type: "dragOver" | "drop",
+  x: number,
+  y: number,
+): void => {
+  const event = createEvent[type](target);
+  Object.defineProperties(event, {
+    clientX: { value: x },
+    clientY: { value: y },
+    screenX: { value: x },
+    screenY: { value: y },
+  });
+  fireEvent(target, event);
+};
+
+const dragOver = (target: HTMLElement, x: number, y: number): void =>
+  fireDragEvent(target, "dragOver", x, y);
+
+const drop = (target: HTMLElement, x: number, y: number): void =>
+  fireDragEvent(target, "drop", x, y);
+
+const mask = (): HTMLElement | null => document.querySelector(".pluto-mosaic__mask");
+
+const shield = (): HTMLElement | null =>
+  document.querySelector(".pluto-mosaic__shield");
+
+const insertionIndicator = (): HTMLElement | null =>
+  document.querySelector(".pluto-tabs__insertion");
+
 describe("Mosaic", () => {
-  describe("mosaicTree", () => {
-    describe("Mosaic.insertTab", () => {
-      it("should insert a tab into the center of an empty tree", () => {
-        const tab = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tree = Mosaic.insertTab({ key: 1, tabs: [] }, tab, "center", 1);
-        expect(tree).toEqual({
-          key: 1,
-          tabs: [tab],
-          selected: "tab1",
-        });
-      });
-      it("shouldn't split an empty tree with one tab, instead put the tab in the center", () => {
-        const tab = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tree = Mosaic.insertTab({ key: 1, tabs: [] }, tab, "right", 1);
-        expect(tree).toEqual({
-          key: 1,
-          tabs: [tab],
-          selected: "tab1",
-        });
-      });
-      it("should split a tree with one tab", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-        const tree = {
-          key: 1,
-          tabs: [tabOne],
-          selected: "tab1",
-        };
-        const nextTree = Mosaic.insertTab(tree, tabTwo, "right", 1);
+  describe("Leaf", () => {
+    it("should throw when rendered outside a Frame", () => {
+      expect(() => render(<Mosaic.Leaf leafKey="1">content</Mosaic.Leaf>)).toThrow(
+        "Mosaic.Leaf must be used within Mosaic.Frame",
+      );
+    });
 
-        expect(nextTree).toEqual({
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo],
-            selected: "tab2",
-          },
-        });
-      });
-      it("should insert a tab into the center of a valid leaf when no key or location is provided", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tabThree = {
-          tabKey: "tab3",
-          name: "Tab 3",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo],
-            selected: "tab2",
-          },
-        };
-        const nextTree = Mosaic.insertTab(tree, tabThree);
-        expect(nextTree).toEqual({
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne, tabThree],
-            selected: "tab3",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo],
-            selected: "tab2",
-          },
-        });
+    it("should report a center drop of a hauled tab", () => {
+      const onDrop = vi.fn();
+      render(<Harness onDrop={onDrop} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      drop(leaf(), 200, 150);
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      expect(onDrop).toHaveBeenCalledWith({
+        leafKey: "1",
+        tabKey: "x",
+        location: "center",
+        index: undefined,
       });
     });
 
-    describe("Mosaic.removeTab", () => {
-      it("should remove a tab from the center of a tree", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tabThree = {
-          tabKey: "tab3",
-          name: "Tab 3",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo, tabThree],
-            selected: "tab2",
-          },
-        };
-        const [nextTree] = Mosaic.removeTab(tree, "tab2");
-        expect(nextTree).toEqual({
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabThree],
-            selected: "tab3",
-          },
-        });
-      });
-      it("should remove a tab from the the side of a tree and garbage collect", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tabThree = {
-          tabKey: "tab3",
-          name: "Tab 3",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo, tabThree],
-            selected: "tab2",
-          },
-        };
-        const [nextTree] = Mosaic.removeTab(tree, "tab1");
-        expect(nextTree).toEqual({
-          key: 1,
-          tabs: [tabTwo, tabThree],
-          selected: "tab2",
-        });
+    it.each<[string, number, number]>([
+      ["left", 40, 150],
+      ["right", 360, 150],
+      ["top", 200, 40],
+      ["bottom", 200, 280],
+    ])("should report a %s drop at the matching edge", (location, x, y) => {
+      const onDrop = vi.fn();
+      render(<Harness onDrop={onDrop} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      drop(leaf(), x, y);
+      expect(onDrop).toHaveBeenCalledWith(expect.objectContaining({ location }));
+    });
+
+    it("should resolve strip drops to a center drop at the insertion index", () => {
+      const onDrop = vi.fn();
+      render(<Harness onDrop={onDrop} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      drop(leaf(), 140, 16);
+      expect(onDrop).toHaveBeenCalledWith({
+        leafKey: "1",
+        tabKey: "x",
+        location: "center",
+        index: 1,
       });
     });
 
-    describe("Mosaic.moveTab", () => {
-      it("should move a tab from one side of a leaf to another", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tabThree = {
-          tabKey: "tab3",
-          name: "Tab 3",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo, tabThree],
-            selected: "tab2",
-          },
-        };
-        const [nextTree] = Mosaic.moveTab(tree, "tab2", "center", 2);
-        expect(nextTree).toEqual({
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne, tabTwo],
-            selected: "tab2",
-          },
-          last: {
-            key: 3,
-            tabs: [tabThree],
-            selected: "tab3",
-          },
-        });
-      });
-      it("should correctly move a tab from the first leaf  of the root Mosaic.Node to the second leaf", () => {
-        const tabOne = {
-          tabKey: "1",
-          name: "Tab 1",
-          content: "Tab One Content",
-        };
-        const tabTwo = {
-          tabKey: "2",
-          name: "Tab 2",
-          content: "Tab Two Content",
-        };
-        const tabThree = {
-          tabKey: "3",
-          name: "Tab 3",
-          content: "Tab Three Content",
-        };
+    it("should resolve a drop past the last tab to the end of the strip", () => {
+      const onDrop = vi.fn();
+      render(<Harness onDrop={onDrop} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      drop(leaf(), 380, 16);
+      expect(onDrop).toHaveBeenCalledWith(expect.objectContaining({ index: 3 }));
+    });
 
-        const initialTree: Mosaic.Node = {
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo, tabThree],
-          },
-        };
-        const [nextTree] = Mosaic.moveTab(initialTree, "1", "center", 2);
-        expect(nextTree).toEqual({
-          key: 1,
-          selected: "1",
-          size: undefined,
-          tabs: [tabTwo, tabThree, tabOne],
-        });
-      });
-      it("should maintain correct key hierarchy after moving tabs and garbage collection", () => {
-        // Initial state matching the bug scenario
-        const initialTree: Mosaic.Node = {
-          key: 1,
-          direction: "y",
-          last: {
-            key: 3,
-            tabs: [
-              {
-                closable: true,
-                icon: "Logo.LabJack",
-                name: "LabJack Read Task",
-                tabKey: "a35c8a98-7a37-4365-a0b4-0fd38cedfdb8",
-              },
-            ],
-            selected: "a35c8a98-7a37-4365-a0b4-0fd38cedfdb8",
-          },
-          first: {
-            key: 2,
-            direction: "x",
-            last: {
-              key: 5,
-              tabs: [
-                {
-                  closable: true,
-                  icon: "Visualize",
-                  name: "New Component",
-                  tabKey: "ff989ff2-9bdb-49fe-b6fc-d71c8f933309",
-                },
-              ],
-              selected: "ff989ff2-9bdb-49fe-b6fc-d71c8f933309",
-              size: 0.5,
-            },
-            first: {
-              key: 4,
-              tabs: [
-                {
-                  closable: true,
-                  icon: "Visualize",
-                  name: "New Component",
-                  tabKey: "dbca1c5e-7d69-4ac6-bb59-22c9d2bf3ee3",
-                },
-              ],
-              selected: "dbca1c5e-7d69-4ac6-bb59-22c9d2bf3ee3",
-            },
-          },
-        };
+    it("should treat any drop on an empty leaf as a center drop", () => {
+      const onDrop = vi.fn();
+      render(
+        <Harness
+          tabs={[]}
+          onDrop={onDrop}
+          items={[Mosaic.createTabDropHaulItem("x")]}
+        />,
+      );
+      beginDrag(leaf());
+      drop(leaf(), 40, 150);
+      expect(onDrop).toHaveBeenCalledWith(
+        expect.objectContaining({ location: "center" }),
+      );
+    });
 
-        // Move the LabJack tab
-        const [result] = Mosaic.moveTab(
-          initialTree,
-          "a35c8a98-7a37-4365-a0b4-0fd38cedfdb8",
-          "bottom",
-          5,
-        );
+    it("should refuse a drop containing all of the leaf's own tabs", () => {
+      const onDrop = vi.fn();
+      render(
+        <Harness
+          tabs={["a"]}
+          onDrop={onDrop}
+          items={[Mosaic.createTabDropHaulItem("a")]}
+        />,
+      );
+      beginDrag(leaf());
+      drop(leaf(), 200, 150);
+      expect(onDrop).not.toHaveBeenCalled();
+    });
 
-        // Helper function to verify key hierarchy
-        const verifyKeyHierarchy = (node: Mosaic.Node): boolean => {
-          let valid = true;
-          if (node.first) {
-            valid &&= node.first.key === node.key * 2;
-            valid &&= verifyKeyHierarchy(node.first);
-          }
-          if (node.last) {
-            valid &&= node.last.key === node.key * 2 + 1;
-            valid &&= verifyKeyHierarchy(node.last);
-          }
-          return valid;
-        };
+    it("should accept a drop of the leaf's own tab when others remain", () => {
+      const onDrop = vi.fn();
+      render(
+        <Harness
+          tabs={["a", "b"]}
+          onDrop={onDrop}
+          items={[Mosaic.createTabDropHaulItem("a")]}
+        />,
+      );
+      beginDrag(leaf());
+      drop(leaf(), 200, 150);
+      expect(onDrop).toHaveBeenCalledWith(expect.objectContaining({ tabKey: "a" }));
+    });
 
-        expect(result.key).toBe(1);
-
-        expect(verifyKeyHierarchy(result)).toBe(true);
+    it("should report creation drops with every created key", () => {
+      const onCreate = vi.fn();
+      render(
+        <Harness
+          onCreate={onCreate}
+          items={[
+            Mosaic.createTabCreateHaulItem("ontology:1"),
+            Mosaic.createTabCreateHaulItem("ontology:2"),
+          ]}
+        />,
+      );
+      beginDrag(leaf());
+      drop(leaf(), 40, 150);
+      expect(onCreate).toHaveBeenCalledWith({
+        leafKey: "1",
+        location: "left",
+        tabKeys: ["ontology:1", "ontology:2"],
+        index: undefined,
       });
     });
 
-    describe("Mosaic.resizeLeaf", () => {
-      it("should resize a leaf", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo],
-            selected: "tab2",
-          },
-        };
-        const nextTree = Mosaic.resizeNode(tree, 2, 100);
-        expect(nextTree).toEqual({
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-            size: 100,
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo],
-            selected: "tab2",
-          },
-        });
-      });
+    it("should hand file drops to onFileDrop with the drop location", () => {
+      const onFileDrop = vi.fn();
+      render(<Harness onFileDrop={onFileDrop} items={[Haul.FILE]} />);
+      beginDrag(leaf());
+      drop(leaf(), 200, 150);
+      expect(onFileDrop).toHaveBeenCalledWith(
+        expect.objectContaining({ leafKey: "1", location: "center" }),
+      );
     });
 
-    describe("Mosaic.selectTab", () => {
-      it("should select a tab", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          tabs: [tabOne, tabTwo],
-          selected: "tab1",
-        };
-        const nextTree = Mosaic.selectTab(tree, "tab2");
-        expect(nextTree).toEqual({
-          key: 1,
-          tabs: [tabOne, tabTwo],
-          selected: "tab2",
-        });
-      });
+    it("should ignore file drops when the frame has no onFileDrop", () => {
+      const onDrop = vi.fn();
+      const onCreate = vi.fn();
+      render(<Harness onDrop={onDrop} onCreate={onCreate} items={[Haul.FILE]} />);
+      beginDrag(leaf());
+      drop(leaf(), 200, 150);
+      expect(onDrop).not.toHaveBeenCalled();
+      expect(onCreate).not.toHaveBeenCalled();
     });
 
-    describe("Mosaic.renameTab", () => {
-      it("should rename a tab", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          tabs: [tabOne, tabTwo],
-          selected: "tab1",
-        };
-        const nextTree = Mosaic.renameTab(tree, "tab1", "New Tab 1");
-        expect(nextTree).toEqual({
-          key: 1,
-          tabs: [{ tabKey: "tab1", name: "New Tab 1" }, tabTwo],
-          selected: "tab1",
-        });
-      });
+    it("should mask the affected half while dragging over an edge", () => {
+      render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      dragOver(leaf(), 40, 150);
+      const el = mask();
+      expect(el).not.toBeNull();
+      expect(el?.style.left).toEqual("0%");
+      expect(el?.style.width).toEqual("50%");
+      expect(el?.style.height).toEqual("100%");
     });
 
-    describe("Mosaic.findTabNode", () => {
-      it("should find a tab", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          tabs: [tabOne, tabTwo],
-          selected: "tab1",
-        };
-        const node = Mosaic.findTabNode(tree, "tab2");
-        expect(node?.key).toEqual(1);
-      });
-      it("should find a tab in a nested tree", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tabThree = {
-          tabKey: "tab3",
-          name: "Tab 3",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo, tabThree],
-            selected: "tab2",
-          },
-        };
-        const node = Mosaic.findTabNode(tree, "tab3");
-        expect(node?.key).toEqual(3);
-      });
-      it("should return undefined if the tab is not found", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          tabs: [tabOne, tabTwo],
-          selected: "tab1",
-        };
-        const node = Mosaic.findTabNode(tree, "tab3");
-        expect(node).toBeUndefined();
-      });
+    it("should swap the mask for the strip's insertion indicator over the strip", () => {
+      render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      dragOver(leaf(), 40, 150);
+      expect(mask()).not.toBeNull();
+      dragOver(leaf(), 150, 16);
+      expect(mask()).toBeNull();
+      expect(insertionIndicator()).not.toBeNull();
     });
 
-    describe("Mosaic.splitVertically", () => {
-      it("should split a tree vertically", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          tabs: [tabOne, tabTwo],
-          selected: "tab1",
-        };
-        const nextTree = Mosaic.split(tree, tabTwo.tabKey, "y");
-        expect(nextTree).toEqual({
-          key: 1,
-          direction: "y",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            tabs: [tabTwo],
-            selected: "tab2",
-          },
-        });
-      });
+    it("should clear the mask when the drag leaves the leaf", () => {
+      render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      dragOver(leaf(), 40, 150);
+      expect(mask()).not.toBeNull();
+      fireEvent.dragLeave(leaf());
+      expect(mask()).toBeNull();
+    });
 
-      it("should split a nested tree vertically", () => {
-        const tabOne = {
-          tabKey: "tab1",
-          name: "Tab 1",
-        };
-        const tabTwo = {
-          tabKey: "tab2",
-          name: "Tab 2",
-        };
-        const tabThree = {
-          tabKey: "tab3",
-          name: "Tab 3",
-        };
-        const tabFour = {
-          tabKey: "tab4",
-          name: "Tab 4",
-        };
-        const tree: Mosaic.Node = {
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            direction: "y",
-            first: {
-              key: 6,
-              tabs: [tabTwo],
-              selected: "tab2",
-            },
-            last: {
-              key: 7,
-              tabs: [tabThree, tabFour],
-              selected: "tab3",
-            },
-          },
-        };
-        const nextTree = Mosaic.split(tree, tabThree.tabKey, "y");
-        expect(nextTree).toEqual({
-          key: 1,
-          direction: "x",
-          first: {
-            key: 2,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 3,
-            direction: "y",
-            first: {
-              key: 6,
-              tabs: [tabTwo],
-              selected: "tab2",
-            },
-            last: {
-              key: 7,
-              direction: "y",
-              first: {
-                key: 14,
-                selected: "tab4",
-                tabs: [tabFour],
-              },
-              last: {
-                key: 15,
-                selected: "tab3",
-                tabs: [tabThree],
-              },
-            },
-          },
-        });
+    it("should clear the mask and indicator once a drop lands", () => {
+      render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      beginDrag(leaf());
+      dragOver(leaf(), 150, 16);
+      expect(insertionIndicator()).not.toBeNull();
+      drop(leaf(), 150, 16);
+      expect(insertionIndicator()).toBeNull();
+      expect(mask()).toBeNull();
+    });
+
+    it("should shield the leaf's content while a tab drag is in flight", () => {
+      render(<Harness onDrop={vi.fn()} items={[Mosaic.createTabDropHaulItem("x")]} />);
+      expect(shield()).toBeNull();
+      beginDrag(leaf());
+      expect(shield()).not.toBeNull();
+      drop(leaf(), 200, 150);
+      expect(shield()).toBeNull();
+    });
+
+    it("should not shield the leaf for unrelated drags", () => {
+      render(<Harness items={[{ type: "unrelated", key: "u" }]} />);
+      beginDrag(leaf());
+      expect(shield()).toBeNull();
+    });
+  });
+
+  describe("useDragTab", () => {
+    it("should haul a tab dragged from one leaf onto another", () => {
+      const onDrop = vi.fn();
+      render(
+        <Haul.Provider>
+          <Mosaic.Frame onDrop={onDrop}>
+            <LeafTabs leafKey="1" tabs={["a", "b"]} />
+            <LeafTabs leafKey="2" tabs={["c"]} />
+          </Mosaic.Frame>
+        </Haul.Provider>,
+      );
+      fireEvent.dragStart(screen.getByRole("tab", { name: "Tab a" }));
+      stubLeafRects(leaf("2"));
+      drop(leaf("2"), 200, 150);
+      expect(onDrop).toHaveBeenCalledWith({
+        leafKey: "2",
+        tabKey: "a",
+        location: "center",
+        index: undefined,
       });
     });
   });
 
-  describe("Mosaic", () => {
-    it("should render a mosaic correctly", () => {
-      const tabOne = {
-        tabKey: "tab1",
-        name: "Tab 1",
-        content: "Tab 1 Content",
-      };
-      const tabTwo = {
-        tabKey: "tab2",
-        name: "Tab 2",
-        content: "Tab 2 Content",
-      };
-      const tabThree = {
-        tabKey: "tab3",
-        name: "Tab 3",
-        content: "Tab 3 Content",
-      };
-      const tabFour = {
-        tabKey: "tab4",
-        name: "Tab 4",
-        content: "Tab 4 Content",
-      };
+  describe("Split", () => {
+    beforeEach(() => {
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+        mockBoundingClientRect(0, 0, 1000, 1000),
+      );
+    });
 
-      const initialTree: Mosaic.Node = {
-        key: 1,
-        first: {
-          key: 2,
-          direction: "x",
-          first: {
-            key: 4,
-            tabs: [tabOne],
-            selected: "tab1",
-          },
-          last: {
-            key: 5,
-            tabs: [tabTwo],
-            selected: "tab2",
-          },
-        },
-        last: {
-          key: 3,
-          direction: "x",
-          first: {
-            key: 6,
-            tabs: [tabThree],
-            selected: "tab3",
-          },
-          last: {
-            key: 7,
-            tabs: [tabFour],
-            selected: "tab4",
-          },
-        },
-      };
-      const { getByText } = render(<TestMosaic initialTree={initialTree} />);
-      expect(getByText("Tab 1")).toBeTruthy();
-      expect(getByText("Tab 2")).toBeTruthy();
-      expect(getByText("Tab 3")).toBeTruthy();
-      expect(getByText("Tab 4")).toBeTruthy();
+    it("should render both children", () => {
+      render(
+        <Mosaic.Frame>
+          <Mosaic.Split splitKey="1">
+            <p>First</p>
+            <p>Last</p>
+          </Mosaic.Split>
+        </Mosaic.Frame>,
+      );
+      expect(screen.getByText("First")).toBeTruthy();
+      expect(screen.getByText("Last")).toBeTruthy();
+    });
+
+    it("should report the committed ratio to the frame's onResize", () => {
+      const onResize = vi.fn();
+      const c = render(
+        <Mosaic.Frame onResize={onResize}>
+          <Mosaic.Split splitKey="root.first">
+            <p>First</p>
+            <p>Last</p>
+          </Mosaic.Split>
+        </Mosaic.Frame>,
+      );
+      const handle = c.container.querySelector<HTMLElement>(".pluto-resize__handle");
+      if (handle == null) throw new Error("resize handle not found");
+      fireEvent.pointerDown(handle, {
+        pointerId: 1,
+        button: 0,
+        isPrimary: true,
+        clientX: 500,
+        clientY: 0,
+      });
+      fireEvent.pointerMove(window, { pointerId: 1, clientX: 750, clientY: 0 });
+      fireEvent.pointerUp(window, { pointerId: 1, clientX: 750, clientY: 0 });
+      expect(onResize).toHaveBeenCalledTimes(1);
+      const [splitKey, size] = onResize.mock.lastCall as [string, number];
+      expect(splitKey).toEqual("root.first");
+      expect(size).toBeCloseTo(0.75, 2);
+    });
+  });
+
+  describe("Frame", () => {
+    it("should render children inside a mosaic container", () => {
+      render(
+        <Mosaic.Frame>
+          <p>child</p>
+        </Mosaic.Frame>,
+      );
+      expect(document.querySelector(".pluto-mosaic")).not.toBeNull();
+      expect(screen.getByText("child")).toBeTruthy();
     });
   });
 });

@@ -12,7 +12,7 @@ import { box, dimensions, type record, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { Select } from "@/select";
+import { Select } from "@/select/base";
 import { Cell } from "@/table/cells";
 import { Indicator } from "@/table/Indicator";
 import { useDispatch, useSelectCell } from "@/table/queries";
@@ -98,7 +98,7 @@ interface VariantCellProps {
 // dispatch-backed onChange handler. It takes x/y/width/height as primitives
 // (not a Box) so the memo barrier compares stable scalars; the Box is
 // constructed once per geometry change inside. Selection is read via
-// Select.useItemState so a cell re-renders only when its own selection flips,
+// Selection.useItemState so a cell re-renders only when its own selection flips,
 // not on every selection event elsewhere in the table.
 const VariantCell = memo(
   ({

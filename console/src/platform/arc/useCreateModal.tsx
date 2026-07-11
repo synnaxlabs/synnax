@@ -10,7 +10,16 @@
 import "@/platform/arc/CreateModal.css";
 
 import { type arc } from "@synnaxlabs/client";
-import { Button, CSS as PCSS, Icon, Input, Nav, Select, Text } from "@synnaxlabs/pluto";
+import {
+  Button,
+  CSS as PCSS,
+  Icon,
+  Input,
+  Nav,
+  Select,
+  Selection,
+  Text,
+} from "@synnaxlabs/pluto";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -42,7 +51,7 @@ const ArcModeSelectButton = ({
   description,
   ...rest
 }: ArcModeSelectButtonProps) => {
-  const { selected, onSelect } = Select.useItemState<arc.Mode>(itemKey);
+  const { selected, onSelect } = Selection.useItemState<arc.Mode>(itemKey);
   return (
     <Button.Button
       y

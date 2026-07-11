@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
-import { Color, type Haul, type Mosaic } from "@synnaxlabs/pluto";
+import { Color, type Haul } from "@synnaxlabs/pluto";
 import { useMemo, useSyncExternalStore } from "react";
 
+import type * as Mosaic from "@/session/layout/mosaic";
 import {
   SLICE_NAME,
   type SliceState,

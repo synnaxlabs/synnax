@@ -26,7 +26,7 @@ import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { Menu } from "@/menu";
-import { Select } from "@/select";
+import { Select } from "@/select/base";
 import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";
@@ -479,7 +479,7 @@ export const Table = ({
           >
             <tbody>
               <Aether.Composite path={path}>
-                <Select.Provider value={selected}>
+                <Select.Context value={selected}>
                   {showIndicators && (
                     <ColumnIndicators
                       columns={colSizes}
@@ -511,7 +511,7 @@ export const Table = ({
                       />
                     );
                   })}
-                </Select.Provider>
+                </Select.Context>
               </Aether.Composite>
             </tbody>
           </table>

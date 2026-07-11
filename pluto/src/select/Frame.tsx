@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { List } from "@/list";
-import { Provider } from "@/select/Provider";
+import { Select } from "@/select/base";
 import {
   useMultiple,
   type UseMultipleProps,
@@ -30,9 +30,9 @@ const MultipleProvider = <K extends record.Key = record.Key>({
   const { value } = rest;
   const res = useMultiple(rest);
   return (
-    <Provider value={value} {...res}>
+    <Select.Context value={value} {...res}>
       {children}
-    </Provider>
+    </Select.Context>
   );
 };
 
@@ -47,9 +47,9 @@ const SingleProvider = <K extends record.Key = record.Key>({
   const { value } = rest;
   const res = useSingle(rest);
   return (
-    <Provider<K> value={value} {...res}>
+    <Select.Context<K> value={value} {...res}>
       {children}
-    </Provider>
+    </Select.Context>
   );
 };
 

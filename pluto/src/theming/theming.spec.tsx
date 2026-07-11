@@ -7,44 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render } from "@testing-library/react";
-import { type ReactElement, useState } from "react";
+import { act, renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Input } from "@/input";
 import { Theming } from "@/theming";
 
-const TestThemeContent = (): ReactElement => {
-  const { theme, toggleTheme } = Theming.useContext();
-  const [checked, setChecked] = useState(false);
-  const handleChange = (value: boolean) => {
-    setChecked(value);
-    toggleTheme();
-  };
-  return (
-    <div>
-      {theme.name}
-      <Input.Switch aria-label="theme-switch" value={checked} onChange={handleChange} />
-    </div>
-  );
-};
-
-const TestTheme = (): ReactElement => (
-  <Theming.Provider>
-    <TestThemeContent />
-  </Theming.Provider>
+const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <Theming.Provider>{children}</Theming.Provider>
 );
 
 describe("Theming", () => {
-  it("should render a theme", () => {
-    const { getByText } = render(<TestTheme />);
-    expect(getByText("Synnax Dark")).toBeTruthy();
+  it("should provide the default theme", () => {
+    const { result } = renderHook(() => Theming.useContext(), { wrapper });
+    expect(result.current.theme.name).toEqual("Synnax Dark");
   });
-  it("should toggle a theme", () => {
-    const { getByText, getByLabelText } = render(<TestTheme />);
-    expect(getByText("Synnax Dark")).toBeTruthy();
-    const btn = getByLabelText("theme-switch");
-    fireEvent.click(btn);
-    expect(getByText("Synnax Light")).toBeTruthy();
+  it("should toggle the theme", () => {
+    const { result } = renderHook(() => Theming.useContext(), { wrapper });
+    expect(result.current.theme.name).toEqual("Synnax Dark");
+    act(() => result.current.toggleTheme());
+    expect(result.current.theme.name).toEqual("Synnax Light");
   });
 });

@@ -16,7 +16,7 @@ import {
   Icon,
   Input,
   List,
-  Select,
+  Selection,
   Status,
   stopPropagation,
   Tag,
@@ -52,7 +52,7 @@ export const Item = (props: ItemProps): ReactElement | null => {
     autoSave: true,
     sync: true,
   });
-  const { selected, onSelect } = Select.useItemState(itemKey);
+  const { selected, onSelect } = Selection.useItemState(itemKey);
 
   if (item == null) return null;
   const { name, time, variant, message, labels } = item;
