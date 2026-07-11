@@ -389,6 +389,14 @@ var _ = Describe("Actions", func() {
 			next := MustSucceed(panel.MoveTabPayload{
 				Key: tab1, TargetLeaf: 1, Index: new(int32(2)),
 			}.Handle(p))
+			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab2, tab1, tab3}))
+		})
+
+		It("Should move a tab to the end of its own leaf when dropped past the last tab", func() {
+			p := panel.Panel{Root: leafNode(tab(tab1), tab(tab2), tab(tab3))}
+			next := MustSucceed(panel.MoveTabPayload{
+				Key: tab1, TargetLeaf: 1, Index: new(int32(3)),
+			}.Handle(p))
 			Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{tab2, tab3, tab1}))
 		})
 

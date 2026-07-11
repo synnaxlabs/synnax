@@ -135,11 +135,15 @@ func (p RemoveTabPayload) Handle(state Panel) (Panel, error) {
 // into the new empty sibling leaf; moving a leaf's only tab to an edge of its
 // own leaf is a no-op (the result would be the tab beside an empty pane). A
 // center Location places the tab directly in the target leaf, equivalent to
-// absent. Errors when no tab matches the key, when the target path is bad,
-// when index is outside [0, len(targetLeaf.Tabs)] after the remove (the count
-// may shrink by one when moving within the same leaf), or when Location cannot
-// produce a split.
+// absent. Index counts the moved tab as still present, so a same-leaf move
+// decrements it past the tab's own slot to stay valid after the remove. Errors
+// when no tab matches the key, when the target path is bad, when the adjusted
+// index is out of range, or when Location cannot produce a split.
 func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
+	srcLeaf, srcIdx, ok := findTab(state.Root, p.Key)
+	if !ok {
+		return Panel{}, errTabNotFound
+	}
 	targetLeaf := p.TargetLeaf
 	if p.Location != nil && *p.Location != spatial.LocationCenter {
 		current, err := walkLeaf(state.Root, p.TargetLeaf)
@@ -165,6 +169,9 @@ func (p MoveTabPayload) Handle(state Panel) (Panel, error) {
 		idx := len(leaf.Tabs)
 		if p.Index != nil {
 			idx = int(*p.Index)
+			if srcLeaf == targetLeaf && srcIdx < idx {
+				idx--
+			}
 		}
 		if idx < 0 || idx > len(leaf.Tabs) {
 			return Leaf{}, errIndexOutOfRange

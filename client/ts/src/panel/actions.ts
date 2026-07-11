@@ -205,6 +205,12 @@ const handlers: Handlers = {
   // source's removal would otherwise collapse away (e.g. the empty sibling
   // created by the preceding edge split).
   moveTab: (state, payload) => {
+    const srcLeaf = tabLeafPath(state.root, payload.key);
+    const srcNode = srcLeaf != null ? findNode(state.root, srcLeaf) : undefined;
+    const srcIdx =
+      srcNode?.variant === "leaf"
+        ? srcNode.tabs.findIndex((t) => t.key === payload.key)
+        : -1;
     let targetLeaf = payload.targetLeaf;
     if (payload.location != null && payload.location !== "center") {
       const current = walkLeaf(state.root, targetLeaf);
@@ -221,7 +227,10 @@ const handlers: Handlers = {
     if (target == null) return NO_OP;
     const removed = removeTab(state.root, payload.key);
     if (removed == null) return NO_OP;
-    const idx = payload.index ?? target.tabs.length;
+    let idx = payload.index ?? target.tabs.length;
+    // The index counts the moved tab as still present, so a same-leaf move
+    // decrements it past the tab's own slot to stay valid after the remove.
+    if (payload.index != null && srcLeaf === targetLeaf && srcIdx < idx) idx--;
     if (idx < 0 || idx > target.tabs.length) target.tabs.push(removed);
     else target.tabs.splice(idx, 0, removed);
     collapseEmptyLeaves(state);

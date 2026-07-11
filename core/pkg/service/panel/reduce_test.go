@@ -53,7 +53,7 @@ var _ = Describe("Reduce", func() {
 		k1, k2 := uuid.New(), uuid.New()
 		next := MustSucceed(panel.Reduce(
 			panel.Panel{Root: leafNode(tab(k1), tab(k2))},
-			panel.NewMoveTabAction(panel.MoveTabPayload{Key: k1, TargetLeaf: 1, Index: new(int32(1))}),
+			panel.NewMoveTabAction(panel.MoveTabPayload{Key: k1, TargetLeaf: 1, Index: new(int32(2))}),
 		))
 		Expect(tabKeys(next.Root)).To(Equal([]uuid.UUID{k2, k1}))
 	})

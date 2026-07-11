@@ -62,6 +62,20 @@ const tabKeys = (node: panel.Node | undefined): string[] =>
 
 describe("reduceAll", () => {
   describe("moveTab", () => {
+    it("should move a tab within the same leaf to a new index", () => {
+      const { next } = panel.reduceAll(state(leaf(a, b, c)), [
+        panel.moveTab({ key: a, targetLeaf: panel.ROOT_NODE_KEY, index: 2 }),
+      ]);
+      expect(tabKeys(next.root)).toEqual([b, a, c]);
+    });
+
+    it("should move a tab to the end of its own leaf when dropped past the last tab", () => {
+      const { next } = panel.reduceAll(state(leaf(a, b, c)), [
+        panel.moveTab({ key: a, targetLeaf: panel.ROOT_NODE_KEY, index: 3 }),
+      ]);
+      expect(tabKeys(next.root)).toEqual([b, c, a]);
+    });
+
     it("should collapse the source split when moving the last tab out of a side", () => {
       const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
         panel.moveTab({ key: a, targetLeaf: 3, index: 0 }),
