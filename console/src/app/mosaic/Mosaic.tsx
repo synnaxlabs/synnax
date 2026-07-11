@@ -34,11 +34,8 @@ import {
 } from "@synnaxlabs/pluto";
 import { caseconv, type direction } from "@synnaxlabs/x";
 import {
-  createContext,
   memo,
   type ReactElement,
-  type RefObject,
-  use,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -104,10 +101,9 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
 
 interface ModalContentProps {
   tabKey: string;
-  node: Portal.Node;
 }
 
-const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
+const ModalContent = ({ tabKey }: ModalContentProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const layout = Session.Layout.useSelectRequired(tabKey);
   const { windowKey, focused: focusedKey } = Session.Layout.useSelectFocused();
@@ -173,7 +169,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
             </>
           )}
         </Nav.Bar>
-        <Portal.Out node={node} />
+        <Portal.Out itemKey={tabKey} />
       </Dialog.Dialog>
     </Dialog.Frame>
   );
@@ -263,22 +259,6 @@ const TabName = ({ tab, onRename }: TabNameProps): ReactElement => {
   return <TabNameContent tab={tab} />;
 };
 
-// Only the portal map genuinely needs to be shared from Internal: the select,
-// close, rename, and add handlers are thin wrappers around dispatch/placer hooks
-// that each node calls itself, and the window key comes from the active window.
-interface ContextValue {
-  portalRef: RefObject<Map<string, Portal.Node>>;
-}
-
-const Context = createContext<ContextValue | null>(null);
-Context.displayName = "Mosaic.Context";
-
-const useMosaicContext = (): ContextValue => {
-  const ctx = use(Context);
-  if (ctx == null) throw new Error("mosaic node rendered outside of a Mosaic context");
-  return ctx;
-};
-
 interface LeafNodeProps {
   nodeKey: number;
   selected: string | null;
@@ -286,7 +266,6 @@ interface LeafNodeProps {
 }
 
 const LeafNode = memo(({ nodeKey, selected, tabs }: LeafNodeProps): ReactElement => {
-  const { portalRef } = useMosaicContext();
   const dispatch = Session.useDispatch();
   const remove = Layout.useRemover();
   const placeLayout = Layout.usePlacer();
@@ -299,7 +278,6 @@ const LeafNode = memo(({ nodeKey, selected, tabs }: LeafNodeProps): ReactElement
       dispatch(Session.Layout.rename({ key: tabKey, name })),
     [dispatch],
   );
-  const selectedNode = selected != null ? portalRef.current.get(selected) : undefined;
   return (
     <Base.Leaf leafKey={nodeKey.toString()} grow>
       <Tabs.Frame
@@ -348,10 +326,10 @@ const LeafNode = memo(({ nodeKey, selected, tabs }: LeafNodeProps): ReactElement
           )}
         </Tabs.Selector>
         <Tabs.Content grow>
-          {selected == null || selectedNode == null ? (
+          {selected == null ? (
             <EmptyContent />
           ) : (
-            <ModalContent key={selected} tabKey={selected} node={selectedNode} />
+            <ModalContent key={selected} tabKey={selected} />
           )}
           <Base.Shield />
         </Tabs.Content>
@@ -529,28 +507,26 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     return [keys, visible];
   }, [mosaic]);
 
+  const selectorVisible = Selector.useVisible();
+
   // Content renders into portal nodes hosted from each leaf, so moving layouts
   // around the mosaic or focusing them does not remount them. This has
   // considerable impact on the user experience, as it avoids re-fetching data
   // and re-creating expensive resources like WebGL contexts.
-  const [portalRef, portalNodes] = Portal.useNodes({
-    keys: tabKeys,
-    attrs: PORTAL_NODE_ATTRS,
-    onClick: handleSelect,
-    children: (tabKey) => (
-      <Errors.Boundary>
-        <Layout.Content layoutKey={tabKey} forceHidden={!visibleKeys.has(tabKey)} />
-      </Errors.Boundary>
-    ),
-  });
-
-  const selectorVisible = Selector.useVisible();
-
-  const ctx = useMemo<ContextValue>(() => ({ portalRef }), [portalRef]);
-
   return (
-    <>
-      {portalNodes}
+    <Portal.Provider>
+      {tabKeys.map((tabKey) => (
+        <Portal.In
+          key={tabKey}
+          itemKey={tabKey}
+          attrs={PORTAL_NODE_ATTRS}
+          onClick={handleSelect}
+        >
+          <Errors.Boundary>
+            <Layout.Content layoutKey={tabKey} forceHidden={!visibleKeys.has(tabKey)} />
+          </Errors.Boundary>
+        </Portal.In>
+      ))}
       <Base.Frame
         rounded={1}
         bordered
@@ -562,11 +538,9 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onCreate={selectorVisible ? handleCreate : undefined}
         onFileDrop={handleFileDrop}
       >
-        <Context value={ctx}>
-          <MosaicNode nodeKey={mosaic.key} />
-        </Context>
+        <MosaicNode nodeKey={mosaic.key} />
       </Base.Frame>
-    </>
+    </Portal.Provider>
   );
 };
 

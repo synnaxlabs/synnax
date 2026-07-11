@@ -28,6 +28,10 @@ import {
 import { Portal } from "@/portal";
 import { Tabs } from "@/tabs";
 
+const PORTAL_NODE_ATTRS = {
+  style: "width: 100%; height: 100%; position: relative;",
+};
+
 export interface MosaicTabRenderProps extends TabContent {
   tabKey: string;
   visible: boolean;
@@ -93,7 +97,6 @@ interface LeafProps extends Pick<MosaicProps, "focused" | "onSelect" | "tabName"
   selected?: string;
   onClose: (tabKey: string) => void;
   onAdd: (path: number) => void;
-  contentNode?: Portal.Node;
 }
 
 const Leaf = ({
@@ -106,7 +109,6 @@ const Leaf = ({
   onClose,
   onAdd,
   tabName,
-  contentNode,
 }: LeafProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
   return (
@@ -133,7 +135,7 @@ const Leaf = ({
           </Button.Button>
         </Tabs.Selector>
         <Tabs.Content grow>
-          {contentNode != null && <Portal.Out node={contentNode} />}
+          {selected != null && <Portal.Out itemKey={selected} />}
           <Base.Shield />
         </Tabs.Content>
       </Tabs.Frame>
@@ -236,19 +238,6 @@ export const Mosaic = ({
     return [keys, visible];
   }, [root, preference]);
 
-  const [portalRef, portalNodes] = Portal.useNodes({
-    keys: tabKeys,
-    attrs: { style: "width: 100%; height: 100%; position: relative;" },
-    onClick: onSelect,
-    children: (tabKey) => (
-      <Errors.Boundary>
-        <Content panelKey={key} tabKey={tabKey} visible={visibleKeys.has(tabKey)}>
-          {children}
-        </Content>
-      </Errors.Boundary>
-    ),
-  });
-
   const renderNode = (node: panel.Node, path: number): ReactElement => {
     if (node.variant === "split")
       return (
@@ -275,14 +264,29 @@ export const Mosaic = ({
         onClose={handleClose}
         onAdd={handleAdd}
         tabName={tabName}
-        contentNode={sel != null ? portalRef.current.get(sel) : undefined}
       />
     );
   };
 
+  // Content renders into portal nodes hosted from each leaf, so moving a tab
+  // around the mosaic does not remount it: the leaf's Out re-parents the same
+  // element, preserving DOM state and expensive resources like WebGL contexts.
   return (
-    <>
-      {portalNodes}
+    <Portal.Provider>
+      {tabKeys.map((tabKey) => (
+        <Portal.In
+          key={tabKey}
+          itemKey={tabKey}
+          attrs={PORTAL_NODE_ATTRS}
+          onClick={onSelect}
+        >
+          <Errors.Boundary>
+            <Content panelKey={key} tabKey={tabKey} visible={visibleKeys.has(tabKey)}>
+              {children}
+            </Content>
+          </Errors.Boundary>
+        </Portal.In>
+      ))}
       <Base.Frame
         onDrop={handleDrop}
         onCreate={handleCreate}
@@ -291,6 +295,6 @@ export const Mosaic = ({
       >
         {renderNode(root, panel.ROOT_PATH)}
       </Base.Frame>
-    </>
+    </Portal.Provider>
   );
 };

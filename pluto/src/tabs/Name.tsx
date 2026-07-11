@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
@@ -28,6 +28,10 @@ export const Name = ({ value, level, ...rest }: NameProps): ReactElement => {
   const { onRename } = useFrameContext("Tabs.Name");
   const { itemKey } = useTabContext("Tabs.Name");
   const { size } = useSelectorContext("Tabs.Name");
+  const handleRename = useCallback(
+    (name: string) => onRename?.(itemKey, name),
+    [itemKey, onRename],
+  );
   level ??= SIZE_TEXT_LEVELS[size];
   if (onRename == null)
     return (
@@ -40,7 +44,7 @@ export const Name = ({ value, level, ...rest }: NameProps): ReactElement => {
       id={CSS.B(`tab-${itemKey}`)}
       level={level}
       value={value}
-      onChange={(name: string) => onRename(itemKey, name)}
+      onChange={handleRename}
       overflow="ellipsis"
       {...rest}
     />
