@@ -11,12 +11,7 @@ import { configureStore } from "@reduxjs/toolkit";
 import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
-import {
-  createElement,
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-} from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -37,10 +32,11 @@ describe("Schematic Slice", () => {
     store = storeWith(Schematic.ZERO_SLICE_STATE);
   });
 
-  const wrapper: FC<PropsWithChildren> = ({ children }): ReactElement =>
-    createElement(Provider, { store, children });
+  const wrapper: FC<PropsWithChildren> = ({ children }): ReactElement => (
+    <Provider store={store}>{children}</Provider>
+  );
 
-  const read = <R>(
+  const read = <R,>(
     useGetter: () => (args?: { key?: schematic.Key }) => R,
     key: string = KEY,
   ): R => {

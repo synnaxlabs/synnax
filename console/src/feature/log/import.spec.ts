@@ -187,7 +187,7 @@ describe("ingest", () => {
       createFileIngesterContext({ name, openTab, store, client, projectKey: proj.key }),
     );
     if (id == null) throw new Error("ingest returned no id");
-    expect(openTab).toHaveBeenCalledWith({ resource: id });
+    expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
     const created = await client.logs.retrieve({ key: id.key });
     expect(created.name).toBe(name);
     expect(store.logs.get(id.key)?.name).toBe(name);

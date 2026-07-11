@@ -172,8 +172,9 @@ export const [useSelectNodeConfig, useGetNodeConfig] = Scope.bindSelector(
   }),
 );
 
-// useSelectMode returns the representation mode of the Arc with the given key,
-// or undefined when it has not yet loaded into the store.
+// useSelectMode returns the representation mode of the Arc with the given key. It
+// requires the arc to be loaded into the store, so callers must render it beneath an
+// Arc.Suspended boundary that has retrieved the arc.
 export const [useSelectMode, useGetMode] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, arc.Mode>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),

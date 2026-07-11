@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, panel } from "@synnaxlabs/client";
+import { channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { Session } from "@/session";
-import { assertDefined, renderLinkHook, waitForFocusedTab } from "@/testutil";
+import { renderLinkHook, resolveFocusedTab } from "@/testutil";
 
 const client = createTestClient();
 
@@ -32,12 +32,8 @@ describe("Channel.useLink", () => {
     const { handler, store } = await renderLinkHook(Channel.useLink, { client });
     store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: String(ch.key) });
-    const focused = await waitForFocusedTab(store);
-    const panelKey = Session.Panel.selectSelected(store.getState());
-    assertDefined(panelKey);
-    const doc = await client.panels.retrieve(panelKey);
-    const tab = panel.findTab(doc.root, focused);
-    if (tab?.variant !== "resource") throw new Error("expected a resource tab");
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe("lineplot");
     const plot = await client.lineplots.retrieve({ key: tab.resource.key });
     expect(plot.name).toBe(`${ch.name} Plot`);

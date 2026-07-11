@@ -23,9 +23,9 @@ import {
 import { Session } from "@/session";
 import {
   renderHookWithConsole,
+  resolveFocusedTab,
   type TestStore,
   uniqueName,
-  waitForFocusedTab,
 } from "@/testutil";
 
 interface RenderNavigateArgs {
@@ -74,12 +74,12 @@ const expectNavigatedTo = async (
   store: TestStore,
   target: schematic.Schematic,
 ): Promise<void> => {
-  const focusedTab = await waitForFocusedTab(store);
-  const panelKey = Session.Panel.selectSelected(store.getState());
-  if (panelKey == null) throw new Error("no panel selected");
-  const doc = await client.panels.retrieve(panelKey);
-  const tab = panel.findTab(doc.root, focusedTab);
-  if (tab == null || tab.variant !== "resource")
+  const tab = await resolveFocusedTab(
+    store,
+    client,
+    (t) => t.variant === "resource" && t.resource.key === target.key,
+  );
+  if (tab.variant !== "resource")
     throw new Error("focused tab is not a schematic resource");
   expect(tab.resource.key).toBe(target.key);
 };
@@ -88,7 +88,7 @@ const expectNotOpened = async (store: TestStore, key: string): Promise<void> => 
   const panelKey = Session.Panel.selectSelected(store.getState());
   if (panelKey == null) return;
   const doc = await client.panels.retrieve(panelKey);
-  expect(panel.findTabByResource(doc.root, schematic.ontologyID(key))).toBeNull();
+  expect(panel.findTabByResource(doc.root, schematic.ontologyID(key))).toBeUndefined();
 };
 
 describe("Schematic.useHandleNodeClickAction", () => {

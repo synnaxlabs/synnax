@@ -13,12 +13,16 @@ import { Graph } from "@/feature/arc/editor/Graph";
 import { Text } from "@/feature/arc/editor/Text";
 import { type Panel } from "@/platform/panel";
 
+const Internal = () => {
+  const mode = Arc.useSelectMode();
+  return mode === "graph" ? <Graph /> : <Text />;
+};
+
 export const Editor: Panel.Content = () => {
   const { key } = PPanel.useSelectTabResource();
-  const mode = Arc.useSelectMode({ key });
   return (
     <Arc.Suspended arcKey={key}>
-      {mode === "graph" ? <Graph /> : <Text />}
+      <Internal />
     </Arc.Suspended>
   );
 };

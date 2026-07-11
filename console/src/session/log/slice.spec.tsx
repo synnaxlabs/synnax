@@ -50,7 +50,7 @@ describe("Log Slice", () => {
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
       const getState = renderGetter(Log.useGetState);
-      act(() => store.dispatch(Log.create({ key: KEY })));
+      act(() => void store.dispatch(Log.create({ key: KEY })));
       expect(getState()).toEqual(Log.ZERO_STATE);
     });
 
@@ -89,8 +89,11 @@ describe("Log Slice", () => {
 
     it("should provision state on first action for an unknown key", () => {
       const getTab = renderGetter(Log.useGetSelectedToolbarTab, "absent");
-      act(() =>
-        store.dispatch(Log.setSelectedToolbarTab({ key: "absent", tab: "properties" })),
+      act(
+        () =>
+          void store.dispatch(
+            Log.setSelectedToolbarTab({ key: "absent", tab: "properties" }),
+          ),
       );
       expect(getTab()).toBe("properties");
     });

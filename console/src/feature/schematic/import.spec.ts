@@ -409,7 +409,7 @@ describe("schematic import", () => {
       });
       if (id == null) throw new Error("ingest did not return an ontology id");
       expect(openTab).toHaveBeenCalledTimes(1);
-      expect(openTab).toHaveBeenCalledWith({ resource: id });
+      expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
       const created = await client.schematics.retrieve({ key: id.key });
       expect(created.name).toBe(name);
       expect(created.nodes).toHaveLength(1);

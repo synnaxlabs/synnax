@@ -60,7 +60,7 @@ describe("Table Slice", () => {
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(Table.create({ key: KEY })));
+      act(() => void store.dispatch(Table.create({ key: KEY })));
       expect(get.state()).toEqual(Table.ZERO_STATE);
     });
 
@@ -77,7 +77,7 @@ describe("Table Slice", () => {
 
     it("should apply provided fields over the defaults", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(Table.create({ key: KEY, editable: false })));
+      act(() => void store.dispatch(Table.create({ key: KEY, editable: false })));
       expect(get.editable()).toBe(false);
     });
 
@@ -125,7 +125,9 @@ describe("Table Slice", () => {
 
     it("should lazily create the entry when the key does not exist", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"] })));
+      act(
+        () => void store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"] })),
+      );
       expect(get.selectedCellKeys()).toEqual(["a"]);
     });
   });
@@ -164,10 +166,10 @@ describe("Table Slice", () => {
 
     it("should toggle the flag when no value is provided", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(Table.create({ key: KEY })));
-      act(() => store.dispatch(Table.setHideIndicators({ key: KEY })));
+      act(() => void store.dispatch(Table.create({ key: KEY })));
+      act(() => void store.dispatch(Table.setHideIndicators({ key: KEY })));
       expect(get.hideIndicators()).toBe(true);
-      act(() => store.dispatch(Table.setHideIndicators({ key: KEY })));
+      act(() => void store.dispatch(Table.setHideIndicators({ key: KEY })));
       expect(get.hideIndicators()).toBe(false);
     });
   });
@@ -175,9 +177,9 @@ describe("Table Slice", () => {
   describe("remove", () => {
     it("should remove a table by key", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(Table.create({ key: KEY })));
+      act(() => void store.dispatch(Table.create({ key: KEY })));
       expect(get.exists()).toBe(true);
-      act(() => store.dispatch(Table.remove({ keys: [KEY] })));
+      act(() => void store.dispatch(Table.remove({ keys: [KEY] })));
       expect(get.exists()).toBe(false);
     });
 

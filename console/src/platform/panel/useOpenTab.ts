@@ -26,53 +26,49 @@ export const useOpenTab = (): ((params: OpenTabParams) => void) => {
   const parentPanelKey = Panel.useOptionalKey();
   const getSelected = Session.Panel.useGetSelected();
   const parentTabKey = Panel.useOptionalTabKey();
-  const handleTabCreate = useCallback(
-    (params: OpenTabParams) => {
-      const panelKey = parentPanelKey ?? getSelected();
-      if (panelKey == null) return;
+  // insertIntoExisting adds the tab to a panel that is already on the cluster
+  // (the scoped parent or the selected panel), so a remote dispatch is correct.
+  const insertIntoExisting = useCallback(
+    (panelKey: panel.Key, params: OpenTabParams) => {
       const tab: panel.Tab = { key: parentTabKey ?? uuid.create(), ...params };
       dispatch({ key: panelKey, actions: [panel.insertTab({ tab })] });
-      selectTab(tab.key);
+      selectTab(tab.key, panelKey);
     },
-    [parentTabKey, parentPanelKey, dispatch, dispatchSession],
+    [parentTabKey, dispatch, selectTab],
   );
-  const { update: createPanel } = Panel.useCreate<OpenTabParams>({
-    beforeUpdate: useCallback(
-      ({
-        extra,
-      }: Flux.BeforeUpdateParams<
-        panel.New,
-        false,
-        Panel.FluxSubStore,
-        OpenTabParams
-      >) => {
-        const anySelected = getSelected() != null;
-        if (!anySelected && parentPanelKey == null) return true;
-        handleTabCreate(extra);
-        return false;
-      },
-      [parentPanelKey],
-    ),
+  const { update: createPanel } = Panel.useCreate<panel.Tab>({
     afterOptimistic: useCallback(
       ({
         data: { key },
         rollbacks,
-        extra,
+        extra: tab,
       }: Flux.AfterOptimisticParams<
         panel.Panel,
         false,
         Panel.FluxSubStore,
-        OpenTabParams
+        panel.Tab
       >) => {
         dispatchSession(Session.Panel.select({ key }));
         rollbacks.push(() => dispatchSession(Session.Panel.clearSelected({})));
-        handleTabCreate(extra);
+        selectTab(tab.key, key);
       },
-      [dispatchSession],
+      [dispatchSession, selectTab],
     ),
   });
   return useCallback(
-    (tab: OpenTabParams) => createPanel({ name: "New Panel" }, { extra: tab }),
-    [createPanel],
+    (params: OpenTabParams) => {
+      const panelKey = parentPanelKey ?? getSelected();
+      if (panelKey != null) return insertIntoExisting(panelKey, params);
+      // No panel to insert into: seed the tab into the new panel's initial root
+      // so the create persists both in a single request. This avoids a second
+      // remote dispatch that would race the create and fail with "panel not
+      // found", while the local store update keeps focus optimistic.
+      const tab: panel.Tab = { key: parentTabKey ?? uuid.create(), ...params };
+      createPanel(
+        { name: "New Panel", root: { variant: "leaf", tabs: [tab] } },
+        { extra: tab },
+      );
+    },
+    [parentPanelKey, parentTabKey, getSelected, insertIntoExisting, createPanel],
   );
 };

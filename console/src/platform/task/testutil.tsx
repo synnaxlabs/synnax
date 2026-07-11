@@ -115,9 +115,10 @@ export const seedSelectedPanel = async (
   store: TestStore,
   client: Client | null,
   tabs: panel.Tab[] = [],
+  key: panel.Key = uuid.create(),
 ): Promise<SeededPanel> => {
   const doc = panel.panelZ.parse({
-    key: uuid.create(),
+    key,
     name: uniqueName("panel"),
     root: { variant: "leaf", tabs },
   });
@@ -215,6 +216,8 @@ export interface RenderInTaskFormWithClientOptions extends RenderInTaskFormOptio
 export interface RenderInTaskFormWithClientResult extends RenderInTaskFormResult {
   /** The console wrapper backing the render, for seeding panel docs. */
   wrapper: FC<PropsWithChildren>;
+  /** Key of the panel scope the form is rendered under, for seeding it as selected. */
+  panelKey: panel.Key;
 }
 
 /**
@@ -238,16 +241,17 @@ export const renderInTaskFormWithClient = async (
     preloadedState,
     store,
   });
+  const panelKey = uuid.create();
   const tabKey = uuid.create();
   const result = render(
-    <PanelScopes panelKey={uuid.create()} tabKey={tabKey}>
+    <PanelScopes panelKey={panelKey} tabKey={tabKey}>
       <TaskFormProvider values={merged} mode={mode} formRef={formRef}>
         {ui}
       </TaskFormProvider>
     </PanelScopes>,
     { wrapper, ...rest },
   );
-  return { ...result, store: resolvedStore, form: formRef, tabKey, wrapper };
+  return { ...result, store: resolvedStore, form: formRef, tabKey, panelKey, wrapper };
 };
 
 export interface RenderTaskFormViewOptions {

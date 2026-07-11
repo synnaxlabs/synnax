@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, panel } from "@synnaxlabs/client";
+import { lineplot } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
@@ -15,7 +15,7 @@ import { LinePlot } from "@/feature/lineplot";
 import { client, project } from "@/feature/lineplot/testutil";
 import { createActiveState } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { stubGeometry, waitForFocusedTab } from "@/testutil";
+import { resolveFocusedTab, stubGeometry } from "@/testutil";
 
 stubGeometry();
 
@@ -29,15 +29,11 @@ describe("lineplot palette", () => {
     });
     await openCommandPalette();
     await selectCommand("Create a line plot");
-    const focusedTab = await waitForFocusedTab(store);
-    const panelKey = Session.Panel.selectSelected(store.getState());
-    if (panelKey == null) throw new Error("no panel selected");
-    const doc = await client.panels.retrieve(panelKey);
-    const tab = panel.findTab(doc.root, focusedTab);
-    if (tab == null || tab.variant !== "resource")
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource")
       throw new Error("focused tab is not a line plot resource");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
     const created = await client.lineplots.retrieve({ key: tab.resource.key });
-    expect(created.name).toBe("Line Plot");
+    expect(created.name).toBe("New Line Plot");
   });
 });

@@ -158,13 +158,14 @@ export const MIDDLEWARE = [
 export const PERSIST_EXCLUDE = [];
 
 export const useSelectTab = (panelKey?: panel.Key) => {
-  const resolvedPanelKey = Panel.useOptionalKey(panelKey);
+  const scopedPanelKey = Panel.useOptionalKey(panelKey);
   const getTabLeaf = Panel.useGetTabLeaf();
   const dispatch = useDispatch<Dispatch<Action>>();
   return useCallback(
-    (key: panel.TabKey) => {
+    (key: panel.TabKey, overridePanelKey?: panel.Key) => {
+      const resolvedPanelKey = overridePanelKey ?? scopedPanelKey;
       if (resolvedPanelKey == null) return;
-      const leaf = getTabLeaf({ tabKey: key });
+      const leaf = getTabLeaf({ key: resolvedPanelKey, tabKey: key });
       dispatch(
         internalSelectTab({
           tabKey: key,
@@ -173,6 +174,6 @@ export const useSelectTab = (panelKey?: panel.Key) => {
         }),
       );
     },
-    [panelKey, dispatch],
+    [scopedPanelKey, getTabLeaf, dispatch],
   );
 };

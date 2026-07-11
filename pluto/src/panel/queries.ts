@@ -159,7 +159,6 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
     const get = useGet();
     return useCallback(
       (args?: optional.Optional<Args, "key" | "tabKey">) =>
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         get({ key, tabKey, ...args } as Args),
       [get, key, tabKey],
     );

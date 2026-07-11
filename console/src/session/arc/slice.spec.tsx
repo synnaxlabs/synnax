@@ -50,13 +50,13 @@ describe("Arc Slice", () => {
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
       const get = renderGetter(Arc.useGet);
-      act(() => store.dispatch(Arc.create({ key: KEY })));
+      act(() => void store.dispatch(Arc.create({ key: KEY })));
       expect(get()).toEqual(Arc.ZERO_STATE);
     });
 
     it("should default the toolbar tab to stages", () => {
       const getToolbar = renderGetter(Arc.useGetToolbar);
-      act(() => store.dispatch(Arc.create({ key: KEY })));
+      act(() => void store.dispatch(Arc.create({ key: KEY })));
       expect(getToolbar().selectedTab).toBe("stages");
     });
 
@@ -72,7 +72,9 @@ describe("Arc Slice", () => {
 
     it("should apply provided graph fields over the defaults", () => {
       const getEditable = renderGetter(Arc.useGetEditable);
-      act(() => store.dispatch(Arc.create({ key: KEY, graph: { editable: false } })));
+      act(
+        () => void store.dispatch(Arc.create({ key: KEY, graph: { editable: false } })),
+      );
       expect(getEditable()).toBe(false);
     });
 
@@ -131,7 +133,7 @@ describe("Arc Slice", () => {
 
     it("should lazily create the entry when the key does not exist", () => {
       const getSelected = renderGetter(Arc.useGetSelected);
-      act(() => store.dispatch(Arc.setSelected({ key: KEY, selected: ["a"] })));
+      act(() => void store.dispatch(Arc.setSelected({ key: KEY, selected: ["a"] })));
       expect(getSelected()).toEqual(["a"]);
     });
   });
@@ -148,7 +150,10 @@ describe("Arc Slice", () => {
 
     it("should lazily create the entry when the key does not exist", () => {
       const getToolbar = renderGetter(Arc.useGetToolbar);
-      act(() => store.dispatch(Arc.selectToolbarTab({ key: KEY, tab: "properties" })));
+      act(
+        () =>
+          void store.dispatch(Arc.selectToolbarTab({ key: KEY, tab: "properties" })),
+      );
       expect(getToolbar().selectedTab).toBe("properties");
     });
   });
@@ -174,13 +179,14 @@ describe("Arc Slice", () => {
 
     it("should lazily create the entry when the key does not exist", () => {
       const getViewport = renderGetter(Arc.useGetViewport);
-      act(() =>
-        store.dispatch(
-          Arc.setViewport({
-            key: KEY,
-            viewport: { position: { x: 1, y: 2 }, zoom: 3 },
-          }),
-        ),
+      act(
+        () =>
+          void store.dispatch(
+            Arc.setViewport({
+              key: KEY,
+              viewport: { position: { x: 1, y: 2 }, zoom: 3 },
+            }),
+          ),
       );
       const viewport = getViewport();
       expect(viewport.position).toEqual({ x: 1, y: 2 });

@@ -61,7 +61,7 @@ describe("LinePlot Slice", () => {
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(LinePlot.create({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
       expect(get.state()).toEqual(LinePlot.ZERO_STATE);
     });
 
@@ -79,7 +79,7 @@ describe("LinePlot Slice", () => {
 
     it("should fill annotations with the default for a key", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(LinePlot.create({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
       expect(get.state().annotations).toEqual(LinePlot.ZERO_ANNOTATIONS_STATE);
     });
 
@@ -106,8 +106,9 @@ describe("LinePlot Slice", () => {
 
     it("should lazily create the entry when the key does not exist", () => {
       const get = renderGetters(store);
-      act(() =>
-        store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "axes" })),
+      act(
+        () =>
+          void store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "axes" })),
       );
       expect(get.toolbarTab()).toBe("axes");
     });
@@ -134,11 +135,11 @@ describe("LinePlot Slice", () => {
 
     it("should toggle the hold state when value is undefined", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(LinePlot.create({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
       expect(get.control().hold).toBe(false);
-      act(() => store.dispatch(LinePlot.setControlHold({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.setControlHold({ key: KEY })));
       expect(get.control().hold).toBe(true);
-      act(() => store.dispatch(LinePlot.setControlHold({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.setControlHold({ key: KEY })));
       expect(get.control().hold).toBe(false);
     });
   });
@@ -195,11 +196,11 @@ describe("LinePlot Slice", () => {
 
     it("should toggle the tooltip state when value is undefined", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(LinePlot.create({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
       const initial = get.control().enableTooltip;
-      act(() => store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY })));
       expect(get.control().enableTooltip).toBe(!initial);
-      act(() => store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY })));
       expect(get.control().enableTooltip).toBe(initial);
     });
   });
@@ -218,12 +219,13 @@ describe("LinePlot Slice", () => {
   describe("viewport", () => {
     it("should reset the viewport and bump the render trigger on setViewport", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(LinePlot.create({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
       const before = get.state().viewport.renderTrigger;
-      act(() =>
-        store.dispatch(
-          LinePlot.setViewport({ key: KEY, zoom: { width: 2, height: 2 } }),
-        ),
+      act(
+        () =>
+          void store.dispatch(
+            LinePlot.setViewport({ key: KEY, zoom: { width: 2, height: 2 } }),
+          ),
       );
       const viewport = get.state().viewport;
       expect(viewport.renderTrigger).toBe(before + 1);
@@ -283,23 +285,25 @@ describe("LinePlot Slice", () => {
   describe("setRangeAnnotationsVisible", () => {
     it("should default to visible on a newly created plot", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(LinePlot.create({ key: KEY })));
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
       expect(get.state().annotations.visible).toBe(true);
     });
 
     it("should hide and re-show range annotations", () => {
       const get = renderGetters(store);
-      act(() => store.dispatch(LinePlot.create({ key: KEY })));
-      act(() =>
-        store.dispatch(
-          LinePlot.setRangeAnnotationsVisible({ key: KEY, visible: false }),
-        ),
+      act(() => void store.dispatch(LinePlot.create({ key: KEY })));
+      act(
+        () =>
+          void store.dispatch(
+            LinePlot.setRangeAnnotationsVisible({ key: KEY, visible: false }),
+          ),
       );
       expect(get.state().annotations.visible).toBe(false);
-      act(() =>
-        store.dispatch(
-          LinePlot.setRangeAnnotationsVisible({ key: KEY, visible: true }),
-        ),
+      act(
+        () =>
+          void store.dispatch(
+            LinePlot.setRangeAnnotationsVisible({ key: KEY, visible: true }),
+          ),
       );
       expect(get.state().annotations.visible).toBe(true);
     });
@@ -340,7 +344,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.setActiveToolbarTab({ key: KEY, tab: "lines" }));
       });
       expect(get.toolbarTab()).toBe("lines");
-      act(() => store.dispatch(LinePlot.remove({ keys: [KEY] })));
+      act(() => void store.dispatch(LinePlot.remove({ keys: [KEY] })));
       expect(get.state()).toEqual(LinePlot.ZERO_STATE);
     });
 

@@ -9,7 +9,7 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { act, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
@@ -26,11 +26,15 @@ const withoutSelected = { [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE };
 const createStore = () =>
   configureStore({ reducer: { [Project.SLICE_NAME]: Project.reducer } });
 
-const createWrapper =
-  (store: ReturnType<typeof createStore>) =>
-  ({ children }: PropsWithChildren): ReactElement => (
+const createWrapper = (
+  store: ReturnType<typeof createStore>,
+): FC<PropsWithChildren> => {
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>{children}</Provider>
   );
+  Wrapper.displayName = "Wrapper";
+  return Wrapper;
+};
 
 describe("project selectors", () => {
   describe("raw selectors", () => {

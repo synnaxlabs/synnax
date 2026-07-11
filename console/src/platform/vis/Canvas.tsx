@@ -9,7 +9,6 @@
 
 import "@/platform/vis/Canvas.css";
 
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Canvas as Base } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 

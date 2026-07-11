@@ -148,7 +148,11 @@ describe("task ontology", () => {
       await renderMenu(props);
       fireEvent.click(await screen.findByText("Edit configuration"));
       await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
-      expect(openTab.mock.calls[0][0].view.args).toEqual({ taskKey: t.key });
+      expect(openTab.mock.calls[0][0]).toEqual({
+        variant: "view",
+        type: NI.Task.ANALOG_READ_TYPE,
+        args: { taskKey: t.key },
+      });
     });
 
     it("should delete the task after confirmation", async () => {

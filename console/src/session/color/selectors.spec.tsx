@@ -10,7 +10,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { Color as PColor } from "@synnaxlabs/pluto";
 import { act, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
@@ -19,11 +19,15 @@ import { Color } from "@/session/color";
 const createStore = () =>
   configureStore({ reducer: { [Color.SLICE_NAME]: Color.reducer } });
 
-const createWrapper =
-  (store: ReturnType<typeof createStore>) =>
-  ({ children }: PropsWithChildren): ReactElement => (
+const createWrapper = (
+  store: ReturnType<typeof createStore>,
+): FC<PropsWithChildren> => {
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Provider store={store}>{children}</Provider>
   );
+  Wrapper.displayName = "Wrapper";
+  return Wrapper;
+};
 
 const withFrequent: PColor.ContextState = {
   ...PColor.ZERO_CONTEXT_STATE,

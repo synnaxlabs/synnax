@@ -9,13 +9,15 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
+import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Panel } from "@/session/panel";
+import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const rootReducer = combineReducers({
   [Panel.SLICE_NAME]: Panel.reducer,
@@ -92,6 +94,298 @@ describe("panel selectors", () => {
       );
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([]);
       expect(Panel.selectSelectedTabs(createState(), PANEL)).toEqual([]);
+    });
+  });
+
+  interface SetupOptions {
+    scope?: string;
+    tabScope?: string;
+  }
+
+  // setup mounts the reactive hooks in the production-shaped console stack: the full
+  // session store wired through drift's middleware, nested inside the pluto flux
+  // provider the hooks resolve their selection against. No panel is cached in flux, so
+  // useSelectSelection returns the stored selection unresolved - the wiring under test
+  // is the scope, window-default, and overlaid/focused/visible resolution the console
+  // selectors layer on top.
+  const setup = async ({ scope, tabScope }: SetupOptions = {}) => {
+    const { wrapper: Console, store } = await createConsoleWrapper({ client: null });
+    const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
+      let node: ReactNode = children;
+      if (tabScope != null)
+        node = (
+          <Pluto.TabScope.Provider value={tabScope}>{node}</Pluto.TabScope.Provider>
+        );
+      if (scope != null)
+        node = <Pluto.Scope.Provider value={scope}>{node}</Pluto.Scope.Provider>;
+      return <Console>{node}</Console>;
+    };
+    return { Wrapper, store };
+  };
+
+  const selectTab = (store: TestStore, key: string, tabKey: string): void =>
+    void store.dispatch(
+      Panel.internalSelectTab({ key, tabKey, otherTabKeys: [tabKey] }),
+    );
+
+  describe("useSelectSelectedTabs", () => {
+    it("should return a panel's stored tabs in recency order for an explicit key", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectSelectedTabs(PANEL), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toEqual([]);
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        selectTab(store, PANEL, OTHER_TAB);
+      });
+      expect(result.current).toEqual([OTHER_TAB, TAB]);
+    });
+
+    it("should default to the active window's selected panel when no key is given", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectSelectedTabs(), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
+      });
+      expect(result.current).toEqual([TAB]);
+    });
+
+    it("should resolve the key from the surrounding Panel scope", async () => {
+      const { Wrapper, store } = await setup({ scope: PANEL });
+      const { result } = renderHook(() => Panel.useSelectSelectedTabs(), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        selectTab(store, PANEL, TAB);
+      });
+      expect(result.current).toEqual([TAB]);
+    });
+  });
+
+  describe("useSelectSelected", () => {
+    it("should reactively track the active window's selected panel", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectSelected(), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBeUndefined();
+      act(() => {
+        store.dispatch(Panel.select({ key: PANEL }));
+      });
+      expect(result.current).toEqual(PANEL);
+      act(() => {
+        store.dispatch(Panel.clearSelected({}));
+      });
+      expect(result.current).toBeUndefined();
+    });
+  });
+
+  describe("useSelectFocusedTab", () => {
+    it("should return the most recently selected tab of a panel", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectFocusedTab(PANEL), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBeUndefined();
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        selectTab(store, PANEL, OTHER_TAB);
+      });
+      expect(result.current).toEqual(OTHER_TAB);
+    });
+
+    it("should default to the active window's selected panel", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectFocusedTab(), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.select({ key: PANEL }));
+      });
+      expect(result.current).toEqual(TAB);
+    });
+  });
+
+  describe("useGetFocusedTab", () => {
+    it("should read a panel's focused tab on demand across dispatches", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useGetFocusedTab(), {
+        wrapper: Wrapper,
+      });
+      const get = result.current;
+      expect(get(PANEL)).toBeUndefined();
+      act(() => {
+        selectTab(store, PANEL, TAB);
+      });
+      expect(get(PANEL)).toEqual(TAB);
+    });
+
+    it("should default the key to the surrounding Panel scope", async () => {
+      const { Wrapper, store } = await setup({ scope: PANEL });
+      const { result } = renderHook(() => Panel.useGetFocusedTab(), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        selectTab(store, PANEL, TAB);
+      });
+      expect(result.current()).toEqual(TAB);
+    });
+  });
+
+  describe("useSelectIsTabFocused", () => {
+    it("should be true only for the panel's focused tab", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(
+        () => ({
+          focused: Panel.useSelectIsTabFocused(PANEL, TAB),
+          other: Panel.useSelectIsTabFocused(PANEL, OTHER_TAB),
+        }),
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        selectTab(store, PANEL, OTHER_TAB);
+        selectTab(store, PANEL, TAB);
+      });
+      expect(result.current.focused).toBe(true);
+      expect(result.current.other).toBe(false);
+    });
+
+    it("should be false when no tab resolves", async () => {
+      const { Wrapper } = await setup();
+      const { result } = renderHook(() => Panel.useSelectIsTabFocused(PANEL), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBe(false);
+    });
+  });
+
+  describe("useGetTabIsFocused", () => {
+    it("should report whether the scoped tab is focused on demand", async () => {
+      const { Wrapper, store } = await setup({ scope: PANEL, tabScope: TAB });
+      const { result } = renderHook(() => Panel.useGetTabIsFocused(), {
+        wrapper: Wrapper,
+      });
+      const get = result.current;
+      expect(get()).toBe(false);
+      act(() => {
+        selectTab(store, PANEL, TAB);
+      });
+      expect(get()).toBe(true);
+      expect(get(PANEL, OTHER_TAB)).toBe(false);
+    });
+  });
+
+  describe("useSelectOverlaid / useGetIsOverlaid", () => {
+    it("should reactively track the active window's overlaid flag", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectOverlaid(), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        store.dispatch(Panel.startOverlaying({}));
+      });
+      expect(result.current).toBe(true);
+      act(() => {
+        store.dispatch(Panel.stopOverlaying({}));
+      });
+      expect(result.current).toBe(false);
+    });
+
+    it("should read the overlaid flag on demand across dispatches", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useGetIsOverlaid(), {
+        wrapper: Wrapper,
+      });
+      const get = result.current;
+      expect(get()).toBe(false);
+      act(() => {
+        store.dispatch(Panel.startOverlaying({}));
+      });
+      expect(get()).toBe(true);
+    });
+  });
+
+  describe("useSelectIsTabOverlaid", () => {
+    it("should be true only when the window is overlaid and the tab is focused", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(
+        () => ({
+          focused: Panel.useSelectIsTabOverlaid(PANEL, TAB),
+          other: Panel.useSelectIsTabOverlaid(PANEL, OTHER_TAB),
+        }),
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        selectTab(store, PANEL, OTHER_TAB);
+        selectTab(store, PANEL, TAB);
+      });
+      expect(result.current.focused).toBe(false);
+      act(() => {
+        store.dispatch(Panel.startOverlaying({}));
+      });
+      expect(result.current.focused).toBe(true);
+      expect(result.current.other).toBe(false);
+    });
+
+    it("should be false when no tab resolves", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(() => Panel.useSelectIsTabOverlaid(PANEL), {
+        wrapper: Wrapper,
+      });
+      act(() => {
+        store.dispatch(Panel.startOverlaying({}));
+      });
+      expect(result.current).toBe(false);
+    });
+  });
+
+  describe("useSelectIsTabVisible", () => {
+    it("should be visible when the tab is in the panel's selection and not overlaid", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(
+        () => ({
+          selected: Panel.useSelectIsTabVisible(PANEL, TAB),
+          unselected: Panel.useSelectIsTabVisible(PANEL, OTHER_TAB),
+        }),
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        selectTab(store, PANEL, TAB);
+      });
+      expect(result.current.selected).toBe(true);
+      expect(result.current.unselected).toBe(false);
+    });
+
+    it("should show only the focused tab when the window is overlaid", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(
+        () => ({
+          focused: Panel.useSelectIsTabVisible(PANEL, TAB),
+          background: Panel.useSelectIsTabVisible(PANEL, OTHER_TAB),
+        }),
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        selectTab(store, PANEL, OTHER_TAB);
+        selectTab(store, PANEL, TAB);
+        store.dispatch(Panel.startOverlaying({}));
+      });
+      expect(result.current.focused).toBe(true);
+      expect(result.current.background).toBe(false);
+    });
+
+    it("should be false when no tab resolves", async () => {
+      const { Wrapper } = await setup();
+      const { result } = renderHook(() => Panel.useSelectIsTabVisible(PANEL), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toBe(false);
     });
   });
 
