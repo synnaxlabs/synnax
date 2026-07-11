@@ -78,6 +78,7 @@ const LeafTabs = ({ leafKey, tabs }: LeafTabsProps): ReactElement => {
         {tabs.map((tab) => (
           <Tabs.Content key={tab} itemKey={tab}>
             <span>Content {tab}</span>
+            <Mosaic.Shield />
           </Tabs.Content>
         ))}
       </Tabs.Frame>

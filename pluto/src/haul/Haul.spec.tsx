@@ -159,6 +159,35 @@ const fireDragEnd = (element: HTMLElement, screenX: number, screenY: number): vo
 const passthroughDrop = () => vi.fn(({ items }: Haul.OnDropProps) => items);
 
 describe("Haul", () => {
+  describe("re-render isolation", () => {
+    it("should not re-render a useDrag consumer when the dragging state changes", () => {
+      let dragRenders = 0;
+      const DragConsumer = (): ReactElement => {
+        Haul.useDrag({ type: "counter-source", key: "counter" });
+        dragRenders++;
+        return <span />;
+      };
+      let stateRenders = 0;
+      const StateConsumer = (): ReactElement => {
+        Haul.useDraggingState();
+        stateRenders++;
+        return <span />;
+      };
+      render(
+        <Haul.Provider>
+          <Source />
+          <DragConsumer />
+          <StateConsumer />
+        </Haul.Provider>,
+      );
+      const dragBefore = dragRenders;
+      const stateBefore = stateRenders;
+      beginDrag();
+      expect(dragRenders).toBe(dragBefore);
+      expect(stateRenders).toBeGreaterThan(stateBefore);
+    });
+  });
+
   describe("useDrop", () => {
     it("should call onDrop with the dragged items on a valid drop", () => {
       const onDrop = passthroughDrop();

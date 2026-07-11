@@ -40,11 +40,11 @@
     transition: 0.1s ease-in-out;
 }
 
+/* The shield covers only the leaf's content region (its positioned container),
+   never the tab strip. Covering a dragged tab during dragstart cancels the native
+   drag it originates, so this must stay scoped to the content. */
 .pluto-mosaic__shield {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    inset: 0;
     z-index: 1000;
 }

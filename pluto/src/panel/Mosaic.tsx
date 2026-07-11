@@ -170,6 +170,7 @@ const Leaf = memo(({ path, tabs }: LeafProps): ReactElement => {
         </Tabs.Selector>
         <Tabs.Content grow>
           {contentNode != null && <Portal.Out node={contentNode} />}
+          <Base.Shield />
         </Tabs.Content>
       </Tabs.Frame>
     </Base.Leaf>
