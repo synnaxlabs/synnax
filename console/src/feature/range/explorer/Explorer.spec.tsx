@@ -44,7 +44,7 @@ const renderExplorer = async (): Promise<{ store: TestStore }> => {
   await selectTestProject(store, client);
   render(
     <>
-      <Range.Explorer.Explorer visible />
+      <Range.Explorer.Explorer />
       <Modals.Stack />
     </>,
     { wrapper },

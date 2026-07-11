@@ -18,10 +18,6 @@ import { Select } from "@/select/base";
 import { state } from "@/state";
 
 export interface ContextValue {
-  /** onClose is the Frame-level close handler invoked by {@link Close} parts. */
-  onClose?: (key: string) => void;
-  /** onRename is the Frame-level rename handler invoked by {@link Name} parts. */
-  onRename?: (key: string, name: string) => void;
   /** getTabID returns the DOM id of the tab element for the given key. */
   getTabID: (key: string) => string;
   /** getPanelID returns the DOM id of the content panel for the given key. */
@@ -35,18 +31,10 @@ const [Context, useContext] = context.create<ContextValue>({
 
 export { useContext };
 
-export interface FrameProps extends Omit<Flex.BoxProps, "onChange" | "onSelect"> {
-  /** The key of the selected tab. Pair with onChange for controlled selection. */
-  value?: string;
-  /** The key of the tab selected on first render when uncontrolled. */
-  initialValue?: string;
-  /** onChange is called with a tab's key when it is selected. */
-  onChange?: (key: string) => void;
-  /** onClose is called with a tab's key when its {@link Close} part is clicked. */
-  onClose?: (key: string) => void;
-  /** onRename is called when a tab's {@link Name} part commits a new name. */
-  onRename?: (key: string, name: string) => void;
-}
+export interface FrameProps
+  extends
+    Omit<Flex.BoxProps, "onChange" | "onSelect">,
+    Partial<state.UsePurePassthroughProps<string>> {}
 
 /**
  * Frame is the root of a composed tabbed interface. It owns the selected tab key
@@ -64,8 +52,6 @@ export const Frame = ({
   value,
   initialValue,
   onChange,
-  onClose,
-  onRename,
   className,
   children,
   empty = true,
@@ -75,18 +61,16 @@ export const Frame = ({
   const ownsSelection =
     value !== undefined || initialValue !== undefined || onChange !== undefined;
   const [selected, setSelected] = state.usePurePassthrough<string>({
-    initial: initialValue ?? "",
+    initialValue: initialValue ?? "",
     value,
     onChange,
   });
   const ctxValue = useMemo<ContextValue>(
     () => ({
-      onClose,
-      onRename,
       getTabID: (key: string) => `${id}-tab-${key}`,
       getPanelID: (key: string) => `${id}-panel-${key}`,
     }),
-    [id, onClose, onRename],
+    [id],
   );
   let content = (
     <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>

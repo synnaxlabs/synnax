@@ -29,12 +29,12 @@ import { CSS } from "@/platform/css";
 import { useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
 
-const TabName = (props: Panel.MosaicTabNameProps): ReactElement => {
+const TabName = (): ReactElement => {
   const { Name } = useTab();
-  return <Name {...props} />;
+  return <Name />;
 };
 
-const Content = ({ visible }: Panel.MosaicTabRenderProps): ReactElement => {
+const Content = (): ReactElement => {
   const { Content, Name } = useTab();
   const dispatch = useDispatch();
   const isOverlaid = Session.Panel.useSelectIsTabOverlaid();
@@ -67,7 +67,7 @@ const Content = ({ visible }: Panel.MosaicTabRenderProps): ReactElement => {
                 <Nav.Bar.Start>
                   <Breadcrumb.Breadcrumb>
                     <Breadcrumb.Segment>
-                      <Name level="h5" />
+                      <Name />
                     </Breadcrumb.Segment>
                   </Breadcrumb.Breadcrumb>
                 </Nav.Bar.Start>
@@ -79,7 +79,7 @@ const Content = ({ visible }: Panel.MosaicTabRenderProps): ReactElement => {
               </>
             )}
           </Nav.Bar>
-          <Content visible={visible} />
+          <Content />
         </Dialog.Dialog>
       </Dialog.Frame>
     </Errors.SuspenseBoundary>

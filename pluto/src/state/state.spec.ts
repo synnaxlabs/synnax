@@ -172,7 +172,7 @@ describe("state", () => {
     it("should return the controlled value and onChange when both are given", () => {
       const onChange = vi.fn();
       const { result } = renderHook(() =>
-        usePurePassthrough<string>({ initial: "", value: "a", onChange }),
+        usePurePassthrough<string>({ initialValue: "", value: "a", onChange }),
       );
       expect(result.current[0]).toBe("a");
       act(() => result.current[1]("b"));
@@ -183,7 +183,7 @@ describe("state", () => {
     it("should update internal state and notify onChange when uncontrolled", () => {
       const onChange = vi.fn();
       const { result } = renderHook(() =>
-        usePurePassthrough<string>({ initial: "", onChange }),
+        usePurePassthrough<string>({ initialValue: "", onChange }),
       );
       act(() => result.current[1]("b"));
       expect(result.current[0]).toBe("b");
@@ -194,7 +194,7 @@ describe("state", () => {
     it("should keep a stable setter identity across state updates", () => {
       const onChange = vi.fn();
       const { result } = renderHook(() =>
-        usePurePassthrough<string>({ initial: "", onChange }),
+        usePurePassthrough<string>({ initialValue: "", onChange }),
       );
       const first = result.current[1];
       act(() => result.current[1]("b"));

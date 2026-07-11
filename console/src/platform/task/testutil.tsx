@@ -289,7 +289,7 @@ export const renderTaskFormView = async (
   const seeded = await seedSelectedPanel(wrapper, store, client, [tab]);
   const result = render(
     <PanelScopes panelKey={seeded.panelKey} tabKey={tab.key}>
-      <Tab.Content visible />
+      <Tab.Content />
       {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
     </PanelScopes>,
     { wrapper },

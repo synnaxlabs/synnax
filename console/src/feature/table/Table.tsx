@@ -26,7 +26,7 @@ import { type Panel } from "@/platform/panel";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
-const Internal: Panel.Content = ({ visible }) => {
+const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
@@ -34,6 +34,7 @@ const Internal: Panel.Content = ({ visible }) => {
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = Session.useDispatch();
+  const visible = Session.Panel.useSelectIsTabVisible();
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>
@@ -127,11 +128,11 @@ const TableControls = (): ReactElement | null => {
   );
 };
 
-export const Table: Panel.Content = ({ visible }) => {
+export const Table: Panel.Content = () => {
   const { key } = PPanel.useSelectTabResource();
   return (
     <Base.Suspended tableKey={key}>
-      <Internal visible={visible} />
+      <Internal />
     </Base.Suspended>
   );
 };

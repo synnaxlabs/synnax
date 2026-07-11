@@ -84,7 +84,7 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
     <PlutoPanel.Scope.Provider value={doc.key}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <PlatformRange.SnapshotServicesProvider services={services}>
-          <Range.Overview.Overview visible />
+          <Range.Overview.Overview />
           <Modals.Stack />
         </PlatformRange.SnapshotServicesProvider>
       </PlutoPanel.TabScope.Provider>

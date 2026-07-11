@@ -168,13 +168,10 @@ const ContextMenuContent = ({
   );
 };
 
-interface InternalProps {
-  visible: boolean;
-  focused: boolean;
-}
-
-const Internal = ({ focused, visible }: InternalProps): ReactElement => {
+const Internal = (): ReactElement => {
   const key = Base.useKey();
+  const focused = Session.Panel.useSelectIsTabOverlaid();
+  const visible = Session.Panel.useSelectIsTabVisible();
   const vis = Session.LinePlot.useSelect();
   const dispatch = Session.useDispatch();
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(key));
@@ -323,12 +320,11 @@ const Internal = ({ focused, visible }: InternalProps): ReactElement => {
   );
 };
 
-export const LinePlot: Panel.Content = ({ visible }) => {
+export const LinePlot: Panel.Content = () => {
   const { key } = PlutoPanel.useSelectTabResource();
-  const focused = Session.Panel.useSelectIsTabOverlaid();
   return (
     <Base.Suspended linePlotKey={key}>
-      <Internal visible={visible} focused={focused} />
+      <Internal />
     </Base.Suspended>
   );
 };

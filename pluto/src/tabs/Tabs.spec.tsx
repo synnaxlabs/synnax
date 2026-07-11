@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import { type ReactElement, useEffect, useState } from "react";
+import {
+  type MouseEventHandler,
+  type ReactElement,
+  useEffect,
+  useState,
+} from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Select } from "@/select/base";
@@ -213,25 +218,20 @@ describe("Tabs", () => {
     });
 
     it("should not rove focus when arrow keys fire inside a tab's children", () => {
-      const onRename = vi.fn();
       render(
-        <Tabs.Frame initialValue="a" onRename={onRename}>
+        <Tabs.Frame initialValue="a">
           <Tabs.Selector>
             <Tabs.Tab itemKey="a">
-              <Tabs.Name value="Tab A" />
+              <input data-testid="child-input" />
             </Tabs.Tab>
-            <Tabs.Tab itemKey="b">
-              <Tabs.Name value="Tab B" />
-            </Tabs.Tab>
+            <Tabs.Tab itemKey="b">Tab B</Tabs.Tab>
           </Tabs.Selector>
         </Tabs.Frame>,
       );
-      const name = screen.getByText("Tab A");
-      fireEvent.dblClick(name);
-      fireEvent.keyDown(name, { key: "ArrowRight" });
-      expect(document.activeElement).not.toBe(
-        screen.getByRole("tab", { name: "Tab B" }),
-      );
+      const child = screen.getByTestId("child-input");
+      child.focus();
+      fireEvent.keyDown(child, { key: "ArrowRight" });
+      expect(document.activeElement).toBe(child);
     });
   });
 
@@ -310,16 +310,21 @@ describe("Tabs", () => {
   });
 
   describe("Close", () => {
-    const ClosableTabs = ({ onClose }: BasicTabsProps): ReactElement => (
-      <Tabs.Frame initialValue="a" onClose={onClose}>
+    const ClosableTabs = ({ onClose }: BasicTabsProps): ReactElement => {
+      const close = (key: string): MouseEventHandler => (e) => {
+        e.stopPropagation();
+        onClose?.(key);
+      };
+      return (
+      <Tabs.Frame initialValue="a">
         <Tabs.Selector>
           <Tabs.Tab itemKey="a">
             Tab A
-            <Tabs.Close />
+            <Tabs.Close onClick={close("a")} />
           </Tabs.Tab>
           <Tabs.Tab itemKey="b">
             Tab B
-            <Tabs.Close />
+            <Tabs.Close onClick={close("b")} />
           </Tabs.Tab>
         </Tabs.Selector>
         <Tabs.Content itemKey="a">
@@ -329,7 +334,8 @@ describe("Tabs", () => {
           <span>Content B</span>
         </Tabs.Content>
       </Tabs.Frame>
-    );
+      );
+    };
 
     it("should call the Frame's onClose with the tab's key", () => {
       const onClose = vi.fn();
@@ -347,44 +353,6 @@ describe("Tabs", () => {
       fireEvent.click(screen.getAllByLabelText("pluto-tabs__close")[1]);
       expect(screen.getByText("Content A")).toBeTruthy();
       expect(screen.queryByText("Content B")).toBeNull();
-    });
-  });
-
-  describe("Name", () => {
-    const NameTabs = ({
-      onRename,
-    }: {
-      onRename?: (key: string, name: string) => void;
-    }): ReactElement => (
-      <Tabs.Frame initialValue="a" onRename={onRename}>
-        <Tabs.Selector>
-          <Tabs.Tab itemKey="a">
-            <Tabs.Name value="Tab A" />
-          </Tabs.Tab>
-        </Tabs.Selector>
-      </Tabs.Frame>
-    );
-
-    it("should commit a rename to the Frame's onRename when Enter is pressed", () => {
-      const onRename = vi.fn();
-      render(<NameTabs onRename={onRename} />);
-      const name = screen.getByText("Tab A");
-      fireEvent.dblClick(name);
-      name.innerText = "Renamed";
-      fireEvent.keyDown(name, { key: "Enter" });
-      expect(onRename).toHaveBeenCalledWith("a", "Renamed");
-    });
-
-    it("should keep the pluto-tab id used by programmatic rename triggers", () => {
-      render(<NameTabs onRename={vi.fn()} />);
-      expect(screen.getByText("Tab A").id).toEqual("pluto-tab-a");
-    });
-
-    it("should render static text when the Frame has no onRename", () => {
-      render(<NameTabs />);
-      const name = screen.getByText("Tab A");
-      fireEvent.dblClick(name);
-      expect(name.getAttribute("contenteditable")).not.toBe("true");
     });
   });
 

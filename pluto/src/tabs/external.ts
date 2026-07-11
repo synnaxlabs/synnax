@@ -10,7 +10,6 @@
 export { Close, type CloseProps } from "@/tabs/Close";
 export { Content, type ContentProps } from "@/tabs/Content";
 export { Frame, type FrameProps } from "@/tabs/Frame";
-export { Name, type NameProps } from "@/tabs/Name";
 export {
   getInsertionIndex,
   InsertionIndexProvider,

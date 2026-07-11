@@ -195,3 +195,21 @@ export const useGetTabIsFocused = (): ((
     [getFocusedTab, resolvedPanel, resolvedTab],
   );
 };
+
+export const useSelectIsTabVisible = (
+  key?: panel.Key,
+  tabKey?: panel.TabKey,
+): boolean => {
+  const resolvedPanel = Panel.useOptionalKey(key);
+  const resolvedTab = Panel.useOptionalTabKey(tabKey);
+  return Select.useMemo(
+    (state: RequiredStoreState) => {
+      if (resolvedPanel == null || resolvedTab == null) return false;
+      const selected = selectSelectedTabs(state, key);
+      const isOverlaid = selectOverlaid(state);
+      if (isOverlaid) return selected.length > 0 && resolvedTab == selected[0];
+      return selected.includes(resolvedTab);
+    },
+    [resolvedPanel, resolvedTab],
+  );
+};

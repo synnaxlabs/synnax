@@ -27,7 +27,7 @@ describe("status explorer", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     render(
       <>
-        <Status.Explorer.Explorer visible />
+        <Status.Explorer.Explorer />
         <Modals.Stack />
       </>,
       { wrapper },

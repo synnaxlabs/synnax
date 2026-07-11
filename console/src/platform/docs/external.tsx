@@ -9,9 +9,21 @@
 
 import { Icon } from "@synnaxlabs/pluto";
 
+import { Docs, TAB_TYPE } from "@/platform/docs/Docs";
 import { Panel } from "@/platform/panel";
 
-export const TabName = Panel.createStaticTabName({
-  name: "Range Explorer",
-  icon: <Icon.Explore />,
-});
+export * from "@/platform/docs/Docs";
+export * from "@/platform/docs/OpenButton";
+export * from "@/platform/docs/useOpenTab";
+
+const TAB: Panel.Tab = {
+  Content: Docs,
+  Name: Panel.createStaticTabName({
+    name: "Documentation",
+    icon: <Icon.QuestionMark />,
+  }),
+};
+
+export const TABS: Panel.Tabs = {
+  [TAB_TYPE]: TAB,
+};

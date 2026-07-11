@@ -18,9 +18,10 @@ import { Session } from "@/session";
 
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
-const Internal: Panel.Content = ({ visible }) => {
+const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
+  const visible = Session.Panel.useSelectIsTabVisible();
   const channelKeys = Base.useSelectChannelKeys();
   const hasChannels = channelKeys.some((k) => !primitive.isZero(k));
   const modals = Session.Modals.useStore("Log");
@@ -60,11 +61,11 @@ const Internal: Panel.Content = ({ visible }) => {
   );
 };
 
-export const Log: Panel.Content = ({ visible }) => {
+export const Log: Panel.Content = () => {
   const { key } = PPanel.useSelectTabResource();
   return (
     <Base.Suspended logKey={key}>
-      <Internal visible={visible} />
+      <Internal />
     </Base.Suspended>
   );
 };

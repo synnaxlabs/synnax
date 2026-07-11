@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
+import { Icon, Log as Base } from "@synnaxlabs/pluto";
 
 import { extract } from "@/feature/log/export";
 import { ingest } from "@/feature/log/import";
 import { Log } from "@/feature/log/Log";
 import { Selectable } from "@/feature/log/Selectable";
-import { TabName } from "@/feature/log/TabName";
 import { Toolbar } from "@/feature/log/toolbar";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Panel } from "@/platform/panel";
+import { Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/log/commands";
@@ -40,7 +40,7 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: Log,
   Toolbar,
-  Name: TabName,
+  Name: Panel.createEditableTabName(Base, <Icon.Log />),
 };
 
 export const TABS: Panel.Tabs = {

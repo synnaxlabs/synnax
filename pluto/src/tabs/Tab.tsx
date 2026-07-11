@@ -56,8 +56,8 @@ export interface TabProps extends Omit<Button.ButtonProps<"div">, "el" | "id"> {
 /**
  * Tab is a single selectable handle within a Selector. Clicking it (or pressing
  * Enter or Space while it is focused) selects it in the enclosing Frame. Children
- * define its contents: text, an icon, a {@link Name}, a {@link Close}
- * button, or any combination. When the tab heads an ordered multi-selection (its
+ * define its contents: text, an icon, a {@link Close} button, or any
+ * combination. When the tab heads an ordered multi-selection (its
  * key is first in the enclosing selection's array value), it is the focused tab
  * and colors itself with the primary theme color.
  */

@@ -93,19 +93,19 @@ export const usePassthrough = <NextState extends State>({
 };
 
 export interface UsePurePassthroughProps<NextState extends State> {
-  initial: Initial<NextState>;
+  initialValue: Initial<NextState>;
   value?: NextState;
   onChange?: PureSetter<NextState>;
 }
 
 // usePurePassthrough has the same notification contract as usePassthrough.
 export const usePurePassthrough = <NextState extends State>({
-  initial,
+  initialValue,
   value,
   onChange,
 }: UsePurePassthroughProps<NextState>): PureUseReturn<NextState> => {
   const [internal, setInternal] = useState<NextState>(
-    executeInitialSetter(value ?? initial),
+    executeInitialSetter(value ?? initialValue),
   );
   const setAndNotify = useCallback(
     (next: NextState) => {

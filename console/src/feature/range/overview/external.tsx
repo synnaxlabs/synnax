@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/pluto";
+import { ranger } from "@synnaxlabs/client";
+import { Icon, Ranger } from "@synnaxlabs/pluto";
 
+import { Overview } from "@/feature/range/overview/Overview";
 import { Panel } from "@/platform/panel";
 
-export const TabName: Panel.TabName = Panel.createStaticTabName({
-  name: "Status Explorer",
-  icon: <Icon.Status />,
-});
+export { Overview };
+
+const TAB: Panel.Tab = {
+  Content: Overview,
+  Name: Panel.createEditableTabName(Ranger, <Icon.Range />),
+};
+
+export const TABS: Panel.Tabs = {
+  [ranger.TYPE_ONTOLOGY_ID.type]: TAB,
+};

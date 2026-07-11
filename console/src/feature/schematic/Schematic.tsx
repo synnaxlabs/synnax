@@ -25,17 +25,14 @@ import { ContextMenu } from "@/platform/context-menu";
 import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
-interface InternalProps {
-  visible: boolean;
-}
-
-const Internal = ({ visible }: InternalProps): ReactElement => {
+const Internal = (): ReactElement => {
   const key = Base.useKey();
   const isSnapshot = Base.useSelectSnapshot();
   const dispatch = Session.useDispatch();
   const viewport = Session.Schematic.useSelectViewport();
   const selected = Session.Schematic.useSelectSelected();
   const fitViewOnResize = Session.Schematic.useSelectFitViewOnResize();
+  const visible = Session.Panel.useSelectIsTabVisible();
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
 
   const handleSelectionChange = useCallback(
@@ -136,11 +133,11 @@ const Internal = ({ visible }: InternalProps): ReactElement => {
   );
 };
 
-export const Schematic: Panel.Content = ({ visible }) => {
+export const Schematic: Panel.Content = () => {
   const { key } = PlutoPanel.useSelectTabResource();
   return (
     <Base.Suspended schematicKey={key}>
-      <Internal visible={visible} />
+      <Internal />
     </Base.Suspended>
   );
 };

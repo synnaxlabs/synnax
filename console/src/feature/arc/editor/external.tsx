@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Docs, TAB_TYPE } from "@/platform/docs/Docs";
-import { TabName } from "@/platform/docs/TabName";
-import { type Panel } from "@/platform/panel";
+import { arc } from "@synnaxlabs/client";
+import { Arc, Icon } from "@synnaxlabs/pluto";
 
-export * from "@/platform/docs/Docs";
-export * from "@/platform/docs/OpenButton";
-export * from "@/platform/docs/useOpenTab";
+import { Editor } from "@/feature/arc/editor/Editor";
+import { Panel } from "@/platform/panel";
+
+export * from "@/feature/arc/editor/Editor";
+export * from "@/feature/arc/editor/toolbar/Toolbar";
 
 const TAB: Panel.Tab = {
-  Content: Docs,
-  Name: TabName,
+  Content: Editor,
+  Name: Panel.createEditableTabName(Arc, <Icon.Arc />),
 };
 
 export const TABS: Panel.Tabs = {
-  [TAB_TYPE]: TAB,
+  [arc.TYPE_ONTOLOGY_ID.type]: TAB,
 };

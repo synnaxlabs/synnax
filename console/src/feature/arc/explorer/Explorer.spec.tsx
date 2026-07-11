@@ -30,7 +30,7 @@ const createArc = async () =>
 
 const renderExplorer = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  render(<Arc.Explorer.Explorer visible />, { wrapper });
+  render(<Arc.Explorer.Explorer />, { wrapper });
   return { store };
 };
 

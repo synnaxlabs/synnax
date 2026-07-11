@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
+import { Icon, LinePlot as Base } from "@synnaxlabs/pluto";
 
 import { extract } from "@/feature/lineplot/export";
 import { ingest } from "@/feature/lineplot/import";
 import { LinePlot } from "@/feature/lineplot/LinePlot";
 import { Selectable } from "@/feature/lineplot/Selectable";
-import { TabName } from "@/feature/lineplot/TabName";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Panel } from "@/platform/panel";
+import { Panel } from "@/platform/panel";
 import { type Selector } from "@/platform/selector";
 
 export * from "@/feature/lineplot/commands";
@@ -41,7 +41,7 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: LinePlot,
   Toolbar,
-  Name: TabName,
+  Name: Panel.createEditableTabName(Base, <Icon.LinePlot />),
 };
 
 export const TABS: Panel.Tabs = {

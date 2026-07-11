@@ -10,9 +10,10 @@
 import { panel } from "@synnaxlabs/client";
 import {
   Access,
-  Component,
+  Button,
   CSS as PCSS,
   type Flux,
+  Icon,
   type List,
   Menu,
   Panel,
@@ -20,7 +21,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo } from "react";
+import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/platform/context-menu";
@@ -69,13 +70,28 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement | null =
   );
 };
 
-const TabName = ({ tabKey, name: _, ...rest }: Tabs.NameProps): ReactElement => {
+interface TabProps {
+  tabKey: panel.Key;
+}
+
+const Tab = ({ tabKey }: TabProps): ReactElement => {
   Panel.useEnsureRetrieved({ key: tabKey });
   const name = Panel.useSelectName({ key: tabKey });
-  return <Tabs.DefaultName tabKey={tabKey} name={name} {...rest} />;
+  const { update: rename } = Panel.useRename();
+  const handleChange = useCallback(
+    (name: string) => rename({ key: tabKey, name }),
+    [tabKey, rename],
+  );
+  return (
+    <Tabs.Tab itemKey={tabKey}>
+      <Text.Editable
+        id={PCSS.B(`tab-${tabKey}`)}
+        value={name}
+        onChange={handleChange}
+      />
+    </Tabs.Tab>
+  );
 };
-
-const tabName: Tabs.NameRenderProp = Component.renderProp(TabName);
 
 export const Selector = (): ReactElement | null => {
   const dispatch = useDispatch();
@@ -83,60 +99,38 @@ export const Selector = (): ReactElement | null => {
   const { data, retrieve, getItem } = Panel.useList();
   useEffect(() => retrieve({}), [retrieve]);
 
-  const tabs = useMemo<Tabs.Tab[]>(() => {
-    const out: Tabs.Tab[] = [];
-    for (const key of data) {
-      const p = getItem(key);
-      if (p == null || Array.isArray(p)) continue;
-      out.push({ tabKey: p.key, name: p.name, closable: true, editable: true });
-    }
-    return out;
-  }, [data, getItem]);
-
   const handleSelect = useCallback(
-    (key: string) => {
-      dispatch(Session.Panel.select({ key }));
-    },
+    (key: string) => dispatch(Session.Panel.select({ key })),
     [dispatch],
   );
 
   const { update: create } = Panel.useCreate();
-  const handleCreate = useCallback(() => {
-    create({ name: "New Panel" });
-  }, []);
-
-  const { update: rename } = Panel.useRename();
-  const handleRename = useCallback(
-    (key: string, name: string) => rename({ key, name }),
-    [rename],
-  );
+  const handleCreate = useCallback(() => create({ name: "New Panel" }), []);
 
   useEffect(() => {
-    if (tabs.length === 0) return;
-    if (selected != null && tabs.some((t) => t.tabKey === selected)) return;
-    dispatch(Session.Panel.select({ key: tabs[0].tabKey }));
-  }, [selected, tabs, dispatch]);
+    if (data.length === 0) return;
+    if (selected != null && data.includes(selected)) return;
+    dispatch(Session.Panel.select({ key: data[0] }));
+  }, [selected, data, dispatch]);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     (props) => <ContextMenu {...props} getItem={getItem} />,
     [getItem],
   );
+  const menuProps = Menu.useContextMenu();
 
-  const providerValue = useMemo<Tabs.ContextValue>(
-    () => ({
-      tabs,
-      selected,
-      closable: true,
-      onSelect: handleSelect,
-      onCreate: handleCreate,
-      onRename: handleRename,
-      tabName,
-    }),
-    [tabs, selected, handleSelect, handleCreate, handleRename],
-  );
   return (
-    <Tabs.Provider value={providerValue}>
-      <Tabs.Selector size="medium" variant="pill" contextMenu={contextMenu} />
-    </Tabs.Provider>
+    <Menu.ContextMenu menu={contextMenu} {...menuProps}>
+      <Tabs.Frame value={selected ?? ""} onChange={handleSelect}>
+        <Tabs.Selector size="medium" variant="pill" onContextMenu={menuProps.open}>
+          {data.map((key) => (
+            <Tab key={key} tabKey={key} />
+          ))}
+          <Button.Button variant="text" sharp onClick={handleCreate}>
+            <Icon.Add />
+          </Button.Button>
+        </Tabs.Selector>
+      </Tabs.Frame>
+    </Menu.ContextMenu>
   );
 };

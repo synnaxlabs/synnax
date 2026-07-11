@@ -8,18 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import { memo, type ReactElement, useCallback, useMemo } from "react";
+import { type DragEventHandler, memo, type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
-import { context } from "@/context";
 import { Errors } from "@/errors";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Mosaic as Base } from "@/mosaic";
 import {
-  useSelectNode,
+  useSelectLeafNode,
+  useSelectNodeVariant,
   useSelectSelection,
+  useSelectSplitNode,
   useSelectTabKeys,
   useSingleDispatch,
 } from "@/panel/queries";
@@ -44,57 +45,50 @@ export interface MosaicProps extends Omit<
   resolveDroppedTab?: (key: string) => panel.NewTab | undefined;
 }
 
-interface ContextValue {
-  onClose: (tabKey: string) => void;
-  onAdd: (path: number) => void;
-  tabName?: Component.RenderProp<{}>;
-}
-
-const [Context, useContext] = context.create<ContextValue>({
-  displayName: "LeafContext",
-  providerName: "LeafProvider",
-});
-
-interface ContentProps extends Pick<MosaicProps, "children"> {
+interface TabProps extends Pick<MosaicProps, "tabName"> {
   tabKey: string;
+  onClose: (tabKey: string) => void;
 }
 
-const Content = ({ tabKey, children }: ContentProps): ReactElement => (
-  <TabScope.Provider value={tabKey}>{children({})}</TabScope.Provider>
-);
-
-interface LeafProps extends Pick<Base.LeafProps, "nodeKey"> {
-  tabs: string[];
-}
-
-// Leaf renders one mosaic leaf: its tab strip and the portal host for its selected tab.
-// It is memoized on path and tab keys; a content change never reaches it, and a resize of
-// another split never reaches it. Selection reaches its tabs through the mosaic-level
-// selection context, so a selection change re-renders only the affected tabs.
-const Leaf = memo(({ nodeKey, tabs }: LeafProps): ReactElement => {
-  const { onClose, onAdd, tabName } = useContext("Panel.Leaf");
+const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
+  const handleDragStart = useCallback<DragEventHandler<HTMLDivElement>>(
+    (e) => startDrag(e, tabKey),
+    [tabKey, startDrag],
+  );
+  const handleClose = useCallback(() => onClose(tabKey), [tabKey, onClose]);
+  return (
+    <Tabs.Tab
+      key={tabKey}
+      itemKey={tabKey}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <TabScope.Provider value={tabKey}>{tabName?.({})}</TabScope.Provider>
+      <Tabs.Close onClick={handleClose} />
+    </Tabs.Tab>
+  );
+};
+
+interface NodeProps
+  extends Pick<Base.LeafProps, "nodeKey">, Pick<TabProps, "tabName" | "onClose"> {
+  onAdd: (nodeKey: number) => void;
+}
+
+const Leaf = memo(({ nodeKey, onAdd, ...rest }: NodeProps): ReactElement => {
+  const { tabs } = useSelectLeafNode({ nodeKey });
   const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
+  const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
   return (
     <Base.Leaf nodeKey={nodeKey} grow>
-      <Tabs.Frame onClose={onClose} grow>
+      <Tabs.Frame grow>
         <Tabs.Selector>
           {tabs.map((tabKey) => (
-            <Tabs.Tab
-              key={tabKey}
-              itemKey={tabKey}
-              draggable
-              onDragStart={(e) => startDrag(e, tabKey)}
-              onDragEnd={onDragEnd}
-            >
-              {tabName != null && (
-                <TabScope.Provider value={tabKey}>{tabName({})}</TabScope.Provider>
-              )}
-              <Tabs.Close />
-            </Tabs.Tab>
+            <Tab key={tabKey} tabKey={tabKey} {...rest} />
           ))}
           <Flex.Box grow />
-          <Button.Button variant="text" sharp onClick={() => onAdd(nodeKey)}>
+          <Button.Button variant="text" sharp onClick={handleAdd}>
             <Icon.Add />
           </Button.Button>
         </Tabs.Selector>
@@ -108,21 +102,20 @@ const Leaf = memo(({ nodeKey, tabs }: LeafProps): ReactElement => {
 });
 Leaf.displayName = "Panel.Mosaic.Leaf";
 
-interface NodeProps extends Pick<Base.SplitProps, "nodeKey" | "direction" | "size"> {}
-
-const Split = memo(({ nodeKey, direction, size }: NodeProps): ReactElement => (
-  <Base.Split nodeKey={nodeKey} direction={direction} size={size}>
-    <Node nodeKey={panel.childNodeKey(nodeKey, "first")} />
-    <Node nodeKey={panel.childNodeKey(nodeKey, "last")} />
-  </Base.Split>
-));
+const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
+  const { direction, size } = useSelectSplitNode({ nodeKey });
+  return (
+    <Base.Split nodeKey={nodeKey} direction={direction} size={size}>
+      <Node nodeKey={panel.childNodeKey(nodeKey, "first")} {...rest} />
+      <Node nodeKey={panel.childNodeKey(nodeKey, "last")} {...rest} />
+    </Base.Split>
+  );
+});
 Split.displayName = "Panel.Mosaic.Split";
 
-const Node = memo(({ nodeKey }: NodeProps): ReactElement => {
-  const node = useSelectNode({ nodeKey });
-  if (node.variant === "split")
-    return <Split nodeKey={nodeKey} direction={node.direction} size={node.size} />;
-  return <Leaf nodeKey={nodeKey} tabs={node.tabs} />;
+const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
+  const C = useSelectNodeVariant({ nodeKey }) == "split" ? Split : Leaf;
+  return <C nodeKey={nodeKey} {...rest} />;
 });
 Node.displayName = "Panel.Mosaic.Node";
 
@@ -137,7 +130,7 @@ const PortalIn = memo(
     Pick<MosaicProps, "children" | "onSelect">): ReactElement => (
     <Portal.In itemKey={itemKey} attrs={PORTAL_NODE_ATTRS} onClick={onSelect}>
       <Errors.Boundary>
-        <Content tabKey={itemKey}>{children}</Content>
+        <TabScope.Provider value={itemKey}>{children({})}</TabScope.Provider>
       </Errors.Boundary>
     </Portal.In>
   ),
@@ -225,28 +218,26 @@ export const Mosaic = ({
     [dispatch, onSelect, resolveDroppedTab],
   );
 
-  const ctx = useMemo<ContextValue>(
-    () => ({ onClose: handleClose, onAdd: handleAdd, tabName }),
-    [handleClose, handleAdd, tabName],
-  );
-
   const selection = useSelectSelection({ selected });
 
   return (
     <Portal.Provider>
       <PortaledContents onSelect={onSelect}>{children}</PortaledContents>
-      <Context value={ctx}>
-        <Select.Context value={selection} onSelect={onSelect}>
-          <Base.Frame
-            onDrop={handleDrop}
-            onCreate={handleCreate}
-            onResize={handleResize}
-            {...rest}
-          >
-            <Node nodeKey={panel.ROOT_NODE_KEY} />
-          </Base.Frame>
-        </Select.Context>
-      </Context>
+      <Select.Context value={selection} onSelect={onSelect}>
+        <Base.Frame
+          onDrop={handleDrop}
+          onCreate={handleCreate}
+          onResize={handleResize}
+          {...rest}
+        >
+          <Node
+            nodeKey={panel.ROOT_NODE_KEY}
+            onClose={handleClose}
+            onAdd={handleAdd}
+            tabName={tabName}
+          />
+        </Base.Frame>
+      </Select.Context>
     </Portal.Provider>
   );
 };

@@ -7,20 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Explorer } from "@/feature/range/explorer/Explorer";
-import { TabName } from "@/feature/range/explorer/TabName";
+import { Icon } from "@synnaxlabs/pluto";
+
+import { Explorer } from "@/feature/status/explorer/Explorer";
 import { Panel } from "@/platform/panel";
 
 export { Explorer };
 
-export const TAB: Panel.Tab = {
-  Name: TabName,
+export const TAB_TYPE = "status_explorer";
+
+const TAB: Panel.Tab = {
   Content: Explorer,
+  Name: Panel.createStaticTabName({ name: "Status Explorer", icon: <Icon.Status /> }),
 };
 
-export const TAB_TYPE = "range_explorer";
-
-export const TABS: Panel.Tabs = { [TAB_TYPE]: TAB };
+export const TABS: Panel.Tabs = {
+  [TAB_TYPE]: TAB,
+};
 
 export const useOpenTab = (): (() => void) => {
   const openTab = Panel.useOpenTab();

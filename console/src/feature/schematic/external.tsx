@@ -8,17 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon, Schematic as Base } from "@synnaxlabs/pluto";
 
 import { extract } from "@/feature/schematic/export";
 import { ingest } from "@/feature/schematic/import";
 import { Schematic } from "@/feature/schematic/Schematic";
 import { Selectable } from "@/feature/schematic/Selectable";
-import { TabName } from "@/feature/schematic/TabName";
 import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Panel } from "@/platform/panel";
+import { Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
 import { type Selector } from "@/platform/selector";
 
@@ -42,7 +41,7 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 const TAB: Panel.Tab = {
   Content: Schematic,
   Toolbar,
-  Name: TabName,
+  Name: Panel.createEditableTabName(Base, <Icon.Schematic />),
 };
 
 export const TABS: Panel.Tabs = {

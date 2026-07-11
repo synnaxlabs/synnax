@@ -27,7 +27,7 @@ const { Content } = Selector.create({
 
 const renderSelector = async (renderClient: typeof client | null) => {
   const { wrapper } = await createConsoleWrapper({ client: renderClient });
-  render(<Content visible />, { wrapper });
+  render(<Content />, { wrapper });
 };
 
 describe("task/Selector", () => {

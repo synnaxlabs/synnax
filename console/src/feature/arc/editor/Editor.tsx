@@ -13,12 +13,12 @@ import { Graph } from "@/feature/arc/editor/Graph";
 import { Text } from "@/feature/arc/editor/Text";
 import { type Panel } from "@/platform/panel";
 
-export const Editor: Panel.Content = ({ visible }) => {
+export const Editor: Panel.Content = () => {
   const { key } = PPanel.useSelectTabResource();
   const mode = Arc.useSelectMode({ key });
   return (
     <Arc.Suspended arcKey={key}>
-      {mode === "graph" ? <Graph visible={visible} /> : <Text />}
+      {mode === "graph" ? <Graph /> : <Text />}
     </Arc.Suspended>
   );
 };

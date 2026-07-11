@@ -39,6 +39,11 @@
     }
 }
 
+.pluto-tabs__tab .pluto-text {
+    overflow-x: hidden;
+    text-overflow: ellipsis;
+}
+
 .pluto-tabs__insertion {
     position: absolute;
     background: var(--pluto-primary-z);

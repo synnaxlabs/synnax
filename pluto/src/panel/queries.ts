@@ -159,6 +159,7 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
     const get = useGet();
     return useCallback(
       (args?: optional.Optional<Args, "key" | "tabKey">) =>
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
         get({ key, tabKey, ...args } as Args),
       [get, key, tabKey],
     );
@@ -166,31 +167,60 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
   return [boundUseSelect, boundUseGet];
 };
 
-export type NodeStructure =
-  panel.NodeSplit | (Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] });
-
-const nodeStructure = (node: panel.Node): NodeStructure => {
-  if (node.variant === "split") return node;
-  return { ...node, tabs: node.tabs.map((t) => t.key) };
-};
-
 export interface SelectNodeArgs extends SelectKeyArgs {
   nodeKey: number;
 }
 
-// useSelectNode selects the structural descriptor of the single node at the given path: a
-// split's direction and size, or a leaf's ordered tab keys. It carries no tab content and
-// is deep-equal compared, so a node re-renders only when its own structure changes — a
-// resize touches one split, a tab insert one leaf, and a tab's content change nothing.
-export const [useSelectNode, useGetNode] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodeArgs, NodeStructure, panel.Node>({
+// useSelectNodeVariant selects only the variant of the node at the given path, so a
+// component that branches on split-vs-leaf does not re-render on structure changes
+// within the same variant.
+export const [useSelectNodeVariant, useGetNodeVariant] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectNodeArgs, panel.Node["variant"]>({
+    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+    select: (store, { key, nodeKey }) => {
+      const node = panel.findNode(requirePanel(store, key).root, nodeKey);
+      if (node == null) throw new NotFoundError(`Node at path ${nodeKey} not found`);
+      return node.variant;
+    },
+  }),
+);
+
+// useSelectLeafNode selects the leaf node at the given path, including its tab keys.
+export const [useSelectLeafNode, useGetLeafNode] = Scope.bindSelector(
+  Flux.createSelector<
+    FluxSubStore,
+    SelectNodeArgs,
+    Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] },
+    panel.Node
+  >({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, { key, nodeKey }) => {
       const node = panel.findNode(requirePanel(store, key).root, nodeKey);
       if (node == null) throw new NotFoundError(`Node at path ${nodeKey} not found`);
       return node;
     },
-    transform: nodeStructure,
+    transform: (node) => {
+      if (node.variant !== "leaf") throw new UnexpectedError("node is not a leaf");
+      return { ...node, tabs: node.tabs.map((t) => t.key) };
+    },
+    equal: deep.equal,
+  }),
+);
+
+// useSelectSplitNode selects the split node at the given path, including its direction
+// and size.
+export const [useSelectSplitNode, useGetSplitNode] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectNodeArgs, panel.NodeSplit, panel.Node>({
+    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
+    select: (store, { key, nodeKey }) => {
+      const node = panel.findNode(requirePanel(store, key).root, nodeKey);
+      if (node == null) throw new NotFoundError(`Node at path ${nodeKey} not found`);
+      return node;
+    },
+    transform: (node) => {
+      if (node.variant !== "split") throw new UnexpectedError("node is not a split");
+      return node;
+    },
     equal: deep.equal,
   }),
 );

@@ -36,7 +36,7 @@ describe("Selector.create", () => {
       text: "Choose one",
       icon: <Icon.Add />,
     });
-    await renderWithConsole(<Content visible />);
+    await renderWithConsole(<Content />);
     expect(screen.getByText("Choose one")).toBeTruthy();
     expect(screen.getByText("Cat")).toBeTruthy();
     fireEvent.click(screen.getByText("Dog"));
@@ -64,7 +64,7 @@ describe("Selector.create", () => {
       text: "Choose one",
       icon: <Icon.Add />,
     });
-    await renderWithConsole(<Content visible />);
+    await renderWithConsole(<Content />);
     expect(screen.getByText("Cat")).toBeTruthy();
     expect(screen.queryByText("Dog")).toBeNull();
   });

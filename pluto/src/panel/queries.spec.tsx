@@ -892,40 +892,6 @@ describe("Panel queries", () => {
       return { created, ops };
     };
 
-    it("useSelectNode stays referentially stable across a content-only change", async () => {
-      const tab = newTab();
-      const { created, ops } = await seedTab(tab);
-
-      const structure = await loadAndCount(created.key, () =>
-        Panel.useSelectNode({ key: created.key, nodeKey: panel.ROOT_NODE_KEY }),
-      );
-      const args = await loadAndCount(created.key, () =>
-        Panel.useSelectTabArgs({ key: created.key, tabKey: tab.key }),
-      );
-      const firstStructure = structure.result.current;
-      const structureCountBefore = structure.renderCount();
-      const argsCountBefore = args.renderCount();
-
-      await act(async () => {
-        await ops.result.current.dispatchAsync({
-          key: created.key,
-          actions: [
-            panel.setTabView({
-              key: tab.key,
-              view: { type: "selector", args: { path: "/x" } },
-            }),
-          ],
-        });
-      });
-      await waitFor(() => expect(args.result.current).toEqual({ path: "/x" }));
-
-      // The mosaic's structural projection is untouched by a content-only change: same
-      // reference, no re-render. The args subscriber did re-render.
-      expect(structure.result.current).toBe(firstStructure);
-      expect(structure.renderCount()).toEqual(structureCountBefore);
-      expect(args.renderCount()).toBeGreaterThan(argsCountBefore);
-    });
-
     it("useSelectTabType does not re-render when only the args change", async () => {
       const tab = newTab();
       const { created, ops } = await seedTab(tab);

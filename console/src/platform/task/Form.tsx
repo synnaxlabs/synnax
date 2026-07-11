@@ -19,6 +19,7 @@ import {
   Input,
   Panel as PlutoPanel,
   Task as PTask,
+  Text,
 } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
 import { type FC, useCallback, useEffect, useState } from "react";
@@ -209,9 +210,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     );
   };
   Content.displayName = `Form(${Form.displayName ?? Form.name})`;
-  const Name: Panel.TabName = ({ onRename: _drop, ...props }) => {
-    const taskKey = useFormArgs()?.taskKey;
-    const isPersisted = taskKey != null;
+  const Name: Panel.TabName = () => {
+    const key = useFormArgs()?.taskKey;
+    const isPersisted = key != null;
     const [name, setName] = useState("Task");
     const { retrieve } = PTask.useRetrieveObservableName({
       onChange: setName,
@@ -221,21 +222,19 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       beforeUpdate: useCallback(() => isPersisted, [isPersisted]),
     });
     useEffect(() => {
-      if (taskKey != null) retrieve({ key: taskKey });
-    }, [taskKey, retrieve]);
+      if (key != null) retrieve({ key });
+    }, [key, retrieve]);
     const handleRename = useCallback(
-      (_: string, next: string) => {
-        if (taskKey != null) update({ key: taskKey, name: next });
+      (name: string) => {
+        if (key != null) update({ key, name });
       },
-      [taskKey, update],
+      [key, update],
     );
     return (
-      <PlutoPanel.DefaultTabName
-        {...props}
-        icon={<Icon.Task />}
-        name={name}
-        onRename={handleRename}
-      />
+      <>
+        <Icon.Task />
+        <Text.Editable value={name} onChange={handleRename} />
+      </>
     );
   };
   return { Content, Name };
