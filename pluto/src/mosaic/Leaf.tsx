@@ -79,7 +79,7 @@ const resolveRegion = (el: HTMLElement, event: React.DragEvent): Region => {
 
 export interface LeafProps extends Omit<Flex.BoxProps, "onDrop" | "onDragOver"> {
   /** The key identifying this leaf, passed to the Frame's drop handlers. */
-  leafKey: string;
+  leafKey: number;
 }
 
 /**

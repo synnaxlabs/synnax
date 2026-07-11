@@ -13,7 +13,14 @@ import {
   panel,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { array, deep, type optional, type record } from "@synnaxlabs/x";
+import {
+  array,
+  compare,
+  deep,
+  type optional,
+  primitive,
+  type record,
+} from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
@@ -159,7 +166,6 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
     const get = useGet();
     return useCallback(
       (args?: optional.Optional<Args, "key" | "tabKey">) =>
-        // eslint-disable-next-line
         get({ key, tabKey, ...args } as Args),
       [get, key, tabKey],
     );
@@ -196,31 +202,28 @@ export const [useSelectNode, useGetNode] = Scope.bindSelector(
   }),
 );
 
-// leafTabGroups returns each leaf's ordered tab keys, in traversal order. It is the
-// whole-tree input the mosaic root needs to enumerate stable portal nodes and resolve the
-// visible tab per leaf, without re-deriving structure inside the render path.
-export const leafTabGroups = (store: FluxSubStore, key: panel.Key): string[][] => {
+const tabKeys = (store: FluxSubStore, key: panel.Key): string[] => {
   const p = store.panels.get(key);
   if (p == null) return [];
-  const groups: string[][] = [];
+  const tabKeys: string[] = [];
   const visit = (node: panel.Node | undefined) => {
     if (node == null) return;
     if (node.variant === "split") {
       visit(node.first);
       visit(node.last);
-    } else groups.push(node.tabs.map((t) => t.key));
+    } else tabKeys.push(...node.tabs.flatMap((t) => t.key));
   };
   visit(p.root);
-  return groups;
+  return tabKeys.sort();
 };
 
 // useSelectLeafTabGroups selects each leaf's tab keys, deep-equal compared so the mosaic
 // root re-renders only when tab membership changes — not on a resize or a content change.
-export const [useSelectLeafTabGroups, useGetLeafTabGroups] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, string[][]>({
+export const [useSelectTabKeys, useGetTabKeys] = Scope.bindSelector(
+  Flux.createSelector<FluxSubStore, SelectKeyArgs, string[]>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key }) => leafTabGroups(store, key),
-    equal: deep.equal,
+    select: (store, { key }) => tabKeys(store, key),
+    equal: compare.arraysEqual,
   }),
 );
 

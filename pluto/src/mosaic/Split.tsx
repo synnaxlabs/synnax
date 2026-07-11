@@ -14,7 +14,7 @@ import { Resize } from "@/resize";
 
 export interface SplitProps extends Omit<Resize.SplitProps, "onResizeEnd"> {
   /** The key identifying this split, passed to the Frame's onResize handler. */
-  splitKey: string;
+  splitKey: number;
 }
 
 /**

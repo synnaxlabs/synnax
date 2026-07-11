@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel } from "@synnaxlabs/client";
-import { memo, type ReactElement, type RefObject, useCallback, useMemo } from "react";
+import { memo, type ReactElement, useCallback, useMemo } from "react";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
@@ -17,14 +17,14 @@ import { Errors } from "@/errors";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Mosaic as Base } from "@/mosaic";
-import {
-  useSelectLeafTabGroups,
-  useSelectNode,
-  useSingleDispatch,
-} from "@/panel/queries";
+import { useSelectNode, useSelectTabKeys, useSingleDispatch } from "@/panel/queries";
 import { TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Tabs } from "@/tabs";
+
+const PORTAL_NODE_ATTRS = {
+  style: "width: 100%; height: 100%; position: relative;",
+};
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
@@ -40,13 +40,12 @@ export interface MosaicProps extends Omit<
 }
 
 interface ContextValue {
-  portalRef: RefObject<Map<string, Portal.Node>>;
   preference: string[];
   focused?: string;
   onSelect?: (tabKey: string) => void;
   onClose: (tabKey: string) => void;
   onAdd: (path: number) => void;
-  tabName?: Component.RenderProp<MosaicTabNameProps>;
+  tabName?: Component.RenderProp<{}>;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -76,12 +75,12 @@ interface LeafProps {
 // It is memoized on path and tab keys; a content change never reaches it, and a resize of
 // another split never reaches it.
 const Leaf = memo(({ path, tabs }: LeafProps): ReactElement => {
-  const { portalRef, onClose, onAdd, tabName } = useContext("Panel.Leaf");
+  const { preference, focused, onSelect, onClose, onAdd, tabName } =
+    useContext("Panel.Leaf");
   const { startDrag, onDragEnd } = Base.useDragTab();
   const selected = resolveSelected(tabs, preference);
-  const contentNode = selected != null ? portalRef.current.get(selected) : undefined;
   return (
-    <Base.Leaf leafKey={path.toString()} grow>
+    <Base.Leaf leafKey={path} grow>
       <Tabs.Frame value={selected} onChange={onSelect} onClose={onClose} grow>
         <Tabs.Selector altColor={focused != null && focused === selected}>
           {tabs.map((tabKey) => (
@@ -104,7 +103,7 @@ const Leaf = memo(({ path, tabs }: LeafProps): ReactElement => {
           </Button.Button>
         </Tabs.Selector>
         <Tabs.Content grow>
-          {contentNode != null && <Portal.Out node={contentNode} />}
+          {selected != null && <Portal.Out itemKey={selected} />}
           <Base.Shield />
         </Tabs.Content>
       </Tabs.Frame>
@@ -121,11 +120,7 @@ const Node = memo(({ path }: NodeProps): ReactElement => {
   const node = useSelectNode({ path });
   if (node.variant === "split")
     return (
-      <Base.Split
-        splitKey={path.toString()}
-        direction={node.direction}
-        size={node.size}
-      >
+      <Base.Split splitKey={path} direction={node.direction} size={node.size}>
         <Node path={panel.childPath(path, "first")} />
         <Node path={panel.childPath(path, "last")} />
       </Base.Split>
@@ -135,6 +130,29 @@ const Node = memo(({ path }: NodeProps): ReactElement => {
 Node.displayName = "Panel.Mosaic.Node";
 
 const EMPTY_SELECTED: string[] = [];
+
+const PortaledContents = ({
+  onSelect,
+  children,
+}: Pick<MosaicProps, "onSelect" | "children">): ReactElement => {
+  const tabKeys = useSelectTabKeys();
+  return (
+    <>
+      {tabKeys.map((tabKey) => (
+        <Portal.In
+          key={tabKey}
+          itemKey={tabKey}
+          attrs={PORTAL_NODE_ATTRS}
+          onClick={onSelect}
+        >
+          <Errors.Boundary>
+            <Content tabKey={tabKey}>{children}</Content>
+          </Errors.Boundary>
+        </Portal.In>
+      ))}
+    </>
+  );
+};
 
 export const Mosaic = ({
   focused,
@@ -147,19 +165,15 @@ export const Mosaic = ({
   ...rest
 }: MosaicProps): ReactElement | null => {
   const dispatch = useSingleDispatch();
-  const groups = useSelectLeafTabGroups();
 
   const handleDrop = useCallback(
     ({ leafKey, tabKey, location, index }: Base.OnDropProps) =>
-      dispatch(
-        panel.moveTab({ key: tabKey, targetLeaf: Number(leafKey), index, location }),
-      ),
+      dispatch(panel.moveTab({ key: tabKey, targetLeaf: leafKey, index, location })),
     [dispatch],
   );
 
   const handleResize = useCallback(
-    (splitKey: string, size: number) =>
-      dispatch(panel.resizeSplit({ split: Number(splitKey), size })),
+    (split: number, size: number) => dispatch(panel.resizeSplit({ split, size })),
     [dispatch],
   );
 
@@ -202,31 +216,21 @@ export const Mosaic = ({
     [dispatch, onSelect, resolveDroppedTab],
   );
 
-  const [portalRef, portalNodes] = Portal.useNodes({
-    keys: tabKeys,
-    attrs: { style: "width: 100%; height: 100%; position: relative;" },
-    onClick: onSelect,
-    children: (tabKey) => (
-      <Errors.Boundary>
-        <Content tabKey={tabKey}>{children}</Content>
-      </Errors.Boundary>
-    ),
-  });
-
   const ctx = useMemo<ContextValue>(
     () => ({
-      portalRef,
+      preference: selected,
+      focused,
       onSelect,
       onClose: handleClose,
       onAdd: handleAdd,
       tabName,
     }),
-    [portalRef, onSelect, handleClose, handleAdd, tabName],
+    [selected, focused, onSelect, handleClose, handleAdd, tabName],
   );
 
   return (
-    <>
-      {portalNodes}
+    <Portal.Provider>
+      <PortaledContents onSelect={onSelect}>{children}</PortaledContents>
       <Context value={ctx}>
         <Base.Frame
           onDrop={handleDrop}
@@ -237,6 +241,6 @@ export const Mosaic = ({
           <Node path={panel.ROOT_PATH} />
         </Base.Frame>
       </Context>
-    </>
+    </Portal.Provider>
   );
 };
