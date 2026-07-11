@@ -17,10 +17,10 @@ import "github.com/synnaxlabs/x/crdt"
 // a different replica.
 const SeedReplica uint32 = 1
 
-// Seed builds a Document from raw source text, attributing every character to the seed
-// replica. It initializes the replicated document for an arc created or imported with
-// plain text.
-func Seed(raw string) Document {
+// Create builds a Document from raw source text, attributing every character to the
+// seed replica. It initializes the replicated document for an arc created or imported
+// with plain text.
+func Create(raw string) Document {
 	doc := crdt.New(SeedReplica)
 	doc.Insert(0, raw)
 	inserts, deletes := doc.Snapshot()
