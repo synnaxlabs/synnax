@@ -77,10 +77,10 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-export type ListParams = {
-  offset?: number;
-  limit?: number;
-};
+export type ListParams = Pick<
+  project.RetrieveRequest,
+  "keys" | "offset" | "limit"
+>;
 
 export const useList = Flux.createList<
   ListParams,

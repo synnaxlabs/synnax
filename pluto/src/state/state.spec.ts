@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it } from "vitest";
+import { act, renderHook } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   executeInitialSetter,
@@ -16,6 +17,8 @@ import {
   isSetter,
   skipNull,
   skipUndefined,
+  usePassthrough,
+  usePurePassthrough,
 } from "@/state/state";
 
 describe("state", () => {
@@ -107,6 +110,95 @@ describe("state", () => {
     it("should return false for a value", () => {
       expect(isInitialSetter(42)).toBe(false);
       expect(isInitialSetter("hello")).toBe(false);
+    });
+  });
+
+  describe("usePassthrough", () => {
+    it("should return the controlled value and onChange when both are given", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        usePassthrough<number>({ initial: 0, value: 5, onChange }),
+      );
+      const [value, set] = result.current;
+      expect(value).toBe(5);
+      act(() => set(6));
+      expect(onChange).toHaveBeenCalledWith(6);
+      const [after] = result.current;
+      expect(after).toBe(5);
+    });
+
+    it("should update internal state and notify onChange when uncontrolled", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        usePassthrough<number>({ initial: 0, onChange }),
+      );
+      act(() => result.current[1](3));
+      expect(result.current[0]).toBe(3);
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith(3);
+    });
+
+    it("should forward function updaters to onChange when uncontrolled", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        usePassthrough<number>({ initial: 1, onChange }),
+      );
+      const updater = (prev: number) => prev + 1;
+      act(() => result.current[1](updater));
+      expect(result.current[0]).toBe(2);
+      expect(onChange).toHaveBeenCalledWith(updater);
+    });
+
+    it("should keep a stable setter identity across state updates", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        usePassthrough<number>({ initial: 0, onChange }),
+      );
+      const first = result.current[1];
+      act(() => result.current[1](1));
+      expect(result.current[1]).toBe(first);
+    });
+
+    it("should work without onChange", () => {
+      const { result } = renderHook(() =>
+        usePassthrough<number>({ initial: 0, onChange: undefined }),
+      );
+      act(() => result.current[1](2));
+      expect(result.current[0]).toBe(2);
+    });
+  });
+
+  describe("usePurePassthrough", () => {
+    it("should return the controlled value and onChange when both are given", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        usePurePassthrough<string>({ initial: "", value: "a", onChange }),
+      );
+      expect(result.current[0]).toBe("a");
+      act(() => result.current[1]("b"));
+      expect(onChange).toHaveBeenCalledWith("b");
+      expect(result.current[0]).toBe("a");
+    });
+
+    it("should update internal state and notify onChange when uncontrolled", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        usePurePassthrough<string>({ initial: "", onChange }),
+      );
+      act(() => result.current[1]("b"));
+      expect(result.current[0]).toBe("b");
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith("b");
+    });
+
+    it("should keep a stable setter identity across state updates", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        usePurePassthrough<string>({ initial: "", onChange }),
+      );
+      const first = result.current[1];
+      act(() => result.current[1]("b"));
+      expect(result.current[1]).toBe(first);
     });
   });
 

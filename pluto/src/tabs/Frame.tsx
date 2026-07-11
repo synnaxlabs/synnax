@@ -54,6 +54,11 @@ export interface FrameProps extends Omit<Flex.BoxProps, "onChange" | "onSelect">
  * the close and rename handlers to Close and Name parts rendered within it.
  * Selection state is available to descendants through the Selection package, so
  * only the tabs whose selected state changes re-render.
+ *
+ * When given no selection at all (no value, initialValue, or onChange), the Frame
+ * does not own a selection: its tabs bind to the nearest enclosing selection
+ * context, letting a composite like Panel.Mosaic distribute a single selection
+ * across many frames.
  */
 export const Frame = ({
   value,
@@ -67,6 +72,8 @@ export const Frame = ({
   ...rest
 }: FrameProps): ReactElement => {
   const id = useId();
+  const ownsSelection =
+    value !== undefined || initialValue !== undefined || onChange !== undefined;
   const [selected, setSelected] = state.usePurePassthrough<string>({
     initial: initialValue ?? "",
     value,
@@ -81,13 +88,16 @@ export const Frame = ({
     }),
     [id, onClose, onRename],
   );
-  return (
-    <Context value={ctxValue}>
-      <Select.Context value={selected} onSelect={setSelected}>
-        <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
-          {children}
-        </Flex.Box>
-      </Select.Context>
-    </Context>
+  let content = (
+    <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
+      {children}
+    </Flex.Box>
   );
+  if (ownsSelection)
+    content = (
+      <Select.Context value={selected} onSelect={setSelected}>
+        {content}
+      </Select.Context>
+    );
+  return <Context value={ctxValue}>{content}</Context>;
 };

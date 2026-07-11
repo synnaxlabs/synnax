@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc, Icon, Panel as PPanel } from "@synnaxlabs/pluto";
+import { Arc, Icon, Panel as PPanel, Tabs } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { type Panel } from "@/platform/panel";
@@ -22,11 +22,9 @@ export const TabName: Panel.TabName = ({ onRename: _onRename, ...props }) => {
     [update, key],
   );
   return (
-    <PPanel.DefaultTabName
-      {...props}
-      icon={<Icon.Arc />}
-      name={name}
-      onRename={handleRename}
-    />
+    <>
+      <Icon.Arc />
+      <Tabs.Name {...props} value={name} onRename={handleRename} />
+    </>
   );
 };

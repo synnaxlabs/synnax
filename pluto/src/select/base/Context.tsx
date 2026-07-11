@@ -86,16 +86,25 @@ export interface CreateReturn {
   useContext: <K extends record.Key = record.Key>() => ContextValue<K>;
   /**
    * useItemState subscribes a single keyed item to the enclosing Context, re-rendering
-   * only when that key's selected or hovered state flips.
+   * only when that key's selected, focused, or hovered state flips.
    */
   useItemState: <K extends record.Key>(key: K) => UseItemStateReturn;
+  /**
+   * useSelectedAmong returns the selected key among the given keys, or undefined when
+   * none of them is selected. It subscribes only to the given keys, so consumers stay
+   * isolated from changes to the rest of the selection. When more than one of the keys
+   * is selected, the earliest in the selection's order wins.
+   */
+  useSelectedAmong: <K extends record.Key>(keys: K[]) => K | undefined;
   /** useSelected returns the currently selected keys. */
   useSelected: <K extends record.Key>() => K[];
   /** useClear returns a callback that clears the enclosing selection. */
   useClear: () => () => void;
 }
 
-type ItemState = "none" | "selected" | "hovered" | "selected-hovered";
+const SELECTED_FLAG = 1;
+const HOVERED_FLAG = 2;
+const FOCUSED_FLAG = 4;
 
 const NOOP = () => {};
 
@@ -143,6 +152,14 @@ export const create = (name: string): CreateReturn => {
       const changed = new Set(array.toArray(valueRef.current)).symmetricDifference(
         new Set(array.toArray(value)),
       );
+      // A reorder can move focus without changing membership, so head changes are
+      // diffed separately.
+      const prevHead = head(valueRef.current);
+      const nextHead = head(value);
+      if (prevHead !== nextHead) {
+        if (prevHead != null) changed.add(prevHead);
+        if (nextHead != null) changed.add(nextHead);
+      }
       valueRef.current = value;
       const prevHover = hoverRef.current;
       if (prevHover !== hover) {
@@ -168,24 +185,43 @@ export const create = (name: string): CreateReturn => {
     const handleSelect = useCallback(() => onSelect(key), [key, onSelect]);
     const itemState = useSyncExternalStore(
       useCallback((onStoreChange) => subscribe(onStoreChange, key), [key, subscribe]),
-      useCallback((): ItemState => {
+      useCallback((): number => {
         const state = getState();
-        const selected = isSelected(state.value, key);
-        const hovered = state.hover === key;
-        if (selected && hovered) return "selected-hovered";
-        if (selected) return "selected";
-        if (hovered) return "hovered";
-        return "none";
+        let flags = 0;
+        if (isSelected(state.value, key)) flags |= SELECTED_FLAG;
+        if (state.hover === key) flags |= HOVERED_FLAG;
+        if (isFocused(state.value, key)) flags |= FOCUSED_FLAG;
+        return flags;
       }, [key, getState]),
-      useCallback((): ItemState => "none", []),
+      useCallback((): number => 0, []),
     );
     return useMemo(
       () => ({
-        selected: itemState === "selected" || itemState === "selected-hovered",
-        hovered: itemState === "hovered" || itemState === "selected-hovered",
+        selected: (itemState & SELECTED_FLAG) !== 0,
+        hovered: (itemState & HOVERED_FLAG) !== 0,
+        focused: (itemState & FOCUSED_FLAG) !== 0,
         onSelect: handleSelect,
       }),
       [itemState, handleSelect],
+    );
+  };
+
+  const useSelectedAmong = <K extends record.Key>(keys: K[]): K | undefined => {
+    const { getState, subscribe } = useContext<K>();
+    return useSyncExternalStore(
+      useCallback(
+        (onStoreChange) => {
+          const destructors = keys.map((key) => subscribe(() => onStoreChange(), key));
+          return () => destructors.forEach((d) => d());
+        },
+        [keys, subscribe],
+      ),
+      useCallback((): K | undefined => {
+        const { value } = getState();
+        if (value === undefined) return undefined;
+        return array.toArray(value).find((key) => keys.includes(key));
+      }, [keys, getState]),
+      useCallback((): K | undefined => undefined, []),
     );
   };
 
@@ -201,8 +237,14 @@ export const create = (name: string): CreateReturn => {
 
   const useClear = () => useContext().clear;
 
-  return { Context, useContext, useItemState, useSelected, useClear };
+  return { Context, useContext, useItemState, useSelectedAmong, useSelected, useClear };
 };
 
-export const { Context, useContext, useItemState, useSelected, useClear } =
-  create("Selection");
+export const {
+  Context,
+  useContext,
+  useItemState,
+  useSelectedAmong,
+  useSelected,
+  useClear,
+} = create("Selection");

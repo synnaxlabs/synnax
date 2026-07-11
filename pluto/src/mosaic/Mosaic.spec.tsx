@@ -53,14 +53,14 @@ const DragSource = ({ items }: DragSourceProps): ReactElement => {
 };
 
 interface LeafTabsProps {
-  leafKey: string;
+  nodeKey: number;
   tabs: string[];
 }
 
-const LeafTabs = ({ leafKey, tabs }: LeafTabsProps): ReactElement => {
+const LeafTabs = ({ nodeKey, tabs }: LeafTabsProps): ReactElement => {
   const { startDrag, onDragEnd } = Mosaic.useDragTab();
   return (
-    <Mosaic.Leaf leafKey={leafKey} data-testid={`leaf-${leafKey}`}>
+    <Mosaic.Leaf nodeKey={nodeKey} data-testid={`leaf-${nodeKey}`}>
       <Tabs.Frame initialValue={tabs[0] ?? ""}>
         <Tabs.Selector>
           {tabs.map((tab) => (
@@ -99,12 +99,12 @@ const Harness = ({
   <Haul.Provider>
     <DragSource items={items} />
     <Mosaic.Frame {...rest}>
-      <LeafTabs leafKey="1" tabs={tabs} />
+      <LeafTabs nodeKey={1} tabs={tabs} />
     </Mosaic.Frame>
   </Haul.Provider>
 );
 
-const leaf = (key: string = "1"): HTMLElement => screen.getByTestId(`leaf-${key}`);
+const leaf = (key: number = 1): HTMLElement => screen.getByTestId(`leaf-${key}`);
 
 const beginDrag = (target: HTMLElement): void => {
   fireEvent.click(screen.getByTestId("drag-source"));
@@ -151,7 +151,7 @@ describe("Mosaic", () => {
 
   describe("Leaf", () => {
     it("should throw when rendered outside a Frame", () => {
-      expect(() => render(<Mosaic.Leaf leafKey="1">content</Mosaic.Leaf>)).toThrow(
+      expect(() => render(<Mosaic.Leaf nodeKey={1}>content</Mosaic.Leaf>)).toThrow(
         "Mosaic.Leaf must be used within Mosaic.Frame",
       );
     });
@@ -163,7 +163,7 @@ describe("Mosaic", () => {
       drop(leaf(), 200, 150);
       expect(onDrop).toHaveBeenCalledTimes(1);
       expect(onDrop).toHaveBeenCalledWith({
-        leafKey: "1",
+        nodeKey: 1,
         tabKey: "x",
         location: "center",
         index: undefined,
@@ -189,7 +189,7 @@ describe("Mosaic", () => {
       beginDrag(leaf());
       drop(leaf(), 140, 16);
       expect(onDrop).toHaveBeenCalledWith({
-        leafKey: "1",
+        nodeKey: 1,
         tabKey: "x",
         location: "center",
         index: 1,
@@ -262,7 +262,7 @@ describe("Mosaic", () => {
       beginDrag(leaf());
       drop(leaf(), 40, 150);
       expect(onCreate).toHaveBeenCalledWith({
-        leafKey: "1",
+        nodeKey: 1,
         location: "left",
         tabKeys: ["ontology:1", "ontology:2"],
         index: undefined,
@@ -275,7 +275,7 @@ describe("Mosaic", () => {
       beginDrag(leaf());
       drop(leaf(), 200, 150);
       expect(onFileDrop).toHaveBeenCalledWith(
-        expect.objectContaining({ leafKey: "1", location: "center" }),
+        expect.objectContaining({ nodeKey: 1, location: "center" }),
       );
     });
 
@@ -351,16 +351,16 @@ describe("Mosaic", () => {
       render(
         <Haul.Provider>
           <Mosaic.Frame onDrop={onDrop}>
-            <LeafTabs leafKey="1" tabs={["a", "b"]} />
-            <LeafTabs leafKey="2" tabs={["c"]} />
+            <LeafTabs nodeKey={1} tabs={["a", "b"]} />
+            <LeafTabs nodeKey={2} tabs={["c"]} />
           </Mosaic.Frame>
         </Haul.Provider>,
       );
       fireEvent.dragStart(screen.getByRole("tab", { name: "Tab a" }));
-      stubLeafRects(leaf("2"));
-      drop(leaf("2"), 200, 150);
+      stubLeafRects(leaf(2));
+      drop(leaf(2), 200, 150);
       expect(onDrop).toHaveBeenCalledWith({
-        leafKey: "2",
+        nodeKey: 2,
         tabKey: "a",
         location: "center",
         index: undefined,
@@ -378,7 +378,7 @@ describe("Mosaic", () => {
     it("should render both children", () => {
       render(
         <Mosaic.Frame>
-          <Mosaic.Split nodeKey="1">
+          <Mosaic.Split nodeKey={1}>
             <p>First</p>
             <p>Last</p>
           </Mosaic.Split>
@@ -392,7 +392,7 @@ describe("Mosaic", () => {
       const onResize = vi.fn();
       const c = render(
         <Mosaic.Frame onResize={onResize}>
-          <Mosaic.Split nodeKey="root.first">
+          <Mosaic.Split nodeKey={2}>
             <p>First</p>
             <p>Last</p>
           </Mosaic.Split>
@@ -410,8 +410,8 @@ describe("Mosaic", () => {
       fireEvent.pointerMove(window, { pointerId: 1, clientX: 750, clientY: 0 });
       fireEvent.pointerUp(window, { pointerId: 1, clientX: 750, clientY: 0 });
       expect(onResize).toHaveBeenCalledTimes(1);
-      const [splitKey, size] = onResize.mock.lastCall as [string, number];
-      expect(splitKey).toEqual("root.first");
+      const [splitKey, size] = onResize.mock.lastCall as [number, number];
+      expect(splitKey).toEqual(2);
       expect(size).toBeCloseTo(0.75, 2);
     });
   });

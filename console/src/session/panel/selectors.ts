@@ -47,10 +47,11 @@ const selectState = (state: RequiredStoreState, key?: panel.Key): State => {
 };
 
 /**
- * @returns the ordered selected tabs (most recently focused first) for a panel. When
+ * @returns the stored selected tabs (most recently selected first) for a panel. When
  * key is omitted, the active window's selected panel is used. Returns an empty array
- * when the panel has no state. The result is not filtered against the panel's live
- * tree, so it may contain tabs that have since been removed.
+ * when the panel has no state. The result is not resolved against the panel's live
+ * tree, so it may contain tabs that have since been removed; use
+ * {@link useSelectSelectedTabs} for the exact selection.
  */
 export const selectSelectedTabs = (
   state: RequiredStoreState,
@@ -65,18 +66,23 @@ const selectOverlaid = (state: RequiredStoreState): boolean =>
   selectWindowState(state).isOverlaid;
 
 /**
- * @returns the selected tabs for a panel that still exist in the panel's live tree,
- * with removed tabs filtered out.
- * @param key the panel to read. Defaults to the surrounding Panel scope. Must resolve
- * to a panel via the argument or a surrounding Panel scope.
+ * @returns the panel's exact selection: one tab per leaf, most recently selected
+ * first. The first key is the panel's focused tab. Stored keys no longer in the
+ * panel's tree are dropped and a leaf with no selected tab contributes its first tab.
+ * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
+ * active window's selected panel.
  */
 export const useSelectSelectedTabs = (key?: panel.Key): panel.TabKey[] => {
-  const resolved = Panel.useOptionalKey(key);
-  const tabKeys = Select.useMemo(
+  const scoped = Panel.useOptionalKey(key);
+  const resolved = Select.useMemo(
+    (state: RequiredStoreState) => scoped ?? selectSelected(state),
+    [scoped],
+  );
+  const selected = Select.useMemo(
     (state: RequiredStoreState) => selectSelectedTabs(state, resolved),
     [resolved],
   );
-  return Panel.useSelectFilteredTabKeys({ tabKeys, key: resolved });
+  return Panel.useSelectSelection({ selected, key: resolved });
 };
 
 /** @returns true if any tab is overlaid (focused into a modal) on the active window. */
@@ -91,7 +97,7 @@ export const useGetIsOverlaid = (): (() => boolean) => {
 
 /**
  * @returns true if the given tab is the overlaid tab on the active window: the window
- * is overlaid and the tab is its panel's focused (first selected) tab.
+ * is overlaid and the tab is its panel's focused tab.
  * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
  * window's selected panel.
  * @param tabKey the tab to check. Defaults to the surrounding Tab scope. Returns false
@@ -101,15 +107,13 @@ export const useSelectIsTabOverlaid = (
   key?: panel.Key,
   tabKey?: panel.TabKey,
 ): boolean => {
-  key = Panel.useOptionalKey(key);
   tabKey = Panel.useOptionalTabKey(tabKey);
-  return Select.useMemo(
-    (state: RequiredStoreState) =>
-      tabKey != null &&
-      selectOverlaid(state) &&
-      selectSelectedTabs(state, key)[0] === tabKey,
-    [key, tabKey],
+  const overlaid = Select.useMemo(
+    (state: RequiredStoreState) => selectOverlaid(state),
+    [],
   );
+  const focused = useSelectFocusedTab(key);
+  return tabKey != null && overlaid && focused === tabKey;
 };
 
 /** @returns a getter for the active window's selected panel key, if any. */
@@ -129,36 +133,35 @@ export const useGetIsAnySelected = (): (() => boolean) => {
 };
 
 /**
- * @returns the focused (first selected) tab of a panel, or undefined when the panel
- * has no selected tabs.
+ * @returns the focused tab of a panel: the first key of its exact selection, or
+ * undefined when the panel has no tabs.
  * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
  * window's selected panel.
  */
-export const useSelectFocusedTab = (key?: panel.Key): panel.TabKey | undefined => {
-  const resolved = Panel.useOptionalKey(key);
-  return Select.useMemo(
-    (state: RequiredStoreState) => selectSelectedTabs(state, resolved)[0],
-    [resolved],
-  );
-};
+export const useSelectFocusedTab = (key?: panel.Key): panel.TabKey | undefined =>
+  useSelectSelectedTabs(key)[0];
 
 /**
- * @returns a getter for the focused (first selected) tab of a panel. The getter's key
- * defaults to the surrounding Panel scope, then to the window's selected panel, and
- * returns undefined when the panel has no selected tabs.
+ * @returns a getter for the focused tab of a panel. The getter's key defaults to the
+ * surrounding Panel scope, then to the window's selected panel, and returns undefined
+ * when the panel has no tabs.
  */
 export const useGetFocusedTab = (): ((key?: panel.Key) => panel.TabKey | undefined) => {
-  const resolved = Panel.useOptionalKey();
+  const scoped = Panel.useOptionalKey();
   const store = useStore<RequiredStoreState>();
+  const getSelection = Panel.useGetSelection();
   return useCallback(
-    (key: panel.Key | undefined = resolved) =>
-      selectSelectedTabs(store.getState(), key)[0],
-    [resolved, store],
+    (key: panel.Key | undefined = scoped) => {
+      const state = store.getState();
+      key ??= selectSelected(state);
+      return getSelection({ key, selected: selectSelectedTabs(state, key) })[0];
+    },
+    [scoped, store, getSelection],
   );
 };
 
 /**
- * @returns true if the given tab is the focused (first selected) tab of its panel.
+ * @returns true if the given tab is the focused tab of its panel.
  * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
  * window's selected panel.
  * @param tabKey the tab to check. Defaults to the surrounding Tab scope. Returns false
@@ -168,19 +171,14 @@ export const useSelectIsTabFocused = (
   key?: panel.Key,
   tabKey?: panel.TabKey,
 ): boolean => {
-  key = Panel.useOptionalKey(key);
   tabKey = Panel.useOptionalTabKey(tabKey);
-  return Select.useMemo(
-    (state: RequiredStoreState) =>
-      tabKey != null && selectSelectedTabs(state, key)[0] === tabKey,
-    [key, tabKey],
-  );
+  const focused = useSelectFocusedTab(key);
+  return tabKey != null && focused === tabKey;
 };
 
 /**
- * @returns a getter for whether a tab is the focused (first selected) tab of its
- * panel. Both keys default to the surrounding Panel and Tab scopes. Returns false when
- * no tab resolves.
+ * @returns a getter for whether a tab is the focused tab of its panel. Both keys
+ * default to the surrounding Panel and Tab scopes. Returns false when no tab resolves.
  */
 export const useGetTabIsFocused = (): ((
   key?: panel.Key,

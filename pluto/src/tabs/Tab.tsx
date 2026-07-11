@@ -57,7 +57,9 @@ export interface TabProps extends Omit<Button.ButtonProps<"div">, "el" | "id"> {
  * Tab is a single selectable handle within a Selector. Clicking it (or pressing
  * Enter or Space while it is focused) selects it in the enclosing Frame. Children
  * define its contents: text, an icon, a {@link Name}, a {@link Close}
- * button, or any combination.
+ * button, or any combination. When the tab heads an ordered multi-selection (its
+ * key is first in the enclosing selection's array value), it is the focused tab
+ * and colors itself with the primary theme color.
  */
 export const Tab = ({
   itemKey,
@@ -68,8 +70,8 @@ export const Tab = ({
   ...rest
 }: TabProps): ReactElement => {
   const { getTabID, getPanelID } = useFrameContext("Tabs.Tab");
-  const { size, variant, altColor } = useSelectorContext("Tabs.Tab");
-  const { selected, onSelect } = Select.useItemState(itemKey);
+  const { size, variant } = useSelectorContext("Tabs.Tab");
+  const { selected, focused, onSelect } = Select.useItemState(itemKey);
   const handleClick: MouseEventHandler<HTMLDivElement> = (e) => {
     onClick?.(e);
     onSelect();
@@ -101,7 +103,7 @@ export const Tab = ({
           Menu.CONTEXT_TARGET,
           selected && Menu.CONTEXT_SELECTED,
           CSS.selected(selected),
-          CSS.altColor(altColor),
+          CSS.altColor(focused),
           className,
         )}
         justify="center"

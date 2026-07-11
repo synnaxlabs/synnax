@@ -11,6 +11,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement, useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Select } from "@/select/base";
 import { Tabs } from "@/tabs";
 
 interface BasicTabsProps {
@@ -87,6 +88,29 @@ describe("Tabs", () => {
     it("should render no panel when nothing is selected", () => {
       render(<BasicTabs />);
       expect(screen.queryByRole("tabpanel")).toBeNull();
+    });
+
+    it("should bind tabs to an enclosing selection when given none", () => {
+      const onSelect = vi.fn();
+      render(
+        <Select.Context value={["b"]} onSelect={onSelect}>
+          <BasicTabs />
+        </Select.Context>,
+      );
+      expect(screen.getByText("Content B")).toBeTruthy();
+      expect(screen.queryByText("Content A")).toBeNull();
+      fireEvent.click(tab("Tab A"));
+      expect(onSelect).toHaveBeenCalledWith("a");
+    });
+
+    it("should shadow an enclosing selection when it owns one", () => {
+      render(
+        <Select.Context value={["b"]}>
+          <BasicTabs initialValue="a" />
+        </Select.Context>,
+      );
+      expect(screen.getByText("Content A")).toBeTruthy();
+      expect(screen.queryByText("Content B")).toBeNull();
     });
   });
 
@@ -403,6 +427,21 @@ describe("Tabs", () => {
       expect(onDragStart).toHaveBeenCalledTimes(1);
       fireEvent.dragEnd(t);
       expect(onDragEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it("should color the tab heading an ordered multi-selection", () => {
+      render(
+        <Select.Context value={["b", "a"]}>
+          <BasicTabs />
+        </Select.Context>,
+      );
+      expect(tab("Tab B").classList.contains("pluto--alt-color")).toBe(true);
+      expect(tab("Tab A").classList.contains("pluto--alt-color")).toBe(false);
+    });
+
+    it("should not color the selected tab of a frame-owned scalar selection", () => {
+      render(<BasicTabs initialValue="a" />);
+      expect(tab("Tab A").classList.contains("pluto--alt-color")).toBe(false);
     });
 
     it("should throw when rendered outside a Frame", () => {

@@ -17,9 +17,15 @@ import { Errors } from "@/errors";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Mosaic as Base } from "@/mosaic";
-import { useSelectNode, useSelectTabKeys, useSingleDispatch } from "@/panel/queries";
+import {
+  useSelectNode,
+  useSelectSelection,
+  useSelectTabKeys,
+  useSingleDispatch,
+} from "@/panel/queries";
 import { TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
+import { Select } from "@/select/base";
 import { Tabs } from "@/tabs";
 
 const PORTAL_NODE_ATTRS = {
@@ -30,7 +36,6 @@ export interface MosaicProps extends Omit<
   Base.FrameProps,
   "onDrop" | "onCreate" | "onFileDrop" | "onResize" | "onSelect" | "children"
 > {
-  focused?: string;
   selected?: string[];
   onSelect?: (tabKey: string) => void;
   children: Component.RenderProp<{}>;
@@ -40,9 +45,6 @@ export interface MosaicProps extends Omit<
 }
 
 interface ContextValue {
-  preference: string[];
-  focused?: string;
-  onSelect?: (tabKey: string) => void;
   onClose: (tabKey: string) => void;
   onAdd: (path: number) => void;
   tabName?: Component.RenderProp<{}>;
@@ -61,27 +63,22 @@ const Content = ({ tabKey, children }: ContentProps): ReactElement => (
   <TabScope.Provider value={tabKey}>{children({})}</TabScope.Provider>
 );
 
-// resolveSelected picks the leaf's selected tab: the first preference present in the
-// leaf's own tabs, falling back to the leaf's first tab.
-const resolveSelected = (tabs: string[], preference: string[]): string | undefined =>
-  preference.find((key) => tabs.includes(key)) ?? tabs[0];
-
 interface LeafProps extends Pick<Base.LeafProps, "nodeKey"> {
   tabs: string[];
 }
 
 // Leaf renders one mosaic leaf: its tab strip and the portal host for its selected tab.
 // It is memoized on path and tab keys; a content change never reaches it, and a resize of
-// another split never reaches it.
+// another split never reaches it. Selection reaches its tabs through the mosaic-level
+// selection context, so a selection change re-renders only the affected tabs.
 const Leaf = memo(({ nodeKey, tabs }: LeafProps): ReactElement => {
-  const { preference, focused, onSelect, onClose, onAdd, tabName } =
-    useContext("Panel.Leaf");
+  const { onClose, onAdd, tabName } = useContext("Panel.Leaf");
   const { startDrag, onDragEnd } = Base.useDragTab();
-  const selected = resolveSelected(tabs, preference);
+  const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
   return (
     <Base.Leaf nodeKey={nodeKey} grow>
-      <Tabs.Frame value={selected} onChange={onSelect} onClose={onClose} grow>
-        <Tabs.Selector altColor={focused != null && focused === selected}>
+      <Tabs.Frame onClose={onClose} grow>
+        <Tabs.Selector>
           {tabs.map((tabKey) => (
             <Tabs.Tab
               key={tabKey}
@@ -102,7 +99,7 @@ const Leaf = memo(({ nodeKey, tabs }: LeafProps): ReactElement => {
           </Button.Button>
         </Tabs.Selector>
         <Tabs.Content grow>
-          {selected != null && <Portal.Out itemKey={selected} />}
+          <Portal.Out itemKey={selected} />
           <Base.Shield />
         </Tabs.Content>
       </Tabs.Frame>
@@ -167,7 +164,6 @@ const PortaledContents = memo(
 PortaledContents.displayName = "Panel.Mosaic.PortaledContents";
 
 export const Mosaic = ({
-  focused,
   selected = EMPTY_SELECTED,
   onSelect,
   children,
@@ -230,29 +226,26 @@ export const Mosaic = ({
   );
 
   const ctx = useMemo<ContextValue>(
-    () => ({
-      preference: selected,
-      focused,
-      onSelect,
-      onClose: handleClose,
-      onAdd: handleAdd,
-      tabName,
-    }),
-    [selected, focused, onSelect, handleClose, handleAdd, tabName],
+    () => ({ onClose: handleClose, onAdd: handleAdd, tabName }),
+    [handleClose, handleAdd, tabName],
   );
+
+  const selection = useSelectSelection({ selected });
 
   return (
     <Portal.Provider>
       <PortaledContents onSelect={onSelect}>{children}</PortaledContents>
       <Context value={ctx}>
-        <Base.Frame
-          onDrop={handleDrop}
-          onCreate={handleCreate}
-          onResize={handleResize}
-          {...rest}
-        >
-          <Node nodeKey={panel.ROOT_NODE_KEY} />
-        </Base.Frame>
+        <Select.Context value={selection} onSelect={onSelect}>
+          <Base.Frame
+            onDrop={handleDrop}
+            onCreate={handleCreate}
+            onResize={handleResize}
+            {...rest}
+          >
+            <Node nodeKey={panel.ROOT_NODE_KEY} />
+          </Base.Frame>
+        </Select.Context>
       </Context>
     </Portal.Provider>
   );

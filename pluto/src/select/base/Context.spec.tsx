@@ -20,11 +20,12 @@ interface Counters {
 const createItem = (renders: Counters) => {
   const Item = memo(({ itemKey }: { itemKey: string }): ReactElement => {
     renders[itemKey] = (renders[itemKey] ?? 0) + 1;
-    const { selected, hovered, onSelect } = Select.useItemState(itemKey);
+    const { selected, focused, hovered, onSelect } = Select.useItemState(itemKey);
     return (
       <button
         data-testid={`item-${itemKey}`}
         data-selected={selected}
+        data-focused={focused}
         data-hovered={hovered}
         onClick={onSelect}
       />
@@ -38,6 +39,9 @@ const item = (key: string): HTMLElement => screen.getByTestId(`item-${key}`);
 
 const isSelected = (key: string): boolean =>
   item(key).getAttribute("data-selected") === "true";
+
+const isFocused = (key: string): boolean =>
+  item(key).getAttribute("data-focused") === "true";
 
 const isHovered = (key: string): boolean =>
   item(key).getAttribute("data-hovered") === "true";
@@ -152,6 +156,133 @@ describe("Selection", () => {
       expect(isSelected("a")).toBe(false);
       fireEvent.click(item("a"));
       expect(isSelected("a")).toBe(false);
+    });
+
+    it("should focus the item heading an array value", () => {
+      const Item = createItem({});
+      render(
+        <Select.Context value={["b", "a"]}>
+          <Item itemKey="a" />
+          <Item itemKey="b" />
+        </Select.Context>,
+      );
+      expect(isFocused("a")).toBe(false);
+      expect(isFocused("b")).toBe(true);
+      expect(isSelected("a")).toBe(true);
+      expect(isSelected("b")).toBe(true);
+    });
+
+    it("should not focus a scalar selection", () => {
+      const Item = createItem({});
+      render(
+        <Select.Context value="a">
+          <Item itemKey="a" />
+        </Select.Context>,
+      );
+      expect(isSelected("a")).toBe(true);
+      expect(isFocused("a")).toBe(false);
+    });
+
+    it("should move focus on a reorder that keeps membership unchanged", () => {
+      const renders: Counters = {};
+      const Item = createItem(renders);
+      let setValue: (value: string[]) => void = () => {};
+      const Harness = (): ReactElement => {
+        const [value, setState] = useState(["a", "b"]);
+        setValue = setState;
+        return (
+          <Select.Context value={value}>
+            <Item itemKey="a" />
+            <Item itemKey="b" />
+            <Item itemKey="c" />
+          </Select.Context>
+        );
+      };
+      render(<Harness />);
+      expect(isFocused("a")).toBe(true);
+      const baseline = { ...renders };
+      act(() => setValue(["b", "a"]));
+      expect(isFocused("a")).toBe(false);
+      expect(isFocused("b")).toBe(true);
+      expect(renders.a).toBeGreaterThan(baseline.a);
+      expect(renders.b).toBeGreaterThan(baseline.b);
+      expect(renders.c).toEqual(baseline.c);
+    });
+  });
+
+  describe("useSelectedAmong", () => {
+    const useAmong = (keys: string[]) => Select.useSelectedAmong(keys);
+
+    it("should return the selected key among the given keys", () => {
+      const { result } = renderHook(() => useAmong(["b", "c"]), {
+        wrapper: ({ children }) => (
+          <Select.Context value={["a", "c"]}>{children}</Select.Context>
+        ),
+      });
+      expect(result.current).toEqual("c");
+    });
+
+    it("should return undefined when none of the keys is selected", () => {
+      const { result } = renderHook(() => useAmong(["b"]), {
+        wrapper: ({ children }) => (
+          <Select.Context value={["a"]}>{children}</Select.Context>
+        ),
+      });
+      expect(result.current).toBeUndefined();
+    });
+
+    it("should prefer the earliest key in the selection's order", () => {
+      const { result } = renderHook(() => useAmong(["a", "b"]), {
+        wrapper: ({ children }) => (
+          <Select.Context value={["b", "a"]}>{children}</Select.Context>
+        ),
+      });
+      expect(result.current).toEqual("b");
+    });
+
+    it("should track changes to the given keys' selection", () => {
+      let setValue: (value: string[]) => void = () => {};
+      const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
+        const [value, setState] = useState(["a"]);
+        setValue = setState;
+        return <Select.Context value={value}>{children}</Select.Context>;
+      };
+      const { result } = renderHook(() => useAmong(["a", "b"]), {
+        wrapper: Wrapper,
+      });
+      expect(result.current).toEqual("a");
+      act(() => setValue(["b"]));
+      expect(result.current).toEqual("b");
+      act(() => setValue([]));
+      expect(result.current).toBeUndefined();
+    });
+
+    it("should not re-render on changes outside the given keys", () => {
+      let renders = 0;
+      const keys = ["a", "b"];
+      const Probe = memo((): ReactElement => {
+        renders++;
+        const selected = Select.useSelectedAmong(keys);
+        return <span data-testid="probe">{selected}</span>;
+      });
+      Probe.displayName = "Probe";
+      let setValue: (value: string[]) => void = () => {};
+      const Harness = (): ReactElement => {
+        const [value, setState] = useState(["a", "x"]);
+        setValue = setState;
+        return (
+          <Select.Context value={value}>
+            <Probe />
+          </Select.Context>
+        );
+      };
+      render(<Harness />);
+      expect(screen.getByTestId("probe").textContent).toEqual("a");
+      const baseline = renders;
+      act(() => setValue(["a", "y"]));
+      expect(renders).toEqual(baseline);
+      act(() => setValue(["b", "y"]));
+      expect(screen.getByTestId("probe").textContent).toEqual("b");
     });
   });
 

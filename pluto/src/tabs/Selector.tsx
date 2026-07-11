@@ -39,8 +39,6 @@ export interface ContextValue {
   size: Component.Size;
   /** variant is the visual variant applied to the strip's tabs. */
   variant: Variant;
-  /** altColor colors the selected tab's text with the primary theme color. */
-  altColor: boolean;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -88,8 +86,6 @@ export interface SelectorProps extends Flex.BoxProps {
   size?: Component.Size;
   /** variant is the visual variant applied to the strip's tabs. */
   variant?: Variant;
-  /** altColor colors the selected tab's text with the primary theme color. */
-  altColor?: boolean;
   /**
    * insertionIndex renders a drop indicator line before the tab at the given index
    * (or after the last tab when equal to the number of tabs). Pass null to hide the
@@ -108,7 +104,6 @@ export const Selector = ({
   ref,
   size = "medium",
   variant = "default",
-  altColor = false,
   insertionIndex,
   className,
   children,
@@ -178,10 +173,7 @@ export const Selector = ({
       ? undefined
       : { [horizontal ? "left" : "top"]: indicatorOffset };
 
-  const ctx = useMemo<ContextValue>(
-    () => ({ size, variant, altColor }),
-    [size, variant, altColor],
-  );
+  const ctx = useMemo<ContextValue>(() => ({ size, variant }), [size, variant]);
 
   return (
     <Context value={ctx}>

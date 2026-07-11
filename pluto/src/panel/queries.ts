@@ -236,57 +236,85 @@ export const [useSelectName, useGetName] = Scope.bindSelector(
   }),
 );
 
-export const allTabKeys = (store: FluxSubStore, key: panel.Key): panel.TabKey[] => {
+// leafTabGroups returns each leaf's ordered tab keys, or null when the panel is not
+// cached.
+const leafTabGroups = (
+  store: FluxSubStore,
+  key: panel.Key,
+): panel.TabKey[][] | null => {
   const p = store.panels.get(key);
-  if (p == null) return [];
-  const keys: panel.TabKey[] = [];
+  if (p == null) return null;
+  const groups: panel.TabKey[][] = [];
   const visit = (node: panel.Node | undefined) => {
     if (node == null) return;
     if (node.variant === "split") {
       visit(node.first);
       visit(node.last);
-    } else node.tabs.forEach((t) => keys.push(t.key));
+    } else groups.push(node.tabs.map((t) => t.key));
   };
   visit(p.root);
-  return keys;
+  return groups;
 };
 
-export interface SelectFilteredTabKeysArgs extends SelectKeyArgs {
-  tabKeys: panel.TabKey[];
+export interface SelectSelectionArgs {
+  key?: panel.Key;
+  selected: panel.TabKey[];
 }
 
-export const [useSelectFilteredTabKeys, useGetFilteredTabKeys] = Scope.bindSelector(
-  Flux.createSelector<
-    FluxSubStore,
-    SelectFilteredTabKeysArgs,
-    panel.TabKey[],
-    panel.TabKey[]
-  >({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key }) => allTabKeys(store, key),
-    transform: (existingKeys, { tabKeys }) => {
-      const existingSet = new Set(existingKeys);
-      return tabKeys.filter((k) => existingSet.has(k));
-    },
-    equal: deep.equal,
-  }),
-);
+const NOOP = () => {};
 
-export interface SelectFilterTabKeyArgs extends SelectKeyArgs {
-  tabKey?: panel.TabKey;
-}
+const [useSelectSelectionBase, useGetSelectionBase] = Flux.createSelector<
+  FluxSubStore,
+  SelectSelectionArgs,
+  panel.TabKey[],
+  panel.TabKey[][] | null
+>({
+  subscribe: (store, { key }, notify) =>
+    key == null ? NOOP : store.panels.onSet(notify, key),
+  select: (store, { key }) => (key == null ? null : leafTabGroups(store, key)),
+  transform: (groups, { selected }) => {
+    if (groups == null) return selected;
+    const leafOf = new Map<panel.TabKey, number>();
+    groups.forEach((tabs, leaf) => tabs.forEach((t) => leafOf.set(t, leaf)));
+    const claimed = new Set<number>();
+    const out: panel.TabKey[] = [];
+    for (const tabKey of selected) {
+      const leaf = leafOf.get(tabKey);
+      if (leaf == null || claimed.has(leaf)) continue;
+      claimed.add(leaf);
+      out.push(tabKey);
+    }
+    groups.forEach((tabs, leaf) => {
+      if (!claimed.has(leaf) && tabs.length > 0) out.push(tabs[0]);
+    });
+    return out;
+  },
+  equal: compare.arraysEqual,
+});
 
-export const [useSelectFilterTabKey, useGetFilterTabKey] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectFilterTabKeyArgs, panel.TabKey | undefined>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key, tabKey }) => {
-      if (tabKey == null) return undefined;
-      const p = store.panels.get(key);
-      if (p == null) return undefined;
-      return panel.findTab(p.root, tabKey) == null ? undefined : tabKey;
-    },
-  }),
-);
+/**
+ * useSelectSelection resolves a recency-ordered list of selected tab keys into the
+ * panel's exact selection: one tab per leaf, most recently selected first. Keys no
+ * longer in the tree are dropped, at most one key is kept per leaf, and a leaf none
+ * of whose tabs are selected contributes its first tab at the end of the list. The
+ * first key is the panel's focused tab. The key defaults to the surrounding Panel
+ * scope; when neither is present, or the panel is not cached, the list is returned
+ * unresolved.
+ */
+export const useSelectSelection = (args: SelectSelectionArgs): panel.TabKey[] => {
+  const key = Scope.useOptional(args.key);
+  return useSelectSelectionBase({ ...args, key });
+};
+
+/** useGetSelection returns a getter reading {@link useSelectSelection} on demand. */
+export const useGetSelection = (): ((args: SelectSelectionArgs) => panel.TabKey[]) => {
+  const scoped = Scope.useOptional();
+  const get = useGetSelectionBase();
+  return useCallback(
+    (args: SelectSelectionArgs) => get({ ...args, key: args.key ?? scoped }),
+    [get, scoped],
+  );
+};
 
 export const [useSelectTab, useGetTab] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentArgs, panel.Tab>({
@@ -344,10 +372,9 @@ export interface SelectMaybeTabTypeArgs {
 }
 
 // useSelectTabResource selects the ontology ID displayed by the active resource tab.
-// Resource renderers call this to learn their own document key. Returns null when
-// the active tab is not a resource tab: mounted hooks recompute during a live
-// view-to-resource swap before the outgoing renderer unmounts, so a wrong-variant
-// read must degrade rather than throw.
+// Resource renderers call this to learn their own document key. Throws
+// UnexpectedError when the active tab is not a resource tab: only renderers mounted
+// for a resource tab may call this, so a wrong-variant read is a programmer bug.
 export const [useSelectTabResource, useGetTabResource] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentArgs, ontology.ID>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
@@ -364,9 +391,8 @@ export const [useSelectTabResource, useGetTabResource] = bindTabSelector(
 );
 
 // useSelectTabArgs selects only the opaque args of the active view tab, deep-equal
-// compared so it re-renders only when the args contents actually change. Returns
-// null when the active tab is not a view tab (see useSelectTabResource for why
-// wrong-variant reads must not throw).
+// compared so it re-renders only when the args contents actually change. Throws
+// UnexpectedError when the active tab is not a view tab (see useSelectTabResource).
 export const [useSelectTabArgs, useGetTabArgs] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentArgs, record.Unknown>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
