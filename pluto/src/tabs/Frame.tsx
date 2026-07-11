@@ -72,7 +72,7 @@ export const Frame = ({
     value,
     onChange,
   });
-  const ctx = useMemo<ContextValue>(
+  const ctxValue = useMemo<ContextValue>(
     () => ({
       onClose,
       onRename,
@@ -82,7 +82,7 @@ export const Frame = ({
     [id, onClose, onRename],
   );
   return (
-    <Context value={ctx}>
+    <Context value={ctxValue}>
       <Select.Context value={selected} onSelect={setSelected}>
         <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
           {children}
