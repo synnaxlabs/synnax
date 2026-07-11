@@ -8,12 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, screen } from "@testing-library/react";
-import {
-  type MouseEventHandler,
-  type ReactElement,
-  useEffect,
-  useState,
-} from "react";
+import { type MouseEventHandler, type ReactElement, useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Select } from "@/select/base";
@@ -311,29 +306,31 @@ describe("Tabs", () => {
 
   describe("Close", () => {
     const ClosableTabs = ({ onClose }: BasicTabsProps): ReactElement => {
-      const close = (key: string): MouseEventHandler => (e) => {
-        e.stopPropagation();
-        onClose?.(key);
-      };
+      const close =
+        (key: string): MouseEventHandler =>
+        (e) => {
+          e.stopPropagation();
+          onClose?.(key);
+        };
       return (
-      <Tabs.Frame initialValue="a">
-        <Tabs.Selector>
-          <Tabs.Tab itemKey="a">
-            Tab A
-            <Tabs.Close onClick={close("a")} />
-          </Tabs.Tab>
-          <Tabs.Tab itemKey="b">
-            Tab B
-            <Tabs.Close onClick={close("b")} />
-          </Tabs.Tab>
-        </Tabs.Selector>
-        <Tabs.Content itemKey="a">
-          <span>Content A</span>
-        </Tabs.Content>
-        <Tabs.Content itemKey="b">
-          <span>Content B</span>
-        </Tabs.Content>
-      </Tabs.Frame>
+        <Tabs.Frame initialValue="a">
+          <Tabs.Selector>
+            <Tabs.Tab itemKey="a">
+              Tab A
+              <Tabs.Close onClick={close("a")} />
+            </Tabs.Tab>
+            <Tabs.Tab itemKey="b">
+              Tab B
+              <Tabs.Close onClick={close("b")} />
+            </Tabs.Tab>
+          </Tabs.Selector>
+          <Tabs.Content itemKey="a">
+            <span>Content A</span>
+          </Tabs.Content>
+          <Tabs.Content itemKey="b">
+            <span>Content B</span>
+          </Tabs.Content>
+        </Tabs.Frame>
       );
     };
 
