@@ -9,12 +9,11 @@
 
 import "@/tabs/Tabs.css";
 
-import { type ReactElement, useCallback, useId, useMemo } from "react";
+import { type ReactElement, useId, useMemo } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks";
 import { Select } from "@/select/base";
 import { state } from "@/state";
 
@@ -73,14 +72,6 @@ export const Frame = ({
     value,
     onChange,
   });
-  const valueRef = useSyncedRef(value);
-  const handleChange = useCallback(
-    (key: string): void => {
-      setSelected(key);
-      if (valueRef.current == null) onChange?.(key);
-    },
-    [setSelected, onChange],
-  );
   const ctx = useMemo<ContextValue>(
     () => ({
       onClose,
@@ -92,7 +83,7 @@ export const Frame = ({
   );
   return (
     <Context value={ctx}>
-      <Select.Context value={selected} onSelect={handleChange}>
+      <Select.Context value={selected} onSelect={setSelected}>
         <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
           {children}
         </Flex.Box>
