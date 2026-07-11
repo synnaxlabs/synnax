@@ -194,10 +194,10 @@ describe("Tabs", () => {
         <Tabs.Frame initialValue="a" onRename={onRename}>
           <Tabs.Selector>
             <Tabs.Tab itemKey="a">
-              <Tabs.Editable value="Tab A" />
+              <Tabs.Name value="Tab A" />
             </Tabs.Tab>
             <Tabs.Tab itemKey="b">
-              <Tabs.Editable value="Tab B" />
+              <Tabs.Name value="Tab B" />
             </Tabs.Tab>
           </Tabs.Selector>
         </Tabs.Frame>,
@@ -326,8 +326,8 @@ describe("Tabs", () => {
     });
   });
 
-  describe("Editable", () => {
-    const EditableTabs = ({
+  describe("Name", () => {
+    const NameTabs = ({
       onRename,
     }: {
       onRename?: (key: string, name: string) => void;
@@ -335,7 +335,7 @@ describe("Tabs", () => {
       <Tabs.Frame initialValue="a" onRename={onRename}>
         <Tabs.Selector>
           <Tabs.Tab itemKey="a">
-            <Tabs.Editable value="Tab A" />
+            <Tabs.Name value="Tab A" />
           </Tabs.Tab>
         </Tabs.Selector>
       </Tabs.Frame>
@@ -343,7 +343,7 @@ describe("Tabs", () => {
 
     it("should commit a rename to the Frame's onRename when Enter is pressed", () => {
       const onRename = vi.fn();
-      render(<EditableTabs onRename={onRename} />);
+      render(<NameTabs onRename={onRename} />);
       const name = screen.getByText("Tab A");
       fireEvent.dblClick(name);
       name.innerText = "Renamed";
@@ -352,12 +352,12 @@ describe("Tabs", () => {
     });
 
     it("should keep the pluto-tab id used by programmatic rename triggers", () => {
-      render(<EditableTabs onRename={vi.fn()} />);
+      render(<NameTabs onRename={vi.fn()} />);
       expect(screen.getByText("Tab A").id).toEqual("pluto-tab-a");
     });
 
     it("should render static text when the Frame has no onRename", () => {
-      render(<EditableTabs />);
+      render(<NameTabs />);
       const name = screen.getByText("Tab A");
       fireEvent.dblClick(name);
       expect(name.getAttribute("contenteditable")).not.toBe("true");

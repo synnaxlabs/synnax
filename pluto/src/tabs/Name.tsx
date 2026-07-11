@@ -16,18 +16,18 @@ import { useSelectorContext } from "@/tabs/Selector";
 import { useTabContext } from "@/tabs/Tab";
 import { Text } from "@/text";
 
-export interface EditableProps extends Omit<Text.EditableProps, "onChange"> {}
+export interface NameProps extends Omit<Text.EditableProps, "onChange"> {}
 
 /**
- * Editable renders a tab's name inside a Tab, wired to the enclosing Frame's
- * onRename handler: double-clicking enters edit mode and committing calls
- * onRename with the tab's key and the new name. When the Frame has no onRename
+ * Name renders a tab's name inside a Tab. When the enclosing Frame has an onRename
+ * handler, the name becomes editable: double-clicking enters edit mode and committing
+ * calls onRename with the tab's key and the new name. When the Frame has no onRename
  * handler, the name renders as static text.
  */
-export const Editable = ({ value, level, ...rest }: EditableProps): ReactElement => {
-  const { onRename } = useFrameContext("Tabs.Editable");
-  const { itemKey } = useTabContext("Tabs.Editable");
-  const { size } = useSelectorContext("Tabs.Editable");
+export const Name = ({ value, level, ...rest }: NameProps): ReactElement => {
+  const { onRename } = useFrameContext("Tabs.Name");
+  const { itemKey } = useTabContext("Tabs.Name");
+  const { size } = useSelectorContext("Tabs.Name");
   level ??= SIZE_TEXT_LEVELS[size];
   if (onRename == null)
     return (

@@ -208,7 +208,7 @@ const TabNameContent = ({ tab, onCommit }: TabNameContentProps): ReactElement =>
         overflow="ellipsis"
       />
     );
-  else text = <Tabs.Editable value={name} />;
+  else text = <Tabs.Name value={name} />;
   return (
     <>
       {resolvedIcon != null && Icon.resolve(resolvedIcon)}

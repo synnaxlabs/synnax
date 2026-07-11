@@ -21,7 +21,7 @@ import { state } from "@/state";
 export interface ContextValue {
   /** onClose is the Frame-level close handler invoked by {@link Close} parts. */
   onClose?: (key: string) => void;
-  /** onRename is the Frame-level rename handler invoked by {@link Editable} parts. */
+  /** onRename is the Frame-level rename handler invoked by {@link Name} parts. */
   onRename?: (key: string, name: string) => void;
   /** getTabID returns the DOM id of the tab element for the given key. */
   getTabID: (key: string) => string;
@@ -45,14 +45,14 @@ export interface FrameProps extends Omit<Flex.BoxProps, "onChange" | "onSelect">
   onChange?: (key: string) => void;
   /** onClose is called with a tab's key when its {@link Close} part is clicked. */
   onClose?: (key: string) => void;
-  /** onRename is called when a tab's {@link Editable} part commits a new name. */
+  /** onRename is called when a tab's {@link Name} part commits a new name. */
   onRename?: (key: string, name: string) => void;
 }
 
 /**
  * Frame is the root of a composed tabbed interface. It owns the selected tab key
  * (controlled via value/onChange or uncontrolled via initialValue) and distributes
- * the close and rename handlers to Close and Editable parts rendered within it.
+ * the close and rename handlers to Close and Name parts rendered within it.
  * Selection state is available to descendants through the Selection package, so
  * only the tabs whose selected state changes re-render.
  */

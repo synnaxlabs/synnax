@@ -9,8 +9,8 @@
 
 export { Close, type CloseProps } from "@/tabs/Close";
 export { Content, type ContentProps } from "@/tabs/Content";
-export { Editable, type EditableProps } from "@/tabs/Editable";
 export { Frame, type FrameProps } from "@/tabs/Frame";
+export { Name, type NameProps } from "@/tabs/Name";
 export {
   getInsertionIndex,
   InsertionIndexProvider,
