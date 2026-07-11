@@ -17,7 +17,6 @@ import {
   List,
   Menu,
   Select,
-  Selection,
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
@@ -99,7 +98,7 @@ export const StaticStageList = ({
 const groupListItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { itemKey } = props;
   const group = List.useItem<string, Arc.Graph.Node.Group>(itemKey);
-  const { selected, onSelect } = Selection.useItemState(itemKey);
+  const { selected, onSelect } = Select.useItemState(itemKey);
   if (group == null) return null;
   const { Icon, name } = group;
   return (

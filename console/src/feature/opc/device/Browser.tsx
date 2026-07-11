@@ -20,7 +20,7 @@ import {
   Header,
   Icon,
   List,
-  Selection,
+  Select,
   Status,
   Text,
   TimeSpan,
@@ -73,7 +73,7 @@ const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
 
 const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>) => {
   const node = List.useItem<string, ScannedNode>(props.itemKey);
-  const { getState } = Selection.useContext<string>();
+  const { getState } = Select.useContext<string>();
   const { getItem } = List.useUtilContext<string, ScannedNode>();
   const { startDrag } = Haul.useDrag({
     type: HAUL_TYPE,

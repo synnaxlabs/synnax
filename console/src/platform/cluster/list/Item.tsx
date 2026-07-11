@@ -9,16 +9,7 @@
 
 import "@/platform/cluster/list/List.css";
 
-import {
-  Cluster,
-  Flex,
-  List,
-  Selection,
-  Status,
-  Synnax,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Cluster, Flex, List, Status, Synnax, Text, Tooltip, Select } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
@@ -38,7 +29,7 @@ const Base = ({
   ...rest
 }: ListItemProps): ReactElement | null => {
   const dispatch = Session.useDispatch();
-  const { selected, onSelect } = Selection.useItemState(rest.itemKey);
+  const { selected, onSelect } = Select.useItemState(rest.itemKey);
   const handleChange = (value: string) => {
     if (!validateName(value) || item == null) return;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));

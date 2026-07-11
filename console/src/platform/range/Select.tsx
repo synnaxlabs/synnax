@@ -15,7 +15,6 @@ import {
   List,
   Ranger,
   Select,
-  Selection,
   Tag,
   Telem,
   Text,
@@ -82,7 +81,7 @@ interface RenderTagProps {
 
 const RangeTag = ({ itemKey }: RenderTagProps): ReactElement | null => {
   const range = Session.Range.useSelectState(itemKey);
-  const { onSelect } = Selection.useItemState(itemKey);
+  const { onSelect } = Select.useItemState(itemKey);
   return (
     <Tag.Tag
       icon={range?.variant === "dynamic" ? dynamicIcon : <Icon.Range />}

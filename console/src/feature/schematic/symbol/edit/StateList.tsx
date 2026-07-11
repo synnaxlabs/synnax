@@ -8,22 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import {
-  Button,
-  Component,
-  Form,
-  type Input,
-  List,
-  Select,
-  Selection,
-} from "@synnaxlabs/pluto";
+import { Button, Component, Form, type Input, List, Select } from "@synnaxlabs/pluto";
 
 interface StateListProps extends Input.Control<string> {}
 
 const StateListItem = (props: List.ItemRenderProps<string>) => {
   const { itemKey } = props;
   const state = Form.useFieldValue<schematic.symbol.State>(`data.states.${itemKey}`);
-  const { selected, onSelect } = Selection.useItemState(itemKey);
+  const { selected, onSelect } = Select.useItemState(itemKey);
   if (state == null) return null;
   return (
     <Button.Button
