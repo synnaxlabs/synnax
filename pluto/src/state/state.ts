@@ -70,23 +70,35 @@ export interface UsePassthroughProps<NextState extends State> {
   onChange?: Setter<NextState>;
 }
 
+// usePassthrough always notifies onChange of a change, whether or not the state is
+// controlled: value decides who owns the state, not who hears about it. In
+// uncontrolled mode the setter's argument is forwarded to onChange as-is, matching
+// controlled mode, where onChange is the setter and receives function updaters
+// directly.
 export const usePassthrough = <NextState extends State>({
   initial,
   value,
   onChange,
 }: UsePassthroughProps<NextState>): UseReturn<NextState> => {
   const [internal, setInternal] = useState(value ?? initial);
+  const setAndNotify = useCallback(
+    (arg: SetArg<NextState>) => {
+      setInternal(arg);
+      onChange?.(arg);
+    },
+    [onChange],
+  );
   if (value != null && onChange != null) return [value, onChange];
-  return [internal, setInternal];
+  return [internal, setAndNotify];
 };
 
 export interface UsePurePassthroughProps<NextState extends State> {
   initialValue: Initial<NextState>;
   value?: NextState;
   onChange?: PureSetter<NextState>;
-  callOnChangeIfValueIsUndefined?: boolean;
 }
 
+// usePurePassthrough has the same notification contract as usePassthrough.
 export const usePurePassthrough = <NextState extends State>({
   initialValue,
   value,
@@ -95,8 +107,8 @@ export const usePurePassthrough = <NextState extends State>({
   const [internal, setInternal] = useState<NextState>(
     executeInitialSetter(value ?? initialValue),
   );
-  const setAndNotify = useCallback<PureSetter<NextState>>(
-    (next) => {
+  const setAndNotify = useCallback(
+    (next: NextState) => {
       setInternal(next);
       onChange?.(next);
     },

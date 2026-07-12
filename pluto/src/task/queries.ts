@@ -323,7 +323,7 @@ export type DeleteParams = task.Key | task.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = task.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
@@ -333,6 +333,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const statusKeys = keys.map((key) => task.statusKey(key));
     rollbacks.push(store.statuses.delete(statusKeys));
     // Task client will automatically handle the deletion of the statuses.
+    await onOptimisticComplete(data);
     await client.tasks.delete(keys);
     return data;
   },
@@ -374,6 +375,7 @@ export const rename = async (
     data,
     rollbacks,
     store,
+    onOptimisticComplete,
     data: { key, name },
   } = params;
   rollbacks.push(
@@ -383,6 +385,7 @@ export const rename = async (
     ),
   );
   rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
+  await onOptimisticComplete(data);
   const t = await retrieveSingle({ ...params, query: { key } });
   await client.tasks.create({ ...t.payload, name });
   return data;
