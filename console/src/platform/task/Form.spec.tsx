@@ -10,7 +10,7 @@
 import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/pluto";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { type FC } from "react";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -18,6 +18,7 @@ import { z } from "zod";
 import { Task } from "@/platform/task";
 import {
   awaitTaskKey,
+  clickConfigure,
   renderTaskFormHook,
   renderTaskFormView,
   selectViewArgs,
@@ -125,7 +126,7 @@ describe("wrapForm", () => {
         onConfigure: async (_client, config) => [config, rack.key],
       });
       const result = await renderTaskFormView(Renderer, "test_task", { client });
-      fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
+      await clickConfigure();
       const taskKey = await awaitTaskKey(result);
       const created = await client.tasks.retrieve({ key: taskKey });
       expect(created.name).toBe("New Test Task");
