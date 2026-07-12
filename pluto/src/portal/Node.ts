@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useLayoutEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-
 type NodeProps = Record<string, string>;
 
+/**
+ * Node owns a persistent detached element that In renders content into and Out
+ * hosts in the DOM. Because the element is moved between hosts rather than
+ * recreated, its contents (DOM state, WebGL contexts) survive re-parenting.
+ */
 export class Node {
+  /** parent is the element currently hosting el, if any. */
   parent: ParentNode | undefined;
+  /** stub is the placeholder el replaced in its current host, if any. */
   stub: HTMLElement | undefined;
+  /** el is the persistent element content renders into. */
   el: HTMLElement;
 
   constructor(props: NodeProps = {}) {
@@ -22,6 +27,11 @@ export class Node {
     Object.entries(props).forEach(([k, v]) => this.el.setAttribute(k, v));
   }
 
+  /**
+   * mount swaps el in for stub under to. Mounting onto the stub el already
+   * occupies is a no-op; mounting onto a new stub releases the previous host
+   * first.
+   */
   mount(to: ParentNode, stub: HTMLElement): void {
     if (stub === this.stub) return;
     this.unmount(null);
@@ -30,6 +40,10 @@ export class Node {
     this.stub = stub;
   }
 
+  /**
+   * unmount restores stub in el's place, releasing el from its host. Pass null
+   * to release unconditionally.
+   */
   unmount(stub: HTMLElement | null): void {
     // Skip unmounts for placeholders that aren't currently mounted
     // They will have been automatically unmounted already by a subsequent mount()
@@ -44,43 +58,3 @@ export class Node {
     this.stub = undefined;
   }
 }
-
-export interface OutProps {
-  node: Node;
-}
-
-export const Out = ({ node }: OutProps): React.ReactElement => {
-  const stub = useRef<HTMLDivElement>(null);
-  const portal = useRef<Node>(node);
-  useLayoutEffect(() => {
-    const placeholder = stub.current;
-    if (placeholder == null) return;
-    const parent = placeholder.parentNode;
-    if (parent == null) return;
-    node.mount(parent, placeholder);
-    // Release portal.current, not the closed-over node: the prop may have
-    // been swapped since mount.
-    return () => {
-      if (stub.current != null) portal.current.unmount(stub.current);
-    };
-  }, []);
-  useLayoutEffect(() => {
-    if (portal.current != null && node !== portal.current) {
-      portal.current.unmount(stub.current);
-      portal.current = node;
-    }
-    const placeholder = stub.current;
-    if (placeholder == null) return;
-    const parent = placeholder.parentNode;
-    if (parent == null) return;
-    node.mount(parent, placeholder);
-  }, [node]);
-  return <div ref={stub} />;
-};
-
-interface InProps extends OutProps {
-  children: React.ReactNode;
-}
-
-export const In = ({ node, children }: InProps): React.ReactElement =>
-  createPortal(children, node.el);

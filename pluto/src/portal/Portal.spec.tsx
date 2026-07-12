@@ -9,7 +9,7 @@
 
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Portal } from "@/portal";
 
@@ -18,6 +18,26 @@ const newStub = (parent: HTMLElement): HTMLElement => {
   parent.appendChild(stub);
   return stub;
 };
+
+interface HarnessProps {
+  keys: string[];
+  host?: string | null;
+  attrs?: Record<string, string>;
+  onClick?: (key: string) => void;
+}
+
+const Harness = ({ keys, host, attrs, onClick }: HarnessProps): ReactElement => (
+  <Portal.Provider>
+    {keys.map((key) => (
+      <Portal.In key={key} itemKey={key} attrs={attrs} onClick={onClick}>
+        <p>content-{key}</p>
+      </Portal.In>
+    ))}
+    <section aria-label="host">
+      {host !== undefined && <Portal.Out itemKey={host} />}
+    </section>
+  </Portal.Provider>
+);
 
 describe("Portal", () => {
   describe("Node", () => {
@@ -95,85 +115,107 @@ describe("Portal", () => {
     });
   });
 
-  describe("Out", () => {
-    it("should host the node's element where it renders", () => {
-      const node = new Portal.Node();
-      const { container } = render(<Portal.Out node={node} />);
-      expect(container.contains(node.el)).toBe(true);
+  describe("In", () => {
+    it("should render children detached while no Out hosts the key", () => {
+      render(<Harness keys={["a"]} />);
+      expect(screen.queryByText("content-a")).toBeNull();
     });
 
-    it("should release the node's element when unmounted", () => {
-      const node = new Portal.Node();
-      const { container, unmount } = render(<Portal.Out node={node} />);
-      unmount();
-      expect(node.el.parentNode).toBeNull();
-      expect(container.childNodes).toHaveLength(0);
+    it("should apply attrs to the content's element", () => {
+      render(<Harness keys={["a"]} host="a" attrs={{ style: "width: 100%;" }} />);
+      const el = screen.getByText("content-a").parentElement;
+      expect(el?.getAttribute("style")).toEqual("width: 100%;");
     });
 
-    it("should swap elements when the node prop changes", () => {
-      const first = new Portal.Node();
-      const second = new Portal.Node();
-      const { container, rerender } = render(<Portal.Out node={first} />);
-      expect(container.contains(first.el)).toBe(true);
-
-      rerender(<Portal.Out node={second} />);
-
-      expect(container.contains(second.el)).toBe(true);
-      expect(first.el.parentNode).toBeNull();
-    });
-
-    it("should release the current node when unmounted after a swap", () => {
-      const first = new Portal.Node();
-      const second = new Portal.Node();
-      const { container, rerender, unmount } = render(<Portal.Out node={first} />);
-      rerender(<Portal.Out node={second} />);
-
-      unmount();
-
-      expect(second.el.parentNode).toBeNull();
-      expect(container.childNodes).toHaveLength(0);
+    it("should throw when rendered outside a Provider", () => {
+      expect(() => render(<Portal.In itemKey="a">content</Portal.In>)).toThrow(
+        "Portal.In must be used within Portal.Provider",
+      );
     });
   });
 
-  describe("In", () => {
-    it("should render children into the node's element while detached", () => {
-      const node = new Portal.Node();
-      render(<Portal.In node={node}>detached content</Portal.In>);
-      expect(node.el.textContent).toEqual("detached content");
-      expect(screen.queryByText("detached content")).toBeNull();
+  describe("Out", () => {
+    it("should host the content registered under its key", () => {
+      render(<Harness keys={["a", "b"]} host="a" />);
+      const host = screen.getByRole("region", { name: "host" });
+      expect(host.contains(screen.getByText("content-a"))).toBe(true);
+      expect(screen.queryByText("content-b")).toBeNull();
     });
 
-    it("should make children visible once an Out hosts the node", () => {
-      const node = new Portal.Node();
+    it("should host content regardless of mount order", () => {
+      // The Out renders before the In in tree order, so it resolves the node
+      // only after the In registers it within the same commit.
       render(
-        <>
-          <Portal.In node={node}>hosted content</Portal.In>
-          <Portal.Out node={node} />
-        </>,
+        <Portal.Provider>
+          <Portal.Out itemKey="a" />
+          <Portal.In itemKey="a">late content</Portal.In>
+        </Portal.Provider>,
       );
-      expect(screen.getByText("hosted content")).toBeTruthy();
+      expect(screen.getByText("late content")).toBeTruthy();
+    });
+
+    it("should render an empty placeholder when the key is null", () => {
+      render(<Harness keys={["a"]} host={null} />);
+      const host = screen.getByRole("region", { name: "host" });
+      expect(host.textContent).toEqual("");
+    });
+
+    it("should render an empty placeholder for an unregistered key", () => {
+      render(<Harness keys={["a"]} host="missing" />);
+      const host = screen.getByRole("region", { name: "host" });
+      expect(host.textContent).toEqual("");
+    });
+
+    it("should swap content when the key changes", () => {
+      const { rerender } = render(<Harness keys={["a", "b"]} host="a" />);
+      expect(screen.getByText("content-a")).toBeTruthy();
+
+      rerender(<Harness keys={["a", "b"]} host="b" />);
+
+      expect(screen.getByText("content-b")).toBeTruthy();
+      expect(screen.queryByText("content-a")).toBeNull();
+    });
+
+    it("should release the content when unmounted", () => {
+      const { rerender } = render(<Harness keys={["a"]} host="a" />);
+      rerender(<Harness keys={["a"]} />);
+      expect(screen.queryByText("content-a")).toBeNull();
+    });
+
+    it("should release the content when its In unmounts while hosted", () => {
+      const { rerender } = render(<Harness keys={["a"]} host="a" />);
+      expect(screen.getByText("content-a")).toBeTruthy();
+
+      rerender(<Harness keys={[]} host="a" />);
+
+      expect(screen.queryByText("content-a")).toBeNull();
+    });
+
+    it("should throw when rendered outside a Provider", () => {
+      expect(() => render(<Portal.Out itemKey="a" />)).toThrow(
+        "Portal.Out must be used within Portal.Provider",
+      );
     });
   });
 
   describe("content lifetime", () => {
     interface LayoutProps {
       slot: "a" | "b";
-      node: Portal.Node;
       children: React.ReactNode;
     }
 
-    // Layout mirrors the mosaic's usage: content renders into the node once via
+    // Layout mirrors the mosaic's usage: content renders into its key once via
     // In, while the hosting Out moves between regions as the tree restructures.
-    const Layout = ({ slot, node, children }: LayoutProps): ReactElement => (
-      <>
-        <Portal.In node={node}>{children}</Portal.In>
+    const Layout = ({ slot, children }: LayoutProps): ReactElement => (
+      <Portal.Provider>
+        <Portal.In itemKey="tab">{children}</Portal.In>
         <section aria-label="region a">
-          {slot === "a" && <Portal.Out node={node} />}
+          {slot === "a" && <Portal.Out itemKey="tab" />}
         </section>
         <section aria-label="region b">
-          {slot === "b" && <Portal.Out node={node} />}
+          {slot === "b" && <Portal.Out itemKey="tab" />}
         </section>
-      </>
+      </Portal.Provider>
     );
 
     const Counter = (): ReactElement => {
@@ -182,52 +224,77 @@ describe("Portal", () => {
     };
 
     it("should move content between hosts without losing React state", () => {
-      const node = new Portal.Node();
       const { rerender } = render(
-        <Layout slot="a" node={node}>
+        <Layout slot="a">
           <Counter />
         </Layout>,
       );
 
       fireEvent.click(screen.getByRole("button"));
-      expect(screen.getByText("count:1")).toBeTruthy();
-      expect(screen.getByRole("region", { name: "region a" }).contains(node.el)).toBe(
+      const counter = screen.getByText("count:1");
+      expect(screen.getByRole("region", { name: "region a" }).contains(counter)).toBe(
         true,
       );
 
       rerender(
-        <Layout slot="b" node={node}>
+        <Layout slot="b">
           <Counter />
         </Layout>,
       );
 
-      expect(screen.getByText("count:1")).toBeTruthy();
-      expect(screen.getByRole("region", { name: "region b" }).contains(node.el)).toBe(
+      expect(screen.getByText("count:1")).toBe(counter);
+      expect(screen.getByRole("region", { name: "region b" }).contains(counter)).toBe(
         true,
       );
     });
 
     it("should leave the active host in place when a stale Out unmounts", () => {
-      const node = new Portal.Node();
       const Both = ({ withA }: { withA: boolean }): ReactElement => (
-        <>
-          <section aria-label="region a">{withA && <Portal.Out node={node} />}</section>
-          <section aria-label="region b">
-            <Portal.Out node={node} />
+        <Portal.Provider>
+          <Portal.In itemKey="tab">content</Portal.In>
+          <section aria-label="region a">
+            {withA && <Portal.Out itemKey="tab" />}
           </section>
-        </>
+          <section aria-label="region b">
+            <Portal.Out itemKey="tab" />
+          </section>
+        </Portal.Provider>
       );
-      // Region b's Out mounts last, so it hosts the node.
+      // Region b's Out mounts last, so it hosts the content.
       const { rerender } = render(<Both withA />);
-      expect(screen.getByRole("region", { name: "region b" }).contains(node.el)).toBe(
-        true,
-      );
+      expect(
+        screen
+          .getByRole("region", { name: "region b" })
+          .contains(screen.getByText("content")),
+      ).toBe(true);
 
       rerender(<Both withA={false} />);
 
-      expect(screen.getByRole("region", { name: "region b" }).contains(node.el)).toBe(
-        true,
-      );
+      expect(
+        screen
+          .getByRole("region", { name: "region b" })
+          .contains(screen.getByText("content")),
+      ).toBe(true);
+    });
+  });
+
+  describe("onClick", () => {
+    it("should invoke onClick with the key when the hosted content is clicked", () => {
+      const onClick = vi.fn();
+      render(<Harness keys={["a"]} host="a" onClick={onClick} />);
+      fireEvent.click(screen.getByText("content-a"));
+      expect(onClick).toHaveBeenCalledTimes(1);
+      expect(onClick).toHaveBeenCalledWith("a");
+    });
+
+    it("should invoke the latest onClick handler after re-renders", () => {
+      const first = vi.fn();
+      const second = vi.fn();
+      const { rerender } = render(<Harness keys={["a"]} host="a" onClick={first} />);
+      rerender(<Harness keys={["a"]} host="a" onClick={second} />);
+      fireEvent.click(screen.getByText("content-a"));
+      expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalledWith("a");
     });
   });
 });

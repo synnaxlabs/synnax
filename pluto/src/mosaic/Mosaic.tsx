@@ -422,11 +422,11 @@ export const usePortal = ({
       }
       existing.add(tab.tabKey);
       return (
-        <Portal.In key={tab.tabKey} node={pNode}>
+        <Portal.Legacy.In key={tab.tabKey} node={pNode}>
           <Errors.Boundary>
             {children({ ...tab, visible: tab.tabKey === node.selected })}
           </Errors.Boundary>
-        </Portal.In>
+        </Portal.Legacy.In>
       );
     }),
   )

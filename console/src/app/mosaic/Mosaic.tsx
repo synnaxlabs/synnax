@@ -167,7 +167,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
             </>
           )}
         </Nav.Bar>
-        <Portal.Out node={node} />
+        <Portal.Legacy.Out node={node} />
       </Dialog.Dialog>
     </Dialog.Frame>
   );

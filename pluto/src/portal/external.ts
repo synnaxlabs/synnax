@@ -7,4 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Portal from "@/portal/external";
+export * from "@/portal/In";
+export * as Legacy from "@/portal/legacy";
+export * from "@/portal/Node";
+export * from "@/portal/Out";
+export * from "@/portal/Provider";
