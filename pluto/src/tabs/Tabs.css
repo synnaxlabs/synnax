@@ -58,6 +58,17 @@
     }
 }
 
+.pluto-tabs__tab {
+    transition: transform 0.15s ease;
+}
+
+/* The dragged tab is hidden while its ghost floats; its slot stays so the shift keeps
+   the strip's width constant. */
+.pluto-tabs__tab--hauled {
+    opacity: 0;
+    transition: none;
+}
+
 .pluto-tabs__tab .pluto-text {
     overflow-x: hidden;
     text-overflow: ellipsis;
@@ -99,7 +110,8 @@
         transition:
             box-shadow 0.15s,
             background 0.15s ease-in-out,
-            border-color 0.15s ease-in-out;
+            border-color 0.15s ease-in-out,
+            transform 0.15s ease;
 
         > .pluto-icon {
             flex-shrink: 0;

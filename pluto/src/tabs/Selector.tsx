@@ -14,6 +14,8 @@ import {
   type KeyboardEventHandler,
   type ReactElement,
   useCallback,
+  useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -73,15 +75,14 @@ const getInsertionIndex = (selector: Element, cursor: xy.Crude): number => {
 
 /**
  * getIndicatorOffset returns the pixel offset, along the strip's main axis, of the
- * drop indicator for a tab dropped at the given cursor position: the leading edge of
- * the tab at the insertion index, or the trailing edge of the last tab past the end.
+ * drop indicator for the given insertion index: the leading edge of the tab at the
+ * index, or the trailing edge of the last tab past the end.
  */
 const getIndicatorOffset = (
   selector: HTMLElement,
-  cursor: xy.Crude,
+  index: number,
   horizontal: boolean,
 ): number => {
-  const index = getInsertionIndex(selector, cursor);
   const tabs = selector.querySelectorAll<HTMLElement>(TAB_SELECTOR);
   if (tabs.length === 0) return 0;
   if (index < tabs.length) {
@@ -92,6 +93,60 @@ const getIndicatorOffset = (
   return horizontal
     ? last.offsetLeft + last.offsetWidth
     : last.offsetTop + last.offsetHeight;
+};
+
+const mainAxisSize = (el: HTMLElement, horizontal: boolean): number =>
+  horizontal ? el.offsetWidth : el.offsetHeight;
+
+/** Class marking the source tab whose slot is lifted out during a reorder drag. */
+const HAULED_CLASS = CSS.BEM("tabs", "tab", "hauled");
+
+/**
+ * applyReorderPreview shifts the strip's tabs to open a gap for a same-strip drag,
+ * mirroring the reorder a drop at index would produce, and lifts the source tab out.
+ * Returns false when draggedKey names no tab here, so the caller can fall back to the
+ * insertion indicator.
+ */
+const applyReorderPreview = (
+  selector: HTMLElement,
+  index: number,
+  draggedKey: string,
+  horizontal: boolean,
+): boolean => {
+  const tabs = Array.from(selector.querySelectorAll<HTMLElement>(TAB_SELECTOR));
+  const dragged = tabs.findIndex((t) => t.getAttribute("data-tab-key") === draggedKey);
+  if (dragged === -1) return false;
+  const gap = mainAxisSize(tabs[dragged], horizontal);
+  const axis = horizontal ? "X" : "Y";
+  tabs.forEach((tab, i) => {
+    if (i === dragged) {
+      tab.classList.add(HAULED_CLASS);
+      tab.style.transform = "";
+      return;
+    }
+    let shift = 0;
+    if (dragged < i && i < index) shift = -gap;
+    else if (index <= i && i < dragged) shift = gap;
+    tab.style.transform = shift === 0 ? "" : `translate${axis}(${shift}px)`;
+  });
+  return true;
+};
+
+/**
+ * resetTabs clears the transforms applyReorderPreview set. snap suppresses the
+ * transition so a dropped reorder lands without the tabs sliding back from their old
+ * layout; without it the reset animates, closing the gap for a cancelled drag.
+ */
+const resetTabs = (selector: HTMLElement, snap: boolean): void => {
+  const tabs = Array.from(selector.querySelectorAll<HTMLElement>(TAB_SELECTOR));
+  if (snap) tabs.forEach((tab) => (tab.style.transition = "none"));
+  tabs.forEach((tab) => {
+    tab.classList.remove(HAULED_CLASS);
+    tab.style.transform = "";
+  });
+  if (!snap) return;
+  void selector.offsetHeight;
+  tabs.forEach((tab) => (tab.style.transition = ""));
 };
 
 /** The dragging state a strip drop reports, plus the resolved insertion index. */
@@ -187,6 +242,11 @@ export const Selector = ({
   );
 
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
+  // The applied shift (insertion index + dragged key), or null when none. Doubles as
+  // an early-out so a dragover that stays in slot skips rewriting the transforms.
+  const previewRef = useRef<{ index: number; key: string } | null>(null);
+  // Set on a drop over a live preview so the layout effect snaps the transforms away.
+  const committingRef = useRef(false);
 
   const handleCanDrop = useCallback<Haul.CanDrop>(
     (state) => {
@@ -198,20 +258,37 @@ export const Selector = ({
   );
 
   const handleDragOver = useCallback(
-    ({ event }: Haul.OnDragOverProps): void => {
+    ({ event, items }: Haul.OnDragOverProps): void => {
       const el = internalRef.current;
       if (event == null || el == null) return;
-      const cursor = { x: event.clientX, y: event.clientY };
-      setIndicatorOffset(getIndicatorOffset(el, cursor, horizontal));
+      const index = getInsertionIndex(el, { x: event.clientX, y: event.clientY });
+      const [dragged] = Haul.filterByType(haulType, items);
+      const key = dragged == null ? null : String(dragged.key);
+      const prev = previewRef.current;
+      if (prev != null && key != null && prev.index === index && prev.key === key)
+        return;
+      if (key != null && applyReorderPreview(el, index, key, horizontal)) {
+        previewRef.current = { index, key };
+        setIndicatorOffset(null);
+      } else {
+        previewRef.current = null;
+        setIndicatorOffset(getIndicatorOffset(el, index, horizontal));
+      }
     },
-    [horizontal],
+    [haulType, horizontal],
   );
 
   const handleDrop = useCallback<Haul.OnDrop>(
     (params) => {
       const el = internalRef.current;
       setIndicatorOffset(null);
-      if (params.event == null || el == null || onDrop == null) return [];
+      committingRef.current = previewRef.current != null;
+      previewRef.current = null;
+      if (params.event == null || el == null || onDrop == null) {
+        committingRef.current = false;
+        if (el != null) resetTabs(el, false);
+        return [];
+      }
       const cursor = { x: params.event.clientX, y: params.event.clientY };
       return onDrop({ ...params, index: getInsertionIndex(el, cursor) });
     },
@@ -228,10 +305,45 @@ export const Selector = ({
   const handleDragLeave = useCallback<DragEventHandler<HTMLDivElement>>(
     (e) => {
       onDragLeave?.(e);
+      const el = internalRef.current;
+      // dragleave also fires crossing onto a child tab; reset only on a true leave so
+      // the preview doesn't flicker on every crossing.
+      if (el != null && e.relatedTarget instanceof Node && el.contains(e.relatedTarget))
+        return;
       setIndicatorOffset(null);
+      if (el != null && previewRef.current != null) {
+        resetTabs(el, false);
+        previewRef.current = null;
+      }
     },
     [onDragLeave],
   );
+
+  // Snap the transforms away the frame a dropped reorder commits, before paint, so the
+  // new order with stale transforms never shows.
+  useLayoutEffect(() => {
+    const el = internalRef.current;
+    if (el == null || !committingRef.current) return;
+    committingRef.current = false;
+    resetTabs(el, true);
+  });
+
+  // Cleanup for a drag that ends without dropping here (Escape, dropped outside). The
+  // drop path handles its own preview, so skip while a commit is pending.
+  const dragging = Haul.useDraggingState();
+  const wasDragging = useRef(false);
+  useEffect(() => {
+    const active = dragging.items.length > 0;
+    const ended = wasDragging.current && !active;
+    wasDragging.current = active;
+    if (!ended) return;
+    setIndicatorOffset(null);
+    const el = internalRef.current;
+    if (el != null && previewRef.current != null && !committingRef.current) {
+      resetTabs(el, false);
+      previewRef.current = null;
+    }
+  }, [dragging]);
 
   const indicatorStyle: CSSProperties | undefined =
     indicatorOffset == null

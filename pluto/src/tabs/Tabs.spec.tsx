@@ -441,8 +441,14 @@ describe("Tabs", () => {
     };
 
     const DragSource = ({ items }: { items: Haul.Item[] }): ReactElement => {
-      const { startDrag } = Haul.useDrag({ type: "source", key: "source" });
-      return <button data-testid="drag-source" onClick={() => startDrag(items)} />;
+      const { startDrag, onDragEnd } = Haul.useDrag({ type: "source", key: "source" });
+      return (
+        <button
+          data-testid="drag-source"
+          onClick={() => startDrag(items)}
+          onDragEnd={onDragEnd}
+        />
+      );
     };
 
     interface DragTabsProps {
@@ -566,6 +572,109 @@ describe("Tabs", () => {
       expect(indicator()).toBeNull();
       fireDragEvent("drop", 150);
       expect(onDrop).not.toHaveBeenCalled();
+    });
+
+    describe("reorder preview", () => {
+      const HAULED = "pluto-tabs__tab--hauled";
+
+      const tabByKey = (key: string): HTMLElement =>
+        screen
+          .getByRole("tablist")
+          .querySelector<HTMLElement>(`[data-tab-key="${key}"]`)!;
+
+      // jsdom reports offsetWidth as 0, so the shift distance would collapse; stub the
+      // tabs to a uniform 100px, matching the stubbed strip rects.
+      const beginReorder = (): void => {
+        beginDrag();
+        screen
+          .getByRole("tablist")
+          .querySelectorAll<HTMLElement>("[data-tab-key]")
+          .forEach((t) =>
+            Object.defineProperty(t, "offsetWidth", { configurable: true, value: 100 }),
+          );
+      };
+
+      const fireDragLeave = (relatedTarget: Node | null): void => {
+        const target = screen.getByRole("tablist");
+        const event = createEvent.dragLeave(target);
+        Object.defineProperty(event, "relatedTarget", { value: relatedTarget });
+        fireEvent(target, event);
+      };
+
+      const draggingTab = (key: string): Haul.Item[] => [{ type: TAB_TYPE, key }];
+
+      it("should slide passed tabs aside and lift the source dragging right", () => {
+        render(<DragTabs items={draggingTab("a")} onDrop={() => []} />);
+        beginReorder();
+        fireDragEvent("dragOver", 210);
+        expect(tabByKey("a").classList.contains(HAULED)).toBe(true);
+        expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
+        expect(tabByKey("c").style.transform).toBe("");
+      });
+
+      it("should slide passed tabs aside dragging left", () => {
+        render(<DragTabs items={draggingTab("c")} onDrop={() => []} />);
+        beginReorder();
+        fireDragEvent("dragOver", 30);
+        expect(tabByKey("c").classList.contains(HAULED)).toBe(true);
+        expect(tabByKey("a").style.transform).toBe("translateX(100px)");
+        expect(tabByKey("b").style.transform).toBe("translateX(100px)");
+      });
+
+      it("should not shift any tab while the drag hovers its own slot", () => {
+        render(<DragTabs items={draggingTab("b")} onDrop={() => []} />);
+        beginReorder();
+        fireDragEvent("dragOver", 110);
+        expect(tabByKey("a").style.transform).toBe("");
+        expect(tabByKey("b").style.transform).toBe("");
+        expect(tabByKey("c").style.transform).toBe("");
+      });
+
+      it("should fall back to the indicator for a foreign item", () => {
+        render(<DragTabs items={draggingTab("x")} onDrop={() => []} />);
+        beginReorder();
+        fireDragEvent("dragOver", 150);
+        expect(indicator()).not.toBeNull();
+        ["a", "b", "c"].forEach((k) => expect(tabByKey(k).style.transform).toBe(""));
+        expect(document.querySelector(`.${HAULED}`)).toBeNull();
+      });
+
+      it("should keep the preview when the cursor crosses onto a child tab", () => {
+        render(<DragTabs items={draggingTab("a")} onDrop={() => []} />);
+        beginReorder();
+        fireDragEvent("dragOver", 210);
+        fireDragLeave(tabByKey("c"));
+        expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
+      });
+
+      it("should reset the preview when the cursor truly leaves the strip", () => {
+        render(<DragTabs items={draggingTab("a")} onDrop={() => []} />);
+        beginReorder();
+        fireDragEvent("dragOver", 210);
+        fireDragLeave(document.body);
+        expect(tabByKey("b").style.transform).toBe("");
+        expect(document.querySelector(`.${HAULED}`)).toBeNull();
+      });
+
+      it("should clear the preview once a drop commits", () => {
+        render(<DragTabs items={draggingTab("a")} onDrop={() => []} />);
+        beginReorder();
+        fireDragEvent("dragOver", 210);
+        expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
+        fireDragEvent("drop", 210);
+        expect(tabByKey("b").style.transform).toBe("");
+        expect(document.querySelector(`.${HAULED}`)).toBeNull();
+      });
+
+      it("should reset the preview when the drag ends without a drop", () => {
+        render(<DragTabs items={draggingTab("a")} />);
+        beginReorder();
+        fireDragEvent("dragOver", 210);
+        expect(tabByKey("b").style.transform).toBe("translateX(-100px)");
+        fireEvent.dragEnd(screen.getByTestId("drag-source"));
+        expect(tabByKey("b").style.transform).toBe("");
+        expect(document.querySelector(`.${HAULED}`)).toBeNull();
+      });
     });
   });
 });
