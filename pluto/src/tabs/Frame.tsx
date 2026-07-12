@@ -36,9 +36,12 @@ export interface FrameProps
     Omit<Flex.BoxProps, "onChange" | "onSelect">,
     Partial<state.UsePurePassthroughProps<string>> {}
 
-type FrameBoxProps = Omit<FrameProps, "value" | "initialValue" | "onChange">;
+interface FrameBoxProps extends Omit<
+  FrameProps,
+  "value" | "initialValue" | "onChange"
+> {}
 
-const FrameBox = ({
+const Box = ({
   className,
   children,
   empty = true,
@@ -49,7 +52,7 @@ const FrameBox = ({
   </Flex.Box>
 );
 
-const OwnedFrame = ({
+const Owned = ({
   value,
   initialValue,
   onChange,
@@ -62,7 +65,7 @@ const OwnedFrame = ({
   });
   return (
     <Select.Context value={selected} onSelect={setSelected}>
-      <FrameBox {...rest} />
+      <Box {...rest} />
     </Select.Context>
   );
 };
@@ -89,14 +92,14 @@ export const Frame = ({
   return (
     <Context value={id}>
       {ownsSelection ? (
-        <OwnedFrame
+        <Owned
           value={value}
           initialValue={initialValue}
           onChange={onChange}
           {...rest}
         />
       ) : (
-        <FrameBox {...rest} />
+        <Box {...rest} />
       )}
     </Context>
   );

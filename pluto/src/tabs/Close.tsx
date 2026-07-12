@@ -15,7 +15,11 @@ import { Icon } from "@/icon";
 
 export interface CloseProps extends Button.ButtonProps {}
 
-export const Close = ({ className, children, ...rest }: CloseProps): ReactElement => (
+export const Close = ({
+  className,
+  children = <Icon.Close />,
+  ...rest
+}: CloseProps): ReactElement => (
   <Button.Button
     aria-label="Close"
     className={CSS(CSS.BE("tabs", "close"), className)}
@@ -23,6 +27,6 @@ export const Close = ({ className, children, ...rest }: CloseProps): ReactElemen
     sharp
     {...rest}
   >
-    {children ?? <Icon.Close />}
+    {children}
   </Button.Button>
 );
