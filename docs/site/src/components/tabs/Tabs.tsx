@@ -10,16 +10,18 @@
 import { Tabs as Base } from "@synnaxlabs/pluto/tabs";
 import { type ReactElement, useEffect, useState } from "react";
 
+export interface TabEntry {
+  tabKey: string;
+  name: string;
+  icon?: ReactElement;
+}
+
 export interface TabsProps extends Record<string, ReactElement | any> {
-  tabs: Base.Tab[];
+  tabs: TabEntry[];
   queryParamKey?: string;
 }
 
 export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement => {
-  tabs = tabs.map((tab) => ({
-    ...tab,
-    icon: tab.icon ?? rest[`${tab.tabKey}-icon`],
-  }));
   const [selected, setSelected] = useState<string>(tabs[0].tabKey);
 
   const handleSelect = (tabKey: string) => {
@@ -52,15 +54,21 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
     };
   }, [queryParamKey]);
 
-  const staticProps = Base.useStatic({
-    selected,
-    onSelect: handleSelect,
-    tabs,
-  });
-
   return (
-    <Base.Tabs {...staticProps}>
-      {(tab) => <div key={tab.tabKey}>{rest[tab.tabKey]}</div>}
-    </Base.Tabs>
+    <Base.Frame value={getSelected()} onChange={handleSelect}>
+      <Base.Selector>
+        {tabs.map(({ tabKey, name, icon }) => (
+          <Base.Tab key={tabKey} itemKey={tabKey}>
+            {icon ?? rest[`${tabKey}-icon`]}
+            {name}
+          </Base.Tab>
+        ))}
+      </Base.Selector>
+      {tabs.map(({ tabKey }) => (
+        <Base.Content key={tabKey} itemKey={tabKey}>
+          {rest[tabKey]}
+        </Base.Content>
+      ))}
+    </Base.Frame>
   );
 };

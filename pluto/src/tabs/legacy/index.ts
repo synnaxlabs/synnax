@@ -7,14 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Close, type CloseProps } from "@/tabs/Close";
-export { Content, type ContentProps } from "@/tabs/Content";
-export { Frame, type FrameProps } from "@/tabs/Frame";
-export {
-  getInsertionIndex,
-  InsertionIndexProvider,
-  Selector,
-  type SelectorProps,
-  type Variant,
-} from "@/tabs/Selector";
-export { Tab, type TabProps } from "@/tabs/Tab";
+export * as Tabs from "@/tabs/legacy/external";

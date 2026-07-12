@@ -27,7 +27,6 @@ import {
   Portal,
   Status,
   Synnax,
-  Tabs,
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
@@ -98,7 +97,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   );
 };
 
-interface ModalContentProps extends Tabs.Tab {
+interface ModalContentProps extends Base.Tab {
   node: Portal.Node;
 }
 
@@ -176,7 +175,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
 
 const contextMenu = Component.renderProp(ContextMenu);
 
-interface CustomTabNameProps extends Tabs.NameProps {
+interface CustomTabNameProps extends Base.NameProps {
   useName: Layout.UseName;
 }
 
@@ -203,15 +202,15 @@ const CustomTabName = ({
     [handleLayoutRename, onRename],
   );
   return (
-    <Tabs.DefaultName tabKey={tabKey} name={name} onRename={handleRename} {...rest} />
+    <Base.DefaultName tabKey={tabKey} name={name} onRename={handleRename} {...rest} />
   );
 };
 
-const TabName: ComponentType<Tabs.NameProps> = (props) => {
+const TabName: ComponentType<Base.NameProps> = (props) => {
   const type = Session.Layout.useSelectType(props.tabKey);
   const useName = Layout.useNameHook(type);
   if (useName != null) return <CustomTabName key={type} useName={useName} {...props} />;
-  return <Tabs.DefaultName {...props} />;
+  return <Base.DefaultName {...props} />;
 };
 
 const renderTabName = Component.renderProp(TabName);
@@ -348,7 +347,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     ),
   });
 
-  const renderProp = useCallback<Tabs.RenderProp>(
+  const renderProp = useCallback<Base.RenderProp>(
     (props) => (
       <ModalContent
         key={props.tabKey}

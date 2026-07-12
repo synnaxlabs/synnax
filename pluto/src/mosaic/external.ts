@@ -11,3 +11,13 @@ export * from "@/mosaic/Mosaic";
 export * from "@/mosaic/tree";
 export * from "@/mosaic/types";
 export * from "@/mosaic/use";
+// The legacy tab-serialization model still backs the mosaic layout until the mosaic
+// redesign lands. Surfaced here so consumers reach it through the Mosaic namespace.
+export { DefaultName } from "@/tabs/legacy/Selector";
+export {
+  type NameProps,
+  type RenderProp,
+  type Spec,
+  type Tab,
+  tabZ,
+} from "@/tabs/legacy/types";

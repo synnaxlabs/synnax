@@ -81,22 +81,29 @@ export const usePassthrough = <NextState extends State>({
 };
 
 export interface UsePurePassthroughProps<NextState extends State> {
-  initial: Initial<NextState>;
+  initialValue: Initial<NextState>;
   value?: NextState;
   onChange?: PureSetter<NextState>;
   callOnChangeIfValueIsUndefined?: boolean;
 }
 
 export const usePurePassthrough = <NextState extends State>({
-  initial,
+  initialValue,
   value,
   onChange,
 }: UsePurePassthroughProps<NextState>): PureUseReturn<NextState> => {
   const [internal, setInternal] = useState<NextState>(
-    executeInitialSetter(value ?? initial),
+    executeInitialSetter(value ?? initialValue),
+  );
+  const setAndNotify = useCallback<PureSetter<NextState>>(
+    (next) => {
+      setInternal(next);
+      onChange?.(next);
+    },
+    [onChange],
   );
   if (value != null && onChange != null) return [value, onChange];
-  return [internal, setInternal];
+  return [internal, setAndNotify];
 };
 
 export const usePersisted = <S extends State>(

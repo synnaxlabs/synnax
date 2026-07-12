@@ -9,7 +9,7 @@
 
 import { createSlice, current, type PayloadAction } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, Haul, Mosaic, Tabs } from "@synnaxlabs/pluto";
+import { Color, Haul, Mosaic } from "@synnaxlabs/pluto";
 import { deep, type direction, id, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -47,8 +47,8 @@ export type WindowProps = Omit<Drift.WindowProps, "key" | "url"> & {
   showTitle?: boolean;
 };
 
-const layoutTabPropsZ = Tabs.tabZ.pick({ closable: true, editable: true }).extend({
-  tab: Tabs.tabZ,
+const layoutTabPropsZ = Mosaic.tabZ.pick({ closable: true, editable: true }).extend({
+  tab: Mosaic.tabZ,
   location: location.locationZ.optional(),
   mosaicKey: z.number().optional(),
 });
@@ -57,8 +57,8 @@ const layoutTabPropsZ = Tabs.tabZ.pick({ closable: true, editable: true }).exten
  * The props passed to a LayoutTab. This is a subset of the properties of the
  * Tab interface for the Tabs component. This does not apply to window layoputs.
  */
-interface LayoutTabProps extends Pick<Tabs.Tab, "closable" | "editable"> {
-  tab: Tabs.Tab;
+interface LayoutTabProps extends Pick<Mosaic.Tab, "closable" | "editable"> {
+  tab: Mosaic.Tab;
   location?: location.Location;
   mosaicKey?: number;
 }
@@ -297,7 +297,7 @@ const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State
     ),
   );
 
-const tabFromLayout = (layout: State): Tabs.Spec => ({
+const tabFromLayout = (layout: State): Mosaic.Spec => ({
   closable: true,
   editable: layout.tab?.editable,
   icon: layout.icon,

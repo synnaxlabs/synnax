@@ -56,6 +56,43 @@ describe("Selection", () => {
       expect(result.current.selected).toBe(false);
     });
 
+    it("should focus only the head of an ordered multi-selection", () => {
+      const head = renderHook(() => useItemState("a"), {
+        wrapper: staticWrapper({ value: ["a", "b"] }),
+      });
+      const tail = renderHook(() => useItemState("b"), {
+        wrapper: staticWrapper({ value: ["a", "b"] }),
+      });
+      expect(head.result.current.focused).toBe(true);
+      expect(tail.result.current.focused).toBe(false);
+    });
+
+    it("should not focus any item in a scalar selection", () => {
+      const { result } = renderHook(() => useItemState("a"), {
+        wrapper: staticWrapper({ value: "a" }),
+      });
+      expect(result.current.selected).toBe(true);
+      expect(result.current.focused).toBe(false);
+    });
+
+    it("should move focus to the new head when the selection is reordered", () => {
+      let setValue: (value: string[]) => void = () => {};
+      const wrapper = ({ children }: PropsWithChildren): ReactElement => {
+        const [value, setState] = useState<string[]>(["a", "b"]);
+        setValue = setState;
+        return <Context value={value}>{children}</Context>;
+      };
+      const { result } = renderHook(
+        () => ({ a: useItemState("a"), b: useItemState("b") }),
+        { wrapper },
+      );
+      expect(result.current.a.focused).toBe(true);
+      expect(result.current.b.focused).toBe(false);
+      act(() => setValue(["b", "a"]));
+      expect(result.current.a.focused).toBe(false);
+      expect(result.current.b.focused).toBe(true);
+    });
+
     it("should call the provider's onSelect with the item's key", () => {
       const onSelect = vi.fn();
       const { result } = renderHook(() => useItemState("b"), {
@@ -69,6 +106,7 @@ describe("Selection", () => {
     it("should report no selection when used outside a provider", () => {
       const { result } = renderHook(() => useItemState("a"));
       expect(result.current.selected).toBe(false);
+      expect(result.current.focused).toBe(false);
       expect(result.current.hovered).toBe(false);
     });
 

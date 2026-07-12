@@ -14,6 +14,12 @@ import { Store } from "@/store";
 
 type Value<K extends record.Key = record.Key> = Store.MembershipValue<K>;
 
+// Focus is only defined for ordered multi-selections: the key heading the value
+// array is the focused key. A scalar selection carries no ordering, so nothing is
+// focused.
+const head = <K extends record.Key>(value: Value<K>): K | undefined =>
+  Array.isArray(value) ? value[0] : undefined;
+
 interface SelectionState<K extends record.Key = record.Key> {
   value: Value<K>;
   hover?: K;
@@ -35,17 +41,23 @@ export interface ContextProps<K extends record.Key = record.Key>
 
 export interface UseItemStateReturn {
   selected: boolean;
+  /**
+   * focused is true when the key heads an ordered multi-selection: the value is an
+   * array and this key is its first element. Always false for scalar selections.
+   */
+  focused: boolean;
   hovered: boolean;
   onSelect: () => void;
 }
 
 const Members = Store.createMembership("Selection");
 const Hover = Store.createPresence("Selection.Hover");
+const Focus = Store.createPresence("Selection.Focus");
 
 /**
- * Context distributes a controlled selection to keyed item consumers. Membership and
- * hover are held in independent stores, so an item re-renders only for the dimensions it
- * reads via useItemState.
+ * Context distributes a controlled selection to keyed item consumers. Membership, focus,
+ * and hover are held in independent stores, so an item re-renders only for the dimensions
+ * it reads via useItemState. Focus tracks the head of an ordered multi-selection.
  */
 export const Context = <K extends record.Key = record.Key>({
   value,
@@ -56,7 +68,9 @@ export const Context = <K extends record.Key = record.Key>({
   children,
 }: ContextProps<K>): ReactElement => (
   <Members.Context value={value} onItem={onSelect} setValue={setSelected} clear={clear}>
-    <Hover.Context value={hover}>{children}</Hover.Context>
+    <Focus.Context value={head(value)}>
+      <Hover.Context value={hover}>{children}</Hover.Context>
+    </Focus.Context>
   </Members.Context>
 );
 
@@ -78,14 +92,15 @@ export const useContext = <K extends record.Key = record.Key>(): ContextValue<K>
 
 /**
  * useItemState subscribes a single keyed item to the enclosing Context, re-rendering only
- * when that key's selected or hovered state flips.
+ * when that key's selected, focused, or hovered state flips.
  */
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
   const { member, onItem } = Members.useItem(key);
+  const focused = Focus.useIsPresent(key);
   const hovered = Hover.useIsPresent(key);
   return useMemo(
-    () => ({ selected: member, hovered, onSelect: onItem }),
-    [member, hovered, onItem],
+    () => ({ selected: member, focused, hovered, onSelect: onItem }),
+    [member, focused, hovered, onItem],
   );
 };
 
