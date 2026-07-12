@@ -9,6 +9,7 @@
 
 import "@/app/App.css";
 import "@synnaxlabs/media/dist/media.css";
+import "@synnaxlabs/pluto/dist/pluto.css";
 
 import { type ReactElement } from "react";
 
