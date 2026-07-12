@@ -33,17 +33,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const DIGITAL_READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
-  icon: "Logo.NI",
-  name: ZERO_DIGITAL_READ_PAYLOAD.name,
+export const DigitalReadSelectable = Selector.createSelectable({
   type: DIGITAL_READ_TYPE,
-};
-
-export const DigitalReadSelectable = Selector.createSimpleItem({
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  layout: DIGITAL_READ_LAYOUT,
+  useOnSelect: Task.createOpenView(DIGITAL_READ_TYPE),
 });
 
 const Properties = () => (

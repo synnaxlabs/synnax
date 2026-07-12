@@ -14,7 +14,6 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { createSavedLayout } from "@/platform/project/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
@@ -33,13 +32,9 @@ describe("project/Splash", () => {
   });
 
   describe("selecting an existing project", () => {
-    it("should activate the project and load its saved layout", async () => {
+    it("should activate the project", async () => {
       const name = `proj-${id.create()}`;
-      const layoutKey = id.create();
-      const proj = await client.projects.create({
-        name,
-        layout: createSavedLayout(layoutKey),
-      });
+      const proj = await client.projects.create({ name, layout: {} });
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(<Project.Splash />, { wrapper });
 
@@ -49,12 +44,6 @@ describe("project/Splash", () => {
         const active = Session.Project.selectOptionalSelected(store.getState());
         expect(active).toEqual(proj.key);
       });
-      const placed = Session.Layout.selectByFilter(
-        store.getState(),
-        (l) => l.key === layoutKey,
-      );
-      expect(placed).toBeDefined();
-      expect(placed?.name).toEqual("Operator");
     });
   });
 

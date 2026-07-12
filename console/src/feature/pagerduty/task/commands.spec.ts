@@ -8,24 +8,32 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { describe, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { PagerDuty } from "@/feature/pagerduty";
-import { stubGeometry, waitForPlacedLayout } from "@/testutil";
+import { Session } from "@/session";
+import { resolveFocusedTab, stubGeometry, uniqueName } from "@/testutil";
 
 stubGeometry();
 
 const client = createTestClient();
 
-describe("PagerDuty.Task Commands", () => {
-  it("should place the alert task layout from the create alert task command", async () => {
+describe("PagerDuty palette commands", () => {
+  it("should open the alert task view from the create alert task command", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: PagerDuty.Task.COMMANDS,
       client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Create a PagerDuty");
     await selectCommand("Create a PagerDuty Alert Task");
-    await waitForPlacedLayout(store, PagerDuty.Task.ALERT_TYPE);
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(PagerDuty.Task.ALERT_TYPE);
   });
 });

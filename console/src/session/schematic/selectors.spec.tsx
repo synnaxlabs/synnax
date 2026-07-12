@@ -42,112 +42,6 @@ const customState = Schematic.stateZ.parse({
   viewport: { position: { x: 7, y: 8 }, zoom: 2, mode: "pan" },
 });
 
-const storeState: Schematic.StoreState = {
-  [Schematic.SLICE_NAME]: { schematics: { [KEY]: customState } },
-};
-
-const params = { state: storeState, key: KEY };
-
-describe("schematic selectors", () => {
-  describe("selectSliceState", () => {
-    it("should return the slice state", () => {
-      expect(Schematic.selectSliceState(storeState)).toBe(
-        storeState[Schematic.SLICE_NAME],
-      );
-    });
-  });
-
-  describe("selectState", () => {
-    it("should return the state for the given key", () => {
-      expect(Schematic.selectState(params)).toEqual(customState);
-    });
-
-    it("should fall back to ZERO_STATE for an unknown key", () => {
-      expect(Schematic.selectState({ state: storeState, key: "absent" })).toEqual(
-        Schematic.ZERO_STATE,
-      );
-    });
-  });
-
-  describe("selectSelected", () => {
-    it("should return the selected elements", () => {
-      expect(Schematic.selectSelected(params)).toEqual(["a", "b"]);
-    });
-  });
-
-  describe("selectControlStatus", () => {
-    it("should return the control status", () => {
-      expect(Schematic.selectControlStatus(params)).toBe("acquired");
-    });
-  });
-
-  describe("selectControlIsAcquired", () => {
-    it("should be true when the status is acquired", () => {
-      expect(Schematic.selectControlIsAcquired(params)).toBe(true);
-    });
-
-    it("should be false for an unknown key defaulting to ZERO_STATE", () => {
-      expect(
-        Schematic.selectControlIsAcquired({ state: storeState, key: "absent" }),
-      ).toBe(false);
-    });
-  });
-
-  describe("selectAuthority", () => {
-    it("should return the control authority", () => {
-      expect(Schematic.selectAuthority(params)).toBe(250);
-    });
-  });
-
-  describe("selectToolbar", () => {
-    it("should return the toolbar state", () => {
-      expect(Schematic.selectToolbar(params)).toEqual(customState.toolbar);
-    });
-  });
-
-  describe("selectActiveToolbarTab", () => {
-    it("should return the active toolbar tab", () => {
-      expect(Schematic.selectActiveToolbarTab(params)).toBe("properties");
-    });
-  });
-
-  describe("selectSelectedSymbolGroup", () => {
-    it("should return the selected symbol group", () => {
-      expect(Schematic.selectSelectedSymbolGroup(params)).toBe("valves");
-    });
-  });
-
-  describe("selectLegend", () => {
-    it("should return the legend state", () => {
-      expect(Schematic.selectLegend(params)).toEqual(customState.legend);
-    });
-  });
-
-  describe("selectLegendVisible", () => {
-    it("should return the legend visibility", () => {
-      expect(Schematic.selectLegendVisible(params)).toBe(false);
-    });
-  });
-
-  describe("selectEditable", () => {
-    it("should return the editable flag", () => {
-      expect(Schematic.selectEditable(params)).toBe(true);
-    });
-  });
-
-  describe("selectFitViewOnResize", () => {
-    it("should return the fit view on resize flag", () => {
-      expect(Schematic.selectFitViewOnResize(params)).toBe(true);
-    });
-  });
-
-  describe("selectViewport", () => {
-    it("should return the viewport", () => {
-      expect(Schematic.selectViewport(params)).toEqual(customState.viewport);
-    });
-  });
-});
-
 const storeWith = (slice: Schematic.SliceState) =>
   configureStore({
     reducer: { [Schematic.SLICE_NAME]: Schematic.reducer },
@@ -166,6 +60,119 @@ const wrapperFor = (
   Wrapper.displayName = "Wrapper";
   return Wrapper;
 };
+
+const createCustomStore = (): ReturnType<typeof storeWith> =>
+  storeWith({ schematics: { [KEY]: customState } });
+
+describe("schematic getters", () => {
+  it("should read a schematic's state on demand across dispatches", () => {
+    const store = storeWith(Schematic.ZERO_SLICE_STATE);
+    const { result } = renderHook(() => Schematic.useGet(), {
+      wrapper: wrapperFor(store, KEY),
+    });
+    const get = result.current;
+    expect(get()).toEqual(Schematic.ZERO_STATE);
+    act(() => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+    });
+    expect(get().selected).toEqual(["a"]);
+    expect(get().toolbar.selectedTab).toBe("properties");
+  });
+
+  it("should resolve the key from scope and allow an explicit override", () => {
+    const { result } = renderHook(() => Schematic.useGet(), {
+      wrapper: wrapperFor(createCustomStore(), "absent"),
+    });
+    expect(result.current()).toEqual(Schematic.ZERO_STATE);
+    expect(result.current({ key: KEY })).toEqual(customState);
+  });
+
+  it("should read the selected elements", () => {
+    const { result } = renderHook(() => Schematic.useGetSelected(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toEqual(["a", "b"]);
+  });
+
+  it("should read the control status", () => {
+    const { result } = renderHook(() => Schematic.useGetControlStatus(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe("acquired");
+  });
+
+  it("should report whether control is acquired", () => {
+    const { result } = renderHook(() => Schematic.useGetControlIsAcquired(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe(true);
+    expect(result.current({ key: "absent" })).toBe(false);
+  });
+
+  it("should read the control authority", () => {
+    const { result } = renderHook(() => Schematic.useGetAuthority(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe(250);
+  });
+
+  it("should read the toolbar state", () => {
+    const { result } = renderHook(() => Schematic.useGetToolbar(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toEqual(customState.toolbar);
+  });
+
+  it("should read the active toolbar tab", () => {
+    const { result } = renderHook(() => Schematic.useGetActiveToolbarTab(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe("properties");
+  });
+
+  it("should read the selected symbol group", () => {
+    const { result } = renderHook(() => Schematic.useGetSelectedSymbolGroup(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe("valves");
+  });
+
+  it("should read the legend state", () => {
+    const { result } = renderHook(() => Schematic.useGetLegend(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toEqual(customState.legend);
+  });
+
+  it("should read the legend visibility", () => {
+    const { result } = renderHook(() => Schematic.useGetLegendVisible(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe(false);
+  });
+
+  it("should read the editable flag", () => {
+    const { result } = renderHook(() => Schematic.useGetEditable(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe(true);
+  });
+
+  it("should read the fit view on resize flag", () => {
+    const { result } = renderHook(() => Schematic.useGetFitViewOnResize(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe(true);
+  });
+
+  it("should read the viewport", () => {
+    const { result } = renderHook(() => Schematic.useGetViewport(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toEqual(customState.viewport);
+  });
+});
 
 describe("schematic selector hooks", () => {
   const store = (): ReturnType<typeof storeWith> =>
@@ -299,7 +306,7 @@ describe("schematic selector stability under dispatch", () => {
     });
     const first = result.current;
     act(() => {
-      s.dispatch(Schematic.internalCreate({ key: "schematic-2" }));
+      s.dispatch(Schematic.create({ key: "schematic-2" }));
       s.dispatch(Schematic.selectToolbarTab({ key: "schematic-2", tab: "symbols" }));
     });
     expect(result.current).toBe(first);

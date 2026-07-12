@@ -72,6 +72,6 @@ describe("Project Commands", () => {
     });
     await openCommandPalette();
     await selectCommand("Export current project");
-    await waitFor(() => expect(writes.has(Project.LAYOUT_FILE_NAME)).toBe(true));
+    await waitFor(() => expect(writes.has(Project.PANELS_FILE_NAME)).toBe(true));
   });
 });

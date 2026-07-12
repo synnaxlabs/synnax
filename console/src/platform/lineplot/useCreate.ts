@@ -7,23 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot, type project } from "@synnaxlabs/client";
 import { LinePlot } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
-import { create } from "@/platform/lineplot/layout";
-import { Project } from "@/platform/project";
+import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
-export const useCreate = Project.createUseCreate({
-  useCreate: LinePlot.useCreate,
-  toCreateParams: ({ overrides, project, store }) => {
-    const activeRange =
-      Session.Range.selectSelectedKey(store.getState()) ?? Session.Range.RECENT_KEY;
-    return {
-      name: "Line Plot",
-      ranges: { x1: [activeRange] },
-      ...overrides,
-      project,
-    };
-  },
-  createSessionState: create,
-});
+export interface CreateParams extends Partial<lineplot.New> {
+  project?: project.Key;
+}
+
+export interface UseCreateProps {
+  project?: project.Key;
+}
+
+export const useCreate = ({ project }: UseCreateProps = {}): ((
+  params?: CreateParams,
+) => void) => {
+  const activeProject = Session.Project.useSelectOptionalSelected();
+  const target = project ?? activeProject;
+  const openTab = Panel.useOpenTab();
+  const { update } = LinePlot.useCreate({
+    afterOptimistic: ({ data: { key } }) =>
+      openTab({ variant: "resource", resource: lineplot.ontologyID(key) }),
+  });
+  return useCallback(
+    (params: CreateParams = {}) =>
+      update({ name: "New Line Plot", project: target, ...params }),
+    [update, target],
+  );
+};

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type PropsWithChildren } from "react";
 
 import { Task } from "@/feature/task";
 
-export interface ContextProps extends PropsWithChildren<{}> {}
+export interface ContextProps extends PropsWithChildren {}
 
-export const Context = ({ children }: ContextProps): ReactElement => (
+export const Context = ({ children }: ContextProps) => (
   <Task.RegistryProvider registry={Task.REGISTRY}>{children}</Task.RegistryProvider>
 );

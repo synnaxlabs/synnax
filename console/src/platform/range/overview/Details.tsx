@@ -26,9 +26,8 @@ import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { CSV } from "@/platform/csv";
 import { Label } from "@/platform/label";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
-import { OVERVIEW_LAYOUT } from "@/platform/range/overview/layout";
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -38,7 +37,7 @@ const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const res = Ranger.useRetrieveParent({ id: ranger.ontologyID(rangeKey) });
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
   const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];
@@ -54,7 +53,7 @@ const ParentRangeButton = ({
         gap="small"
         style={{ padding: "1rem" }}
         onClick={() =>
-          placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
+          openTab({ variant: "resource", resource: ranger.ontologyID(parent.key) })
         }
       >
         <Icon />

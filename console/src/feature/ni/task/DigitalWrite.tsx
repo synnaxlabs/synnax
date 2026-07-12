@@ -33,17 +33,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const DIGITAL_WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
-  icon: "Logo.NI",
-  name: ZERO_DIGITAL_WRITE_PAYLOAD.name,
+export const DigitalWriteSelectable = Selector.createSelectable({
   type: DIGITAL_WRITE_TYPE,
-};
-
-export const DigitalWriteSelectable = Selector.createSimpleItem({
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  layout: DIGITAL_WRITE_LAYOUT,
+  useOnSelect: Task.createOpenView(DIGITAL_WRITE_TYPE),
 });
 
 const Properties = () => (

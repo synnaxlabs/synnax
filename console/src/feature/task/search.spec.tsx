@@ -10,15 +10,19 @@
 import { type ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Select } from "@synnaxlabs/pluto";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
 import { createResource } from "@/platform/tree/testutil";
-import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  resolveFocusedTab,
+  selectTestProject,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -32,7 +36,7 @@ const createTask = async () => {
 };
 
 describe("task/search", () => {
-  it("places the task's configuration layout when the search result is selected", async () => {
+  it("opens the task's configuration view when the search result is selected", async () => {
     const t = await createTask();
     const resource = createResource(t.ontologyID, t.name);
     const SearchListItem = Task.SEARCH_LIST_ITEMS.task;
@@ -52,11 +56,11 @@ describe("task/search", () => {
       );
     };
     const { wrapper, store } = await createConsoleWrapper({ client });
+    await selectTestProject(store, client);
     render(<Harness />, { wrapper });
     fireEvent.click(await screen.findByText(t.name), { detail: 0 });
-    await waitFor(() => {
-      const placed = Session.Layout.select(store.getState(), t.key);
-      expect(placed?.type).toBe(NI.Task.ANALOG_READ_TYPE);
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(NI.Task.ANALOG_READ_TYPE);
   });
 });

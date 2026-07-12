@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, task } from "@synnaxlabs/client";
+import { panel, ranger, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Range } from "@/platform/range";
 import { Task } from "@/platform/task";
-import { renderInTaskForm, renderInTaskFormWithClient } from "@/platform/task/testutil";
-import { Session } from "@/session";
-import { uniqueName } from "@/testutil";
+import {
+  createSelectedPanel,
+  renderInTaskForm,
+  renderInTaskFormWithClient,
+} from "@/platform/task/testutil";
+import { assertDefined, uniqueName } from "@/testutil";
 
 describe("ParentRangeButton", () => {
   it("should render nothing when the task has no parent range", async () => {
@@ -58,17 +60,19 @@ describe("ParentRangeButton", () => {
       expect(screen.getByText(range.name)).toBeTruthy();
     });
 
-    it("should open the parent range's overview layout when clicked", async () => {
+    it("should open the parent range as a tab when clicked", async () => {
       const { tsk, range } = await createTaskWithParentRange();
-      const { store } = await renderInTaskFormWithClient(<Task.ParentRangeButton />, {
-        client,
-        values: { key: tsk.key },
-      });
+      const { store, wrapper, panelKey } = await renderInTaskFormWithClient(
+        <Task.ParentRangeButton />,
+        { client, values: { key: tsk.key } },
+      );
+      const created = await createSelectedPanel(wrapper, store, client, [], panelKey);
       fireEvent.click(await screen.findByText(range.name, {}));
       await waitFor(() => {
-        const layout = Session.Layout.select(store.getState(), range.key);
-        expect(layout?.type).toBe(Range.OVERVIEW_LAYOUT_TYPE);
-        expect(layout?.name).toBe(range.name);
+        const doc = created.fluxStore.panels.get(panelKey);
+        assertDefined(doc, "panel doc missing from flux store");
+        const tab = panel.findTabByResource(doc.root, ranger.ontologyID(range.key));
+        assertDefined(tab, "range resource tab was not opened");
       });
     });
   });

@@ -14,8 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
-import { awaitTaskKey, renderTaskFormLayout } from "@/platform/task/testutil";
-import { Session } from "@/session";
+import { awaitTaskKey, renderTaskFormView } from "@/platform/task/testutil";
 import { getLabeledInput, stubGeometry, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -61,19 +60,15 @@ describe("OPC.Read", () => {
     const dev = await createOPCDevice(client);
     const chA = createInputChannel();
     const chB = createInputChannel();
-    const { store, layoutKey } = await renderTaskFormLayout(
-      OPC.Task.Read,
-      OPC.Task.READ_TYPE,
-      {
-        client,
-        args: { deviceKey: dev.key, config: createReadConfig(dev.key, [chA, chB]) },
-      },
-    );
+    const rendered = await renderTaskFormView(OPC.Task.Read, OPC.Task.READ_TYPE, {
+      client,
+      args: { deviceKey: dev.key, config: createReadConfig(dev.key, [chA, chB]) },
+    });
     await screen.findByText(new RegExp(chA.nodeName));
     await screen.findByText(new RegExp(chB.nodeName));
 
     fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
-    const taskKey = await awaitTaskKey(store, layoutKey);
+    const taskKey = await awaitTaskKey(rendered);
 
     const tsk = await client.tasks.retrieve({ key: taskKey });
     expect(task.rackKey(tsk.key)).toBe(dev.rack);
@@ -107,7 +102,7 @@ describe("OPC.Read", () => {
     const dev = await createOPCDevice(client);
     const tsChannel = createInputChannel({ useAsIndex: true, dataType: "timestamp" });
     const dataChannel = createInputChannel();
-    const first = await renderTaskFormLayout(OPC.Task.Read, OPC.Task.READ_TYPE, {
+    const first = await renderTaskFormView(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
       args: {
         deviceKey: dev.key,
@@ -118,7 +113,7 @@ describe("OPC.Read", () => {
     expect(screen.getAllByText("Use as Index")).toHaveLength(1);
 
     fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
-    const taskKey = await awaitTaskKey(first.store, first.layoutKey);
+    const taskKey = await awaitTaskKey(first);
 
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
@@ -133,34 +128,29 @@ describe("OPC.Read", () => {
     expect(created.index).toBe(indexKey);
     first.unmount();
 
-    const second = await renderTaskFormLayout(OPC.Task.Read, OPC.Task.READ_TYPE, {
+    await renderTaskFormView(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
       args: { deviceKey: dev.key, taskKey },
     });
     await screen.findByText(new RegExp(tsChannel.nodeName));
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
-    await waitFor(() =>
-      expect(
-        Session.Layout.select(second.store.getState(), second.layoutKey)
-          ?.unsavedChanges,
-      ).toBe(false),
-    );
-
-    const afterSecond = await client.devices.retrieve({
-      key: dev.key,
-      schemas: OPC.Device.SCHEMAS,
+    await waitFor(async () => {
+      const afterSecond = await client.devices.retrieve({
+        key: dev.key,
+        schemas: OPC.Device.SCHEMAS,
+      });
+      expect(afterSecond.properties.read.indexes).toEqual(
+        afterFirst.properties.read.indexes,
+      );
+      expect(afterSecond.properties.read.channels).toEqual(
+        afterFirst.properties.read.channels,
+      );
     });
-    expect(afterSecond.properties.read.indexes).toEqual(
-      afterFirst.properties.read.indexes,
-    );
-    expect(afterSecond.properties.read.channels).toEqual(
-      afterFirst.properties.read.channels,
-    );
   });
 
   it("should swap the stream rate field for an array size field in array mode", async () => {
     const dev = await createOPCDevice(client);
-    await renderTaskFormLayout(OPC.Task.Read, OPC.Task.READ_TYPE, {
+    await renderTaskFormView(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
       args: { deviceKey: dev.key },
     });

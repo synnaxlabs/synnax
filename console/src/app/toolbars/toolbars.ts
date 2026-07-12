@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Vis } from "@/app/vis";
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
+import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Status } from "@/feature/status";
@@ -31,4 +31,4 @@ export const LEFT: Nav.Toolbar[] = [
   Status.TOOLBAR,
 ];
 
-export const BOTTOM: Nav.Toolbar = Vis.TOOLBAR;
+export const BOTTOM: Nav.Toolbar = Panel.TOOLBAR;

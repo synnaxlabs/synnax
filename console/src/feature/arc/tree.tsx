@@ -7,31 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { arc, type ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { Icon, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { Arc } from "@/platform/arc";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
 
-const load = async (client: Client, id: ontology.ID, placeLayout: Layout.Placer) => {
-  const { name, key } = await client.arcs.retrieve({ key: id.key });
-  placeLayout(Arc.create({ name, key }));
+const load = async (client: Client, id: ontology.ID, openTab: Panel.OpenTab) => {
+  const { key } = await client.arcs.retrieve({ key: id.key });
+  openTab({ variant: "resource", resource: arc.ontologyID(key) });
 };
 
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   return useCallback(
     (resource) => {
       if (client == null) return;
-      load(client, resource.id, placeLayout).catch((e: unknown) =>
+      load(client, resource.id, openTab).catch((e: unknown) =>
         handleError(e, `Failed to load ${resource.name}`),
       );
     },
-    [client, placeLayout, handleError],
+    [client, openTab, handleError],
   );
 };
 

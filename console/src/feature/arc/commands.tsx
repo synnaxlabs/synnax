@@ -10,13 +10,13 @@
 import { arc } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { EXPLORER_LAYOUT } from "@/feature/arc/Explorer";
+import { Explorer } from "@/feature/arc/explorer";
 import { Arc } from "@/platform/arc";
 import { Command } from "@/platform/command";
 
 export const CreateCommand = Command.create({
   key: "create_arc",
-  name: "Create an Arc automation",
+  name: "Create an Arc Automation",
   icon: <Icon.Arc />,
   useVisible: () => Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID),
   useOnSelect: Arc.useCreate,
@@ -26,7 +26,7 @@ export const OpenExplorerCommand = Command.create({
   key: "open_arc_explorer",
   name: "Open the Arc Explorer",
   icon: <Icon.Explore />,
-  useOnSelect: Command.createPlacerUseOnSelect(EXPLORER_LAYOUT),
+  useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(arc.TYPE_ONTOLOGY_ID),
 });
 

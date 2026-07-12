@@ -35,18 +35,24 @@ import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
-import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
+const TASK_SELECTOR_VIEW = {
+  variant: "view",
+  type: "selector",
+  args: { variant: "task" },
+} as const;
+
 const EmptyContent = () => {
-  const placeLayout = Layout.usePlacer();
-  const handleClick = () => placeLayout(PlatformTask.SELECTOR_LAYOUT);
+  const openTab = Panel.useOpenTab();
+  const handleClick = () => openTab(TASK_SELECTOR_VIEW);
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
@@ -71,9 +77,7 @@ const Content = () => {
   const addStatus = Status.useAdder();
   const confirm = Modals.useConfirm();
   const menuProps = Menu.useContextMenu();
-  const dispatch = Session.useDispatch();
-  const placeLayout = Layout.usePlacer();
-  const { createLayout } = PlatformTask.useRegistry();
+  const openTab = Panel.useOpenTab();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
@@ -83,11 +87,10 @@ const Content = () => {
 
   const { update: rename } = Task.useRename({
     beforeUpdate: useCallback(
-      async ({ data, rollbacks }: Flux.BeforeUpdateParams<Task.UseRenameArgs>) => {
+      async ({ data }: Flux.BeforeUpdateParams<Task.UseRenameArgs>) => {
         const { key, name } = data;
         const tsk = getItem(key);
         if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);
-        const oldName = tsk.name;
         if (tsk.status?.details.running === true) {
           const confirmed = await confirm({
             message: `Are you sure you want to rename ${tsk.name} to ${name}?`,
@@ -97,8 +100,6 @@ const Content = () => {
           });
           if (!confirmed) return false;
         }
-        dispatch(Session.Layout.rename({ key, name }));
-        rollbacks.push(() => dispatch(Session.Layout.rename({ key, name: oldName })));
         return data;
       },
       [],
@@ -121,10 +122,9 @@ const Content = () => {
           confirm: { label: "Delete", variant: "error" },
         });
         if (!confirmed) return false;
-        dispatch(Session.Layout.remove({ keys: array.toArray(keys) }));
         return keys;
       },
-      [client, dispatch, getItem],
+      [client, getItem],
     ),
     afterFailure: ({ status }) => addStatus(status),
   });
@@ -162,10 +162,9 @@ const Content = () => {
           message: "Failed to open task details",
           description: `Task with key ${key} not found`,
         });
-      const layout = createLayout(task);
-      placeLayout(layout);
+      openTab({ variant: "view", type: task.type, args: { taskKey: task.key } });
     },
-    [selected, addStatus, placeLayout, createLayout, getItem],
+    [selected, addStatus, openTab, getItem],
   );
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
     ({ keys }) => (
@@ -201,7 +200,7 @@ const Content = () => {
             <Toolbar.Actions>
               <Toolbar.Action
                 tooltip="Create task"
-                onClick={() => placeLayout(PlatformTask.SELECTOR_LAYOUT)}
+                onClick={() => openTab(TASK_SELECTOR_VIEW)}
               >
                 <Icon.Add />
               </Toolbar.Action>

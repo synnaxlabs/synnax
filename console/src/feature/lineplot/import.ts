@@ -24,7 +24,6 @@ import {
 import { z } from "zod";
 
 import { type Import } from "@/platform/import";
-import { create } from "@/platform/lineplot/layout";
 
 const STATE_MIGRATION_NAME = "lineplot.state";
 
@@ -385,13 +384,13 @@ export const parseImport = (
 
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, projectKey },
+  { name, openTab, store, client, projectKey },
 ) => {
   if (!Access.updateGranted({ id: lineplot.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import line plots");
   if (client == null) throw new DisconnectedError();
-  const newPayload = parseImport(data, layout?.name);
+  const newPayload = parseImport(data, name);
   const created = await client.lineplots.create(projectKey, newPayload);
   store.lineplots.set(created.key, created);
-  placeLayout(create({ ...layout, key: created.key, name: created.name }));
+  openTab({ variant: "resource", resource: lineplot.ontologyID(created.key) });
 };

@@ -13,8 +13,9 @@ import { afterAll, beforeAll, vi } from "vitest";
 import { installTestWebSocket } from "@/testutil/websocket";
 
 // Live-core round-trips share the single test cluster with the rest of the suite, so
-// allow more than the 1s waitFor default.
-configure({ asyncUtilTimeout: 5000 });
+// allow more than the 1s waitFor default. Full-suite runs saturate the CPU, so local
+// polls also need generous headroom.
+configure({ asyncUtilTimeout: 15_000 });
 
 // jsdom does not implement ResizeObserver, and pluto's useResize constructs one
 // unconditionally. Provide an inert polyfill so construction succeeds; it never

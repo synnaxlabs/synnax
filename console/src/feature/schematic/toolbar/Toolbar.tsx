@@ -10,7 +10,14 @@
 import "@/feature/schematic/toolbar/Toolbar.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { Breadcrumb, Flex, Icon, Schematic, Tabs } from "@synnaxlabs/pluto";
+import {
+  Breadcrumb,
+  Flex,
+  Icon,
+  Panel as PlutoPanel,
+  Schematic,
+  Tabs,
+} from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useExport } from "@/feature/schematic/export";
@@ -130,12 +137,11 @@ const Internal = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Schematic.Suspended schematicKey={layoutKey}>
-    <Internal />
-  </Schematic.Suspended>
-);
+export const Toolbar = (): ReactElement => {
+  const { key } = PlutoPanel.useSelectTabResource();
+  return (
+    <Schematic.Suspended schematicKey={key}>
+      <Internal />
+    </Schematic.Suspended>
+  );
+};

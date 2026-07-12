@@ -15,11 +15,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
-export interface GraphProps {
-  visible: boolean;
-}
-
-export const Graph = ({ visible }: GraphProps): ReactElement => {
+export const Graph = (): ReactElement => {
   const key = Base.useKey();
   const viewport = Session.Arc.useSelectViewport();
   const fitViewOnResize = Session.Arc.useSelectFitViewOnResize();
@@ -27,6 +23,7 @@ export const Graph = ({ visible }: GraphProps): ReactElement => {
   const { canEdit, isCurrentlyEditable } = Session.Arc.useSelectEditable();
   const selected = Session.Arc.useSelectSelected();
   const viewportMode = Session.Arc.useSelectViewportMode();
+  const visible = Session.Panel.useSelectIsTabVisible();
 
   const triggers = useMemo(
     () => Viewport.DEFAULT_TRIGGERS[viewportMode],

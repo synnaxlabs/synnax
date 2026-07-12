@@ -79,16 +79,13 @@ export const Splash = (): ReactElement => {
       const p = getItem(key);
       if (p == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(Session.Project.select(p.key));
-      dispatch(
-        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(p.layout) }),
-      );
     },
     [dispatch, getItem],
   );
 
   const { form, save, variant } = PProject.useForm({
     query: {},
-    initialValues: { name: "", layout: Session.Layout.ZERO_SLICE_STATE },
+    initialValues: { name: "", layout: {} },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Project key is null");

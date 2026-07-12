@@ -19,14 +19,14 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { retrieveAndPlaceLayout } from "@/feature/task/layouts";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
+import { retrieveAndOpenTab } from "@/feature/task/views";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
-import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Tree } from "@/platform/tree";
@@ -36,24 +36,24 @@ const openTask = (
   client: Client,
   key: string,
   name: string,
-  placeLayout: Layout.Placer,
+  openTab: Panel.OpenTab,
   handleError: Status.ErrorHandler,
 ): void =>
   handleError(
-    async () => await retrieveAndPlaceLayout(client, key, placeLayout),
+    async () => await retrieveAndOpenTab(client, key, openTab),
     `Could not open ${name}`,
   );
 
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   return useCallback(
     (resource) => {
       if (client == null) return;
-      openTask(client, resource.id.key, resource.name, placeLayout, handleError);
+      openTask(client, resource.id.key, resource.name, openTab, handleError);
     },
-    [client, placeLayout, handleError],
+    [client, openTab, handleError],
   );
 };
 
@@ -61,35 +61,19 @@ const useDelete = Tree.createUseDelete({
   type: "Task",
   query: Base.useDelete,
   convertKey: String,
-  beforeUpdate: async ({ data, removeLayout }) => {
-    removeLayout(...data);
-    return data;
-  },
 });
 
 export const useRename = Tree.createUseRename({
   query: Base.useRename,
   ontologyID: task.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
-    const { key, name } = data;
-    const layout = Session.Layout.selectByFilter(
-      store.getState(),
-      (l) => (l.args as PlatformTask.FormLayoutArgs)?.taskKey === key,
-    );
-    if (layout != null) {
-      store.dispatch(Session.Layout.rename({ key: layout.key, name }));
-      rollbacks.push(() => Session.Layout.rename({ key: layout.key, name: oldName }));
-    }
-    return { ...data, name };
-  },
 });
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection,
     client,
-    placeLayout,
+    openTab,
     handleError,
     state: { getResource, shape },
   } = props;
@@ -108,7 +92,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const handleEdit = () => {
     if (client == null) return;
-    openTask(client, resources[0].id.key, resources[0].name, placeLayout, handleError);
+    openTask(client, resources[0].id.key, resources[0].name, openTab, handleError);
   };
   const singleResource = ids.length === 1;
   const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);

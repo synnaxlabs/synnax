@@ -33,17 +33,11 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const READ_LAYOUT = {
-  ...Task.LAYOUT,
+export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.Modbus",
-} as const satisfies Task.Layout;
-
-export const ReadSelectable = Selector.createSimpleItem({
   title: "Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
-  layout: READ_LAYOUT,
+  useOnSelect: Task.createOpenView(READ_TYPE),
 });
 
 const Properties = () => (
@@ -144,7 +138,7 @@ const getOpenChannel = (channels: InputChannel[]): InputChannel => {
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<Task.FormProps<ReadSchemas>> = () => (
-  <Task.Layouts.List<InputChannel>
+  <Task.Views.List<InputChannel>
     createChannel={getOpenChannel}
     contextMenuItems={Task.readChannelContextMenuItem}
     listItem={listItem}

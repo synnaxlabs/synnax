@@ -10,29 +10,27 @@
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { type Link } from "@/platform/link";
 import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
-  const store = Session.useStore();
-  const placeLayout = Layout.usePlacer();
+  const create = LinePlot.useCreate();
+  const getOptionalSelected = Session.Project.useGetOptionalSelected();
+  const getSelectedKey = Session.Range.useGetSelectedKey();
   return useCallback(
     async ({ client, key }) => {
       const channel = await client.channels.retrieve(key);
-      const project =
-        Session.Project.selectOptionalSelected(store.getState()) ?? uuid.ZERO;
-      const activeRange =
-        Session.Range.selectSelectedKey(store.getState()) ?? Session.Range.RECENT_KEY;
-      const { key: plotKey, name } = await client.lineplots.create(project, {
+      const project = getOptionalSelected() ?? uuid.ZERO;
+      const activeRange = getSelectedKey() ?? Session.Range.RECENT_KEY;
+      create({
         name: `${channel.name} Plot`,
         channels: { y1: [channel.key] },
         ranges: { x1: [activeRange] },
+        project,
       });
-      placeLayout(LinePlot.create({ key: plotKey, name }));
     },
-    [store, placeLayout],
+    [create, getOptionalSelected, getSelectedKey],
   );
 };
 

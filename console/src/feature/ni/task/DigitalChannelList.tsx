@@ -77,7 +77,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
 };
 
 export interface DigitalChannelListProps<C extends DigitalChannel>
-  extends Omit<Task.Layouts.ListProps<C>, "listItem">, Pick<ListItemProps<C>, "name"> {}
+  extends Omit<Task.Views.ListProps<C>, "listItem">, Pick<ListItemProps<C>, "name"> {}
 
 export const DigitalChannelList = <C extends DigitalChannel>({
   name,
@@ -90,5 +90,5 @@ export const DigitalChannelList = <C extends DigitalChannel>({
     [name],
   );
 
-  return <Task.Layouts.List<C> {...rest} listItem={listItem} />;
+  return <Task.Views.List<C> {...rest} listItem={listItem} />;
 };

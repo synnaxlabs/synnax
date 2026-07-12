@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, type ontology, project } from "@synnaxlabs/client";
+import { log, type ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Access, Flux, type Pluto } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Log } from "@/feature/log";
-import { Layout } from "@/platform/layout";
-import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName, waitForPlacedLayout } from "@/testutil";
+import { createFileIngesterContext } from "@/platform/import/testutil";
+import { type Panel } from "@/platform/panel";
+import { createGrantedFluxStore, uniqueName } from "@/testutil";
 
 const V0_ZERO = { key: "", version: "0.0.0", channels: [], remoteCreated: false };
 const V1_ZERO = {
@@ -175,41 +173,23 @@ describe("log state migrations", () => {
 });
 
 describe("ingest", () => {
-  it("should create the log on the cluster and place its layout", async () => {
+  it("should create the log on the cluster and open it as a tab", async () => {
     const client = createTestClient();
     const proj = await client.projects.create({
       name: uniqueName("project"),
       layout: {},
     });
-    const { wrapper, store } = await createConsoleWrapper({ client });
-    const { result } = renderHook(
-      () => ({
-        placer: Layout.usePlacer(),
-        fluxStore: Flux.useStore<Pluto.FluxStore>(),
-        granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
-      }),
-      { wrapper },
-    );
-    await waitFor(() => expect(result.current.granted).toBe(true));
+    const store = await createGrantedFluxStore(client, log.TYPE_ONTOLOGY_ID, "update");
+    const openTab = vi.fn<Panel.OpenTab>();
     const name = uniqueName("imported_log");
-    let id: ontology.ID | undefined | void;
-    await act(async () => {
-      id = await Log.ingest(
-        { ...V1_ZERO, key: "imported" },
-        {
-          layout: { name, type: "log", key: "imported" },
-          placeLayout: result.current.placer,
-          store: result.current.fluxStore,
-          client,
-          projectKey: proj.key,
-        },
-      );
-    });
+    const id: ontology.ID | undefined | void = await Log.ingest(
+      { ...V1_ZERO, key: "imported" },
+      createFileIngesterContext({ name, openTab, store, client, projectKey: proj.key }),
+    );
     if (id == null) throw new Error("ingest returned no id");
+    expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
     const created = await client.logs.retrieve({ key: id.key });
     expect(created.name).toBe(name);
-    const placedKey = await waitForPlacedLayout(store, "log");
-    expect(placedKey).toBe(id.key);
-    expect(Session.Layout.select(store.getState(), placedKey)?.name).toBe(name);
+    expect(store.logs.get(id.key)?.name).toBe(name);
   });
 });

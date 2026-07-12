@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { create } from "@/platform/arc/layout";
 import { useCreateModal } from "@/platform/arc/useCreateModal";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 
-interface CreateArgs extends Partial<Pick<arc.New, "key" | "name" | "mode">> {}
-
-export const useCreate = (): ((args?: CreateArgs) => void) => {
+export const useCreate = (): (() => void) => {
   const openModal = useCreateModal();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const { update } = Arc.useCreate({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<arc.New>) => {
@@ -29,15 +26,11 @@ export const useCreate = (): ((args?: CreateArgs) => void) => {
       },
       [openModal],
     ),
-    afterSuccess: useCallback(
-      ({ data: { key, name } }: Flux.AfterSuccessParams<arc.Arc>) => {
-        placeLayout(create({ key, name }));
-      },
-      [placeLayout],
+    afterOptimistic: useCallback(
+      ({ data: { key } }: Flux.AfterSuccessParams<arc.Arc>) =>
+        openTab({ variant: "resource", resource: arc.ontologyID(key) }),
+      [openTab],
     ),
   });
-  return useCallback(
-    (args: CreateArgs = {}) => update({ name: "Arc Editor", mode: "graph", ...args }),
-    [update],
-  );
+  return useCallback(() => update({ name: "Arc Editor", mode: "graph" }), [update]);
 };

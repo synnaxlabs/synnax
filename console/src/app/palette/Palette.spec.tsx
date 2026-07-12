@@ -16,8 +16,7 @@ import { Docs } from "@/feature/docs";
 import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
-import { Session } from "@/session";
-import { createConsoleWrapper, stubGeometry } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, stubGeometry } from "@/testutil";
 
 stubGeometry();
 
@@ -33,7 +32,7 @@ const renderAppPalette = async () => {
     </Import.FileIngestersProvider>,
     { wrapper },
   );
-  return { store };
+  return { store, client };
 };
 
 const openPalette = async (): Promise<HTMLInputElement> => {
@@ -51,17 +50,15 @@ const openPalette = async (): Promise<HTMLInputElement> => {
 
 describe("Palette", () => {
   it("should run a command selected through the command palette", async () => {
-    const { store } = await renderAppPalette();
+    const { store, client } = await renderAppPalette();
     const input = await openPalette();
     fireEvent.change(input, { target: { value: ">Read the documentation" } });
     const item = await screen.findByText("Read the documentation");
     await act(async () => {
       fireEvent.click(item, { detail: 1 });
     });
-    await waitFor(() =>
-      expect(Session.Layout.select(store.getState(), Docs.LAYOUT_TYPE)?.type).toBe(
-        Docs.LAYOUT_TYPE,
-      ),
-    );
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(Docs.TAB_TYPE);
   });
 });

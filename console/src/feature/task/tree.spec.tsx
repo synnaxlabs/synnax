@@ -9,7 +9,6 @@
 
 import { group, NotFoundError, ontology, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { List, Text } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -35,6 +34,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   createTestStore,
+  resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
 
@@ -107,14 +107,14 @@ const renderMenu = async (props: Tree.ContextMenuProps) => {
 
 describe("task ontology", () => {
   describe("onSelect", () => {
-    it("should place the task's configuration layout when double-clicked", async () => {
+    it("should open the task's configuration view when double-clicked", async () => {
       const t = await createTask();
       const { store } = await renderTaskTree(t);
       fireEvent.doubleClick(await findTreeRow(t.name));
-      await waitFor(() => {
-        const placed = Session.Layout.select(store.getState(), t.key);
-        expect(placed?.type).toBe(NI.Task.ANALOG_READ_TYPE);
-      });
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "view") throw new Error("expected a view tab");
+      expect(tab.type).toBe(NI.Task.ANALOG_READ_TYPE);
+      expect(tab.args).toEqual({ taskKey: t.key });
     });
   });
 
@@ -138,23 +138,26 @@ describe("task ontology", () => {
       expect(await screen.findByText("View configuration")).toBeTruthy();
     });
 
-    it("should place the configuration layout from Edit configuration", async () => {
+    it("should open the configuration view from Edit configuration", async () => {
       const t = await createTask();
-      const placeLayout = vi.fn();
+      const openTab = vi.fn();
       const props = await createMenuProps({
         tasks: [t],
-        overrides: { placeLayout, handleError: createExecutingHandleError() },
+        overrides: { openTab, handleError: createExecutingHandleError() },
       });
       await renderMenu(props);
       fireEvent.click(await screen.findByText("Edit configuration"));
-      await waitFor(() => expect(placeLayout).toHaveBeenCalledTimes(1));
-      expect(placeLayout.mock.calls[0][0].key).toBe(t.key);
+      await waitFor(() => expect(openTab).toHaveBeenCalledTimes(1));
+      expect(openTab.mock.calls[0][0]).toEqual({
+        variant: "view",
+        type: NI.Task.ANALOG_READ_TYPE,
+        args: { taskKey: t.key },
+      });
     });
 
-    it("should delete the task after confirmation and remove its layout", async () => {
+    it("should delete the task after confirmation", async () => {
       const t = await createTask();
-      const removeLayout = vi.fn();
-      const props = await createMenuProps({ tasks: [t], overrides: { removeLayout } });
+      const props = await createMenuProps({ tasks: [t] });
       await renderMenu(props);
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText(`Are you sure you want to delete ${t.name}?`);
@@ -164,23 +167,11 @@ describe("task ontology", () => {
           NotFoundError.matches(e),
         );
       });
-      expect(removeLayout).toHaveBeenCalledWith(t.key);
     });
 
-    it("should rename the task and its open layout through the inline editor", async () => {
+    it("should rename the task through the inline editor", async () => {
       const t = await createTask();
-      const layoutKey = "task-form-layout";
       const store = await createTestStore();
-      store.dispatch(
-        Session.Layout.place({
-          key: layoutKey,
-          windowKey: MAIN_WINDOW,
-          type: NI.Task.ANALOG_READ_TYPE,
-          name: t.name,
-          location: "mosaic",
-          args: { taskKey: t.key },
-        }),
-      );
       const props: Tree.ContextMenuProps = {
         ...createBaseProps({ client, store }),
         selection: createSelection({ ids: [t.ontologyID] }),
@@ -204,9 +195,6 @@ describe("task ontology", () => {
       await act(async () => {
         commitTextEdit(editor, renamed);
       });
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), layoutKey)?.name).toBe(renamed),
-      );
       await waitFor(async () =>
         expect((await client.tasks.retrieve({ key: t.key })).name).toBe(renamed),
       );

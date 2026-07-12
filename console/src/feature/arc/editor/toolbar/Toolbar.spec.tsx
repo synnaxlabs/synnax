@@ -7,10 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
+import { arc, panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Suspense } from "react";
+import { Flux, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
+import {
+  act,
+  fireEvent,
+  render,
+  renderHook,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { type FC, type PropsWithChildren, Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
@@ -31,13 +40,40 @@ const createGraphArc = async (graph: Partial<arc.Arc["graph"]> = {}) =>
     graph: { nodes: [], edges: [], ...graph },
   });
 
+const createResourceTab = (
+  Wrapper: FC<PropsWithChildren>,
+  key: string,
+): { panelKey: string; tabKey: string } => {
+  const tabKey = uuid.create();
+  const doc = panel.panelZ.parse({
+    key: uuid.create(),
+    name: uniqueName("panel"),
+    root: {
+      variant: "leaf",
+      tabs: [{ variant: "resource", key: tabKey, resource: arc.ontologyID(key) }],
+    },
+  });
+  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
+    wrapper: Wrapper,
+  });
+  act(() => {
+    result.current.panels.set(doc);
+  });
+  return { panelKey: doc.key, tabKey };
+};
+
 const renderToolbar = async (arcKey: string): Promise<{ store: TestStore }> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const { panelKey, tabKey } = createResourceTab(wrapper, arcKey);
   await act(async () => {
     render(
-      <Suspense fallback={null}>
-        <Arc.Editor.Toolbar layoutKey={arcKey} />
-      </Suspense>,
+      <PlutoPanel.Scope.Provider value={panelKey}>
+        <PlutoPanel.TabScope.Provider value={tabKey}>
+          <Suspense fallback={null}>
+            <Arc.Editor.Toolbar />
+          </Suspense>
+        </PlutoPanel.TabScope.Provider>
+      </PlutoPanel.Scope.Provider>,
       { wrapper },
     );
   });

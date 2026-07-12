@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { table } from "@synnaxlabs/client";
 import { useCallback } from "react";
 
-import { Layout } from "@/platform/layout";
 import { type Link } from "@/platform/link";
-import { Table } from "@/platform/table";
+import { Panel } from "@/platform/panel";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   return useCallback(
     async ({ client, key }) => {
-      const { name } = await client.tables.retrieve({ key });
-      placeLayout(Table.create({ key, name }));
+      const t = await client.tables.retrieve({ key });
+      openTab({ variant: "resource", resource: table.ontologyID(t.key) });
     },
-    [placeLayout],
+    [openTab],
   );
 };
 

@@ -9,39 +9,31 @@
 
 import "@/platform/selector/Selector.css";
 
-import { Eraser, Flex, Status, Text } from "@synnaxlabs/pluto";
+import { Eraser, Flex, type Icon, Text } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
-import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
 
-export interface SelectableProps {
-  layoutKey: string;
-  rename: Modals.PromptRename;
-  onPlace: Layout.Placer;
-  handleError: Status.ErrorHandler;
-}
-
-export interface Selectable extends FC<SelectableProps> {
+export interface Selectable extends FC {
   type: string;
   useVisible?: () => boolean;
 }
 
-export interface SelectorProps extends Layout.RendererProps {
-  text: string;
+export interface CreateParams {
   selectables: Selectable[];
+  tabTitle: string;
+  text: string;
+  icon: Icon.ReactElement;
 }
 
-export const Selector = ({
-  layoutKey,
+export const create = ({
   selectables,
+  tabTitle,
   text,
-}: SelectorProps): ReactElement => {
-  const place = Layout.usePlacer();
-  const rename = Modals.useRename();
-  const handleError = Status.useErrorHandler();
-  return (
+  icon,
+}: CreateParams): Panel.Tab => {
+  const Content: Panel.Content = (): ReactElement => (
     <Eraser.Eraser>
       <Flex.Box
         className={CSS.BE("layout-selector", "frame")}
@@ -62,24 +54,13 @@ export const Selector = ({
           className={CSS.BE("layout-selector", "items")}
         >
           {selectables.map((Selectable) => (
-            <Selectable
-              key={Selectable.type}
-              layoutKey={layoutKey}
-              rename={rename}
-              onPlace={place}
-              handleError={handleError}
-            />
+            <Selectable key={Selectable.type} />
           ))}
         </Flex.Box>
       </Flex.Box>
     </Eraser.Eraser>
   );
-};
-
-export const create = (selectables: Selectable[], text: string) => {
-  const C: Layout.Renderer = (props) => (
-    <Selector {...props} selectables={selectables} text={text} />
-  );
-  C.displayName = "LayoutSelector";
-  return C;
+  Content.displayName = `${tabTitle}.Selector`;
+  const Name = Panel.createStaticTabName({ name: tabTitle, icon });
+  return { Content, Name };
 };

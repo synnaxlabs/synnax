@@ -45,7 +45,7 @@ const renderLinesTab = async () => {
       ranges: { x1: [Session.Range.RECENT_KEY] },
       lines: [{ key: lineKey }],
     },
-    preloadedState: (key) => createPreloadedState(key, name),
+    preloadedState: (key) => createPreloadedState(key),
   });
   fireEvent.click(await screen.findByText("Lines"));
   return { ...handle, ch, lineKey };
@@ -75,7 +75,7 @@ describe("lineplot download CSV with plotted lines", () => {
         ],
       },
       preloadedState: (key) => ({
-        ...createPreloadedState(key, name),
+        ...createPreloadedState(key),
         [Session.Range.SLICE_NAME]: {
           ...Session.Range.ZERO_SLICE_STATE,
           ranges: [

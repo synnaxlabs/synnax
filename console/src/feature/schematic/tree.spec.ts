@@ -35,6 +35,7 @@ import {
   commitTextEdit,
   createTestStore,
   renderHookWithConsole,
+  resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
 
@@ -54,7 +55,7 @@ describe("Schematic.TREE_ITEMS", () => {
   });
 
   describe("onSelect", () => {
-    it("places a schematic layout when a tree row is double-clicked", async () => {
+    it("retrieves the schematic and opens it as a tab when double-clicked", async () => {
       const s = await createSchematic();
       const { store } = await renderOntologyTree({
         client,
@@ -62,9 +63,9 @@ describe("Schematic.TREE_ITEMS", () => {
         items: Schematic.TREE_ITEMS,
       });
       fireEvent.doubleClick(await findTreeRow(s.name));
-      await waitFor(() =>
-        expect(Session.Layout.select(store.getState(), s.key)?.name).toBe(s.name),
-      );
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.key).toBe(s.key);
     });
   });
 });

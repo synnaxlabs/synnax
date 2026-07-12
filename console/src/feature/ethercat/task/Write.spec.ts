@@ -23,7 +23,7 @@ import {
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormLayout,
+  renderTaskFormView,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
 
@@ -38,7 +38,7 @@ beforeAll(async () => {
 });
 
 const renderWrite = async (config?: unknown) =>
-  await renderTaskFormLayout(EtherCAT.Task.Write, EtherCAT.Task.WRITE_TYPE, {
+  await renderTaskFormView(EtherCAT.Task.Write, EtherCAT.Task.WRITE_TYPE, {
     client,
     args: config == null ? {} : { config },
   });
@@ -84,12 +84,12 @@ describe("EtherCAT Write", () => {
         network: "eth0",
         pdos: createPDOs(),
       });
-      const { store, layoutKey } = await renderWrite({
+      const rendered = await renderWrite({
         ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
         channels: [createAutoOutputChannel(slave.key, "Control")],
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: EtherCAT.Task.WRITE_SCHEMAS,
@@ -135,7 +135,7 @@ describe("EtherCAT Write", () => {
       });
       const cmdName = uniqueName("ecat_cmd");
       const stateName = uniqueName("ecat_state");
-      const { store, layoutKey } = await renderWrite({
+      const rendered = await renderWrite({
         ...EtherCAT.Task.ZERO_WRITE_PAYLOAD.config,
         channels: [
           createAutoOutputChannel(slave.key, "Control", {
@@ -145,7 +145,7 @@ describe("EtherCAT Write", () => {
         ],
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: EtherCAT.Task.WRITE_SCHEMAS,

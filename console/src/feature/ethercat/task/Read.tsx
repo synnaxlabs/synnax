@@ -34,17 +34,11 @@ import {
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.EtherCAT",
-};
-
-export const ReadSelectable = Selector.createSimpleItem({
   title: "EtherCAT Read Task",
   icon: <Icon.Logo.EtherCAT />,
-  layout: READ_LAYOUT,
+  useOnSelect: Task.createOpenView(READ_TYPE),
 });
 
 const Properties = () => (
@@ -61,7 +55,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<InputChannel>(path);
   return (
-    <Task.Layouts.ListAndDetailsChannelItem
+    <Task.Views.ListAndDetailsChannelItem
       {...props}
       nameDirection="y"
       port={getPortLabel(ch)}
@@ -79,7 +73,7 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<Task.FormProps<ReadSchemas>> = () => (
-  <Task.Layouts.ListAndDetails<InputChannel>
+  <Task.Views.ListAndDetails<InputChannel>
     listItem={listItem}
     details={channelDetails}
     createChannel={createInputChannel}

@@ -45,9 +45,9 @@ const renderProperties = async ({
 }: RenderPropertiesArgs) => {
   const configs: Record<string, unknown> = {};
   nodeKeys.forEach((key) => (configs[key] = createConfig()));
-  const Harness = ({ layoutKey }: { layoutKey: string }): ReactElement => (
+  const Harness = (): ReactElement => (
     <>
-      <Schematic.Toolbar layoutKey={layoutKey} />
+      <Schematic.Toolbar />
       <CaptureStatuses onStatuses={onStatuses} />
     </>
   );

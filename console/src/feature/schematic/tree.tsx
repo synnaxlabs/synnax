@@ -29,10 +29,9 @@ import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
-import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Schematic } from "@/platform/schematic";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
@@ -40,8 +39,7 @@ const useDelete = Tree.createUseDelete({
   type: "Schematic",
   query: Base.useDelete,
   convertKey: String,
-  beforeUpdate: async ({ data, removeLayout, store }) => {
-    removeLayout(...data);
+  beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Schematic.remove({ keys: array.toArray(data) }));
     return data;
   },
@@ -115,12 +113,6 @@ const useRename = Tree.createUseRename({
   query: Base.useRename,
   ontologyID: schematic.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
-    const { key, name } = data;
-    store.dispatch(Session.Layout.rename({ key, name }));
-    rollbacks.push(() => store.dispatch(Session.Layout.rename({ key, name: oldName })));
-    return { ...data, name };
-  },
 });
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
@@ -180,24 +172,24 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 const loadSchematic = async (
   client: Client,
   { key }: ontology.ID,
-  placeLayout: Layout.Placer,
+  openTab: Panel.OpenTab,
 ) => {
-  const schematic = await client.schematics.retrieve({ key });
-  placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
+  const retrieved = await client.schematics.retrieve({ key });
+  openTab({ variant: "resource", resource: schematic.ontologyID(retrieved.key) });
 };
 
 const useOnSelect = (): ((resource: ontology.Resource) => void) => {
   const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   return useCallback(
     (resource) => {
       if (client == null) return;
-      loadSchematic(client, resource.id, placeLayout).catch((e: unknown) =>
+      loadSchematic(client, resource.id, openTab).catch((e: unknown) =>
         handleError(e, `Failed to select ${resource.name}`),
       );
     },
-    [client, placeLayout, handleError],
+    [client, openTab, handleError],
   );
 };
 

@@ -10,34 +10,18 @@
 import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/platform/export";
-import { Session } from "@/session";
 
-export const extract: Export.Extractor = async (key, { client, store }) => {
+export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
-  let keyToFetch = key;
   try {
     BigInt(key);
   } catch (cause) {
-    const layoutState = Session.Layout.select(store.getState(), key);
-    if (layoutState == null)
-      throw new Error(
-        `Cannot export task with key ${key}. This is neither the key of a task nor the key of a task layout.`,
-        { cause },
-      );
-    const args = layoutState.args;
-    if (
-      typeof args !== "object" ||
-      args == null ||
-      !("taskKey" in args) ||
-      typeof args.taskKey !== "string"
-    )
-      throw new Error(
-        `Cannot export task with key ${key}. You should configure the task before exporting it.`,
-        { cause },
-      );
-    keyToFetch = args.taskKey;
+    throw new Error(
+      `Cannot export task with key ${key}. You should configure the task before exporting it.`,
+      { cause },
+    );
   }
-  const task = await client.tasks.retrieve({ key: keyToFetch });
+  const task = await client.tasks.retrieve({ key });
   return {
     // type assertion okay for the moment because all of our current configs are object
     // types. We will want to get rid of this once we refactor to a more general

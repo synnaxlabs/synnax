@@ -17,7 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { Selector as Base } from "@/platform/selector";
+import { type Selector as Base } from "@/platform/selector";
 
 const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
   const WrappedSelectable: Base.Selectable = (props) => {
@@ -38,5 +38,3 @@ export const SELECTABLES: Base.Selectable[] = [
   ...OPC.Task.SELECTABLES,
   ...PagerDuty.Task.SELECTABLES,
 ].map(withTaskVisibility);
-
-export const Selector = Base.create(SELECTABLES, "Select a Task Type");

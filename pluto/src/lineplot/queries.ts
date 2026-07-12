@@ -17,11 +17,10 @@ import {
   type require,
   uuid,
 } from "@synnaxlabs/x";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { Channel } from "@/channel";
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Scope } from "@/lineplot/scope";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
@@ -72,24 +71,6 @@ export const {
     ),
   ],
 });
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<
-  Flux.UseRetrieveObservableParams<RetrieveQuery, lineplot.LinePlot>,
-  "onChange"
-> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant === "success") onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
 
 export interface SelectKeyArgs {
   key: lineplot.Key;

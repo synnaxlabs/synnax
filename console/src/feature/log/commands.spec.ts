@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { Log } from "@/feature/log";
 import { Session } from "@/session";
-import { stubGeometry, uniqueName, waitForPlacedLayout } from "@/testutil";
+import { resolveFocusedTab, stubGeometry, uniqueName } from "@/testutil";
 
 stubGeometry();
 
 const client = createTestClient();
 
-describe("Log Commands", () => {
-  it("should create a log in the active project and place its layout", async () => {
+describe("log palette", () => {
+  it("creates a log in the active project and opens it as a tab", async () => {
     const project = await client.projects.create({
       name: uniqueName("project"),
       layout: {},
@@ -34,8 +35,10 @@ describe("Log Commands", () => {
     });
     await openCommandPalette();
     await selectCommand("Create a log");
-    const key = await waitForPlacedLayout(store, Log.LAYOUT_TYPE);
-    const created = await client.logs.retrieve({ key });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(log.TYPE_ONTOLOGY_ID.type);
+    const created = await client.logs.retrieve({ key: tab.resource.key });
     expect(created.name).toBe("Log");
   });
 });

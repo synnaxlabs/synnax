@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { Flux, type Pluto, Schematic, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
-import { Layout } from "@/platform/layout";
-import { Schematic as Platform } from "@/platform/schematic";
+import { Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
@@ -20,18 +19,18 @@ type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
 const navigateToLinkedSchematic = async (
   retrieve: SchematicRetriever,
   page: string,
-  placeLayout: Layout.Placer,
+  openTab: Panel.OpenTab,
 ): Promise<void> => {
   const s = await retrieve(page);
-  placeLayout(Platform.create({ key: s.key, name: s.name }));
+  openTab({ variant: "resource", resource: schematic.ontologyID(s.key) });
 };
 
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
 
-export const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
-  const store = Session.useStore();
+export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler => {
   const client = Synnax.use();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
+  const getSchematic = Session.Schematic.useGet();
   const retrieve: SchematicRetriever | null = useMemo(
     () =>
       client != null
@@ -41,14 +40,13 @@ export const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler =>
     [fluxStore, client],
   );
   const handleError = Status.useErrorHandler();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
 
   return useCallback(
     (nodeId: string, dblClick: boolean) => {
-      const storeState = store.getState();
-      const ui = Session.Schematic.selectState({ state: storeState, key: layoutKey });
+      const ui = getSchematic({ key: schematicKey });
       if (ui == null || ui.editable || retrieve == null) return;
-      const config = fluxStore.schematics.get(layoutKey)?.configs?.[nodeId];
+      const config = fluxStore.schematics.get(schematicKey)?.configs?.[nodeId];
       if (
         config?.variant !== "offPageReference" ||
         typeof config.page !== "string" ||
@@ -62,10 +60,10 @@ export const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler =>
       const label = labelObj?.label;
       const name = label != null && label.length > 0 ? label : "Referenced schematic";
       handleError(
-        () => navigateToLinkedSchematic(retrieve, page, placeLayout),
+        () => navigateToLinkedSchematic(retrieve, page, openTab),
         `Schematic "${name}" not found`,
       );
     },
-    [store, layoutKey, retrieve, placeLayout, handleError, fluxStore],
+    [getSchematic, schematicKey, retrieve, openTab, handleError, fluxStore],
   );
 };

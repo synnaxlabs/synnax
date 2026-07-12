@@ -24,7 +24,6 @@ import { Cluster } from "@/session/cluster";
 import { Color } from "@/session/color";
 import { Docs } from "@/session/docs";
 import { Haul } from "@/session/haul";
-import { Layout } from "@/session/layout";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Nav } from "@/session/nav";
@@ -39,7 +38,6 @@ import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
 
 const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
-  ...Layout.PERSIST_EXCLUDE,
   ...Panel.PERSIST_EXCLUDE,
   Haul.PERSIST_EXCLUDE,
   ...Arc.PERSIST_EXCLUDE,
@@ -56,7 +54,6 @@ export const ZERO_STATE: State = {
   [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
-  [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
@@ -76,7 +73,6 @@ export const reducer = combineReducers({
   [Haul.SLICE_NAME]: Haul.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
-  [Layout.SLICE_NAME]: Layout.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
   [Panel.SLICE_NAME]: Panel.reducer,
   [Log.SLICE_NAME]: Log.reducer,
@@ -96,7 +92,6 @@ export interface State {
   [Haul.SLICE_NAME]: Haul.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
-  [Layout.SLICE_NAME]: Layout.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
@@ -116,7 +111,6 @@ export type Action =
   | Haul.Action
   | Docs.Action
   | Drift.Action
-  | Layout.Action
   | Log.Action
   | LinePlot.Action
   | Nav.Action
@@ -157,11 +151,7 @@ const openPersist = async (): Promise<OpenPersistReturn> => {
   };
 };
 
-export const BASE_MIDDLEWARE = [
-  ...Layout.MIDDLEWARE,
-  ...Nav.MIDDLEWARE,
-  ...Panel.MIDDLEWARE,
-];
+export const BASE_MIDDLEWARE = [...Nav.MIDDLEWARE, ...Panel.MIDDLEWARE];
 
 export interface CreateStoreOptions extends Partial<
   Pick<

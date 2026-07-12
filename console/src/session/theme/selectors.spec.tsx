@@ -50,6 +50,25 @@ describe("session theme selectors", () => {
     });
   });
 
+  describe("useGetSelected", () => {
+    it("should read the current selected theme on demand across dispatches", () => {
+      const store = storeWith();
+      const { result } = renderHook(() => Theme.useGetSelected(), {
+        wrapper: wrapperFor(store),
+      });
+      const get = result.current;
+      expect(get()).toBe("synnaxLight");
+      act(() => {
+        store.dispatch(Theme.select("synnaxDark"));
+      });
+      expect(get()).toBe("synnaxDark");
+      act(() => {
+        store.dispatch(Theme.toggle());
+      });
+      expect(get()).toBe("synnaxLight");
+    });
+  });
+
   describe("useProviderProps", () => {
     it("exposes the selected theme key", () => {
       const { result } = renderHook(() => Theme.useProviderProps(), {

@@ -9,15 +9,15 @@
 
 import { useCallback } from "react";
 
-import { retrieveAndPlaceLayout } from "@/feature/task/layouts";
-import { Layout } from "@/platform/layout";
+import { retrieveAndOpenTab } from "@/feature/task/views";
 import { type Link } from "@/platform/link";
+import { Panel } from "@/platform/panel";
 
 export const useLink = (): Link.Handler => {
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   return useCallback(
-    async ({ client, key }) => await retrieveAndPlaceLayout(client, key, placeLayout),
-    [placeLayout],
+    async ({ client, key }) => await retrieveAndOpenTab(client, key, openTab),
+    [openTab],
   );
 };
 

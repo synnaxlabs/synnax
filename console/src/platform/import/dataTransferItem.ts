@@ -14,7 +14,7 @@ import { type Pluto } from "@synnaxlabs/pluto";
 import { ingestComponent } from "@/platform/import/import";
 import { type DirectoryIngester, type FileIngesters } from "@/platform/import/ingester";
 import { trimFileName } from "@/platform/import/trimFileName";
-import { type Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 
 interface DirectoryContent {
@@ -67,8 +67,7 @@ interface DataTransferItemContext {
   client: Synnax | null;
   fileIngesters: FileIngesters;
   ingestDirectory: DirectoryIngester;
-  layout: Partial<Session.Layout.State>;
-  placeLayout: Layout.Placer;
+  openTab: Panel.OpenTab;
   store: Store;
   fluxStore: Pluto.FluxStore;
 }
@@ -79,8 +78,7 @@ export const dataTransferItem = async (
     client,
     fileIngesters,
     ingestDirectory,
-    layout,
-    placeLayout,
+    openTab,
     store,
     fluxStore,
   }: DataTransferItemContext,
@@ -97,8 +95,8 @@ export const dataTransferItem = async (
     const parsedData = JSON.parse(fileData);
     const projectKey = Session.Project.selectSelected(store.getState());
     await ingestComponent(parsedData, entry.name, fileIngesters, {
-      layout: { ...layout, name },
-      placeLayout,
+      name,
+      openTab,
       store: fluxStore,
       client,
       projectKey,
@@ -117,7 +115,7 @@ export const dataTransferItem = async (
   await ingestDirectory(entry.name, parsedFiles, {
     client,
     fileIngesters,
-    placeLayout,
+    openTab,
     store,
     fluxStore,
   });

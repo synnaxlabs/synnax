@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
+import { arc, DisconnectedError } from "@synnaxlabs/client";
 
-import { Arc } from "@/platform/arc";
 import { Export } from "@/platform/export";
-import { Session } from "@/session";
 
-export const extract: Export.Extractor = async (key, { store, client }) => {
-  const name = Session.Layout.select(store.getState(), key)?.name;
+export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
   const retrieved = await client.arcs.retrieve({ key });
   return {
-    data: JSON.stringify({ ...retrieved, type: Arc.LAYOUT_TYPE }),
-    name: name ?? retrieved.name,
+    data: JSON.stringify({ ...retrieved, type: arc.TYPE_ONTOLOGY_ID.type }),
+    name: retrieved.name,
   };
 };
 

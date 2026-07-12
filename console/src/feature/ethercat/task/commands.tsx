@@ -10,9 +10,9 @@
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { READ_LAYOUT } from "@/feature/ethercat/task/Read";
-import { WRITE_LAYOUT } from "@/feature/ethercat/task/Write";
+import { READ_TYPE, WRITE_TYPE } from "@/feature/ethercat/task/types";
 import { Command } from "@/platform/command";
+import { Task } from "@/platform/task";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
@@ -20,7 +20,7 @@ const CreateReadCommand = Command.create({
   key: "ethercat_create_read_task",
   name: "Create an EtherCAT Read Task",
   icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Command.createPlacerUseOnSelect(READ_LAYOUT),
+  useOnSelect: Task.createOpenView(READ_TYPE),
   useVisible,
 });
 
@@ -28,7 +28,7 @@ const CreateWriteCommand = Command.create({
   key: "ethercat_create_write_task",
   name: "Create an EtherCAT Write Task",
   icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Command.createPlacerUseOnSelect(WRITE_LAYOUT),
+  useOnSelect: Task.createOpenView(WRITE_TYPE),
   useVisible,
 });
 

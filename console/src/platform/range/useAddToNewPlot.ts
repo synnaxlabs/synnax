@@ -11,16 +11,15 @@ import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { strings } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
 
 export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
-  const handleError = Status.useErrorHandler();
-  const store = Session.useStore();
-  const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
+  const create = LinePlot.useCreate();
+  const getSelected = Session.Project.useGetSelected();
+  const dispatch = Session.useDispatch();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(
       ({ data, variant, status }) => {
@@ -29,19 +28,17 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
           return;
         }
         if (client == null) return;
-        store.dispatch(Session.Range.add(Session.Range.fromClient(data)));
+        dispatch(Session.Range.add(Session.Range.fromClient(data)));
         const names = data.map(({ name }) => name);
         const keys = data.map(({ key }) => key);
-        const project = Session.Project.selectSelected(store.getState());
-        handleError(async () => {
-          const { key, name } = await client.lineplots.create(project, {
-            name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
-            ranges: { x1: keys, x2: [] },
-          });
-          placeLayout(LinePlot.create({ key, name }));
-        }, "Failed to create plot");
+        const project = getSelected();
+        create({
+          name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
+          ranges: { x1: keys, x2: [] },
+          project,
+        });
       },
-      [store, client, addStatus, handleError, placeLayout],
+      [client, addStatus, create, getSelected],
     ),
   });
   return useCallback((keys: string[]) => retrieve({ keys }), [retrieve]);
