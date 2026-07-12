@@ -12,7 +12,7 @@ export { Content, type ContentProps } from "@/tabs/Content";
 export { Frame, type FrameProps } from "@/tabs/Frame";
 export {
   Selector,
-  type SelectorDropProps,
+  type SelectorOnDropParams,
   type SelectorProps,
   type Variant,
 } from "@/tabs/Selector";

@@ -30,26 +30,32 @@ export interface ContentProps extends Flex.BoxProps {
   keepMounted?: boolean;
 }
 
-/**
- * Content renders the content area of a composed tabbed interface. See
- * {@link ContentProps.itemKey} for the keyed and keyless modes.
- */
-export const Content = ({
-  itemKey,
-  keepMounted = false,
+const CLASS_NAME = CSS.BE("tabs", "content");
+
+const KeylessContent = ({
   className,
   children,
   ...rest
-}: ContentProps): ReactElement | null => {
+}: Flex.BoxProps): ReactElement => (
+  <Flex.Box className={CSS(CLASS_NAME, className)} {...rest}>
+    {children}
+  </Flex.Box>
+);
+
+interface KeyedContentProps extends Flex.BoxProps {
+  itemKey: string;
+  keepMounted: boolean;
+}
+
+const KeyedContent = ({
+  itemKey,
+  keepMounted,
+  className,
+  children,
+  ...rest
+}: KeyedContentProps): ReactElement | null => {
   const frameID = useFrameID("Tabs.Content");
-  const { selected } = Select.useItemState(itemKey ?? "");
-  const cls = CSS(CSS.BE("tabs", "content"), className);
-  if (itemKey == null)
-    return (
-      <Flex.Box className={cls} {...rest}>
-        {children}
-      </Flex.Box>
-    );
+  const { selected } = Select.useItemState(itemKey);
   if (!selected && !keepMounted) return null;
   return (
     <Flex.Box
@@ -57,10 +63,25 @@ export const Content = ({
       role="tabpanel"
       aria-labelledby={tabID(frameID, itemKey)}
       hidden={!selected}
-      className={cls}
+      className={CSS(CLASS_NAME, className)}
       {...rest}
     >
       {children}
     </Flex.Box>
   );
 };
+
+/**
+ * Content renders the content area of a composed tabbed interface. See
+ * {@link ContentProps.itemKey} for the keyed and keyless modes.
+ */
+export const Content = ({
+  itemKey,
+  keepMounted = false,
+  ...rest
+}: ContentProps): ReactElement | null =>
+  itemKey == null ? (
+    <KeylessContent {...rest} />
+  ) : (
+    <KeyedContent itemKey={itemKey} keepMounted={keepMounted} {...rest} />
+  );

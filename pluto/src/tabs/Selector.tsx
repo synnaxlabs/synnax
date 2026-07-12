@@ -14,7 +14,6 @@ import {
   type KeyboardEventHandler,
   type ReactElement,
   useCallback,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -26,6 +25,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useCombinedRefs } from "@/hooks";
+import { Triggers } from "@/triggers";
 
 /**
  * The visual variant of a tab selector.
@@ -71,8 +71,31 @@ const getInsertionIndex = (selector: Element, cursor: xy.Crude): number => {
   return tabs.length;
 };
 
+/**
+ * getIndicatorOffset returns the pixel offset, along the strip's main axis, of the
+ * drop indicator for a tab dropped at the given cursor position: the leading edge of
+ * the tab at the insertion index, or the trailing edge of the last tab past the end.
+ */
+const getIndicatorOffset = (
+  selector: HTMLElement,
+  cursor: xy.Crude,
+  horizontal: boolean,
+): number => {
+  const index = getInsertionIndex(selector, cursor);
+  const tabs = selector.querySelectorAll<HTMLElement>(TAB_SELECTOR);
+  if (tabs.length === 0) return 0;
+  if (index < tabs.length) {
+    const tab = tabs[index];
+    return horizontal ? tab.offsetLeft : tab.offsetTop;
+  }
+  const last = tabs[tabs.length - 1];
+  return horizontal
+    ? last.offsetLeft + last.offsetWidth
+    : last.offsetTop + last.offsetHeight;
+};
+
 /** The dragging state a strip drop reports, plus the resolved insertion index. */
-export interface SelectorDropProps extends Haul.OnDropProps {
+export interface SelectorOnDropParams extends Haul.OnDropProps {
   /**
    * index is the strip slot the dragged item was dropped at, ranging from 0
    * (before the first tab) to the number of tabs (after the last tab).
@@ -102,7 +125,7 @@ export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop"> {
    * dragging state and the resolved insertion index. Return the items the strip
    * consumed, matching the Haul drop contract. Ignored when haulType is empty.
    */
-  onDrop?: (props: SelectorDropProps) => Haul.Item[];
+  onDrop?: (params: SelectorOnDropParams) => Haul.Item[];
 }
 
 /**
@@ -135,31 +158,35 @@ export const Selector = ({
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
   const horizontal = dir === "x";
 
-  const handleKeyDown: KeyboardEventHandler<HTMLDivElement> = (e) => {
-    onKeyDown?.(e);
-    const el = internalRef.current;
-    if (el == null || e.defaultPrevented) return;
-    const next = horizontal ? "ArrowRight" : "ArrowDown";
-    const prev = horizontal ? "ArrowLeft" : "ArrowUp";
-    if (![next, prev, "Home", "End"].includes(e.key)) return;
-    // Only rove when a tab itself is focused: arrow keys pressed inside a tab's
-    // children (an editable name, a close button) must keep their own meaning.
-    if ((e.target as HTMLElement).getAttribute?.("role") !== "tab") return;
-    const tabs = Array.from(el.querySelectorAll<HTMLElement>('[role="tab"]'));
-    if (tabs.length === 0) return;
-    let target: number;
-    if (e.key === "Home") target = 0;
-    else if (e.key === "End") target = tabs.length - 1;
-    else {
-      const current = tabs.indexOf(document.activeElement as HTMLElement);
-      const delta = e.key === next ? 1 : -1;
-      target = current === -1 ? 0 : (current + delta + tabs.length) % tabs.length;
-    }
-    e.preventDefault();
-    tabs[target].focus();
-  };
+  const handleKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>(
+    (e) => {
+      onKeyDown?.(e);
+      const el = internalRef.current;
+      if (el == null || e.defaultPrevented) return;
+      const key = Triggers.eventKey(e);
+      const next = horizontal ? "ArrowRight" : "ArrowDown";
+      const prev = horizontal ? "ArrowLeft" : "ArrowUp";
+      if (![next, prev, "Home", "End"].includes(key)) return;
+      // Only rove when a tab itself is focused: arrow keys pressed inside a tab's
+      // children (an editable name, a close button) must keep their own meaning.
+      if ((e.target as HTMLElement).getAttribute?.("role") !== "tab") return;
+      const tabs = Array.from(el.querySelectorAll<HTMLElement>('[role="tab"]'));
+      if (tabs.length === 0) return;
+      let target: number;
+      if (key === "Home") target = 0;
+      else if (key === "End") target = tabs.length - 1;
+      else {
+        const current = tabs.indexOf(document.activeElement as HTMLElement);
+        const delta = key === next ? 1 : -1;
+        target = current === -1 ? 0 : (current + delta + tabs.length) % tabs.length;
+      }
+      e.preventDefault();
+      tabs[target].focus();
+    },
+    [onKeyDown, horizontal],
+  );
 
-  const [insertionIndex, setInsertionIndex] = useState<number | null>(null);
+  const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
 
   const handleCanDrop = useCallback<Haul.CanDrop>(
     (state) => {
@@ -170,22 +197,23 @@ export const Selector = ({
     [haulType, canDrop],
   );
 
-  const handleDragOver = useCallback(({ event }: Haul.OnDragOverProps): void => {
-    const el = internalRef.current;
-    if (event == null || el == null) return;
-    setInsertionIndex(getInsertionIndex(el, { x: event.clientX, y: event.clientY }));
-  }, []);
+  const handleDragOver = useCallback(
+    ({ event }: Haul.OnDragOverProps): void => {
+      const el = internalRef.current;
+      if (event == null || el == null) return;
+      const cursor = { x: event.clientX, y: event.clientY };
+      setIndicatorOffset(getIndicatorOffset(el, cursor, horizontal));
+    },
+    [horizontal],
+  );
 
   const handleDrop = useCallback<Haul.OnDrop>(
-    (props) => {
+    (params) => {
       const el = internalRef.current;
-      setInsertionIndex(null);
-      if (props.event == null || el == null || onDrop == null) return [];
-      const index = getInsertionIndex(el, {
-        x: props.event.clientX,
-        y: props.event.clientY,
-      });
-      return onDrop({ ...props, index });
+      setIndicatorOffset(null);
+      if (params.event == null || el == null || onDrop == null) return [];
+      const cursor = { x: params.event.clientX, y: params.event.clientY };
+      return onDrop({ ...params, index: getInsertionIndex(el, cursor) });
     },
     [onDrop],
   );
@@ -197,39 +225,30 @@ export const Selector = ({
     onDragOver: handleDragOver,
   });
 
-  const handleDragLeave: DragEventHandler<HTMLDivElement> = (e) => {
-    onDragLeave?.(e);
-    setInsertionIndex(null);
-  };
-
-  const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
-  useLayoutEffect(() => {
-    const el = internalRef.current;
-    if (insertionIndex == null || el == null) {
+  const handleDragLeave = useCallback<DragEventHandler<HTMLDivElement>>(
+    (e) => {
+      onDragLeave?.(e);
       setIndicatorOffset(null);
-      return;
-    }
-    const tabs = el.querySelectorAll<HTMLElement>(TAB_SELECTOR);
-    if (tabs.length === 0) setIndicatorOffset(0);
-    else if (insertionIndex < tabs.length) {
-      const tab = tabs[Math.max(insertionIndex, 0)];
-      setIndicatorOffset(horizontal ? tab.offsetLeft : tab.offsetTop);
-    } else {
-      const last = tabs[tabs.length - 1];
-      setIndicatorOffset(
-        horizontal
-          ? last.offsetLeft + last.offsetWidth
-          : last.offsetTop + last.offsetHeight,
-      );
-    }
-  }, [insertionIndex, horizontal]);
+    },
+    [onDragLeave],
+  );
+
   const indicatorStyle: CSSProperties | undefined =
     indicatorOffset == null
       ? undefined
       : { [horizontal ? "left" : "top"]: indicatorOffset };
 
   const ctx = useMemo<ContextValue>(() => ({ size, variant }), [size, variant]);
-  const active = haulType !== "";
+  // A passive strip registers no drop zone, so it still forwards the consumer's
+  // onDragLeave rather than dropping it.
+  const { onDragOver, onDrop: onDropHandler } = dropProps;
+  const dropListeners = useMemo(
+    () =>
+      haulType === ""
+        ? { onDragLeave }
+        : { onDragOver, onDrop: onDropHandler, onDragLeave: handleDragLeave },
+    [haulType, onDragOver, onDropHandler, handleDragLeave, onDragLeave],
+  );
 
   return (
     <Context value={ctx}>
@@ -249,7 +268,7 @@ export const Selector = ({
         direction={dir}
         onKeyDown={handleKeyDown}
         {...rest}
-        {...(active ? { ...dropProps, onDragLeave: handleDragLeave } : {})}
+        {...dropListeners}
       >
         {children}
         {indicatorStyle != null && (

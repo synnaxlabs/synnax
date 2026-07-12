@@ -36,6 +36,37 @@ export interface FrameProps
     Omit<Flex.BoxProps, "onChange" | "onSelect">,
     Partial<state.UsePurePassthroughProps<string>> {}
 
+type FrameBoxProps = Omit<FrameProps, "value" | "initialValue" | "onChange">;
+
+const FrameBox = ({
+  className,
+  children,
+  empty = true,
+  ...rest
+}: FrameBoxProps): ReactElement => (
+  <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
+    {children}
+  </Flex.Box>
+);
+
+const OwnedFrame = ({
+  value,
+  initialValue,
+  onChange,
+  ...rest
+}: FrameProps): ReactElement => {
+  const [selected, setSelected] = state.usePurePassthrough<string>({
+    initialValue: initialValue ?? "",
+    value,
+    onChange,
+  });
+  return (
+    <Select.Context value={selected} onSelect={setSelected}>
+      <FrameBox {...rest} />
+    </Select.Context>
+  );
+};
+
 /**
  * Frame is the root of a composed tabbed interface. When given a value, initialValue,
  * or onChange it owns the selected tab key (controlled or uncontrolled) and publishes
@@ -50,29 +81,23 @@ export const Frame = ({
   value,
   initialValue,
   onChange,
-  className,
-  children,
-  empty = true,
   ...rest
 }: FrameProps): ReactElement => {
   const id = useId();
   const ownsSelection =
     value !== undefined || initialValue !== undefined || onChange !== undefined;
-  const [selected, setSelected] = state.usePurePassthrough<string>({
-    initialValue: initialValue ?? "",
-    value,
-    onChange,
-  });
-  let content = (
-    <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
-      {children}
-    </Flex.Box>
+  return (
+    <Context value={id}>
+      {ownsSelection ? (
+        <OwnedFrame
+          value={value}
+          initialValue={initialValue}
+          onChange={onChange}
+          {...rest}
+        />
+      ) : (
+        <FrameBox {...rest} />
+      )}
+    </Context>
   );
-  if (ownsSelection)
-    content = (
-      <Select.Context value={selected} onSelect={setSelected}>
-        {content}
-      </Select.Context>
-    );
-  return <Context value={id}>{content}</Context>;
 };

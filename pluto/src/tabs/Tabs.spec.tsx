@@ -448,7 +448,7 @@ describe("Tabs", () => {
     interface DragTabsProps {
       haulType?: string;
       canDrop?: Haul.CanDrop;
-      onDrop?: (props: Tabs.SelectorDropProps) => Haul.Item[];
+      onDrop?: (params: Tabs.SelectorOnDropParams) => Haul.Item[];
       items?: Haul.Item[];
     }
 
@@ -501,7 +501,7 @@ describe("Tabs", () => {
     });
 
     it("should report the resolved insertion index on drop", () => {
-      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs onDrop={onDrop} />);
       beginDrag();
       fireDragEvent("drop", 90);
@@ -510,7 +510,7 @@ describe("Tabs", () => {
     });
 
     it("should resolve the index from the cursor position across the strip", () => {
-      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs onDrop={onDrop} />);
       // Tab centers sit at 50/150/250; a drop ends the drag, so restart it per slot.
       for (const x of [30, 90, 210, 400]) {
@@ -539,7 +539,7 @@ describe("Tabs", () => {
     });
 
     it("should register no drop zone when haulType is empty", () => {
-      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs haulType="" onDrop={onDrop} />);
       beginDrag();
       fireDragEvent("dragOver", 150);
@@ -549,7 +549,7 @@ describe("Tabs", () => {
     });
 
     it("should reject items whose type does not match haulType", () => {
-      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs onDrop={onDrop} items={[{ type: "other", key: "y" }]} />);
       beginDrag();
       fireDragEvent("dragOver", 150);
@@ -559,7 +559,7 @@ describe("Tabs", () => {
     });
 
     it("should honor a custom canDrop predicate", () => {
-      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      const onDrop = vi.fn((_p: Tabs.SelectorOnDropParams): Haul.Item[] => []);
       render(<DragTabs canDrop={() => false} onDrop={onDrop} />);
       beginDrag();
       fireDragEvent("dragOver", 150);
