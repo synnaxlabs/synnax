@@ -7,49 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement, useState } from "react";
+import { type PropsWithChildren, type ReactElement, useMemo } from "react";
 
 import { context } from "@/context";
+import { useInitializerRef } from "@/hooks";
+import { Store } from "@/store";
 
 /**
  * ContextValue is the registry a {@link Context} shares between portal parts:
  * In parts register their content element under a key, Out parts resolve and
  * subscribe to it.
  */
-export interface ContextValue {
+export interface ContextValue extends Pick<
+  Store.UseKeyedListenersReturn<string>,
+  "subscribe"
+> {
   /** register makes el resolvable under key, replacing any prior entry. */
   register: (key: string, el: HTMLElement) => void;
   /** unregister removes the entry under key. */
   unregister: (key: string) => void;
   /** get resolves the element registered under key, if any. */
   get: (key: string) => HTMLElement | undefined;
-  /**
-   * subscribe invokes listener on every registry change until the returned
-   * function is called.
-   */
-  subscribe: (listener: () => void) => () => void;
 }
-
-const createRegistry = (): ContextValue => {
-  const nodes = new Map<string, HTMLElement>();
-  const listeners = new Set<() => void>();
-  const notify = (): void => listeners.forEach((l) => l());
-  return {
-    register: (key, el) => {
-      nodes.set(key, el);
-      notify();
-    },
-    unregister: (key) => {
-      nodes.delete(key);
-      notify();
-    },
-    get: (key) => nodes.get(key),
-    subscribe: (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-  };
-};
 
 const [Base, useContext] = context.create<ContextValue>({
   displayName: "Portal.Context",
@@ -61,10 +40,26 @@ export { useContext };
 export interface ContextProps extends PropsWithChildren {}
 
 /**
- * Context owns the key to node registry that links In and Out parts. Every In
- * and the Out parts that host its content must share a Context.
+ * Context owns the key to element registry that links In and Out parts. Every
+ * In and the Out parts that host its content must share a Context.
  */
 export const Context = ({ children }: ContextProps): ReactElement => {
-  const [registry] = useState(createRegistry);
+  const { notifyListeners, subscribe } = Store.useKeyedListeners<string>();
+  const nodesRef = useInitializerRef(() => new Map<string, HTMLElement>());
+  const registry = useMemo<ContextValue>(
+    () => ({
+      register: (key, el) => {
+        nodesRef.current.set(key, el);
+        notifyListeners(key);
+      },
+      unregister: (key) => {
+        nodesRef.current.delete(key);
+        notifyListeners(key);
+      },
+      get: (key) => nodesRef.current.get(key),
+      subscribe,
+    }),
+    [notifyListeners, subscribe],
+  );
   return <Base value={registry}>{children}</Base>;
 };

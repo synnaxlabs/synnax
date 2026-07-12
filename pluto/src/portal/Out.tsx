@@ -12,7 +12,6 @@ import {
   type ReactElement,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 
 import { useContext } from "@/portal/Context";
@@ -34,28 +33,31 @@ export interface OutProps extends Omit<ComponentPropsWithoutRef<"div">, "childre
  */
 export const Out = ({ itemKey, ...rest }: OutProps): ReactElement => {
   const registry = useContext("Portal.Out");
-  const [el, setEl] = useState<HTMLElement | undefined>(undefined);
-  // Resolution happens in a layout effect rather than useSyncExternalStore so
-  // an In registering in the same commit attaches its content before the
-  // browser paints, regardless of which side mounts first.
-  useLayoutEffect(() => {
-    if (itemKey == null) {
-      setEl(undefined);
-      return;
-    }
-    setEl(registry.get(itemKey));
-    return registry.subscribe(() => setEl(registry.get(itemKey)));
-  }, [registry, itemKey]);
   const host = useRef<HTMLDivElement>(null);
+  // Attachment is fully imperative: the hosted element never appears in JSX,
+  // so routing it through state would only add a second pre-paint render on
+  // mount and a re-render per registry change. A layout effect (rather than
+  // useEffect) attaches content before the browser paints regardless of which
+  // side of the In/Out pair mounts first within a commit.
   useLayoutEffect(() => {
     const hostEl = host.current;
-    if (el == null || hostEl == null) return;
-    // appendChild moves an element that is already in the document, so
-    // claiming the content automatically releases its previous host.
-    hostEl.appendChild(el);
-    return () => {
-      if (el.parentNode === hostEl) el.remove();
+    if (itemKey == null || hostEl == null) return;
+    let hosted: HTMLElement | undefined;
+    const attach = (): void => {
+      const el = registry.get(itemKey);
+      if (el === hosted) return;
+      if (hosted?.parentNode === hostEl) hosted.remove();
+      hosted = el;
+      // appendChild moves an element that is already in the document, so
+      // claiming the content automatically releases its previous host.
+      if (el != null) hostEl.appendChild(el);
     };
-  }, [el]);
+    attach();
+    const unsubscribe = registry.subscribe(attach, itemKey);
+    return () => {
+      unsubscribe();
+      if (hosted?.parentNode === hostEl) hosted.remove();
+    };
+  }, [registry, itemKey]);
   return <div ref={host} {...rest} />;
 };

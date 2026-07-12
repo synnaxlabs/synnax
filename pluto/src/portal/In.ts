@@ -50,15 +50,12 @@ export const In = ({ itemKey, onClick, children }: InProps): ReactElement => {
   const registry = useContext("Portal.In");
   const [el] = useState(createDetachedElement);
   const onClickRef = useSyncedRef(onClick);
-  const keyRef = useSyncedRef(itemKey);
   useLayoutEffect(() => {
-    const handleClick = (): void => onClickRef.current?.(keyRef.current);
+    const handleClick = (): void => onClickRef.current?.(itemKey);
     el.addEventListener("click", handleClick);
-    return () => el.removeEventListener("click", handleClick);
-  }, [el]);
-  useLayoutEffect(() => {
     registry.register(itemKey, el);
     return () => {
+      el.removeEventListener("click", handleClick);
       registry.unregister(itemKey);
       el.remove();
     };
