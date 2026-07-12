@@ -13,7 +13,7 @@ import { context } from "@/context";
 import { type Node } from "@/portal/Node";
 
 /**
- * ContextValue is the registry a {@link Provider} shares between portal parts:
+ * ContextValue is the registry a {@link Context} shares between portal parts:
  * In parts register their node under a key, Out parts resolve and subscribe
  * to it.
  */
@@ -52,20 +52,20 @@ const createRegistry = (): ContextValue => {
   };
 };
 
-const [Context, useContext] = context.create<ContextValue>({
+const [Base, useContext] = context.create<ContextValue>({
   displayName: "Portal.Context",
-  providerName: "Portal.Provider",
+  providerName: "Portal.Context",
 });
 
 export { useContext };
 
-export interface ProviderProps extends PropsWithChildren {}
+export interface ContextProps extends PropsWithChildren {}
 
 /**
- * Provider owns the key to node registry that links In and Out parts. Every In
- * and the Out parts that host its content must share a Provider.
+ * Context owns the key to node registry that links In and Out parts. Every In
+ * and the Out parts that host its content must share a Context.
  */
-export const Provider = ({ children }: ProviderProps): ReactElement => {
+export const Context = ({ children }: ContextProps): ReactElement => {
   const [registry] = useState(createRegistry);
-  return <Context value={registry}>{children}</Context>;
+  return <Base value={registry}>{children}</Base>;
 };

@@ -9,8 +9,8 @@
 
 import { type ReactElement, useLayoutEffect, useRef, useState } from "react";
 
+import { useContext } from "@/portal/Context";
 import { type Node } from "@/portal/Node";
-import { useContext } from "@/portal/Provider";
 
 export interface OutProps {
   /**

@@ -27,7 +27,7 @@ interface HarnessProps {
 }
 
 const Harness = ({ keys, host, attrs, onClick }: HarnessProps): ReactElement => (
-  <Portal.Provider>
+  <Portal.Context>
     {keys.map((key) => (
       <Portal.In key={key} itemKey={key} attrs={attrs} onClick={onClick}>
         <p>content-{key}</p>
@@ -36,7 +36,7 @@ const Harness = ({ keys, host, attrs, onClick }: HarnessProps): ReactElement => 
     <section aria-label="host">
       {host !== undefined && <Portal.Out itemKey={host} />}
     </section>
-  </Portal.Provider>
+  </Portal.Context>
 );
 
 describe("Portal", () => {
@@ -127,9 +127,9 @@ describe("Portal", () => {
       expect(el?.getAttribute("style")).toEqual("width: 100%;");
     });
 
-    it("should throw when rendered outside a Provider", () => {
+    it("should throw when rendered outside a Context", () => {
       expect(() => render(<Portal.In itemKey="a">content</Portal.In>)).toThrow(
-        "Portal.In must be used within Portal.Provider",
+        "Portal.In must be used within Portal.Context",
       );
     });
   });
@@ -146,10 +146,10 @@ describe("Portal", () => {
       // The Out renders before the In in tree order, so it resolves the node
       // only after the In registers it within the same commit.
       render(
-        <Portal.Provider>
+        <Portal.Context>
           <Portal.Out itemKey="a" />
           <Portal.In itemKey="a">late content</Portal.In>
-        </Portal.Provider>,
+        </Portal.Context>,
       );
       expect(screen.getByText("late content")).toBeTruthy();
     });
@@ -191,9 +191,9 @@ describe("Portal", () => {
       expect(screen.queryByText("content-a")).toBeNull();
     });
 
-    it("should throw when rendered outside a Provider", () => {
+    it("should throw when rendered outside a Context", () => {
       expect(() => render(<Portal.Out itemKey="a" />)).toThrow(
-        "Portal.Out must be used within Portal.Provider",
+        "Portal.Out must be used within Portal.Context",
       );
     });
   });
@@ -207,7 +207,7 @@ describe("Portal", () => {
     // Layout mirrors the mosaic's usage: content renders into its key once via
     // In, while the hosting Out moves between regions as the tree restructures.
     const Layout = ({ slot, children }: LayoutProps): ReactElement => (
-      <Portal.Provider>
+      <Portal.Context>
         <Portal.In itemKey="tab">{children}</Portal.In>
         <section aria-label="region a">
           {slot === "a" && <Portal.Out itemKey="tab" />}
@@ -215,7 +215,7 @@ describe("Portal", () => {
         <section aria-label="region b">
           {slot === "b" && <Portal.Out itemKey="tab" />}
         </section>
-      </Portal.Provider>
+      </Portal.Context>
     );
 
     const Counter = (): ReactElement => {
@@ -250,7 +250,7 @@ describe("Portal", () => {
 
     it("should leave the active host in place when a stale Out unmounts", () => {
       const Both = ({ withA }: { withA: boolean }): ReactElement => (
-        <Portal.Provider>
+        <Portal.Context>
           <Portal.In itemKey="tab">content</Portal.In>
           <section aria-label="region a">
             {withA && <Portal.Out itemKey="tab" />}
@@ -258,7 +258,7 @@ describe("Portal", () => {
           <section aria-label="region b">
             <Portal.Out itemKey="tab" />
           </section>
-        </Portal.Provider>
+        </Portal.Context>
       );
       // Region b's Out mounts last, so it hosts the content.
       const { rerender } = render(<Both withA />);

@@ -11,13 +11,13 @@ import { type ReactElement, type ReactNode, useLayoutEffect, useState } from "re
 import { createPortal } from "react-dom";
 
 import { useSyncedRef } from "@/hooks";
+import { useContext } from "@/portal/Context";
 import { Node } from "@/portal/Node";
-import { useContext } from "@/portal/Provider";
 
 export interface InProps {
   /**
    * itemKey identifies the content so an {@link Out} with the same key can
-   * host it. Must be unique within the enclosing Provider.
+   * host it. Must be unique within the enclosing Context.
    */
   itemKey: string;
   /**
@@ -37,7 +37,7 @@ export interface InProps {
 
 /**
  * In renders children into a detached element registered under itemKey in the
- * enclosing {@link Provider}. The content stays mounted at the In's position
+ * enclosing {@link Context}. The content stays mounted at the In's position
  * in the React tree for the In's whole lifetime, while {@link Out} parts with
  * the same key host it in the DOM. Because the element is moved rather than
  * recreated when its host changes, the content keeps its state (DOM, WebGL
