@@ -9,7 +9,7 @@
 
 import "@/tabs/Tabs.css";
 
-import { type ReactElement, useId, useMemo } from "react";
+import { type ReactElement, useId } from "react";
 
 import { context } from "@/context";
 import { CSS } from "@/css";
@@ -17,19 +17,19 @@ import { Flex } from "@/flex";
 import { Select } from "@/select";
 import { state } from "@/state";
 
-export interface ContextValue {
-  /** getTabID returns the DOM id of the tab element for the given key. */
-  getTabID: (key: string) => string;
-  /** getPanelID returns the DOM id of the content panel for the given key. */
-  getPanelID: (key: string) => string;
-}
-
-const [Context, useContext] = context.create<ContextValue>({
+const [Context, useFrameID] = context.create<string>({
   displayName: "Tabs.Context",
   providerName: "Tabs.Frame",
 });
 
-export { useContext };
+export { useFrameID };
+
+/** tabID returns the DOM id of the tab handle for the given key within a Frame. */
+export const tabID = (frameID: string, key: string): string => `${frameID}-tab-${key}`;
+
+/** panelID returns the DOM id of the content panel for the given key within a Frame. */
+export const panelID = (frameID: string, key: string): string =>
+  `${frameID}-panel-${key}`;
 
 export interface FrameProps
   extends
@@ -63,13 +63,6 @@ export const Frame = ({
     value,
     onChange,
   });
-  const ctxValue = useMemo<ContextValue>(
-    () => ({
-      getTabID: (key: string) => `${id}-tab-${key}`,
-      getPanelID: (key: string) => `${id}-panel-${key}`,
-    }),
-    [id],
-  );
   let content = (
     <Flex.Box empty={empty} className={CSS(CSS.B("tabs"), className)} {...rest}>
       {children}
@@ -81,5 +74,5 @@ export const Frame = ({
         {content}
       </Select.Context>
     );
-  return <Context value={ctxValue}>{content}</Context>;
+  return <Context value={id}>{content}</Context>;
 };

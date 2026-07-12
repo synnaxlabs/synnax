@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { type MouseEventHandler, type ReactElement, useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -141,55 +142,50 @@ describe("Tabs", () => {
   });
 
   describe("keyboard navigation", () => {
-    it("should move focus without selecting on arrow keys", () => {
+    it("should move focus without selecting on arrow keys", async () => {
       render(<BasicTabs initialValue="a" />);
-      const a = tab("Tab A");
-      a.focus();
-      fireEvent.keyDown(a, { key: "ArrowRight" });
+      tab("Tab A").focus();
+      await userEvent.keyboard("{ArrowRight}");
       expect(document.activeElement).toBe(tab("Tab B"));
       expect(screen.getByText("Content A")).toBeTruthy();
       expect(screen.queryByText("Content B")).toBeNull();
     });
 
-    it("should select the focused tab on Enter", () => {
+    it("should select the focused tab on Enter", async () => {
       render(<BasicTabs initialValue="a" />);
-      const a = tab("Tab A");
-      a.focus();
-      fireEvent.keyDown(a, { key: "ArrowRight" });
-      const b = tab("Tab B");
-      fireEvent.keyDown(b, { key: "Enter" });
+      tab("Tab A").focus();
+      await userEvent.keyboard("{ArrowRight}");
+      await userEvent.keyboard("{Enter}");
       expect(screen.getByText("Content B")).toBeTruthy();
     });
 
-    it("should select the focused tab on Space", () => {
+    it("should select the focused tab on Space", async () => {
       render(<BasicTabs initialValue="a" />);
-      const b = tab("Tab B");
-      b.focus();
-      fireEvent.keyDown(b, { key: " " });
+      tab("Tab B").focus();
+      await userEvent.keyboard("[Space]");
       expect(screen.getByText("Content B")).toBeTruthy();
     });
 
-    it("should wrap focus around the ends of the strip", () => {
+    it("should wrap focus around the ends of the strip", async () => {
       render(<BasicTabs initialValue="a" />);
       const c = tab("Tab C");
       c.focus();
-      fireEvent.keyDown(c, { key: "ArrowRight" });
+      await userEvent.keyboard("{ArrowRight}");
       expect(document.activeElement).toBe(tab("Tab A"));
-      fireEvent.keyDown(tab("Tab A"), { key: "ArrowLeft" });
+      await userEvent.keyboard("{ArrowLeft}");
       expect(document.activeElement).toBe(c);
     });
 
-    it("should jump to the first and last tabs on Home and End", () => {
+    it("should jump to the first and last tabs on Home and End", async () => {
       render(<BasicTabs initialValue="b" />);
-      const b = tab("Tab B");
-      b.focus();
-      fireEvent.keyDown(b, { key: "End" });
+      tab("Tab B").focus();
+      await userEvent.keyboard("{End}");
       expect(document.activeElement).toBe(tab("Tab C"));
-      fireEvent.keyDown(tab("Tab C"), { key: "Home" });
+      await userEvent.keyboard("{Home}");
       expect(document.activeElement).toBe(tab("Tab A"));
     });
 
-    it("should use vertical arrow keys when the selector is vertical", () => {
+    it("should use vertical arrow keys when the selector is vertical", async () => {
       render(
         <Tabs.Frame initialValue="a" x>
           <Tabs.Selector y>
@@ -206,13 +202,13 @@ describe("Tabs", () => {
       );
       const a = tab("Tab A");
       a.focus();
-      fireEvent.keyDown(a, { key: "ArrowRight" });
+      await userEvent.keyboard("{ArrowRight}");
       expect(document.activeElement).toBe(a);
-      fireEvent.keyDown(a, { key: "ArrowDown" });
+      await userEvent.keyboard("{ArrowDown}");
       expect(document.activeElement).toBe(tab("Tab B"));
     });
 
-    it("should not rove focus when arrow keys fire inside a tab's children", () => {
+    it("should not rove focus when arrow keys fire inside a tab's children", async () => {
       render(
         <Tabs.Frame initialValue="a">
           <Tabs.Selector>
@@ -225,7 +221,7 @@ describe("Tabs", () => {
       );
       const child = screen.getByTestId("child-input");
       child.focus();
-      fireEvent.keyDown(child, { key: "ArrowRight" });
+      await userEvent.keyboard("{ArrowRight}");
       expect(document.activeElement).toBe(child);
     });
   });
@@ -337,7 +333,7 @@ describe("Tabs", () => {
     it("should call the Frame's onClose with the tab's key", () => {
       const onClose = vi.fn();
       render(<ClosableTabs onClose={onClose} />);
-      const closeButtons = screen.getAllByLabelText("pluto-tabs__close");
+      const closeButtons = screen.getAllByRole("button", { name: /close/i });
       expect(closeButtons).toHaveLength(2);
       fireEvent.click(closeButtons[1]);
       expect(onClose).toHaveBeenCalledTimes(1);
@@ -347,7 +343,7 @@ describe("Tabs", () => {
     it("should not select the tab whose close button is clicked", () => {
       const onClose = vi.fn();
       render(<ClosableTabs onClose={onClose} />);
-      fireEvent.click(screen.getAllByLabelText("pluto-tabs__close")[1]);
+      fireEvent.click(screen.getAllByRole("button", { name: /close/i })[1]);
       expect(screen.getByText("Content A")).toBeTruthy();
       expect(screen.queryByText("Content B")).toBeNull();
     });

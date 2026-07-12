@@ -39,11 +39,6 @@
     }
 }
 
-.pluto-tabs__tab .pluto-text {
-    overflow-x: hidden;
-    text-overflow: ellipsis;
-}
-
 .pluto-tabs__insertion {
     position: absolute;
     background: var(--pluto-primary-z);
@@ -61,6 +56,11 @@
         left: 0;
         right: 0;
     }
+}
+
+.pluto-tabs__tab .pluto-text {
+    overflow-x: hidden;
+    text-overflow: ellipsis;
 }
 
 /* An idle editable name is a text-selection island inside the draggable tab: a
@@ -93,31 +93,6 @@
 }
 
 .pluto-tabs__selector--default {
-    .pluto-tabs__tab > .pluto-icon {
-        flex-shrink: 0;
-        margin-left: 1.5rem;
-        margin-right: 1rem;
-        color: var(--pluto-gray-l9);
-    }
-
-    &.pluto--direction-x {
-        box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0
-            var(--pluto-border-color);
-        z-index: 3;
-        .pluto-tabs__tab {
-            margin-bottom: -1px;
-            height: 100% !important;
-            font-weight: 450;
-            &.pluto--selected {
-                --box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
-                box-shadow: var(--box-shadow);
-                .pluto-btn-icon:hover {
-                    box-shadow: var(--box-shadow);
-                }
-            }
-        }
-    }
-
     .pluto-tabs__tab {
         border: none;
         padding: 0;
@@ -125,6 +100,13 @@
             box-shadow 0.15s,
             background 0.15s ease-in-out,
             border-color 0.15s ease-in-out;
+
+        > .pluto-icon {
+            flex-shrink: 0;
+            margin-left: 1.5rem;
+            margin-right: 1rem;
+            color: var(--pluto-gray-l9);
+        }
 
         &:not(.pluto--selected) {
             &:hover {
@@ -175,35 +157,30 @@
             }
         }
 
-        .pluto-tabs__unsaved {
-            flex-shrink: 0;
-            height: 0.9em;
-            width: 0.9em;
-            fill: var(--pluto-gray-l8);
-        }
-
-        /* The dot occupies the close slot until the operator hovers, at which
-           point the close button takes its place. */
-        &:has(.pluto-tabs__unsaved):has(.pluto-tabs__close) {
-            .pluto-tabs__close {
-                display: none;
-            }
-            &:hover {
-                .pluto-tabs__unsaved {
-                    display: none;
-                }
-                .pluto-tabs__close {
-                    display: flex;
-                }
-            }
-        }
-
         &.pluto--selected .pluto-tabs__close {
             box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
         }
 
         &:is(:hover, .pluto--selected) .pluto-tabs__close {
             opacity: 1;
+        }
+    }
+
+    &.pluto--direction-x {
+        box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0
+            var(--pluto-border-color);
+        z-index: 3;
+        .pluto-tabs__tab {
+            margin-bottom: -1px;
+            height: 100% !important;
+            font-weight: 450;
+            &.pluto--selected {
+                --box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+                box-shadow: var(--box-shadow);
+                .pluto-btn-icon:hover {
+                    box-shadow: var(--box-shadow);
+                }
+            }
         }
     }
 

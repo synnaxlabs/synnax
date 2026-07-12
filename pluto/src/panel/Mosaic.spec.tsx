@@ -274,7 +274,7 @@ describe("Panel.Mosaic", () => {
       const { utils } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
-      const closeButtons = utils.getAllByLabelText("pluto-tabs__close");
+      const closeButtons = utils.getAllByRole("button", { name: /close/i });
       expect(closeButtons).toHaveLength(2);
       await act(async () => {
         fireEvent.click(closeButtons[0]);
@@ -382,12 +382,12 @@ describe("Panel.Mosaic", () => {
       const p = await createPanel(a, b);
       const { utils } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
-      expect(utils.getAllByLabelText("pluto-tabs__close")).toHaveLength(2);
+      expect(utils.getAllByRole("button", { name: /close/i })).toHaveLength(2);
 
       await client.panels.dispatch(p.key, "", [panel.removeTab({ key: b.key })]);
 
       await waitFor(
-        () => expect(utils.getAllByLabelText("pluto-tabs__close")).toHaveLength(1),
+        () => expect(utils.getAllByRole("button", { name: /close/i })).toHaveLength(1),
         ROUND_TRIP,
       );
       expect(utils.getByText(contentText(a))).toBeTruthy();

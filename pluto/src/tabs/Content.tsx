@@ -12,7 +12,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Select } from "@/select";
-import { useContext } from "@/tabs/Frame";
+import { panelID, tabID, useFrameID } from "@/tabs/Frame";
 
 export interface ContentProps extends Flex.BoxProps {
   /**
@@ -41,7 +41,7 @@ export const Content = ({
   children,
   ...rest
 }: ContentProps): ReactElement | null => {
-  const { getTabID, getPanelID } = useContext("Tabs.Content");
+  const frameID = useFrameID("Tabs.Content");
   const { selected } = Select.useItemState(itemKey ?? "");
   const cls = CSS(CSS.BE("tabs", "content"), className);
   if (itemKey == null)
@@ -53,9 +53,9 @@ export const Content = ({
   if (!selected && !keepMounted) return null;
   return (
     <Flex.Box
-      id={getPanelID(itemKey)}
+      id={panelID(frameID, itemKey)}
       role="tabpanel"
-      aria-labelledby={getTabID(itemKey)}
+      aria-labelledby={tabID(frameID, itemKey)}
       hidden={!selected}
       className={cls}
       {...rest}

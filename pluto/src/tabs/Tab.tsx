@@ -11,28 +11,16 @@ import {
   type KeyboardEventHandler,
   type MouseEventHandler,
   type ReactElement,
-  useMemo,
+  useCallback,
 } from "react";
 
 import { Button } from "@/button";
-import { context } from "@/context";
 import { CSS } from "@/css";
 import { Menu } from "@/menu";
 import { Select } from "@/select";
-import { useContext as useFrameContext } from "@/tabs/Frame";
+import { panelID, tabID, useFrameID } from "@/tabs/Frame";
 import { useSelectorContext } from "@/tabs/Selector";
-
-export interface ContextValue {
-  /** itemKey is the key of the tab this context belongs to. */
-  itemKey: string;
-}
-
-const [Context, useContext] = context.create<ContextValue>({
-  displayName: "Tabs.TabContext",
-  providerName: "Tabs.Tab",
-});
-
-export { useContext as useTabContext };
+import { Triggers } from "@/triggers";
 
 const PILL_BUTTON_PROPS = {
   variant: "outlined",
@@ -69,55 +57,59 @@ export const Tab = ({
   onKeyDown,
   ...rest
 }: TabProps): ReactElement => {
-  const { getTabID, getPanelID } = useFrameContext("Tabs.Tab");
+  const frameID = useFrameID("Tabs.Tab");
   const { size, variant } = useSelectorContext("Tabs.Tab");
   const { selected, focused, onSelect } = Select.useItemState(itemKey);
-  const handleClick: MouseEventHandler<HTMLDivElement> = (e) => {
-    onClick?.(e);
-    onSelect();
-  };
-  const handleKeyDown: KeyboardEventHandler<HTMLDivElement> = (e) => {
-    onKeyDown?.(e);
-    if (e.target !== e.currentTarget || e.defaultPrevented) return;
-    if (e.key !== "Enter" && e.key !== " ") return;
-    e.preventDefault();
-    onSelect();
-  };
+  const handleClick = useCallback<MouseEventHandler<HTMLDivElement>>(
+    (e) => {
+      onClick?.(e);
+      onSelect();
+    },
+    [onClick, onSelect],
+  );
+  const handleKeyDown = useCallback<KeyboardEventHandler<HTMLDivElement>>(
+    (e) => {
+      onKeyDown?.(e);
+      if (e.target !== e.currentTarget || e.defaultPrevented) return;
+      const key = Triggers.eventKey(e);
+      if (key !== "Enter" && key !== "Space") return;
+      e.preventDefault();
+      onSelect();
+    },
+    [onKeyDown, onSelect],
+  );
   const isPill = variant === "pill";
   const variantProps = isPill ? PILL_BUTTON_PROPS : DEFAULT_BUTTON_PROPS;
-  const ctx = useMemo<ContextValue>(() => ({ itemKey }), [itemKey]);
   return (
-    <Context value={ctx}>
-      <Button.Button
-        el="div"
-        id={getTabID(itemKey)}
-        role="tab"
-        aria-selected={selected}
-        aria-controls={getPanelID(itemKey)}
-        data-tab-key={itemKey}
-        data-menu-key={itemKey}
-        tabIndex={selected ? 0 : -1}
-        size={size}
-        className={CSS(
-          CSS.BE("tabs", "tab"),
-          Menu.CONTEXT_TARGET,
-          selected && Menu.CONTEXT_SELECTED,
-          CSS.selected(selected),
-          CSS.altColor(focused),
-          className,
-        )}
-        justify="center"
-        align="center"
-        empty
-        preventClick={selected}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        {...variantProps}
-        borderColor={isPill ? (selected ? 7 : 5) : undefined}
-        {...rest}
-      >
-        {children}
-      </Button.Button>
-    </Context>
+    <Button.Button
+      el="div"
+      id={tabID(frameID, itemKey)}
+      role="tab"
+      aria-selected={selected}
+      aria-controls={panelID(frameID, itemKey)}
+      data-tab-key={itemKey}
+      data-menu-key={itemKey}
+      tabIndex={selected ? 0 : -1}
+      size={size}
+      className={CSS(
+        CSS.BE("tabs", "tab"),
+        Menu.CONTEXT_TARGET,
+        selected && Menu.CONTEXT_SELECTED,
+        CSS.selected(selected),
+        CSS.altColor(focused),
+        className,
+      )}
+      justify="center"
+      align="center"
+      empty
+      preventClick={selected}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      {...variantProps}
+      borderColor={isPill ? (selected ? 7 : 5) : undefined}
+      {...rest}
+    >
+      {children}
+    </Button.Button>
   );
 };

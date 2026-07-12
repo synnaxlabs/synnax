@@ -34,7 +34,7 @@ import { useCombinedRefs } from "@/hooks";
  */
 export type Variant = "default" | "pill";
 
-export interface ContextValue {
+interface ContextValue {
   /** size sets the height of the strip and the typography level of its tabs. */
   size: Component.Size;
   /** variant is the visual variant applied to the strip's tabs. */

@@ -17,7 +17,7 @@ export interface CloseProps extends Button.ButtonProps {}
 
 export const Close = ({ className, children, ...rest }: CloseProps): ReactElement => (
   <Button.Button
-    aria-label="pluto-tabs__close"
+    aria-label="Close"
     className={CSS(CSS.BE("tabs", "close"), className)}
     variant="text"
     sharp
