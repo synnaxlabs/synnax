@@ -674,6 +674,34 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 	if sd.Handwritten {
 		return sd
 	}
+	// A @create New whose base is a discriminated union projects to
+	// `type New… = z.input<typeof unionZ>`. The union's fields are not flattened
+	// (an interface cannot extend a union), so resolve the base schema const here
+	// and short-circuit the struct-parent field machinery below.
+	if len(form.Extends) == 1 {
+		if base, ok := form.Extends[0].Resolve(table); ok {
+			if _, isUnion := base.Form.(resolution.UnionForm); isUnion {
+				sd.HasExtends = true
+				sd.BaseIsUnion = true
+				baseTSName := domain.GetName(base, "ts")
+				schemaName := camelCase(baseTSName) + "Z"
+				if base.Namespace != data.Namespace {
+					ns := base.Namespace
+					targetOutputPath := output.GetPath(base, "ts")
+					if targetOutputPath == "" {
+						targetOutputPath = ns
+					}
+					data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
+					schemaName = ns + "." + schemaName
+				}
+				sd.ExtendsName = schemaName
+				for _, f := range form.OmittedFields {
+					sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
+				}
+				return sd
+			}
+		}
+	}
 	for _, tp := range form.TypeParams {
 		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table))
 	}
@@ -2469,6 +2497,11 @@ type structData struct {
 	// own .default()s), and the New type references the base schema directly
 	// rather than the now-absent newZ.
 	TypeOnly bool
+	// BaseIsUnion is set for a @create-synthesized New whose base is a discriminated
+	// union. Its input projection cannot be an `interface … extends z.input<…>` (a
+	// union is not extendable), so it emits as a `type … = z.input<typeof unionZ>`
+	// alias instead.
+	BaseIsUnion bool
 }
 
 type extendsParentInfo struct {
@@ -2860,7 +2893,11 @@ export const {{ camelCase .TSName }}Z = {{ range $i, $p := .ExtendsParents }}{{ 
 {{- end }}
 {{- if $.GenerateTypes }}
 {{- if .TypeOnly }}
+{{- if .BaseIsUnion }}
+export type {{ .TSName }} = {{ if .OmittedFields }}Omit<{{ end }}z.input<typeof {{ .ExtendsName }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }};
+{{- else }}
 export interface {{ .TSName }} extends {{ if .OmittedFields }}Omit<{{ end }}z.input<typeof {{ .ExtendsName }}>{{ if .OmittedFields }}, {{ range $i, $f := .OmittedFields }}{{ if $i }} | {{ end }}"{{ $f }}"{{ end }}>{{ end }} {}
+{{- end }}
 {{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
 {{- end }}
