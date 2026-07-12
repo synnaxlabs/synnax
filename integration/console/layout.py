@@ -507,7 +507,7 @@ class LayoutClient:
                 ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
             )
             .filter(has_text=re.compile(f"^{re.escape(name)}$"))
-            .filter(has=self.page.locator("[aria-label='pluto-tabs__close']"))
+            .filter(has=self.page.locator("[aria-label='Close']"))
             .first
         )
 
@@ -535,7 +535,7 @@ class LayoutClient:
 
         modality = random.choice(["button", "context_menu"])
         if modality == "button":
-            tab.get_by_label("pluto-tabs__close").click()
+            tab.get_by_label("Close", exact=True).click()
         else:
             self.ctx_menu.action(tab.locator("p"), "Close", exact=False)
 

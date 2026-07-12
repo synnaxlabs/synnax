@@ -9,9 +9,11 @@
 
 import { createSlice, current, type PayloadAction } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, Haul, Mosaic } from "@synnaxlabs/pluto";
+import { Color, Haul } from "@synnaxlabs/pluto";
 import { deep, type direction, id, location } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import * as Mosaic from "@/session/layout/mosaic";
 
 const placementLocationZ = z.enum(["window", "mosaic", "modal"]);
 
@@ -297,7 +299,7 @@ const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State
     ),
   );
 
-const tabFromLayout = (layout: State): Mosaic.Spec => ({
+const tabFromLayout = (layout: State): Mosaic.Tab => ({
   closable: true,
   editable: layout.tab?.editable,
   icon: layout.icon,

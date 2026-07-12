@@ -11,12 +11,44 @@ import { direction, type location, type spatial } from "@synnaxlabs/x";
 import { z } from "zod";
 
 /**
- * Zod schema for a mosaic node. Used to validate the data for a node in the mosaic
- * binary tree. See the {@link Node} interface for more information.
+ * tabZ is the persisted schema for a tab rendered in a layout mosaic. The shape
+ * is part of the persisted slice state and must not change without a migration.
  */
-export const nodeZ: z.ZodType<Node> = z.object({
+export const tabZ = z.object({
+  tabKey: z.string(),
+  name: z.string(),
+  closable: z.boolean().optional(),
+  icon: z.unknown().optional(),
+  editable: z.boolean().optional(),
+  visible: z.boolean().optional(),
+  unsavedChanges: z.boolean().optional(),
+  loading: z.boolean().optional(),
+  content: z.unknown().optional(),
+});
+
+export interface Tab extends z.infer<typeof tabZ> {}
+
+/**
+ * Base interface for a mosaic node in the tree. Used to make sure that zod type
+ * inference works correctly with recursive types.
+ */
+interface BaseNode {
+  key: number;
+  tabs?: Tab[];
+  selected?: string;
+  direction?: direction.Direction;
+  size?: number;
+  first?: BaseNode;
+  last?: BaseNode;
+}
+
+/**
+ * nodeZ is the persisted schema for a node in the layout mosaic binary tree. See
+ * the {@link Node} interface for the field semantics.
+ */
+export const nodeZ: z.ZodType<BaseNode> = z.object({
   key: z.number(),
-  tabs: z.array(z.string()).optional(),
+  tabs: z.array(tabZ).optional(),
   selected: z.string().optional(),
   direction: direction.directionZ.optional(),
   size: z.number().optional(),
@@ -29,16 +61,15 @@ export const nodeZ: z.ZodType<Node> = z.object({
 });
 
 /**
- * Represents the data for a node in a mosaic binary tree. Nodes are either leaf
- * nodes, which hold an ordered list of tab keys, or split nodes, which manage the
- * direction and sizing of their two children. The tree is structure-only: tab keys
- * are opaque strings, and any presentation data (names, icons) lives with the
- * consumer.
+ * Represents the data for a node in the mosaic binary tree. Nodes can be either
+ * leaf or non-leaf nodes. Leaf nodes represent the edges of the tree, and render
+ * tabs in the mosaic. Non-leaf nodes represent the internal nodes of the tree,
+ * and manage the splitting/sizing of the tree.
  */
 export interface Node {
   /**
-   * Key assigns a unique identifier to the node. This key is used to identify the
-   * location of the node in the tree. Keys are organized in a structure resembling
+   * Key assigns a unique identifier to the leaf. This key is used to identify the
+   * location of the leaf in the tree. Keys are organized in a structure resembling
    * the following.
    *                   1
    *                 /   \
@@ -46,65 +77,69 @@ export interface Node {
    *               /  \  / \
    *              4   5  6  7
    *
-   * The first child of a node is assigned the key 2 * key, the second child is assigned
-   * the key 2 * key + 1. The root node is assigned the key 1.
+   * The first child of a node is assigned the key 2 * key, the second child is
+   * assigned the key 2 * key + 1. The root node is assigned the key 1.
    */
   key: number;
   /**
-   * The ordered keys of the tabs the node holds. If this value is defined, the node
-   * is a leaf.
+   * A list of tabs for the node to render. If this value is defined, the node is
+   * considered a leaf, and the tabs will be rendered.
    */
-  tabs?: string[];
+  tabs?: Tab[];
   /** The key of the selected tab. This value only needs to be set for leaf nodes. */
   selected?: string;
-  /** The direction of the split. This value only needs to be set for split nodes. */
+  /** The direction of the split. This value only needs to be set for non-leaf nodes. */
   direction?: direction.Direction;
   /**
    * The first child of the node. If the node is vertical, this is the top child.
    * If the node is horizontal, this is the left child. This value only needs to be
-   * set for split nodes.
+   * set for non-leaf nodes.
    */
   first?: Node;
   /**
    * The last child of the node. If the node is vertical, this is the bottom child.
    * If the node is horizontal, this is the right child. This value only needs to be
-   * set for split nodes.
+   * set for non-leaf nodes.
    */
   last?: Node;
   /**
    * The size of the node as a decimal between 0 and 1. This value only needs to be
-   * set for split nodes.
+   * set for non-leaf nodes.
    */
   size?: number;
 }
 
 /**
- * resetSelection returns `selected` when it is still present in `tabs`, the last
- * tab's key when it is not, and undefined when there are no tabs.
+ * Checks if the selected tab key exists in the tabs array. If it does not, it
+ * returns the last tab key in the array. If the array is empty, it returns
+ * undefined. This function is useful for 'resetting' the selected tab when a tab
+ * is removed that may be the currently selected tab.
  */
-const resetSelection = (selected = "", tabs: string[] = []): string | undefined => {
+const resetSelection = (selected = "", tabs: Tab[] = []): string | undefined => {
   if (tabs.length === 0) return undefined;
-  return tabs.includes(selected) ? selected : tabs[tabs.length - 1];
+  return tabs.find((t) => t.tabKey === selected) != null
+    ? selected
+    : tabs[tabs.length - 1]?.tabKey;
 };
 
 /**
- * Inserts a tab into a node in the mosaic. If the given key is not found,
- * the tab is inserted into the closest ancestor. This is to deal
- * with mosaic garbage collection.
+ * Inserts a tab into a node in the mosaic. If the given key is not found, the tab
+ * is inserted into the closest ancestor. This is to deal with mosaic garbage
+ * collection.
  *
  * @param key - The key of the node to insert the tab into.
- * @param tabKey - The key of the tab to insert.
+ * @param tab - The tab to insert.
  * @param loc - The location where the tab was 'dropped' relative to the node.
  */
 export const insertTab = (
   root: Node,
-  tabKey: string,
+  tab: Tab,
   loc: location.Location = "center",
   key?: number,
   index?: number,
 ): Node => {
   root = shallowCopyNode(root);
-  if (key === undefined) return insertAnywhere(root, tabKey);
+  if (key === undefined) return insertAnywhere(root, tab);
 
   const node = findNodeOrAncestor(root, key);
 
@@ -113,10 +148,10 @@ export const insertTab = (
   if (loc === "center") {
     node.tabs ||= [];
     if (index !== undefined && index >= 0 && index <= node.tabs.length)
-      node.tabs.splice(index, 0, tabKey);
-    else node.tabs.push(tabKey);
+      node.tabs.splice(index, 0, tab);
+    else node.tabs.push(tab);
 
-    node.selected = tabKey;
+    node.selected = tab.tabKey;
     return root;
   }
 
@@ -127,17 +162,17 @@ export const insertTab = (
 
   // Allow for inserting into one of the existing children.
   if (findNodeOrAncestor(root, potentialChildKey).key !== node.key)
-    return insertTab(root, tabKey, "center", potentialChildKey);
+    return insertTab(root, tab, "center", potentialChildKey);
 
   // If we're not dropping the tab in the center, and we have no tabs in the current
   // node, we can't split the node, so we instead insert the tab in the center
   if (node.tabs == null || node.tabs.length === 0)
-    return insertTab(root, tabKey, "center", key);
+    return insertTab(root, tab, "center", key);
 
   const [insertOrder, siblingOrder, dir] = splitArrangement(loc);
   node.direction = dir;
 
-  node[insertOrder] = { key: 0, tabs: [tabKey], selected: tabKey };
+  node[insertOrder] = { key: 0, tabs: [tab], selected: tab.tabKey };
   node[siblingOrder] = { key: 0, tabs: node.tabs, selected: node.selected };
 
   if (node.first == null || node.last == null) throw new Error("Invalid Mosaic");
@@ -146,7 +181,7 @@ export const insertTab = (
   node.first.key = firstChildKey;
   node.last.key = lastChildKey;
 
-  // Clear the previous node, as it's now been and is not used
+  // Clear the previous node, as it's now been split and is not used
   // for rendering.
   node.tabs = undefined;
   node.size = undefined;
@@ -155,43 +190,28 @@ export const insertTab = (
   return root;
 };
 
-const insertAnywhere = (root: Node, tabKey: string): Node => {
+export const updateTab = (
+  root: Node,
+  tabKey: string,
+  updater: (tab: Tab) => Tab,
+): Node => {
   root = shallowCopyNode(root);
-  if (root.tabs != null) {
-    root.tabs.push(tabKey);
-    root.selected = tabKey;
-    return root;
-  }
-  if (root.first != null) root.first = insertAnywhere(root.first, tabKey);
-  else if (root.last != null) root.last = insertAnywhere(root.last, tabKey);
+  const [tab, node] = findTab(root, tabKey);
+  if (tab == null || node == null) throw new Error("Tab not found");
+  node.tabs = node.tabs?.map((t) => (t.tabKey === tabKey ? updater(t) : t));
   return root;
 };
 
-/**
- * Automatically selects tabs for all nodes in the mosaic if they don't already have
- * a selection.
- *
- * @param root - The root of the mosaic.
- * @returns A shallow copy of the root with all nodes having a selection.
- */
-export const autoSelectTabs = (root: Node): [Node, string[]] => {
+const insertAnywhere = (root: Node, tab: Tab): Node => {
   root = shallowCopyNode(root);
-  const selected: string[] = [];
   if (root.tabs != null) {
-    root.selected = resetSelection(root.selected, root.tabs);
-    if (root.selected != null) selected.push(root.selected);
+    root.tabs.push(tab);
+    root.selected = tab.tabKey;
+    return root;
   }
-  if (root.first != null) {
-    const [f, s] = autoSelectTabs(root.first);
-    root.first = f;
-    selected.push(...s);
-  }
-  if (root.last != null) {
-    const [r, l] = autoSelectTabs(root.last);
-    root.last = r;
-    selected.push(...l);
-  }
-  return [root, selected];
+  if (root.first != null) root.first = insertAnywhere(root.first, tab);
+  else if (root.last != null) root.last = insertAnywhere(root.last, tab);
+  return root;
 };
 
 /**
@@ -202,21 +222,18 @@ export const autoSelectTabs = (root: Node): [Node, string[]] => {
  */
 export const removeTab = (root: Node, tabKey: string): [Node, string | null] => {
   root = shallowCopyNode(root);
-  const node = findLeaf(root, tabKey);
+  const [, node] = findTab(root, tabKey);
   if (node == null) return [root, null];
-  node.tabs = node.tabs?.filter((t) => t !== tabKey);
+  node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = resetSelection(node.selected, node.tabs);
   root = gc(root);
   const selected = node.selected ?? findSelected(root);
   return [root, selected];
 };
 
-export const findSelected = (root: Node): string | null => {
+const findSelected = (root: Node): string | null => {
   if (root.selected != null) return root.selected;
-  if (root.first != null) {
-    const selected = findSelected(root.first);
-    if (selected != null) return selected;
-  }
+  if (root.first != null) return findSelected(root.first);
   if (root.last != null) return findSelected(root.last);
   return null;
 };
@@ -230,8 +247,8 @@ export const findSelected = (root: Node): string | null => {
  */
 export const selectTab = (root: Node, tabKey: string): Node => {
   root = shallowCopyNode(root);
-  const entry = findLeaf(root, tabKey);
-  if (entry == null) throw new Error("Tab not found");
+  const [tab, entry] = findTab(root, tabKey);
+  if (tab == null || entry == null) throw new Error("Tab not found");
   entry.selected = tabKey;
   return root;
 };
@@ -254,16 +271,16 @@ export const moveTab = (
   index?: number,
 ): [Node, string | null] => {
   root = shallowCopyNode(root);
-  const entry = findLeaf(root, tabKey);
-  if (entry == null) throw new Error("Tab not found");
+  const [tab, entry] = findTab(root, tabKey);
+  if (tab == null || entry == null) throw new Error("Tab not found");
   const [r2, selected] = removeTab(root, tabKey);
-  const r3 = insertTab(r2, tabKey, loc, to, index);
+  const r3 = insertTab(r2, tab, loc, to, index);
   return [r3, selected];
 };
 
 export const findTabNode = (root: Node, tabKey: string): Node | undefined => {
   if (root.tabs != null) {
-    if (root.tabs.includes(tabKey)) return root;
+    if (root.tabs.some((t) => t.tabKey === tabKey)) return root;
     return undefined;
   }
   if (root.first != null) {
@@ -282,8 +299,8 @@ export const findTabNode = (root: Node, tabKey: string): Node | undefined => {
  *
  * @param root - The root of the mosaic.
  * @param key  - The key of the leaf to resize.
- * @param size - The new size distribution for the leaf. Expressed as either a percentage
- * or a number of pixels of the first child.
+ * @param size - The new size distribution for the leaf. Expressed as either a
+ * percentage or a number of pixels of the first child.
  * @returns A shallow copy of the root of the mosaic with the leaf resized.
  */
 export const resizeNode = (root: Node, key: number, size: number): Node => {
@@ -294,8 +311,8 @@ export const resizeNode = (root: Node, key: number, size: number): Node => {
 };
 
 /**
- * Splits the node containing the tab with the given `tabKey`,
- * moving the tab to a new child node in the specified direction.
+ * Splits the node containing the tab with the given `tabKey`, moving the tab to a
+ * new child node in the specified direction.
  *
  * @param root - The root of the mosaic.
  * @param tabKey - The key of the tab to move to the new split.
@@ -308,29 +325,36 @@ export const split = (root: Node, tabKey: string, dir: direction.Direction): Nod
   if (node == null) throw new Error("Tab not found");
   if (node.tabs == null || node.tabs.length === 0) throw new Error("Node has no tabs");
 
-  if (!node.tabs.includes(tabKey)) throw new Error("Tab not found in node");
-  node.tabs = node.tabs.filter((t) => t !== tabKey);
+  const tabIndex = node.tabs.findIndex((t) => t.tabKey === tabKey);
+  if (tabIndex === -1) throw new Error("Tab not found in node");
+
+  const tab = node.tabs[tabIndex];
+  node.tabs = node.tabs.filter((t) => t.tabKey !== tabKey);
 
   const firstChildKey = node.key * 2;
   const lastChildKey = node.key * 2 + 1;
 
   const childWithTab: Node = {
     key: lastChildKey,
-    tabs: [tabKey],
-    selected: tabKey,
+    tabs: [tab],
+    selected: tab.tabKey,
   };
 
   const childWithoutTab: Node = {
     key: firstChildKey,
     tabs: node.tabs,
-    selected: resetSelection(node.selected, node.tabs),
+    selected: node.selected,
   };
+  childWithoutTab.selected = resetSelection(
+    childWithoutTab.selected,
+    childWithoutTab.tabs,
+  );
 
   node.direction = dir;
   node.first = childWithoutTab;
   node.last = childWithTab;
 
-  // Clear the node's tabs and selected since it's now a split node
+  // Clear the node's tabs and selected since it's now an internal node
   node.tabs = undefined;
   node.selected = undefined;
 
@@ -349,6 +373,24 @@ export const canSplit = (root: Node, tabKey: string): boolean => {
   const node = findTabNode(root, tabKey);
   if (node == null) return false;
   return node.tabs != null && node.tabs.length > 1;
+};
+
+/**
+ * Sets the title of a tab.
+ *
+ * @param root - The root of the mosaic.
+ * @param tabKey  - The key of the tab to rename.
+ * @param name - The new title of the tab.
+ * @returns A shallow copy of the root of the mosaic with the tab title changed.
+ */
+export const renameTab = (root: Node, tabKey: string, name: string): Node => {
+  name = name.trim();
+  root = shallowCopyNode(root);
+  const [, leaf] = findTab(root, tabKey);
+  if (leaf?.tabs == null) throw new Error("Tab not found");
+  if (name.length > 0)
+    leaf.tabs = leaf.tabs.map((t) => (t.tabKey === tabKey ? { ...t, name } : t));
+  return root;
 };
 
 /***
@@ -396,10 +438,16 @@ const shouldGc = (node: Node): boolean =>
   node.last == null &&
   (node.tabs == null || node.tabs.length === 0);
 
-const findLeaf = (node: Node, tabKey: string): Node | undefined => {
-  if (node.tabs != null && node.tabs.includes(tabKey)) return node;
-  if (node.first == null || node.last == null) return undefined;
-  return findLeaf(node.first, tabKey) ?? findLeaf(node.last, tabKey);
+const findTab = (node: Node, tabKey: string): [Tab | undefined, Node | undefined] => {
+  if (node.tabs != null) {
+    const tab = node.tabs.find((t) => t.tabKey === tabKey);
+    if (tab != null) return [tab, node];
+  }
+  if (node.first == null || node.last == null) return [undefined, undefined];
+  const [t1Tab, t2Tree] = findTab(node.first, tabKey);
+  if (t1Tab != null && t2Tree != null) return [t1Tab, t2Tree];
+  const [t2Tab, t2Tree2] = findTab(node.last, tabKey);
+  return [t2Tab, t2Tree2];
 };
 
 const findMosaicNode = (node: Node, key: number): Node | undefined => {
@@ -429,17 +477,9 @@ const splitArrangement = (
 
 const shallowCopyNode = (node: Node): Node => ({
   ...node,
-  tabs: node.tabs != null ? [...node.tabs] : undefined,
   first: node.first != null ? shallowCopyNode(node.first) : undefined,
   last: node.last != null ? shallowCopyNode(node.last) : undefined,
 });
-
-export const mapNodes = <O>(root: Node, fn: (node: Node) => O, acc: O[] = []): O[] => {
-  acc.push(fn(root));
-  if (root.first != null) mapNodes(root.first, fn, acc);
-  if (root.last != null) mapNodes(root.last, fn, acc);
-  return acc;
-};
 
 export const forEachNode = (root: Node, fn: (node: Node) => void): void => {
   fn(root);
@@ -447,6 +487,7 @@ export const forEachNode = (root: Node, fn: (node: Node) => void): void => {
   if (root.last != null) forEachNode(root.last, fn);
 };
 
+// New helper function to normalize keys throughout the tree
 const normalizeKeys = (node: Node, key: number): Node => {
   node = shallowCopyNode(node);
   node.key = key;

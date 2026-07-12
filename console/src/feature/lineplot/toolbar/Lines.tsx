@@ -11,6 +11,7 @@ import { lineplot } from "@synnaxlabs/client";
 import {
   Channel,
   Color,
+  Component,
   Icon,
   Input,
   LinePlot,
@@ -24,10 +25,9 @@ import { type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 
-export const Lines = (): ReactElement => {
-  const lineKeys = LinePlot.useSelectLineKeys();
+const EmptyContent = () => {
   const { onSelect } = Select.useContext<string>();
-  const emptyContent = (
+  return (
     <Empty.Action
       x
       message="No lines plotted. Select channels using the"
@@ -37,18 +37,6 @@ export const Lines = (): ReactElement => {
         onSelect("data");
       }}
     />
-  );
-
-  return (
-    <List.Frame data={lineKeys}>
-      <List.Items<string, lineplot.Line>
-        full="y"
-        className={CSS.BE("line-plot", "toolbar", "lines")}
-        emptyContent={emptyContent}
-      >
-        {({ key, index, ...rest }) => <Line key={key} index={index} {...rest} />}
-      </List.Items>
-    </List.Frame>
   );
 };
 
@@ -143,5 +131,22 @@ const Line = ({ itemKey, index }: LineProps): ReactElement | null => {
       />
       <Color.Swatch value={line.color} onChange={handleColorChange} size="small" />
     </List.Item>
+  );
+};
+
+const line = Component.renderProp(Line);
+
+export const Lines = (): ReactElement => {
+  const lineKeys = LinePlot.useSelectLineKeys();
+  return (
+    <List.Frame data={lineKeys}>
+      <List.Items<string, lineplot.Line>
+        full="y"
+        className={CSS.BE("line-plot", "toolbar", "lines")}
+        emptyContent={<EmptyContent />}
+      >
+        {line}
+      </List.Items>
+    </List.Frame>
   );
 };

@@ -971,7 +971,7 @@ class ProjectClient:
             self.layout.page.locator(
                 ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
             )
-            .filter(has=self.layout.page.locator("[aria-label='pluto-tabs__close']"))
+            .filter(has=self.layout.page.locator("[aria-label='Close']"))
             .last
         )
         actual_name = active_tab.inner_text().strip()
@@ -1063,7 +1063,7 @@ class ProjectClient:
 
         tabs = self.layout.page.locator(
             ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
-        ).filter(has=self.layout.page.locator("[aria-label='pluto-tabs__close']"))
+        ).filter(has=self.layout.page.locator("[aria-label='Close']"))
         tab_count = tabs.count()
         actual_tab_name = "Line Plot"
         if tab_count > 0:

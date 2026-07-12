@@ -9,5 +9,6 @@
 
 export * from "@/session/layout/middleware";
 export { migrateLayout } from "@/session/layout/migrations";
+export * as Mosaic from "@/session/layout/mosaic";
 export * from "@/session/layout/selectors";
 export * from "@/session/layout/slice";

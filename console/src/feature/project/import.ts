@@ -9,7 +9,7 @@
 
 import { type Store } from "@reduxjs/toolkit";
 import { DisconnectedError, project, type Synnax } from "@synnaxlabs/client";
-import { Access, Mosaic, type Pluto, type Status } from "@synnaxlabs/pluto";
+import { Access, type Pluto, type Status } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
 
 import { LAYOUT_FILE_NAME } from "@/feature/project/export";
@@ -34,7 +34,7 @@ const remapLayoutKeys = (
     }),
   );
   Object.values(next.mosaics).forEach((mosaic) => {
-    Mosaic.forEachNode(mosaic.root, (node) => {
+    Session.Layout.Mosaic.forEachNode(mosaic.root, (node) => {
       node.tabs?.forEach((tab) => {
         const newKey = remap.get(tab.tabKey);
         if (newKey != null) tab.tabKey = newKey;

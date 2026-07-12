@@ -223,3 +223,26 @@
         box-shadow: none;
     }
 }
+
+.pluto-tabs__tab .pluto-tabs__unsaved {
+    flex-shrink: 0;
+    height: 0.9em;
+    width: 0.9em;
+    fill: var(--pluto-gray-l8);
+}
+
+/* The dot occupies the close slot until the operator hovers, at which point the
+   close button takes its place. */
+.pluto-tabs__tab:has(.pluto-tabs__unsaved):has(.pluto-tabs__close) {
+    .pluto-tabs__close {
+        display: none;
+    }
+    &:hover {
+        .pluto-tabs__unsaved {
+            display: none;
+        }
+        .pluto-tabs__close {
+            display: flex;
+        }
+    }
+}

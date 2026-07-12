@@ -143,5 +143,5 @@ class Console:
             tab = self._find_tab_to_close(except_tabs)
             if tab is None:
                 return
-            tab.get_by_label("pluto-tabs__close").click()
+            tab.get_by_label("Close", exact=True).click()
             self._dismiss_unsaved_changes_dialog()
