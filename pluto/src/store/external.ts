@@ -7,4 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Store from "@/store/external";
+export * from "@/store/membership";
+export * from "@/store/presence";
+export * from "@/store/store";
