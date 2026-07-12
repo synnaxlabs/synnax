@@ -20,6 +20,7 @@ import {
   Icon,
   Nav,
   Panel,
+  Text,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -29,9 +30,23 @@ import { CSS } from "@/platform/css";
 import { useTab } from "@/platform/panel/tab";
 import { Session } from "@/session";
 
+// Tab names render in the selector strip, outside the content's suspense
+// boundary. A name service throws when its resource has been deleted, so an
+// unguarded name would crash the entire app on a single stale tab.
+const TabNameFallback = (): ReactElement => (
+  <>
+    <Icon.Warning />
+    <Text.Text>Not found</Text.Text>
+  </>
+);
+
 const TabName = (): ReactElement => {
   const { Name } = useTab();
-  return <Name />;
+  return (
+    <Errors.SuspenseBoundary FallbackComponent={TabNameFallback}>
+      <Name />
+    </Errors.SuspenseBoundary>
+  );
 };
 
 const Content = (): ReactElement => {
