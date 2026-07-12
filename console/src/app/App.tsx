@@ -111,7 +111,7 @@ const AppUnderContext = (): ReactElement => {
 };
 
 export const App = (): ReactElement => {
-  const storeRef = useInitializerRef(() => Session.configureStore());
+  const storeRef = useInitializerRef(() => Session.createStore());
   return (
     <Errors.OverlayWithoutStore>
       <Provider store={storeRef.current}>
