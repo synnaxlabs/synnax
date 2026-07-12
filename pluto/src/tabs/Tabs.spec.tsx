@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { createEvent, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type MouseEventHandler, type ReactElement, useEffect, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Haul } from "@/haul";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 
@@ -416,48 +417,155 @@ describe("Tabs", () => {
     });
   });
 
-  describe("Selector", () => {
-    it("should render a drop indicator at the given insertion index", () => {
-      const { container, rerender } = render(<BasicTabs initialValue="a" />);
-      expect(container.querySelector(".pluto-tabs__insertion")).toBeNull();
-      rerender(
+  describe("Selector drag-and-drop", () => {
+    const TAB_TYPE = "tab";
+
+    const stubRect = (el: Element, x: number, w: number): void => {
+      vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
+        x,
+        y: 0,
+        width: w,
+        height: 32,
+        top: 0,
+        bottom: 32,
+        left: x,
+        right: x + w,
+        toJSON: () => ({}),
+      });
+    };
+
+    const stubStripRects = (tablist: HTMLElement): void => {
+      tablist
+        .querySelectorAll<HTMLElement>("[data-tab-key]")
+        .forEach((t, i) => stubRect(t, i * 100, 100));
+    };
+
+    const DragSource = ({ items }: { items: Haul.Item[] }): ReactElement => {
+      const { startDrag } = Haul.useDrag({ type: "source", key: "source" });
+      return <button data-testid="drag-source" onClick={() => startDrag(items)} />;
+    };
+
+    interface DragTabsProps {
+      haulType?: string;
+      canDrop?: Haul.CanDrop;
+      onDrop?: (props: Tabs.SelectorDropProps) => Haul.Item[];
+      items?: Haul.Item[];
+    }
+
+    const DragTabs = ({
+      haulType = TAB_TYPE,
+      canDrop,
+      onDrop,
+      items = [{ type: TAB_TYPE, key: "x" }],
+    }: DragTabsProps): ReactElement => (
+      <Haul.Provider>
+        <DragSource items={items} />
         <Tabs.Frame initialValue="a">
-          <Tabs.Selector insertionIndex={1}>
+          <Tabs.Selector haulType={haulType} canDrop={canDrop} onDrop={onDrop}>
             <Tabs.Tab itemKey="a">Tab A</Tabs.Tab>
             <Tabs.Tab itemKey="b">Tab B</Tabs.Tab>
+            <Tabs.Tab itemKey="c">Tab C</Tabs.Tab>
           </Tabs.Selector>
-        </Tabs.Frame>,
-      );
-      expect(container.querySelector(".pluto-tabs__insertion")).toBeTruthy();
+        </Tabs.Frame>
+      </Haul.Provider>
+    );
+
+    const beginDrag = (): void => {
+      fireEvent.click(screen.getByTestId("drag-source"));
+      stubStripRects(screen.getByRole("tablist"));
+    };
+
+    // jsdom has no DragEvent, so testing-library falls back to a plain Event and the
+    // cursor coordinates in the init are lost. Define them on the event directly.
+    const fireDragEvent = (type: "dragOver" | "drop", x: number): void => {
+      const target = screen.getByRole("tablist");
+      const event = createEvent[type](target);
+      Object.defineProperties(event, {
+        clientX: { value: x },
+        clientY: { value: 16 },
+        screenX: { value: x },
+        screenY: { value: 16 },
+      });
+      fireEvent(target, event);
+    };
+
+    const indicator = (): HTMLElement | null =>
+      document.querySelector(".pluto-tabs__insertion");
+
+    it("should render an insertion indicator while dragging an accepted item", () => {
+      render(<DragTabs />);
+      expect(indicator()).toBeNull();
+      beginDrag();
+      fireDragEvent("dragOver", 150);
+      expect(indicator()).not.toBeNull();
     });
 
-    describe("getInsertionIndex", () => {
-      const stubBounds = (el: Element, left: number, width: number): void => {
-        vi.spyOn(el, "getBoundingClientRect").mockReturnValue({
-          x: left,
-          y: 0,
-          width,
-          height: 20,
-          top: 0,
-          bottom: 20,
-          left,
-          right: left + width,
-          toJSON: () => ({}),
-        });
-      };
+    it("should report the resolved insertion index on drop", () => {
+      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      render(<DragTabs onDrop={onDrop} />);
+      beginDrag();
+      fireDragEvent("drop", 90);
+      expect(onDrop).toHaveBeenCalledTimes(1);
+      expect(onDrop.mock.calls[0][0].index).toEqual(1);
+    });
 
-      it("should derive the index from the cursor position", () => {
-        render(<BasicTabs initialValue="a" />);
-        const tablist = screen.getByRole("tablist");
-        const tabs = tablist.querySelectorAll("[data-tab-key]");
-        stubBounds(tabs[0], 0, 100);
-        stubBounds(tabs[1], 100, 100);
-        stubBounds(tabs[2], 200, 100);
-        expect(Tabs.getInsertionIndex(tablist, { x: 30, y: 10 })).toEqual(0);
-        expect(Tabs.getInsertionIndex(tablist, { x: 90, y: 10 })).toEqual(1);
-        expect(Tabs.getInsertionIndex(tablist, { x: 210, y: 10 })).toEqual(2);
-        expect(Tabs.getInsertionIndex(tablist, { x: 400, y: 10 })).toEqual(3);
-      });
+    it("should resolve the index from the cursor position across the strip", () => {
+      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      render(<DragTabs onDrop={onDrop} />);
+      // Tab centers sit at 50/150/250; a drop ends the drag, so restart it per slot.
+      for (const x of [30, 90, 210, 400]) {
+        beginDrag();
+        fireDragEvent("drop", x);
+      }
+      expect(onDrop.mock.calls.map(([p]) => p.index)).toEqual([0, 1, 2, 3]);
+    });
+
+    it("should clear the indicator once a drop lands", () => {
+      render(<DragTabs onDrop={() => []} />);
+      beginDrag();
+      fireDragEvent("dragOver", 150);
+      expect(indicator()).not.toBeNull();
+      fireDragEvent("drop", 150);
+      expect(indicator()).toBeNull();
+    });
+
+    it("should clear the indicator when the drag leaves the strip", () => {
+      render(<DragTabs />);
+      beginDrag();
+      fireDragEvent("dragOver", 150);
+      expect(indicator()).not.toBeNull();
+      fireEvent.dragLeave(screen.getByRole("tablist"));
+      expect(indicator()).toBeNull();
+    });
+
+    it("should register no drop zone when haulType is empty", () => {
+      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      render(<DragTabs haulType="" onDrop={onDrop} />);
+      beginDrag();
+      fireDragEvent("dragOver", 150);
+      expect(indicator()).toBeNull();
+      fireDragEvent("drop", 150);
+      expect(onDrop).not.toHaveBeenCalled();
+    });
+
+    it("should reject items whose type does not match haulType", () => {
+      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      render(<DragTabs onDrop={onDrop} items={[{ type: "other", key: "y" }]} />);
+      beginDrag();
+      fireDragEvent("dragOver", 150);
+      expect(indicator()).toBeNull();
+      fireDragEvent("drop", 150);
+      expect(onDrop).not.toHaveBeenCalled();
+    });
+
+    it("should honor a custom canDrop predicate", () => {
+      const onDrop = vi.fn((_p: Tabs.SelectorDropProps): Haul.Item[] => []);
+      render(<DragTabs canDrop={() => false} onDrop={onDrop} />);
+      beginDrag();
+      fireDragEvent("dragOver", 150);
+      expect(indicator()).toBeNull();
+      fireDragEvent("drop", 150);
+      expect(onDrop).not.toHaveBeenCalled();
     });
   });
 });

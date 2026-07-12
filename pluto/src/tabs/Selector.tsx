@@ -10,8 +10,10 @@
 import { box, type direction, xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,
+  type DragEventHandler,
   type KeyboardEventHandler,
   type ReactElement,
+  useCallback,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -22,6 +24,7 @@ import { type Component } from "@/component";
 import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { Haul } from "@/haul";
 import { useCombinedRefs } from "@/hooks";
 
 /**
@@ -48,19 +51,6 @@ const [Context, useContext] = context.create<ContextValue>({
 
 export { useContext as useSelectorContext };
 
-const [InsertionIndexProvider, useInsertionIndex] = context.create<number | null>({
-  defaultValue: null,
-  displayName: "Tabs.InsertionIndexContext",
-});
-
-/**
- * InsertionIndexProvider supplies a {@link Selector}'s insertion indicator index
- * from an enclosing drop target (e.g. a mosaic leaf) without threading a prop
- * through the consumer's tree. A Selector's own insertionIndex prop, when set,
- * takes precedence over the provided value.
- */
-export { InsertionIndexProvider };
-
 const TAB_SELECTOR = "[data-tab-key]";
 
 /**
@@ -68,7 +58,7 @@ const TAB_SELECTOR = "[data-tab-key]";
  * position should be inserted into the given selector element. The index ranges
  * from 0 (before the first tab) to the number of tabs (after the last tab).
  */
-export const getInsertionIndex = (selector: Element, cursor: xy.Crude): number => {
+const getInsertionIndex = (selector: Element, cursor: xy.Crude): number => {
   const pos = xy.construct(cursor);
   const horizontal = selector.getAttribute("aria-orientation") !== "vertical";
   const tabs = selector.querySelectorAll(TAB_SELECTOR);
@@ -81,36 +71,60 @@ export const getInsertionIndex = (selector: Element, cursor: xy.Crude): number =
   return tabs.length;
 };
 
-export interface SelectorProps extends Flex.BoxProps {
+/** The dragging state a strip drop reports, plus the resolved insertion index. */
+export interface SelectorDropProps extends Haul.OnDropProps {
+  /**
+   * index is the strip slot the dragged item was dropped at, ranging from 0
+   * (before the first tab) to the number of tabs (after the last tab).
+   */
+  index: number;
+}
+
+export interface SelectorProps extends Omit<Flex.BoxProps, "onDrop"> {
   /** size sets the height of the strip and the typography level of its tabs. */
   size?: Component.Size;
   /** variant is the visual variant applied to the strip's tabs. */
   variant?: Variant;
   /**
-   * insertionIndex renders a drop indicator line before the tab at the given index
-   * (or after the last tab when equal to the number of tabs). Pass null to hide the
-   * indicator. Use {@link getInsertionIndex} to derive the index from a drag cursor.
+   * haulType enables drag-and-drop reordering by declaring the Haul item type the
+   * strip accepts. When set, dragging an accepted item over the strip renders an
+   * insertion indicator and dropping it calls onDrop with the target index. When
+   * empty (the default), the strip is passive and registers no drop zone.
    */
-  insertionIndex?: number | null;
+  haulType?: string;
+  /**
+   * canDrop overrides the default acceptance predicate (any item whose type matches
+   * haulType). Ignored when haulType is empty.
+   */
+  canDrop?: Haul.CanDrop;
+  /**
+   * onDrop fires when an accepted item is dropped on the strip, receiving the
+   * dragging state and the resolved insertion index. Return the items the strip
+   * consumed, matching the Haul drop contract. Ignored when haulType is empty.
+   */
+  onDrop?: (props: SelectorDropProps) => Haul.Item[];
 }
 
 /**
  * Selector is the strip that lays out a Frame's tabs. It renders a tablist with
- * arrow-key roving focus (manual activation: focus moves, Enter or Space selects)
- * and owns the geometry for drag-and-drop insertion indicators via the
- * insertionIndex prop.
+ * arrow-key roving focus (manual activation: focus moves, Enter or Space selects).
+ * Given a haulType it becomes a drag-and-drop target for reordering, owning the
+ * insertion geometry and indicator and reporting drops through onDrop.
  */
 export const Selector = ({
   ref,
   size = "medium",
   variant = "default",
-  insertionIndex,
+  haulType = "",
+  canDrop,
+  onDrop,
   className,
   children,
   direction,
   x,
   y,
   onKeyDown,
+  onDragLeave,
   empty,
   gap,
   ...rest
@@ -118,8 +132,6 @@ export const Selector = ({
   const isDefault = variant === "default";
   const internalRef = useRef<HTMLDivElement | null>(null);
   const combinedRef = useCombinedRefs(ref, internalRef);
-  const contextInsertionIndex = useInsertionIndex();
-  if (insertionIndex === undefined) insertionIndex = contextInsertionIndex;
   const dir: direction.Direction = Flex.parseDirection(direction, x, y) ?? "x";
   const horizontal = dir === "x";
 
@@ -145,6 +157,49 @@ export const Selector = ({
     }
     e.preventDefault();
     tabs[target].focus();
+  };
+
+  const [insertionIndex, setInsertionIndex] = useState<number | null>(null);
+
+  const handleCanDrop = useCallback<Haul.CanDrop>(
+    (state) => {
+      if (haulType === "") return false;
+      if (canDrop != null) return canDrop(state);
+      return Haul.filterByType(haulType, state.items).length > 0;
+    },
+    [haulType, canDrop],
+  );
+
+  const handleDragOver = useCallback(({ event }: Haul.OnDragOverProps): void => {
+    const el = internalRef.current;
+    if (event == null || el == null) return;
+    setInsertionIndex(getInsertionIndex(el, { x: event.clientX, y: event.clientY }));
+  }, []);
+
+  const handleDrop = useCallback<Haul.OnDrop>(
+    (props) => {
+      const el = internalRef.current;
+      setInsertionIndex(null);
+      if (props.event == null || el == null || onDrop == null) return [];
+      const index = getInsertionIndex(el, {
+        x: props.event.clientX,
+        y: props.event.clientY,
+      });
+      return onDrop({ ...props, index });
+    },
+    [onDrop],
+  );
+
+  const dropProps = Haul.useDrop({
+    type: haulType,
+    canDrop: handleCanDrop,
+    onDrop: handleDrop,
+    onDragOver: handleDragOver,
+  });
+
+  const handleDragLeave: DragEventHandler<HTMLDivElement> = (e) => {
+    onDragLeave?.(e);
+    setInsertionIndex(null);
   };
 
   const [indicatorOffset, setIndicatorOffset] = useState<number | null>(null);
@@ -174,6 +229,7 @@ export const Selector = ({
       : { [horizontal ? "left" : "top"]: indicatorOffset };
 
   const ctx = useMemo<ContextValue>(() => ({ size, variant }), [size, variant]);
+  const active = haulType !== "";
 
   return (
     <Context value={ctx}>
@@ -193,6 +249,7 @@ export const Selector = ({
         direction={dir}
         onKeyDown={handleKeyDown}
         {...rest}
+        {...(active ? { ...dropProps, onDragLeave: handleDragLeave } : {})}
       >
         {children}
         {indicatorStyle != null && (

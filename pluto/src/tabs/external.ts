@@ -11,9 +11,8 @@ export { Close, type CloseProps } from "@/tabs/Close";
 export { Content, type ContentProps } from "@/tabs/Content";
 export { Frame, type FrameProps } from "@/tabs/Frame";
 export {
-  getInsertionIndex,
-  InsertionIndexProvider,
   Selector,
+  type SelectorDropProps,
   type SelectorProps,
   type Variant,
 } from "@/tabs/Selector";
