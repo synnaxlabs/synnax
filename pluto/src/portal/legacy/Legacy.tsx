@@ -10,7 +10,7 @@
 import { type ReactElement, type ReactNode, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { type Node } from "@/portal/Node";
+import { type Node } from "@/portal/legacy/Node";
 
 export interface OutProps {
   /** node is the portal node whose element is hosted where this Out renders. */

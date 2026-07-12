@@ -398,21 +398,24 @@ export interface UsePortalProps extends Pick<
   "root" | "onSelect" | "children"
 > {}
 
-export type UsePortalReturn = [RefObject<Map<string, Portal.Node>>, ReactElement[]];
+export type UsePortalReturn = [
+  RefObject<Map<string, Portal.Legacy.Node>>,
+  ReactElement[],
+];
 
 export const usePortal = ({
   root,
   onSelect,
   children,
 }: UsePortalProps): UsePortalReturn => {
-  const ref = useRef<Map<string, Portal.Node>>(new Map());
+  const ref = useRef<Map<string, Portal.Legacy.Node>>(new Map());
   const existing = new Set<string>();
   const portaledNodes = mapNodes(root, (node) =>
     node.tabs?.map((tab) => {
-      let pNode: Portal.Node | undefined = ref.current.get(tab.tabKey);
+      let pNode: Portal.Legacy.Node | undefined = ref.current.get(tab.tabKey);
       if (tab == null) return null;
       if (pNode == null) {
-        pNode = new Portal.Node({
+        pNode = new Portal.Legacy.Node({
           style: "width: 100%; height: 100%; position: relative;",
         });
         // Events don't propagate upward from the portaled node, so we need to bind

@@ -7,16 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useLayoutEffect, useRef, useState } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { useContext } from "@/portal/Context";
-import { type Node } from "@/portal/Node";
 
-export interface OutProps {
+export interface OutProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   /**
    * itemKey addresses the {@link In} content to host. While null or not yet
-   * registered, the Out renders an empty placeholder and attaches the content
-   * as soon as it appears.
+   * registered, the Out renders an empty host and attaches the content as
+   * soon as it appears.
    */
   itemKey?: string | null;
 }
@@ -24,42 +29,33 @@ export interface OutProps {
 /**
  * Out hosts the content of the {@link In} registered under itemKey at its own
  * position in the DOM. When several Outs address the same key, the last one
- * mounted hosts the content.
+ * mounted hosts the content. Remaining props are forwarded to the host div,
+ * whose children the content lays out as.
  */
-export const Out = ({ itemKey }: OutProps): ReactElement => {
+export const Out = ({ itemKey, ...rest }: OutProps): ReactElement => {
   const registry = useContext("Portal.Out");
-  const [node, setNode] = useState<Node | undefined>(undefined);
+  const [el, setEl] = useState<HTMLElement | undefined>(undefined);
   // Resolution happens in a layout effect rather than useSyncExternalStore so
   // an In registering in the same commit attaches its content before the
   // browser paints, regardless of which side mounts first.
   useLayoutEffect(() => {
     if (itemKey == null) {
-      setNode(undefined);
+      setEl(undefined);
       return;
     }
-    setNode(registry.get(itemKey));
-    return registry.subscribe(() => setNode(registry.get(itemKey)));
+    setEl(registry.get(itemKey));
+    return registry.subscribe(() => setEl(registry.get(itemKey)));
   }, [registry, itemKey]);
-  const stub = useRef<HTMLDivElement>(null);
-  const hosted = useRef<Node | undefined>(undefined);
+  const host = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (hosted.current !== node) {
-      hosted.current?.unmount(stub.current);
-      hosted.current = node;
-    }
-    const placeholder = stub.current;
-    if (node == null || placeholder == null) return;
-    const parent = placeholder.parentNode;
-    if (parent == null) return;
-    node.mount(parent, placeholder);
-  }, [node]);
-  useLayoutEffect(
-    () => () => {
-      // Release hosted.current, not a closed-over node: the resolved node may
-      // have been swapped since mount.
-      if (stub.current != null) hosted.current?.unmount(stub.current);
-    },
-    [],
-  );
-  return <div ref={stub} />;
+    const hostEl = host.current;
+    if (el == null || hostEl == null) return;
+    // appendChild moves an element that is already in the document, so
+    // claiming the content automatically releases its previous host.
+    hostEl.appendChild(el);
+    return () => {
+      if (el.parentNode === hostEl) el.remove();
+    };
+  }, [el]);
+  return <div ref={host} {...rest} />;
 };

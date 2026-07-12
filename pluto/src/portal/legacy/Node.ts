@@ -10,9 +10,10 @@
 type NodeProps = Record<string, string>;
 
 /**
- * Node owns a persistent detached element that In renders content into and Out
- * hosts in the DOM. Because the element is moved between hosts rather than
- * recreated, its contents (DOM state, WebGL contexts) survive re-parenting.
+ * Node owns a persistent detached element that the legacy In renders content
+ * into and the legacy Out hosts in the DOM. Because the element is moved
+ * between hosts rather than recreated, its contents (DOM state, WebGL
+ * contexts) survive re-parenting.
  */
 export class Node {
   /** parent is the element currently hosting el, if any. */

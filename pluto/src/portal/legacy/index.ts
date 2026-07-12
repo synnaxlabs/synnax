@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/portal/legacy/Legacy";
+export * from "@/portal/legacy/Node";

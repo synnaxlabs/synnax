@@ -10,20 +10,19 @@
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { context } from "@/context";
-import { type Node } from "@/portal/Node";
 
 /**
  * ContextValue is the registry a {@link Context} shares between portal parts:
- * In parts register their node under a key, Out parts resolve and subscribe
- * to it.
+ * In parts register their content element under a key, Out parts resolve and
+ * subscribe to it.
  */
 export interface ContextValue {
-  /** register makes node resolvable under key, replacing any prior entry. */
-  register: (key: string, node: Node) => void;
+  /** register makes el resolvable under key, replacing any prior entry. */
+  register: (key: string, el: HTMLElement) => void;
   /** unregister removes the entry under key. */
   unregister: (key: string) => void;
-  /** get resolves the node registered under key, if any. */
-  get: (key: string) => Node | undefined;
+  /** get resolves the element registered under key, if any. */
+  get: (key: string) => HTMLElement | undefined;
   /**
    * subscribe invokes listener on every registry change until the returned
    * function is called.
@@ -32,12 +31,12 @@ export interface ContextValue {
 }
 
 const createRegistry = (): ContextValue => {
-  const nodes = new Map<string, Node>();
+  const nodes = new Map<string, HTMLElement>();
   const listeners = new Set<() => void>();
   const notify = (): void => listeners.forEach((l) => l());
   return {
-    register: (key, node) => {
-      nodes.set(key, node);
+    register: (key, el) => {
+      nodes.set(key, el);
       notify();
     },
     unregister: (key) => {

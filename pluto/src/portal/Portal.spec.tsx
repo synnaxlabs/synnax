@@ -13,23 +13,16 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Portal } from "@/portal";
 
-const newStub = (parent: HTMLElement): HTMLElement => {
-  const stub = document.createElement("div");
-  parent.appendChild(stub);
-  return stub;
-};
-
 interface HarnessProps {
   keys: string[];
   host?: string | null;
-  attrs?: Record<string, string>;
   onClick?: (key: string) => void;
 }
 
-const Harness = ({ keys, host, attrs, onClick }: HarnessProps): ReactElement => (
+const Harness = ({ keys, host, onClick }: HarnessProps): ReactElement => (
   <Portal.Context>
     {keys.map((key) => (
-      <Portal.In key={key} itemKey={key} attrs={attrs} onClick={onClick}>
+      <Portal.In key={key} itemKey={key} onClick={onClick}>
         <p>content-{key}</p>
       </Portal.In>
     ))}
@@ -40,91 +33,10 @@ const Harness = ({ keys, host, attrs, onClick }: HarnessProps): ReactElement => 
 );
 
 describe("Portal", () => {
-  describe("Node", () => {
-    it("should apply constructor props as attributes on its element", () => {
-      const node = new Portal.Node({ style: "width: 100%;", role: "presentation" });
-      expect(node.el.getAttribute("style")).toEqual("width: 100%;");
-      expect(node.el.getAttribute("role")).toEqual("presentation");
-    });
-
-    it("should replace the stub with its element on mount", () => {
-      const parent = document.createElement("div");
-      const stub = newStub(parent);
-      const node = new Portal.Node();
-
-      node.mount(parent, stub);
-
-      expect(parent.contains(node.el)).toBe(true);
-      expect(parent.contains(stub)).toBe(false);
-    });
-
-    it("should be a no-op when mounted onto the same stub twice", () => {
-      const parent = document.createElement("div");
-      const stub = newStub(parent);
-      const node = new Portal.Node();
-
-      node.mount(parent, stub);
-      node.mount(parent, stub);
-
-      expect(parent.children).toHaveLength(1);
-      expect(parent.contains(node.el)).toBe(true);
-    });
-
-    it("should restore the previous stub when mounted onto a new one", () => {
-      const parentA = document.createElement("div");
-      const parentB = document.createElement("div");
-      const stubA = newStub(parentA);
-      const stubB = newStub(parentB);
-      const node = new Portal.Node();
-
-      node.mount(parentA, stubA);
-      node.mount(parentB, stubB);
-
-      expect(parentB.contains(node.el)).toBe(true);
-      expect(parentA.contains(stubA)).toBe(true);
-      expect(parentA.contains(node.el)).toBe(false);
-    });
-
-    it("should restore the stub in its element's place on unmount", () => {
-      const parent = document.createElement("div");
-      const stub = newStub(parent);
-      const node = new Portal.Node();
-
-      node.mount(parent, stub);
-      node.unmount(stub);
-
-      expect(parent.contains(stub)).toBe(true);
-      expect(parent.contains(node.el)).toBe(false);
-    });
-
-    it("should ignore an unmount from a stub it is not mounted on", () => {
-      const parent = document.createElement("div");
-      const stub = newStub(parent);
-      const stale = document.createElement("div");
-      const node = new Portal.Node();
-
-      node.mount(parent, stub);
-      node.unmount(stale);
-
-      expect(parent.contains(node.el)).toBe(true);
-    });
-
-    it("should ignore an unmount when not mounted", () => {
-      const node = new Portal.Node();
-      expect(() => node.unmount(null)).not.toThrow();
-    });
-  });
-
   describe("In", () => {
     it("should render children detached while no Out hosts the key", () => {
       render(<Harness keys={["a"]} />);
       expect(screen.queryByText("content-a")).toBeNull();
-    });
-
-    it("should apply attrs to the content's element", () => {
-      render(<Harness keys={["a"]} host="a" attrs={{ style: "width: 100%;" }} />);
-      const el = screen.getByText("content-a").parentElement;
-      expect(el?.getAttribute("style")).toEqual("width: 100%;");
     });
 
     it("should throw when rendered outside a Context", () => {
@@ -189,6 +101,18 @@ describe("Portal", () => {
       rerender(<Harness keys={[]} host="a" />);
 
       expect(screen.queryByText("content-a")).toBeNull();
+    });
+
+    it("should forward remaining props to its host element", () => {
+      render(
+        <Portal.Context>
+          <Portal.In itemKey="a">content</Portal.In>
+          <Portal.Out itemKey="a" role="presentation" style={{ width: "100%" }} />
+        </Portal.Context>,
+      );
+      const host = screen.getByRole("presentation");
+      expect(host.style.width).toEqual("100%");
+      expect(host.contains(screen.getByText("content"))).toBe(true);
     });
 
     it("should throw when rendered outside a Context", () => {

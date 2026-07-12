@@ -12,7 +12,6 @@ import { createPortal } from "react-dom";
 
 import { useSyncedRef } from "@/hooks";
 import { useContext } from "@/portal/Context";
-import { Node } from "@/portal/Node";
 
 export interface InProps {
   /**
@@ -20,11 +19,6 @@ export interface InProps {
    * host it. Must be unique within the enclosing Context.
    */
   itemKey: string;
-  /**
-   * attrs are set as attributes on the content's element when it is created.
-   * Changing them later has no effect.
-   */
-  attrs?: Record<string, string>;
   /**
    * onClick is invoked with itemKey when the content is clicked. Clicks inside
    * portaled content bubble through the React tree of the In, not the DOM tree
@@ -35,6 +29,15 @@ export interface InProps {
   children: ReactNode;
 }
 
+// display: contents keeps the element out of layout entirely, so children
+// size and position against the hosting Out's element as if they were its
+// direct children.
+const createDetachedElement = (): HTMLElement => {
+  const el = document.createElement("div");
+  el.style.display = "contents";
+  return el;
+};
+
 /**
  * In renders children into a detached element registered under itemKey in the
  * enclosing {@link Context}. The content stays mounted at the In's position
@@ -43,22 +46,22 @@ export interface InProps {
  * recreated when its host changes, the content keeps its state (DOM, WebGL
  * contexts) across moves.
  */
-export const In = ({ itemKey, attrs, onClick, children }: InProps): ReactElement => {
+export const In = ({ itemKey, onClick, children }: InProps): ReactElement => {
   const registry = useContext("Portal.In");
-  const [node] = useState(() => new Node(attrs));
+  const [el] = useState(createDetachedElement);
   const onClickRef = useSyncedRef(onClick);
   const keyRef = useSyncedRef(itemKey);
   useLayoutEffect(() => {
     const handleClick = (): void => onClickRef.current?.(keyRef.current);
-    node.el.addEventListener("click", handleClick);
-    return () => node.el.removeEventListener("click", handleClick);
-  }, [node]);
+    el.addEventListener("click", handleClick);
+    return () => el.removeEventListener("click", handleClick);
+  }, [el]);
   useLayoutEffect(() => {
-    registry.register(itemKey, node);
+    registry.register(itemKey, el);
     return () => {
       registry.unregister(itemKey);
-      node.unmount(null);
+      el.remove();
     };
-  }, [registry, itemKey, node]);
-  return createPortal(children, node.el);
+  }, [registry, itemKey, el]);
+  return createPortal(children, el);
 };

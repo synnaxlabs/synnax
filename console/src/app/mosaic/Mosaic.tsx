@@ -98,7 +98,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
 };
 
 interface ModalContentProps extends Base.Tab {
-  node: Portal.Node;
+  node: Portal.Legacy.Node;
 }
 
 const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
@@ -351,7 +351,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     (props) => (
       <ModalContent
         key={props.tabKey}
-        node={portalRef.current.get(props.tabKey) as Portal.Node}
+        node={portalRef.current.get(props.tabKey) as Portal.Legacy.Node}
         {...props}
       />
     ),
