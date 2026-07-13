@@ -51,9 +51,9 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	testCluster = mock.ProvisionCluster(ctx, 2)
+	ShouldNotLeakGoroutines()
+	testCluster = mock.NewCluster(ctx, 2)
 	testSvc, testOtg = openTestService(ctx, testCluster.Nodes[1].Cluster)
-	DeferCleanup(func() { Expect(testCluster.Close()).To(Succeed()) })
 })
 
 var _ = Describe("Ontology", func() {
@@ -74,17 +74,6 @@ var _ = Describe("Ontology", func() {
 		Describe("Type", func() {
 			It("Should report the node ontology resource type", func() {
 				Expect(testSvc.Type()).To(Equal(ontology.ResourceTypeNode))
-			})
-		})
-
-		Describe("Schema", func() {
-			It("Should return a schema that accepts a valid node payload", func() {
-				dumped := MustSucceed(testSvc.Schema().Dump(map[string]any{
-					"key":     uint16(1),
-					"address": "localhost:0",
-					"state":   uint32(0),
-				}))
-				Expect(dumped).ToNot(BeNil())
 			})
 		})
 
@@ -133,8 +122,7 @@ var _ = Describe("Ontology", func() {
 
 		Describe("OnChange", func() {
 			It("Should translate cluster changes into ontology changes when a node joins", func(ctx SpecContext) {
-				ephemeral := mock.ProvisionCluster(ctx, 1)
-				DeferCleanup(func() { Expect(ephemeral.Close()).To(Succeed()) })
+				ephemeral := mock.NewCluster(ctx, 1)
 				ephemeralSvc, _ := openTestService(ctx, ephemeral.Nodes[1].Cluster)
 
 				received := make(chan ontology.Change, 8)

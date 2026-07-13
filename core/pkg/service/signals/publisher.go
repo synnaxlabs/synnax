@@ -13,10 +13,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -203,8 +202,10 @@ func (p *Provider) PublishFromObservable(
 			if len(sets.Data) == 0 && len(deletes.Data) == 0 {
 				return framer.WriterRequest{}, false, nil
 			}
-			return framer.WriterRequest{Command: writer.CommandWrite, Frame: frame},
-				true, nil
+			return framer.WriterRequest{
+				Command: framer.WriterCommandWrite,
+				Frame:   frame,
+			}, true, nil
 		},
 	}
 	pl := plumber.New()

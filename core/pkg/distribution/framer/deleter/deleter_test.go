@@ -34,7 +34,10 @@ var _ = Describe("Deleter", Ordered, func() {
 	}
 	for _, createScenario := range scenarios {
 		var s scenario
-		BeforeAll(func() { s = createScenario(context.Background()) })
+		BeforeAll(func() {
+			ShouldNotLeakGoroutines()
+			s = createScenario(context.Background())
+		})
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		Describe("Happy Path", func() {
 			Context(s.name+" - Happy Path", func() {
@@ -110,7 +113,10 @@ var _ = Describe("Deleter", Ordered, func() {
 
 	Describe("Mixed Gateway and Peer", Ordered, func() {
 		var s scenario
-		BeforeAll(func(ctx SpecContext) { s = mixedScenario(context.Background()) })
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			s = mixedScenario(context.Background())
+		})
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 
 		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {
@@ -206,24 +212,23 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
-	dist := builder.Nodes[1]
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	node := mock.OpenNode(ctx)
+	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
 		name:   "Gateway Only",
 		keys:   keys,
 		names:  names,
-		dist:   dist,
-		closer: builder,
+		dist:   node,
+		closer: node,
 	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 2)
 	}
@@ -243,14 +248,14 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		keys:   keys,
 		names:  names,
 		dist:   dist,
-		closer: builder,
+		closer: cluster,
 	}
 }
 
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 3)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	dist := cluster.Nodes[1]
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 1)
 	}
@@ -270,6 +275,6 @@ func mixedScenario(ctx context.Context) scenario {
 		keys:   keys,
 		names:  names,
 		dist:   dist,
-		closer: builder,
+		closer: cluster,
 	}
 }

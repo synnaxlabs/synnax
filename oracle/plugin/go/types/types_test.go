@@ -2253,3 +2253,5 @@ var _ = Describe("Union codec round trip", func() {
 		Expect(got.Scale.Variant.(rtScaleLinear).Slope).To(Equal(1.5))
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

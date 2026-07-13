@@ -32,6 +32,7 @@ func TestDriver(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	tmpDir := GinkgoT().TempDir()
 	driverName := "driver"
 	if runtime.GOOS == "windows" {

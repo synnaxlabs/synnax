@@ -17,8 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -118,22 +120,43 @@ var _ = Describe("OpenService", func() {
 	})
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
-		builder := DeferClose(mock.NewCluster())
-		dist := DeferClose(builder.Provision(ctx))
+		node := mock.NewNode(ctx)
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Search:   node.Search,
+		}))
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Group:    node.Group,
+			Label:    labelSvc,
+			Search:   node.Search,
+		}))
+		channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			Status:  statusSvc,
+		}))
+		framerSvc := MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			Framer:  node.Framer,
+			Channel: channelSvc,
+			Status:  statusSvc,
+		}))
 		sigs := MustSucceed(signals.New(signals.Config{
-			Channel: channel.Wrap(dist.Channel),
-			Framer:  framer.Wrap(dist.Framer),
+			Channel: channelSvc,
+			Framer:  framerSvc,
 		}))
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
-			DB:       dist.DB,
-			Ontology: dist.Ontology,
-			Search:   dist.Search,
+			DB:       node.DB,
+			Ontology: node.Ontology,
+			Search:   node.Search,
 			ImEx:     imex.NewService(),
 			Signals:  sigs,
 		}))
 		for _, name := range []string{"sy_log_set", "sy_log_delete"} {
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames(name)).
+			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).
 				Entry(&ch).Exec(ctx, nil)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())

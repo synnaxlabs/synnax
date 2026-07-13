@@ -78,7 +78,7 @@ var _ = Describe("CompileProgram", func() {
 				Nodes: []graph.Node{
 					{Key: "src"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"src": {"type": "source"},
 				},
 				Edges: graph.Edges{
@@ -121,7 +121,7 @@ var _ = Describe("NewLSP", func() {
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol"))
 
 		ch := channel.Channel{Name: "test_lsp_channel", DataType: telem.Float32T, Virtual: true}
-		Expect(dist.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
 
 		Eventually(func() int {
 			return len(client.Diagnostics())

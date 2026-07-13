@@ -52,21 +52,21 @@ func (p SetNodePositionPayload) Handle(state Arc) (Arc, error) {
 	return state, nil
 }
 
-// Handle merges the payload config into the configs entry for the given key in
-// the graph configs map. Top-level fields present in the payload overwrite
+// Handle merges the payload inputs into the entry for the given key in
+// the graph inputs map. Top-level fields present in the payload overwrite
 // existing fields; fields absent from the payload are preserved.
-func (p SetNodeConfigPayload) Handle(state Arc) (Arc, error) {
-	if state.Graph.Configs == nil {
-		state.Graph.Configs = make(map[string]msgpack.EncodedJSON)
+func (p SetNodeInputsPayload) Handle(state Arc) (Arc, error) {
+	if state.Graph.Inputs == nil {
+		state.Graph.Inputs = make(map[string]msgpack.EncodedJSON)
 	}
-	if existing := state.Graph.Configs[p.Key]; existing != nil {
-		merged := make(msgpack.EncodedJSON, len(existing)+len(p.Config))
+	if existing := state.Graph.Inputs[p.Key]; existing != nil {
+		merged := make(msgpack.EncodedJSON, len(existing)+len(p.Inputs))
 		maps.Copy(merged, existing)
-		maps.Copy(merged, p.Config)
-		state.Graph.Configs[p.Key] = merged
+		maps.Copy(merged, p.Inputs)
+		state.Graph.Inputs[p.Key] = merged
 		return state, nil
 	}
-	state.Graph.Configs[p.Key] = p.Config
+	state.Graph.Inputs[p.Key] = p.Inputs
 	return state, nil
 }
 
@@ -79,7 +79,7 @@ func (p RemoveNodePayload) Handle(state Arc) (Arc, error) {
 			break
 		}
 	}
-	delete(state.Graph.Configs, p.Key)
+	delete(state.Graph.Inputs, p.Key)
 	kept := make(graph.Edges, 0, len(state.Graph.Edges))
 	for _, e := range state.Graph.Edges {
 		if e.Source.Node == p.Key || e.Target.Node == p.Key {

@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 [project]
 name = "synnax-freighter"
 version = "0.56.0"
@@ -5,7 +14,6 @@ authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
 dependencies = [
     "alamos",
-    "msgpack>=1.2.1,<2",
     "synnax-x",
     "pydantic>=2.13.4,<3",
     "urllib3>=2.7.0,<3",
@@ -35,7 +43,6 @@ select = ["F", "I"]
 known-first-party = ["freighter", "alamos", "x"]
 
 [tool.mypy]
-mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
 

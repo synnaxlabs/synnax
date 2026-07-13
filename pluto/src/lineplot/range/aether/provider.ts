@@ -98,6 +98,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     };
   }
 
+  afterDelete(): void {
+    this.internal.removeListener?.();
+  }
+
   private fetchInitial(timeRange: TimeRange): void {
     const { internal: i } = this;
     const { client, runAsync } = i;

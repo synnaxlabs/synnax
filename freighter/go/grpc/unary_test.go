@@ -11,74 +11,58 @@ package grpc_test
 
 import (
 	"context"
-	"net"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 var _ = Describe("Unary", Ordered, Serial, func() {
 	var (
-		server     freighter.UnaryServer[test.Request, test.Response]
-		client     freighter.UnaryClient[test.Request, test.Response]
-		addr       address.Address
-		grpcServer *grpc.Server
+		server freighter.UnaryServer[test.Request, test.Response]
+		client freighter.UnaryClient[test.Request, test.Response]
+		addr   address.Address
 	)
 
 	BeforeAll(func() {
-		lis := MustSucceed(net.Listen("tcp", "localhost:0"))
-		addr = address.Address(lis.Addr().String())
+		ShouldNotLeakGoroutines()
+		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
+			uServer := &fgrpc.UnaryServer[
+				test.Request, *v1.Request,
+				test.Response, *v1.Response,
+			]{
+				RequestTranslator:  requestTranslator{},
+				ResponseTranslator: responseTranslator{},
+				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
+				Internal:           true,
+			}
+			uServer.BindTo(reg)
+			server = uServer
 
-		grpcServer = grpc.NewServer()
-
-		uServer := &fgrpc.UnaryServer[
-			test.Request, *v1.Request,
-			test.Response, *v1.Response,
-		]{
-			RequestTranslator:  requestTranslator{},
-			ResponseTranslator: responseTranslator{},
-			ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
-			Internal:           true,
-		}
-		uServer.BindTo(grpcServer)
-		server = uServer
-
-		pool := fgrpc.NewPool(
-			"",
-			grpc.WithTransportCredentials(insecure.NewCredentials()),
-		)
-		client = &fgrpc.UnaryClient[
-			test.Request, *v1.Request,
-			test.Response, *v1.Response,
-		]{
-			RequestTranslator:  requestTranslator{},
-			ResponseTranslator: responseTranslator{},
-			Pool:               pool,
-			ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
-			Exec: func(
-				ctx context.Context,
-				conn grpc.ClientConnInterface,
-				req *v1.Request,
-			) (*v1.Response, error) {
-				return v1.NewTestUnaryServiceClient(conn).Exec(ctx, req)
-			},
-		}
-
-		go func() {
-			defer GinkgoRecover()
-			Expect(grpcServer.Serve(lis)).To(Succeed())
-		}()
+			client = &fgrpc.UnaryClient[
+				test.Request, *v1.Request,
+				test.Response, *v1.Response,
+			]{
+				RequestTranslator:  requestTranslator{},
+				ResponseTranslator: responseTranslator{},
+				Pool:               pool,
+				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
+				Exec: func(
+					ctx context.Context,
+					conn grpc.ClientConnInterface,
+					req *v1.Request,
+				) (*v1.Response, error) {
+					return v1.NewTestUnaryServiceClient(conn).Exec(ctx, req)
+				},
+			}
+		})
 	})
-
-	AfterAll(func() { grpcServer.GracefulStop() })
 
 	test.UnarySuite(func() (
 		freighter.UnaryServer[test.Request, test.Response],

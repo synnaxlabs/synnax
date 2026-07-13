@@ -1,17 +1,16 @@
 ---
 name: synnax-integration-debug
-description: Triage failures from the Synnax integration test suite (`uv run tc ...`). Use when a console/driver/arc test fails locally, when the user pastes a CI workflow URL for a `Test - Integration` run, or when they reference a debug bundle, `summary.json`, `trace.zip`, or a `run-<timestamp>/` directory. Walks the bundle in order: summary.json → per-test artifacts → trace inspection → server log.
+description: Triage failures from the Synnax integration test suite (`uv run tc ...`). Use when a console/driver/arc test fails locally, when the user pastes a CI workflow URL for a `Test - Integration` run, or when they reference a debug bundle, `summary.json`, `trace.zip`, or a `run-TS/` directory. Walks the bundle in order: summary.json → per-test artifacts → trace inspection → server log.
 allowed-tools: Bash, Read
 ---
 
 # Synnax Integration Test Debugging
 
 When the integration test conductor (`uv run tc ...`) finishes, it writes a
-self-contained debug bundle to
-`integration/tests/results/run-<UTC-timestamp>[-<name>]/`. A `latest` symlink in the
-same dir points at the most recent run. **Always start here when triaging an integration
-failure.** The bundle is identical between local and CI; in CI it's uploaded as a single
-`test-results-*` artifact.
+self-contained debug bundle to `integration/tests/results/run-TS[-NAME]/`. A `latest`
+symlink in the same dir points at the most recent run. **Always start here when triaging
+an integration failure.** The bundle is identical between local and CI; in CI it's
+uploaded as a single `test-results-*` artifact.
 
 ## From a CI failure link
 
@@ -20,19 +19,18 @@ When the user pastes a GitHub Actions URL for a failed `Test - Integration` run:
 1. Extract the run ID from the URL (the digits after `/actions/runs/`).
 2. List the workflow's artifacts and download the bundle:
    ```bash
-   gh run view <run-id>                                  # confirm which jobs failed
-   gh run download <run-id> --dir /tmp/synnax-bundle    # downloads all artifacts
+   gh run view RUN_ID                              # confirm which jobs failed
+   gh run download RUN_ID --dir /tmp/synnax-bundle # downloads all artifacts
    ```
    The integration suite uploads one artifact per OS/matrix entry named
-   `test-results-<os>-<name>`. Each artifact contains exactly one `run-<ts>-*/`
-   directory.
-3. `cd /tmp/synnax-bundle/test-results-<os>-<name>/run-<ts>-*` and proceed with the
-   Workflow below. The bundle layout is identical to local.
-4. To see the conductor's stdout (including the `→ bundle:` breadcrumb and
-   per-test error messages), use:
+   `test-results-OS-NAME`. Each artifact contains exactly one `run-TS-*/` directory.
+3. `cd /tmp/synnax-bundle/test-results-OS-NAME/run-TS-*` and proceed with the Workflow
+   below. The bundle layout is identical to local.
+4. To see the conductor's stdout (including the `→ bundle:` breadcrumb and per-test
+   error messages), use:
    ```bash
-   gh run view <run-id> --log-failed                  # only failed steps
-   gh run view <run-id> --log | grep -E "tc >|FAILED" # conductor lines
+   gh run view RUN_ID --log-failed                  # only failed steps
+   gh run view RUN_ID --log | grep -E "tc >|FAILED" # conductor lines
    ```
 
 If `gh` is unavailable, the same artifact is downloadable from the workflow run page in
@@ -46,7 +44,7 @@ the browser under "Artifacts" at the bottom.
    server log. This is the highest-signal-per-token entry point. Read it first.
 2. **Cross-reference `summary.json`** for run-level stats and the exact per-test bundle
    path. Failures and timeouts are the ones to triage.
-3. **For each failure still ambiguous after step 1, drill into `tests/<name>/`**
+3. **For each failure still ambiguous after step 1, drill into `tests/NAME/`**
    (`trace.zip` + sliced `server.log` + screenshots/exports). The trace CLI cheatsheet
    below is for when you need to inspect DOM at a specific action or compare snapshots.
 4. **Cross-reference the server log slice** for backend cause of any 4xx/5xx the trace
@@ -60,14 +58,14 @@ most triage needs.
 
 ```
 integration/tests/results/
-├── latest -> run-<ts>-<name>/        # symlink to most recent run
-└── run-<ts>-<name>/
+├── latest -> run-TS-NAME/        # symlink to most recent run
+└── run-TS-NAME/
     ├── README.md                      # short triage guide for cold landings
     ├── all-failures.md                # consolidated failure report (only on failures)
     ├── summary.json                   # run + per-test outcomes
     ├── server.log                     # full server log for this run (CI only by default)
     └── tests/
-        └── <test-name>/
+        └── TEST_NAME/
             ├── trace.zip              # Playwright trace, only on FAILED/TIMEOUT/KILLED
             ├── server.log             # byte-sliced to this test's wall-clock window
             ├── *.png                  # screenshots from `console.screenshot()`
@@ -104,17 +102,17 @@ open the GUI viewer for autonomous triage.
 ```bash
 # 1. Open the trace
 npx -y -p @playwright/test playwright trace open \
-    integration/tests/results/latest/tests/<name>/trace.zip
+  integration/tests/results/latest/tests/NAME/trace.zip
 
 # 2. List all actions with their IDs (failures only)
 npx -y -p @playwright/test playwright trace actions --errors-only
 
 # 3. Drill into a specific action: params, error, log, source, snapshots
-npx -y -p @playwright/test playwright trace action <id>
+npx -y -p @playwright/test playwright trace action ID
 
 # 4. Page state at that moment
-npx -y -p @playwright/test playwright trace snapshot <id>
-npx -y -p @playwright/test playwright trace snapshot <id> -- eval "document.querySelector('.error').textContent"
+npx -y -p @playwright/test playwright trace snapshot ID
+npx -y -p @playwright/test playwright trace snapshot ID -- eval "document.querySelector('.error').textContent"
 
 # 5. Network failures
 npx -y -p @playwright/test playwright trace requests --failed
@@ -140,11 +138,11 @@ or JSON; check the first line). Greppable as-is.
 
 ```bash
 # Recent ERRORs in the failing test's window:
-grep -i "ERROR\|WARN" integration/tests/results/latest/tests/<name>/server.log
+grep -i "ERROR\|WARN" integration/tests/results/latest/tests/NAME/server.log
 
 # JSON format: pull error-level entries:
 jq -c 'select(.level == "error")' \
-   integration/tests/results/latest/tests/<name>/server.log
+  integration/tests/results/latest/tests/NAME/server.log
 ```
 
 For asynchronous test sequences, the slice contains the union of all parallel tests in
@@ -162,14 +160,14 @@ that wall-clock window. Filter by request path or trace fields to attribute line
 - **`bundle_dir` field is relative.** Resolve against the run dir, not the integration
   root.
 - **`latest` symlink may be absent on Windows/restricted FS.** Use the most recent
-  `run-<ts>-*` dir by sort order in that case.
+  `run-TS-*` dir by sort order in that case.
 - **Pre-bundle artifacts.** Anything written before the conductor created its run dir
   (or by code that bypasses `get_results_path`) lands at the flat results root. Rare.
 
 ## Next steps after triage
 
-- Stale locator / element-not-found → check `npx playwright trace snapshot <id>` and
-  look for renamed/moved elements in nearby DOM.
+- Stale locator / element-not-found → check `npx playwright trace snapshot ID` and look
+  for renamed/moved elements in nearby DOM.
 - Backend 500 / 4xx → server log slice will show the handler's error stack; check
   `core/pkg/service/...` for the relevant endpoint.
 - Timeout with no failed actions → likely a Playwright `wait_for_*` exceeded its budget;

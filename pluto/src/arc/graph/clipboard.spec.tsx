@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, createTestClient } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, xy } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -47,7 +48,7 @@ const createGraphArc = async (): Promise<arc.Arc> =>
           kind: arc.ir.EdgeKind.continuous,
         },
       ],
-      configs: { [N1]: { type: "constant" }, [N2]: { type: "log" } },
+      inputs: { [N1]: { type: "constant" }, [N2]: { type: "log" } },
       functions: [],
     },
     text: { raw: "" },
@@ -99,8 +100,8 @@ describe("arc graph clipboard", () => {
     await loadArc(key);
     const { result } = renderHook(
       () => ({
-        nodes: Arc.useSelectNodes({ key }),
-        edges: Arc.useSelectEdges({ key }),
+        nodes: Arc.useSelectAllNodes({ key }),
+        edges: Arc.useSelectAllEdges({ key }),
         clipboard: useClipboard({ key, selected, onPaste }),
       }),
       { wrapper },

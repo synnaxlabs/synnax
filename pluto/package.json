@@ -1,6 +1,6 @@
 {
   "name": "@synnaxlabs/pluto",
-  "version": "0.56.5",
+  "version": "0.56.8",
   "type": "module",
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -18,10 +18,6 @@
     "generate-theme": "tsx src/theming/static/generate.ts"
   },
   "dependencies": {
-    "vscode": "npm:@codingame/monaco-vscode-extension-api@^28.4.1",
-    "vscode-jsonrpc": "^8.2.1",
-    "vscode-languageclient": "^9.0.1",
-    "@synnaxlabs/arc": "workspace:^",
     "@codingame/monaco-vscode-api": "^28.4.1",
     "@codingame/monaco-vscode-editor-api": "^28.4.1",
     "@codingame/monaco-vscode-extension-api": "^28.4.1",
@@ -33,18 +29,19 @@
     "@fontsource/geist-mono": "catalog:",
     "@fontsource/inter": "catalog:",
     "@synnaxlabs/alamos": "workspace:^",
+    "@synnaxlabs/arc": "workspace:^",
     "@synnaxlabs/client": "workspace:^",
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
-    "@tanstack/react-virtual": "^3.13.24",
-    "@xyflow/react": "^12.10.2",
+    "@tanstack/react-virtual": "^3.14.5",
+    "@xyflow/react": "^12.11.1",
     "async-mutex": "catalog:",
     "clsx": "catalog:",
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
     "d3-scale": "^4.0.2",
-    "fuse.js": "^7.3.0",
+    "fuse.js": "^7.4.2",
     "mathjs": "^15.2.0",
     "pluralize": "catalog:",
     "react": "catalog:",
@@ -52,7 +49,18 @@
     "react-icons": "catalog:",
     "stacktrace-js": "^2.0.2",
     "use-sync-external-store": "^1.6.0",
+    "vscode": "npm:@codingame/monaco-vscode-extension-api@^28.4.1",
+    "vscode-jsonrpc": "^8.2.1",
+    "vscode-languageclient": "^9.0.1",
     "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "vitest": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "vitest": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",
@@ -71,6 +79,7 @@
     "@types/react-dom": "catalog:",
     "@types/use-sync-external-store": "^1.5.0",
     "@types/webgl2": "^0.0.12",
+    "@types/ws": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "@vitest/coverage-v8": "catalog:",
     "eslint": "catalog:",
@@ -80,7 +89,8 @@
     "stylelint": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "ws": "catalog:"
   },
   "files": [
     "dist"
@@ -98,6 +108,11 @@
       "types": "./dist/src/ether.d.ts",
       "import": "./dist/ether.js",
       "require": "./dist/ether.cjs"
+    },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "import": "./dist/testutil.js",
+      "require": "./dist/testutil.cjs"
     },
     "./flex": {
       "types": "./dist/src/flex/index.d.ts",

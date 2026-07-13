@@ -24,7 +24,6 @@ import (
 )
 
 var (
-	builder    *mock.Cluster
 	dist       mock.Node
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
@@ -38,8 +37,8 @@ func TestMetrics(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder = DeferClose(mock.NewCluster())
-	dist = builder.Provision(ctx)
+	ShouldNotLeakGoroutines()
+	dist = mock.NewNode(ctx)
 	searchIdx := MustOpen(search.Open())
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
@@ -55,14 +54,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 	}))
 	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		DB:           dist.DB,
-		Distribution: dist.Channel,
-		Status:       statusSvc,
+		Channel: dist.Channel,
+		Status:  statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: channelSvc,
 		Status:  statusSvc,
-		DB:      dist.DB,
 	}))
 })

@@ -45,7 +45,7 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "interval_1"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"interval_1": {"type": "interval", "period": int64(telem.Second)},
 				},
 				Functions: []graph.Function{{
@@ -331,7 +331,7 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "wait_1"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"wait_1": {"type": "wait", "duration": int64(telem.Second)},
 				},
 				Functions: []graph.Function{{
@@ -873,7 +873,7 @@ var _ = Describe("Time", func() {
 					{Key: "interval_1"},
 					{Key: "interval_2"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
 					"interval_2": {"type": "interval", "period": int64(150 * telem.Millisecond)},
 				},
@@ -984,7 +984,7 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "interval_1"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
 				},
 				Functions: []graph.Function{{
@@ -1176,7 +1176,7 @@ var _ = Describe("Time", func() {
 			It("Should fire early within tolerance", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "wait_1"}},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"wait_1": {"type": "wait", "duration": int64(100 * telem.Millisecond)},
 					},
 					Functions: []graph.Function{{
@@ -1247,7 +1247,7 @@ var _ = Describe("Time", func() {
 				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "interval_1"}},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"interval_1": {"type": "interval", "period": int64(telem.Second)},
 					},
 					Functions: []graph.Function{{
@@ -1333,7 +1333,7 @@ var _ = Describe("Time", func() {
 				factory = MustSucceed(time.NewHost(ctx, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "wait_1"}},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"wait_1": {"type": "wait", "duration": int64(telem.Second)},
 					},
 					Functions: []graph.Function{{
@@ -1474,7 +1474,7 @@ var _ = Describe("Time", func() {
 			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "now_1"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"now_1": {"type": "now"},
 				},
 				Functions: []graph.Function{{

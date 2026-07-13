@@ -13,24 +13,48 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Relationship", func() {
-	Describe("ParseRelationship", func() {
-		It("Should parse a relationship from a string", func() {
-			r := MustSucceed(ontology.ParseRelationship("channel:qux->parent->device:baz"))
-			Expect(r.From.Type).To(Equal(ontology.ResourceTypeChannel))
-			Expect(r.From.Key).To(Equal("qux"))
-			Expect(r.Type).To(Equal(ontology.RelationshipTypeParentOf))
-			Expect(r.To.Type).To(Equal(ontology.ResourceTypeDevice))
-			Expect(r.To.Key).To(Equal("baz"))
-		})
-		It("Should return an error if the relationship has an invalid structure", func() {
-			_, err := ontology.ParseRelationship("foo:qux-parent->bar")
-			Expect(err).To(MatchError(validate.ErrValidation))
+	Describe("GorpKey", func() {
+		It("Should return the correct gorp key", func() {
+			Expect(ontology.Relationship{
+				From: ontology.ID{Type: "channel", Key: "qux"},
+				To:   ontology.ID{Type: "device", Key: "baz"},
+				Type: ontology.RelationshipTypeParentOf,
+			}.GorpKey()).To(Equal("channel:qux->parent->device:baz"))
 		})
 	})
-
+	Describe("SetOptions", func() {
+		It("Should return nil", func() {
+			Expect(ontology.Relationship{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("ParseRelationship", func() {
+		It("Should parse a relationship from a string", func() {
+			Expect((ontology.ParseRelationship("channel:qux->parent->device:baz"))).
+				To(Equal(ontology.Relationship{
+					From: ontology.ID{Type: "channel", Key: "qux"},
+					To:   ontology.ID{Type: "device", Key: "baz"},
+					Type: ontology.RelationshipTypeParentOf,
+				}))
+		})
+		DescribeTable("Errors", func(key, message string) {
+			Expect(
+				ontology.ParseRelationship(key),
+			).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(message)),
+			))
+		},
+			Entry(
+				"Invalid structure",
+				"foo:qux-parent->bar",
+				"invalid relationship key",
+			),
+			Entry("Invalid from", "badfrom->parent->bar", "failed to parse id"),
+			Entry("Invalid to", "foo:qux->parent->badto", "failed to parse id"),
+		)
+	})
 })

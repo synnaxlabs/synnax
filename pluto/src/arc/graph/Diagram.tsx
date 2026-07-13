@@ -12,9 +12,8 @@ import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Node } from "@/arc/graph/node";
-import { useDispatch, useSelectNodeConfig } from "@/arc/queries";
+import { useSelectNodeConfig, useSingleDispatch } from "@/arc/queries";
 import { Component } from "@/component";
-import { Key } from "@/key";
 import { Diagram as Base } from "@/vis/diagram";
 
 // nodeChangesToActions converts diagram node gestures into Arc actions. Dimension
@@ -67,13 +66,12 @@ const NodeRenderer = ({
   selected,
   draggable,
 }: Base.NodeProps): ReactElement | null => {
-  const key = Key.use<arc.Key>("Arc.Diagram.NodeRenderer");
-  const config = useSelectNodeConfig({ key, nodeKey });
-  const { dispatch } = useDispatch();
+  const config = useSelectNodeConfig({ nodeKey });
+  const dispatch = useSingleDispatch();
   const handleChange = useCallback(
     (config: Partial<record.Unknown>) =>
-      dispatch({ key, actions: [arc.setNodeConfig({ key: nodeKey, config })] }),
-    [key, nodeKey, dispatch],
+      dispatch(arc.setNodeInputs({ key: nodeKey, inputs: config })),
+    [nodeKey, dispatch],
   );
   if (config == null) return null;
   const Render = Node.resolveSpec(config.type).Symbol;

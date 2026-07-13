@@ -40,6 +40,14 @@ export type ItemProps<
 
 export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
 
+/**
+ * itemNameID returns the DOM id for editable name text rendered inside the list item
+ * with the given key. Item assigns the raw key as the row element's own id, so nested
+ * editable text (e.g. Text.edit rename targets) must carry this derived id to keep
+ * DOM ids unique.
+ */
+export const itemNameID = (itemKey: record.Key): string => `${itemKey}-name`;
+
 export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   itemKey,
   className,

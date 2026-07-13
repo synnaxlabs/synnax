@@ -14,7 +14,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
@@ -35,7 +35,7 @@ func Publish(
 			return unsafe.CastToBytes(k), nil
 		},
 		MarshalSet: func(c channel.Channel) ([]byte, error) {
-			v, err := json.Marshal(channel.ToPayload(c))
+			v, err := json.Marshal(c.ToPayload())
 			if err != nil {
 				return nil, err
 			}

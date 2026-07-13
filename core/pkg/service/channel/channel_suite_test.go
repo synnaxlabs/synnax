@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	dist mock.Node
+	node mock.Node
 	svc  *channel.Service
 )
 
@@ -34,23 +34,23 @@ func TestChannel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	ShouldNotLeakGoroutines()
+	node = mock.NewNode(ctx)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Group:    dist.Group,
-		Ontology: dist.Ontology,
+		DB:       node.DB,
+		Group:    node.Group,
+		Ontology: node.Ontology,
 		Label:    labelSvc,
-		Search:   dist.Search,
+		Search:   node.Search,
 	}))
 	svc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		DB:           dist.DB,
-		Distribution: dist.Channel,
-		Status:       statusSvc,
+		Channel: node.Channel,
+		Status:  statusSvc,
 	}))
 })

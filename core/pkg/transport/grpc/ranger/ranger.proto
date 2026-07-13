@@ -1,4 +1,4 @@
-// Copyright 2025 Synnax Labs, Inc.
+// Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,6 +32,10 @@ service RangeRenameService {
   rpc Exec(RenameRequest) returns (google.protobuf.Empty) {}
 }
 
+service RangeSetEndService {
+  rpc Exec(SetEndRequest) returns (google.protobuf.Empty) {}
+}
+
 message DeleteRequest {
   repeated string keys = 1;
 }
@@ -56,4 +60,9 @@ message RetrieveResponse {
 message RenameRequest {
   string key = 1;
   string name = 2;
+}
+
+message SetEndRequest {
+  string key = 1;
+  int64 end = 2;
 }

@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -38,12 +39,17 @@ var _ = Describe("Writer Behavior", func() {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db *cesium.DB
-				fs fs.FS
+				db         *cesium.DB
+				fs         fs.FS
+				controlKey = GenerateChannelKey()
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = openDBOnFS(ctx, fs)
+				Expect(db.ConfigureControlUpdateChannel(
+					ctx, controlKey, "sy_cesium_control",
+				)).To(Succeed())
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -1361,6 +1367,7 @@ var _ = Describe("Writer Behavior", func() {
 					data = GenerateChannelKey()
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{Key: idx, Name: "uneven 1", DataType: telem.TimeStampT, IsIndex: true},
@@ -1567,14 +1574,10 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Error On ErrUnauthorized Open", func() {
 				var (
-					key        cesium.ChannelKey
-					controlKey = GenerateChannelKey()
-					w1         *cesium.Writer
-					w2         *cesium.Writer
+					key cesium.ChannelKey
+					w1  *cesium.Writer
+					w2  *cesium.Writer
 				)
-				BeforeAll(func(ctx SpecContext) {
-					Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
-				})
 				BeforeEach(func(ctx SpecContext) {
 					key = GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Name: "We", Key: key, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())

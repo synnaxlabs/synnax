@@ -56,10 +56,10 @@ inline Graph Graph::parse(x::json::Parser parser) {
         .functions = parser.field<::arc::ir::Functions>("functions"),
         .edges = parser.field<Edges>("edges"),
         .nodes = parser.field<Nodes>("nodes"),
-        .configs = parser
-                       .field<std::unordered_map<std::string, x::json::json::object_t>>(
-                           "configs"
-                       ),
+        .inputs = parser
+                      .field<std::unordered_map<std::string, x::json::json::object_t>>(
+                          "inputs"
+                      ),
     };
 }
 
@@ -68,7 +68,7 @@ inline x::json::json Graph::to_json() const {
     j["functions"] = this->functions.to_json();
     j["edges"] = this->edges.to_json();
     j["nodes"] = this->nodes.to_json();
-    j["configs"] = this->configs;
+    j["inputs"] = this->inputs;
     return j;
 }
 

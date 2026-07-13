@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	distFramer "github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -107,7 +106,7 @@ var _ = Describe("Metrics", func() {
 		It("Should create index channel with correct naming", func(ctx SpecContext) {
 			expectedName := names[0]
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
@@ -119,7 +118,7 @@ var _ = Describe("Metrics", func() {
 		It("Should create CPU metric channel", func(ctx SpecContext) {
 			expectedName := names[1]
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
@@ -131,7 +130,7 @@ var _ = Describe("Metrics", func() {
 		It("Should create memory metric channel", func(ctx SpecContext) {
 			expectedName := names[2]
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
@@ -143,7 +142,7 @@ var _ = Describe("Metrics", func() {
 		It("Should create total disk size metric channel as calculated", func(ctx SpecContext) {
 			expectedName := names[3]
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
@@ -155,7 +154,7 @@ var _ = Describe("Metrics", func() {
 		It("Should create ts (cesium) size metric channel", func(ctx SpecContext) {
 			expectedName := names[4]
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
@@ -167,7 +166,7 @@ var _ = Describe("Metrics", func() {
 		It("Should create kv (pebble) size metric channel", func(ctx SpecContext) {
 			expectedName := names[5]
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(expectedName)).
 				Entry(&ch).
 				Exec(ctx, nil),
@@ -214,28 +213,27 @@ var _ = Describe("Metrics", func() {
 			}))
 
 			var cpuChannel channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names[1])).
 				Entry(&cpuChannel).
 				Exec(ctx, nil),
 			).To(Succeed())
 
 			newGroup := MustSucceed(dist.Group.CreateOrRetrieve(
-				ctx, "Custom Metrics Group", dist.Channel.Group().OntologyID(),
+				ctx, "Custom Metrics Group", channelSvc.Group().OntologyID(),
 			))
 
 			metricsGroup := MustSucceed(dist.Group.CreateOrRetrieve(
-				ctx, "Metrics", dist.Channel.Group().OntologyID(),
+				ctx, "Metrics", channelSvc.Group().OntologyID(),
 			))
 			otgWriter := dist.Ontology.NewWriter(nil)
-			Expect(otgWriter.DeleteRelationship(
-				ctx,
-				metricsGroup.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				cpuChannel.OntologyID(),
-			)).To(Succeed())
+			Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+				From: metricsGroup.OntologyID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   cpuChannel.OntologyID(),
+			})).To(Succeed())
 
-			Expect(otgWriter.DefineRelationship(
+			Expect(otgWriter.DefineRelationships(
 				ctx,
 				newGroup.OntologyID(),
 				ontology.RelationshipTypeParentOf,
@@ -293,23 +291,22 @@ var _ = Describe("Metrics", func() {
 			}))
 
 			var memChannel channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names[2])).
 				Entry(&memChannel).
 				Exec(ctx, nil),
 			).To(Succeed())
 
 			metricsGroup := MustSucceed(dist.Group.CreateOrRetrieve(
-				ctx, "Metrics", dist.Channel.Group().OntologyID(),
+				ctx, "Metrics", channelSvc.Group().OntologyID(),
 			))
 
 			otgWriter := dist.Ontology.NewWriter(nil)
-			Expect(otgWriter.DeleteRelationship(
-				ctx,
-				metricsGroup.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				memChannel.OntologyID(),
-			)).To(Succeed())
+			Expect(otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+				From: metricsGroup.OntologyID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   memChannel.OntologyID(),
+			})).To(Succeed())
 
 			var parentsBefore []ontology.Resource
 			Expect(dist.Ontology.NewRetrieve().
@@ -365,14 +362,14 @@ var _ = Describe("Metrics", func() {
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(dist.Channel.Create(ctx, indexCh, channel.RetrieveIfNameExists())).To(Succeed())
+			Expect(channelSvc.Create(ctx, indexCh, channel.RetrieveIfNameExists())).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "metrics_test_data",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(dist.Channel.Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
-			w := MustSucceed(dist.Framer.OpenWriter(ctx, distFramer.WriterConfig{
+			Expect(channelSvc.Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},
 			}))
@@ -394,7 +391,7 @@ var _ = Describe("Metrics", func() {
 			}))
 			var channels []channel.Channel
 			names := getNames(dist.Cluster.HostKey())
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&channels).
 				Exec(ctx, nil),
@@ -415,7 +412,7 @@ var _ = Describe("Metrics", func() {
 		It("Should write metrics at configured interval", func(ctx SpecContext) {
 			names := getNames(dist.Cluster.HostKey())
 			var channels []channel.Channel
-			Expect(dist.Channel.NewRetrieve().
+			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&channels).
 				Exec(ctx, nil),

@@ -83,15 +83,17 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		OntologyMoveChildren:   http.NewUnaryServer[ontology.MoveChildrenRequest, types.Nil](router, "/api/v1/ontology/move-children"),
 
 		// GROUP
-		GroupCreate: http.NewUnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
-		GroupDelete: http.NewUnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
-		GroupRename: http.NewUnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupCreate:   http.NewUnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
+		GroupDelete:   http.NewUnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
+		GroupRename:   http.NewUnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupRetrieve: http.NewUnaryServer[group.RetrieveRequest, group.RetrieveResponse](router, "/api/v1/ontology/retrieve-group"),
 
 		// RANGE
 		RangeRetrieve: http.NewUnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](router, "/api/v1/range/retrieve"),
 		RangeCreate:   http.NewUnaryServer[ranger.CreateRequest, ranger.CreateResponse](router, "/api/v1/range/create"),
 		RangeDelete:   http.NewUnaryServer[ranger.DeleteRequest, types.Nil](router, "/api/v1/range/delete"),
 		RangeRename:   http.NewUnaryServer[ranger.RenameRequest, types.Nil](router, "/api/v1/range/rename"),
+		RangeSetEnd:   http.NewUnaryServer[ranger.SetEndRequest, types.Nil](router, "/api/v1/range/set-end"),
 
 		// KV
 		KVGet:    http.NewUnaryServer[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),

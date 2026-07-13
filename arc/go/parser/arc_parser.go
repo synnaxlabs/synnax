@@ -65,12 +65,12 @@ func arcparserParserInit() {
 	staticData.RuleNames = []string{
 		"program", "topLevelItem", "importStatement", "importItem", "importPath",
 		"importPathHead", "authorityBlock", "authorityEntry", "functionDeclaration",
-		"inputList", "input", "outputType", "multiOutputBlock", "namedOutput",
-		"configBlock", "configList", "config", "sequenceDeclaration", "sequenceItem",
+		"triggerList", "trigger", "outputType", "multiOutputBlock", "namedOutput",
+		"inputBlock", "inputList", "input", "sequenceDeclaration", "sequenceItem",
 		"stageDeclaration", "stageBody", "stageItem", "singleInvocation", "globalConstant",
 		"flowStatement", "flowOperator", "routingTable", "routingEntry", "flowNode",
-		"identifier", "function", "qualifiedIdentifier", "configValues", "namedConfigValues",
-		"namedConfigValue", "anonymousConfigValues", "arguments", "argumentList",
+		"identifier", "function", "qualifiedIdentifier", "inputValues", "namedInputValues",
+		"namedInputValue", "anonymousInputValues", "arguments", "argumentList",
 		"block", "statement", "variableDeclaration", "localVariable", "statefulVariable",
 		"assignment", "compoundOp", "ifStatement", "elseIfClause", "elseClause",
 		"forStatement", "forClause", "breakStatement", "continueStatement",
@@ -555,14 +555,14 @@ const (
 	ArcParserRULE_authorityBlock           = 6
 	ArcParserRULE_authorityEntry           = 7
 	ArcParserRULE_functionDeclaration      = 8
-	ArcParserRULE_inputList                = 9
-	ArcParserRULE_input                    = 10
+	ArcParserRULE_triggerList              = 9
+	ArcParserRULE_trigger                  = 10
 	ArcParserRULE_outputType               = 11
 	ArcParserRULE_multiOutputBlock         = 12
 	ArcParserRULE_namedOutput              = 13
-	ArcParserRULE_configBlock              = 14
-	ArcParserRULE_configList               = 15
-	ArcParserRULE_config                   = 16
+	ArcParserRULE_inputBlock               = 14
+	ArcParserRULE_inputList                = 15
+	ArcParserRULE_input                    = 16
 	ArcParserRULE_sequenceDeclaration      = 17
 	ArcParserRULE_sequenceItem             = 18
 	ArcParserRULE_stageDeclaration         = 19
@@ -578,10 +578,10 @@ const (
 	ArcParserRULE_identifier               = 29
 	ArcParserRULE_function                 = 30
 	ArcParserRULE_qualifiedIdentifier      = 31
-	ArcParserRULE_configValues             = 32
-	ArcParserRULE_namedConfigValues        = 33
-	ArcParserRULE_namedConfigValue         = 34
-	ArcParserRULE_anonymousConfigValues    = 35
+	ArcParserRULE_inputValues              = 32
+	ArcParserRULE_namedInputValues         = 33
+	ArcParserRULE_namedInputValue          = 34
+	ArcParserRULE_anonymousInputValues     = 35
 	ArcParserRULE_arguments                = 36
 	ArcParserRULE_argumentList             = 37
 	ArcParserRULE_block                    = 38
@@ -2117,8 +2117,8 @@ type IFunctionDeclarationContext interface {
 	LPAREN() antlr.TerminalNode
 	RPAREN() antlr.TerminalNode
 	Block() IBlockContext
-	ConfigBlock() IConfigBlockContext
-	InputList() IInputListContext
+	InputBlock() IInputBlockContext
+	TriggerList() ITriggerListContext
 	OutputType() IOutputTypeContext
 
 	// IsFunctionDeclarationContext differentiates from other interfaces.
@@ -2189,10 +2189,10 @@ func (s *FunctionDeclarationContext) Block() IBlockContext {
 	return t.(IBlockContext)
 }
 
-func (s *FunctionDeclarationContext) ConfigBlock() IConfigBlockContext {
+func (s *FunctionDeclarationContext) InputBlock() IInputBlockContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IConfigBlockContext); ok {
+		if _, ok := ctx.(IInputBlockContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -2202,13 +2202,13 @@ func (s *FunctionDeclarationContext) ConfigBlock() IConfigBlockContext {
 		return nil
 	}
 
-	return t.(IConfigBlockContext)
+	return t.(IInputBlockContext)
 }
 
-func (s *FunctionDeclarationContext) InputList() IInputListContext {
+func (s *FunctionDeclarationContext) TriggerList() ITriggerListContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IInputListContext); ok {
+		if _, ok := ctx.(ITriggerListContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -2218,7 +2218,7 @@ func (s *FunctionDeclarationContext) InputList() IInputListContext {
 		return nil
 	}
 
-	return t.(IInputListContext)
+	return t.(ITriggerListContext)
 }
 
 func (s *FunctionDeclarationContext) OutputType() IOutputTypeContext {
@@ -2299,7 +2299,7 @@ func (p *ArcParser) FunctionDeclaration() (localctx IFunctionDeclarationContext)
 	if _la == ArcParserLBRACE {
 		{
 			p.SetState(223)
-			p.ConfigBlock()
+			p.InputBlock()
 		}
 
 	}
@@ -2321,7 +2321,7 @@ func (p *ArcParser) FunctionDeclaration() (localctx IFunctionDeclarationContext)
 	if _la == ArcParserIDENTIFIER {
 		{
 			p.SetState(227)
-			p.InputList()
+			p.TriggerList()
 		}
 
 	}
@@ -2365,69 +2365,69 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IInputListContext is an interface to support dynamic dispatch.
-type IInputListContext interface {
+// ITriggerListContext is an interface to support dynamic dispatch.
+type ITriggerListContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllInput() []IInputContext
-	Input(i int) IInputContext
+	AllTrigger() []ITriggerContext
+	Trigger(i int) ITriggerContext
 	AllCOMMA() []antlr.TerminalNode
 	COMMA(i int) antlr.TerminalNode
 
-	// IsInputListContext differentiates from other interfaces.
-	IsInputListContext()
+	// IsTriggerListContext differentiates from other interfaces.
+	IsTriggerListContext()
 }
 
-type InputListContext struct {
+type TriggerListContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyInputListContext() *InputListContext {
-	var p = new(InputListContext)
+func NewEmptyTriggerListContext() *TriggerListContext {
+	var p = new(TriggerListContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_inputList
+	p.RuleIndex = ArcParserRULE_triggerList
 	return p
 }
 
-func InitEmptyInputListContext(p *InputListContext) {
+func InitEmptyTriggerListContext(p *TriggerListContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_inputList
+	p.RuleIndex = ArcParserRULE_triggerList
 }
 
-func (*InputListContext) IsInputListContext() {}
+func (*TriggerListContext) IsTriggerListContext() {}
 
-func NewInputListContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *InputListContext {
-	var p = new(InputListContext)
+func NewTriggerListContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *TriggerListContext {
+	var p = new(TriggerListContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_inputList
+	p.RuleIndex = ArcParserRULE_triggerList
 
 	return p
 }
 
-func (s *InputListContext) GetParser() antlr.Parser { return s.parser }
+func (s *TriggerListContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *InputListContext) AllInput() []IInputContext {
+func (s *TriggerListContext) AllTrigger() []ITriggerContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
-		if _, ok := ctx.(IInputContext); ok {
+		if _, ok := ctx.(ITriggerContext); ok {
 			len++
 		}
 	}
 
-	tst := make([]IInputContext, len)
+	tst := make([]ITriggerContext, len)
 	i := 0
 	for _, ctx := range children {
-		if t, ok := ctx.(IInputContext); ok {
-			tst[i] = t.(IInputContext)
+		if t, ok := ctx.(ITriggerContext); ok {
+			tst[i] = t.(ITriggerContext)
 			i++
 		}
 	}
@@ -2435,11 +2435,11 @@ func (s *InputListContext) AllInput() []IInputContext {
 	return tst
 }
 
-func (s *InputListContext) Input(i int) IInputContext {
+func (s *TriggerListContext) Trigger(i int) ITriggerContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IInputContext); ok {
+		if _, ok := ctx.(ITriggerContext); ok {
 			if j == i {
 				t = ctx.(antlr.RuleContext)
 				break
@@ -2452,50 +2452,50 @@ func (s *InputListContext) Input(i int) IInputContext {
 		return nil
 	}
 
-	return t.(IInputContext)
+	return t.(ITriggerContext)
 }
 
-func (s *InputListContext) AllCOMMA() []antlr.TerminalNode {
+func (s *TriggerListContext) AllCOMMA() []antlr.TerminalNode {
 	return s.GetTokens(ArcParserCOMMA)
 }
 
-func (s *InputListContext) COMMA(i int) antlr.TerminalNode {
+func (s *TriggerListContext) COMMA(i int) antlr.TerminalNode {
 	return s.GetToken(ArcParserCOMMA, i)
 }
 
-func (s *InputListContext) GetRuleContext() antlr.RuleContext {
+func (s *TriggerListContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *InputListContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *TriggerListContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *InputListContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *TriggerListContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterInputList(s)
+		listenerT.EnterTriggerList(s)
 	}
 }
 
-func (s *InputListContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *TriggerListContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitInputList(s)
+		listenerT.ExitTriggerList(s)
 	}
 }
 
-func (s *InputListContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *TriggerListContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitInputList(s)
+		return t.VisitTriggerList(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) InputList() (localctx IInputListContext) {
-	localctx = NewInputListContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 18, ArcParserRULE_inputList)
+func (p *ArcParser) TriggerList() (localctx ITriggerListContext) {
+	localctx = NewTriggerListContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 18, ArcParserRULE_triggerList)
 	var _la int
 
 	var _alt int
@@ -2503,7 +2503,7 @@ func (p *ArcParser) InputList() (localctx IInputListContext) {
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(236)
-		p.Input()
+		p.Trigger()
 	}
 	p.SetState(241)
 	p.GetErrorHandler().Sync(p)
@@ -2526,7 +2526,7 @@ func (p *ArcParser) InputList() (localctx IInputListContext) {
 			}
 			{
 				p.SetState(238)
-				p.Input()
+				p.Trigger()
 			}
 
 		}
@@ -2572,8 +2572,8 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IInputContext is an interface to support dynamic dispatch.
-type IInputContext interface {
+// ITriggerContext is an interface to support dynamic dispatch.
+type ITriggerContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -2585,47 +2585,47 @@ type IInputContext interface {
 	ASSIGN() antlr.TerminalNode
 	Literal() ILiteralContext
 
-	// IsInputContext differentiates from other interfaces.
-	IsInputContext()
+	// IsTriggerContext differentiates from other interfaces.
+	IsTriggerContext()
 }
 
-type InputContext struct {
+type TriggerContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyInputContext() *InputContext {
-	var p = new(InputContext)
+func NewEmptyTriggerContext() *TriggerContext {
+	var p = new(TriggerContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_input
+	p.RuleIndex = ArcParserRULE_trigger
 	return p
 }
 
-func InitEmptyInputContext(p *InputContext) {
+func InitEmptyTriggerContext(p *TriggerContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_input
+	p.RuleIndex = ArcParserRULE_trigger
 }
 
-func (*InputContext) IsInputContext() {}
+func (*TriggerContext) IsTriggerContext() {}
 
-func NewInputContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *InputContext {
-	var p = new(InputContext)
+func NewTriggerContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *TriggerContext {
+	var p = new(TriggerContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_input
+	p.RuleIndex = ArcParserRULE_trigger
 
 	return p
 }
 
-func (s *InputContext) GetParser() antlr.Parser { return s.parser }
+func (s *TriggerContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *InputContext) IDENTIFIER() antlr.TerminalNode {
+func (s *TriggerContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
-func (s *InputContext) Type_() ITypeContext {
+func (s *TriggerContext) Type_() ITypeContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ITypeContext); ok {
@@ -2641,11 +2641,11 @@ func (s *InputContext) Type_() ITypeContext {
 	return t.(ITypeContext)
 }
 
-func (s *InputContext) ASSIGN() antlr.TerminalNode {
+func (s *TriggerContext) ASSIGN() antlr.TerminalNode {
 	return s.GetToken(ArcParserASSIGN, 0)
 }
 
-func (s *InputContext) Literal() ILiteralContext {
+func (s *TriggerContext) Literal() ILiteralContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ILiteralContext); ok {
@@ -2661,39 +2661,39 @@ func (s *InputContext) Literal() ILiteralContext {
 	return t.(ILiteralContext)
 }
 
-func (s *InputContext) GetRuleContext() antlr.RuleContext {
+func (s *TriggerContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *InputContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *TriggerContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *InputContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *TriggerContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterInput(s)
+		listenerT.EnterTrigger(s)
 	}
 }
 
-func (s *InputContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *TriggerContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitInput(s)
+		listenerT.ExitTrigger(s)
 	}
 }
 
-func (s *InputContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *TriggerContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitInput(s)
+		return t.VisitTrigger(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) Input() (localctx IInputContext) {
-	localctx = NewInputContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 20, ArcParserRULE_input)
+func (p *ArcParser) Trigger() (localctx ITriggerContext) {
+	localctx = NewTriggerContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 20, ArcParserRULE_trigger)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -3276,8 +3276,8 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IConfigBlockContext is an interface to support dynamic dispatch.
-type IConfigBlockContext interface {
+// IInputBlockContext is an interface to support dynamic dispatch.
+type IInputBlockContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -3286,56 +3286,56 @@ type IConfigBlockContext interface {
 	// Getter signatures
 	LBRACE() antlr.TerminalNode
 	RBRACE() antlr.TerminalNode
-	ConfigList() IConfigListContext
+	InputList() IInputListContext
 
-	// IsConfigBlockContext differentiates from other interfaces.
-	IsConfigBlockContext()
+	// IsInputBlockContext differentiates from other interfaces.
+	IsInputBlockContext()
 }
 
-type ConfigBlockContext struct {
+type InputBlockContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyConfigBlockContext() *ConfigBlockContext {
-	var p = new(ConfigBlockContext)
+func NewEmptyInputBlockContext() *InputBlockContext {
+	var p = new(InputBlockContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_configBlock
+	p.RuleIndex = ArcParserRULE_inputBlock
 	return p
 }
 
-func InitEmptyConfigBlockContext(p *ConfigBlockContext) {
+func InitEmptyInputBlockContext(p *InputBlockContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_configBlock
+	p.RuleIndex = ArcParserRULE_inputBlock
 }
 
-func (*ConfigBlockContext) IsConfigBlockContext() {}
+func (*InputBlockContext) IsInputBlockContext() {}
 
-func NewConfigBlockContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *ConfigBlockContext {
-	var p = new(ConfigBlockContext)
+func NewInputBlockContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *InputBlockContext {
+	var p = new(InputBlockContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_configBlock
+	p.RuleIndex = ArcParserRULE_inputBlock
 
 	return p
 }
 
-func (s *ConfigBlockContext) GetParser() antlr.Parser { return s.parser }
+func (s *InputBlockContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *ConfigBlockContext) LBRACE() antlr.TerminalNode {
+func (s *InputBlockContext) LBRACE() antlr.TerminalNode {
 	return s.GetToken(ArcParserLBRACE, 0)
 }
 
-func (s *ConfigBlockContext) RBRACE() antlr.TerminalNode {
+func (s *InputBlockContext) RBRACE() antlr.TerminalNode {
 	return s.GetToken(ArcParserRBRACE, 0)
 }
 
-func (s *ConfigBlockContext) ConfigList() IConfigListContext {
+func (s *InputBlockContext) InputList() IInputListContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IConfigListContext); ok {
+		if _, ok := ctx.(IInputListContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -3345,42 +3345,42 @@ func (s *ConfigBlockContext) ConfigList() IConfigListContext {
 		return nil
 	}
 
-	return t.(IConfigListContext)
+	return t.(IInputListContext)
 }
 
-func (s *ConfigBlockContext) GetRuleContext() antlr.RuleContext {
+func (s *InputBlockContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *ConfigBlockContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *InputBlockContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ConfigBlockContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *InputBlockContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterConfigBlock(s)
+		listenerT.EnterInputBlock(s)
 	}
 }
 
-func (s *ConfigBlockContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *InputBlockContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitConfigBlock(s)
+		listenerT.ExitInputBlock(s)
 	}
 }
 
-func (s *ConfigBlockContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *InputBlockContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitConfigBlock(s)
+		return t.VisitInputBlock(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) ConfigBlock() (localctx IConfigBlockContext) {
-	localctx = NewConfigBlockContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 28, ArcParserRULE_configBlock)
+func (p *ArcParser) InputBlock() (localctx IInputBlockContext) {
+	localctx = NewInputBlockContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 28, ArcParserRULE_inputBlock)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -3402,7 +3402,7 @@ func (p *ArcParser) ConfigBlock() (localctx IConfigBlockContext) {
 	if _la == ArcParserIDENTIFIER {
 		{
 			p.SetState(277)
-			p.ConfigList()
+			p.InputList()
 		}
 
 	}
@@ -3428,69 +3428,69 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IConfigListContext is an interface to support dynamic dispatch.
-type IConfigListContext interface {
+// IInputListContext is an interface to support dynamic dispatch.
+type IInputListContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllConfig() []IConfigContext
-	Config(i int) IConfigContext
+	AllInput() []IInputContext
+	Input(i int) IInputContext
 	AllCOMMA() []antlr.TerminalNode
 	COMMA(i int) antlr.TerminalNode
 
-	// IsConfigListContext differentiates from other interfaces.
-	IsConfigListContext()
+	// IsInputListContext differentiates from other interfaces.
+	IsInputListContext()
 }
 
-type ConfigListContext struct {
+type InputListContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyConfigListContext() *ConfigListContext {
-	var p = new(ConfigListContext)
+func NewEmptyInputListContext() *InputListContext {
+	var p = new(InputListContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_configList
+	p.RuleIndex = ArcParserRULE_inputList
 	return p
 }
 
-func InitEmptyConfigListContext(p *ConfigListContext) {
+func InitEmptyInputListContext(p *InputListContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_configList
+	p.RuleIndex = ArcParserRULE_inputList
 }
 
-func (*ConfigListContext) IsConfigListContext() {}
+func (*InputListContext) IsInputListContext() {}
 
-func NewConfigListContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *ConfigListContext {
-	var p = new(ConfigListContext)
+func NewInputListContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *InputListContext {
+	var p = new(InputListContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_configList
+	p.RuleIndex = ArcParserRULE_inputList
 
 	return p
 }
 
-func (s *ConfigListContext) GetParser() antlr.Parser { return s.parser }
+func (s *InputListContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *ConfigListContext) AllConfig() []IConfigContext {
+func (s *InputListContext) AllInput() []IInputContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
-		if _, ok := ctx.(IConfigContext); ok {
+		if _, ok := ctx.(IInputContext); ok {
 			len++
 		}
 	}
 
-	tst := make([]IConfigContext, len)
+	tst := make([]IInputContext, len)
 	i := 0
 	for _, ctx := range children {
-		if t, ok := ctx.(IConfigContext); ok {
-			tst[i] = t.(IConfigContext)
+		if t, ok := ctx.(IInputContext); ok {
+			tst[i] = t.(IInputContext)
 			i++
 		}
 	}
@@ -3498,11 +3498,11 @@ func (s *ConfigListContext) AllConfig() []IConfigContext {
 	return tst
 }
 
-func (s *ConfigListContext) Config(i int) IConfigContext {
+func (s *InputListContext) Input(i int) IInputContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IConfigContext); ok {
+		if _, ok := ctx.(IInputContext); ok {
 			if j == i {
 				t = ctx.(antlr.RuleContext)
 				break
@@ -3515,50 +3515,50 @@ func (s *ConfigListContext) Config(i int) IConfigContext {
 		return nil
 	}
 
-	return t.(IConfigContext)
+	return t.(IInputContext)
 }
 
-func (s *ConfigListContext) AllCOMMA() []antlr.TerminalNode {
+func (s *InputListContext) AllCOMMA() []antlr.TerminalNode {
 	return s.GetTokens(ArcParserCOMMA)
 }
 
-func (s *ConfigListContext) COMMA(i int) antlr.TerminalNode {
+func (s *InputListContext) COMMA(i int) antlr.TerminalNode {
 	return s.GetToken(ArcParserCOMMA, i)
 }
 
-func (s *ConfigListContext) GetRuleContext() antlr.RuleContext {
+func (s *InputListContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *ConfigListContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *InputListContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ConfigListContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *InputListContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterConfigList(s)
+		listenerT.EnterInputList(s)
 	}
 }
 
-func (s *ConfigListContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *InputListContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitConfigList(s)
+		listenerT.ExitInputList(s)
 	}
 }
 
-func (s *ConfigListContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *InputListContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitConfigList(s)
+		return t.VisitInputList(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) ConfigList() (localctx IConfigListContext) {
-	localctx = NewConfigListContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 30, ArcParserRULE_configList)
+func (p *ArcParser) InputList() (localctx IInputListContext) {
+	localctx = NewInputListContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 30, ArcParserRULE_inputList)
 	var _la int
 
 	var _alt int
@@ -3566,7 +3566,7 @@ func (p *ArcParser) ConfigList() (localctx IConfigListContext) {
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(282)
-		p.Config()
+		p.Input()
 	}
 	p.SetState(287)
 	p.GetErrorHandler().Sync(p)
@@ -3589,7 +3589,7 @@ func (p *ArcParser) ConfigList() (localctx IConfigListContext) {
 			}
 			{
 				p.SetState(284)
-				p.Config()
+				p.Input()
 			}
 
 		}
@@ -3635,8 +3635,8 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IConfigContext is an interface to support dynamic dispatch.
-type IConfigContext interface {
+// IInputContext is an interface to support dynamic dispatch.
+type IInputContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -3648,47 +3648,47 @@ type IConfigContext interface {
 	ASSIGN() antlr.TerminalNode
 	Literal() ILiteralContext
 
-	// IsConfigContext differentiates from other interfaces.
-	IsConfigContext()
+	// IsInputContext differentiates from other interfaces.
+	IsInputContext()
 }
 
-type ConfigContext struct {
+type InputContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyConfigContext() *ConfigContext {
-	var p = new(ConfigContext)
+func NewEmptyInputContext() *InputContext {
+	var p = new(InputContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_config
+	p.RuleIndex = ArcParserRULE_input
 	return p
 }
 
-func InitEmptyConfigContext(p *ConfigContext) {
+func InitEmptyInputContext(p *InputContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_config
+	p.RuleIndex = ArcParserRULE_input
 }
 
-func (*ConfigContext) IsConfigContext() {}
+func (*InputContext) IsInputContext() {}
 
-func NewConfigContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *ConfigContext {
-	var p = new(ConfigContext)
+func NewInputContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *InputContext {
+	var p = new(InputContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_config
+	p.RuleIndex = ArcParserRULE_input
 
 	return p
 }
 
-func (s *ConfigContext) GetParser() antlr.Parser { return s.parser }
+func (s *InputContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *ConfigContext) IDENTIFIER() antlr.TerminalNode {
+func (s *InputContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
-func (s *ConfigContext) Type_() ITypeContext {
+func (s *InputContext) Type_() ITypeContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ITypeContext); ok {
@@ -3704,11 +3704,11 @@ func (s *ConfigContext) Type_() ITypeContext {
 	return t.(ITypeContext)
 }
 
-func (s *ConfigContext) ASSIGN() antlr.TerminalNode {
+func (s *InputContext) ASSIGN() antlr.TerminalNode {
 	return s.GetToken(ArcParserASSIGN, 0)
 }
 
-func (s *ConfigContext) Literal() ILiteralContext {
+func (s *InputContext) Literal() ILiteralContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(ILiteralContext); ok {
@@ -3724,39 +3724,39 @@ func (s *ConfigContext) Literal() ILiteralContext {
 	return t.(ILiteralContext)
 }
 
-func (s *ConfigContext) GetRuleContext() antlr.RuleContext {
+func (s *InputContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *ConfigContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *InputContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ConfigContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *InputContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterConfig(s)
+		listenerT.EnterInput(s)
 	}
 }
 
-func (s *ConfigContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *InputContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitConfig(s)
+		listenerT.ExitInput(s)
 	}
 }
 
-func (s *ConfigContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *InputContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitConfig(s)
+		return t.VisitInput(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) Config() (localctx IConfigContext) {
-	localctx = NewConfigContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 32, ArcParserRULE_config)
+func (p *ArcParser) Input() (localctx IInputContext) {
+	localctx = NewInputContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 32, ArcParserRULE_input)
 	var _la int
 
 	p.EnterOuterAlt(localctx, 1)
@@ -6454,7 +6454,7 @@ type IFunctionContext interface {
 
 	// Getter signatures
 	QualifiedIdentifier() IQualifiedIdentifierContext
-	ConfigValues() IConfigValuesContext
+	InputValues() IInputValuesContext
 	IDENTIFIER() antlr.TerminalNode
 
 	// IsFunctionContext differentiates from other interfaces.
@@ -6509,10 +6509,10 @@ func (s *FunctionContext) QualifiedIdentifier() IQualifiedIdentifierContext {
 	return t.(IQualifiedIdentifierContext)
 }
 
-func (s *FunctionContext) ConfigValues() IConfigValuesContext {
+func (s *FunctionContext) InputValues() IInputValuesContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IConfigValuesContext); ok {
+		if _, ok := ctx.(IInputValuesContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -6522,7 +6522,7 @@ func (s *FunctionContext) ConfigValues() IConfigValuesContext {
 		return nil
 	}
 
-	return t.(IConfigValuesContext)
+	return t.(IInputValuesContext)
 }
 
 func (s *FunctionContext) IDENTIFIER() antlr.TerminalNode {
@@ -6577,7 +6577,7 @@ func (p *ArcParser) Function() (localctx IFunctionContext) {
 		}
 		{
 			p.SetState(424)
-			p.ConfigValues()
+			p.InputValues()
 		}
 
 	case 2:
@@ -6592,7 +6592,7 @@ func (p *ArcParser) Function() (localctx IFunctionContext) {
 		}
 		{
 			p.SetState(427)
-			p.ConfigValues()
+			p.InputValues()
 		}
 
 	case antlr.ATNInvalidAltNumber:
@@ -6820,8 +6820,8 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IConfigValuesContext is an interface to support dynamic dispatch.
-type IConfigValuesContext interface {
+// IInputValuesContext is an interface to support dynamic dispatch.
+type IInputValuesContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -6830,57 +6830,57 @@ type IConfigValuesContext interface {
 	// Getter signatures
 	LBRACE() antlr.TerminalNode
 	RBRACE() antlr.TerminalNode
-	NamedConfigValues() INamedConfigValuesContext
-	AnonymousConfigValues() IAnonymousConfigValuesContext
+	NamedInputValues() INamedInputValuesContext
+	AnonymousInputValues() IAnonymousInputValuesContext
 
-	// IsConfigValuesContext differentiates from other interfaces.
-	IsConfigValuesContext()
+	// IsInputValuesContext differentiates from other interfaces.
+	IsInputValuesContext()
 }
 
-type ConfigValuesContext struct {
+type InputValuesContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyConfigValuesContext() *ConfigValuesContext {
-	var p = new(ConfigValuesContext)
+func NewEmptyInputValuesContext() *InputValuesContext {
+	var p = new(InputValuesContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_configValues
+	p.RuleIndex = ArcParserRULE_inputValues
 	return p
 }
 
-func InitEmptyConfigValuesContext(p *ConfigValuesContext) {
+func InitEmptyInputValuesContext(p *InputValuesContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_configValues
+	p.RuleIndex = ArcParserRULE_inputValues
 }
 
-func (*ConfigValuesContext) IsConfigValuesContext() {}
+func (*InputValuesContext) IsInputValuesContext() {}
 
-func NewConfigValuesContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *ConfigValuesContext {
-	var p = new(ConfigValuesContext)
+func NewInputValuesContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *InputValuesContext {
+	var p = new(InputValuesContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_configValues
+	p.RuleIndex = ArcParserRULE_inputValues
 
 	return p
 }
 
-func (s *ConfigValuesContext) GetParser() antlr.Parser { return s.parser }
+func (s *InputValuesContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *ConfigValuesContext) LBRACE() antlr.TerminalNode {
+func (s *InputValuesContext) LBRACE() antlr.TerminalNode {
 	return s.GetToken(ArcParserLBRACE, 0)
 }
 
-func (s *ConfigValuesContext) RBRACE() antlr.TerminalNode {
+func (s *InputValuesContext) RBRACE() antlr.TerminalNode {
 	return s.GetToken(ArcParserRBRACE, 0)
 }
 
-func (s *ConfigValuesContext) NamedConfigValues() INamedConfigValuesContext {
+func (s *InputValuesContext) NamedInputValues() INamedInputValuesContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(INamedConfigValuesContext); ok {
+		if _, ok := ctx.(INamedInputValuesContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -6890,13 +6890,13 @@ func (s *ConfigValuesContext) NamedConfigValues() INamedConfigValuesContext {
 		return nil
 	}
 
-	return t.(INamedConfigValuesContext)
+	return t.(INamedInputValuesContext)
 }
 
-func (s *ConfigValuesContext) AnonymousConfigValues() IAnonymousConfigValuesContext {
+func (s *InputValuesContext) AnonymousInputValues() IAnonymousInputValuesContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(IAnonymousConfigValuesContext); ok {
+		if _, ok := ctx.(IAnonymousInputValuesContext); ok {
 			t = ctx.(antlr.RuleContext)
 			break
 		}
@@ -6906,42 +6906,42 @@ func (s *ConfigValuesContext) AnonymousConfigValues() IAnonymousConfigValuesCont
 		return nil
 	}
 
-	return t.(IAnonymousConfigValuesContext)
+	return t.(IAnonymousInputValuesContext)
 }
 
-func (s *ConfigValuesContext) GetRuleContext() antlr.RuleContext {
+func (s *InputValuesContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *ConfigValuesContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *InputValuesContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *ConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *InputValuesContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterConfigValues(s)
+		listenerT.EnterInputValues(s)
 	}
 }
 
-func (s *ConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *InputValuesContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitConfigValues(s)
+		listenerT.ExitInputValues(s)
 	}
 }
 
-func (s *ConfigValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *InputValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitConfigValues(s)
+		return t.VisitInputValues(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) ConfigValues() (localctx IConfigValuesContext) {
-	localctx = NewConfigValuesContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 64, ArcParserRULE_configValues)
+func (p *ArcParser) InputValues() (localctx IInputValuesContext) {
+	localctx = NewInputValuesContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 64, ArcParserRULE_inputValues)
 	p.SetState(451)
 	p.GetErrorHandler().Sync(p)
 	if p.HasError() {
@@ -6980,7 +6980,7 @@ func (p *ArcParser) ConfigValues() (localctx IConfigValuesContext) {
 		}
 		{
 			p.SetState(444)
-			p.NamedConfigValues()
+			p.NamedInputValues()
 		}
 		{
 			p.SetState(445)
@@ -7003,7 +7003,7 @@ func (p *ArcParser) ConfigValues() (localctx IConfigValuesContext) {
 		}
 		{
 			p.SetState(448)
-			p.AnonymousConfigValues()
+			p.AnonymousInputValues()
 		}
 		{
 			p.SetState(449)
@@ -7031,69 +7031,69 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// INamedConfigValuesContext is an interface to support dynamic dispatch.
-type INamedConfigValuesContext interface {
+// INamedInputValuesContext is an interface to support dynamic dispatch.
+type INamedInputValuesContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
 	GetParser() antlr.Parser
 
 	// Getter signatures
-	AllNamedConfigValue() []INamedConfigValueContext
-	NamedConfigValue(i int) INamedConfigValueContext
+	AllNamedInputValue() []INamedInputValueContext
+	NamedInputValue(i int) INamedInputValueContext
 	AllCOMMA() []antlr.TerminalNode
 	COMMA(i int) antlr.TerminalNode
 
-	// IsNamedConfigValuesContext differentiates from other interfaces.
-	IsNamedConfigValuesContext()
+	// IsNamedInputValuesContext differentiates from other interfaces.
+	IsNamedInputValuesContext()
 }
 
-type NamedConfigValuesContext struct {
+type NamedInputValuesContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyNamedConfigValuesContext() *NamedConfigValuesContext {
-	var p = new(NamedConfigValuesContext)
+func NewEmptyNamedInputValuesContext() *NamedInputValuesContext {
+	var p = new(NamedInputValuesContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_namedConfigValues
+	p.RuleIndex = ArcParserRULE_namedInputValues
 	return p
 }
 
-func InitEmptyNamedConfigValuesContext(p *NamedConfigValuesContext) {
+func InitEmptyNamedInputValuesContext(p *NamedInputValuesContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_namedConfigValues
+	p.RuleIndex = ArcParserRULE_namedInputValues
 }
 
-func (*NamedConfigValuesContext) IsNamedConfigValuesContext() {}
+func (*NamedInputValuesContext) IsNamedInputValuesContext() {}
 
-func NewNamedConfigValuesContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *NamedConfigValuesContext {
-	var p = new(NamedConfigValuesContext)
+func NewNamedInputValuesContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *NamedInputValuesContext {
+	var p = new(NamedInputValuesContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_namedConfigValues
+	p.RuleIndex = ArcParserRULE_namedInputValues
 
 	return p
 }
 
-func (s *NamedConfigValuesContext) GetParser() antlr.Parser { return s.parser }
+func (s *NamedInputValuesContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *NamedConfigValuesContext) AllNamedConfigValue() []INamedConfigValueContext {
+func (s *NamedInputValuesContext) AllNamedInputValue() []INamedInputValueContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
-		if _, ok := ctx.(INamedConfigValueContext); ok {
+		if _, ok := ctx.(INamedInputValueContext); ok {
 			len++
 		}
 	}
 
-	tst := make([]INamedConfigValueContext, len)
+	tst := make([]INamedInputValueContext, len)
 	i := 0
 	for _, ctx := range children {
-		if t, ok := ctx.(INamedConfigValueContext); ok {
-			tst[i] = t.(INamedConfigValueContext)
+		if t, ok := ctx.(INamedInputValueContext); ok {
+			tst[i] = t.(INamedInputValueContext)
 			i++
 		}
 	}
@@ -7101,11 +7101,11 @@ func (s *NamedConfigValuesContext) AllNamedConfigValue() []INamedConfigValueCont
 	return tst
 }
 
-func (s *NamedConfigValuesContext) NamedConfigValue(i int) INamedConfigValueContext {
+func (s *NamedInputValuesContext) NamedInputValue(i int) INamedInputValueContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
-		if _, ok := ctx.(INamedConfigValueContext); ok {
+		if _, ok := ctx.(INamedInputValueContext); ok {
 			if j == i {
 				t = ctx.(antlr.RuleContext)
 				break
@@ -7118,50 +7118,50 @@ func (s *NamedConfigValuesContext) NamedConfigValue(i int) INamedConfigValueCont
 		return nil
 	}
 
-	return t.(INamedConfigValueContext)
+	return t.(INamedInputValueContext)
 }
 
-func (s *NamedConfigValuesContext) AllCOMMA() []antlr.TerminalNode {
+func (s *NamedInputValuesContext) AllCOMMA() []antlr.TerminalNode {
 	return s.GetTokens(ArcParserCOMMA)
 }
 
-func (s *NamedConfigValuesContext) COMMA(i int) antlr.TerminalNode {
+func (s *NamedInputValuesContext) COMMA(i int) antlr.TerminalNode {
 	return s.GetToken(ArcParserCOMMA, i)
 }
 
-func (s *NamedConfigValuesContext) GetRuleContext() antlr.RuleContext {
+func (s *NamedInputValuesContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *NamedConfigValuesContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *NamedInputValuesContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *NamedConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *NamedInputValuesContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterNamedConfigValues(s)
+		listenerT.EnterNamedInputValues(s)
 	}
 }
 
-func (s *NamedConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *NamedInputValuesContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitNamedConfigValues(s)
+		listenerT.ExitNamedInputValues(s)
 	}
 }
 
-func (s *NamedConfigValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *NamedInputValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitNamedConfigValues(s)
+		return t.VisitNamedInputValues(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) NamedConfigValues() (localctx INamedConfigValuesContext) {
-	localctx = NewNamedConfigValuesContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 66, ArcParserRULE_namedConfigValues)
+func (p *ArcParser) NamedInputValues() (localctx INamedInputValuesContext) {
+	localctx = NewNamedInputValuesContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 66, ArcParserRULE_namedInputValues)
 	var _la int
 
 	var _alt int
@@ -7169,7 +7169,7 @@ func (p *ArcParser) NamedConfigValues() (localctx INamedConfigValuesContext) {
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(453)
-		p.NamedConfigValue()
+		p.NamedInputValue()
 	}
 	p.SetState(458)
 	p.GetErrorHandler().Sync(p)
@@ -7192,7 +7192,7 @@ func (p *ArcParser) NamedConfigValues() (localctx INamedConfigValuesContext) {
 			}
 			{
 				p.SetState(455)
-				p.NamedConfigValue()
+				p.NamedInputValue()
 			}
 
 		}
@@ -7238,8 +7238,8 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// INamedConfigValueContext is an interface to support dynamic dispatch.
-type INamedConfigValueContext interface {
+// INamedInputValueContext is an interface to support dynamic dispatch.
+type INamedInputValueContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -7250,51 +7250,51 @@ type INamedConfigValueContext interface {
 	ASSIGN() antlr.TerminalNode
 	Expression() IExpressionContext
 
-	// IsNamedConfigValueContext differentiates from other interfaces.
-	IsNamedConfigValueContext()
+	// IsNamedInputValueContext differentiates from other interfaces.
+	IsNamedInputValueContext()
 }
 
-type NamedConfigValueContext struct {
+type NamedInputValueContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyNamedConfigValueContext() *NamedConfigValueContext {
-	var p = new(NamedConfigValueContext)
+func NewEmptyNamedInputValueContext() *NamedInputValueContext {
+	var p = new(NamedInputValueContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_namedConfigValue
+	p.RuleIndex = ArcParserRULE_namedInputValue
 	return p
 }
 
-func InitEmptyNamedConfigValueContext(p *NamedConfigValueContext) {
+func InitEmptyNamedInputValueContext(p *NamedInputValueContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_namedConfigValue
+	p.RuleIndex = ArcParserRULE_namedInputValue
 }
 
-func (*NamedConfigValueContext) IsNamedConfigValueContext() {}
+func (*NamedInputValueContext) IsNamedInputValueContext() {}
 
-func NewNamedConfigValueContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *NamedConfigValueContext {
-	var p = new(NamedConfigValueContext)
+func NewNamedInputValueContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *NamedInputValueContext {
+	var p = new(NamedInputValueContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_namedConfigValue
+	p.RuleIndex = ArcParserRULE_namedInputValue
 
 	return p
 }
 
-func (s *NamedConfigValueContext) GetParser() antlr.Parser { return s.parser }
+func (s *NamedInputValueContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *NamedConfigValueContext) IDENTIFIER() antlr.TerminalNode {
+func (s *NamedInputValueContext) IDENTIFIER() antlr.TerminalNode {
 	return s.GetToken(ArcParserIDENTIFIER, 0)
 }
 
-func (s *NamedConfigValueContext) ASSIGN() antlr.TerminalNode {
+func (s *NamedInputValueContext) ASSIGN() antlr.TerminalNode {
 	return s.GetToken(ArcParserASSIGN, 0)
 }
 
-func (s *NamedConfigValueContext) Expression() IExpressionContext {
+func (s *NamedInputValueContext) Expression() IExpressionContext {
 	var t antlr.RuleContext
 	for _, ctx := range s.GetChildren() {
 		if _, ok := ctx.(IExpressionContext); ok {
@@ -7310,39 +7310,39 @@ func (s *NamedConfigValueContext) Expression() IExpressionContext {
 	return t.(IExpressionContext)
 }
 
-func (s *NamedConfigValueContext) GetRuleContext() antlr.RuleContext {
+func (s *NamedInputValueContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *NamedConfigValueContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *NamedInputValueContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *NamedConfigValueContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *NamedInputValueContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterNamedConfigValue(s)
+		listenerT.EnterNamedInputValue(s)
 	}
 }
 
-func (s *NamedConfigValueContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *NamedInputValueContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitNamedConfigValue(s)
+		listenerT.ExitNamedInputValue(s)
 	}
 }
 
-func (s *NamedConfigValueContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *NamedInputValueContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitNamedConfigValue(s)
+		return t.VisitNamedInputValue(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) NamedConfigValue() (localctx INamedConfigValueContext) {
-	localctx = NewNamedConfigValueContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 68, ArcParserRULE_namedConfigValue)
+func (p *ArcParser) NamedInputValue() (localctx INamedInputValueContext) {
+	localctx = NewNamedInputValueContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 68, ArcParserRULE_namedInputValue)
 	p.EnterOuterAlt(localctx, 1)
 	{
 		p.SetState(464)
@@ -7378,8 +7378,8 @@ errorExit:
 	goto errorExit // Trick to prevent compiler error if the label is not used
 }
 
-// IAnonymousConfigValuesContext is an interface to support dynamic dispatch.
-type IAnonymousConfigValuesContext interface {
+// IAnonymousInputValuesContext is an interface to support dynamic dispatch.
+type IAnonymousInputValuesContext interface {
 	antlr.ParserRuleContext
 
 	// GetParser returns the parser.
@@ -7391,43 +7391,43 @@ type IAnonymousConfigValuesContext interface {
 	AllCOMMA() []antlr.TerminalNode
 	COMMA(i int) antlr.TerminalNode
 
-	// IsAnonymousConfigValuesContext differentiates from other interfaces.
-	IsAnonymousConfigValuesContext()
+	// IsAnonymousInputValuesContext differentiates from other interfaces.
+	IsAnonymousInputValuesContext()
 }
 
-type AnonymousConfigValuesContext struct {
+type AnonymousInputValuesContext struct {
 	antlr.BaseParserRuleContext
 	parser antlr.Parser
 }
 
-func NewEmptyAnonymousConfigValuesContext() *AnonymousConfigValuesContext {
-	var p = new(AnonymousConfigValuesContext)
+func NewEmptyAnonymousInputValuesContext() *AnonymousInputValuesContext {
+	var p = new(AnonymousInputValuesContext)
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_anonymousConfigValues
+	p.RuleIndex = ArcParserRULE_anonymousInputValues
 	return p
 }
 
-func InitEmptyAnonymousConfigValuesContext(p *AnonymousConfigValuesContext) {
+func InitEmptyAnonymousInputValuesContext(p *AnonymousInputValuesContext) {
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, nil, -1)
-	p.RuleIndex = ArcParserRULE_anonymousConfigValues
+	p.RuleIndex = ArcParserRULE_anonymousInputValues
 }
 
-func (*AnonymousConfigValuesContext) IsAnonymousConfigValuesContext() {}
+func (*AnonymousInputValuesContext) IsAnonymousInputValuesContext() {}
 
-func NewAnonymousConfigValuesContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *AnonymousConfigValuesContext {
-	var p = new(AnonymousConfigValuesContext)
+func NewAnonymousInputValuesContext(parser antlr.Parser, parent antlr.ParserRuleContext, invokingState int) *AnonymousInputValuesContext {
+	var p = new(AnonymousInputValuesContext)
 
 	antlr.InitBaseParserRuleContext(&p.BaseParserRuleContext, parent, invokingState)
 
 	p.parser = parser
-	p.RuleIndex = ArcParserRULE_anonymousConfigValues
+	p.RuleIndex = ArcParserRULE_anonymousInputValues
 
 	return p
 }
 
-func (s *AnonymousConfigValuesContext) GetParser() antlr.Parser { return s.parser }
+func (s *AnonymousInputValuesContext) GetParser() antlr.Parser { return s.parser }
 
-func (s *AnonymousConfigValuesContext) AllExpression() []IExpressionContext {
+func (s *AnonymousInputValuesContext) AllExpression() []IExpressionContext {
 	children := s.GetChildren()
 	len := 0
 	for _, ctx := range children {
@@ -7448,7 +7448,7 @@ func (s *AnonymousConfigValuesContext) AllExpression() []IExpressionContext {
 	return tst
 }
 
-func (s *AnonymousConfigValuesContext) Expression(i int) IExpressionContext {
+func (s *AnonymousInputValuesContext) Expression(i int) IExpressionContext {
 	var t antlr.RuleContext
 	j := 0
 	for _, ctx := range s.GetChildren() {
@@ -7468,47 +7468,47 @@ func (s *AnonymousConfigValuesContext) Expression(i int) IExpressionContext {
 	return t.(IExpressionContext)
 }
 
-func (s *AnonymousConfigValuesContext) AllCOMMA() []antlr.TerminalNode {
+func (s *AnonymousInputValuesContext) AllCOMMA() []antlr.TerminalNode {
 	return s.GetTokens(ArcParserCOMMA)
 }
 
-func (s *AnonymousConfigValuesContext) COMMA(i int) antlr.TerminalNode {
+func (s *AnonymousInputValuesContext) COMMA(i int) antlr.TerminalNode {
 	return s.GetToken(ArcParserCOMMA, i)
 }
 
-func (s *AnonymousConfigValuesContext) GetRuleContext() antlr.RuleContext {
+func (s *AnonymousInputValuesContext) GetRuleContext() antlr.RuleContext {
 	return s
 }
 
-func (s *AnonymousConfigValuesContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
+func (s *AnonymousInputValuesContext) ToStringTree(ruleNames []string, recog antlr.Recognizer) string {
 	return antlr.TreesStringTree(s, ruleNames, recog)
 }
 
-func (s *AnonymousConfigValuesContext) EnterRule(listener antlr.ParseTreeListener) {
+func (s *AnonymousInputValuesContext) EnterRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.EnterAnonymousConfigValues(s)
+		listenerT.EnterAnonymousInputValues(s)
 	}
 }
 
-func (s *AnonymousConfigValuesContext) ExitRule(listener antlr.ParseTreeListener) {
+func (s *AnonymousInputValuesContext) ExitRule(listener antlr.ParseTreeListener) {
 	if listenerT, ok := listener.(ArcParserListener); ok {
-		listenerT.ExitAnonymousConfigValues(s)
+		listenerT.ExitAnonymousInputValues(s)
 	}
 }
 
-func (s *AnonymousConfigValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
+func (s *AnonymousInputValuesContext) Accept(visitor antlr.ParseTreeVisitor) interface{} {
 	switch t := visitor.(type) {
 	case ArcParserVisitor:
-		return t.VisitAnonymousConfigValues(s)
+		return t.VisitAnonymousInputValues(s)
 
 	default:
 		return t.VisitChildren(s)
 	}
 }
 
-func (p *ArcParser) AnonymousConfigValues() (localctx IAnonymousConfigValuesContext) {
-	localctx = NewAnonymousConfigValuesContext(p, p.GetParserRuleContext(), p.GetState())
-	p.EnterRule(localctx, 70, ArcParserRULE_anonymousConfigValues)
+func (p *ArcParser) AnonymousInputValues() (localctx IAnonymousInputValuesContext) {
+	localctx = NewAnonymousInputValuesContext(p, p.GetParserRuleContext(), p.GetState())
+	p.EnterRule(localctx, 70, ArcParserRULE_anonymousInputValues)
 	var _la int
 
 	var _alt int

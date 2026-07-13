@@ -14,52 +14,30 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
-type (
-	Key          = channel.Key
-	Keys         = channel.Keys
-	LocalKey     = channel.LocalKey
-	Channel      = channel.Channel
-	Operation    = channel.Operation
-	CreateOption = channel.CreateOption
-)
-
-var (
-	RetrieveIfNameExists                        = channel.RetrieveIfNameExists
-	OverwriteIfNameExistsAndDifferentProperties = channel.OverwriteIfNameExistsAndDifferentProperties
-	CreateWithoutGroupRelationship              = channel.CreateWithoutGroupRelationship
-	ParseKey                                    = channel.ParseKey
-	OntologyID                                  = channel.OntologyID
-	MatchKeys                                   = channel.MatchKeys
-	MatchNames                                  = channel.MatchNames
-	OntologyIDsFromChannels                     = channel.OntologyIDsFromChannels
-	KeysFromChannels                            = channel.KeysFromChannels
-	MatchLeaseholders                           = channel.MatchLeaseholders
-	MatchDataTypes                              = channel.MatchDataTypes
-	MatchVirtual                                = channel.MatchVirtual
-	MatchIsIndex                                = channel.MatchIsIndex
-	MatchInternal                               = channel.MatchInternal
-	MatchCalculated                             = channel.MatchCalculated
-	Not                                         = channel.Not
-	NewRandomName                               = channel.NewRandomName
-)
-
 // ServiceConfig configures a channel Service.
 type ServiceConfig struct {
-	// DB is the underlying database for transactional operations.
-	DB *gorp.DB
-	// Distribution is the distribution-layer channel service.
-	Distribution *channel.Service
+	// Channel is the distribution-layer channel service.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	// Status is used to publish error/clear statuses for calculated channels.
+	//
+	// [REQUIRED]
 	Status *status.Service
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
@@ -67,16 +45,14 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 func (c ServiceConfig) Validate() error {
 	v := validate.New("service.channel")
-	validate.NotNil(v, "db", c.DB)
-	validate.NotNil(v, "distribution", c.Distribution)
+	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
 }
 
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.DB = override.Nil(c.DB, other.DB)
-	c.Distribution = override.Nil(c.Distribution, other.Distribution)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
 }
@@ -85,10 +61,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // service and adds DataType inference for calculated channels on write. The calculated
 // channel dependency graph (type repair, status reporting) is a separate reactive
 // component opened independently of this Service.
-type Service struct {
-	*channel.Service
-	cfg ServiceConfig
-}
+type Service struct{ cfg ServiceConfig }
 
 // NewService opens a channel Service. The ctx is accepted for consistency with other
 // service constructors and may be used by future initialization work.
@@ -97,16 +70,7 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{Service: cfg.Distribution, cfg: cfg}, nil
-}
-
-// Wrap builds a Service from an existing distribution-layer channel service without a
-// full ServiceConfig. It provides the same write-time DataType inference for calculated
-// channels as a Service opened with NewService, but carries only the distribution
-// dependency (no Status service or instrumentation), so it suits tests and other
-// lightweight contexts. Use NewService when a complete configuration is available.
-func Wrap(dist *channel.Service) *Service {
-	return &Service{Service: dist, cfg: ServiceConfig{Distribution: dist}}
+	return &Service{cfg: cfg}, nil
 }
 
 // NewArcSymbolResolver returns a resolver that maps cluster channels to Arc symbols by
@@ -116,12 +80,29 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
 }
 
+// ShouldValidateNames reports whether channel-name validation is enabled, delegating to
+// the distribution-layer channel service.
+func (s *Service) ShouldValidateNames() bool { return s.cfg.Channel.ShouldValidateNames() }
+
 // NewWriter returns a Writer that infers DataTypes for calculated channels before
 // delegating to the distribution-layer writer.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	w := Writer{Writer: s.cfg.Distribution.NewWriter(tx)}
-	w.analyzer = analyzer.New(s.NewArcSymbolResolver(tx))
+	w := Writer{writer: s.cfg.Channel.NewWriter(tx)}
+	w.analyzer = NewCalculationAnalyzer(s.NewArcSymbolResolver(tx), parser.Config{
+		AllowDashedNames: !s.ShouldValidateNames(),
+	})
 	return w
+}
+
+// NewRetrieve opens a query to retrieve channels from the cluster.
+func (s *Service) NewRetrieve() Retrieve { return s.cfg.Channel.NewRetrieve() }
+
+// Group returns the ontology group that channels are created under.
+func (s *Service) Group() group.Group { return s.cfg.Channel.Group() }
+
+// Observe returns an observable that notifies callers of changes to channel entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return s.cfg.Channel.Observe()
 }
 
 // Create creates a single channel, inferring the DataType for calculated channels.
@@ -167,4 +148,10 @@ func (s *Service) RenameMany(ctx context.Context, keys []Key, names []string, al
 // MapRename renames channels using an old-name to new-name mapping.
 func (s *Service) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
 	return s.NewWriter(nil).MapRename(ctx, names, allowInternal)
+}
+
+// CountExternalNonVirtual returns the number of external non-virtual channels in the
+// service.
+func (s *Service) CountExternalNonVirtual() uint32 {
+	return s.cfg.Channel.CountExternalNonVirtual()
 }

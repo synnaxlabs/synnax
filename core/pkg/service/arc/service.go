@@ -11,18 +11,20 @@ package arc
 
 import (
 	"context"
-	stdio "io"
+	"io"
+	"slices"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
 	"github.com/synnaxlabs/arc/stl"
-	arcsymbol "github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -129,43 +131,29 @@ type Service struct {
 	sweeper textSweeper
 }
 
-// NewChannelResolver returns the dynamic resolver that the analyzer consults for
-// cluster channels not statically known to the program.
-func (s *Service) NewChannelResolver(tx gorp.Tx) arc.SymbolResolver {
-	return s.cfg.Channel.NewArcSymbolResolver(tx)
-}
-
-// NewSymbolResolver is the dynamic resolver attached to a program root's
-// GlobalResolver. It resolves cluster channels by name or numeric key. Static prelude
-// symbols (STL, status module) are attached to the ambient by NewRoot rather than
-// chained behind this resolver.
-func (s *Service) NewSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
-	return s.NewChannelResolver(tx)
-}
-
-// NewRoot builds a program root populated with STL + status module + the cluster
-// channel resolver attached as the dynamic resolver. This is the production analysis
-// root: tx is consulted for channel lookups, nil means "use the service DB directly."
-func (s *Service) NewRoot(tx gorp.Tx) *arcsymbol.Symbol {
-	stlSyms := stl.NewSymbols()
-	statusSyms := status.NewSymbols()
-	syms := make([]*arcsymbol.Symbol, 0, len(stlSyms)+len(statusSyms))
-	syms = append(syms, stlSyms...)
-	syms = append(syms, statusSyms...)
-	return arcsymbol.NewRoot(s.NewSymbolResolver(tx), syms)
+// NewRoot builds the production analysis root: the STL, status, and ranges modules
+// plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
+func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
+	syms := slices.Concat(
+		stl.NewSymbols(),
+		status.NewSymbols(),
+		ranges.NewSymbols(),
+	)
+	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
 	return lsp.New(lsp.Config{
-		Instrumentation: s.cfg.Child("lsp"),
-		NewRoot:         func() *arcsymbol.Symbol { return s.NewRoot(nil) },
+		Instrumentation:  s.cfg.Child("lsp"),
+		NewRoot:          func() *symbol.Symbol { return s.NewRoot(nil) },
+		AllowDashedNames: s.AllowDashedNames(),
 		OnRename: func(
 			ctx context.Context,
-			sym *arcsymbol.Symbol,
+			sym *symbol.Symbol,
 			oldName,
 			newName string,
 		) error {
-			if sym.Kind != arcsymbol.KindChannel {
+			if sym.Kind != symbol.KindChannel {
 				return nil
 			}
 			return s.cfg.Channel.NewWriter(nil).
@@ -185,6 +173,10 @@ func (s *Service) NewLSP() (*lsp.Server, error) {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
+// AllowDashedNames reports whether Arc may treat '-' as an identifier character, which
+// is permitted exactly when channel-name validation is disabled.
+func (s *Service) AllowDashedNames() bool { return !s.cfg.Channel.ShouldValidateNames() }
+
 // CompileProgram retrieves an Arc program by key and compiles its Module. The returned
 // Arc has its Module field populated with the compiled module.
 func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
@@ -195,9 +187,11 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	}
 	var prog arc.Program
 	if entry.Mode == ModeText {
-		prog, err = arc.CompileText(ctx, entry.Text.Materialize(), s.NewRoot(nil))
+		prog, err = arc.CompileText(ctx, entry.Text.Materialize(), s.NewRoot(nil),
+			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	} else {
-		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil))
+		prog, err = arc.CompileGraph(ctx, entry.Graph, s.NewRoot(nil),
+			arc.WithAllowDashedNames(s.AllowDashedNames()))
 	}
 	if err != nil {
 		return Arc{}, err
@@ -245,7 +239,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if cfg.Signals != nil {
-		var sig stdio.Closer
+		var sig io.Closer
 		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
 			Provider: cfg.Signals,
 			State:    s.state,
@@ -271,18 +265,14 @@ func (s *Service) OnAction(
 	return s.state.OnAction(handler)
 }
 
-// Observe returns an observable that notifies callers of changes to Arc entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Arc]] {
-	return s.table.Observe()
-}
-
 // NewWriter opens a new writer for creating, updating, and deleting Arcs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer will
 // execute the operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otg:        s.cfg.Ontology.NewWriter(tx),
+		otgWriter:  s.cfg.Ontology.NewWriter(tx),
+		otg:        s.cfg.Ontology,
 		task:       s.cfg.Task.NewWriter(tx),
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),

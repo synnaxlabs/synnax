@@ -53,7 +53,10 @@ var _ = Describe("Relay", func() {
 		for i, sF := range scenarios {
 			_sF := sF
 			var s scenario
-			BeforeAll(func(ctx SpecContext) { s = _sF(ctx) })
+			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
+				s = _sF(ctx)
+			})
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)
@@ -108,15 +111,11 @@ var _ = Describe("Relay", func() {
 	Describe("ExcludeGroups", Ordered, func() {
 		It("Should filter out frames from a matching group on gateway writes", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.ProvisionCluster(ctx, 1)
-			defer func() {
-				Expect(builder.Close()).To(Succeed())
-			}()
-			svc := builder.Nodes[1]
-			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			node := mock.NewNode(ctx)
+			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -126,7 +125,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "grouped", Key: "grouped", Group: 99},
@@ -147,15 +146,11 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.ProvisionCluster(ctx, 1)
-			defer func() {
-				Expect(builder.Close()).To(Succeed())
-			}()
-			svc := builder.Nodes[1]
-			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			node := mock.NewNode(ctx)
+			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -165,7 +160,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:           keys,
 				Start:          10 * telem.SecondTS,
 				ControlSubject: control.Subject{Name: "other", Key: "other", Group: 200},
@@ -189,15 +184,11 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should deliver frames with no group even when ExcludeGroups is set", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.ProvisionCluster(ctx, 1)
-			defer func() {
-				Expect(builder.Close()).To(Succeed())
-			}()
-			svc := builder.Nodes[1]
-			Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			node := mock.NewNode(ctx)
+			Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 			keys := channel.KeysFromChannels(channels)
 
-			reader := MustSucceed(svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
+			reader := MustSucceed(node.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys:          keys,
 				ExcludeGroups: []uint32{99},
 			}))
@@ -207,7 +198,7 @@ var _ = Describe("Relay", func() {
 			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 			time.Sleep(10 * time.Millisecond)
 
-			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
@@ -229,11 +220,7 @@ var _ = Describe("Relay", func() {
 		})
 		It("Should filter out free channel frames from a matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			builder := mock.ProvisionCluster(ctx, 1)
-			defer func() {
-				Expect(builder.Close()).To(Succeed())
-			}()
-			svc := builder.Nodes[1]
+			svc := mock.NewNode(ctx)
 			for i, ch := range channels {
 				ch.Leaseholder = node.KeyFree
 				ch.Virtual = true
@@ -274,11 +261,7 @@ var _ = Describe("Relay", func() {
 	})
 	Describe("Errors", func() {
 		It("Should raise an error if a channel is not found", func(ctx SpecContext) {
-			builder := mock.ProvisionCluster(ctx, 1)
-			defer func() {
-				Expect(builder.Close()).To(Succeed())
-			}()
-			svc := builder.Nodes[1]
+			svc := mock.NewNode(ctx)
 			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
@@ -293,15 +276,11 @@ var _ = Describe("Relay", func() {
 	// edge cases that could deadlock the synchronous wait — empty initial keys,
 	// non-free leases, context cancellation mid-wait, and concurrent streamers.
 	Describe("SendOpenAck", Ordered, func() {
-		var (
-			builder *mock.Cluster
-			svc     mock.Node
-		)
+		var svc mock.Node
 		BeforeAll(func(ctx SpecContext) {
-			builder = mock.ProvisionCluster(ctx, 1)
-			svc = builder.Nodes[1]
+			ShouldNotLeakGoroutines()
+			svc = mock.NewNode(ctx)
 		})
-		AfterAll(func() { Expect(builder.Close()).To(Succeed()) })
 
 		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
 			chs := make([]channel.Channel, n)
@@ -520,22 +499,21 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
-	svc := builder.Nodes[1]
-	Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	node := mock.OpenNode(ctx)
+	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	return scenario{
 		resCount: 1,
 		name:     "Gateway Only",
 		channels: channels,
-		dist:     svc,
-		close:    builder,
+		dist:     node,
+		close:    node,
 	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 4)
-	dist := builder.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 4)
+	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
@@ -552,13 +530,13 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		name:     "Peer Only",
 		channels: channels,
 		dist:     dist,
-		close:    builder,
+		close:    cluster,
 	}
 }
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	clstr := mock.ProvisionCluster(ctx, 3)
-	gateway := clstr.Nodes[1]
+	cluster := mock.OpenCluster(ctx, 3)
+	gateway := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
@@ -575,14 +553,13 @@ func mixedScenario(ctx context.Context) scenario {
 		name:     "Mixed Gateway and Peer",
 		channels: channels,
 		dist:     gateway,
-		close:    clstr,
+		close:    cluster,
 	}
 }
 
 func freeScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	builder := mock.ProvisionCluster(ctx, 1)
-	dist := builder.Nodes[1]
+	dist := mock.OpenNode(ctx)
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true
@@ -601,6 +578,6 @@ func freeScenario(ctx context.Context) scenario {
 		resCount: 1,
 		channels: channels,
 		dist:     dist,
-		close:    builder,
+		close:    dist,
 	}
 }

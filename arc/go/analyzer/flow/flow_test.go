@@ -111,8 +111,8 @@ var resolver = []symbol.Symbol{
 }
 
 var _ = Describe("Flow Statements", func() {
-	Describe("Function Without Config Braces", func() {
-		It("Should detect when function follows function invocation without config braces", func(bCtx SpecContext) {
+	Describe("Function Without Input Braces", func() {
+		It("Should detect when function follows function invocation without input braces", func(bCtx SpecContext) {
 			intervalResolver := []symbol.Symbol{
 				{
 					Name: "tick",
@@ -135,7 +135,7 @@ tick{period=50ms} -> sim_daq`))
 			Expect((*ctx.Diagnostics)[0].Notes[0].Message).To(Equal("use sim_daq{} to instantiate the function"))
 		})
 
-		It("Should detect when function follows channel without config braces", func(bCtx SpecContext) {
+		It("Should detect when function follows channel without input braces", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func sim_daq() {}
 sensor_chan -> sim_daq`))
@@ -147,7 +147,7 @@ sensor_chan -> sim_daq`))
 			Expect((*ctx.Diagnostics)[0].Notes[0].Message).To(Equal("use sim_daq{} to instantiate the function"))
 		})
 
-		It("Should detect when function follows expression without config braces", func(bCtx SpecContext) {
+		It("Should detect when function follows expression without input braces", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func sim_daq() {}
 sensor_chan > 100 -> sim_daq`))
@@ -160,8 +160,8 @@ sensor_chan > 100 -> sim_daq`))
 		})
 	})
 
-	Describe("Anonymous Configuration Values", func() {
-		It("Should accept multiple anonymous config values", func(bCtx SpecContext) {
+	Describe("Anonymous Input Values", func() {
+		It("Should accept multiple anonymous input values", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func transform{scale f64, offset f64} (x f64) f64 {
     return x * scale + offset
@@ -175,7 +175,7 @@ sensor_chan -> transform{2.5, 0.1} -> sink{}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should accept partial anonymous config when trailing params have defaults", func(bCtx SpecContext) {
+		It("Should accept partial anonymous input when trailing params have defaults", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func controller{setpoint f64, gain f64 = 1.0} () {}
 
@@ -185,7 +185,7 @@ sensor_chan -> controller{100.0}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should detect type mismatch in anonymous config values", func(bCtx SpecContext) {
+		It("Should detect type mismatch in anonymous input values", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func filter{threshold f64} (x f64) f64 {
     return x
@@ -202,7 +202,7 @@ sensor_chan -> filter{"hello"} -> sink{}`))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("threshold"))
 		})
 
-		It("Should reject too many anonymous config values", func(bCtx SpecContext) {
+		It("Should reject too many anonymous input values", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func filter{threshold f64} (x f64) f64 {
     return x
@@ -217,7 +217,7 @@ sensor_chan -> filter{5.0, 20, 30} -> sink{}`))
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("too many arguments"))
 		})
 
-		It("Should reject partial anonymous config missing required params", func(bCtx SpecContext) {
+		It("Should reject partial anonymous input missing required params", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func controller{setpoint f64, gain f64} () {}
 
@@ -229,7 +229,7 @@ sensor_chan -> controller{100.0}`))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("missing required argument for parameter 'gain' of func 'controller'"))
 		})
 
-		It("Should accept a single anonymous config value", func(bCtx SpecContext) {
+		It("Should accept a single anonymous input value", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func filter{threshold f64} (x f64) f64 {
     return x
@@ -243,7 +243,7 @@ sensor_chan -> filter{5.0} -> sink{}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should accept a channel identifier as anonymous config value", func(bCtx SpecContext) {
+		It("Should accept a channel identifier as anonymous input value", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func controller{sensor chan f64, setpoint f64} () {
     v := sensor
@@ -255,7 +255,7 @@ sensor_chan -> controller{sensor_chan, 100.0}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should reject zero anonymous config values when params are required", func(bCtx SpecContext) {
+		It("Should reject zero anonymous input values when params are required", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func filter{threshold f64} (x f64) f64 {
     return x
@@ -273,7 +273,7 @@ sensor_chan -> filter{} -> sink{}`))
 			)
 		})
 
-		It("Should accept empty config when all params have defaults", func(bCtx SpecContext) {
+		It("Should accept empty input when all params have defaults", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func controller{gain f64 = 1.0, offset f64 = 0.0} () {}
 
@@ -283,7 +283,7 @@ sensor_chan -> controller{}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should detect type mismatch in second anonymous config value", func(bCtx SpecContext) {
+		It("Should detect type mismatch in second anonymous input value", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 func transform{scale f64, offset f64} (x f64) f64 {
     return x * scale + offset
@@ -536,7 +536,7 @@ int_chan -> consumer{}`))
 			Expect((*ctx.Diagnostics)[1].Message).To(Equal("undefined symbol: processor"))
 		})
 
-		It("Should verify func config parameters match the expected signature types", func(bCtx SpecContext) {
+		It("Should verify func input parameters match the expected signature types", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func controller{setpoint f64, input chan f64, output chan f64} () {
 			    value := input
@@ -570,7 +570,7 @@ int_chan -> consumer{}`))
 			Expect((*ctx.Diagnostics)[1].Message).To(Equal("missing required argument for parameter 'output' of func 'filter'"))
 		})
 
-		It("Should allow omitting config param with default value", func(bCtx SpecContext) {
+		It("Should allow omitting input param with default value", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func controller{setpoint f64, gain f64 = 1.0} () {}
 
@@ -580,7 +580,7 @@ int_chan -> consumer{}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should allow overriding config param default value", func(bCtx SpecContext) {
+		It("Should allow overriding input param default value", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func controller{setpoint f64, gain f64 = 1.0} () {}
 
@@ -590,7 +590,7 @@ int_chan -> consumer{}`))
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 
-		It("Should still require config params without defaults", func(bCtx SpecContext) {
+		It("Should still require input params without defaults", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func controller{setpoint f64, gain f64 = 1.0} () {}
 
@@ -607,7 +607,7 @@ int_chan -> consumer{}`))
 			func simple{input chan f64} () {
 			    value := input
 			}
-			// 'extra' is not a valid config parameter for 'simple'
+			// 'extra' is not a valid input parameter for 'simple'
 			sensor_chan -> simple{input=sensor_chan, extra=42.0}`))
 			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
 			analyzer.AnalyzeProgram(ctx)
@@ -616,7 +616,7 @@ int_chan -> consumer{}`))
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown parameter 'extra' for func 'simple'"))
 		})
 
-		It("Should detect type mismatch in func config parameters", func(bCtx SpecContext) {
+		It("Should detect type mismatch in func input parameters", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func typed_task{threshold f64, count u32, message str, input chan f64} () {
 			    value := input
@@ -642,7 +642,7 @@ int_chan -> consumer{}`))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 
-		It("Should accept correct types for func config parameters", func(bCtx SpecContext) {
+		It("Should accept correct types for func input parameters", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func typed_task{threshold f64, count u32, message str, input chan f64} () {
 			    value := input
@@ -1850,7 +1850,7 @@ sequence main {
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("never assigned"))
 		})
 
-		It("Should validate config parameters in routing table targets", func(bCtx SpecContext) {
+		It("Should validate input parameters in routing table targets", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
 			func demux{} (value f64) (high f64, low f64) {
 			    if (value > 100.0) {

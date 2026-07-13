@@ -59,9 +59,7 @@ export interface WorkerInvokeResponse {
 
 /** Any message sent from the worker thread to the main thread. */
 export type WorkerMessage =
-  | WorkerUpdateRequest
-  | WorkerNotifyErrorRequest
-  | WorkerInvokeResponse;
+  WorkerUpdateRequest | WorkerNotifyErrorRequest | WorkerInvokeResponse;
 
 /** Any message sent from the main thread to the worker thread. */
 export type MainMessage = MainUpdateRequest | MainDeleteRequest | MainInvokeRequest;

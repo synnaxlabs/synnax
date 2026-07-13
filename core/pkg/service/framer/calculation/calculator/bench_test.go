@@ -20,24 +20,41 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type benchEnv struct {
-	ctx  context.Context
-	dist mock.Node
+	ctx        context.Context
+	node       mock.Node
+	channelSvc *channel.Service
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
 	ctx := context.Background()
-	distB := mock.NewCluster()
-	dist := distB.Provision(ctx)
-	return &benchEnv{ctx: ctx, dist: dist}
+	node := mock.OpenNode(ctx)
+	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{DB: node.DB, Ontology: node.Ontology, Group: node.Group, Search: node.Search})
+	if err != nil {
+		b.Fatalf("failed to open label service: %v", err)
+	}
+	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{DB: node.DB, Ontology: node.Ontology, Group: node.Group, Label: labelSvc, Search: node.Search})
+	if err != nil {
+		b.Fatalf("failed to open status service: %v", err)
+	}
+	channelSvc, err := channel.NewService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		Status:  statusSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open channel service: %v", err)
+	}
+	return &benchEnv{ctx: ctx, node: node, channelSvc: channelSvc}
 }
 
 func (e *benchEnv) close(b *testing.B) {
-	if err := e.dist.Close(); err != nil {
+	if err := e.node.Close(); err != nil {
 		b.Errorf("failed to close distribution: %v", err)
 	}
 }
@@ -48,7 +65,7 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.dist.Channel.CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.channelSvc.CreateMany(e.ctx, &indexes); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -64,15 +81,15 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.dist.Channel.CreateMany(e.ctx, &bases); err != nil {
+		if err := e.channelSvc.CreateMany(e.ctx, &bases); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.dist.Channel.Create(e.ctx, calc); err != nil {
+	if err := e.channelSvc.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		ChannelService: channel.Wrap(e.dist.Channel),
+		ChannelService: e.channelSvc,
 		Channel:        *calc,
 	})
 	if err != nil {

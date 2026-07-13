@@ -14,21 +14,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
-	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	disttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
@@ -42,10 +39,10 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	xservice "github.com/synnaxlabs/x/service"
-	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -199,14 +196,8 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return ctx.Err()
 	}
 	var (
-		aspenTransport         = aspentransport.New(grpcClientPool)
-		frameTransport         = framertransport.New(grpcClientPool)
-		channelTransport       = channeltransport.New(grpcClientPool)
-		distributionTransports = []grpc.BindableTransport{
-			aspenTransport,
-			frameTransport,
-			channelTransport,
-		}
+		aspenTransport = aspentransport.New(grpcClientPool)
+		distTransport  = disttransport.New(grpcClientPool)
 	)
 
 	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
@@ -214,8 +205,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		AdvertiseAddress:     cfg.listenAddress,
 		PeerAddresses:        cfg.peers,
 		AspenTransport:       aspenTransport,
-		FrameTransport:       frameTransport,
-		ChannelTransport:     channelTransport,
+		Transport:            distTransport,
 		Verifier:             cfg.verifier,
 		Storage:              storageLayer,
 		ValidateChannelNames: cfg.validateChannelNames,
@@ -270,9 +260,10 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: slices.Concat(
+				&server.GRPCBranch{Transports: append(
 					transportLayer.GRPC,
-					distributionTransports,
+					aspenTransport,
+					distTransport,
 				)},
 				server.NewHTTPRedirectBranch(),
 			},
@@ -350,7 +341,7 @@ func openWorkDir() (string, io.Closer, error) {
 		"workdir",
 		strconv.Itoa(os.Getpid()),
 	)
-	if err = os.MkdirAll(dir, xfs.UserRWX); err != nil {
+	if err = os.MkdirAll(dir, fs.UserRWX); err != nil {
 		return "", nil, err
 	}
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
@@ -363,12 +354,12 @@ func runStartupSearchIndexing(
 	// Run indexing inside an isolated signal context, so that if we receive an early
 	// cancellation signal, we can ensure that we exit indexing before we close any
 	// resources that it depends on (notably storage KV).
-	searchIndexCtx, cancelIndexing := xsignal.WithCancel(ctx)
+	searchIndexCtx, cancelIndexing := signal.WithCancel(ctx)
 	searchIndexCtx.Go(
 		dist.Search.Initialize,
-		xsignal.WithKey("startup_search_indexing"),
+		signal.WithKey("startup_search_indexing"),
 	)
-	return xsignal.NewHardShutdown(searchIndexCtx, cancelIndexing)
+	return signal.NewHardShutdown(searchIndexCtx, cancelIndexing)
 }
 
 func parseIntegrations(enabled, disabled []string) []string {

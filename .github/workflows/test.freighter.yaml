@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Test - Freighter (Python & TypeScript)
 
 on:
@@ -112,7 +121,7 @@ jobs:
       packages: write
     with:
       module: freighter/integration
-      tag: ghcr.io/synnaxlabs/freighter-go-integration:latest
+      tag: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
 
   py:
     name: Test - Python
@@ -123,7 +132,7 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       integration:
-        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+        image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
         credentials:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
@@ -152,7 +161,7 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     services:
       integration:
-        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+        image: ghcr.io/synnaxlabs/freighter-go-integration:${{ github.sha }}
         credentials:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}

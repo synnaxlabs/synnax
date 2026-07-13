@@ -66,6 +66,11 @@ type Service struct {
 	keyRouter    proxy.BatchFactory[Key]
 }
 
+// ShouldValidateNames reports whether channel-name validation is on (default true).
+func (s *Service) ShouldValidateNames() bool {
+	return s.cfg.ValidateNames == nil || *s.cfg.ValidateNames
+}
+
 type IntOverflowChecker = func(types.Uint20) error
 
 type ServiceConfig struct {
@@ -128,9 +133,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		db:           cfg.ClusterDB,
 		otg:          cfg.Ontology,
 		indexes:      newIndexes(),
-		createRouter: proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		keyRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
-		renameRouter: proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
+		createRouter: proxy.BatchFactory[Channel](cfg.HostResolver.HostKey()),
+		keyRouter:    proxy.BatchFactory[Key](cfg.HostResolver.HostKey()),
+		renameRouter: proxy.BatchFactory[renameBatchEntry](cfg.HostResolver.HostKey()),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()

@@ -40,51 +40,49 @@ func TestArc(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *arc.Service
-	tx       gorp.Tx
-	dist     mock.Node
-	groupSvc *group.Service
-	labelSvc *label.Service
-	statSvc  *status.Service
-	rackSvc  *rack.Service
-	taskSvc  *task.Service
-	testRack *rack.Rack
-	sigs     *signals.Provider
-	arcClock = telem.Now
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	svc        *arc.Service
+	tx         gorp.Tx
+	taskSvc    *task.Service
+	channelSvc *channel.Service
+	framerSvc  *framer.Service
+	testRack   *rack.Rack
+	sigs       *signals.Provider
+	arcClock   = telem.Now
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.Open())
-		dist = DeferClose(mock.NewCluster().Provision(ctx))
-		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		node := mock.NewNode(ctx)
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		statSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               groupSvc,
-			HostProvider:        mock.StaticHostKeyProvider(1),
-			Status:              statSvc,
+			HostProvider:        mock.NewStaticHostProvider(1),
+			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
@@ -93,19 +91,28 @@ var (
 			Ontology: otg,
 			Group:    groupSvc,
 			Rack:     rackSvc,
-			Status:   statSvc,
+			Status:   statusSvc,
 			Search:   searchIdx,
 		}))
 		testRack = &rack.Rack{Name: "Test Rack"}
 		Expect(rackSvc.NewWriter(db).Create(ctx, testRack)).To(Succeed())
+		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			Status:  statusSvc,
+		}))
+		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+			Framer:  node.Framer,
+			Channel: channelSvc,
+			Status:  statusSvc,
+		}))
 		sigs = MustSucceed(signals.New(signals.Config{
-			Channel: channel.Wrap(dist.Channel),
-			Framer:  framer.Wrap(dist.Framer),
+			Channel: channelSvc,
+			Framer:  framerSvc,
 		}))
 		svc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
-			Channel:             channel.Wrap(dist.Channel),
+			Channel:             channelSvc,
 			Task:                taskSvc,
 			Search:              searchIdx,
 			Signals:             sigs,
@@ -114,6 +121,5 @@ var (
 			Now:                 func() telem.TimeStamp { return arcClock() },
 		}))
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

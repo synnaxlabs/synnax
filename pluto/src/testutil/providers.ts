@@ -40,15 +40,15 @@ const RENDER_KEY = "render";
  */
 export interface ProviderOptions {
   /** Alamos instrumentation provider. Defaults on. */
-  alamos?: boolean | z.input<typeof alamos.providerStateZ>;
+  alamos?: false | z.input<typeof alamos.providerStateZ>;
   /** Status aggregator. Defaults on with no statuses. */
-  status?: boolean | z.input<typeof status.aggregatorStateZ>;
+  status?: false | z.input<typeof status.aggregatorStateZ>;
   /** Synnax client provider. Defaults on with no client. */
-  synnax?: boolean | z.input<typeof synnax.Provider.stateZ>;
+  synnax?: false | z.input<typeof synnax.Provider.stateZ>;
   /** Theming provider. Defaults on with `SYNNAX_LIGHT`. */
-  theming?: boolean | z.input<typeof theming.Provider.z>;
+  theming?: false | z.input<typeof theming.Provider.z>;
   /** Telemetry provider. Defaults on with `TestFactory` + `NoopFactory`. */
-  telem?: boolean | { factories?: telem.Factory[] };
+  telem?: false | { factories?: telem.Factory[] };
   /** Canvas render context. Off by default. `true` injects a fresh recorder; pass a
    * {@link canvasTest.Recorder} (or any `render.Context`-shaped value) to supply your
    * own and assert on it afterward. */
@@ -80,8 +80,7 @@ export interface BuiltStack {
   recorder: canvasTest.Recorder | null;
 }
 
-const isOn = (opt: unknown, defaultOn = true): boolean =>
-  opt === undefined ? defaultOn : opt !== false;
+const isOn = (opt: unknown): boolean => opt !== false;
 
 const stateOf = (opt: unknown, fallback: unknown): unknown =>
   typeof opt === "object" && opt !== null ? opt : fallback;

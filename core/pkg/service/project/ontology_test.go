@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 var _ = Describe("Ontology", func() {
@@ -68,13 +67,6 @@ var _ = Describe("Ontology", func() {
 			Expect(project.KeysFromOntologyIDs([]ontology.ID{{
 				Type: ontology.ResourceTypeProject, Key: "not-a-uuid",
 			}})).Error().To(MatchError(ContainSubstring("invalid UUID")))
-		})
-	})
-	Describe("Schema", func() {
-		It("Should return an object schema with key and name fields", func() {
-			shape := svc.Schema().Shape()
-			Expect(shape.DataType()).To(Equal(zyn.ObjectT))
-			Expect(shape.Fields()).To(SatisfyAll(HaveKey("key"), HaveKey("name")))
 		})
 	})
 	Describe("Type", func() {

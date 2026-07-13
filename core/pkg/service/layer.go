@@ -228,8 +228,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
-		DB:              cfg.Distribution.DB,
-		Distribution:    cfg.Distribution.Channel,
+		Channel:         cfg.Distribution.Channel,
 		Status:          l.Status,
 	}); !ok(err, nil) {
 		return nil, err
@@ -238,7 +237,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		ctx,
 		framer.ServiceConfig{
 			Instrumentation: cfg.Child("framer"),
-			DB:              cfg.Distribution.DB,
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Status:          l.Status,
@@ -256,7 +254,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if closer, err := channelsignals.Publish(
 		ctx,
 		l.Signals,
-		cfg.Distribution.Channel.Observe(),
+		l.Channel.Observe(),
 	); !ok(err, closer) {
 		return nil, err
 	}
@@ -269,6 +267,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if closer, err := ontologysignals.Publish(
 		ctx,
+		cfg.Child("ontology_signals"),
 		l.Signals,
 		cfg.Distribution.Ontology,
 	); !ok(err, closer) {
@@ -505,9 +504,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	arcFactory, err := arctask.NewFactory(arctask.FactoryConfig{
 		Instrumentation: cfg.Child("arc.task"),
 		Channel:         l.Channel,
-		Framer:          cfg.Distribution.Framer,
+		Framer:          l.Framer,
 		Status:          l.Status,
 		GetProgram:      l.Arc.CompileProgram,
+		Ranger:          l.Ranger,
 	})
 	if !ok(err, nil) {
 		return nil, err
@@ -524,7 +524,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Rack:            l.Rack,
 		Task:            l.Task,
-		Framer:          cfg.Distribution.Framer,
+		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
 		Factories:       []driver.Factory{arcFactory, pdFactory},

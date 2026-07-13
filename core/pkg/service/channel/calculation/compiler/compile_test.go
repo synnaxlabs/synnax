@@ -17,29 +17,52 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var dist mock.Node
+var (
+	node       mock.Node
+	channelSvc *channel.Service
+)
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	ShouldNotLeakGoroutines()
+	node = mock.NewNode(ctx)
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Label:    labelSvc,
+		Search:   node.Search,
+	}))
+	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		Status:  statusSvc,
+	}))
 })
 
 var _ = Describe("Compile", func() {
 	It("Should compile simple expression", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
-		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc",
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: "return base * 2",
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -49,7 +72,7 @@ var _ = Describe("Compile", func() {
 
 	It("Should compile expression with operations", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base2", DataType: telem.Int64T, Virtual: true}
-		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc2",
 			DataType:   telem.Int64T,
@@ -57,9 +80,9 @@ var _ = Describe("Compile", func() {
 			Expression: "return base2 + 1",
 			Operations: []channel.Operation{{Type: "avg", Duration: 5 * telem.Second}},
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -71,16 +94,16 @@ var _ = Describe("Compile", func() {
 			{Name: "base3", DataType: telem.Int64T, Virtual: true},
 			{Name: "base4", DataType: telem.Int64T, Virtual: true},
 		}
-		Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+		Expect(channelSvc.CreateMany(ctx, &channels)).To(Succeed())
 		calc := channel.Channel{
 			Name:       "calc3",
 			DataType:   telem.Int64T,
 			Virtual:    true,
 			Expression: "return base3 + base4",
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
 		Expect(mod.Dependencies.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
@@ -89,7 +112,7 @@ var _ = Describe("Compile", func() {
 
 	It("Should compile expression with derivative operation", func(ctx SpecContext) {
 		base := channel.Channel{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true}
-		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
 			Name:       channel.NewRandomName(),
 			DataType:   telem.Float64T,
@@ -97,9 +120,9 @@ var _ = Describe("Compile", func() {
 			Expression: fmt.Sprintf("return %s", base.Name),
 			Operations: []channel.Operation{{Type: "derivative"}},
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(channelSvc.Create(ctx, &calc)).To(Succeed())
 		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
@@ -113,9 +136,9 @@ var _ = Describe("Compile", func() {
 			Virtual:    true,
 			Expression: "return invalid_syntax {{",
 		}
-		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		Expect(node.Channel.Create(ctx, &calc)).To(Succeed())
 		Expect(compiler.Compile(ctx, compiler.Config{
-			ChannelService: channel.Wrap(dist.Channel),
+			ChannelService: channelSvc,
 			Channel:        calc,
 		})).Error().To(ContainSubstring("extraneous input '{'"))
 	})

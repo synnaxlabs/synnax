@@ -18,8 +18,7 @@ export const isSetter = <S extends State, PS = S>(
 ): arg is SetFunc<S, PS> => typeof arg === "function";
 
 export type SetArg<NextState extends State, PrevState = NextState> =
-  | NextState
-  | SetFunc<NextState, PrevState>;
+  NextState | SetFunc<NextState, PrevState>;
 export type Setter<NextState extends State, PrevState = NextState> = (
   value: SetArg<NextState, PrevState>,
 ) => void;

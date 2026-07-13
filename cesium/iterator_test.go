@@ -29,6 +29,7 @@ var _ = Describe("Iterator Behavior", func() {
 				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})
@@ -43,6 +44,7 @@ var _ = Describe("Iterator Behavior", func() {
 					i                                        *cesium.Iterator
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					data1Key, index1Key, data2Key, index2Key = GenerateChannelKey(),
 						GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 					index1 = cesium.Channel{Key: index1Key, Name: "Magellan", IsIndex: true, DataType: telem.TimeStampT}
@@ -264,6 +266,7 @@ var _ = Describe("Iterator Behavior", func() {
 					varDataKey cesium.ChannelKey
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					varIdxKey = GenerateChannelKey()
 					varDataKey = GenerateChannelKey()
 					Expect(db.CreateChannel(ctx,

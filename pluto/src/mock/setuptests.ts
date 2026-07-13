@@ -10,6 +10,8 @@
 import { ResizeObserver } from "@juggle/resize-observer";
 import { afterAll, beforeAll, vi } from "vitest";
 
+import { installTestWebSocket } from "@/testutil/websocket";
+
 class MockIntersectionObserver {
   observe = vi.fn();
   disconnect = vi.fn();
@@ -17,11 +19,17 @@ class MockIntersectionObserver {
 }
 
 beforeAll(() => {
+  installTestWebSocket();
   vi.stubGlobal("ResizeObserver", ResizeObserver);
   vi.stubGlobal("OffscreenCanvas", {});
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+  // jsdom does not implement the pointer capture APIs that Cursor.useDrag relies on.
+  HTMLElement.prototype.setPointerCapture = () => {};
+  HTMLElement.prototype.releasePointerCapture = () => {};
+  HTMLElement.prototype.hasPointerCapture = () => false;
 });
 
 afterAll(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });

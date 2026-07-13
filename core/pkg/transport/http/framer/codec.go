@@ -19,8 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -28,15 +26,35 @@ import (
 )
 
 type (
+	Frame          = framer.Frame
 	WriterConfig   = framer.WriterConfig
 	WriterRequest  = framer.WriterRequest
 	WriterResponse = framer.WriterResponse
 
+	IteratorCommand  = framer.IteratorCommand
 	IteratorRequest  = framer.IteratorRequest
 	IteratorResponse = framer.IteratorResponse
 	StreamerRequest  = framer.StreamerRequest
 	StreamerResponse = framer.StreamerResponse
 	DeleteRequest    = framer.DeleteRequest
+)
+
+const (
+	WriterCommandOpen           = framer.WriterCommandOpen
+	WriterCommandWrite          = framer.WriterCommandWrite
+	WriterCommandCommit         = framer.WriterCommandCommit
+	WriterCommandSetAuthority   = framer.WriterCommandSetAuthority
+	IteratorCommandNext         = framer.IteratorCommandNext
+	IteratorCommandPrev         = framer.IteratorCommandPrev
+	IteratorCommandSeekFirst    = framer.IteratorCommandSeekFirst
+	IteratorCommandSeekLast     = framer.IteratorCommandSeekLast
+	IteratorCommandSeekLE       = framer.IteratorCommandSeekLE
+	IteratorCommandSeekGE       = framer.IteratorCommandSeekGE
+	IteratorCommandValid        = framer.IteratorCommandValid
+	IteratorCommandError        = framer.IteratorCommandError
+	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
+	IteratorResponseVariantAck  = framer.IteratorResponseVariantAck
+	IteratorResponseVariantData = framer.IteratorResponseVariantData
 )
 
 type Codec struct {
@@ -177,7 +195,7 @@ func (c *Codec) decodeWriteRequest(
 		if v.Type != http.WSMessageTypeData {
 			return nil
 		}
-		if v.Payload.Command == writer.CommandOpen {
+		if v.Payload.Command == framer.WriterCommandOpen {
 			return c.Update(ctx, v.Payload.Config.Keys)
 		}
 		return nil
@@ -187,7 +205,7 @@ func (c *Codec) decodeWriteRequest(
 	if err != nil {
 		return err
 	}
-	v.Payload.Command = writer.CommandWrite
+	v.Payload.Command = framer.WriterCommandWrite
 	v.Payload.Frame = fr
 	return nil
 }
@@ -197,7 +215,7 @@ func (c *Codec) encodeWriteRequest(
 	w io.Writer,
 	v http.WSMessage[WriterRequest],
 ) error {
-	if v.Type != http.WSMessageTypeData || v.Payload.Command != writer.CommandWrite {
+	if v.Type != http.WSMessageTypeData || v.Payload.Command != framer.WriterCommandWrite {
 		return c.lowPerfEncode(ctx, true, w, v)
 	}
 	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
@@ -293,7 +311,7 @@ func (c *Codec) decodeIteratorResponse(
 		return err
 	}
 	v.Payload.Frame = fr
-	v.Payload.Variant = iterator.ResponseVariantData
+	v.Payload.Variant = framer.IteratorResponseVariantData
 	return nil
 }
 
@@ -303,7 +321,7 @@ func (c *Codec) encodeIteratorResponse(
 	v http.WSMessage[IteratorResponse],
 ) error {
 	if v.Type != http.WSMessageTypeData ||
-		v.Payload.Variant != iterator.ResponseVariantData ||
+		v.Payload.Variant != framer.IteratorResponseVariantData ||
 		v.Payload.Frame.Empty() {
 		return c.lowPerfEncode(ctx, true, w, v)
 	}

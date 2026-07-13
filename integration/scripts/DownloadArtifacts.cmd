@@ -1,6 +1,6 @@
 @echo off
 
-rem Copyright 2025 Synnax Labs, Inc.
+rem Copyright 2026 Synnax Labs, Inc.
 rem
 rem Use of this software is governed by the Business Source License included in the file
 rem licenses/BSL.txt.

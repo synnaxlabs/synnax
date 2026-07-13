@@ -18,9 +18,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -41,7 +41,7 @@ var _ = Describe("Driver", func() {
 
 	openDriver := func(ctx context.Context, factory driver.Factory) *driver.Driver {
 		return MustOpen(driver.Open(ctx, driver.Config{
-			DB:        dist.DB,
+			DB:        node.DB,
 			Rack:      rackService,
 			Task:      taskService,
 			Framer:    framerSvc,
@@ -62,7 +62,7 @@ var _ = Describe("Driver", func() {
 	}
 
 	writeCommand := func(ctx context.Context, cmd task.Command) {
-		w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
+		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 			Keys:  channel.Keys{taskService.CommandChannelKey()},
 			Start: telem.Now(),
 		}))
@@ -93,7 +93,7 @@ var _ = Describe("Driver", func() {
 
 		It("should set integrations on the rack from factory names", func(ctx SpecContext) {
 			MustOpen(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
+				DB:      node.DB,
 				Rack:    rackService,
 				Task:    taskService,
 				Framer:  framerSvc,
@@ -115,7 +115,7 @@ var _ = Describe("Driver", func() {
 
 		It("should update integrations on existing rack when reopened with different factories", func(ctx SpecContext) {
 			d1 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:        dist.DB,
+				DB:        node.DB,
 				Rack:      rackService,
 				Task:      taskService,
 				Framer:    framerSvc,
@@ -127,7 +127,7 @@ var _ = Describe("Driver", func() {
 			Expect(d1.Close()).To(Succeed())
 
 			MustOpen(driver.Open(ctx, driver.Config{
-				DB:      dist.DB,
+				DB:      node.DB,
 				Rack:    rackService,
 				Task:    taskService,
 				Framer:  framerSvc,
@@ -497,7 +497,7 @@ var _ = Describe("Driver", func() {
 			}
 
 			d1 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:        dist.DB,
+				DB:        node.DB,
 				Rack:      rackService,
 				Task:      taskService,
 				Framer:    framerSvc,
@@ -531,7 +531,7 @@ var _ = Describe("Driver", func() {
 			configuredTasks = sync.Map{}
 
 			MustOpen(driver.Open(ctx, driver.Config{
-				DB:        dist.DB,
+				DB:        node.DB,
 				Rack:      rackService,
 				Task:      taskService,
 				Framer:    framerSvc,
@@ -585,7 +585,7 @@ var _ = Describe("Driver", func() {
 			}
 
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:        dist.DB,
+				DB:        node.DB,
 				Rack:      rackService,
 				Task:      taskService,
 				Framer:    framerSvc,
@@ -629,7 +629,7 @@ var _ = Describe("Driver", func() {
 			}
 
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:        dist.DB,
+				DB:        node.DB,
 				Rack:      rackService,
 				Task:      taskService,
 				Framer:    framerSvc,
@@ -658,7 +658,7 @@ var _ = Describe("Driver", func() {
 	Describe("Heartbeat", func() {
 		It("should send periodic status updates", func(ctx SpecContext) {
 			MustOpen(driver.Open(ctx, driver.Config{
-				DB:                dist.DB,
+				DB:                node.DB,
 				Rack:              rackService,
 				Task:              taskService,
 				Framer:            framerSvc,
@@ -675,7 +675,7 @@ var _ = Describe("Driver", func() {
 				g.Expect(statusSvc.NewRetrieve().
 					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
-					Exec(ctx, dist.DB)).To(Succeed())
+					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
 				g.Expect(statuses[0].Variant).To(Equal(status.VariantSuccess))
 			}).Should(Succeed())
@@ -683,7 +683,7 @@ var _ = Describe("Driver", func() {
 
 		It("should use the configured heartbeat interval", func(ctx SpecContext) {
 			MustOpen(driver.Open(ctx, driver.Config{
-				DB:                dist.DB,
+				DB:                node.DB,
 				Rack:              rackService,
 				Task:              taskService,
 				Framer:            framerSvc,
@@ -701,7 +701,7 @@ var _ = Describe("Driver", func() {
 				g.Expect(statusSvc.NewRetrieve().
 					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
-					Exec(ctx, dist.DB)).To(Succeed())
+					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
 				firstTime = statuses[0].Time
 			}).Should(Succeed())
@@ -711,7 +711,7 @@ var _ = Describe("Driver", func() {
 				g.Expect(statusSvc.NewRetrieve().
 					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
-					Exec(ctx, dist.DB)).To(Succeed())
+					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
 				g.Expect(statuses[0].Time).To(BeNumerically(">", firstTime))
 			}).Should(Succeed())
@@ -719,7 +719,7 @@ var _ = Describe("Driver", func() {
 
 		It("should stop heartbeat when driver is closed", func(ctx SpecContext) {
 			driver := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:                dist.DB,
+				DB:                node.DB,
 				Rack:              rackService,
 				Task:              taskService,
 				Framer:            framerSvc,
@@ -736,7 +736,7 @@ var _ = Describe("Driver", func() {
 				g.Expect(statusSvc.NewRetrieve().
 					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
-					Exec(ctx, dist.DB)).To(Succeed())
+					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
 			}).Should(Succeed())
 
@@ -747,7 +747,7 @@ var _ = Describe("Driver", func() {
 			Expect(statusSvc.NewRetrieve().
 				Where(status.MatchKeys[any](statusKey)).
 				Entries(&statuses).
-				Exec(ctx, dist.DB)).To(Succeed())
+				Exec(ctx, node.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
@@ -755,7 +755,7 @@ var _ = Describe("Driver", func() {
 				g.Expect(statusSvc.NewRetrieve().
 					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
-					Exec(ctx, dist.DB)).To(Succeed())
+					Exec(ctx, node.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))
 			}, time.Millisecond*100, time.Millisecond*25).Should(Succeed())
 		})
@@ -784,7 +784,7 @@ var _ = Describe("Driver", func() {
 
 			// Write valid JSON that won't unmarshal into task.Command
 			// (task field expects a number, not a string).
-			w := MustSucceed(framerSvc.OpenWriter(ctx, writer.Config{
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{taskService.CommandChannelKey()},
 				Start: telem.Now(),
 			}))
@@ -1052,7 +1052,7 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			MustOpen(driver.Open(ctx, driver.Config{
-				DB:          dist.DB,
+				DB:          node.DB,
 				Rack:        rackService,
 				Task:        taskService,
 				Framer:      framerSvc,
@@ -1099,7 +1099,7 @@ var _ = Describe("Driver", func() {
 				},
 			}
 			MustOpen(driver.Open(ctx, driver.Config{
-				DB:          dist.DB,
+				DB:          node.DB,
 				Rack:        rackService,
 				Task:        taskService,
 				Framer:      framerSvc,
@@ -1131,7 +1131,7 @@ var _ = Describe("Driver", func() {
 
 			// Pre-create tasks before opening the driver.
 			d1 := MustSucceed(driver.Open(ctx, driver.Config{
-				DB:        dist.DB,
+				DB:        node.DB,
 				Rack:      rackService,
 				Task:      taskService,
 				Framer:    framerSvc,
@@ -1171,7 +1171,7 @@ var _ = Describe("Driver", func() {
 			go func() {
 				defer GinkgoRecover()
 				d := MustSucceed(driver.Open(ctx, driver.Config{
-					DB:        dist.DB,
+					DB:        node.DB,
 					Rack:      rackService,
 					Task:      taskService,
 					Framer:    framerSvc,

@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { ranger } from "@/ranger";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
 

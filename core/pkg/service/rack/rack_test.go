@@ -51,6 +51,7 @@ var _ = Describe("Rack", Ordered, func() {
 	)
 
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.Open())
@@ -76,7 +77,7 @@ var _ = Describe("Rack", Ordered, func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.NewStaticHostProvider(1),
 			Status:       stat,
 
 			HealthCheckInterval: 10 * telem.Millisecond,
@@ -769,7 +770,7 @@ var _ = Describe("Migration", func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.StaticHostKeyProvider(1),
+			HostProvider: mock.NewStaticHostProvider(1),
 			Status:       stat,
 			Search:       searchIdx,
 		}))

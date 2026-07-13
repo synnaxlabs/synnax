@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
-import { type PropsWithChildren, type ReactElement, useMemo, useRef } from "react";
+import {
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 
 import { Aether } from "@/aether";
 import { context } from "@/context";
@@ -41,8 +47,7 @@ export const useQueryCache = <Q extends base.Query, D extends state.State>(
 ): base.QueryCache<Q, D> => useContext("Flux.useQueryCache").getCache<Q, D>(key);
 
 export type ProviderProps<ScopedStore extends flux.Store> = (
-  | { client: base.Client<ScopedStore> }
-  | { storeConfig: flux.StoreConfig<ScopedStore> }
+  { client: base.Client<ScopedStore> } | { storeConfig: flux.StoreConfig<ScopedStore> }
 ) &
   PropsWithChildren;
 
@@ -58,6 +63,7 @@ export const Provider = <ScopedStore extends flux.Store>({
     schema: flux.providerStateZ,
     initialState: {},
   });
+  const owns = !("client" in cfg);
   const initializeClient = () => {
     if ("client" in cfg) return cfg.client;
     return new base.Client({
@@ -67,12 +73,25 @@ export const Provider = <ScopedStore extends flux.Store>({
       handleAsyncError,
     });
   };
+  const closeClient = (client: base.Client<ScopedStore>): void => {
+    client
+      .close()
+      .catch((err: unknown) => console.error("failed to close flux client", err));
+  };
   const clientRef = useInitializerRef(initializeClient);
   const prevSynnaxClient = useRef<SynnaxClient | null>(null);
   if (synnaxClient?.key !== prevSynnaxClient.current?.key) {
     prevSynnaxClient.current = synnaxClient;
+    const prevClient = clientRef.current;
     clientRef.current = initializeClient();
+    if (owns) closeClient(prevClient);
   }
+  useEffect(
+    () => () => {
+      if (owns) closeClient(clientRef.current);
+    },
+    [],
+  );
   return (
     <Aether.Composite path={path}>
       <Context value={clientRef.current}>{children}</Context>

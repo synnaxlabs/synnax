@@ -32,16 +32,15 @@ import (
 
 type benchStreamerEnv struct {
 	ctx         context.Context
-	builder     *mock.Cluster
-	dist        mock.Node
+	node        mock.Node
+	channelSvc  *channel.Service
 	streamerSvc *streamer.Service
 }
 
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
 	ctx := context.Background()
-	builder := mock.NewCluster()
-	dist := builder.Provision(ctx)
+	node := mock.OpenNode(ctx)
 
 	searchIdx, err := search.Open()
 	if err != nil {
@@ -49,9 +48,9 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
 		Search:   searchIdx,
 	})
 	if err != nil {
@@ -59,9 +58,9 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Group:    dist.Group,
-		Ontology: dist.Ontology,
+		DB:       node.DB,
+		Group:    node.Group,
+		Ontology: node.Ontology,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	})
@@ -69,20 +68,24 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
-	channelSvc := channel.Wrap(dist.Channel)
+	channelSvc, err := channel.NewService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		Status:  statusSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open channel service: %v", err)
+	}
 	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
-		DB:                dist.DB,
-		Framer:            dist.Framer,
-		Channel:           channelSvc,
-		ChannelObservable: dist.Channel.Observe(),
-		Status:            statusSvc,
+		Framer:  node.Framer,
+		Channel: channelSvc,
+		Status:  statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open calculation service: %v", err)
 	}
 
 	streamerSvc, err := streamer.NewService(streamer.ServiceConfig{
-		DistFramer:  dist.Framer,
+		Framer:      node.Framer,
 		Channel:     channelSvc,
 		Calculation: calc,
 	})
@@ -92,14 +95,14 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 
 	return &benchStreamerEnv{
 		ctx:         ctx,
-		builder:     builder,
-		dist:        dist,
+		node:        node,
+		channelSvc:  channelSvc,
 		streamerSvc: streamerSvc,
 	}
 }
 
 func (e *benchStreamerEnv) close(b *testing.B) {
-	if err := e.builder.Close(); err != nil {
+	if err := e.node.Close(); err != nil {
 		b.Errorf("failed to close cluster: %v", err)
 	}
 }
@@ -110,7 +113,7 @@ func (e *benchStreamerEnv) createVirtualChannel(b *testing.B, name string) *chan
 		DataType: telem.Float32T,
 		Virtual:  true,
 	}
-	if err := e.dist.Channel.Create(e.ctx, ch); err != nil {
+	if err := e.channelSvc.Create(e.ctx, ch); err != nil {
 		b.Fatalf("failed to create channel: %v", err)
 	}
 	return ch
@@ -126,7 +129,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := e.dist.Channel.Create(e.ctx, indexCh); err != nil {
+	if err := e.channelSvc.Create(e.ctx, indexCh); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -136,7 +139,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.dist.Channel.Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.channelSvc.Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -149,7 +152,7 @@ func (e *benchStreamerEnv) createCalculation(b *testing.B, name, expression stri
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.dist.Channel.Create(e.ctx, calc); err != nil {
+	if err := e.channelSvc.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc
@@ -162,7 +165,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 	ch := env.createVirtualChannel(b, "throughput")
 	keys := []channel.Key{ch.Key()}
 
-	w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
+	w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 		Start: telem.SecondTS,
 		Keys:  keys,
 	})
@@ -218,7 +221,7 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 			ch := env.createVirtualChannel(b, fmt.Sprintf("ds%d", factor))
 			keys := []channel.Key{ch.Key()}
 
-			w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})
@@ -276,7 +279,7 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 	calc := env.createCalculation(b, "calc_sum", "return calc_sensor_0 + calc_sensor_1")
 	keys := []channel.Key{indexCh.Key(), dataChannels[0].Key(), dataChannels[1].Key()}
 
-	w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
+	w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 		Start: telem.SecondTS,
 		Keys:  keys,
 	})
@@ -346,7 +349,7 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 			ch := env.createVirtualChannel(b, fmt.Sprintf("size%d", size))
 			keys := []channel.Key{ch.Key()}
 
-			w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})
@@ -413,7 +416,7 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 
 			keys := []channel.Key{indexCh.Key(), dataChannels[0].Key()}
 
-			w, err := env.dist.Framer.OpenWriter(env.ctx, framer.WriterConfig{
+			w, err := env.node.Framer.OpenWriter(env.ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
 			})

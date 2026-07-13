@@ -105,7 +105,8 @@ var _ = Describe("Clock", func() {
 			It("Should not call functions whose deadline has not been crossed", func() {
 				f := &xtime.Fake{}
 				var called atomic.Int32
-				f.AfterFunc(time.Second, func() { called.Add(1) })
+				t := f.AfterFunc(time.Second, func() { called.Add(1) })
+				DeferCleanup(func() { t.Stop() })
 				f.Advance(500 * time.Millisecond)
 				Consistently(called.Load, time.Millisecond*20).Should(Equal(int32(0)))
 			})
@@ -113,8 +114,9 @@ var _ = Describe("Clock", func() {
 				f := &xtime.Fake{}
 				earlyFired := make(chan struct{})
 				var late atomic.Int32
-				f.AfterFunc(time.Second, func() { close(earlyFired) })
-				f.AfterFunc(10*time.Second, func() { late.Add(1) })
+				early := f.AfterFunc(time.Second, func() { close(earlyFired) })
+				lateT := f.AfterFunc(10*time.Second, func() { late.Add(1) })
+				DeferCleanup(func() { early.Stop(); lateT.Stop() })
 				go f.Advance(2 * time.Second)
 				Eventually(earlyFired).Should(BeClosed())
 				Consistently(late.Load, time.Millisecond*20).Should(Equal(int32(0)))

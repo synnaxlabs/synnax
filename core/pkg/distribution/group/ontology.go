@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 func OntologyID(key Key) ontology.ID {
@@ -31,6 +30,10 @@ func OntologyID(key Key) ontology.ID {
 
 func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+}
+
+func OntologyIDsFromGroups(groups []Group) []ontology.ID {
+	return lo.Map(groups, func(g Group, _ int) ontology.ID { return OntologyID(g.Key) })
 }
 
 func newResource(g Group) ontology.Resource {
@@ -45,8 +48,6 @@ var (
 )
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeGroup }
-
-func (s *Service) Schema() zyn.Schema { return schema }
 
 func (s *Service) RetrieveResource(
 	ctx context.Context,

@@ -14,9 +14,9 @@ import { type ReactElement, useRef } from "react";
 
 import { Swatch } from "@/color/Swatch";
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { Flex } from "@/flex";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Input } from "@/input";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
@@ -125,7 +125,7 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
   const positionRef = useRef(stop.position);
   const { switched } = stop;
   const stopElRef = useRef<HTMLDivElement>(null);
-  const onDragStart = useCursorDrag({
+  const onDragStart = Cursor.useDrag({
     onStart: () => {
       positionRef.current = stop.position;
     },
@@ -166,9 +166,8 @@ const StopSwatch = ({ stop, onChange, nextStop, onDelete, scale }: StopSwatchPro
     >
       <Flex.Box
         y
-        className={CSS.BE("gradient-picker", "drag-region")}
-        draggable
-        onDragStart={onDragStart}
+        className={CSS(CSS.BE("gradient-picker", "drag-region"), Cursor.DRAG_CLASS)}
+        onPointerDown={onDragStart}
         empty
       >
         <div

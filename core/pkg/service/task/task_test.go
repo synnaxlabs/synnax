@@ -45,6 +45,7 @@ var _ = Describe("Task", Ordered, func() {
 		stat        *status.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.Open())
@@ -70,7 +71,7 @@ var _ = Describe("Task", Ordered, func() {
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
-			HostProvider:        mock.StaticHostKeyProvider(1),
+			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
@@ -556,7 +557,7 @@ var _ = Describe("Task", Ordered, func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.StaticHostKeyProvider(1),
+				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
 				Search:       searchIdx,
 			}))
@@ -617,7 +618,7 @@ var _ = Describe("Task", Ordered, func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.StaticHostKeyProvider(1),
+				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
 				Search:       searchIdx,
 			}))
