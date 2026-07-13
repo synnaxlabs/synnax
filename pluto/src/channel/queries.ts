@@ -122,11 +122,10 @@ const retrieveSingle = async ({
   }
   if (isCalculated(ch.payload))
     try {
-      const st = await Status.retrieveSingle<typeof channel.statusZ>({
+      const st = await Status.retrieveSingle({
         store,
         client,
         query: { key: channel.statusKey(key) },
-        detailsSchema: channel.statusZ,
       });
       ch = client.channels.sugar({ ...ch.payload, status: st });
     } catch (e) {
