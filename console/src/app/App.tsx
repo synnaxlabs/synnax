@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/index.css";
+import "@/app/App.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@synnaxlabs/pluto/dist/pluto.css";
 
@@ -34,25 +34,25 @@ export const App = ({ workerURL }: AppProps): ReactElement => {
   return (
     <Errors.OverlayWithoutStore>
       <Session.Context>
-        <Errors.OverlayWithStore>
-          <Layout.Context>
-            <Tree.Context>
-              <Range.Context>
-                <Imex.Context>
-                  <Task.Context>
-                    <Pluto.Context workerURL={workerURL}>
+        <Pluto.Context workerURL={workerURL}>
+          <Errors.OverlayWithStore>
+            <Layout.Context>
+              <Tree.Context>
+                <Range.Context>
+                  <Imex.Context>
+                    <Task.Context>
                       <Vis.Canvas>
                         <Session.Modals.Context>
                           <PlatformLayout.Window />
                         </Session.Modals.Context>
                       </Vis.Canvas>
-                    </Pluto.Context>
-                  </Task.Context>
-                </Imex.Context>
-              </Range.Context>
-            </Tree.Context>
-          </Layout.Context>
-        </Errors.OverlayWithStore>
+                    </Task.Context>
+                  </Imex.Context>
+                </Range.Context>
+              </Tree.Context>
+            </Layout.Context>
+          </Errors.OverlayWithStore>
+        </Pluto.Context>
       </Session.Context>
     </Errors.OverlayWithoutStore>
   );
