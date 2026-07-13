@@ -95,7 +95,7 @@ class TestImex:
         path.write_text(_log_envelope_json(f"imex-parent-{uuid.uuid4()}"))
         id = client.imex.import_(path, project=proj.key)
         children = client.ontology.retrieve_children(sy.project.ontology_id(proj.key))
-        assert id.key in [child.id.key for child in children]
+        assert id.key in [child.key for child in children]
 
     def test_import_with_nonexistent_parent(
         self, client: sy.Synnax, tmp_path: Path
