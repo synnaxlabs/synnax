@@ -239,7 +239,7 @@ const Content = () => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "task",
   icon: <Icon.Task />,
   content: <Content />,

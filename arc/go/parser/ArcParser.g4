@@ -74,14 +74,14 @@ authorityEntry
 // =============================================================================
 
 functionDeclaration
-    : FUNC IDENTIFIER configBlock? LPAREN inputList? RPAREN outputType? block
+    : FUNC IDENTIFIER inputBlock? LPAREN triggerList? RPAREN outputType? block
     ;
 
-inputList
-    : input (COMMA input)* COMMA?
+triggerList
+    : trigger (COMMA trigger)* COMMA?
     ;
 
-input
+trigger
     : IDENTIFIER type (ASSIGN literal)?
     ;
 
@@ -99,15 +99,15 @@ namedOutput
     : IDENTIFIER type
     ;
 
-configBlock
-    : LBRACE configList? RBRACE
+inputBlock
+    : LBRACE inputList? RBRACE
     ;
 
-configList
-    : config (COMMA config)* COMMA?
+inputList
+    : input (COMMA input)* COMMA?
     ;
 
-config
+input
     : IDENTIFIER type (ASSIGN literal)?
     ;
 
@@ -202,8 +202,8 @@ identifier
     ;
 
 function
-    : qualifiedIdentifier configValues
-    | IDENTIFIER configValues
+    : qualifiedIdentifier inputValues
+    | IDENTIFIER inputValues
     ;
 
 // AUTHORITY is a lexer keyword but also a valid module name
@@ -216,21 +216,21 @@ qualifiedIdentifier
     | AUTHORITY DOT IDENTIFIER
     ;
 
-configValues
-    : LBRACE RBRACE                       // Empty config
-    | LBRACE namedConfigValues RBRACE     // All named
-    | LBRACE anonymousConfigValues RBRACE // All anonymous
+inputValues
+    : LBRACE RBRACE                      // Empty inputs
+    | LBRACE namedInputValues RBRACE     // All named
+    | LBRACE anonymousInputValues RBRACE // All anonymous
     ;
 
-namedConfigValues
-    : namedConfigValue (COMMA namedConfigValue)* COMMA?
+namedInputValues
+    : namedInputValue (COMMA namedInputValue)* COMMA?
     ;
 
-namedConfigValue
+namedInputValue
     : IDENTIFIER ASSIGN expression
     ;
 
-anonymousConfigValues
+anonymousInputValues
     : expression (COMMA expression)* COMMA?
     ;
 

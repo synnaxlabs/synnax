@@ -27,8 +27,8 @@ import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
 import { Node } from "@/platform/node";
-import { Ontology } from "@/platform/ontology";
 import { Range } from "@/platform/range";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 export const fetchIfNotInState = async (
@@ -82,7 +82,7 @@ const useDelete = () => {
   const handleRemove = (keys: string[]): void => {
     dispatch(Session.Range.remove({ keys }));
   };
-  const confirm = Ontology.useConfirmDelete({
+  const confirm = Tree.useConfirmDelete({
     type: "Range",
     description: "Deleting this range will also delete all child ranges.",
   });

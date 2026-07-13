@@ -12,10 +12,10 @@ import { type ReactElement } from "react";
 
 import { Docs } from "@/feature/docs";
 import { Node } from "@/feature/node";
+import { Project } from "@/feature/project";
+import { Version } from "@/feature/version";
 import { Nav as PlatformNav } from "@/platform/nav";
-import { Project } from "@/platform/project";
 import { User } from "@/platform/user";
-import { Version } from "@/platform/version";
 import { Window } from "@/platform/window";
 
 export const Top = (): ReactElement | null => (

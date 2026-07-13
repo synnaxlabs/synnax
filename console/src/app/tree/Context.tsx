@@ -1,0 +1,55 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type PropsWithChildren, type ReactElement } from "react";
+
+import { Access } from "@/feature/access";
+import { Arc } from "@/feature/arc";
+import { Channel } from "@/feature/channel";
+import { Device } from "@/feature/device";
+import { Group } from "@/feature/group";
+import { Label } from "@/feature/label";
+import { LinePlot } from "@/feature/lineplot";
+import { Log } from "@/feature/log";
+import { Node } from "@/feature/node";
+import { Project } from "@/feature/project";
+import { Rack } from "@/feature/rack";
+import { Range } from "@/feature/range";
+import { Schematic } from "@/feature/schematic";
+import { Status } from "@/feature/status";
+import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
+import { User } from "@/feature/user";
+import { Tree } from "@/platform/tree";
+
+const TREE_ITEMS: Tree.Items = {
+  ...Access.TREE_ITEMS,
+  ...Arc.TREE_ITEMS,
+  ...Channel.TREE_ITEMS,
+  ...Device.TREE_ITEMS,
+  ...Group.TREE_ITEMS,
+  ...Label.TREE_ITEMS,
+  ...LinePlot.TREE_ITEMS,
+  ...Log.TREE_ITEMS,
+  ...Node.TREE_ITEMS,
+  ...Project.TREE_ITEMS,
+  ...Rack.TREE_ITEMS,
+  ...Range.TREE_ITEMS,
+  ...Schematic.TREE_ITEMS,
+  ...Status.TREE_ITEMS,
+  ...Table.TREE_ITEMS,
+  ...Task.TREE_ITEMS,
+  ...User.TREE_ITEMS,
+};
+
+export interface ContextProps extends PropsWithChildren<{}> {}
+
+export const Context = ({ children }: ContextProps): ReactElement => (
+  <Tree.Provider items={TREE_ITEMS}>{children}</Tree.Provider>
+);

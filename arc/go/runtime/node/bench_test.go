@@ -29,7 +29,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 			{Key: "source"},
 			{Key: "target"},
 		},
-		Configs: map[string]msgpack.EncodedJSON{
+		Inputs: map[string]msgpack.EncodedJSON{
 			"source": {"type": "source"},
 			"target": {"type": "target"},
 		},

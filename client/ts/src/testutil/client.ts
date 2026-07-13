@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan } from "@synnaxlabs/x";
+import { afterAll } from "vitest";
 
 import Synnax, { type SynnaxParams } from "@/client";
 
@@ -23,5 +24,13 @@ export const TEST_CLIENT_PARAMS: SynnaxParams = {
   },
 };
 
-export const createTestClient = (params?: Partial<SynnaxParams>): Synnax =>
-  new Synnax({ ...TEST_CLIENT_PARAMS, ...params });
+/**
+ * Creates a client connected to the local test cluster. The client is closed
+ * automatically once every test in the current spec file has finished, so callers do
+ * not need to close it themselves.
+ */
+export const createTestClient = (params?: Partial<SynnaxParams>): Synnax => {
+  const client = new Synnax({ ...TEST_CLIENT_PARAMS, ...params });
+  afterAll(() => client.close());
+  return client;
+};

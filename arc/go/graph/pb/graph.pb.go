@@ -36,8 +36,8 @@ const (
 )
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
-// with position data. The function type and configuration parameter values are stored
-// in the graph's configs map, keyed by the node key.
+// with position data. The function type and input parameter values are stored in the
+// graph's inputs map, keyed by the node key.
 type Node struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this node instance.
@@ -177,11 +177,10 @@ type Graph struct {
 	Edges []*Edge `protobuf:"bytes,2,rep,name=edges,proto3" json:"edges,omitempty"`
 	// nodes contains visual nodes with canvas positions.
 	Nodes []*Node `protobuf:"bytes,3,rep,name=nodes,proto3" json:"nodes,omitempty"`
-	// configs contains per-node configuration keyed by node key. Each value is a JSON
-	// object holding the node's function type under "type" plus its configuration parameter
-	// values. The wire format stores it as an opaque record; the client types it per
-	// function.
-	Configs       map[string]*structpb.Struct `protobuf:"bytes,4,rep,name=configs,proto3" json:"configs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// inputs contains per-node inputs keyed by node key. Each value is a JSON object
+	// holding the node's function type under "type" plus its input parameter values. The
+	// wire format stores it as an opaque record; the client types it per function.
+	Inputs        map[string]*structpb.Struct `protobuf:"bytes,4,rep,name=inputs,proto3" json:"inputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -237,9 +236,9 @@ func (x *Graph) GetNodes() []*Node {
 	return nil
 }
 
-func (x *Graph) GetConfigs() map[string]*structpb.Struct {
+func (x *Graph) GetInputs() map[string]*structpb.Struct {
 	if x != nil {
-		return x.Configs
+		return x.Inputs
 	}
 	return nil
 }
@@ -256,13 +255,13 @@ const file_arc_go_graph_pb_graph_proto_rawDesc = "" +
 	"\x06source\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x06source\x12)\n" +
 	"\x06target\x18\x02 \x01(\v2\x11.arc.ir.pb.HandleR\x06target\x12'\n" +
 	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\x12\x10\n" +
-	"\x03key\x18\x04 \x01(\tR\x03key\"\x9f\x02\n" +
+	"\x03key\x18\x04 \x01(\tR\x03key\"\x9b\x02\n" +
 	"\x05Graph\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12(\n" +
 	"\x05edges\x18\x02 \x03(\v2\x12.arc.graph.pb.EdgeR\x05edges\x12(\n" +
-	"\x05nodes\x18\x03 \x03(\v2\x12.arc.graph.pb.NodeR\x05nodes\x12:\n" +
-	"\aconfigs\x18\x04 \x03(\v2 .arc.graph.pb.Graph.ConfigsEntryR\aconfigs\x1aS\n" +
-	"\fConfigsEntry\x12\x10\n" +
+	"\x05nodes\x18\x03 \x03(\v2\x12.arc.graph.pb.NodeR\x05nodes\x127\n" +
+	"\x06inputs\x18\x04 \x03(\v2\x1f.arc.graph.pb.Graph.InputsEntryR\x06inputs\x1aR\n" +
+	"\vInputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
 	"\x05value\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05value:\x028\x01B\x94\x01\n" +
 	"\x10com.arc.graph.pbB\n" +
@@ -285,7 +284,7 @@ var file_arc_go_graph_pb_graph_proto_goTypes = []any{
 	(*Node)(nil),            // 0: arc.graph.pb.Node
 	(*Edge)(nil),            // 1: arc.graph.pb.Edge
 	(*Graph)(nil),           // 2: arc.graph.pb.Graph
-	nil,                     // 3: arc.graph.pb.Graph.ConfigsEntry
+	nil,                     // 3: arc.graph.pb.Graph.InputsEntry
 	(*pb.XY)(nil),           // 4: x.spatial.pb.XY
 	(*pb1.Handle)(nil),      // 5: arc.ir.pb.Handle
 	(pb1.EdgeKind)(0),       // 6: arc.ir.pb.EdgeKind
@@ -300,8 +299,8 @@ var file_arc_go_graph_pb_graph_proto_depIdxs = []int32{
 	7, // 4: arc.graph.pb.Graph.functions:type_name -> arc.ir.pb.Function
 	1, // 5: arc.graph.pb.Graph.edges:type_name -> arc.graph.pb.Edge
 	0, // 6: arc.graph.pb.Graph.nodes:type_name -> arc.graph.pb.Node
-	3, // 7: arc.graph.pb.Graph.configs:type_name -> arc.graph.pb.Graph.ConfigsEntry
-	8, // 8: arc.graph.pb.Graph.ConfigsEntry.value:type_name -> google.protobuf.Struct
+	3, // 7: arc.graph.pb.Graph.inputs:type_name -> arc.graph.pb.Graph.InputsEntry
+	8, // 8: arc.graph.pb.Graph.InputsEntry.value:type_name -> google.protobuf.Struct
 	9, // [9:9] is the sub-list for method output_type
 	9, // [9:9] is the sub-list for method input_type
 	9, // [9:9] is the sub-list for extension type_name

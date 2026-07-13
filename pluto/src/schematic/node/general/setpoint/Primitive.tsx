@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/setpoint/setpoint.css";
 
 import { type CSSProperties, type ReactElement, useState } from "react";
@@ -17,6 +18,7 @@ import { Input as BaseInput } from "@/input";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
+import { symbolColorVar } from "@/schematic/symbolColor";
 
 interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number> {
   className?: string;
@@ -39,9 +41,9 @@ export const Setpoint = ({
   const [currValue, setCurrValue] = useState(value);
   return (
     <Primitive.Div
-      className={CSS(CSS.B("setpoint"), className)}
+      className={CSS(CSS.B("setpoint"), CSS.B("symbol-colored"), className)}
       orientation={orientation}
-      style={style}
+      style={{ ...style, [CSS.var("symbol-color")]: symbolColorVar(color) }}
     >
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -81,15 +83,14 @@ export const Setpoint = ({
         showDragHandle={false}
         selectOnFocus
         endContent={units}
-        color={color}
         borderWidth={1}
         disabled={disabled}
       >
         <BaseButton.Button
           size={size}
           variant="filled"
+          className={CSS.B("symbol-button")}
           onClick={() => onChange(currValue)}
-          color={color}
         >
           Set
         </BaseButton.Button>

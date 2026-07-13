@@ -652,7 +652,7 @@ var _ = Describe("Types", func() {
 			Expect(fn.Outputs).To(BeNil())
 		})
 
-		It("Should preserve provided inputs/outputs/config", func() {
+		It("Should preserve provided inputs/outputs", func() {
 			props := types.FunctionProperties{
 				Inputs: types.Params{{Name: "x", Type: types.I32()}},
 			}

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, project, type schematic } from "@synnaxlabs/client";
+import { project, type schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul, Schematic as PSchematic, Triggers } from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { id } from "@synnaxlabs/x";
@@ -22,8 +23,7 @@ import {
 
 import { Schematic } from "@/feature/schematic";
 import { Modals } from "@/platform/modals";
-import { Ontology } from "@/platform/ontology";
-import { createServices } from "@/platform/ontology/testutil";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
@@ -144,12 +144,12 @@ export const renderSchematicTree = async (overrides: Partial<schematic.New> = {}
       </Triggers.Provider>
     </Console>
   );
-  const services = createServices({ schematic: Schematic.ONTOLOGY_SERVICE });
+  const items = Schematic.TREE_ITEMS;
   const result = render(
-    <Ontology.ServicesProvider services={services}>
-      <Ontology.Tree root={rootID} />
+    <Tree.Provider items={items}>
+      <Tree.Tree root={rootID} />
       <Modals.Stack />
-    </Ontology.ServicesProvider>,
+    </Tree.Provider>,
     { wrapper: Wrapper },
   );
   return { schematic: created, rootID, result, store };

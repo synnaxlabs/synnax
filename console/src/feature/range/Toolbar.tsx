@@ -205,7 +205,7 @@ const Content = (): ReactElement => (
   </Toolbar.Content>
 );
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,

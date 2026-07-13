@@ -12,7 +12,7 @@ import { Button, Icon, Nav, OS, Project as PProject, Text } from "@synnaxlabs/pl
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Items } from "@/app/nav/items";
+import { Toolbars } from "@/app/toolbars";
 import { CSS } from "@/platform/css";
 import { Nav as PlatformNav } from "@/platform/nav";
 import { Window } from "@/platform/window";
@@ -31,7 +31,7 @@ const BottomToggleButton = (): ReactElement => {
       contrast={2}
       color={9}
       weight={450}
-      triggerIndicator={Items.BOTTOM.trigger}
+      triggerIndicator={Toolbars.BOTTOM.trigger}
     >
       <Icon.Visualize />
       Controls

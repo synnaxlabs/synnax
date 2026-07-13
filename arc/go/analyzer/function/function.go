@@ -50,9 +50,9 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			// The brace and parens blocks concatenate into one Inputs list; the
 			// trigger is the first parens-block param, if any.
 			var inputs, outputs types.Params
-			collectConfig(ctx, fn.ConfigBlock(), &inputs)
+			collectInput(ctx, fn.InputBlock(), &inputs)
 			parensStart := len(inputs)
-			collectInputs(acontext.Child(ctx, fn.InputList()), &inputs)
+			collectInputs(acontext.Child(ctx, fn.TriggerList()), &inputs)
 			collectOutputs(ctx, fn.OutputType(), &outputs)
 
 			trigger := symbol.TriggerOnly
@@ -77,29 +77,29 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	}
 }
 
-// collectConfig extracts config parameter types without adding them to scope.
-func collectConfig[T antlr.ParserRuleContext](
+// collectInput extracts input parameter types without adding them to scope.
+func collectInput[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	configBlock parser.IConfigBlockContext,
-	config *types.Params,
+	inputBlock parser.IInputBlockContext,
+	input *types.Params,
 ) {
-	if configBlock == nil || configBlock.ConfigList() == nil {
+	if inputBlock == nil || inputBlock.InputList() == nil {
 		return
 	}
 	seenOptional := false
-	for _, cfg := range configBlock.ConfigList().AllConfig() {
-		configName := cfg.IDENTIFIER().GetText()
-		var configType types.Type
+	for _, cfg := range inputBlock.InputList().AllInput() {
+		inputName := cfg.IDENTIFIER().GetText()
+		var inputType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
-			configType, _ = atypes.InferFromTypeContext(typeCtx)
+			inputType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 
 		var defaultValue any
 		if lit := cfg.Literal(); lit != nil {
-			value, err := literal.Parse(acontext.Child(ctx, lit).AST, configType)
+			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(err, "invalid default value for config parameter %s", configName),
+					errors.Wrapf(err, "invalid default value for input parameter %s", inputName),
 					lit,
 				))
 				continue
@@ -108,14 +108,14 @@ func collectConfig[T antlr.ParserRuleContext](
 			seenOptional = true
 		} else if seenOptional {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
-				cfg, "required config parameter %s cannot follow optional config parameters", configName,
+				cfg, "required input parameter %s cannot follow optional input parameters", inputName,
 			))
 			continue
 		}
 
-		*config = append(*config, types.Param{
-			Name:  configName,
-			Type:  configType,
+		*input = append(*input, types.Param{
+			Name:  inputName,
+			Type:  inputType,
 			Value: defaultValue,
 		})
 	}
@@ -123,14 +123,14 @@ func collectConfig[T antlr.ParserRuleContext](
 
 // collectInputs extracts input parameter types without adding them to scope.
 func collectInputs(
-	ctx acontext.Context[parser.IInputListContext],
+	ctx acontext.Context[parser.ITriggerListContext],
 	inputs *types.Params,
 ) {
 	if ctx.AST == nil {
 		return
 	}
 	seenOptional := false
-	for _, input := range ctx.AST.AllInput() {
+	for _, input := range ctx.AST.AllTrigger() {
 		var inputType types.Type
 		if typeCtx := input.Type_(); typeCtx != nil {
 			inputType, _ = atypes.InferFromTypeContext(typeCtx)
@@ -216,8 +216,8 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 
 	// Add inputs and outputs to the function's scope
 	// (types are already populated by CollectDeclarations)
-	addConfigToScope(ctx, ctx.AST.ConfigBlock(), fn)
-	addInputsToScope(acontext.Child(ctx, ctx.AST.InputList()).WithScope(fn))
+	addInputToScope(ctx, ctx.AST.InputBlock(), fn)
+	addInputsToScope(acontext.Child(ctx, ctx.AST.TriggerList()).WithScope(fn))
 	addOutputsToScope(ctx, ctx.AST.OutputType(), fn)
 
 	if block := ctx.AST.Block(); block != nil {
@@ -328,13 +328,13 @@ func checkOutputAssignedInIfStmt(ifStmt parser.IIfStatementContext, outputName s
 // addInputsToScope adds input parameters to the function's scope.
 // The input types are already collected in fn.Type.Inputs by CollectDeclarations.
 func addInputsToScope(
-	ctx acontext.Context[parser.IInputListContext],
+	ctx acontext.Context[parser.ITriggerListContext],
 ) {
 	if ctx.AST == nil {
 		return
 	}
 
-	for _, input := range ctx.AST.AllInput() {
+	for _, input := range ctx.AST.AllTrigger() {
 		var inputType types.Type
 		if typeCtx := input.Type_(); typeCtx != nil {
 			inputType, _ = atypes.InferFromTypeContext(typeCtx)
@@ -394,29 +394,29 @@ func IfStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 	return BlockAlwaysReturns(ifStmt.ElseClause().Block())
 }
 
-// addConfigToScope adds config parameters to the function's scope.
-// The config types are already collected in fn.Type.Inputs by CollectDeclarations.
-func addConfigToScope[T antlr.ParserRuleContext](
+// addInputToScope adds input parameters to the function's scope.
+// The input types are already collected in fn.Type.Inputs by CollectDeclarations.
+func addInputToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	configBlock parser.IConfigBlockContext,
+	inputBlock parser.IInputBlockContext,
 	scope *symbol.Symbol,
 ) {
-	if configBlock == nil || configBlock.ConfigList() == nil {
+	if inputBlock == nil || inputBlock.InputList() == nil {
 		return
 	}
-	for _, cfg := range configBlock.ConfigList().AllConfig() {
-		configName := cfg.IDENTIFIER().GetText()
-		var configType types.Type
+	for _, cfg := range inputBlock.InputList().AllInput() {
+		inputName := cfg.IDENTIFIER().GetText()
+		var inputType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
-			configType, _ = atypes.InferFromTypeContext(typeCtx)
+			inputType, _ = atypes.InferFromTypeContext(typeCtx)
 		}
 
 		var defaultValue any
 		if lit := cfg.Literal(); lit != nil {
-			value, err := literal.Parse(acontext.Child(ctx, lit).AST, configType)
+			value, err := literal.Parse(acontext.Child(ctx, lit).AST, inputType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
-					errors.Wrapf(err, "invalid default value for config parameter %s", configName),
+					errors.Wrapf(err, "invalid default value for input parameter %s", inputName),
 					lit,
 				))
 			} else {
@@ -425,9 +425,9 @@ func addConfigToScope[T antlr.ParserRuleContext](
 		}
 
 		if _, err := scope.Add(ctx, symbol.Symbol{
-			Name:         configName,
-			Kind:         symbol.KindConfig,
-			Type:         configType,
+			Name:         inputName,
+			Kind:         symbol.KindInput,
+			Type:         inputType,
 			AST:          cfg,
 			DefaultValue: defaultValue,
 		}); err != nil {

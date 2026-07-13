@@ -20,3 +20,5 @@ export const useLink = (): Link.Handler => {
     [placeLayout],
   );
 };
+
+export const LINKS: Link.Registry = { task: useLink };

@@ -50,7 +50,7 @@ requires-python = ">=3.12,<4"
 dependencies = ["alamos", "synnax-freighter", "pydantic>=2.12.5", "numpy>=2.3.5"]
 
 [dependency-groups]
-dev = ["black>=25.12.0", "isort>=7.0.0", "mypy>=1.19.0", "pytest>=9.0.2"]
+dev = ["ruff>=0.15.18,<1", "mypy>=2.1.0,<3", "pytest>=9.1.1,<10"]
 
 [build-system]
 requires = ["hatchling"]
@@ -59,17 +59,12 @@ build-backend = "hatchling.build"
 
 ## Code Style
 
-### Black (Formatter)
+### Ruff (Formatter + Linter)
 
-- 88 character line length
-- Automatically formats code
-- Run: `uv run black .`
-
-### isort (Import Sorter)
-
-- Configured with `profile = "black"` for compatibility
-- Automatically organizes imports
-- Run: `uv run isort .`
+- 88 character line length, target `py312`
+- Formats code and sorts imports (pyflakes + isort rules via `select = ["F", "I"]`)
+- Run: `uv run ruff format .` to format, `uv run ruff check --fix` to lint and sort
+  imports
 
 ### mypy (Type Checker)
 
@@ -92,6 +87,37 @@ class Channel(BaseModel):
     name: str
     data_type: str
     is_index: bool = False
+```
+
+## Comments
+
+Only add a comment when it clarifies obscure or surprising behavior the code itself
+can't convey — a subtle invariant, a workaround for an upstream bug, a non-obvious
+ordering constraint. Well-named variables, functions, and classes should make the code
+self-explanatory otherwise. Docstrings on classes and test functions are still
+encouraged (see Testing below).
+
+Do not write comments that reference a removed, renamed, or historical implementation
+the reader has no way to see (e.g. "reproduces the previous NOOP service", "used to work
+like X before the refactor"). Describe what the code does now, not what it replaced —
+that context belongs in the PR description or commit message, not in a comment that will
+outlive its relevance.
+
+**Incorrect:**
+
+```python
+# retrieve() reproduces the previous polling-based client: it blocks until data
+# arrives.
+def retrieve(self, key: str) -> Channel:
+    ...
+```
+
+**Correct:**
+
+```python
+# retrieve() blocks until the channel is available or the timeout elapses.
+def retrieve(self, key: str) -> Channel:
+    ...
 ```
 
 ## Testing with pytest

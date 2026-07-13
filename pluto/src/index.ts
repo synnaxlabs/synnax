@@ -37,7 +37,6 @@ export * from "@/hooks";
 export { Icon } from "@/icon";
 export { Input } from "@/input";
 export { JSON } from "@/json";
-export { Key } from "@/key";
 export { Label } from "@/label";
 export { LinePlot } from "@/lineplot";
 export { List } from "@/list";

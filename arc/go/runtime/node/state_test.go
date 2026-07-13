@@ -31,7 +31,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "in3"},
 					{Key: "target"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"in1":    {"type": "in1"},
 					"in2":    {"type": "in2"},
 					"in3":    {"type": "in3"},
@@ -107,7 +107,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should correctly align outputs of one node with inputs of another", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: graph.Nodes{{Key: "first"}, {Key: "second"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"first":  {"type": "first"},
 					"second": {"type": "second"},
 				},
@@ -165,7 +165,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "src"},
 					{Key: "dest"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"src":  {"type": "src"},
 					"dest": {"type": "dest"},
 				},
@@ -206,7 +206,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "producer"},
 					{Key: "consumer"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"producer": {"type": "producer"},
 					"consumer": {"type": "consumer"},
 				},
@@ -256,7 +256,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "b"},
 					{Key: "target"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"a":      {"type": "a"},
 					"b":      {"type": "b"},
 					"target": {"type": "target"},
@@ -316,7 +316,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "late"},
 					{Key: "target"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"early":  {"type": "early"},
 					"late":   {"type": "late"},
 					"target": {"type": "target"},
@@ -366,7 +366,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "source"},
 					{Key: "sink"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "source"},
 					"sink":   {"type": "sink"},
 				},
@@ -419,7 +419,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "b"},
 					{Key: "target"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"a":      {"type": "a"},
 					"b":      {"type": "b"},
 					"target": {"type": "target"},
@@ -473,7 +473,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "src"},
 					{Key: "dst"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"src": {"type": "src"},
 					"dst": {"type": "dst"},
 				},
@@ -530,7 +530,7 @@ var _ = Describe("ProgramState", func() {
 						{Key: "rhs"},
 						{Key: "op"},
 					},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"lhs": {"type": "lhs"},
 						"rhs": {"type": "rhs"},
 						"op":  {"type": "op"},
@@ -588,7 +588,7 @@ var _ = Describe("ProgramState", func() {
 						{Key: "b"},
 						{Key: "compute"},
 					},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"a":       {"type": "a"},
 						"b":       {"type": "b"},
 						"compute": {"type": "compute"},
@@ -647,7 +647,7 @@ var _ = Describe("ProgramState", func() {
 						{Key: "late"},
 						{Key: "target"},
 					},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"early":  {"type": "early"},
 						"late":   {"type": "late"},
 						"target": {"type": "target"},
@@ -711,7 +711,7 @@ var _ = Describe("ProgramState", func() {
 						{Key: "y"},
 						{Key: "processor"},
 					},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"x":         {"type": "x"},
 						"y":         {"type": "y"},
 						"processor": {"type": "processor"},
@@ -781,7 +781,7 @@ var _ = Describe("ProgramState", func() {
 						{Key: "c"},
 						{Key: "combiner"},
 					},
-					Configs: map[string]msgpack.EncodedJSON{
+					Inputs: map[string]msgpack.EncodedJSON{
 						"a":        {"type": "a"},
 						"b":        {"type": "b"},
 						"c":        {"type": "c"},
@@ -847,7 +847,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "source"},
 					{Key: "processor"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source":    {"type": "source"},
 					"processor": {"type": "processor"},
 				},
@@ -891,7 +891,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "source"},
 					{Key: "windowed"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source":   {"type": "source"},
 					"windowed": {"type": "windowed"},
 				},
@@ -944,7 +944,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "multiplier_source"},
 					{Key: "processor"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"data_source":       {"type": "data_source"},
 					"multiplier_source": {"type": "multiplier_source"},
 					"processor":         {"type": "processor"},
@@ -1000,7 +1000,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "input"},
 					{Key: "calculator"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"input":      {"type": "input"},
 					"calculator": {"type": "calculator"},
 				},
@@ -1057,7 +1057,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "src2"},
 					{Key: "combiner"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"src1":     {"type": "src1"},
 					"src2":     {"type": "src2"},
 					"combiner": {"type": "combiner"},
@@ -1115,7 +1115,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "data"},
 					{Key: "processor"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"data":      {"type": "data"},
 					"processor": {"type": "processor"},
 				},
@@ -1163,7 +1163,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "source"},
 					{Key: "processor"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source":    {"type": "source"},
 					"processor": {"type": "processor"},
 				},
@@ -1226,7 +1226,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "input"},
 					{Key: "adder"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"input": {"type": "input"},
 					"adder": {"type": "adder"},
 				},
@@ -1266,7 +1266,7 @@ var _ = Describe("ProgramState", func() {
 				Nodes: []graph.Node{
 					{Key: "generator"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"generator": {"type": "generator"},
 				},
 				Edges: graph.Edges{},
@@ -1288,8 +1288,8 @@ var _ = Describe("ProgramState", func() {
 		Describe("isSeriesTruthy helper", func() {
 			It("Should return false for empty series", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1308,8 +1308,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (float64)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1327,8 +1327,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (float64)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1346,8 +1346,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (uint8)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1365,8 +1365,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (uint8)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1384,8 +1384,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for series with last element 0 (int32)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1403,8 +1403,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return true for series with last element non-zero (int32)", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1422,8 +1422,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should return false for out-of-range output ordinal", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1442,8 +1442,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should check the last element only", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1465,8 +1465,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should handle timestamp type", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1486,8 +1486,8 @@ var _ = Describe("ProgramState", func() {
 
 			It("Should treat a non-empty string as truthy and an empty string as falsy", func(ctx SpecContext) {
 				g := graph.Graph{
-					Nodes:   []graph.Node{{Key: "test"}},
-					Configs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
+					Nodes:  []graph.Node{{Key: "test"}},
+					Inputs: map[string]msgpack.EncodedJSON{"test": {"type": "test"}},
 					Functions: []graph.Function{{
 						Key: "test",
 						Outputs: types.Params{
@@ -1510,8 +1510,8 @@ var _ = Describe("ProgramState", func() {
 	Describe("ResolveInput", func() {
 		buildNode := func(ctx SpecContext) *node.State {
 			g := graph.Graph{
-				Nodes:   []graph.Node{{Key: "n"}},
-				Configs: map[string]msgpack.EncodedJSON{"n": {"type": "n"}},
+				Nodes:  []graph.Node{{Key: "n"}},
+				Inputs: map[string]msgpack.EncodedJSON{"n": {"type": "n"}},
 				Functions: []graph.Function{{
 					Key: "n",
 					Inputs: types.Params{
@@ -1546,7 +1546,7 @@ var _ = Describe("ProgramState", func() {
 					{Key: "src"},
 					{Key: "target"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"src":    {"type": "src"},
 					"target": {"type": "target"},
 				},

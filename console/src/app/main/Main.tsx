@@ -1,0 +1,85 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Drift } from "@synnaxlabs/drift";
+import { Access, Flex } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
+
+import { Link } from "@/app/link";
+import { Mosaic } from "@/app/mosaic/Mosaic";
+import { Nav } from "@/app/nav";
+import { Notifications } from "@/app/notifications";
+import { Triggers } from "@/app/triggers";
+import { Auth } from "@/feature/auth";
+import { Device } from "@/feature/device";
+import { Node } from "@/feature/node";
+import { Project } from "@/feature/project";
+import { Layout } from "@/platform/layout";
+import { Range } from "@/platform/range";
+import { Status } from "@/platform/status";
+
+const SideEffect = (): null => {
+  Access.useLoadPermissions({});
+  Node.useSyncClusterKey();
+  Device.useListenForChanges();
+  Range.useListenForChanges();
+  Project.useCheckCore();
+  Status.useListenForChanges();
+  Link.useDeep();
+  Triggers.use();
+  return null;
+};
+
+// ProjectSideEffect holds effects that only make sense with an active project. It is
+// rendered inside Project.Guard, so it mounts only once a project is active - layout
+// sync and the file-drop importer never run against the select-or-create screen.
+const ProjectSideEffect = (): null => {
+  Project.useSyncLayout();
+  Layout.useDropOutside();
+  return null;
+};
+
+export const MAIN_LAYOUT_TYPE = Drift.MAIN_WINDOW;
+
+/**
+ * The center of it all. This is the main layout for the Synnax Console. Try to keep this
+ * component as simple, presentational, and navigable as possible.
+ */
+export const Main = (): ReactElement => (
+  <>
+    {/* We need to place notifications here so they are in the proper stacking context */}
+    <Notifications.Feed />
+    <SideEffect />
+    <Auth.Guard>
+      <Project.Guard>
+        <ProjectSideEffect />
+        <Nav.Bar.Top />
+        <Flex.Box
+          x
+          gap="tiny"
+          grow
+          style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
+        >
+          <Nav.Bar.Left />
+          <Flex.Box gap="tiny" grow style={{ width: 0 }}>
+            <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
+              <Nav.Drawer.Left />
+              <Mosaic />
+            </Flex.Box>
+            <Nav.Drawer.Bottom />
+          </Flex.Box>
+        </Flex.Box>
+      </Project.Guard>
+    </Auth.Guard>
+  </>
+);
+
+export const LAYOUTS: Layout.Renderers = {
+  [MAIN_LAYOUT_TYPE]: Main,
+};

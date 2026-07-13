@@ -10,9 +10,9 @@
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
-import { Items } from "@/app/nav/items";
+import { Palette } from "@/app/palette";
+import { Toolbars } from "@/app/toolbars";
 import { Nav as PlatformNav } from "@/platform/nav";
-import { Palette } from "@/platform/palette";
 import { Session } from "@/session";
 
 const BottomMenu = () => {
@@ -37,8 +37,8 @@ const BottomMenu = () => {
   );
   return (
     <PlatformNav.Menu
-      items={Items.BOTTOM}
-      selected={visible ? Items.BOTTOM.key : undefined}
+      items={Toolbars.BOTTOM}
+      selected={visible ? Toolbars.BOTTOM.key : undefined}
       onSelect={handleSelect}
       onToggle={handleToggle}
       onPin={handlePin}
@@ -73,7 +73,7 @@ const LeftMenu = () => {
   );
   return (
     <PlatformNav.Menu
-      items={Items.LEFT}
+      items={Toolbars.LEFT}
       selected={selected}
       onSelect={handleSelect}
       onToggle={handleToggle}
@@ -84,16 +84,10 @@ const LeftMenu = () => {
   );
 };
 
-const PALETTE_TRIGGER_CONFIG: Palette.TriggerConfig = {
-  command: [["Control", "Shift", "P"]],
-  defaultMode: "command",
-  search: [["Control", "P"]],
-};
-
 export const Left = (): ReactElement => (
   <PlatformNav.Bar location="left" size="8rem">
     <Nav.Bar.Start bordered align="center">
-      <Palette.Palette commandSymbol=">" triggerConfig={PALETTE_TRIGGER_CONFIG} />
+      <Palette.Palette />
     </Nav.Bar.Start>
     <Nav.Bar.Content align="center">
       <LeftMenu />
