@@ -42,7 +42,7 @@ const Base = createSynnaxWrapper({ client: null });
  */
 export const Wrapper: FC<PropsWithChildren> = ({ children }): ReactElement => (
   <Base>
-    <Session.Modals.Provider>{children}</Session.Modals.Provider>
+    <Session.Modals.Context>{children}</Session.Modals.Context>
   </Base>
 );
 Wrapper.displayName = "Wrapper";
