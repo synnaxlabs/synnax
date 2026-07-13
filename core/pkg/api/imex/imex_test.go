@@ -20,7 +20,6 @@ import (
 	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -55,7 +54,7 @@ var _ = Describe("Import", func() {
 		key := uuid.New()
 		fctx := rootCtx(ctx)
 		fctx.Set("file_name", "Metrics Log.json")
-		fctx.Set("project", project.OntologyID(key).String())
+		fctx.Set("project", key.String())
 		id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
 		Expect(id.Key).To(Equal("with-options"))
 		Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
@@ -74,28 +73,12 @@ var _ = Describe("Import", func() {
 		Expect(importer.opts.Project).To(Equal(uuid.Nil))
 	})
 
-	It("Should reject a project param that does not reference a project", func(ctx SpecContext) {
+	It("Should reject a project param that is not a valid UUID", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
-		fctx.Set("project", "group:"+uuid.NewString())
-		Expect(apiSvc.Import(fctx, db, testEnvelope("wrong-type"))).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("can only be imported under a project")),
+		fctx.Set("project", "not-a-uuid")
+		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-key"))).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("invalid project key")),
 			MatchError(ContainSubstring("validation error")),
 		))
-	})
-
-	It("Should reject a project param whose key is not a valid UUID", func(ctx SpecContext) {
-		fctx := rootCtx(ctx)
-		fctx.Set("project", "project:not-a-uuid")
-		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-key"))).Error().To(
-			MatchError(ContainSubstring("invalid project key")),
-		)
-	})
-
-	It("Should reject a malformed project param", func(ctx SpecContext) {
-		fctx := rootCtx(ctx)
-		fctx.Set("project", "not-an-ontology-id")
-		Expect(apiSvc.Import(fctx, db, testEnvelope("malformed"))).Error().To(
-			MatchError(ContainSubstring("failed to parse id")),
-		)
 	})
 })

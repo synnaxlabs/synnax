@@ -11,7 +11,6 @@
 from freighter import FileTransport
 from synnax import ontology
 from synnax.project import Key as ProjectKey
-from synnax.project import ontology_id as project_ontology_id
 from x.fs import FilePath
 
 
@@ -45,11 +44,7 @@ class Client:
             transaction, so a parenting failure rolls the import back.
         :returns: the new resource's ontology ID.
         """
-        params = (
-            {"project": str(project_ontology_id(project))}
-            if project is not None
-            else None
-        )
+        params = {"project": str(project)} if project is not None else None
         return self._file_transport.upload("/imex/import", source, ontology.ID, params)
 
     def export(self, id: ontology.ID, dest: FilePath) -> None:

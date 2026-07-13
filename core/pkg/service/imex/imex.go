@@ -82,21 +82,6 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 	)
 }
 
-// NewErrUnsupportedProject constructs a validation error for an import whose project
-// param references a resource that is not a project — e.g. a log import created under
-// a group. The returned error is path-scoped to the "project" field so API responses
-// can present it as a structured field error.
-func NewErrUnsupportedProject(typ ontology.ResourceType, got ontology.ID) error {
-	return validate.PathedError(
-		errors.Wrapf(
-			validate.ErrValidation,
-			"a %s can only be imported under a %s, got a resource of type %q",
-			typ, ontology.ResourceTypeProject, got.Type,
-		),
-		"project",
-	)
-}
-
 // newFieldError constructs a validation error scoped to the named wire field so API
 // responses can present it as a structured field error, mirroring the path-scoping done
 // by NewErrUnsupportedVersion for the "version" field.
@@ -398,8 +383,7 @@ type ImportOptions struct {
 	// Project is the key of the project to create the imported resource under. The
 	// registry passes it through untouched: each Importer decides how (and whether) a
 	// project applies to its resource type. A zero Project means no project was
-	// requested. The API layer guarantees the key was parsed from a project ontology
-	// ID, so importers can use it directly.
+	// requested.
 	Project project.Key
 }
 

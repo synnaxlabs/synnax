@@ -24,6 +24,7 @@ import (
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Service struct {
@@ -55,8 +56,8 @@ const (
 	// fileNameParam carries the name of the file the envelope was read from, used as
 	// the envelope name when the body has no `name` field.
 	fileNameParam = "file_name"
-	// projectParam carries the string form of the project's ontology ID to create the
-	// imported resource under.
+	// projectParam carries the UUID of the project to create the imported resource
+	// under.
 	projectParam = "project"
 )
 
@@ -69,7 +70,7 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	opts, err := parseImportOptions(ctx, resourceType)
+	opts, err := parseImportOptions(ctx)
 	if err != nil {
 		return ImportResponse{}, err
 	}
@@ -99,12 +100,9 @@ func (s *Service) Import(
 
 // parseImportOptions extracts the optional file_name and project query parameters from
 // the request's freighter params. An empty or absent project yields a zero Project; a
-// project that is malformed or does not reference a project resource returns a
-// validation error. typ names the imported resource type in that error.
-func parseImportOptions(
-	ctx context.Context,
-	typ ontology.ResourceType,
-) (imex.ImportOptions, error) {
+// project that is not a valid UUID returns a validation error scoped to the "project"
+// field.
+func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	var (
 		opts   imex.ImportOptions
 		params = freighter.MDFromContext(ctx).Params
@@ -116,17 +114,11 @@ func parseImportOptions(
 	}
 	if v, ok := params.Get(projectParam); ok {
 		if s, ok := v.(string); ok && s != "" {
-			id, err := ontology.ParseID(s)
+			key, err := uuid.Parse(s)
 			if err != nil {
-				return imex.ImportOptions{}, err
-			}
-			if id.Type != ontology.ResourceTypeProject {
-				return imex.ImportOptions{}, imex.NewErrUnsupportedProject(typ, id)
-			}
-			key, err := uuid.Parse(id.Key)
-			if err != nil {
-				return imex.ImportOptions{}, errors.Wrapf(
-					err, "invalid project key %q", id.Key,
+				return imex.ImportOptions{}, validate.PathedError(
+					errors.Wrapf(validate.ErrValidation, "invalid project key %q", s),
+					"project",
 				)
 			}
 			opts.Project = key

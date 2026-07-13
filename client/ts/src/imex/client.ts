@@ -10,7 +10,7 @@
 import { type FileTransport, type UploadBody } from "@synnaxlabs/freighter";
 
 import { ontology } from "@/ontology";
-import { project } from "@/project";
+import { type project } from "@/project";
 
 /**
  * The serialized wire formats a resource can be imported from or exported to. Today
@@ -94,10 +94,7 @@ export class Client {
       source,
       {
         encoding,
-        params: {
-          file_name: fileName,
-          project: ontology.idToString(project.ontologyID(projectKey)),
-        },
+        params: { file_name: fileName, project: projectKey },
       },
       ontology.idZ,
     );
