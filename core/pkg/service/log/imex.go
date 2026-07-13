@@ -52,18 +52,19 @@ func (s *Service) Export(ctx context.Context, id ontology.ID) (imex.Envelope, er
 // Import decodes the envelope into a Log and persists it on tx, returning the
 // ontology.ID of the newly-created log. The exported key is discarded and a fresh one
 // is generated so that importing always materializes a new resource rather than
-// overwriting an existing log with a colliding key. When opts.Parent is given it must
-// be a project, and the log is created within it exactly as a regular create would be;
-// otherwise the log is created without a project. Envelopes older than Version are
-// legacy camelCase Console exports and are lifted forward through the migration chain;
-// an envelope newer than Version is rejected with a path-scoped validation error.
+// overwriting an existing log with a colliding key. When opts.Project is given it must
+// reference a project, and the log is created within it exactly as a regular create
+// would be; otherwise the log is created without a project. Envelopes older than
+// Version are legacy camelCase Console exports and are lifted forward through the
+// migration chain; an envelope newer than Version is rejected with a path-scoped
+// validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
 ) (ontology.ID, error) {
-	projectKey, err := parentProjectKey(opts.Parent)
+	projectKey, err := resolveProjectKey(opts.Project)
 	if err != nil {
 		return ontology.ID{}, err
 	}
@@ -82,21 +83,21 @@ func (s *Service) Import(
 	return OntologyID(l.Key), nil
 }
 
-// parentProjectKey resolves the import parent to a project key. A zero parent resolves
-// to uuid.Nil (no project); any parent that is not a project is rejected with a
-// validation error scoped to the "project" field.
-func parentProjectKey(parent ontology.ID) (project.Key, error) {
-	if parent.IsZero() {
+// resolveProjectKey resolves the import's project ontology ID to a project key. A zero
+// ID resolves to uuid.Nil (no project); an ID that does not reference a project is
+// rejected with a validation error scoped to the "project" field.
+func resolveProjectKey(id ontology.ID) (project.Key, error) {
+	if id.IsZero() {
 		return uuid.Nil, nil
 	}
-	if parent.Type != ontology.ResourceTypeProject {
-		return uuid.Nil, imex.NewErrUnsupportedParent(
-			"log", parent, ontology.ResourceTypeProject,
+	if id.Type != ontology.ResourceTypeProject {
+		return uuid.Nil, imex.NewErrUnsupportedProject(
+			"log", id, ontology.ResourceTypeProject,
 		)
 	}
-	key, err := uuid.Parse(parent.Key)
+	key, err := uuid.Parse(id.Key)
 	if err != nil {
-		return uuid.Nil, errors.Wrapf(err, "invalid project key %q", parent.Key)
+		return uuid.Nil, errors.Wrapf(err, "invalid project key %q", id.Key)
 	}
 	return key, nil
 }

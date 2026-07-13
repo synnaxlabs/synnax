@@ -155,10 +155,10 @@ var _ = Describe("ImEx", func() {
 			Expect(resource.ID).To(Equal(id))
 		})
 
-		It("Should parent the imported log under the project from the options", func(ctx SpecContext) {
+		It("Should create the imported log under the project from the options", func(ctx SpecContext) {
 			id := MustSucceed(imexSvc.Import(
 				ctx, db, loadEnvelope(v2Fixture),
-				imex.ImportOptions{Parent: project.OntologyID(proj.Key)},
+				imex.ImportOptions{Project: project.OntologyID(proj.Key)},
 			))
 			Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
 				From: project.OntologyID(proj.Key),
@@ -167,10 +167,10 @@ var _ = Describe("ImEx", func() {
 			})).To(BeTrue())
 		})
 
-		It("Should reject a parent that is not a project", func(ctx SpecContext) {
+		It("Should reject a project ID that does not reference a project", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
 				ctx, db, loadEnvelope(v2Fixture),
-				imex.ImportOptions{Parent: ontology.ID{
+				imex.ImportOptions{Project: ontology.ID{
 					Type: ontology.ResourceTypeGroup,
 					Key:  uuid.NewString(),
 				}},
@@ -180,10 +180,10 @@ var _ = Describe("ImEx", func() {
 			))
 		})
 
-		It("Should reject a parent that does not exist", func(ctx SpecContext) {
+		It("Should reject a project that does not exist", func(ctx SpecContext) {
 			Expect(imexSvc.Import(
 				ctx, db, loadEnvelope(v2Fixture),
-				imex.ImportOptions{Parent: project.OntologyID(uuid.New())},
+				imex.ImportOptions{Project: project.OntologyID(uuid.New())},
 			)).Error().To(MatchError(query.ErrNotFound))
 		})
 

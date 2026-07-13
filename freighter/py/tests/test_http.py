@@ -87,6 +87,42 @@ class TestUpload:
         res = client.upload("/echo", path, Message)
         assert res.message == big
 
+    def test_file_name_param_always_sent(
+        self, client: HTTPClient, tmp_path: Path
+    ) -> None:
+        """The file's base name accompanies every upload as the file_name param, even
+        when the caller supplies no params."""
+        path = tmp_path / "Metrics Log.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="file_name")))
+        res = client.upload("/paramEcho", path, Message)
+        assert res.message == "Metrics Log.json"
+
+    def test_params_reach_server(self, client: HTTPClient, tmp_path: Path) -> None:
+        """Caller-supplied params travel out-of-band and reach the handler alongside
+        the automatic file_name param."""
+        path = tmp_path / "Metrics Log.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="file_name,project")))
+        res = client.upload("/paramEcho", path, Message, {"project": "project:abc"})
+        assert res.message == "Metrics Log.json|project:abc"
+
+    def test_caller_file_name_param_wins(
+        self, client: HTTPClient, tmp_path: Path
+    ) -> None:
+        """A caller-supplied file_name param overrides the automatic one derived from
+        the path."""
+        path = tmp_path / "in.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="file_name")))
+        res = client.upload("/paramEcho", path, Message, {"file_name": "Override.json"})
+        assert res.message == "Override.json"
+
+    def test_unsent_params_echo_empty(self, client: HTTPClient, tmp_path: Path) -> None:
+        """A param the caller never sent reaches the handler as absent, echoed as an
+        empty string."""
+        path = tmp_path / "in.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="project")))
+        res = client.upload("/paramEcho", path, Message)
+        assert res.message == ""
+
 
 @pytest.mark.http
 class TestRetries:

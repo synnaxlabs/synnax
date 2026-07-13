@@ -52,7 +52,7 @@ const (
 	// fileNameParam carries the name of the file the envelope was read from, used as
 	// the envelope name when the body has no `name` field.
 	fileNameParam = "file_name"
-	// projectParam carries the string form of the project's ontology ID to parent the
+	// projectParam carries the string form of the project's ontology ID to create the
 	// imported resource under.
 	projectParam = "project"
 )
@@ -78,11 +78,11 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	if !opts.Parent.IsZero() {
+	if !opts.Project.IsZero() {
 		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{opts.Parent},
+			Objects: []ontology.ID{opts.Project},
 		}); err != nil {
 			return ImportResponse{}, err
 		}
@@ -95,7 +95,7 @@ func (s *Service) Import(
 }
 
 // parseImportOptions extracts the optional file_name and project query parameters from
-// the request's freighter params. An empty or absent project yields a zero Parent;
+// the request's freighter params. An empty or absent project yields a zero Project;
 // a malformed project ID returns a validation error.
 func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	var (
@@ -109,11 +109,11 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	}
 	if v, ok := params.Get(projectParam); ok {
 		if s, ok := v.(string); ok && s != "" {
-			parent, err := ontology.ParseID(s)
+			id, err := ontology.ParseID(s)
 			if err != nil {
 				return imex.ImportOptions{}, err
 			}
-			opts.Parent = parent
+			opts.Project = id
 		}
 	}
 	return opts, nil

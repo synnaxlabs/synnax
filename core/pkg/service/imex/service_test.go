@@ -102,9 +102,9 @@ func (s *testService) Import(
 	if err := w.DefineResources(ctx, id); err != nil {
 		return ontology.ID{}, err
 	}
-	if !opts.Parent.IsZero() {
+	if !opts.Project.IsZero() {
 		if err := w.DefineRelationships(
-			ctx, opts.Parent, ontology.RelationshipTypeParentOf, id,
+			ctx, opts.Project, ontology.RelationshipTypeParentOf, id,
 		); err != nil {
 			return ontology.ID{}, err
 		}
@@ -350,34 +350,34 @@ var _ = Describe("Service", func() {
 			})
 		})
 
-		Describe("Parent", func() {
-			var parent ontology.ID
+		Describe("Project", func() {
+			var projectID ontology.ID
 			BeforeEach(func(ctx SpecContext) {
-				parent = ontology.ID{
+				projectID = ontology.ID{
 					Type: ontology.ResourceTypeGroup,
 					Key:  uuid.NewString(),
 				}
-				Expect(otg.NewWriter(nil).DefineResources(ctx, parent)).To(Succeed())
+				Expect(otg.NewWriter(nil).DefineResources(ctx, projectID)).To(Succeed())
 			})
 
-			It("Should parent the imported resource under the given parent", func(ctx SpecContext) {
+			It("Should attach the imported resource under the given project resource", func(ctx SpecContext) {
 				id := MustSucceed(svc.Import(
 					ctx, db, sampleEnvelope("Parented", ontology.ResourceTypeChannel),
-					imex.ImportOptions{Parent: parent},
+					imex.ImportOptions{Project: projectID},
 				))
 				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-					From: parent,
+					From: projectID,
 					Type: ontology.RelationshipTypeParentOf,
 					To:   id,
 				})).To(BeTrue())
 			})
 
-			It("Should roll back the import when the parent does not exist", func(ctx SpecContext) {
+			It("Should roll back the import when the project resource does not exist", func(ctx SpecContext) {
 				err := db.WithTx(ctx, func(tx gorp.Tx) error {
 					_, err := svc.Import(
 						ctx, tx,
 						sampleEnvelope("Orphaned", ontology.ResourceTypeChannel),
-						imex.ImportOptions{Parent: ontology.ID{
+						imex.ImportOptions{Project: ontology.ID{
 							Type: ontology.ResourceTypeGroup,
 							Key:  uuid.NewString(),
 						}},
