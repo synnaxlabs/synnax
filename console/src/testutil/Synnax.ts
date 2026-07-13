@@ -10,9 +10,9 @@
 import { status, type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, Pluto } from "@synnaxlabs/pluto";
 import {
-  createAsyncSynnaxWrapper as plutoCreateAsyncSynnaxWrapper,
-  createSynnaxWrapper as plutoCreateSynnaxWrapper,
-  type CreateSynnaxWrapperArgs as PlutoCreateSynnaxWrapperArgs,
+  createAsyncSynnaxWrapper as pCreateAsyncSynnaxWrapper,
+  createSynnaxWrapper as pCreateSynnaxWrapper,
+  type CreateSynnaxWrapperArgs as PCreateSynnaxWrapperArgs,
 } from "@synnaxlabs/pluto/testutil";
 import { type errors, narrow } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren } from "react";
@@ -119,13 +119,13 @@ const createAsyncErrorHandler =
   };
 
 export type CreateSynnaxWrapperArgs = Omit<
-  PlutoCreateSynnaxWrapperArgs,
+  PCreateSynnaxWrapperArgs,
   "handleError" | "handleAsyncError"
 >;
 
 const withConsoleErrorHandlers = (
   args: CreateSynnaxWrapperArgs,
-): PlutoCreateSynnaxWrapperArgs => ({
+): PCreateSynnaxWrapperArgs => ({
   ...args,
   handleError: createErrorHandler(console.error),
   handleAsyncError: createAsyncErrorHandler(console.error),
@@ -139,7 +139,7 @@ const withConsoleErrorHandlers = (
  */
 export const createSynnaxWrapper = (
   args: CreateSynnaxWrapperArgs,
-): FC<PropsWithChildren> => plutoCreateSynnaxWrapper(withConsoleErrorHandlers(args));
+): FC<PropsWithChildren> => pCreateSynnaxWrapper(withConsoleErrorHandlers(args));
 
 /**
  * Like createSynnaxWrapper, but awaits flux store initialization before returning so
@@ -148,7 +148,7 @@ export const createSynnaxWrapper = (
 export const createAsyncSynnaxWrapper = async (
   args: CreateSynnaxWrapperArgs,
 ): Promise<FC<PropsWithChildren>> =>
-  await plutoCreateAsyncSynnaxWrapper(withConsoleErrorHandlers(args));
+  await pCreateAsyncSynnaxWrapper(withConsoleErrorHandlers(args));
 
 /**
  * Builds a real pluto flux store backed by the full production store config, for code
