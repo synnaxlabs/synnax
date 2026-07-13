@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { Task } from "@/feature/task";
+import { Selector } from "@/app/selector";
+import { Panel } from "@/feature/panel";
 
-export interface ContextProps extends PropsWithChildren<{}> {}
-
-export const Context = ({ children }: ContextProps): ReactElement => (
-  <Task.RegistryProvider registry={Task.REGISTRY}>{children}</Task.RegistryProvider>
+export const Mosaic = (): ReactElement => (
+  <Panel.Mosaic onCreateTab={Selector.createEmptyTab} />
 );

@@ -313,6 +313,8 @@ describe("lineplot ingest", () => {
     expect(openTab).toHaveBeenCalledTimes(1);
     const spec = openTab.mock.calls[0][0];
     if (!("resource" in spec)) throw new Error("expected a resource tab spec");
+    if (typeof spec.resource === "string")
+      throw new Error("expected a resolved resource, got an id string");
     expect(spec.resource.type).toBe("lineplot");
     const created = await client.lineplots.retrieve({ key: spec.resource.key });
     expect(created.name).toBe(name);

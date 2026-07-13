@@ -11,14 +11,13 @@ import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Link } from "@/app/link";
+import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
 import { Notifications } from "@/app/notifications";
-import { Selector } from "@/app/selector";
 import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
-import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Range } from "@/platform/range";
 import { Status } from "@/platform/status";
@@ -57,7 +56,7 @@ export const Main = (): ReactElement => (
           <Flex.Box gap="tiny" grow style={{ width: 0 }}>
             <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
               <Nav.Drawer.Left />
-              <Panel.Mosaic onCreateTab={Selector.createEmptyTab} />
+              <Mosaic.Mosaic />
             </Flex.Box>
             <Nav.Drawer.Bottom />
           </Flex.Box>

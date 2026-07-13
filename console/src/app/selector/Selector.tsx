@@ -39,8 +39,5 @@ export const createEmptyTab = (): panel.NewTab => ({
 
 export const useOpenTab = (): (() => void) => {
   const openTab = Panel.useOpenTab();
-  return useCallback(
-    () => openTab({ variant: "view", type: TAB_TYPE, args: {} }),
-    [openTab],
-  );
+  return useCallback(() => openTab(createEmptyTab()), [openTab]);
 };

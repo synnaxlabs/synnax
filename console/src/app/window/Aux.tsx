@@ -10,10 +10,9 @@
 import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Mosaic } from "@/app/mosaic";
 import { Notifications } from "@/app/notifications";
-import { Selector } from "@/app/selector";
 import { Auth } from "@/feature/auth";
-import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 
 /**
@@ -26,7 +25,7 @@ export const Aux = (): ReactElement => (
     <Auth.Guard>
       <Project.Guard>
         <Flex.Box x gap="tiny" grow style={{ padding: "0 1rem 1rem 1rem" }}>
-          <Panel.Mosaic onCreateTab={Selector.createEmptyTab} />
+          <Mosaic.Mosaic />
         </Flex.Box>
       </Project.Guard>
     </Auth.Guard>
