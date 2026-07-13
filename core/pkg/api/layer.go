@@ -100,9 +100,10 @@ type Transport struct {
 	OntologyRemoveChildren freighter.UnaryServer[ontology.RemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[ontology.MoveChildrenRequest, types.Nil]
 	// GROUP
-	GroupCreate freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
-	GroupDelete freighter.UnaryServer[group.DeleteRequest, types.Nil]
-	GroupRename freighter.UnaryServer[group.RenameRequest, types.Nil]
+	GroupCreate   freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
+	GroupDelete   freighter.UnaryServer[group.DeleteRequest, types.Nil]
+	GroupRename   freighter.UnaryServer[group.RenameRequest, types.Nil]
+	GroupRetrieve freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	// PROJECT
 	ProjectCreate    freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
 	ProjectRetrieve  freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
@@ -276,6 +277,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.GroupCreate,
 		t.GroupDelete,
 		t.GroupRename,
+		t.GroupRetrieve,
 
 		// RANGE
 		t.RangeCreate,
@@ -443,6 +445,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.GroupCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Create))
 	t.GroupDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Delete))
 	t.GroupRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Rename))
+	t.GroupRetrieve.BindHandler(l.Group.Retrieve)
 
 	// RANGE
 	t.RangeRetrieve.BindHandler(l.Range.Retrieve)

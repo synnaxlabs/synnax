@@ -11,8 +11,6 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@synnaxlabs/pluto/dist/pluto.css";
 
-import { Provider } from "@synnaxlabs/drift/react";
-import { useInitializerRef } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Haul } from "@/app/haul";
@@ -27,42 +25,35 @@ import { Errors } from "@/platform/errors";
 import { Layout as PlatformLayout } from "@/platform/layout";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
-import workerURL from "@/worker?worker&url";
 
-const AppUnderContext = (): ReactElement => {
+export interface AppProps extends Pick<Pluto.ContextProps, "workerURL"> {}
+
+export const App = ({ workerURL }: AppProps): ReactElement => {
   Haul.useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
-
-  return (
-    <Pluto.Context workerURL={workerURL}>
-      <Vis.Canvas>
-        <Session.Modals.Provider>
-          <PlatformLayout.Window />
-        </Session.Modals.Provider>
-      </Vis.Canvas>
-    </Pluto.Context>
-  );
-};
-
-export const App = (): ReactElement => {
-  const storeRef = useInitializerRef(() => Session.createStore());
   return (
     <Errors.OverlayWithoutStore>
-      <Provider store={storeRef.current}>
+      <Session.Context>
         <Errors.OverlayWithStore>
           <Layout.Context>
             <Tree.Context>
               <Range.Context>
                 <Imex.Context>
                   <Task.Context>
-                    <AppUnderContext />
+                    <Pluto.Context workerURL={workerURL}>
+                      <Vis.Canvas>
+                        <Session.Modals.Context>
+                          <PlatformLayout.Window />
+                        </Session.Modals.Context>
+                      </Vis.Canvas>
+                    </Pluto.Context>
                   </Task.Context>
                 </Imex.Context>
               </Range.Context>
             </Tree.Context>
           </Layout.Context>
         </Errors.OverlayWithStore>
-      </Provider>
+      </Session.Context>
     </Errors.OverlayWithoutStore>
   );
 };
