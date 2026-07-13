@@ -9,12 +9,14 @@
 
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Icon } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { Search } from "@/feature/search";
+import { Search as PlatformSearch } from "@/platform/search";
 import { createConsoleWrapper, stubGeometry, uniqueName } from "@/testutil";
 
 stubGeometry();
@@ -23,11 +25,15 @@ const client = createTestClient();
 
 const PLACEHOLDER = <>Search</>;
 
-const Harness = (): ReactElement => {
+const Harness = ({
+  items = Channel.SEARCH_LIST_ITEMS,
+}: {
+  items?: PlatformSearch.ListItems;
+}): ReactElement => {
   const [value, setValue] = useState("");
   return (
     <Search.List
-      items={Channel.SEARCH_LIST_ITEMS}
+      items={items}
       value={value}
       inputPlaceholder={PLACEHOLDER}
       onChange={setValue}
@@ -35,9 +41,9 @@ const Harness = (): ReactElement => {
   );
 };
 
-const renderSearch = async (): Promise<void> => {
+const renderSearch = async (items?: PlatformSearch.ListItems): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  render(<Harness />, { wrapper });
+  render(<Harness items={items} />, { wrapper });
 };
 
 const searchInput = (): HTMLInputElement => {
@@ -64,5 +70,27 @@ describe("Search.List", () => {
     await renderSearch();
     fireEvent.change(searchInput(), { target: { value: ch.name } });
     await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
+  });
+
+  it("fires a search item's onSelect exactly once per mouse click", async () => {
+    const ch = await client.channels.create({
+      name: uniqueName("ch"),
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const onSelect = vi.fn();
+    const TestItem = PlatformSearch.createListItem({
+      icon: <Icon.Channel />,
+      useOnSelect: () => onSelect,
+    });
+    await renderSearch({ channel: TestItem });
+    fireEvent.change(searchInput(), { target: { value: ch.name } });
+    await waitFor(() => expect(screen.getByText(ch.name)).toBeTruthy());
+    // A real mouse click carries detail 1. Selection re-dispatches a synthetic
+    // click (detail 0) on the item, which is the only click allowed to fire
+    // onSelect; the item must not also fire it for the original click.
+    fireEvent.click(screen.getByText(ch.name), { detail: 1 });
+    await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
+    expect(onSelect.mock.calls[0][0].name).toEqual(ch.name);
   });
 });
