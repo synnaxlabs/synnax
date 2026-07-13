@@ -47,16 +47,19 @@ export const use = (): void => {
   Triggers.use({
     triggers: [["Control", "L"]],
     loose: true,
-    callback: useCallback(({ stage }: Triggers.UseEvent) => {
-      if (stage !== "start") return;
-      const overlaid = getIsOverlaid();
-      if (overlaid) {
-        sessionDispatch(Session.Panel.stopOverlaying({}));
-        return;
-      }
-      const focused = getFocusedTab();
-      if (focused != null) sessionDispatch(Session.Panel.startOverlaying({}));
-    }, []),
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        const overlaid = getIsOverlaid();
+        if (overlaid) {
+          sessionDispatch(Session.Panel.stopOverlaying({}));
+          return;
+        }
+        const focused = getFocusedTab();
+        if (focused != null) sessionDispatch(Session.Panel.startOverlaying({}));
+      },
+      [getIsOverlaid, getFocusedTab, sessionDispatch],
+    ),
   });
   Triggers.use({
     triggers: [["Control", "W"]],

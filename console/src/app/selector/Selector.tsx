@@ -9,6 +9,7 @@
 
 import { type panel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { SELECTABLES } from "@/app/selector/selectables";
 import { Panel } from "@/platform/panel";
@@ -40,6 +41,9 @@ export type PickerVariant = "component" | "task";
 
 export const useOpenTab = (): ((variant?: PickerVariant) => void) => {
   const openTab = Panel.useOpenTab();
-  return (variant: PickerVariant = "component") =>
-    openTab({ variant: "view", type: TAB_TYPE, args: { variant } });
+  return useCallback(
+    (variant: PickerVariant = "component") =>
+      openTab({ variant: "view", type: TAB_TYPE, args: { variant } }),
+    [openTab],
+  );
 };

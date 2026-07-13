@@ -33,11 +33,11 @@ export const TabMenuItems = ({ panelKey, tabKey }: TabMenuItemsProps): ReactElem
   );
   const handleClose = useCallback(
     () => dispatchPanel(panel.removeTab({ key: tabKey })),
-    [dispatchPanel, panelKey, tabKey],
+    [dispatchPanel, tabKey],
   );
   const handleOverlay = useCallback(() => {
     dispatch(Session.Panel.startOverlaying({}));
-  }, [dispatch, tabKey]);
+  }, [dispatch]);
   return (
     <>
       <CMenu.RenameItem

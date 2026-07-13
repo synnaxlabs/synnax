@@ -105,7 +105,7 @@ export const Selector = (): ReactElement | null => {
   );
 
   const { update: create } = Panel.useCreate();
-  const handleCreate = useCallback(() => create({ name: "New Panel" }), []);
+  const handleCreate = useCallback(() => create({ name: "New Panel" }), [create]);
 
   useEffect(() => {
     if (data.length === 0) return;
