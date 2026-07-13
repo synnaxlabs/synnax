@@ -116,7 +116,8 @@ const Leaf = ({
   tabName,
 }: LeafProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
-  const selectorDropProps = Base.useSelectorDropProps({ nodeKey: path });
+  const tabKeys = useMemo(() => tabs.map(({ key }) => key), [tabs]);
+  const selectorDropProps = Base.useSelectorDropProps({ nodeKey: path, tabKeys });
   return (
     <Base.Leaf nodeKey={path} grow>
       <Tabs.Frame value={selected} onChange={onSelect} grow>

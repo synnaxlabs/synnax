@@ -21,6 +21,12 @@ import { type Tabs } from "@/tabs";
 export interface UseSelectorDropPropsParams {
   /** The key of the leaf whose tab strip is being wired, as passed to its Leaf. */
   nodeKey: number;
+  /**
+   * The keys of the tabs currently in the leaf. Used to reject drops that would
+   * remove every tab from the leaf and re-insert into it, such as dropping a leaf's
+   * sole tab back onto its own strip.
+   */
+  tabKeys: string[];
 }
 
 export type UseSelectorDropPropsReturn = Required<
@@ -36,13 +42,17 @@ export type UseSelectorDropPropsReturn = Required<
  */
 export const useSelectorDropProps = ({
   nodeKey,
+  tabKeys,
 }: UseSelectorDropPropsParams): UseSelectorDropPropsReturn => {
   const { onDrop, onCreate } = useContext("Mosaic.useSelectorDropProps");
   const canDrop: Haul.CanDrop = useCallback(
-    ({ items }) =>
-      filterTabDropHaulItems(items).length > 0 ||
-      filterTabCreateHaulItems(items).length > 0,
-    [],
+    ({ items }) => {
+      if (filterTabCreateHaulItems(items).length > 0) return true;
+      const dropped = filterTabDropHaulItems(items).map(({ key }) => key);
+      if (dropped.length === 0) return false;
+      return tabKeys.length === 0 || tabKeys.some((key) => !dropped.includes(key));
+    },
+    [tabKeys],
   );
   const handleDrop = useCallback(
     ({ items, index }: Tabs.SelectorOnDropParams): Haul.Item[] => {
