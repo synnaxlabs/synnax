@@ -22,11 +22,11 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// openManyPeers opens a client stream to each target peer, immediately sending the
-// open request that spins up a remote writer on that peer. On success it also returns
-// the opened senders so the caller can close them (via closePeerClients) if a later
-// step of the open flow fails; the remote writers hold control over their channels
-// until their streams are closed.
+// openManyPeers opens a client stream to each target peer, immediately sending the open
+// request that spins up a remote writer on that peer. On success it also returns the
+// opened senders so the caller can close them (via closePeerClients) if a later step of
+// the open flow fails; the remote writers hold control over their channels until their
+// streams are closed.
 func (s *Service) openManyPeers(
 	ctx context.Context,
 	cfg Config,

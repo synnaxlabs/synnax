@@ -69,8 +69,8 @@ type Writer struct {
 }
 
 // Write writes the given frame to the cluster, returning whether the write was
-// authorized. When the writer was opened with Sync set to false, authorization
-// failures are only surfaced on Commit or Close.
+// authorized. When the writer was opened with Sync set to false, authorization failures
+// are only surfaced on Commit or Close.
 func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 	res, err := w.exec(Request{Frame: frame, Command: CommandWrite}, *w.cfg.Sync)
 	if err != nil {
@@ -117,8 +117,8 @@ func (w *Writer) exec(req Request, sync bool) (Response, error) {
 	return res, w.close(nil)
 }
 
-// Close closes the writer, releasing its control over the written region. Close
-// returns any accumulated write error.
+// Close closes the writer, releasing its control over the written region. Close returns
+// any accumulated write error.
 func (w *Writer) Close() error { return w.close(nil) }
 
 func (w *Writer) close(err error) error {

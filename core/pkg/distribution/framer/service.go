@@ -29,10 +29,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// freeWritePipelineBuffer sets the channel buffer size for moving free-channel writes
-// from the writer pipeline into the relay.
-const freeWritePipelineBuffer = 4000
-
 // Service is the distribution layer interface for reading, writing, and streaming
 // telemetry frames through Synnax. The service provides access to three APIs: writers
 // for writing data, iterators for reading historical data, and streamers for consuming
@@ -90,6 +86,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	return c
 }
+
+const freeWritePipelineBuffer = 4000
 
 // OpenService opens a new service using the provided configuration(s). Fields defined
 // in each subsequent configuration override those in previous configurations. See the

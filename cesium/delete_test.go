@@ -227,11 +227,10 @@ var _ = Describe("Delete", func() {
 							// writer that lives until the DB closes, so use a dedicated
 							// DB to keep the spec goroutine-clean.
 							sub := MustSucceed(fs.Sub("control-digest-delete"))
-							subDB := openDBOnFS(ctx, sub)
+							subDB := mustOpenDBOnFS(ctx, sub)
 							controlKey := GenerateChannelKey()
 							Expect(subDB.ConfigureControlUpdateChannel(ctx, controlKey, "sy_cesium_control")).To(Succeed())
 							Expect(subDB.DeleteChannel(controlKey)).To(MatchError(ContainSubstring("1 unclosed writers")))
-							Expect(subDB.Close()).To(Succeed())
 						})
 					})
 				})

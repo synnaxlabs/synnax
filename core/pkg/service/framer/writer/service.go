@@ -25,9 +25,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -90,30 +88,17 @@ const (
 	distributionAddr address.Address = "distribution"
 )
 
-func emptyKeysError() error {
-	v := validate.New("service.framer.writer")
-	validate.NotEmptySlice(v, "keys", channel.Keys{})
-	return v.Error()
-}
-
 // NewStream opens a StreamWriter for the channels in cfg, driven through confluence
 // inlet requests and outlet responses. It returns an error if cfg is invalid or any
 // channel in cfg.Keys cannot be resolved.
 func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, error) {
 	keys := cfg.Keys.Unique()
-	if len(keys) == 0 {
-		return nil, emptyKeysError()
-	}
 	var channels []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().
 		Where(channel.MatchKeys(keys...)).
 		Entries(&channels).
 		Exec(ctx, nil); err != nil {
 		return nil, err
-	}
-	if len(channels) != len(keys) {
-		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return nil, errors.Wrapf(query.ErrNotFound, "channels %v not found", missing)
 	}
 	channelMap := make(map[channel.Key]channel.Channel, len(channels))
 	cfg.FreeIndexes = make(map[channel.Key]channel.Key)
@@ -141,9 +126,6 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 // caller must Close the returned Writer to release its control over the written region.
 // It returns an error if cfg is invalid or any channel in cfg.Keys cannot be resolved.
 func (s *Service) Open(ctx context.Context, cfg Config) (*Writer, error) {
-	if len(cfg.Keys) == 0 {
-		return nil, emptyKeysError()
-	}
 	resolved, err := config.New(writer.DefaultConfig(), cfg)
 	if err != nil {
 		return nil, err

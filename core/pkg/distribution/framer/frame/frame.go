@@ -60,8 +60,7 @@ func (f Frame) SplitByLeaseholder() map[node.Key]Frame {
 // channel:
 //   - local: contains series for channels leased by the specified host
 //   - remote: contains series for channels leased by other hosts
-//   - free: contains series for free channels, which are not leased to any node and
-//     are propagated through the distribution relay rather than storage
+//   - free: contains series for channels that are not leased by any host
 func (f Frame) SplitByHost(host node.Key) (local Frame, remote Frame, free Frame) {
 	for key, series := range f.Entries() {
 		if key.Lease() == host {

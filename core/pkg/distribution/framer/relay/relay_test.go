@@ -465,9 +465,9 @@ var _ = Describe("Relay", func() {
 	// The relay does not validate streamer keys against storage: the service layer
 	// validates at open time, but a channel can be deleted between that check and the
 	// demand reaching the tapper, and mid-stream key updates are never validated. The
-	// gateway tap must drop keys that don't resolve in local storage instead of
-	// failing outright, since a failed tap starves every streamer demanding host
-	// channels on the node.
+	// gateway tap must drop keys that don't resolve in local storage instead of failing
+	// outright, since a failed tap starves every streamer demanding host channels on
+	// the node.
 	Describe("Unknown Keys", Ordered, func() {
 		var svc mock.Node
 		BeforeAll(func(ctx SpecContext) {
@@ -506,11 +506,10 @@ var _ = Describe("Relay", func() {
 			Eventually(res.Outlet()).Should(Receive(&ack))
 			Expect(ack.Frame.Empty()).To(BeTrue())
 
-			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+			w := MustOpen(svc.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
-			defer func() { Expect(w.Close()).To(Succeed()) }()
 			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
 				telem.NewSeriesV[int64](1, 2, 3),
 				telem.NewSeriesV[int64](4, 5, 6),
@@ -553,11 +552,10 @@ var _ = Describe("Relay", func() {
 			Eventually(validRes.Outlet()).Should(Receive(&ack))
 			Expect(ack.Frame.Empty()).To(BeTrue())
 
-			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+			w := MustOpen(svc.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 			}))
-			defer func() { Expect(w.Close()).To(Succeed()) }()
 			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
 				telem.NewSeriesV[int64](1, 2, 3),
 				telem.NewSeriesV[int64](4, 5, 6),
