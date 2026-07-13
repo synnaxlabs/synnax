@@ -10,7 +10,7 @@
 import { type Dispatch } from "@reduxjs/toolkit";
 import { type Haul, type state } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import {
   type Action,
@@ -25,11 +25,6 @@ const selectHauling = (state: StoreState): Haul.DraggingState =>
 
 export const useSelectHauling = (): Haul.DraggingState =>
   Select.useMemo(selectHauling, []);
-
-export const useGetHauling = (): (() => Haul.DraggingState) => {
-  const store = useStore<StoreState>();
-  return useCallback(() => selectHauling(store.getState()), [store]);
-};
 
 const useState: state.PureUse<Haul.DraggingState> = () => {
   const hauled = useSelectHauling();

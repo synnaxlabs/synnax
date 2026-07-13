@@ -10,7 +10,7 @@
 import { type Dispatch } from "@reduxjs/toolkit";
 import { Color, type state } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useDispatch } from "react-redux";
 
 import {
   type Action,
@@ -25,11 +25,6 @@ const selectContext = (state: StoreState): Color.ContextState =>
 
 export const useSelectContext = (): Color.ContextState =>
   Select.useMemo(selectContext, []);
-
-export const useGetContext = (): (() => Color.ContextState) => {
-  const store = useStore<StoreState>();
-  return useCallback(() => selectContext(store.getState()), [store]);
-};
 
 const useState: state.PureUse<Color.ContextState> = () => {
   const colorContext = useSelectContext();
