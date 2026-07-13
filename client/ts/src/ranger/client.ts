@@ -10,7 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
-  color,
+  type color,
   type CrudeTimeRange,
   type Series,
   TimeRange,
@@ -134,7 +134,6 @@ export class Range {
   async retrieveChildren(): Promise<Range[]> {
     const res = (
       await this.ontologyClient.retrieveChildren(this.ontologyID, {
-        excludeFieldData: true,
         types: ["range"],
       })
     ).map((r) => r.id.key);
@@ -270,10 +269,6 @@ export class Client {
     return await this.retrieve(first.id.key);
   }
 
-  sugarOntologyResource(resource: ontology.Resource): Range {
-    return this.sugarOne(convertOntologyResourceToPayload(resource));
-  }
-
   async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {
     const aliaser = this.createAliasClient(range);
     return await aliaser.retrieve(channel);
@@ -313,30 +308,9 @@ export class Client {
   sugarMany(payloads: Payload[]): Range[] {
     return payloads.map((payload) => this.sugarOne(payload));
   }
-
-  resourceToRange(resource: ontology.Resource): Range {
-    return this.sugarOne(convertOntologyResourceToPayload(resource));
-  }
 }
 
 export const aliasOntologyID = (key: Key): ontology.ID => ({
   type: "range-alias",
   key,
 });
-
-export const convertOntologyResourceToPayload = ({
-  data,
-  id: { key },
-  name,
-}: ontology.Resource): Payload => {
-  const timeRange = TimeRange.z.parse(data?.timeRange);
-  const c = color.colorZ.safeParse(data?.color);
-  return {
-    key,
-    name,
-    timeRange,
-    color: c.success ? c.data : undefined,
-    labels: [],
-    parent: undefined,
-  };
-};

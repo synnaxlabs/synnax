@@ -40,10 +40,7 @@ export const List = ({ items, ...rest }: ListProps): ReactElement => {
     };
     return Component.renderProp(ListItem);
   }, [items]);
-  const listProps = Ontology.useResourceList({
-    filter,
-    initialQuery: { excludeFieldData: true },
-  });
+  const listProps = Ontology.useResourceList({ filter });
   return (
     <Palette.BaseList
       emptyContent={emptyContent}

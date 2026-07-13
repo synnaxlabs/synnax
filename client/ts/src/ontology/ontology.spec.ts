@@ -90,19 +90,17 @@ describe("Ontology", () => {
       expect(result).toEqual([{ type: "group", key: "test" }]);
     });
 
-    it("should handle mixed Resource objects with different data types", () => {
+    it("should handle mixed Resource objects", () => {
       const resources: ontology.Resource[] = [
         {
           id: { type: "group", key: "test-key-1" },
           name: "Test Resource 1",
           key: "group:test-key-1",
-          data: { customField: "value" },
         },
         {
           id: { type: "channel", key: "test-key-2" },
           name: "Test Resource 2",
           key: "channel:test-key-2",
-          data: null,
         },
       ];
       const result = ontology.parseIDs(resources);

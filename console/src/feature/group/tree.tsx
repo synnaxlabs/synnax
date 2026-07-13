@@ -22,6 +22,17 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
+  await Group.retrieveSingle({
+    client,
+    store: store as Group.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
@@ -88,6 +99,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: getName(firstID), ontologyID: firstID })}
+          />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
           />
           <Menu.Divider />
         </>

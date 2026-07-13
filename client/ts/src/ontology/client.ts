@@ -27,7 +27,6 @@ const retrieveReqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
-  excludeFieldData: z.boolean().optional(),
   types: resourceTypeZ.array().optional(),
   searchTerm: z.string().optional(),
   limit: z.int().optional(),
@@ -37,8 +36,12 @@ export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 export interface RetrieveOptions extends Pick<
   RetrieveRequest,
-  "excludeFieldData" | "types" | "children" | "parents"
+  "types" | "children" | "parents"
 > {}
+
+// Resource has no data field in the TypeScript client, so every retrieval asks the
+// server to omit field data from the response.
+const retrieveWireReqZ = retrieveReqZ.extend({ excludeFieldData: z.literal(true) });
 
 const retrieveResZ = z.object({ resources: resourceZ.array() });
 
@@ -57,8 +60,6 @@ export class Client {
    * Retrieves the resource in the ontology with the given ID.
    * @param id - The ID of the resource to retrieve.
    * @param options - Additional options for the retrieval.
-   * @param options.excludeFieldData - Whether to exclude the field data of the resource
-   * in the results.
    * @returns The resource with the given ID.
    * @throws {QueryError} If no resource is found with the given ID.
    */
@@ -69,8 +70,6 @@ export class Client {
    *
    * @param ids - The IDs of the resources to retrieve.
    * @param options - Additional options for the retrieval.
-   * @param options.excludeFieldData - Whether to exclude the field data of the
-   * resources in the results.
    * @returns The resources with the given IDs.
    * @throws {QueryError} If no resource is found with any of the given IDs.
    */
@@ -119,8 +118,6 @@ export class Client {
    *
    * @param ids - the IDs of the resources whose parents to retrieve
    * @param options - additional options for the retrieval
-   * @param options.excludeFieldData - whether to exclude the field data of the parents
-   * in the results
    * @returns the parents of the resources with the given IDs
    */
   async retrieveParents(
@@ -165,8 +162,8 @@ export class Client {
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
     const { resources } = await this.client.send(
       "/ontology/retrieve",
-      request,
-      retrieveReqZ,
+      { ...request, excludeFieldData: true },
+      retrieveWireReqZ,
       retrieveResZ,
     );
     return resources;

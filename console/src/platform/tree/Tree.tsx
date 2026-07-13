@@ -182,9 +182,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const resources = await client.ontology.retrieveChildren(root, {
-        excludeFieldData: true,
-      });
+      const resources = await client.ontology.retrieveChildren(root);
       resources.forEach((r) => resourceStore.set(r));
       if (signal.aborted) return;
       const filtered = resources.filter((r) => {
@@ -253,7 +251,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     if (action !== "expand") return;
     const clickedID = ontology.idZ.parse(clicked);
     setLoading(clicked);
-    retrieveChildren.retrieve({ id: clickedID, excludeFieldData: true });
+    retrieveChildren.retrieve({ id: clickedID });
   }, []);
 
   const getName = useCallback(

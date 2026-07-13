@@ -279,7 +279,7 @@ export const {
     const res = await client.ontology.retrieveParents(id);
     const parent = res.find(({ id: { type } }) => type === "range");
     if (parent == null) return null;
-    return client.ranges.sugarOntologyResource(parent);
+    return await client.ranges.retrieve(parent.id.key);
   },
   mountListeners: ({ store, onChange, client, query: { id } }) => [
     store.ranges.onSet((NextParent) => {

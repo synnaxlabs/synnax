@@ -101,7 +101,7 @@ export interface SnapshotsProps {
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const services = Range.useSnapshotServices();
   const { data, getItem, subscribe, retrieve, status } = Ontology.useListChildren({
-    initialQuery: { id: ranger.ontologyID(rangeKey), excludeFieldData: true },
+    initialQuery: { id: ranger.ontologyID(rangeKey) },
     filter: useCallback(
       (item: Tree.Entry) => services[item.id.type] != null,
       [services],

@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
+import { NotFoundError } from "@/errors";
 import { type Group, groupZ, type Key, keyZ } from "@/group/types.gen";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
 
@@ -29,6 +30,17 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
 
+const keyRetrieveReqZ = z
+  .object({ key: keyZ })
+  .transform(({ key }) => ({ keys: [key] }));
+const retrieveReqZ = z.object({ keys: z.array(keyZ) });
+const retrieveArgsZ = z.union([keyRetrieveReqZ, retrieveReqZ]);
+const retrieveResZ = z.object({ groups: groupZ.array().default(() => []) });
+
+export type RetrieveSingleParams = z.input<typeof keyRetrieveReqZ>;
+export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
+export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+
 export interface CreateArgs extends z.infer<typeof createReqZ> {}
 
 export class Client {
@@ -46,6 +58,29 @@ export class Client {
       resZ,
     );
     return res.group;
+  }
+
+  /**
+   * Retrieves groups from the cluster.
+   *
+   * @param args - `{ key }` to retrieve a single group, or `{ keys }` to retrieve
+   *   multiple.
+   * @throws {NotFoundError} if a single-key retrieve finds no matching group.
+   */
+  async retrieve(args: RetrieveSingleParams): Promise<Group>;
+  async retrieve(args: RetrieveMultipleParams): Promise<Group[]>;
+  async retrieve(args: RetrieveArgs): Promise<Group | Group[]> {
+    const isSingle = "key" in args;
+    const res = await this.client.send(
+      "/ontology/retrieve-group",
+      args,
+      retrieveArgsZ,
+      retrieveResZ,
+    );
+    if (!isSingle) return res.groups;
+    if (res.groups.length === 0)
+      throw new NotFoundError(`No group with key ${args.key} found`);
+    return res.groups[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type change, primitive, record } from "@synnaxlabs/x";
+import { array, type change, primitive, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { RESOURCE_TYPES, type ResourceType, resourceTypeZ } from "@/ontology/types.gen";
@@ -74,18 +74,9 @@ export const parseIDs = (
 };
 
 export const resourceZ = z
-  .object({
-    id: idZ,
-    name: z.string(),
-    data: record.unknownZ().optional().nullable(),
-  })
+  .object({ id: idZ, name: z.string() })
   .transform((resource) => ({ key: idToString(resource.id), ...resource }));
-export interface Resource<T extends record.Unknown = record.Unknown> extends Omit<
-  z.infer<typeof resourceZ>,
-  "data"
-> {
-  data?: T | null;
-}
+export interface Resource extends z.infer<typeof resourceZ> {}
 
 export type RelationshipDirection = "to" | "from";
 

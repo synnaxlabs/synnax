@@ -51,9 +51,9 @@ export const retrieveSingle = async ({
 }: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const cached = store.groups.get(key);
   if (cached != null) return cached;
-  const res = await client.ontology.retrieve(group.ontologyID(key));
-  store.groups.set(key, group.groupZ.parse(res.data));
-  return group.groupZ.parse(res.data);
+  const res = await client.groups.retrieve({ key });
+  store.groups.set(key, res);
+  return res;
 };
 
 export interface CreateParams extends group.CreateArgs {}
@@ -93,7 +93,8 @@ export const useList = Flux.createList<ListQuery, group.Key, group.Group, FluxSu
         ...query,
         types: ["group"],
       });
-      const groups = res.map((r) => group.groupZ.parse(r.data));
+      if (res.length === 0) return [];
+      const groups = await client.groups.retrieve({ keys: res.map((r) => r.id.key) });
       store.groups.set(groups);
       groups.forEach((g) => {
         const rel = {

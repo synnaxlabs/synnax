@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { NotFoundError } from "@/errors";
@@ -40,6 +40,32 @@ describe("Group", () => {
       });
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual("updated-name");
+    });
+  });
+  describe("retrieve", () => {
+    it("should retrieve a single group by key", async () => {
+      const name = `group-${Math.random()}`;
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const retrieved = await client.groups.retrieve({ key: g.key });
+      expect(retrieved.key).toEqual(g.key);
+      expect(retrieved.name).toEqual(name);
+    });
+    it("should retrieve multiple groups by keys", async () => {
+      const a = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `group-${Math.random()}`,
+      });
+      const b = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `group-${Math.random()}`,
+      });
+      const retrieved = await client.groups.retrieve({ keys: [a.key, b.key] });
+      expect(retrieved.map((g) => g.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    it("should throw NotFoundError when a single key does not exist", async () => {
+      await expect(
+        async () => await client.groups.retrieve({ key: uuid.create() }),
+      ).rejects.toThrow(NotFoundError);
     });
   });
   describe("rename", () => {
