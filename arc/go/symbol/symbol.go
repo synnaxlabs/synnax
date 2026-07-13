@@ -181,6 +181,12 @@ func (k VarKind) String() string {
 	}
 }
 
+// BacksInternalChannel reports whether this kind is backed by a program-local
+// channel (channel-read and literal) rather than a real external channel.
+func (k VarKind) BacksInternalChannel() bool {
+	return k == VarKindChannelRead || k == VarKindLiteral
+}
+
 // Symbol is a named entity in an Arc program and, when it has Children, a
 // container that holds other Symbols. Variables, functions, modules, channels,
 // blocks, loops, sequences, stages, and aliases are all Symbols distinguished

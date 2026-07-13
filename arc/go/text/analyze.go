@@ -101,10 +101,10 @@ type shellBuilder struct {
 	reExprs []reExprFeeder
 	// channelReadWriteBacking maps each reassigned channel read/write variable to the backing channel its reads use.
 	channelReadWriteBacking map[*symbol.Symbol]*symbol.Symbol
-	// channelReadWriteWriteBackings maps each reassigned channel read/write variable to its write-redirection machine.
-	channelReadWriteWriteBackings map[*symbol.Symbol]*channelReadWriteWriteMux
-	// channelReadWriteWriteOrder lists reassigned channel read/write variables in first-seen order for deterministic lowering.
-	channelReadWriteWriteOrder []*symbol.Symbol
+	// channelWriteBackings maps each reassigned channel read/write variable to its write-redirection machine.
+	channelWriteBackings map[*symbol.Symbol]*channelWriteMux
+	// channelWriteOrder lists reassigned channel read/write variables in first-seen order for deterministic lowering.
+	channelWriteOrder []*symbol.Symbol
 	// channelReadWriteBindingBody maps a reassigned channel read/write variable to the leaf body of its most recent binding.
 	channelReadWriteBindingBody map[*symbol.Symbol]*symbol.Symbol
 	// channelReadWriteCrossBodyRead and channelReadWriteCrossBodyWrite hold channel read/write variables whose reads or writes routed
@@ -133,8 +133,8 @@ func (s *shellBuilder) boundInSameBody(channelReadWrite, refScope *symbol.Symbol
 	return leafBody(bind) == leafBody(refScope)
 }
 
-// channelReadWriteWriteMux holds the write-redirection machine for one reassigned channel read/write variable.
-type channelReadWriteWriteMux struct {
+// channelWriteMux holds the write-redirection machine for one reassigned channel read/write variable.
+type channelWriteMux struct {
 	// backing is the backing channel the channel read/write variable's writes are redirected to.
 	backing *symbol.Symbol
 	// initBinding is the channel the channel read/write variable is bound to at its declaration.
@@ -196,11 +196,11 @@ func (s *shellBuilder) reExprsFor(target *symbol.Symbol) []reExprFeeder {
 
 func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
 	return &shellBuilder{
-		activations:         map[string]ir.Handle{},
-		synthByAST:          synthByAST,
-		varChannels:         set.New[uint32](),
+		activations:                    map[string]ir.Handle{},
+		synthByAST:                     synthByAST,
+		varChannels:                    set.New[uint32](),
 		channelReadWriteBacking:        map[*symbol.Symbol]*symbol.Symbol{},
-		channelReadWriteWriteBackings:  map[*symbol.Symbol]*channelReadWriteWriteMux{},
+		channelWriteBackings:           map[*symbol.Symbol]*channelWriteMux{},
 		channelReadWriteBindingBody:    map[*symbol.Symbol]*symbol.Symbol{},
 		channelReadWriteCrossBodyRead:  set.New[*symbol.Symbol](),
 		channelReadWriteCrossBodyWrite: set.New[*symbol.Symbol](),
@@ -448,11 +448,11 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
-		if isVarChannel(sym) {
+		if sym.VarKind.BacksInternalChannel() {
 			shell.varChannels.Add(channelKey(sym))
 		}
 		if isSink {
-			if mux, ok := shell.channelReadWriteWriteBackings[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
+			if mux, ok := shell.channelWriteBackings[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
 				shell.channelReadWriteCrossBodyWrite.Add(sym)
 				sym = mux.backing
 			}
@@ -535,12 +535,6 @@ func channelKey(sym *symbol.Symbol) uint32 {
 		return uint32(*sym.SourceID)
 	}
 	return uint32(sym.ID)
-}
-
-// isVarChannel reports whether sym is a value variable backed by an internal channel.
-func isVarChannel(sym *symbol.Symbol) bool {
-	return sym.VarKind == symbol.VarKindChannelRead ||
-		sym.VarKind == symbol.VarKindLiteral
 }
 
 // irVarKind maps a symbol's variable kind to its IR node representation.
@@ -643,7 +637,7 @@ func buildExprReadTriggers[T antlr.ParserRuleContext](
 		if !ok {
 			return nil, false
 		}
-		if isVarChannel(chanSym) {
+		if chanSym.VarKind.BacksInternalChannel() {
 			shell.varChannels.Add(channelKey(chanSym))
 		}
 		reads = append(reads, read)
@@ -662,7 +656,7 @@ func flowWriteKey(ctx acontext.Context[parser.IFlowStatementContext]) (uint32, b
 		return 0, false
 	}
 	sym, err := ctx.Scope.Resolve(ctx, id.IDENTIFIER().GetText())
-	if err != nil || (!isVarChannel(sym) && sym.Kind != symbol.KindChannel && sym.Type.Kind != types.KindChan) {
+	if err != nil || (!sym.VarKind.BacksInternalChannel() && sym.Kind != symbol.KindChannel && sym.Type.Kind != types.KindChan) {
 		return 0, false
 	}
 	return channelKey(sym), true
@@ -729,7 +723,7 @@ func collectSeededVars(root *symbol.Symbol) []*symbol.Symbol {
 			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
 				continue
 			}
-			if !c.Internal && isVarChannel(c) && c.DefaultValue != nil {
+			if !c.Internal && c.VarKind.BacksInternalChannel() && c.DefaultValue != nil {
 				out = append(out, c)
 			}
 			walk(c)
@@ -750,7 +744,7 @@ func collectExprVars(root *symbol.Symbol) []*symbol.Symbol {
 			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
 				continue
 			}
-			if !c.Internal && c.Kind == symbol.KindVariable && isVarChannel(c) &&
+			if !c.Internal && c.Kind == symbol.KindVariable && c.VarKind.BacksInternalChannel() &&
 				c.DefaultValue == nil {
 				if lv, ok := c.AST.(parser.ILocalVariableContext); ok && lv.Expression() != nil {
 					out = append(out, c)
@@ -800,12 +794,12 @@ func lowerVarWrite[T antlr.ParserRuleContext](
 	// A bare identifier copies the referenced channel's stream directly.
 	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
 		if src, err := base.Scope.Resolve(base, primary.IDENTIFIER().GetText()); err == nil &&
-			(isVarChannel(src) || src.Kind == symbol.KindChannel) {
+			(src.VarKind.BacksInternalChannel() || src.Kind == symbol.KindChannel) {
 			read, rok := buildChannelReadNode(src.Name, src, kg)
 			if !rok {
 				return nil, nil, false
 			}
-			if isVarChannel(src) {
+			if src.VarKind.BacksInternalChannel() {
 				shell.varChannels.Add(channelKey(src))
 			}
 			edge := ir.Edge{Source: read.output, Target: write.input, Kind: ir.EdgeKindContinuous}
@@ -938,7 +932,7 @@ func lowerChannelReadWriteRebind[T antlr.ParserRuleContext](
 	if !ok {
 		return nil, nil, true
 	}
-	mux, ok := shell.channelReadWriteWriteBackings[channelReadWrite]
+	mux, ok := shell.channelWriteBackings[channelReadWrite]
 	if !ok {
 		return nil, nil, true
 	}
@@ -1163,8 +1157,8 @@ func recordChannelReadWriteRebind[T antlr.ParserRuleContext](
 		return
 	}
 	shell.channelReadWriteBacking[sym] = readBacking
-	shell.channelReadWriteWriteBackings[sym] = &channelReadWriteWriteMux{backing: writeBacking, initBinding: initBinding}
-	shell.channelReadWriteWriteOrder = append(shell.channelReadWriteWriteOrder, sym)
+	shell.channelWriteBackings[sym] = &channelWriteMux{backing: writeBacking, initBinding: initBinding}
+	shell.channelWriteOrder = append(shell.channelWriteOrder, sym)
 	shell.channelReadWriteBindingBody[sym] = sym.Parent
 }
 
@@ -1483,6 +1477,24 @@ func Analyze(
 		i.Edges = append(i.Edges, edges...)
 	}
 
+	// assembleMachine appends target's feeder machine (init, feeders, readers, and
+	// the machine scope as a root member); shared by the read and write assembly.
+	assembleMachine := func(target *symbol.Symbol, initNodes []ir.Node, initEdges []ir.Edge, feeders []reExprFeeder) bool {
+		machine, readers, ok := buildReExprMachine(target, initNodes, feeders, kg)
+		if !ok {
+			return false
+		}
+		i.Nodes = append(i.Nodes, initNodes...)
+		i.Edges = append(i.Edges, initEdges...)
+		for _, f := range feeders {
+			i.Nodes = append(i.Nodes, f.nodes...)
+			i.Edges = append(i.Edges, f.edges...)
+		}
+		i.Nodes = append(i.Nodes, readers...)
+		rootMembers = append(rootMembers, ir.Member{Scope: &machine})
+		return true
+	}
+
 	// Assemble each re-expressed channel-read variable's feeder state machine.
 	channelReadWriteByReadBacking := make(map[*symbol.Symbol]*symbol.Symbol, len(shell.channelReadWriteBacking))
 	for channelReadWrite, backing := range shell.channelReadWriteBacking {
@@ -1496,45 +1508,26 @@ func Analyze(
 		if !ok {
 			return i, aCtx.Diagnostics
 		}
-		feeders := shell.reExprsFor(target)
-		machine, readers, ok := buildReExprMachine(target, initNodes, feeders, kg)
-		if !ok {
+		if !assembleMachine(target, initNodes, initEdges, shell.reExprsFor(target)) {
 			return i, aCtx.Diagnostics
 		}
-		i.Nodes = append(i.Nodes, initNodes...)
-		i.Edges = append(i.Edges, initEdges...)
-		for _, f := range feeders {
-			i.Nodes = append(i.Nodes, f.nodes...)
-			i.Edges = append(i.Edges, f.edges...)
-		}
-		i.Nodes = append(i.Nodes, readers...)
-		rootMembers = append(rootMembers, ir.Member{Scope: &machine})
 	}
 
 	// Assemble each reassigned channel read/write variable's write machine, forwarding its write backing to the
 	// binding current at runtime; the mirror of the read machine above.
-	for _, channelReadWrite := range shell.channelReadWriteWriteOrder {
+	for _, channelReadWrite := range shell.channelWriteOrder {
 		// A channel read/write variable whose writes all baked needs no machine.
 		if !shell.channelReadWriteCrossBodyWrite.Contains(channelReadWrite) {
 			continue
 		}
-		mux := shell.channelReadWriteWriteBackings[channelReadWrite]
+		mux := shell.channelWriteBackings[channelReadWrite]
 		initNodes, initEdges, ok := buildBackingForward(mux.backing, mux.initBinding, kg)
 		if !ok {
 			return i, aCtx.Diagnostics
 		}
-		machine, readers, ok := buildReExprMachine(mux.backing, initNodes, mux.feeders, kg)
-		if !ok {
+		if !assembleMachine(mux.backing, initNodes, initEdges, mux.feeders) {
 			return i, aCtx.Diagnostics
 		}
-		i.Nodes = append(i.Nodes, initNodes...)
-		i.Edges = append(i.Edges, initEdges...)
-		for _, f := range mux.feeders {
-			i.Nodes = append(i.Nodes, f.nodes...)
-			i.Edges = append(i.Edges, f.edges...)
-		}
-		i.Nodes = append(i.Nodes, readers...)
-		rootMembers = append(rootMembers, ir.Member{Scope: &machine})
 	}
 
 	// Inline bodies live as members of their enclosing scope; their flat IR

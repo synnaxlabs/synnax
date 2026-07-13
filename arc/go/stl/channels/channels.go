@@ -154,11 +154,6 @@ type nodeInputs struct {
 	Channel uint32 `json:"channel"`
 }
 
-// backsInternalChannel reports whether kind k is backed by a program-local channel.
-func backsInternalChannel(k ir.VarKind) bool {
-	return k == ir.VarKindLiteral || k == ir.VarKindChannelRead
-}
-
 type source struct {
 	*node.State
 	state         *ProgramState
@@ -251,7 +246,7 @@ func (s *sink) Next(ctx node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	if backsInternalChannel(s.varKind) {
+	if s.varKind.BacksInternalChannel() {
 		s.state.appendVarRead(s.key, data.DeepCopy())
 		ctx.SetDeadline(ctx.Elapsed)
 	} else {
