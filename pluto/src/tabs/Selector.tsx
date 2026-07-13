@@ -222,9 +222,10 @@ export const Selector = ({
       const next = horizontal ? "ArrowRight" : "ArrowDown";
       const prev = horizontal ? "ArrowLeft" : "ArrowUp";
       if (![next, prev, "Home", "End"].includes(key)) return;
-      // Only rove when a tab itself is focused: arrow keys pressed inside a tab's
+      // Only hover when a tab itself is focused: arrow keys pressed inside a tab's
       // children (an editable name, a close button) must keep their own meaning.
-      if ((e.target as HTMLElement).getAttribute?.("role") !== "tab") return;
+      if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab")
+        return;
       const tabs = Array.from(el.querySelectorAll<HTMLElement>('[role="tab"]'));
       if (tabs.length === 0) return;
       let target: number;
