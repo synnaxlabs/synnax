@@ -12,7 +12,6 @@ package writer
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/confluence"
@@ -31,17 +30,12 @@ var validateCommand = validate.NewInclusiveBoundsChecker(
 // validation error on the first invalid request.
 type validator struct {
 	confluence.LinearTransform[Request, Request]
-	// keys is the set of channel keys the writer was opened with.
-	keys channel.Keys
-	// channels maps each key in keys to its channel metadata.
+	// channels maps each channel key the writer was opened with to its metadata.
 	channels map[channel.Key]channel.Channel
 }
 
-func newValidator(
-	keys channel.Keys,
-	channels map[channel.Key]channel.Channel,
-) *validator {
-	v := &validator{keys: keys, channels: channels}
+func newValidator(channels map[channel.Key]channel.Channel) *validator {
+	v := &validator{channels: channels}
 	v.Transform = v.transform
 	return v
 }
@@ -67,17 +61,16 @@ func (v *validator) validate(req Request) error {
 		if req.Frame.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		if !lo.Contains(v.keys, k) {
+		ch, ok := v.channels[k]
+		if !ok {
 			return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
 		}
 		s := req.Frame.RawSeriesAt(rawI)
-		if ch, ok := v.channels[k]; ok {
-			if err := s.Validate(); err != nil {
-				return errors.Wrapf(err, "channel %s", ch)
-			}
-			if err := validateSeriesDataType(ch, s); err != nil {
-				return err
-			}
+		if err := s.Validate(); err != nil {
+			return errors.Wrapf(err, "channel %s", ch)
+		}
+		if err := validateSeriesDataType(ch, s); err != nil {
+			return err
 		}
 	}
 	return nil

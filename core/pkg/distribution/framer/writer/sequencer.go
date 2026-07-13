@@ -24,17 +24,13 @@ import (
 // services each channel, against its own authoritative channel record.
 type sequencer struct {
 	confluence.AbstractLinear[Request, Request]
-	responses struct {
-		confluence.NopFlow
-		confluence.AbstractUnarySource[Response]
-	}
 	seqNum int
 }
 
 // Flow implements the confluence.Flow interface.
 func (s *sequencer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
-	o.AttachClosables(s.responses.Out, s.Out)
+	o.AttachClosables(s.Out)
 	ctx.Go(func(ctx context.Context) error {
 		for {
 			select {

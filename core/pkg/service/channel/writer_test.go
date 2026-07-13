@@ -587,8 +587,37 @@ var _ = Describe("Writer", func() {
 				}
 				Expect(channelWriter.CreateMany(ctx, &chs)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("a non-index channel with that name is in the same request")),
+					MatchError(ContainSubstring("cannot serve as the index for calculated channel")),
 				))
+			})
+
+			It("Should reject a batch containing a persisted index channel that collides with an auto-created index name", func(ctx SpecContext) {
+				name := UniqueChannelName()
+				chs := []channel.Channel{
+					{Name: name, DataType: telem.Float64T, Expression: "return 1 + 1"},
+					{Name: name + "_time", DataType: telem.TimeStampT, IsIndex: true},
+				}
+				Expect(channelWriter.CreateMany(ctx, &chs)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot serve as the index for calculated channel")),
+				))
+			})
+
+			It("Should adopt a virtual free index channel in the same batch as a calculated channel", func(ctx SpecContext) {
+				name := UniqueChannelName()
+				chs := []channel.Channel{
+					{Name: name, DataType: telem.Float64T, Expression: "return 1 + 1"},
+					{
+						Name:        name + "_time",
+						DataType:    telem.TimeStampT,
+						IsIndex:     true,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+					},
+				}
+				Expect(channelWriter.CreateMany(ctx, &chs)).To(Succeed())
+				Expect(chs[0].LocalIndex).To(Equal(chs[1].LocalKey))
+				Expect(chs[0].Index()).To(Equal(chs[1].Key()))
 			})
 
 			It("Should reuse the existing index when overwriting a calculated channel", func(ctx SpecContext) {
