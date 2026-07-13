@@ -26,7 +26,7 @@ import { Errors } from "@/platform/errors";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
 
-export interface AppProps extends Pluto.ContextProps {}
+export interface AppProps extends Pick<Pluto.ContextProps, "workerURL"> {}
 
 export const App = ({ workerURL }: AppProps): ReactElement => {
   Haul.useBlockDefaultDropBehavior();
