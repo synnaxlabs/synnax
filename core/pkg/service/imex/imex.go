@@ -396,7 +396,7 @@ type Importer interface {
 	// fallback — so importers should treat it as the resource's name rather than
 	// re-deriving one from the body. The importer owns all ontology writes for the
 	// resource, including attaching it under opts.Project when one is given.
-	Import(ctx context.Context, tx gorp.Tx, env Envelope, opts ImportOptions) (ontology.ID, error)
+	Import(context.Context, gorp.Tx, Envelope, ImportOptions) (ontology.ID, error)
 	// Type returns the broader ontology resource type the importer creates. For
 	// services with asymmetric registration (e.g. a task service registered under
 	// "http_read" and "opc_scan") this is the coarser ontology type ("task"); it is the

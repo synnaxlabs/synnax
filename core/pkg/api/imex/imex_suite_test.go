@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -75,7 +75,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	imexSvc.RegisterImporter(string(importer.Type()), importer)
 	apiSvc = MustSucceed(apiimex.NewService(apicfg.LayerConfig{
 		Distribution: &distribution.Layer{DB: db},
-		Service: &svc.Layer{
+		Service: &service.Layer{
 			ImEx: imexSvc,
 			RBAC: rbacSvc,
 		},

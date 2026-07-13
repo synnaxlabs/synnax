@@ -48,19 +48,6 @@ type (
 	ImportResponse = ontology.ID
 )
 
-// The out-of-band import settings arrive as freighterctx-prefixed HTTP query
-// parameters (e.g. freighterctxfile_name) — the request body is the file's raw bytes,
-// so there is nowhere in-band to carry them. The transport strips the prefix and
-// exposes the values through freighter's request params under the names below.
-const (
-	// fileNameParam carries the name of the file the envelope was read from, used as
-	// the envelope name when the body has no `name` field.
-	fileNameParam = "file_name"
-	// projectParam carries the UUID of the project to create the imported resource
-	// under.
-	projectParam = "project"
-)
-
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -74,16 +61,16 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	objects := []ontology.ID{{Type: resourceType, Key: ""}}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	enforcer := s.access.NewEnforcer(tx)
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: objects,
+		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
 	if opts.Project != uuid.Nil {
-		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		if err = enforcer.Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionUpdate,
 			Objects: []ontology.ID{project.OntologyID(opts.Project)},
@@ -107,12 +94,12 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 		opts   imex.ImportOptions
 		params = freighter.MDFromContext(ctx).Params
 	)
-	if v, ok := params.Get(fileNameParam); ok {
+	if v, ok := params.Get("file_name"); ok {
 		if s, ok := v.(string); ok {
 			opts.FileName = s
 		}
 	}
-	if v, ok := params.Get(projectParam); ok {
+	if v, ok := params.Get("project"); ok {
 		if s, ok := v.(string); ok && s != "" {
 			key, err := uuid.Parse(s)
 			if err != nil {
