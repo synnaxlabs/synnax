@@ -21,7 +21,7 @@ import { assertDefined, createConsoleWrapper } from "@/testutil";
 const client = createTestClient();
 
 describe("Task.useLink", () => {
-  it("should open a task view tab for the retrieved task", async () => {
+  it("should open a task tab for the retrieved task", async () => {
     const rack = await client.racks.create({ name: `test-rack-${id.create()}` });
     const task = await rack.createTask({
       name: "Analog Read",
@@ -42,7 +42,7 @@ describe("Task.useLink", () => {
         (t): t is panel.TabView =>
           t.variant === "view" && t.type === NI.Task.ANALOG_READ_TYPE,
       );
-      assertDefined(tab, "task view tab was not opened");
+      assertDefined(tab, "task tab was not opened");
       expect(tab.args).toEqual({ taskKey: task.key });
     });
   });

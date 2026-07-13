@@ -26,7 +26,7 @@ const CreateAnalogReadCommand = Command.create({
   key: "ni_create_analog_read_task",
   name: "Create an NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(ANALOG_READ_TYPE),
+  useOnSelect: Task.createOpenTab(ANALOG_READ_TYPE),
   useVisible,
 });
 
@@ -34,7 +34,7 @@ const CreateAnalogWriteCommand = Command.create({
   key: "ni_create_analog_write_task",
   name: "Create an NI Analog Write Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(ANALOG_WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(ANALOG_WRITE_TYPE),
   useVisible,
 });
 
@@ -42,7 +42,7 @@ const CreateCounterReadCommand = Command.create({
   key: "ni_create_counter_read_task",
   name: "Create an NI Counter Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(COUNTER_READ_TYPE),
+  useOnSelect: Task.createOpenTab(COUNTER_READ_TYPE),
   useVisible,
 });
 
@@ -50,7 +50,7 @@ const CreateDigitalWriteCommand = Command.create({
   key: "ni_create_digital_write_task",
   name: "Create an NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(DIGITAL_WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(DIGITAL_WRITE_TYPE),
   useVisible,
 });
 
@@ -58,7 +58,7 @@ const CreateDigitalReadCommand = Command.create({
   key: "ni_create_digital_read_task",
   name: "Create an NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(DIGITAL_READ_TYPE),
+  useOnSelect: Task.createOpenTab(DIGITAL_READ_TYPE),
   useVisible,
 });
 

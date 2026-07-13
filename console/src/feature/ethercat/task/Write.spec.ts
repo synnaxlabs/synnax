@@ -23,7 +23,7 @@ import {
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormView,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
 
@@ -38,7 +38,7 @@ beforeAll(async () => {
 });
 
 const renderWrite = async (config?: unknown) =>
-  await renderTaskFormView(EtherCAT.Task.Write, EtherCAT.Task.WRITE_TYPE, {
+  await renderTaskFormTab(EtherCAT.Task.Write, EtherCAT.Task.WRITE_TYPE, {
     client,
     args: config == null ? {} : { config },
   });

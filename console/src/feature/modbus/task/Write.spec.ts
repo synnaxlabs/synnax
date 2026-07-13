@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { awaitTaskKey, renderTaskFormView } from "@/platform/task/testutil";
+import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -29,7 +29,7 @@ stubGeometry();
 describe("Modbus.Write", () => {
   it("should create command channels and indexes for the built channels on configure", async () => {
     const dev = await createModbusDevice(client);
-    const rendered = await renderTaskFormView(
+    const rendered = await renderTaskFormTab(
       Modbus.Task.Write,
       Modbus.Task.WRITE_TYPE,
       { client, args: { deviceKey: dev.key } },
@@ -81,7 +81,7 @@ describe("Modbus.Write", () => {
 
   it("should reuse existing command channels when reconfiguring", async () => {
     const dev = await createModbusDevice(client);
-    const first = await renderTaskFormView(Modbus.Task.Write, Modbus.Task.WRITE_TYPE, {
+    const first = await renderTaskFormTab(Modbus.Task.Write, Modbus.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key },
     });
@@ -96,7 +96,7 @@ describe("Modbus.Write", () => {
     });
     first.unmount();
 
-    await renderTaskFormView(Modbus.Task.Write, Modbus.Task.WRITE_TYPE, {
+    await renderTaskFormTab(Modbus.Task.Write, Modbus.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key, taskKey },
     });
@@ -117,7 +117,7 @@ describe("Modbus.Write", () => {
 
   it("should rename and remove a channel through the context menu", async () => {
     const dev = await createModbusDevice(client);
-    const { container } = await renderTaskFormView(
+    const { container } = await renderTaskFormTab(
       Modbus.Task.Write,
       Modbus.Task.WRITE_TYPE,
       { client, args: { deviceKey: dev.key } },

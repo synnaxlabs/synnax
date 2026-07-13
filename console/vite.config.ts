@@ -55,11 +55,7 @@ export default defineConfig({
     globals: true,
     environment: "jsdom",
     setupFiles: ["src/testutil/setuptests.ts"],
-    // Must exceed the asyncUtilTimeout in setuptests.ts so a stalled waitFor fails
-    // with its own diagnostic instead of a bare vitest timeout. Hooks make live-core
-    // round-trips (cleanup deletes), so they need the same headroom as tests.
-    testTimeout: 20_000,
-    hookTimeout: 20_000,
+    testTimeout: 15_000,
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],

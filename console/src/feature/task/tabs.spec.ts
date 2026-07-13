@@ -29,7 +29,7 @@ describe("retrieveAndOpenTab", () => {
     );
   });
 
-  it("should open a view tab carrying the retrieved task's type and key", async () => {
+  it("should open a tab carrying the retrieved task's type and key", async () => {
     const task = await createTask(NI.Task.ANALOG_READ_TYPE);
     const openTab = vi.fn();
     await Task.retrieveAndOpenTab(client, task.key, openTab);

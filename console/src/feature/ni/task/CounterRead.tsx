@@ -37,7 +37,7 @@ export const CounterReadSelectable = Selector.createSelectable({
   type: COUNTER_READ_TYPE,
   title: "NI Counter Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(COUNTER_READ_TYPE),
+  useOnSelect: Task.createOpenTab(COUNTER_READ_TYPE),
 });
 
 const Properties = () => (

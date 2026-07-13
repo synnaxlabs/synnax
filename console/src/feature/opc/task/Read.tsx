@@ -31,7 +31,7 @@ export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenView(READ_TYPE),
+  useOnSelect: Task.createOpenTab(READ_TYPE),
 });
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>

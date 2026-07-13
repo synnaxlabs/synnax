@@ -18,7 +18,7 @@ const CreateAlertCommand = Command.create({
   key: "pagerduty_create_alert_task",
   name: "Create a PagerDuty Alert Task",
   icon: <Icon.Logo.PagerDuty />,
-  useOnSelect: Task.createOpenView(ALERT_TYPE),
+  useOnSelect: Task.createOpenTab(ALERT_TYPE),
   useVisible: () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID),
 });
 

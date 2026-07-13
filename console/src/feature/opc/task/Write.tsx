@@ -31,7 +31,7 @@ export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenView(WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (

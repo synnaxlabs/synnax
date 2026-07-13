@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
-import { awaitTaskKey, renderTaskFormView } from "@/platform/task/testutil";
+import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
 import { getLabeledInput, stubGeometry, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -60,7 +60,7 @@ describe("OPC.Read", () => {
     const dev = await createOPCDevice(client);
     const chA = createInputChannel();
     const chB = createInputChannel();
-    const rendered = await renderTaskFormView(OPC.Task.Read, OPC.Task.READ_TYPE, {
+    const rendered = await renderTaskFormTab(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
       args: { deviceKey: dev.key, config: createReadConfig(dev.key, [chA, chB]) },
     });
@@ -102,7 +102,7 @@ describe("OPC.Read", () => {
     const dev = await createOPCDevice(client);
     const tsChannel = createInputChannel({ useAsIndex: true, dataType: "timestamp" });
     const dataChannel = createInputChannel();
-    const first = await renderTaskFormView(OPC.Task.Read, OPC.Task.READ_TYPE, {
+    const first = await renderTaskFormTab(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
       args: {
         deviceKey: dev.key,
@@ -128,7 +128,7 @@ describe("OPC.Read", () => {
     expect(created.index).toBe(indexKey);
     first.unmount();
 
-    await renderTaskFormView(OPC.Task.Read, OPC.Task.READ_TYPE, {
+    await renderTaskFormTab(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
       args: { deviceKey: dev.key, taskKey },
     });
@@ -150,7 +150,7 @@ describe("OPC.Read", () => {
 
   it("should swap the stream rate field for an array size field in array mode", async () => {
     const dev = await createOPCDevice(client);
-    await renderTaskFormView(OPC.Task.Read, OPC.Task.READ_TYPE, {
+    await renderTaskFormTab(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
       args: { deviceKey: dev.key },
     });

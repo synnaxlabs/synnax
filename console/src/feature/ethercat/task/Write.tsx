@@ -38,7 +38,7 @@ export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
   title: "EtherCAT Write Task",
   icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Task.createOpenView(WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (

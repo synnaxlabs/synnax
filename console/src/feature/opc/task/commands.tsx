@@ -20,7 +20,7 @@ const CreateReadCommand = Command.create({
   key: "opc_ua_create_read_task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenView(READ_TYPE),
+  useOnSelect: Task.createOpenTab(READ_TYPE),
   useVisible,
 });
 
@@ -28,7 +28,7 @@ const CreateWriteCommand = Command.create({
   key: "opc_ua_create_write_task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenView(WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
   useVisible,
 });
 

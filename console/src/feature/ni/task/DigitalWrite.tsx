@@ -37,7 +37,7 @@ export const DigitalWriteSelectable = Selector.createSelectable({
   type: DIGITAL_WRITE_TYPE,
   title: "NI Digital Write Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(DIGITAL_WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(DIGITAL_WRITE_TYPE),
 });
 
 const Properties = () => (

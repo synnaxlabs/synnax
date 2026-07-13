@@ -37,7 +37,7 @@ export const DigitalReadSelectable = Selector.createSelectable({
   type: DIGITAL_READ_TYPE,
   title: "NI Digital Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(DIGITAL_READ_TYPE),
+  useOnSelect: Task.createOpenTab(DIGITAL_READ_TYPE),
 });
 
 const Properties = () => (

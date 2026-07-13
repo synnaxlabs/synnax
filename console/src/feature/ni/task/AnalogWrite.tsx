@@ -37,7 +37,7 @@ export const AnalogWriteSelectable = Selector.createSelectable({
   type: ANALOG_WRITE_TYPE,
   title: "NI Analog Write Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(ANALOG_WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(ANALOG_WRITE_TYPE),
 });
 
 const Properties = () => (

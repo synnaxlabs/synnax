@@ -17,13 +17,13 @@ import { type Task } from "@/platform/task";
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormView,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const renderAlert = async (
   options: { client?: Synnax | null; args?: Task.FormViewArgs } = {},
-) => await renderTaskFormView(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
+) => await renderTaskFormTab(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 

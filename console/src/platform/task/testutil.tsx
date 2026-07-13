@@ -276,7 +276,7 @@ export interface RenderTaskFormViewResult extends RenderResult, CreatedPanel {
  * single leaf holds a view tab of the given type carrying `args`, then mounts the tab
  * content inside the panel and tab scopes within the full console provider stack.
  */
-export const renderTaskFormView = async (
+export const renderTaskFormTab = async (
   Tab: Panel.Tab,
   type: string,
   options: RenderTaskFormViewOptions = {},

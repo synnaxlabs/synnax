@@ -22,7 +22,7 @@ import {
   awaitTaskKey,
   clickConfigure,
   findDialogTriggerByText,
-  renderTaskFormView,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { getIconButton, stubGeometry, uniqueName } from "@/testutil";
 
@@ -31,7 +31,7 @@ const client = createTestClient();
 stubGeometry();
 
 const renderWrite = async (args = {}) =>
-  await renderTaskFormView(LabJack.Task.Write, LabJack.Task.WRITE_TYPE, {
+  await renderTaskFormTab(LabJack.Task.Write, LabJack.Task.WRITE_TYPE, {
     client,
     args,
   });

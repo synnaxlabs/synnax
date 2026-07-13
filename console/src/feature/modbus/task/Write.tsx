@@ -45,7 +45,7 @@ export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
   title: "Modbus Write Task",
   icon: <Icon.Logo.Modbus />,
-  useOnSelect: Task.createOpenView(WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (

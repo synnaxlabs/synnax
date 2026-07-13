@@ -55,7 +55,7 @@ export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
   title: "HTTP Write Task",
   icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenView(WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (

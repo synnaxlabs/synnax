@@ -16,7 +16,7 @@ import { expect } from "vitest";
 import * as Device from "@/feature/ni/device/types";
 import { type Panel } from "@/platform/panel";
 import {
-  renderTaskFormView,
+  renderTaskFormTab,
   type RenderTaskFormViewOptions,
   type RenderTaskFormViewResult,
 } from "@/platform/task/testutil";
@@ -63,7 +63,7 @@ export interface RenderNITaskFormResult extends RenderTaskFormViewResult {
 }
 
 /**
- * Renders a wrapped NI task form the way the mosaic does (via renderTaskFormView)
+ * Renders a wrapped NI task form the way the mosaic does (via renderTaskFormTab)
  * with a status capture mounted alongside it, so specs can assert on notifications
  * raised by the configure flow.
  */
@@ -73,7 +73,7 @@ export const renderNITaskForm = async (
   options: Omit<RenderTaskFormViewOptions, "onStatuses"> = {},
 ): Promise<RenderNITaskFormResult> => {
   const statuses: Status.NotificationSpec[] = [];
-  const result = await renderTaskFormView(Tab, type, {
+  const result = await renderTaskFormTab(Tab, type, {
     ...options,
     onStatuses: (next) => {
       statuses.length = 0;

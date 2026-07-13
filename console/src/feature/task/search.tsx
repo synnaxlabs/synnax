@@ -10,7 +10,7 @@
 import { type ontology } from "@synnaxlabs/client";
 import { Icon, Status, Synnax } from "@synnaxlabs/pluto";
 
-import { retrieveAndOpenTab } from "@/feature/task/views";
+import { retrieveAndOpenTab } from "@/feature/task/tabs";
 import { Panel } from "@/platform/panel";
 import { Search } from "@/platform/search";
 

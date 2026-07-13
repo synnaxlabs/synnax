@@ -39,7 +39,7 @@ export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
   title: "LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  useOnSelect: Task.createOpenView(READ_TYPE),
+  useOnSelect: Task.createOpenTab(READ_TYPE),
 });
 
 const Properties = () => (

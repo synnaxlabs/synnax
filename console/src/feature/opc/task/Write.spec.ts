@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
-import { awaitTaskKey, renderTaskFormView } from "@/platform/task/testutil";
+import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -55,7 +55,7 @@ describe("OPC.Write", () => {
     const dev = await createOPCDevice(client);
     const chA = createOutputChannel();
     const chB = createOutputChannel();
-    const rendered = await renderTaskFormView(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
+    const rendered = await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [chA, chB]) },
     });
@@ -90,7 +90,7 @@ describe("OPC.Write", () => {
   it("should reuse existing command channels when reconfiguring", async () => {
     const dev = await createOPCDevice(client);
     const ch = createOutputChannel();
-    const first = await renderTaskFormView(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
+    const first = await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [ch]) },
     });
@@ -103,7 +103,7 @@ describe("OPC.Write", () => {
     });
     first.unmount();
 
-    await renderTaskFormView(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
+    await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key, taskKey },
     });
@@ -125,7 +125,7 @@ describe("OPC.Write", () => {
   it("should rename and remove a channel through the context menu", async () => {
     const dev = await createOPCDevice(client);
     const ch = createOutputChannel();
-    await renderTaskFormView(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
+    await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [ch]) },
     });

@@ -20,7 +20,7 @@ const CreateReadCommand = Command.create({
   key: "ethercat_create_read_task",
   name: "Create an EtherCAT Read Task",
   icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Task.createOpenView(READ_TYPE),
+  useOnSelect: Task.createOpenTab(READ_TYPE),
   useVisible,
 });
 
@@ -28,7 +28,7 @@ const CreateWriteCommand = Command.create({
   key: "ethercat_create_write_task",
   name: "Create an EtherCAT Write Task",
   icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Task.createOpenView(WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
   useVisible,
 });
 

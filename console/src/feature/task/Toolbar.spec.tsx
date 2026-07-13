@@ -87,10 +87,7 @@ const renderToolbar = async () => {
   return { created, store };
 };
 
-const awaitViewTab = async (
-  created: CreatedPanel,
-  type: string,
-): Promise<record.Unknown> =>
+const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unknown> =>
   await waitFor(() => {
     const doc = created.fluxStore.panels.get(created.panelKey);
     assertDefined(doc, "panel doc missing from flux store");
@@ -98,7 +95,7 @@ const awaitViewTab = async (
     const tab = doc.root.tabs.find(
       (t): t is panel.TabView => t.variant === "view" && t.type === type,
     );
-    assertDefined(tab, `no ${type} view tab was opened`);
+    assertDefined(tab, `no ${type} tab was opened`);
     return tab.args;
   });
 
@@ -127,29 +124,29 @@ describe("task/Toolbar", () => {
     );
   });
 
-  it("opens the task selector view from the create action", async () => {
+  it("opens the task selector tab from the create action", async () => {
     const { created } = await renderToolbar();
     await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(getIconButton(document.body, "add"));
-    const args = await awaitViewTab(created, "taskSelector");
+    const args = await awaitTab(created, "taskSelector");
     expect(args).toEqual({});
   });
 
-  it("opens the task's configuration view on double click", async () => {
+  it("opens the task's configuration tab on double click", async () => {
     const t = await createTask();
     const { created } = await renderToolbar();
     fireEvent.doubleClick(await screen.findByText(t.name));
-    const args = await awaitViewTab(created, NI.Task.ANALOG_READ_TYPE);
+    const args = await awaitTab(created, NI.Task.ANALOG_READ_TYPE);
     expect(args).toEqual({ taskKey: t.key });
   });
 
   describe("context menu", () => {
-    it("opens the configuration view from Edit configuration", async () => {
+    it("opens the configuration tab from Edit configuration", async () => {
       const t = await createTask();
       const { created } = await renderToolbar();
       await openContextMenu(t.name);
       fireEvent.click(await screen.findByText("Edit configuration"));
-      const args = await awaitViewTab(created, NI.Task.ANALOG_READ_TYPE);
+      const args = await awaitTab(created, NI.Task.ANALOG_READ_TYPE);
       expect(args).toEqual({ taskKey: t.key });
     });
 

@@ -9,7 +9,7 @@
 
 import { useCallback } from "react";
 
-import { retrieveAndOpenTab } from "@/feature/task/views";
+import { retrieveAndOpenTab } from "@/feature/task/tabs";
 import { type Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 

@@ -35,7 +35,7 @@ export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  useOnSelect: Task.createOpenView(WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (

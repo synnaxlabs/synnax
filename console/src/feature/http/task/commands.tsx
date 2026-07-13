@@ -20,7 +20,7 @@ const CreateReadCommand = Command.create({
   key: "http_create_read_task",
   name: "Create an HTTP Read Task",
   icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenView(READ_TYPE),
+  useOnSelect: Task.createOpenTab(READ_TYPE),
   useVisible,
 });
 
@@ -28,7 +28,7 @@ const CreateWriteCommand = Command.create({
   key: "http_create_write_task",
   name: "Create an HTTP Write Task",
   icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenView(WRITE_TYPE),
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
   useVisible,
 });
 

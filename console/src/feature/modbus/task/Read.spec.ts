@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
-import { awaitTaskKey, renderTaskFormView } from "@/platform/task/testutil";
+import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
 import { getIconButton, stubGeometry } from "@/testutil";
 
 const client = createTestClient();
@@ -24,7 +24,7 @@ stubGeometry();
 describe("Modbus.Read", () => {
   it("should build channels in the form and create them on the cluster on configure", async () => {
     const dev = await createModbusDevice(client);
-    const rendered = await renderTaskFormView(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
+    const rendered = await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
       client,
       args: { deviceKey: dev.key },
     });
@@ -76,7 +76,7 @@ describe("Modbus.Read", () => {
 
   it("should reuse the existing index and channels when reconfiguring", async () => {
     const dev = await createModbusDevice(client);
-    const first = await renderTaskFormView(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
+    const first = await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
       client,
       args: { deviceKey: dev.key },
     });
@@ -91,7 +91,7 @@ describe("Modbus.Read", () => {
     });
     first.unmount();
 
-    await renderTaskFormView(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
+    await renderTaskFormTab(Modbus.Task.Read, Modbus.Task.READ_TYPE, {
       client,
       args: { deviceKey: dev.key, taskKey },
     });

@@ -37,7 +37,7 @@ export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
   title: "Modbus Read Task",
   icon: <Icon.Logo.Modbus />,
-  useOnSelect: Task.createOpenView(READ_TYPE),
+  useOnSelect: Task.createOpenTab(READ_TYPE),
 });
 
 const Properties = () => (

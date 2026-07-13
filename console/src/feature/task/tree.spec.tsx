@@ -107,12 +107,12 @@ const renderMenu = async (props: Tree.ContextMenuProps) => {
 
 describe("task ontology", () => {
   describe("onSelect", () => {
-    it("should open the task's configuration view when double-clicked", async () => {
+    it("should open the task's configuration tab when double-clicked", async () => {
       const t = await createTask();
       const { store } = await renderTaskTree(t);
       fireEvent.doubleClick(await findTreeRow(t.name));
       const tab = await resolveFocusedTab(store, client);
-      if (tab.variant !== "view") throw new Error("expected a view tab");
+      if (tab.variant !== "view") throw new Error("expected a tab");
       expect(tab.type).toBe(NI.Task.ANALOG_READ_TYPE);
       expect(tab.args).toEqual({ taskKey: t.key });
     });
@@ -138,7 +138,7 @@ describe("task ontology", () => {
       expect(await screen.findByText("View configuration")).toBeTruthy();
     });
 
-    it("should open the configuration view from Edit configuration", async () => {
+    it("should open the configuration tab from Edit configuration", async () => {
       const t = await createTask();
       const openTab = vi.fn();
       const props = await createMenuProps({

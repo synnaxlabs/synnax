@@ -55,7 +55,7 @@ export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
   title: "HTTP Read Task",
   icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenView(READ_TYPE),
+  useOnSelect: Task.createOpenTab(READ_TYPE),
 });
 
 const RATE_INPUT_PROPS = {

@@ -20,7 +20,7 @@ import {
   awaitTaskKey,
   clickConfigure,
   renderTaskFormHook,
-  renderTaskFormView,
+  renderTaskFormTab,
   selectViewArgs,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
@@ -82,7 +82,7 @@ describe("wrapForm", () => {
 
   it("should render the header name field, the child form, and the controls", async () => {
     const Renderer = createRenderer();
-    await renderTaskFormView(Renderer, "test_task");
+    await renderTaskFormTab(Renderer, "test_task");
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
     expect(findNameInput()).toBeTruthy();
     expect(screen.getByRole("button", { name: /Configure/ })).toBeTruthy();
@@ -90,7 +90,7 @@ describe("wrapForm", () => {
 
   it("should omit the controls when showControls is false", async () => {
     const Renderer = createRenderer({ showControls: false });
-    await renderTaskFormView(Renderer, "test_task");
+    await renderTaskFormTab(Renderer, "test_task");
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
     expect(screen.queryByRole("button", { name: /Configure/ })).toBeNull();
   });
@@ -98,7 +98,7 @@ describe("wrapForm", () => {
   describe("initial rackKey", () => {
     const renderProbe = async (args: Task.FormViewArgs = {}) => {
       const Renderer = createRenderer({ Form: RackKeyProbe });
-      await renderTaskFormView(Renderer, "test_task", { args });
+      await renderTaskFormTab(Renderer, "test_task", { args });
     };
 
     it("should prefill from the rackKey view arg", async () => {
@@ -125,7 +125,7 @@ describe("wrapForm", () => {
       const Renderer = createRenderer({
         onConfigure: async (_client, config) => [config, rack.key],
       });
-      const result = await renderTaskFormView(Renderer, "test_task", { client });
+      const result = await renderTaskFormTab(Renderer, "test_task", { client });
       await clickConfigure();
       const taskKey = await awaitTaskKey(result);
       const created = await client.tasks.retrieve({ key: taskKey });

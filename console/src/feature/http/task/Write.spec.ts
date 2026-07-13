@@ -19,7 +19,7 @@ import {
   awaitTaskKey,
   clickConfigure,
   findDialogTriggerByText,
-  renderTaskFormView,
+  renderTaskFormTab,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
@@ -34,7 +34,7 @@ stubGeometry();
 
 const renderWrite = async (
   options: { client?: Synnax | null; args?: Task.FormViewArgs } = {},
-) => await renderTaskFormView(HTTP.Task.Write, HTTP.Task.WRITE_TYPE, options);
+) => await renderTaskFormTab(HTTP.Task.Write, HTTP.Task.WRITE_TYPE, options);
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an endpoint"));

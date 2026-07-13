@@ -46,7 +46,7 @@ describe("createIngester", () => {
     expect(openTab).not.toHaveBeenCalled();
   });
 
-  it("should open a view tab carrying the parsed config when creation is granted", async () => {
+  it("should open a tab carrying the parsed config when creation is granted", async () => {
     const store = await getGrantedFluxStore();
     const ingest = Task.createIngester(configSchema, TYPE);
     const openTab = vi.fn();

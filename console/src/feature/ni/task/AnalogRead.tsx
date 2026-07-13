@@ -37,7 +37,7 @@ export const AnalogReadSelectable = Selector.createSelectable({
   type: ANALOG_READ_TYPE,
   title: "NI Analog Read Task",
   icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenView(ANALOG_READ_TYPE),
+  useOnSelect: Task.createOpenTab(ANALOG_READ_TYPE),
 });
 
 const Properties = () => (

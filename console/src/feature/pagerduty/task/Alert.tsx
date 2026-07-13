@@ -44,7 +44,7 @@ export const AlertSelectable = Selector.createSelectable({
   type: ALERT_TYPE,
   title: "PagerDuty Alert",
   icon: <Icon.Logo.PagerDuty />,
-  useOnSelect: Task.createOpenView(ALERT_TYPE),
+  useOnSelect: Task.createOpenTab(ALERT_TYPE),
 });
 
 const Properties = () => (

@@ -18,13 +18,13 @@ import { type Task } from "@/platform/task";
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormView,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
 const renderRead = async (
   options: { client?: Synnax | null; args?: Task.FormViewArgs } = {},
-) => await renderTaskFormView(HTTP.Task.Read, HTTP.Task.READ_TYPE, options);
+) => await renderTaskFormTab(HTTP.Task.Read, HTTP.Task.READ_TYPE, options);
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an endpoint"));

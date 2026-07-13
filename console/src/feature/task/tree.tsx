@@ -19,8 +19,8 @@ import {
 } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
+import { retrieveAndOpenTab } from "@/feature/task/tabs";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
-import { retrieveAndOpenTab } from "@/feature/task/views";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
