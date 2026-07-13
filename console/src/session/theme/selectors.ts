@@ -9,8 +9,8 @@
 
 import { type Dispatch } from "@reduxjs/toolkit";
 import { type Theming } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useMemo } from "react";
+import { useDispatch } from "react-redux";
 
 import { Select } from "@/session/select";
 import {
@@ -27,11 +27,6 @@ const selectSlice = (state: StoreState): SliceState => state[SLICE_NAME];
 const selectSelected = (state: StoreState) => selectSlice(state).selected;
 
 export const useSelectSelected = (): string => Select.useMemo(selectSelected, []);
-
-export const useGetSelected = (): (() => string) => {
-  const store = useStore<StoreState>();
-  return useCallback(() => selectSelected(store.getState()), [store]);
-};
 
 export const useProviderProps = (): Theming.ProviderProps => {
   const key = useSelectSelected();
