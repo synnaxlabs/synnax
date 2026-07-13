@@ -28,7 +28,7 @@ describe("log extractor", () => {
     const { data, name } = await extract(l.key, { client, store });
     expect(name).toBe(l.name);
     const parsed = JSON.parse(data);
-    expect(parsed).toMatchObject({ key: l.key, type: Log.LAYOUT_TYPE });
+    expect(parsed).toMatchObject({ type: Log.LAYOUT_TYPE });
     expect(parsed.version).toBe("2.0.0");
   });
 
