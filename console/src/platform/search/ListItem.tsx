@@ -26,7 +26,7 @@ export const BaseListItem = ({ icon, onSelect, ...rest }: BaseListItemProps) => 
   const { name } = item;
   const handleSelect = useCallback(() => onSelect(item), [onSelect, item]);
   return (
-    <Palette.ListItem {...rest} onClick={handleSelect}>
+    <Palette.ListItem {...rest} onSelect={handleSelect}>
       <Text.Text weight={450} gap="medium">
         {icon}
         {name}
