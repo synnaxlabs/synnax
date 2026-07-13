@@ -13,8 +13,10 @@ import { Haul } from "@synnaxlabs/pluto";
 export const SLICE_NAME = "haul";
 
 export interface SliceState {
-  // state is the drag-and-drop payload currently being hauled, mirrored into
-  // redux so drags synchronize across windows.
+  /**
+   * The drag-and-drop payload currently being hauled, mirrored into redux so drags
+   * synchronize across windows.
+   */
   state: Haul.DraggingState;
 }
 
@@ -40,7 +42,7 @@ export { reducer };
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
-// Drag state is transient; a persisted drag would resume a phantom haul on relaunch.
+/** Drag state is transient; a persisted drag would resume a phantom haul on relaunch. */
 export const PERSIST_EXCLUDE = <S extends StoreState>(state: S): S => ({
   ...state,
   [SLICE_NAME]: ZERO_SLICE_STATE,
