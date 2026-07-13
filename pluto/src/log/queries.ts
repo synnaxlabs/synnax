@@ -9,10 +9,8 @@
 
 import { type channel, log, NotFoundError, type project } from "@synnaxlabs/client";
 import { array, compare, uuid } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Scope } from "@/log/scope";
 import { Ontology } from "@/ontology";
 
@@ -58,22 +56,6 @@ export const {
   mountListeners: ({ store, query: { key }, onChange }) =>
     store.logs.onSet(onChange, key),
 });
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, log.Log>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success") return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
 
 export interface SelectKeyArgs {
   key: log.Key;

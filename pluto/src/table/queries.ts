@@ -58,22 +58,6 @@ export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
       store.tables.onSet(onChange, key),
   });
 
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, table.Table>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success") return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
-
 export interface SelectKeyArgs {
   key: table.Key;
 }

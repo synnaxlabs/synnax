@@ -799,39 +799,6 @@ describe("table queries", () => {
       await waitFor(() => expect(result.current.a).toEqual({ x: 0, y: 1 }));
     });
   });
-
-  describe("useRetrieveObservableName", () => {
-    it("fires the callback with the initial name and with each rename", async () => {
-      const proj = await client.projects.create({
-        name: `obs_name_ws_${uuid.create()}`,
-        layout: {},
-      });
-      const created = await client.tables.create(proj.key, {
-        name: "obs_initial",
-      });
-      const seen: string[] = [];
-      const { result } = renderHook(
-        () => ({
-          obs: Table.useRetrieveObservableName({
-            onChange: (name) => seen.push(name),
-          }),
-          rename: Table.useRename(),
-        }),
-        { wrapper },
-      );
-      await act(async () => {
-        await result.current.obs.retrieveAsync({ key: created.key });
-      });
-      await waitFor(() => expect(seen).toContain("obs_initial"));
-      await act(async () => {
-        await result.current.rename.updateAsync({
-          key: created.key,
-          name: "obs_renamed",
-        });
-      });
-      await waitFor(() => expect(seen).toContain("obs_renamed"));
-    });
-  });
 });
 
 describe("findCellPosition", () => {

@@ -1551,31 +1551,4 @@ describe("Arc queries", () => {
       await waitFor(() => expect(seen).toContain("obs_renamed"));
     });
   });
-
-  describe("useRetrieveObservableName", () => {
-    it("fires the callback with the initial name and with each rename", async () => {
-      const isolated = await createTestArc({ name: `obs_name_${id.create()}` });
-      const seen: string[] = [];
-      const { result } = renderHook(
-        () => ({
-          obs: Arc.useRetrieveObservableName({
-            onChange: (name) => seen.push(name),
-          }),
-          rename: Arc.useRename(),
-        }),
-        { wrapper },
-      );
-      await act(async () => {
-        await result.current.obs.retrieveAsync({ key: isolated.key });
-      });
-      await waitFor(() => expect(seen).toContain(isolated.name));
-      await act(async () => {
-        await result.current.rename.updateAsync({
-          key: isolated.key,
-          name: "obs_name_renamed",
-        });
-      });
-      await waitFor(() => expect(seen).toContain("obs_name_renamed"));
-    });
-  });
 });
