@@ -61,14 +61,15 @@ var _ = Describe("Create", Ordered, func() {
 		}))
 		Expect(out[0].LocalIndex).To(Equal(out[0].LocalKey))
 	})
-	It("Should register a free virtual channel as virtual storage on the creating node", func(ctx SpecContext) {
+	It("Should assign a key to a free virtual channel without registering it in storage", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 			{Name: "free", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
 		}))
 		Expect(out[0].LocalKey).ToNot(BeZero())
 		Expect(out[0].Key().Lease()).To(Equal(node.KeyFree))
-		stored := MustSucceed(n.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()))
-		Expect(stored.Virtual).To(BeTrue())
+		Expect(n.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
+			MatchError(query.ErrNotFound),
+		)
 	})
 	It("Should return an error when the leaseholder is not in the cluster", func(ctx SpecContext) {
 		Expect(n.Channel.Create(ctx, []channel.Channel{
@@ -128,14 +129,14 @@ var _ = Describe("Create", Ordered, func() {
 			}))
 			Expect(out[0].LocalKey).ToNot(BeZero())
 			Expect(out[0].Key().Lease()).To(Equal(node.KeyFree))
-			// Free allocation routes through the bootstrapper, so the storage
-			// registration lands there; the peer registers the channel when it next
-			// scans the channel table at startup.
+			// Free channels are never registered in storage on any node; only their
+			// key allocation routes through the bootstrapper.
 			Expect(peer.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
 				MatchError(query.ErrNotFound),
 			)
-			stored := MustSucceed(gateway.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey()))
-			Expect(stored.Virtual).To(BeTrue())
+			Expect(gateway.Storage.TS.RetrieveChannel(ctx, out[0].Key().StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
 		})
 		It("Should route a mixed batch to each channel's leaseholder", func(ctx SpecContext) {
 			out := MustSucceed(gateway.Channel.Create(ctx, []channel.Channel{
@@ -172,9 +173,9 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(peer.Storage.TS.RetrieveChannel(ctx, out[2].Key().StorageKey())).Error().To(
 				MatchError(query.ErrNotFound),
 			)
-			Expect(MustSucceed(
-				gateway.Storage.TS.RetrieveChannel(ctx, out[2].Key().StorageKey()),
-			).Virtual).To(BeTrue())
+			Expect(gateway.Storage.TS.RetrieveChannel(ctx, out[2].Key().StorageKey())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
 		})
 		It("Should return an error when the leaseholder is not in the cluster", func(ctx SpecContext) {
 			Expect(gateway.Channel.Create(ctx, []channel.Channel{

@@ -38,16 +38,12 @@ var _ = Describe("Delete", Ordered, func() {
 			MatchError(query.ErrNotFound),
 		)
 	})
-	It("Should delete the local transient registration of a free-virtual channel", func(ctx SpecContext) {
+	It("Should skip storage deletes for a free channel", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 			{Name: "free-delete", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
 		}))
 		key := out[0].Key()
-		MustSucceed(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
 		Expect(n.Channel.Delete(ctx, channel.Keys{key})).To(Succeed())
-		Expect(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey())).Error().To(
-			MatchError(query.ErrNotFound),
-		)
 	})
 	It("Should return an error when a key's leaseholder is not in the cluster", func(ctx SpecContext) {
 		Expect(n.Channel.Delete(ctx, channel.Keys{channel.NewKey(node.Key(99), 1)})).To(

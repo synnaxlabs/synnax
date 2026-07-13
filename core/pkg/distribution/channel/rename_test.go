@@ -37,7 +37,7 @@ var _ = Describe("Rename", Ordered, func() {
 		stored := MustSucceed(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
 		Expect(stored.Name).To(Equal("new-name"))
 	})
-	It("Should rename the local transient registration of a free-virtual channel", func(ctx SpecContext) {
+	It("Should skip storage renames for a free channel", func(ctx SpecContext) {
 		out := MustSucceed(n.Channel.Create(ctx, []channel.Channel{
 			{Name: "free-rename", DataType: telem.Float32T, Leaseholder: node.KeyFree, Virtual: true},
 		}))
@@ -45,8 +45,9 @@ var _ = Describe("Rename", Ordered, func() {
 		Expect(n.Channel.Rename(
 			ctx, map[channel.Key]string{key: "free-renamed"},
 		)).To(Succeed())
-		stored := MustSucceed(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey()))
-		Expect(stored.Name).To(Equal("free-renamed"))
+		Expect(n.Storage.TS.RetrieveChannel(ctx, key.StorageKey())).Error().To(
+			MatchError(query.ErrNotFound),
+		)
 	})
 	It("Should return an error when a key's leaseholder is not in the cluster", func(ctx SpecContext) {
 		Expect(n.Channel.Rename(
