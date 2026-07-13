@@ -283,7 +283,8 @@ const LeafNode = memo(({ nodeKey, selected, tabs }: LeafNodeProps): ReactElement
   const active = Session.Layout.useSelectIsActiveMosaicTab(selected);
   const menuProps = Menu.useContextMenu();
   const { startDrag, onDragEnd } = Base.useDragTab();
-  const selectorDropProps = Base.useSelectorDropProps({ nodeKey });
+  const tabKeys = useMemo(() => tabs.map(({ tabKey }) => tabKey), [tabs]);
+  const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys });
   const handleRename = useCallback(
     (tabKey: string, name: string) =>
       dispatch(Session.Layout.rename({ key: tabKey, name })),
@@ -341,7 +342,9 @@ const LeafNode = memo(({ nodeKey, selected, tabs }: LeafNodeProps): ReactElement
           {selected == null ? (
             <EmptyContent />
           ) : (
-            <ModalContent key={selected} tabKey={selected} />
+            <Errors.Boundary>
+              <ModalContent key={selected} tabKey={selected} />
+            </Errors.Boundary>
           )}
           <Base.Shield />
         </Tabs.Content>
