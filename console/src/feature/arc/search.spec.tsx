@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { renderWithConsole, uniqueName } from "@/testutil";
 
@@ -23,7 +23,7 @@ describe("arc/search", () => {
   it("places the arc editor layout when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("arc");
-    const resource = createResource(arc.ontologyID(key), name);
+    const resource = createEntry(arc.ontologyID(key), name);
     const SearchListItem = Arc.SEARCH_LIST_ITEMS.arc;
     if (SearchListItem == null) throw new Error("arc SearchListItem is not defined");
     const Harness = (): ReactElement => {

@@ -23,7 +23,7 @@ import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import {
   createBaseProps,
-  createResource,
+  createEntry,
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
@@ -33,6 +33,7 @@ import {
   awaitTextEditingElement,
   captureBrowserDownloads,
   commitTextEdit,
+  createTestFluxStore,
   createTestStore,
   renderHookWithConsole,
   uniqueName,
@@ -48,7 +49,7 @@ describe("Schematic.TREE_ITEMS", () => {
   it("hauls a mosaic tab create item keyed by the ontology id", async () => {
     const s = await createSchematic();
     const id = schematic.ontologyID(s.key);
-    const items = Item.haulItems(createResource(id, s.name));
+    const items = Item.haulItems(createEntry(id, s.name), createTestFluxStore());
     expect(items).toHaveLength(1);
     expect(items[0].key).toContain(s.key);
   });
@@ -84,7 +85,7 @@ describe("Schematic.useRangeSnapshot", () => {
     result.current.snapshot({
       ...createBaseProps({ client, store }),
       selection: createSelection({ ids: [id] }),
-      state: createState([createResource(id, s.name)]),
+      state: createState([createEntry(id, s.name)]),
     });
     await waitFor(() =>
       expect(
@@ -133,7 +134,7 @@ describe("Schematic.useRangeSnapshot", () => {
     result.current.snapshot({
       ...createBaseProps({ client, store }),
       selection: createSelection({ ids: [id] }),
-      state: createState([createResource(id, s.name)]),
+      state: createState([createEntry(id, s.name)]),
     });
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(

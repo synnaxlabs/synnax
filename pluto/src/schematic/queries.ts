@@ -24,10 +24,12 @@ import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import { Scope } from "@/schematic/scope";
 import { type Symbol } from "@/schematic/symbol";
+import { state } from "@/state";
 import { Theming } from "@/theming";
 
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
+const PLURAL_RESOURCE_NAME = "schematics";
 
 export interface FluxStore extends Flux.UndoableUnaryStore<
   schematic.Key,
@@ -55,13 +57,47 @@ export const retrieveSingle = async ({
   return s;
 };
 
-export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved } =
-  Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
+export const {
+  useRetrieve,
+  useRetrieveSuspended,
+  useRetrieveObservable,
+  useEnsureRetrieved,
+} = Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
     mountListeners: ({ store, query: { key }, onChange }) =>
       store.schematics.onSet(onChange, key),
   });
+
+export type RetrieveMultipleQuery = schematic.RetrieveMultipleParams;
+
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  schematic.Schematic[],
+  FluxSubStore
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys }, store }) => {
+    const schematics = await client.schematics.retrieve({ keys });
+    store.schematics.set(schematics);
+    return schematics;
+  },
+  mountListeners: ({ store, onChange, query: { keys } }) => {
+    const keysSet = new Set(keys);
+    return [
+      store.schematics.onSet((s) => {
+        if (!keysSet.has(s.key)) return;
+        onChange(
+          state.skipUndefined((prev) => prev.map((p) => (p.key === s.key ? s : p))),
+        );
+      }),
+      store.schematics.onDelete((key) => {
+        if (!keysSet.has(key)) return;
+        onChange(state.skipUndefined((prev) => prev.filter((p) => p.key !== key)));
+      }),
+    ];
+  },
+});
 
 export interface useRetrieveObservableNameParams extends Omit<
   Flux.UseRetrieveObservableParams<RetrieveQuery, schematic.Schematic>,

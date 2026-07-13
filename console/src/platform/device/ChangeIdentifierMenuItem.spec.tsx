@@ -19,7 +19,7 @@ import {
   createTestDevice,
   renderMenuItem,
 } from "@/platform/device/testutil";
-import { createSelection, createState } from "@/platform/tree/testutil";
+import { createSelection } from "@/platform/tree/testutil";
 
 const client = createTestClient();
 
@@ -34,7 +34,6 @@ const renderItem = async (devices: device.Device[], itemClient: Synnax | null) =
     <Device.ChangeIdentifierMenuItem
       icon="Hardware"
       selection={createSelection({ ids: resources.map((r) => r.id) })}
-      state={createState(resources)}
       handleError={runHandler}
     />,
     { client: itemClient },
@@ -52,19 +51,16 @@ describe("ChangeIdentifierMenuItem", () => {
     const a = await createTestDevice(client, { configured: true });
     const b = await createTestDevice(client, { configured: true });
     const resources = [a, b].map(createDeviceResource);
-    const state = createState(resources);
     await renderMenuItem(
       <>
         <Device.ChangeIdentifierMenuItem
           icon="Hardware"
           selection={createSelection({ ids: [resources[0].id] })}
-          state={state}
           handleError={runHandler}
         />
         <Device.ChangeIdentifierMenuItem
           icon="Hardware"
           selection={createSelection({ ids: resources.map((r) => r.id) })}
-          state={state}
           handleError={runHandler}
         />
       </>,
@@ -77,19 +73,16 @@ describe("ChangeIdentifierMenuItem", () => {
   it("should render nothing when the device is not configured", async () => {
     const dev = await createTestDevice(client, { configured: false });
     const resource = createDeviceResource(dev);
-    const state = createState([resource]);
     const selection = createSelection({ ids: [resource.id] });
     await renderMenuItem(
       <>
         <Device.ConfigureMenuItem
           onConfigure={() => {}}
           selection={selection}
-          state={state}
         />
         <Device.ChangeIdentifierMenuItem
           icon="Hardware"
           selection={selection}
-          state={state}
           handleError={runHandler}
         />
       </>,

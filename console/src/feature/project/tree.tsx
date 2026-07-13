@@ -13,6 +13,7 @@ import {
   type ontology,
   project,
   schematic,
+  type Synnax as Client,
   table,
 } from "@synnaxlabs/client";
 import {
@@ -64,11 +65,18 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await Base.retrieveSingle({
+    client,
+    store: store as Base.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const {
     selection,
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state: { getName, shape },
   } = props;
   const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
@@ -82,9 +90,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
   const handleRename = useRename(props);
-  const resources = getResource(ids);
-  const first = resources[0];
-  const singleResource = resources.length === 1;
+  const singleResource = ids.length === 1;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const hasLinePlotCreatePermission = Access.useCreateGranted(
@@ -147,11 +153,14 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
             </Menu.Item>
           )}
           <Menu.Divider />
-          <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+          <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+            onClick={() => handleLink({ name: getName(ids[0]), ontologyID: ids[0] })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
           <Menu.Divider />
         </>
       )}
@@ -160,22 +169,22 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   );
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   const client = Synnax.use();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
+    (entry) => {
       if (client == null) return;
       handleError(async () => {
-        const proj = await client.projects.retrieve(resource.id.key);
+        const proj = await client.projects.retrieve(entry.id.key);
         store.dispatch(Session.Project.select(proj.key));
         store.dispatch(
           Session.Layout.setProject({
             slice: Session.Layout.migrateLayout(proj.layout),
           }),
         );
-      }, `Failed to select ${resource.name}`);
+      }, `Failed to select ${entry.name}`);
     },
     [client, store, handleError],
   );

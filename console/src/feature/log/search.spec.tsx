@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { renderWithConsole, uniqueName } from "@/testutil";
 
@@ -23,7 +23,7 @@ describe("log/search", () => {
   it("places the log's layout when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("log");
-    const resource = createResource(log.ontologyID(key), name);
+    const resource = createEntry(log.ontologyID(key), name);
     const SearchListItem = Log.SEARCH_LIST_ITEMS.log;
     if (SearchListItem == null) throw new Error("log SearchListItem is not defined");
     const Harness = (): ReactElement => {

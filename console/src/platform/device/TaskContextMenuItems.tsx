@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type device, task } from "@synnaxlabs/client";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, Device } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/platform/layout";
 import { Task } from "@/platform/task";
@@ -22,7 +22,7 @@ export interface TaskContextMenuItemConfig {
 
 export interface TaskContextMenuItemsProps extends Pick<
   Tree.ContextMenuProps,
-  "selection" | "state"
+  "selection"
 > {
   onConfigure: (deviceKey: device.Key) => void;
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
@@ -30,17 +30,15 @@ export interface TaskContextMenuItemsProps extends Pick<
 
 export const TaskContextMenuItems = ({
   onConfigure,
-  state: { getResource },
   selection: { ids },
   taskContextMenuItemConfigs,
 }: TaskContextMenuItemsProps) => {
   const placeLayout = Layout.usePlacer();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-  const firstID = ids[0];
-  const first = getResource(firstID);
-  const key = first.id.key;
+  const key = ids[0].key;
+  const configured = Device.useRetrieve({ key }).data?.configured;
   const maybeConfigure = () => {
-    if (first.data?.configured !== true) onConfigure(key);
+    if (configured !== true) onConfigure(key);
   };
   if (!hasCreatePermission) return null;
   return (

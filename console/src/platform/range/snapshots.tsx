@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { context, type Icon } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { type Layout } from "@/platform/layout";
+import { type Tree } from "@/platform/tree";
 
 export interface SnapshotContext {
   client: Client | null;
@@ -20,8 +21,12 @@ export interface SnapshotContext {
 
 export interface SnapshotService {
   icon: Icon.ReactElement;
-  onClick: (res: ontology.Resource, ctx: SnapshotContext) => Promise<void>;
-  onDelete: (res: ontology.Resource, ctx: SnapshotContext) => Promise<void>;
+  // useIsSnapshot reports whether the resource with the given key is a snapshot.
+  // Implementations are hooks; a caller must invoke them unconditionally for a
+  // resource type that is stable across renders.
+  useIsSnapshot: (key: string) => boolean;
+  onClick: (entry: Tree.Entry, ctx: SnapshotContext) => Promise<void>;
+  onDelete: (entry: Tree.Entry, ctx: SnapshotContext) => Promise<void>;
 }
 
 export type SnapshotServices = Record<string, SnapshotService>;

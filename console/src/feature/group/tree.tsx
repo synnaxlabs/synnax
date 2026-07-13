@@ -27,7 +27,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID },
     state,
   } = props;
-  const { getResource, nodes, shape } = state;
+  const { getName, nodes, shape } = state;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const ungroup = useUngroupSelection();
@@ -39,7 +39,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const createFromSelection = PlatformGroup.useCreateFromSelection();
   const handleLink = Cluster.useCopyLinkToClipboard();
   const firstID = ids[0];
-  const firstResource = getResource(firstID);
   const rename = useRename(props);
   const isSingle = ids.length === 1;
   const isZeroDepth =
@@ -87,10 +86,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       {isSingle && (
         <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
           <Link.CopyContextMenuItem
             onClick={() =>
-              handleLink({ name: firstResource.name, ontologyID: firstID })
+              handleLink({ name: getName(firstID), ontologyID: firstID })
             }
           />
           <Menu.Divider />

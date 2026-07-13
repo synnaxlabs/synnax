@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon, Task as PTask } from "@synnaxlabs/pluto";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
@@ -84,6 +84,7 @@ export const LAYOUTS: Layout.Renderers = {
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   task: {
     icon: <Icon.Task />,
+    useIsSnapshot: (key) => PTask.useRetrieve({ key }).data?.snapshot === true,
     onClick: async ({ id: { key } }, { client, placeLayout }) =>
       await retrieveAndPlaceLayout(client, key, placeLayout),
     onDelete: async ({ id: { key } }, { client }) => {

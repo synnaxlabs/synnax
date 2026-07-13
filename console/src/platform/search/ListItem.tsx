@@ -12,15 +12,16 @@ import { type Icon, List, Text } from "@synnaxlabs/pluto";
 import { type FC, useCallback } from "react";
 
 import { Palette } from "@/platform/palette";
+import { type Tree } from "@/platform/tree";
 
 interface BaseListItemProps extends Omit<Palette.ListItemProps, "onSelect"> {
   icon: Icon.ReactElement;
-  onSelect: (item: ontology.Resource) => void;
+  onSelect: (entry: Tree.Entry) => void;
 }
 
 export const BaseListItem = ({ icon, onSelect, ...rest }: BaseListItemProps) => {
   const { itemKey } = rest;
-  const item = List.useItem<string, ontology.Resource>(itemKey);
+  const item = List.useItem<string, Tree.Entry>(itemKey);
   if (item == null) return null;
   const { name } = item;
   const handleSelect = useCallback(() => onSelect(item), [onSelect, item]);
@@ -41,7 +42,7 @@ export interface ListItem extends FC<ListItemProps> {}
 export interface ListItems extends Partial<Record<ontology.ResourceType, ListItem>> {}
 
 export interface CreateListItemArgs extends Pick<BaseListItemProps, "icon"> {
-  useOnSelect: () => (item: ontology.Resource) => void;
+  useOnSelect: () => (entry: Tree.Entry) => void;
 }
 
 export const createListItem = ({ icon, useOnSelect }: CreateListItemArgs): ListItem => {

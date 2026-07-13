@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { renderWithConsole, uniqueName } from "@/testutil";
 
@@ -23,7 +23,7 @@ describe("lineplot/search", () => {
   it("places the plot's layout when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("plot");
-    const resource = createResource(lineplot.ontologyID(key), name);
+    const resource = createEntry(lineplot.ontologyID(key), name);
     const SearchListItem = LinePlot.SEARCH_LIST_ITEMS.lineplot;
     if (SearchListItem == null)
       throw new Error("lineplot SearchListItem is not defined");

@@ -9,12 +9,11 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { createDeviceResource } from "@/platform/device/testutil";
+import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
@@ -36,11 +35,8 @@ const TASK_LABELS = [
 
 const renderContextMenu = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
-  const resource = createDeviceResource({
-    key: id.create(),
-    name: "ni_dev",
-    configured: true,
-  });
+  const dev = await createTestDevice(client, { configured: true });
+  const resource = createDeviceResource(dev);
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),

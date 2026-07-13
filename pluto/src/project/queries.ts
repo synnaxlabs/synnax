@@ -23,7 +23,7 @@ const PLURAL_RESOURCE_NAME = "projects";
 
 export interface FluxStore extends Flux.UnaryStore<project.Key, project.Project> {}
 
-interface FluxSubStore extends Flux.Store, role.FluxSubStore, policy.FluxSubStore {
+export interface FluxSubStore extends Flux.Store, role.FluxSubStore, policy.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -53,7 +53,7 @@ export type RetrieveQuery = {
   key: project.Key;
 };
 
-const retrieveSingle = async ({
+export const retrieveSingle = async ({
   client,
   query: { key },
   store,

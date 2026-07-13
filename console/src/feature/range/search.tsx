@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-import { Icon, List, Status, Synnax, Telem, Text } from "@synnaxlabs/pluto";
-import { type CrudeTimeRange } from "@synnaxlabs/x";
+import { ontology } from "@synnaxlabs/client";
+import { Icon, List, Ranger, Status, Synnax, Telem, Text } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/platform/layout";
 import { Palette } from "@/platform/palette";
@@ -18,7 +17,10 @@ import { type Search } from "@/platform/search";
 import { Session } from "@/session";
 
 const SearchListItem: Search.ListItem = (props) => {
-  const resource = List.useItem<string, ontology.Resource>(props.itemKey);
+  const resource = List.useItem<string, Tree.Entry>(props.itemKey);
+  const range = Ranger.useRetrieve({
+    key: ontology.idZ.parse(props.itemKey).key,
+  }).data;
   const client = Synnax.use();
   const store = Session.useStore();
   const placeLayout = Layout.usePlacer();
@@ -41,9 +43,9 @@ const SearchListItem: Search.ListItem = (props) => {
         <Icon.Range />
         {resource?.name}
       </Text.Text>
-      <Telem.Text.TimeRange level="small">
-        {resource?.data?.timeRange as CrudeTimeRange}
-      </Telem.Text.TimeRange>
+      {range != null && (
+        <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>
+      )}
     </Palette.ListItem>
   );
 };

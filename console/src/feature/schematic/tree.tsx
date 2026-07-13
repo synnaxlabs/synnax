@@ -50,7 +50,7 @@ const useDelete = Tree.createUseDelete({
 const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
   const {
     selection: { ids },
-    state: { getResource },
+    state: { getName },
   } = props;
   const rename = Base.useRename();
   const copy = Base.useCopy({
@@ -68,7 +68,7 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
   });
   return () =>
     ids.map((id) => {
-      const name = `${getResource(id).name} (copy)`;
+      const name = `${getName(id)} (copy)`;
       copy.update({ key: id.key, name, snapshot: false });
     });
 };
@@ -96,7 +96,7 @@ export const useRangeSnapshot = () => {
     afterFailure: ({ status, data }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
       addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
   });
-  return ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
+  return ({ selection: { ids }, state: { getName } }: Tree.ContextMenuProps) => {
     if (rng == null)
       return addStatus({
         variant: "error",
@@ -104,7 +104,7 @@ export const useRangeSnapshot = () => {
       });
     const schematics = ids.map((id) => ({
       key: id.key,
-      name: getResource(id).name,
+      name: getName(id),
     }));
     const parentID = ranger.ontologyID(rng.key);
     update({ schematics, parentID });
@@ -123,10 +123,17 @@ const useRename = Tree.createUseRename({
   },
 });
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await Base.retrieveSingle({
+    client,
+    store: store as Base.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state: { getName, shape },
   } = props;
   const activeRange = Session.Range.useSelectState();
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
@@ -140,8 +147,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];
-  const resources = getResource(ids);
-  const first = resources[0];
+  const schematics = Base.useRetrieveMultiple({
+    keys: ids.map((id) => id.key),
+  }).data;
+  const hasNoSnapshots = schematics?.every((s) => s.snapshot === false) ?? false;
   return (
     <ContextMenu.Menu>
       {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
@@ -157,7 +166,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      {resources.every((r) => r.data?.snapshot === false) && hasCreatePermission && (
+      {hasNoSnapshots && hasCreatePermission && (
         <>
           <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
           <Menu.Item itemKey="copy" onClick={handleCopy}>
@@ -167,11 +176,14 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Menu.Divider />
         </>
       )}
-      <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+      <Export.ContextMenuItem onClick={() => handleExport(firstID.key)} />
       <Link.CopyContextMenuItem
-        onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+        onClick={() => handleLink({ name: getName(firstID), ontologyID: firstID })}
       />
-      <Tree.CopyPropertiesContextMenuItem {...props} />
+      <Tree.CopyPropertiesContextMenuItem
+        {...props}
+        retrieveProperties={retrieveProperties}
+      />
       <ContextMenu.ReloadConsoleItem />
     </ContextMenu.Menu>
   );
@@ -186,15 +198,15 @@ const loadSchematic = async (
   placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
+    (entry) => {
       if (client == null) return;
-      loadSchematic(client, resource.id, placeLayout).catch((e: unknown) =>
-        handleError(e, `Failed to select ${resource.name}`),
+      loadSchematic(client, entry.id, placeLayout).catch((e: unknown) =>
+        handleError(e, `Failed to select ${entry.name}`),
       );
     },
     [client, placeLayout, handleError],

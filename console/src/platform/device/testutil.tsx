@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
 
@@ -51,16 +51,10 @@ export const createTestDevice = async (
   });
 };
 
-/**
- * Builds the ontology resource the tree hands to device context-menu items, carrying
- * the configured flag in its data payload.
- */
+/** Builds the ontology resource the tree hands to device context-menu items. */
 export const createDeviceResource = (
-  dev: Pick<device.Device, "key" | "name"> & { configured?: boolean },
-): ontology.Resource =>
-  createResource(device.ontologyID(dev.key), dev.name, {
-    configured: dev.configured ?? false,
-  });
+  dev: Pick<device.Device, "key" | "name">,
+): ontology.Resource => createEntry(device.ontologyID(dev.key), dev.name);
 
 export interface RenderMenuItemOptions {
   /** Client backing the console wrapper; null (default) for cluster-free specs. */

@@ -20,15 +20,15 @@ const load = async (client: Client, id: ontology.ID, placeLayout: Layout.Placer)
   placeLayout(Arc.create({ name, key }));
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
+    (entry) => {
       if (client == null) return;
-      load(client, resource.id, placeLayout).catch((e: unknown) =>
-        handleError(e, `Failed to load ${resource.name}`),
+      load(client, entry.id, placeLayout).catch((e: unknown) =>
+        handleError(e, `Failed to load ${entry.name}`),
       );
     },
     [client, placeLayout, handleError],

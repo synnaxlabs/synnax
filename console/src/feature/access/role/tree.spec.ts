@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Access } from "@/feature/access";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -26,8 +26,8 @@ const PolicyItem = Access.Policy.TREE_ITEMS.policy;
 const createRole = async () =>
   await client.access.roles.create({ name: uniqueName("role") });
 
-const roleResource = (key: string, name: string, internal: boolean) =>
-  createResource(access.role.ontologyID(key), name, { internal });
+const roleResource = (key: string, name: string) =>
+  createEntry(access.role.ontologyID(key), name);
 
 describe("role ontology service", () => {
   it("should expose rename and delete for a non-internal role", async () => {
@@ -35,7 +35,7 @@ describe("role ontology service", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name, false)],
+      resources: [roleResource(role.key, role.name)],
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
@@ -43,14 +43,15 @@ describe("role ontology service", () => {
   });
 
   it("should hide rename and delete for internal roles", async () => {
-    const role = await createRole();
+    const [role] = await client.access.roles.retrieve({ internal: true });
+    if (role == null) throw new Error("expected the cluster to seed internal roles");
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name, true)],
+      resources: [roleResource(role.key, role.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
-    expect(screen.queryByText("Rename")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("Rename")).toBeNull());
     expect(screen.queryByText("Delete")).toBeNull();
   });
 
@@ -59,7 +60,7 @@ describe("role ontology service", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name, false)],
+      resources: [roleResource(role.key, role.name)],
     });
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${role.name}?`);
@@ -94,7 +95,7 @@ describe("policy ontology service", () => {
   it("should stay hidden in the tree and declare no children", () => {
     expect(PolicyItem.type).toBe("policy");
     expect(
-      PolicyItem.visible?.(createResource(access.policy.ontologyID("p1"), "p1")),
+      PolicyItem.visible?.(access.policy.ontologyID("p1")),
     ).toBe(false);
     expect(PolicyItem.hasChildren).toBe(false);
   });

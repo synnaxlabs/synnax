@@ -21,18 +21,18 @@ const emptyContent = (
   </Text.Text>
 );
 
-export interface ListProps extends Palette.ListProps<ontology.Resource> {
+export interface ListProps extends Palette.ListProps<Tree.Entry> {
   items: Search.ListItems;
 }
 
 export const List = ({ items, ...rest }: ListProps): ReactElement => {
   const filter = useCallback(
-    (item: ontology.Resource) => items[item.id.type] != null,
+    (item: Tree.Entry) => items[item.id.type] != null,
     [items],
   );
   const listItem = useMemo(() => {
     const ListItem = (props: Base.ItemProps<string>) => {
-      const item = Base.useItem<string, ontology.Resource>(props.itemKey);
+      const item = Base.useItem<string, Tree.Entry>(props.itemKey);
       if (item == null) return null;
       const Item = items[item.id.type];
       if (Item == null) return null;
@@ -40,7 +40,10 @@ export const List = ({ items, ...rest }: ListProps): ReactElement => {
     };
     return Component.renderProp(ListItem);
   }, [items]);
-  const listProps = Ontology.useResourceList({ filter });
+  const listProps = Ontology.useResourceList({
+    filter,
+    initialQuery: { excludeFieldData: true },
+  });
   return (
     <Palette.BaseList
       emptyContent={emptyContent}

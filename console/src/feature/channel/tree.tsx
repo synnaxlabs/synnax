@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
+import {
+  channel,
+  isCalculated,
+  ontology,
+  ranger,
+  status,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import {
   Access,
   Channel as PChannel,
@@ -37,51 +44,43 @@ import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   const client = Synnax.use();
   const store = Session.useStore();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
+    (entry) => {
       if (client == null) return;
-      const state = store.getState();
-      const layout = Session.Layout.selectActiveMosaicLayout(state);
-      const nonVirtualSelection = [resource]
-        .filter((s) => s.data?.virtual !== true || s.data.expression != "")
-        .map((s) => Number(s.id.key));
-
-      if (nonVirtualSelection.length === 0) return;
-
-      switch (layout?.type) {
-        case LinePlot.LAYOUT_TYPE: {
-          handleError(
-            () =>
-              LinePlot.addChannelsToActivePlot(client, layout.key, nonVirtualSelection),
-            "Failed to add channels to plot",
-          );
-          break;
+      handleError(async () => {
+        const channelKey = Number(entry.id.key);
+        const ch = await client.channels.retrieve(channelKey);
+        if (ch.virtual && ch.expression == "") return;
+        const state = store.getState();
+        const layout = Session.Layout.selectActiveMosaicLayout(state);
+        if (layout?.type === LinePlot.LAYOUT_TYPE) {
+          await LinePlot.addChannelsToActivePlot(client, layout.key, [channelKey]);
+          return;
         }
-        default: {
-          const project = Session.Project.selectSelected(state);
-          const activeRange =
-            Session.Range.selectSelectedKey(state) ?? Session.Range.RECENT_KEY;
-          handleError(async () => {
-            const { key, name } = await client.lineplots.create(project, {
-              name: "Line Plot",
-              channels: { y1: nonVirtualSelection },
-              ranges: { x1: [activeRange] },
-            });
-            placeLayout(LinePlot.create({ key, name }));
-          }, "Failed to create plot");
-        }
-      }
+        const project = Session.Project.selectSelected(state);
+        const activeRange =
+          Session.Range.selectSelectedKey(state) ?? Session.Range.RECENT_KEY;
+        const { key, name } = await client.lineplots.create(project, {
+          name: "Line Plot",
+          channels: { y1: [channelKey] },
+          ranges: { x1: [activeRange] },
+        });
+        placeLayout(LinePlot.create({ key, name }));
+      }, "Failed to plot channel");
     },
     [client, store, placeLayout, handleError],
   );
 };
 
-const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
+const haulItems = (
+  { name, id: otgID }: Tree.Entry,
+  store: Flux.Store,
+): Haul.Item[] => {
   const t = telem.sourcePipeline("string", {
     connections: [
       {
@@ -107,11 +106,10 @@ const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] =>
       config: nodeConfig,
     }),
   ];
-  if (data?.internal === true) return items;
+  const ch = (store as PChannel.FluxSubStore).channels.get(Number(otgID.key));
+  if (ch?.internal === true) return items;
   return [PChannel.createHaulItem(Number(otgID.key))];
 };
-
-const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;
 
 export const useDelete = Tree.createUseDelete({
   type: "Channel",
@@ -169,31 +167,37 @@ export const useDeleteAlias = ({
   );
 };
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  (
+    await PChannel.retrieveSingle({
+      client,
+      store: store as PChannel.FluxSubStore,
+      query: { key: Number(id.key) },
+    })
+  ).payload;
+
 const useEditCalculated = () => {
   const open = Channel.useCalculatedModal();
-  return ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
+  return ({ selection: { ids } }: Tree.ContextMenuProps) => {
     if (ids.length !== 1) return;
-    const resource = getResource(ids[0]);
-    open({ channelKey: Number(resource.id.key) });
+    open({ channelKey: Number(ids[0].key) });
   };
 };
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state: { getName, shape },
   } = props;
   const activeRange = Session.Range.useSelectState();
   const groupFromSelection = Group.useCreateFromSelection();
   const handleSetAlias = useSetAlias(props);
-  const resources = getResource(ids);
   const channelKeys = useMemo(() => ids.map((r) => Number(r.key)), [ids]);
   const channels = PChannel.useRetrieveMultiple({
     rangeKey: activeRange?.key,
     keys: channelKeys,
   });
   const showDeleteAlias = channels.data?.some((c) => c.alias != null) ?? false;
-  const first = resources[0];
   const handleDeleteAlias = useDeleteAlias(props);
   const handleDelete = useDelete(props);
 
@@ -213,9 +217,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
   const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useEditCalculated();
-  const singleResource = resources.length === 1;
+  const singleResource = ids.length === 1;
 
-  const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
+  const firstChannel = channels.data?.find((c) => c.key === channelKeys[0]);
+  const isCalc =
+    singleResource && firstChannel != null && isCalculated(firstChannel.payload);
 
   return (
     <ContextMenu.Menu>
@@ -269,9 +275,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: first.id })}
+            onClick={() => handleLink({ name: getName(ids[0]), ontologyID: ids[0] })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
         </>
       )}
       <Menu.Divider />
@@ -280,28 +289,27 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
+const Content = ({ id, name: entryName, icon: _, ...rest }: Tree.ContentProps) => {
   const activeRange = Session.Range.useSelectState();
   const res = PChannel.useRetrieve({
-    key: Number(resource.id.key),
+    key: Number(id.key),
     rangeKey: activeRange?.key,
   }).data;
-  let name = resource.name;
+  let name = entryName;
   if (primitive.isNonZero(res?.alias)) name = res?.alias;
-  const data = resource.data as channel.Payload;
-  const DataTypeIcon = PChannel.resolveIcon(data);
+  const DataTypeIcon = PChannel.resolveIcon(res?.payload);
   const statusVariant = status.keepVariants(res?.status?.variant, ["error", "warning"]);
   return (
     <PTree.Item {...rest}>
       <DataTypeIcon color={10} />
       <Text.MaybeEditable
-        id={List.itemNameID(ontology.idToString(resource.id))}
+        id={List.itemNameID(rest.itemKey)}
         allowDoubleClick={false}
         value={name}
         overflow="ellipsis"
         style={{ width: 0 }}
         grow
-        disabled={!allowRename(resource)}
+        disabled={res?.internal === true}
         onChange
       />
       {statusVariant != null && (
@@ -312,7 +320,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
           <Status.Indicator variant={statusVariant} />
         </Tooltip.Dialog>
       )}
-      {data.virtual && <Icon.Virtual color={8} />}
+      {res?.virtual === true && <Icon.Virtual color={8} />}
     </PTree.Item>
   );
 };

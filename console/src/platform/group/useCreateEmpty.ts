@@ -23,16 +23,15 @@ export interface UseCreateEmptyProps {
 export const useCreateEmpty = ({
   parent,
   root,
-  state: { nodes: tree, setNodes, setResource, expand },
+  state: { nodes: tree, setNodes, setName, expand },
 }: UseCreateEmptyProps): (() => void) => {
   const { update } = Group.useCreate({
     beforeUpdate: useCallback(
       async ({ data, rollbacks }: Flux.BeforeUpdateParams<Group.CreateParams>) => {
         const newID = group.ontologyID(uuid.create());
         const newIDString = ontology.idToString(newID);
-        const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
         const node: PTree.Node<string> = { key: newIDString, children: [] };
-        setResource(res);
+        setName(newID, "");
         const destination = ontology.idsEqual(data.parent, root)
           ? null
           : ontology.idToString(data.parent);
@@ -45,7 +44,7 @@ export const useCreateEmpty = ({
         if (!renamed || name === "") return false;
         return { ...data, key: newID.key, name };
       },
-      [tree, setNodes, setResource, expand],
+      [tree, setNodes, setName, expand],
     ),
   });
   return useCallback(

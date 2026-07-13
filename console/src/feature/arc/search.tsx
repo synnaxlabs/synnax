@@ -18,7 +18,7 @@ import { Search } from "@/platform/search";
 const useOnSelect = () => {
   const placeLayout = Layout.usePlacer();
   return useCallback(
-    ({ id, name }: ontology.Resource) => placeLayout(Arc.create({ key: id.key, name })),
+    ({ id, name }: Tree.Entry) => placeLayout(Arc.create({ key: id.key, name })),
     [placeLayout],
   );
 };

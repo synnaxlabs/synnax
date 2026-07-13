@@ -23,14 +23,19 @@ import { placeLayout } from "@/platform/layout/testutil";
 import { LinePlot } from "@/platform/lineplot";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import {
   findTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
 } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
+  createTestFluxStore,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -71,10 +76,11 @@ describe("channel/ontology", () => {
   describe("haulItems", () => {
     it("hauls a regular channel as a channel item", async () => {
       const ch = await createChannel();
+      const store = createTestFluxStore();
+      store.channels.set(ch.key, ch);
       const items = Item.haulItems(
-        createResource(channelClient.ontologyID(ch.key), ch.name, {
-          internal: false,
-        }),
+        createEntry(channelClient.ontologyID(ch.key), ch.name),
+        store,
       );
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("channel");
@@ -82,11 +88,13 @@ describe("channel/ontology", () => {
     });
 
     it("hauls an internal channel as a schematic value element only", async () => {
-      const ch = await createChannel();
+      const ch = await client.channels.retrieve(ontology.RESOURCE_SET_CHANNEL_NAME);
+      expect(ch.internal).toBe(true);
+      const store = createTestFluxStore();
+      store.channels.set(ch.key, ch);
       const items = Item.haulItems(
-        createResource(channelClient.ontologyID(ch.key), ch.name, {
-          internal: true,
-        }),
+        createEntry(channelClient.ontologyID(ch.key), ch.name),
+        store,
       );
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("schematic-element");

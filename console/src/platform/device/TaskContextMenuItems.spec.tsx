@@ -9,14 +9,17 @@
 
 import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
-import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
+import {
+  createDeviceResource,
+  createTestDevice,
+  renderMenuItem,
+} from "@/platform/device/testutil";
 import { Task } from "@/platform/task";
-import { createSelection, createState } from "@/platform/tree/testutil";
+import { createSelection } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 
 const client = createTestClient();
@@ -36,17 +39,25 @@ const configs: Device.TaskContextMenuItemConfig[] = [
 
 const setup = async (configured: boolean, itemClient: Synnax | null = client) => {
   const onConfigure = vi.fn();
-  const resource = createDeviceResource({ key: id.create(), name: "dev", configured });
+  const dev = await createTestDevice(client, { configured });
+  const resource = createDeviceResource(dev);
+  const selection = createSelection({ ids: [resource.id] });
   const { store } = await renderMenuItem(
-    <Device.TaskContextMenuItems
-      onConfigure={onConfigure}
-      selection={createSelection({ ids: [resource.id] })}
-      state={createState([resource])}
-      taskContextMenuItemConfigs={configs}
-    />,
+    <>
+      <Device.ChangeIdentifierMenuItem
+        icon="Hardware"
+        selection={selection}
+        handleError={() => {}}
+      />
+      <Device.TaskContextMenuItems
+        onConfigure={onConfigure}
+        selection={selection}
+        taskContextMenuItemConfigs={configs}
+      />
+    </>,
     { client: itemClient },
   );
-  return { onConfigure, key: resource.id.key, store };
+  return { onConfigure, key: dev.key, store };
 };
 
 describe("TaskContextMenuItems", () => {
@@ -70,6 +81,10 @@ describe("TaskContextMenuItems", () => {
 
   it("should place the clicked config's layout without configuring an already-configured device", async () => {
     const { onConfigure, key, store } = await setup(true);
+    // "Change identifier" renders only once the device retrieval resolves
+    // configured === true, so it gates the click on the same query the
+    // task items read the configured flag from.
+    await screen.findByText("Change identifier");
     await waitFor(() => expect(screen.getByText("Create Write Task")).toBeTruthy());
     fireEvent.click(screen.getByText("Create Write Task"));
     expect(onConfigure).not.toHaveBeenCalled();

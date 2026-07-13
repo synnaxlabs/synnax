@@ -17,7 +17,7 @@ import { type Tree } from "@/platform/tree";
 
 export interface ChangeIdentifierMenuItemProps extends Pick<
   Tree.ContextMenuProps,
-  "selection" | "state" | "handleError"
+  "selection" | "handleError"
 > {
   icon: string;
 }
@@ -25,15 +25,13 @@ export interface ChangeIdentifierMenuItemProps extends Pick<
 export const ChangeIdentifierMenuItem = ({
   icon,
   selection: { ids },
-  state: { getResource },
   handleError,
 }: ChangeIdentifierMenuItemProps) => {
   const rename = Modals.useRename();
   const { updateAsync } = useChangeIdentifier();
-  const first = getResource(ids[0]);
-  const { data: deviceData } = Device.useRetrieve({ key: first.id.key });
+  const { data: deviceData } = Device.useRetrieve({ key: ids[0].key });
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
-  if (ids.length !== 1 || first.data?.configured !== true || !hasUpdatePermission)
+  if (ids.length !== 1 || deviceData?.configured !== true || !hasUpdatePermission)
     return null;
   const identifier =
     typeof deviceData?.properties?.identifier === "string"
@@ -50,7 +48,7 @@ export const ChangeIdentifierMenuItem = ({
           icon: Icon.resolve(icon),
         });
         if (newIdentifier == null) return;
-        await updateAsync({ key: first.id.key, identifier: newIdentifier });
+        await updateAsync({ key: ids[0].key, identifier: newIdentifier });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;
         throw errors.fromUnknown(e);

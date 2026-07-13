@@ -14,8 +14,8 @@ import { describe, expect, it } from "vitest";
 
 import { User } from "@/feature/user";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
-import { assertDefined, uniqueName } from "@/testutil";
+import { createEntry } from "@/platform/tree/testutil";
+import { assertDefined, createTestFluxStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -24,8 +24,8 @@ const Item = User.TREE_ITEMS.user;
 const createUser = async () =>
   await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
 
-const userResource = (key: string, username: string, rootUser = false) =>
-  createResource(user.ontologyID(key), username, { root_user: rootUser });
+const userResource = (key: string, username: string) =>
+  createEntry(user.ontologyID(key), username);
 
 const renderMenu = async (
   resources: ReturnType<typeof userResource>[],
@@ -56,10 +56,10 @@ describe("user ontology service", () => {
   });
 
   it("should not offer a role change for the root user", async () => {
-    const u = await createUser();
-    await renderMenu([userResource(u.key, u.username, true)]);
+    const root = await client.users.retrieve({ username: "synnax" });
+    await renderMenu([userResource(root.key, uniqueName("root_alias"))]);
     expect(await screen.findByText("Change username")).toBeTruthy();
-    expect(screen.queryByText("Change role")).toBeNull();
+    await waitFor(() => expect(screen.queryByText("Change role")).toBeNull());
   });
 
   it("should open the assign role modal for the selected user", async () => {
@@ -83,17 +83,13 @@ describe("user ontology service", () => {
     });
   });
 
-  it("should build user haul items from the resource payload", () => {
-    const data = {
-      key: "u1",
-      username: "u",
-      firstName: "",
-      lastName: "",
-      rootUser: false,
-    };
-    const items = Item.haulItems(createResource(user.ontologyID("u1"), "u", data));
+  it("should build user haul items from the users flux store", async () => {
+    const u = await createUser();
+    const store = createTestFluxStore();
+    store.users.set(u.key, u);
+    const items = Item.haulItems(userResource(u.key, u.username), store);
     expect(items).toHaveLength(1);
-    expect(items[0].key).toBe("u1");
-    expect(Item.haulItems(createResource(user.ontologyID("u2"), "u2"))).toHaveLength(0);
+    expect(items[0].key).toBe(u.key);
+    expect(Item.haulItems(userResource("missing", "missing"), store)).toHaveLength(0);
   });
 });

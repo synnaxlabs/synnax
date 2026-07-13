@@ -43,7 +43,7 @@ export {
 const RESOURCE_NAME = "channel";
 const PLURAL_RESOURCE_NAME = "channels";
 
-interface FluxSubStore extends Status.FluxSubStore {
+export interface FluxSubStore extends Status.FluxSubStore {
   [aetherChannel.FLUX_STORE_KEY]: aetherChannel.FluxStore;
   [Ranger.RANGE_ALIASES_FLUX_STORE_KEY]: Ranger.AliasFluxStore;
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
@@ -110,7 +110,7 @@ export const ZERO_FORM_VALUES: z.infer<
   ],
 };
 
-const retrieveSingle = async ({
+export const retrieveSingle = async ({
   client,
   query: { key, rangeKey },
   store,

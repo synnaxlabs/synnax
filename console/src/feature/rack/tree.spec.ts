@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { NI } from "@/feature/ni";
 import { Rack } from "@/feature/rack";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -41,7 +41,7 @@ const createNIRackWithScanner = async () => {
 };
 
 const rackResource = (key: number, name: string) =>
-  createResource(rack.ontologyID(key), name);
+  createEntry(rack.ontologyID(key), name);
 
 const renderMenu = async (racks: { key: number; name: string }[]) => {
   assertDefined(Item.ContextMenu);

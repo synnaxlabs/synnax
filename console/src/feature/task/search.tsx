@@ -18,7 +18,7 @@ const useOpen = () => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
-  return ({ id, name }: ontology.Resource) => {
+  return ({ id, name }: Tree.Entry) => {
     if (client == null) return;
     handleError(
       async () => await retrieveAndPlaceLayout(client, id.key, placeLayout),

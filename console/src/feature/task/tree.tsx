@@ -44,14 +44,14 @@ const openTask = (
     `Could not open ${name}`,
   );
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
+    (entry) => {
       if (client == null) return;
-      openTask(client, resource.id.key, resource.name, placeLayout, handleError);
+      openTask(client, entry.id.key, entry.name, placeLayout, handleError);
     },
     [client, placeLayout, handleError],
   );
@@ -91,10 +91,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     client,
     placeLayout,
     handleError,
-    state: { getResource, shape },
+    state: { getName, shape },
   } = props;
   const { ids, rootID } = selection;
-  const resources = getResource(ids);
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = PlatformTask.useExport();
@@ -108,10 +107,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const handleEdit = () => {
     if (client == null) return;
-    openTask(client, resources[0].id.key, resources[0].name, placeLayout, handleError);
+    openTask(client, ids[0].key, getName(ids[0]), placeLayout, handleError);
   };
   const singleResource = ids.length === 1;
-  const hasNoSnapshots = resources.every((r) => r.data?.snapshot === false);
+  const tasks = Base.useRetrieveMultiple({ keys: ids.map((id) => id.key) }).data;
+  const hasNoSnapshots = tasks?.every((t) => t.snapshot === false) ?? false;
+  const firstTask = tasks?.find((t) => t.key === ids[0]?.key);
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && (
@@ -137,7 +138,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             range={range}
             onClick={() =>
               snap({
-                tasks: resources.map(({ id: { key }, name }) => ({ key, name })),
+                tasks: ids.map((id) => ({ key: id.key, name: getName(id) })),
               })
             }
           />
@@ -148,7 +149,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Menu.Item itemKey="edit" onClick={handleEdit}>
             <Icon.Edit />
-            {`${resources[0].data?.snapshot ? "View" : "Edit"} configuration`}
+            {`${firstTask?.snapshot ? "View" : "Edit"} configuration`}
           </Menu.Item>
           <Menu.Divider />
         </>
@@ -157,7 +158,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Link.CopyContextMenuItem
             onClick={() =>
-              handleLink({ name: resources[0].name, ontologyID: resources[0].id })
+              handleLink({ name: getName(ids[0]), ontologyID: ids[0] })
             }
           />
           <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />

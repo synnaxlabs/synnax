@@ -14,17 +14,29 @@ import { type FC } from "react";
 import { type Layout } from "@/platform/layout";
 import { type Session } from "@/session";
 
-export interface GetResource {
-  (id: ontology.ID | string): ontology.Resource;
-  (ids: (ontology.ID | string)[]): ontology.Resource[];
+// Entry is the identity and display name of an item in the resource tree — the only
+// ontology-derived fields console feature code consumes. Anything beyond the id and
+// name comes from the resource type's own client and flux store.
+export interface Entry {
+  // key is the string form of id, matching the tree's node and list keys.
+  key: string;
+  id: ontology.ID;
+  name: string;
+}
+
+export interface GetName {
+  (id: ontology.ID | string): string;
+  (ids: (ontology.ID | string)[]): string[];
 }
 
 export interface TreeState {
   nodes: Tree.Node[];
   shape: Tree.Shape;
   setNodes: (nodes: Tree.Node[]) => void;
-  setResource: (resource: ontology.Resource | ontology.Resource[]) => void;
-  getResource: GetResource;
+  // setName registers or updates the display name for the given id, so nodes added
+  // optimistically (before the cluster confirms them) can render.
+  setName: (id: ontology.ID, name: string) => void;
+  getName: GetName;
   setSelection: (keys: string[]) => void;
   expand: (key: string) => void;
   contract: (key: string) => void;
@@ -61,8 +73,4 @@ export interface HandleTreeRename {
   eager?: (props: HandleTreeRenameProps) => void;
   execute: (props: HandleTreeRenameProps) => Promise<void>;
   rollback?: (props: HandleTreeRenameProps, prevName: string) => void;
-}
-
-export interface AllowRename {
-  (resource: ontology.Resource): boolean;
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access } from "@synnaxlabs/client";
+import { access, type ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { Access, Icon, Menu, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -25,16 +25,24 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await Access.Role.retrieveSingle({
+    client,
+    store: store as Access.Role.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids },
-    state,
   } = props;
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
-  const resources = state.getResource(ids);
-  const hasInternal = resources.some((r) => r.data?.internal === true);
+  const roles = Access.Role.useRetrieveMultiple({
+    keys: ids.map((id) => id.key),
+  }).data;
+  const hasInternal = roles?.some((r) => r.internal === true) ?? false;
   return (
     <ContextMenu.Menu>
       {singleResource && !hasInternal && (
@@ -51,7 +59,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       {singleResource && (
         <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
           <Menu.Divider />
         </>
       )}

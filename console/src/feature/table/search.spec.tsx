@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Table } from "@/feature/table";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { renderWithConsole, uniqueName } from "@/testutil";
 
@@ -23,7 +23,7 @@ describe("table/search", () => {
   it("places the table's layout when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("table");
-    const resource = createResource(table.ontologyID(key), name);
+    const resource = createEntry(table.ontologyID(key), name);
     const SearchListItem = Table.SEARCH_LIST_ITEMS.table;
     if (SearchListItem == null) throw new Error("table SearchListItem is not defined");
     const Harness = (): ReactElement => {

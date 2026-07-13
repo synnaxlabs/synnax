@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 import { Tree } from "@/platform/tree";
 import {
   createBaseProps,
-  createResource,
+  createEntry,
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
@@ -69,7 +69,7 @@ const setup = async (ch: channel.Channel): Promise<string> => {
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [otgID] }),
-    state: createState([createResource(otgID, ch.name)]),
+    state: createState([createEntry(otgID, ch.name)]),
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (

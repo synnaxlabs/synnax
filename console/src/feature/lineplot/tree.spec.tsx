@@ -26,7 +26,7 @@ import { findButton, findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
-  createResource,
+  createEntry,
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
@@ -37,6 +37,7 @@ import {
   captureBrowserDownloads,
   commitTextEdit,
   createConsoleWrapper,
+  createTestFluxStore,
   createTestStore,
   stubClipboardWriteText,
   uniqueName,
@@ -67,7 +68,7 @@ const renderMenu = async ({ plots, overrides, withCluster = false }: SetupArgs) 
     const props: Tree.ContextMenuProps = {
       ...createBaseProps({ client, store, overrides }),
       selection: createSelection({ ids }),
-      state: createState(current.map((p, i) => createResource(ids[i], p.name))),
+      state: createState(current.map((p, i) => createEntry(ids[i], p.name))),
     };
     const itemID = List.itemNameID(ontology.idToString(ids[0]));
     const element = (
@@ -220,7 +221,7 @@ describe("lineplot/ontology", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientLineplot.ontologyID("11111111-1111-1111-1111-111111111111");
-      const items = Item.haulItems(createResource(id, "My Plot"));
+      const items = Item.haulItems(createEntry(id, "My Plot"), createTestFluxStore());
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
     });

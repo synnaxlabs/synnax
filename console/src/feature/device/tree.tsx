@@ -9,7 +9,7 @@
 
 import "@/feature/device/tree.css";
 
-import { device, type ontology, status } from "@synnaxlabs/client";
+import { device, type ontology, status, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Access,
   Device,
@@ -41,22 +41,29 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await Device.retrieveSingle({
+    client,
+    store: store as Device.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state: { getName, shape },
   } = props;
   const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const singleResource = ids.length === 1;
-  const first = getResource(ids[0]);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleLink = Cluster.useCopyLinkToClipboard();
+  const make = Device.useRetrieve({ key: ids[0]?.key ?? "" }).data?.make;
   if (ids.length === 0) return null;
-  const C = singleResource ? getContextMenuItems(first.data?.make) : null;
+  const C = singleResource ? getContextMenuItems(make) : null;
   const customMenuItems = C ? <C {...props} /> : null;
   return (
     <ContextMenu.Menu>
@@ -89,12 +96,15 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Link.CopyContextMenuItem
             onClick={() =>
               handleLink({
-                name: first.name,
-                ontologyID: device.ontologyID(first.id.key),
+                name: getName(ids[0]),
+                ontologyID: device.ontologyID(ids[0].key),
               })
             }
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
           <Menu.Divider />
         </>
       )}
@@ -103,20 +113,19 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const icon = (resource: ontology.Resource) => getIcon(getMake(resource.data?.make));
-
-const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProps) => {
+const Content = ({ id, name, className, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const devStatus = Device.useRetrieve({ key: resource.id.key }).data?.status;
+  const dev = Device.useRetrieve({ key: id.key }).data;
+  const devStatus = dev?.status;
   return (
     <PTree.Item className={CSS(className, CSS.B("device-ontology-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
-        {icon(resource)}
+        {getIcon(getMake(dev?.make))}
         <Text.MaybeEditable
           id={List.itemNameID(itemKey)}
           className={CSS.B("name")}
           allowDoubleClick={false}
-          value={resource.name}
+          value={name}
           onChange
           overflow="ellipsis"
           status={status.keepVariants(devStatus?.variant, "disabled")}
@@ -127,7 +136,7 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
           className={CSS.B("location")}
           overflow="nowrap"
         >
-          {typeof resource.data?.location === "string" ? resource.data.location : ""}
+          {dev?.location ?? ""}
         </Text.Text>
       </Flex.Box>
       <Device.StatusIndicator status={devStatus} />
@@ -137,7 +146,7 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
 
 const TreeItem = Tree.createItem({
   type: "device",
-  icon,
+  icon: getIcon(null),
   ContextMenu: TreeContextMenu,
   Content,
 });

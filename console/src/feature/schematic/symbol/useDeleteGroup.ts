@@ -26,6 +26,7 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
         if (client == null) throw new DisconnectedError();
         const children = await client.ontology.retrieveChildren(
           group.ontologyID(g.key),
+          { excludeFieldData: true },
         );
         const symbolKeys = children
           .filter((c: ontology.Resource) => c.id.type === "schematic_symbol")

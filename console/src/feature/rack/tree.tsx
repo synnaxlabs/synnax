@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, rack, task } from "@synnaxlabs/client";
+import {
+  arc,
+  type ontology,
+  rack,
+  type Synnax as Client,
+  task,
+} from "@synnaxlabs/client";
 import { Access, Icon, List, Menu, Rack, Text, Tree as PTree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
@@ -29,9 +35,9 @@ const useRename = Tree.createUseRename({
   convertKey: Number,
 });
 
-const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
+const Content = ({ id, name, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
-  const res = Rack.useRetrieve({ key: Number(resource.id.key) });
+  const res = Rack.useRetrieve({ key: Number(id.key) });
   const status = res.data?.status;
 
   return (
@@ -40,7 +46,7 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
       <Text.MaybeEditable
         id={List.itemNameID(itemKey)}
         allowDoubleClick={false}
-        value={resource.name}
+        value={name}
         overflow="ellipsis"
         style={{ width: 0 }}
         grow
@@ -56,6 +62,13 @@ const useDelete = Tree.createUseDelete({
   query: Rack.useDelete,
   convertKey: Number,
 });
+
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await Rack.retrieveSingle({
+    client,
+    store: store as Rack.FluxSubStore,
+    query: { key: Number(id.key) },
+  });
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
@@ -115,7 +128,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       <Menu.Divider />
       {isSingle && (
         <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
           <Menu.Divider />
         </>
       )}

@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { Task } from "@/feature/task";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
@@ -34,7 +34,7 @@ const createTask = async () => {
 describe("task/search", () => {
   it("places the task's configuration layout when the search result is selected", async () => {
     const t = await createTask();
-    const resource = createResource(t.ontologyID, t.name);
+    const resource = createEntry(t.ontologyID, t.name);
     const SearchListItem = Task.SEARCH_LIST_ITEMS.task;
     if (SearchListItem == null) throw new Error("task SearchListItem is not defined");
     const Harness = (): ReactElement => {

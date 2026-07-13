@@ -39,13 +39,13 @@ export const createUseDelete =
   (props: ContextMenuProps) => {
     const {
       selection: { ids },
-      state: { getResource },
+      state: { getName },
     } = props;
     const confirm = useConfirmDelete({ type, description, icon });
     const { update } = query({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<K | K[]>) => {
-          const res = await confirm(getResource(ids));
+          const res = await confirm(getName(ids).map((name) => ({ name })));
           if (!res) return false;
           if (beforeUpdate != null) return await beforeUpdate({ ...query, ...props });
           return true;

@@ -59,6 +59,7 @@ export const useRelationshipDeleteSynchronizer = (
 
 type DependentQuery = List.PagerParams & {
   id?: ontology.ID;
+  excludeFieldData?: boolean;
 };
 
 export const createDependentsListHook = (
@@ -67,11 +68,12 @@ export const createDependentsListHook = (
 ) =>
   Flux.createList<DependentQuery, string, ontology.Resource, FluxSubStore>({
     name,
-    retrieve: async ({ client, query: { id } }) => {
+    retrieve: async ({ client, query: { id, excludeFieldData } }) => {
       if (id == null) return [];
       return await client.ontology.retrieve([id], {
         children: direction === "to",
         parents: direction === "from",
+        excludeFieldData,
       });
     },
     retrieveByKey: async ({ client, key }) =>

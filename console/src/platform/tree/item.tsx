@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
-import { type Haul, Icon, List, Text, Tree as Base } from "@synnaxlabs/pluto";
+import { type ontology } from "@synnaxlabs/client";
+import { type Flux, type Haul, Icon, List, Text, Tree as Base } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, useCallback } from "react";
 
-import { type ContextMenu } from "@/platform/tree/types";
+import { type ContextMenu, type Entry } from "@/platform/tree/types";
 
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
 // own icon and double-click behavior, so neither is threaded through here.
 export interface ItemProps extends Omit<Base.ItemProps<string>, "id" | "resource"> {
-  resource: ontology.Resource;
+  id: ontology.ID;
+  name: string;
   loading: boolean;
 }
 
@@ -36,16 +37,17 @@ export interface Item extends FC<ItemProps> {
   type: ontology.ResourceType;
   hasChildren: boolean;
   canDrop: Haul.CanDrop;
-  haulItems: (resource: ontology.Resource) => Haul.Item[];
+  haulItems: (entry: Entry, store: Flux.Store) => Haul.Item[];
   ContextMenu?: ContextMenu;
-  visible?: (resource: ontology.Resource) => boolean;
+  visible?: (id: ontology.ID) => boolean;
 }
 
 export interface Items extends Partial<Record<ontology.ResourceType, Item>> {}
 
-const DefaultRow = ({
+export const DefaultRow = ({
   onDoubleClick,
-  resource,
+  id: _id,
+  name,
   icon,
   loading,
   ...rest
@@ -53,8 +55,8 @@ const DefaultRow = ({
   <Base.Item {...rest} onDoubleClick={onDoubleClick}>
     {icon}
     <Text.MaybeEditable
-      id={List.itemNameID(ontology.idToString(resource.id))}
-      value={resource.name}
+      id={List.itemNameID(rest.itemKey)}
+      value={name}
       onChange
       allowDoubleClick={false}
       style={{ userSelect: "none", width: 0, flexGrow: 1 }}
@@ -67,13 +69,13 @@ const noop = (): void => {};
 
 export interface CreateItemArgs {
   type: ontology.ResourceType;
-  icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
-  useOnSelect?: () => (resource: ontology.Resource) => void;
+  icon?: Icon.ReactElement | ((id: ontology.ID) => Icon.ReactElement);
+  useOnSelect?: () => (entry: Entry) => void;
   hasChildren?: boolean;
   canDrop?: Haul.CanDrop;
-  haulItems?: (resource: ontology.Resource) => Haul.Item[];
+  haulItems?: (entry: Entry, store: Flux.Store) => Haul.Item[];
   ContextMenu?: ContextMenu;
-  visible?: (resource: ontology.Resource) => boolean;
+  visible?: (id: ontology.ID) => boolean;
   Content?: Content;
 }
 
@@ -91,13 +93,12 @@ export const createItem = ({
   const Row = ContentComp ?? DefaultRow;
   const Component = (props: ItemProps): ReactElement => {
     const onSelect = useOnSelect();
+    const { id, name, itemKey } = props;
     const handleDoubleClick = useCallback(
-      () => onSelect(props.resource),
-      [onSelect, props.resource],
+      () => onSelect({ key: itemKey, id, name }),
+      [onSelect, itemKey, id, name],
     );
-    const resolvedIcon = Icon.resolve(
-      typeof icon === "function" ? icon(props.resource) : icon,
-    );
+    const resolvedIcon = Icon.resolve(typeof icon === "function" ? icon(id) : icon);
     return <Row {...props} icon={resolvedIcon} onDoubleClick={handleDoubleClick} />;
   };
   const item = Component as Item;

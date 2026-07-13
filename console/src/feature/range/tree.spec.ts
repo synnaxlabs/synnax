@@ -15,10 +15,10 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/feature/range";
 import { Range as CommonRange } from "@/platform/range";
 import { createTestRange } from "@/platform/range/testutil";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { uniqueName } from "@/testutil";
+import { createTestFluxStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -57,21 +57,19 @@ describe("range/ontology", () => {
   });
 
   describe("haulItems", () => {
-    it("returns a range haul item carrying the resource payload", async () => {
+    it("returns a range haul item carrying the payload from the ranges store", async () => {
       const rng = await createTestRange(client);
-      const resource = createResource(ranger.ontologyID(rng.key), rng.name, {
-        key: rng.key,
-        name: rng.name,
-        timeRange: rng.timeRange,
-      });
-      const items = Item.haulItems(resource);
+      const store = createTestFluxStore();
+      store.ranges.set(rng.key, rng);
+      const resource = createEntry(ranger.ontologyID(rng.key), rng.name);
+      const items = Item.haulItems(resource, store);
       expect(items).toHaveLength(1);
       expect(items[0].key).toBe(rng.key);
     });
 
-    it("returns nothing when the resource has no data payload", () => {
-      const resource = createResource(ranger.ontologyID("some-key"), "no-data");
-      expect(Item.haulItems(resource)).toHaveLength(0);
+    it("returns nothing when the range is not in the store", () => {
+      const resource = createEntry(ranger.ontologyID("some-key"), "no-data");
+      expect(Item.haulItems(resource, createTestFluxStore())).toHaveLength(0);
     });
   });
 });

@@ -45,7 +45,7 @@ import { useItems } from "@/platform/tree/Provider";
 import {
   type BaseProps,
   type ContextMenuProps,
-  type GetResource,
+  type GetName,
   type TreeState,
 } from "@/platform/tree/types";
 import { type Action, type State } from "@/session/store";
@@ -106,7 +106,8 @@ const itemRenderProp = Component.renderProp(
         {...onDropDrops}
         onDragLeave={() => setDraggingOver(false)}
         onDragEnd={onDragEnd}
-        resource={resource}
+        id={id}
+        name={resource.name}
         loading={loading}
       />
     );
@@ -122,7 +123,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>([]);
-  const resourceStore = Flux.useStore<Ontology.FluxSubStore>().resources;
+  const fluxStore = Flux.useStore<Ontology.FluxSubStore>();
+  const resourceStore = fluxStore.resources;
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
@@ -133,7 +135,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         if (variant == "success") {
           const filtered = resources.filter((r) => {
             const svc = resolveItem(r.id.type);
-            return svc.visible == null || svc.visible(r);
+            return svc.visible == null || svc.visible(r.id);
           });
           const converted = filtered.map((r) => ({
             key: ontology.idToString(r.id),
@@ -180,12 +182,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      const resources = await client.ontology.retrieveChildren(root);
+      const resources = await client.ontology.retrieveChildren(root, {
+        excludeFieldData: true,
+      });
       resources.forEach((r) => resourceStore.set(r));
       if (signal.aborted) return;
       const filtered = resources.filter((r) => {
         const svc = resolveItem(r.id.type);
-        return svc.visible == null || svc.visible(r);
+        return svc.visible == null || svc.visible(r.id);
       });
       const nodes = filtered.map((c) => ({
         key: ontology.idToString(c.id),
@@ -249,10 +253,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     if (action !== "expand") return;
     const clickedID = ontology.idZ.parse(clicked);
     setLoading(clicked);
-    retrieveChildren.retrieve({ id: clickedID });
+    retrieveChildren.retrieve({ id: clickedID, excludeFieldData: true });
   }, []);
 
-  const getResource = useCallback(
+  const getName = useCallback(
     ((id: ontology.ID | ontology.ID[] | string | string[]) => {
       const isSingle = !Array.isArray(id);
       const ids = array.toArray(id);
@@ -261,11 +265,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (isSingle) {
         if (resources[0] == null)
           throw new NotFoundError(`Resource ${ontology.idToString(id)} not found`);
-        return resources[0];
+        return resources[0].name;
       }
-
-      return resources;
-    }) as GetResource,
+      return resources.map((r) => r?.name ?? "");
+    }) as GetName,
     [resourceStore],
   );
 
@@ -274,8 +277,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [resourceStore],
   );
 
-  const setResource = useCallback(
-    (resource: ontology.Resource | ontology.Resource[]) => resourceStore.set(resource),
+  const setName = useCallback(
+    (id: ontology.ID, name: string) =>
+      resourceStore.set({ key: ontology.idToString(id), id, name }),
     [resourceStore],
   );
 
@@ -310,11 +314,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       expand,
       contract,
       setLoading,
-      setResource,
-      getResource,
+      setName,
+      getName,
       setSelection: setSelected,
     }),
-    [expand, contract, setLoading, handleError, setResource, nodesRef, setNodes],
+    [expand, contract, setLoading, handleError, setName, getName, nodesRef, setNodes],
   );
 
   const placeLayout = Layout.usePlacer();
@@ -368,26 +372,28 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleDragStart = useCallback(
     (itemKey: string) => {
-      const selectedResources = getResource(selectedRef.current);
       if (selectedRef.current.includes(itemKey)) {
+        const selectedResources = resourceStore
+          .get(selectedRef.current)
+          .filter((r) => r != null);
         const selectedHaulItems = selectedResources.flatMap((res) => {
           const depth = Base.getDepth(itemKey, shapeRef.current);
           const items: Haul.Item[] = [
             Base.createHaulItem(ontology.idToString(res.id), depth),
           ];
-          const svcItems = resolveItem(res.id.type).haulItems(res);
+          const svcItems = resolveItem(res.id.type).haulItems(res, fluxStore);
           if (svcItems != null) items.push(...svcItems);
           return items;
         });
         return startDrag(selectedHaulItems);
       }
       const depth = Base.getDepth(itemKey, shapeRef.current);
-      const haulItems = resolveItem(ontology.idZ.parse(itemKey).type).haulItems(
-        getResource(itemKey),
-      );
+      const [resource] = resourceStore.get([itemKey]);
+      if (resource == null) return;
+      const haulItems = resolveItem(resource.id.type).haulItems(resource, fluxStore);
       startDrag([Base.createHaulItem(itemKey, depth), ...haulItems]);
     },
-    [getResource, selectedRef],
+    [resourceStore, selectedRef, fluxStore],
   );
 
   const handleContextMenu = useCallback(

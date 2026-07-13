@@ -34,6 +34,6 @@ const SEARCH_LIST_ITEMS: Search.ListItems = {
   ...Task.SEARCH_LIST_ITEMS,
 };
 
-export const List = (props: Palette.ListProps<ontology.Resource>): ReactElement => (
+export const List = (props: Palette.ListProps<Tree.Entry>): ReactElement => (
   <Search.List items={SEARCH_LIST_ITEMS} {...props} />
 );

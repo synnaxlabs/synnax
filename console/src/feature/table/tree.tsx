@@ -54,10 +54,17 @@ const useRename = Tree.createUseRename({
   },
 });
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await Base.retrieveSingle({
+    client,
+    store: store as Base.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state: { getName, shape },
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -67,7 +74,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const firstID = ids[0];
-  const first = getResource(firstID);
   const isSingle = ids.length === 1;
   return (
     <ContextMenu.Menu>
@@ -86,11 +92,14 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
       {isSingle && (
         <>
-          <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+          <Export.ContextMenuItem onClick={() => handleExport(firstID.key)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+            onClick={() => handleLink({ name: getName(firstID), ontologyID: firstID })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
           <Menu.Divider />
         </>
       )}
@@ -108,15 +117,15 @@ const loadTable = async (
   placeLayout(Table.create({ key: t.key, name: t.name }));
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
+    (entry) => {
       if (client == null) return;
-      loadTable(client, resource.id, placeLayout).catch((e: unknown) =>
-        handleError(e, `Failed to select ${resource.name}`),
+      loadTable(client, entry.id, placeLayout).catch((e: unknown) =>
+        handleError(e, `Failed to select ${entry.name}`),
       );
     },
     [client, placeLayout, handleError],

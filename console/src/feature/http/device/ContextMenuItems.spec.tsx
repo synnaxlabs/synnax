@@ -9,12 +9,11 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
-import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import { createDeviceResource } from "@/platform/device/testutil";
+import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { type Tree } from "@/platform/tree";
 import {
@@ -28,11 +27,8 @@ import { createConsoleWrapper, waitForPlacedLayout } from "@/testutil";
 const client = createTestClient();
 
 const renderContextMenuItems = async (configured: boolean) => {
-  const resource = createDeviceResource({
-    key: id.create(),
-    name: "http_dev",
-    configured,
-  });
+  const dev = await createTestDevice(client, { configured });
+  const resource = createDeviceResource(dev);
   const { wrapper, store } = await createConsoleWrapper({ client });
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),

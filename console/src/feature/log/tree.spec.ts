@@ -14,10 +14,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Log } from "@/feature/log";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { assertDefined, uniqueName } from "@/testutil";
+import { assertDefined, createTestFluxStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -32,7 +32,7 @@ const createLog = async () => {
 };
 
 const logResource = (key: string, name: string) =>
-  createResource(log.ontologyID(key), name);
+  createEntry(log.ontologyID(key), name);
 
 describe("log ontology service", () => {
   it("should expose rename, group, delete, export, and link actions", async () => {
@@ -88,7 +88,7 @@ describe("log ontology service", () => {
 
   it("should haul a mosaic tab creation item", () => {
     const res = logResource("abc", "l");
-    const items = Item.haulItems(res);
+    const items = Item.haulItems(res, createTestFluxStore());
     expect(items).toHaveLength(1);
   });
 });

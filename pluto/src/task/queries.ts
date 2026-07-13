@@ -153,6 +153,40 @@ export const useRetrieveObservableName = ({
   });
 };
 
+export type RetrieveMultipleQuery = {
+  keys: task.Key[];
+};
+
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  task.Task[],
+  FluxSubStore
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys }, store }) => {
+    const tasks = await client.tasks.retrieve({ ...BASE_QUERY, keys });
+    store.tasks.set(tasks);
+    return tasks;
+  },
+  mountListeners: ({ store, onChange, query: { keys } }) => {
+    const keysSet = new Set(keys);
+    return [
+      store.tasks.onSet((tsk) => {
+        if (!keysSet.has(tsk.key)) return;
+        onChange(
+          state.skipUndefined((prev) =>
+            prev.map((p) => (p.key === tsk.key ? (tsk as task.Task) : p)),
+          ),
+        );
+      }),
+      store.tasks.onDelete((key) => {
+        if (!keysSet.has(key)) return;
+        onChange(state.skipUndefined((prev) => prev.filter((p) => p.key !== key)));
+      }),
+    ];
+  },
+});
+
 export type ListQuery = task.RetrieveMultipleParams;
 
 const unknownStatusZ = task.statusZ(z.unknown().optional());

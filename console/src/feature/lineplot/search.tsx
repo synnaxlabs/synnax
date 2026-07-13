@@ -16,7 +16,7 @@ import { Search } from "@/platform/search";
 
 const useOpen = () => {
   const placeLayout = Layout.usePlacer();
-  return ({ id, name }: ontology.Resource) =>
+  return ({ id, name }: Tree.Entry) =>
     placeLayout(LinePlot.create({ key: id.key, name }));
 };
 

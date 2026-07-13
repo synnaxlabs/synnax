@@ -20,7 +20,7 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { type FC } from "react";
+import { type FC, useCallback } from "react";
 
 import { CSS } from "@/platform/css";
 import { Layout } from "@/platform/layout";
@@ -29,16 +29,32 @@ import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
-  const entry = List.useItem<string, ontology.Resource>(itemKey);
+  const entry = List.useItem<string, Tree.Entry>(itemKey);
   const services = Range.useSnapshotServices();
+  if (entry == null) return null;
+  const svc = services[entry.id.type];
+  if (svc == null) return null;
+  return <SnapshotsListItemContent {...rest} className={className} svc={svc} entry={entry} />;
+};
+
+interface SnapshotsListItemContentProps extends List.ItemProps<string> {
+  svc: Range.SnapshotService;
+  entry: Tree.Entry;
+}
+
+const SnapshotsListItemContent = ({
+  className,
+  svc,
+  entry,
+  ...rest
+}: SnapshotsListItemContentProps) => {
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const promptConfirm = Tree.useConfirmDelete({ type: "Snapshot" });
-  if (entry == null) return null;
   const { id, name } = entry;
-  const svc = services[id.type];
-  if (svc == null) return null;
+  const isSnapshot = svc.useIsSnapshot(id.key);
+  if (!isSnapshot) return null;
   const handleSelect = () => {
     handleError(
       svc.onClick(entry, { client, placeLayout }),
@@ -81,9 +97,13 @@ export interface SnapshotsProps {
 }
 
 export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
+  const services = Range.useSnapshotServices();
   const { data, getItem, subscribe, retrieve, status } = Ontology.useListChildren({
-    initialQuery: { id: ranger.ontologyID(rangeKey) },
-    filter: (item) => item.data?.snapshot === true,
+    initialQuery: { id: ranger.ontologyID(rangeKey), excludeFieldData: true },
+    filter: useCallback(
+      (item: Tree.Entry) => services[item.id.type] != null,
+      [services],
+    ),
   });
   const { fetchMore } = List.usePager({ retrieve });
   if (status.variant === "error") return null;

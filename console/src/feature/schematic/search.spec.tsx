@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { renderWithConsole, uniqueName } from "@/testutil";
 
@@ -23,7 +23,7 @@ describe("schematic/search", () => {
   it("places the schematic's layout when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("schematic");
-    const resource = createResource(schematic.ontologyID(key), name);
+    const resource = createEntry(schematic.ontologyID(key), name);
     const SearchListItem = Schematic.SEARCH_LIST_ITEMS.schematic;
     if (SearchListItem == null)
       throw new Error("schematic SearchListItem is not defined");

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DisconnectedError } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/pluto";
+import { Icon, Schematic as PSchematic } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/feature/schematic/ContextMenu";
 import { extract } from "@/feature/schematic/export";
@@ -53,6 +53,7 @@ export const SELECTABLES: Selector.Selectable[] = [Selectable];
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   [PlatformSchematic.LAYOUT_TYPE]: {
     icon: <Icon.Schematic />,
+    useIsSnapshot: (key) => PSchematic.useRetrieve({ key }).data?.snapshot === true,
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
       const s = await client.schematics.retrieve({ key });

@@ -27,11 +27,7 @@ const client = createTestClient();
 const renderItems = async () => {
   const dev = await createModbusDevice(client);
   const propsStore = await createTestStore();
-  const resource = createDeviceResource({
-    key: dev.key,
-    name: dev.name,
-    configured: true,
-  });
+  const resource = createDeviceResource(dev);
   const handle = await renderMenuItem(
     <Modbus.Device.ContextMenuItems
       {...createBaseProps({ client, store: propsStore })}

@@ -10,14 +10,14 @@
 import { channel as channelClient, DataType, type ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Select } from "@synnaxlabs/pluto";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { placeLayout } from "@/platform/layout/testutil";
 import { LinePlot } from "@/platform/lineplot";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
@@ -34,10 +34,10 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
 const SearchListItem = Channel.SEARCH_LIST_ITEMS.channel;
 if (SearchListItem == null) throw new Error("channel SearchListItem is not defined");
 
-const renderSearchItem = async (resource: ontology.Resource) => {
+const renderSearchItems = async (resources: ontology.Resource[]) => {
   const Harness = (): ReactElement => {
     const staticProps = List.useStaticData<string, ontology.Resource>({
-      data: [resource],
+      data: resources,
     });
     return (
       <Select.Frame<string, ontology.Resource>
@@ -45,7 +45,9 @@ const renderSearchItem = async (resource: ontology.Resource) => {
         value={undefined}
         onChange={() => {}}
       >
-        <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+        {resources.map((resource, i) => (
+          <SearchListItem key={resource.key} itemKey={resource.key} index={i} />
+        ))}
       </Select.Frame>
     );
   };
@@ -61,9 +63,9 @@ describe("channel/search", () => {
       name: uniqueName("proj"),
       layout: {},
     });
-    const store = await renderSearchItem(
-      createResource(channelClient.ontologyID(ch.key), ch.name),
-    );
+    const store = await renderSearchItems([
+      createEntry(channelClient.ontologyID(ch.key), ch.name),
+    ]);
     store.dispatch(Session.Project.select(proj.key));
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
     await waitFor(() => {
@@ -80,9 +82,9 @@ describe("channel/search", () => {
       layout: {},
     });
     const plot = await client.lineplots.create(proj.key, { name: uniqueName("plot") });
-    const store = await renderSearchItem(
-      createResource(channelClient.ontologyID(ch.key), ch.name),
-    );
+    const store = await renderSearchItems([
+      createEntry(channelClient.ontologyID(ch.key), ch.name),
+    ]);
     placeLayout(store, plot.key, { type: LinePlot.LAYOUT_TYPE });
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
     await waitFor(async () => {
@@ -92,16 +94,27 @@ describe("channel/search", () => {
   });
 
   it("does not create a plot for a virtual channel without an expression", async () => {
-    const ch = await createChannel({ isIndex: false, virtual: true });
-    const store = await renderSearchItem(
-      createResource(channelClient.ontologyID(ch.key), ch.name, {
-        virtual: true,
-        expression: "",
-      }),
-    );
-    await act(async () => {
-      fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
+    const virtualCh = await createChannel({ isIndex: false, virtual: true });
+    const realCh = await createChannel();
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
     });
-    expect(Session.Layout.selectActiveMosaicLayout(store.getState())).toBeUndefined();
+    const store = await renderSearchItems([
+      createEntry(channelClient.ontologyID(virtualCh.key), virtualCh.name),
+      createEntry(channelClient.ontologyID(realCh.key), realCh.name),
+    ]);
+    store.dispatch(Session.Project.select(proj.key));
+    fireEvent.click(await screen.findByText(virtualCh.name), { detail: 0 });
+    fireEvent.click(await screen.findByText(realCh.name), { detail: 0 });
+    await waitFor(() =>
+      expect(Session.Layout.selectActiveMosaicLayout(store.getState())?.type).toBe(
+        LinePlot.LAYOUT_TYPE,
+      ),
+    );
+    const plots = Session.Layout.selectMany(store.getState()).filter(
+      (l) => l.type === LinePlot.LAYOUT_TYPE,
+    );
+    expect(plots).toHaveLength(1);
   });
 });

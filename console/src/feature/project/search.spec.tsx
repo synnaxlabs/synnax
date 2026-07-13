@@ -15,7 +15,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
@@ -27,7 +27,7 @@ describe("project/search", () => {
       name: uniqueName("project"),
       layout: {},
     });
-    const resource = createResource(project.ontologyID(p.key), p.name);
+    const resource = createEntry(project.ontologyID(p.key), p.name);
     const SearchListItem = Project.SEARCH_LIST_ITEMS.project;
     if (SearchListItem == null)
       throw new Error("project SearchListItem is not defined");

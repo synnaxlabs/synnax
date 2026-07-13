@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
@@ -32,7 +32,7 @@ const createProject = async () =>
   await client.projects.create({ name: uniqueName("project"), layout: {} });
 
 const projectResource = (key: string, name: string) =>
-  createResource(project.ontologyID(key), name);
+  createEntry(project.ontologyID(key), name);
 
 // The context menu's hooks require an active project, matching the Project.Guard the
 // production tree renders within.

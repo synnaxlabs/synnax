@@ -16,7 +16,7 @@ import { Table } from "@/platform/table";
 
 const useOpen = () => {
   const placeLayout = Layout.usePlacer();
-  return ({ id, name }: ontology.Resource) =>
+  return ({ id, name }: Tree.Entry) =>
     placeLayout(Table.create({ key: id.key, name }));
 };
 

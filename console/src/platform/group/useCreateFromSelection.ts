@@ -47,15 +47,13 @@ const base = Flux.createUpdate<CreateParams, Group.FluxSubStore>({
 const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => {
   const {
     selection,
-    state: { nodes, setNodes, setSelection, shape, setResource },
+    state: { nodes, setNodes, setSelection, shape, setName },
     group: { key },
   } = data;
   const newID = group.ontologyID(key);
-  const newIDString = ontology.idToString(newID);
   const resourcesToGroup = getResourcesToGroup(selection.ids, shape);
   const prevNodes = PTree.deepCopy(nodes);
-  const res: ontology.Resource = { key: newIDString, id: newID, name: "" };
-  setResource(res);
+  setName(newID, "");
   const destination = ontology.idsEqual(selection.rootID, selection.parentID)
     ? null
     : ontology.idToString(selection.parentID);

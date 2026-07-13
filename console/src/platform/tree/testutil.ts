@@ -15,29 +15,29 @@ import { type Tree } from "@/platform/tree";
 import { type Session } from "@/session";
 
 /**
- * Builds a {@link Tree.TreeState} backed by the given resources. getResource resolves
- * against the supplied resources; the mutating members are no-ops unless overridden.
+ * Builds a {@link Tree.TreeState} backed by the given entries. getName resolves
+ * against the supplied entries; the mutating members are no-ops unless overridden.
  */
 export const createState = (
-  resources: ontology.Resource[],
+  entries: Tree.Entry[],
   overrides: Partial<Tree.TreeState> = {},
 ): Tree.TreeState => {
-  const byKey = new Map(resources.map((r) => [ontology.idToString(r.id), r]));
-  const resolve = (id: ontology.ID | string): ontology.Resource => {
+  const byKey = new Map(entries.map((e) => [e.key, e]));
+  const resolve = (id: ontology.ID | string): string => {
     const key = typeof id === "string" ? id : ontology.idToString(id);
-    const resource = byKey.get(key);
-    if (resource == null) throw new Error(`resource ${key} not found in test state`);
-    return resource;
+    const entry = byKey.get(key);
+    if (entry == null) throw new Error(`entry ${key} not found in test state`);
+    return entry.name;
   };
-  const getResource = ((id: ontology.ID | string | (ontology.ID | string)[]) =>
-    Array.isArray(id) ? id.map(resolve) : resolve(id)) as Tree.GetResource;
-  const nodes = resources.map((r) => ({ key: ontology.idToString(r.id) }));
+  const getName = ((id: ontology.ID | string | (ontology.ID | string)[]) =>
+    Array.isArray(id) ? id.map(resolve) : resolve(id)) as Tree.GetName;
+  const nodes = entries.map((e) => ({ key: e.key }));
   return {
     nodes,
     shape: PTree.flatten({ nodes, expanded: [] }),
     setNodes: () => {},
-    setResource: () => {},
-    getResource,
+    setName: () => {},
+    getName,
     setSelection: () => {},
     expand: () => {},
     contract: () => {},
@@ -46,16 +46,11 @@ export const createState = (
   };
 };
 
-/** Builds an ontology resource for the given id with an optional name and data payload. */
-export const createResource = (
-  id: ontology.ID,
-  name: string,
-  data?: Record<string, unknown>,
-): ontology.Resource => ({
+/** Builds a tree entry for the given id and name. */
+export const createEntry = (id: ontology.ID, name: string): Tree.Entry => ({
   key: ontology.idToString(id),
   id,
   name,
-  ...(data != null ? { data } : {}),
 });
 
 /**

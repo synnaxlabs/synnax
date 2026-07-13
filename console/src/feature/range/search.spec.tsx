@@ -10,33 +10,31 @@
 import { type ontology, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Select } from "@synnaxlabs/pluto";
-import { screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { createTestRange } from "@/platform/range/testutil";
-import { createResource } from "@/platform/tree/testutil";
-import { renderWithConsole } from "@/testutil";
+import { createEntry } from "@/platform/tree/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const client = createTestClient();
 
 describe("range/search", () => {
   describe("SearchListItem", () => {
-    it("renders the resource name and time range", async () => {
+    it("renders the resource name and the time range retrieved from the cluster", async () => {
       const rng = await createTestRange(client);
-      const resource = createResource(ranger.ontologyID(rng.key), rng.name, {
-        timeRange: rng.timeRange.numeric,
-      });
+      const resource = createEntry(ranger.ontologyID(rng.key), rng.name);
       const SearchListItem = Range.SEARCH_LIST_ITEMS.range;
       if (SearchListItem == null)
         throw new Error("range SearchListItem is not defined");
       const Harness = (): ReactElement => {
-        const staticProps = List.useStaticData<string, ontology.Resource>({
+        const staticProps = List.useStaticData<string, Tree.Entry>({
           data: [resource],
         });
         return (
-          <Select.Frame<string, ontology.Resource>
+          <Select.Frame<string, Tree.Entry>
             {...staticProps}
             value={undefined}
             onChange={() => {}}
@@ -45,10 +43,11 @@ describe("range/search", () => {
           </Select.Frame>
         );
       };
-      const { container } = await renderWithConsole(<Harness />);
+      const { wrapper } = await createConsoleWrapper({ client });
+      const { container } = render(<Harness />, { wrapper });
       expect(await screen.findByText(rng.name)).toBeTruthy();
       // createTestRange builds a range starting now, which formats as "Today ...".
-      expect(container.textContent).toContain("Today");
+      await waitFor(() => expect(container.textContent).toContain("Today"));
     });
   });
 });

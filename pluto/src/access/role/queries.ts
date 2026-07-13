@@ -15,6 +15,9 @@ import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
 import { type List } from "@/list";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
+
+export type FluxSubStore = role.FluxSubStore;
 
 export const RESOURCE_NAME = "Role";
 export const PLURAL_RESOURCE_NAME = "Roles";
@@ -23,7 +26,7 @@ export type RetrieveQuery = {
   key: string;
 };
 
-const retrieveSingle = async ({
+export const retrieveSingle = async ({
   client,
   query: { key },
   store,
@@ -48,6 +51,38 @@ export const { useRetrieve } = Flux.createRetrieve<
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.roles.onSet(onChange, key),
   ],
+});
+
+export type RetrieveMultipleQuery = {
+  keys: access.role.Key[];
+};
+
+export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  access.role.Role[],
+  role.FluxSubStore
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys }, store }) => {
+    const roles = await client.access.roles.retrieve({ keys });
+    roles.forEach((r) => store.roles.set(r.key, r));
+    return roles;
+  },
+  mountListeners: ({ store, onChange, query: { keys } }) => {
+    const keysSet = new Set(keys);
+    return [
+      store.roles.onSet((r) => {
+        if (!keysSet.has(r.key)) return;
+        onChange(
+          state.skipUndefined((prev) => prev.map((p) => (p.key === r.key ? r : p))),
+        );
+      }),
+      store.roles.onDelete((key) => {
+        if (!keysSet.has(key)) return;
+        onChange(state.skipUndefined((prev) => prev.filter((p) => p.key !== key)));
+      }),
+    ];
+  },
 });
 
 export type ListQuery = List.PagerParams;

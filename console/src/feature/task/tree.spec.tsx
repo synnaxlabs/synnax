@@ -23,7 +23,7 @@ import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createExecutingHandleError,
-  createResource,
+  createEntry,
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
@@ -74,22 +74,18 @@ const renderTaskTree = async (t: task.Task) => {
 interface CreateMenuPropsArgs {
   tasks: task.Task[];
   overrides?: Partial<Tree.BaseProps>;
-  snapshot?: boolean;
 }
 
 const createMenuProps = async ({
   tasks,
   overrides,
-  snapshot = false,
 }: CreateMenuPropsArgs): Promise<Tree.ContextMenuProps> => {
   const ids = tasks.map((t) => t.ontologyID);
   const store = await createTestStore();
   return {
     ...createBaseProps({ client, store, overrides }),
     selection: createSelection({ ids }),
-    state: createState(
-      ids.map((id, i) => createResource(id, tasks[i].name, { snapshot })),
-    ),
+    state: createState(ids.map((id, i) => createEntry(id, tasks[i].name))),
   };
 };
 
@@ -133,7 +129,8 @@ describe("task ontology", () => {
 
     it("should label the edit item View configuration for snapshots", async () => {
       const t = await createTask();
-      const props = await createMenuProps({ tasks: [t], snapshot: true });
+      const snap = await client.tasks.copy(t.key, uniqueName("snap"), true);
+      const props = await createMenuProps({ tasks: [snap] });
       await renderMenu(props);
       expect(await screen.findByText("View configuration")).toBeTruthy();
     });
@@ -184,7 +181,7 @@ describe("task ontology", () => {
       const props: Tree.ContextMenuProps = {
         ...createBaseProps({ client, store }),
         selection: createSelection({ ids: [t.ontologyID] }),
-        state: createState([createResource(t.ontologyID, t.name, { snapshot: false })]),
+        state: createState([createEntry(t.ontologyID, t.name)]),
       };
       const itemID = List.itemNameID(ontology.idToString(t.ontologyID));
       const RenameHarness = () => {

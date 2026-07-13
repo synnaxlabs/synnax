@@ -15,8 +15,8 @@ import { describe, expect, it } from "vitest";
 
 import { Group } from "@/feature/group";
 import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
-import { assertDefined, uniqueName } from "@/testutil";
+import { createEntry } from "@/platform/tree/testutil";
+import { assertDefined, createTestFluxStore, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -26,13 +26,13 @@ const createGroup = async (parent: ontology.ID) =>
   await client.groups.create({ parent, name: uniqueName("group") });
 
 const groupResource = (key: string, name: string) =>
-  createResource(group.ontologyID(key), name);
+  createEntry(group.ontologyID(key), name);
 
 describe("group ontology service", () => {
   it("should always accept drops and haul the group's own id", () => {
     expect(Item.canDrop({ source: { key: "s", type: "t" }, items: [] })).toBe(true);
     const res = groupResource("g1", "g");
-    expect(Item.haulItems(res)).toEqual([res.id]);
+    expect(Item.haulItems(res, createTestFluxStore())).toEqual([res.id]);
   });
 
   it("should hide rename and ungroup for a zero-depth selection", async () => {

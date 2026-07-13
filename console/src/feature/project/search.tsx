@@ -17,7 +17,7 @@ const useOpen = () => {
   const client = Synnax.use();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
-  return ({ id, name }: ontology.Resource) => {
+  return ({ id, name }: Tree.Entry) => {
     if (client == null) return;
     handleError(async () => {
       const proj = await client.projects.retrieve(id.key);

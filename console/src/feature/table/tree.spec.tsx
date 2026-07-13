@@ -26,7 +26,7 @@ import { findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
-  createResource,
+  createEntry,
   createSelection,
   createState,
 } from "@/platform/tree/testutil";
@@ -37,6 +37,7 @@ import {
   captureBrowserDownloads,
   commitTextEdit,
   createConsoleWrapper,
+  createTestFluxStore,
   createTestStore,
   stubClipboardWriteText,
   uniqueName,
@@ -64,7 +65,7 @@ const renderMenu = async ({ tables, overrides, withCluster = false }: SetupArgs)
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store, overrides }),
     selection: createSelection({ ids }),
-    state: createState(tables.map((t, i) => createResource(ids[i], t.name))),
+    state: createState(tables.map((t, i) => createEntry(ids[i], t.name))),
   };
   const { wrapper } = await createConsoleWrapper({ client, store });
   const Menu = Item.ContextMenu;
@@ -182,7 +183,7 @@ describe("table/ontology", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientTable.ontologyID("11111111-1111-1111-1111-111111111111");
-      const items = Item.haulItems(createResource(id, "My Table"));
+      const items = Item.haulItems(createEntry(id, "My Table"), createTestFluxStore());
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("table:11111111-1111-1111-1111-111111111111");
     });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type user } from "@synnaxlabs/client";
+import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { Access, type Flux, Icon, List, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -25,7 +25,7 @@ const useRename = ({
   selection: {
     ids: [firstID],
   },
-  state: { getResource },
+  state: { getName },
 }: Tree.ContextMenuProps): (() => void) => {
   const beforeUpdate = useCallback(
     async ({ data }: Flux.BeforeUpdateParams<User.ChangeUsernameParams>) => {
@@ -39,8 +39,8 @@ const useRename = ({
   );
   const { update } = User.useRename({ beforeUpdate });
   return useCallback(
-    () => update({ key: firstID.key, username: getResource(firstID).name }),
-    [update, firstID, getResource],
+    () => update({ key: firstID.key, username: getName(firstID) }),
+    [update, firstID, getName],
   );
 };
 
@@ -48,18 +48,24 @@ const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
   const openAssignRole = PlatformUser.useAssignRoleModal();
 
   return useCallback(
-    ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
-      const resource = getResource(ids[0]);
-      openAssignRole({ userKey: ids[0].key, title: `Role.Assign.${resource.name}` });
+    ({ selection: { ids }, state: { getName } }: Tree.ContextMenuProps) => {
+      openAssignRole({ userKey: ids[0].key, title: `Role.Assign.${getName(ids[0])}` });
     },
     [openAssignRole],
   );
 };
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await User.retrieveSingle({
+    client,
+    store: store as User.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     client,
-    state: { getResource },
+    state: { getName },
     selection: { ids },
   } = props;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -68,8 +74,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
   const singleResource = ids.length === 1;
-  const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
-  const isRootUser = getResource(ids[0]).data?.root_user === true;
+  const isNotCurrentUser = getName(ids[0]) !== client.params.username;
+  const isRootUser = User.useRetrieve({ key: ids[0]?.key }).data?.rootUser === true;
 
   return (
     <ContextMenu.Menu>
@@ -99,7 +105,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       {singleResource && (
         <>
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
           <Menu.Divider />
         </>
       )}
@@ -108,13 +117,21 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+const Content = (props: Tree.ContentProps) => {
+  User.useRetrieve({ key: props.id.key });
+  return <Tree.DefaultRow {...props} />;
+};
+
 const TreeItem = Tree.createItem({
   type: "user",
   icon: <Icon.User />,
   ContextMenu: TreeContextMenu,
   hasChildren: false,
-  haulItems: ({ data }) =>
-    data == null ? [] : [User.createHaulItem(data as user.User)],
+  Content,
+  haulItems: ({ id }, store) => {
+    const user = (store as User.FluxSubStore).users.get(id.key);
+    return user == null ? [] : [User.createHaulItem(user)];
+  },
 });
 
 export const TREE_ITEMS = { user: TreeItem } satisfies Tree.Items;

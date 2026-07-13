@@ -7,22 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Menu } from "@synnaxlabs/pluto";
+import { type ontology, type Synnax } from "@synnaxlabs/client";
+import { Flux, Menu } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { type ContextMenuProps } from "@/platform/tree/types";
 
-export const CopyPropertiesContextMenuItem = (
-  props: ContextMenuProps,
-): ReactElement | null => {
-  const {
-    selection: { ids },
-    state: { getResource },
-  } = props;
+export interface RetrievePropertiesParams {
+  client: Synnax;
+  store: Flux.Store;
+  id: ontology.ID;
+}
+
+export interface CopyPropertiesContextMenuItemProps extends ContextMenuProps {
+  // retrieveProperties fetches the record whose JSON representation is copied to the
+  // clipboard. Implementations should go through the resource type's flux retrieve so
+  // cached records are reused.
+  retrieveProperties: (params: RetrievePropertiesParams) => Promise<unknown>;
+}
+
+export const CopyPropertiesContextMenuItem = ({
+  client,
+  selection: { ids },
+  state: { getName },
+  retrieveProperties,
+}: CopyPropertiesContextMenuItemProps): ReactElement | null => {
+  const store = Flux.useStore();
   if (ids.length !== 1) return null;
   const id = ids[0];
-  const { data, name } = getResource(id);
-  const getText = useCallback(() => JSON.stringify(data), [data]);
+  const name = getName(id);
+  const getText = useCallback(
+    async () => JSON.stringify(await retrieveProperties({ client, store, id })),
+    [client, store, id, retrieveProperties],
+  );
   return (
     <Menu.CopyItem
       itemKey="copyData"

@@ -36,7 +36,7 @@ export const createUseRename =
       selection: {
         ids: [firstID],
       },
-      state: { getResource },
+      state: { getName },
     } = props;
     const { update } = query({
       beforeUpdate: useCallback(
@@ -60,7 +60,7 @@ export const createUseRename =
       ),
     });
     return useCallback(
-      () => update({ key: convertKey(firstID.key), name: getResource(firstID).name }),
-      [firstID, getResource],
+      () => update({ key: convertKey(firstID.key), name: getName(firstID) }),
+      [firstID, getName],
     );
   };

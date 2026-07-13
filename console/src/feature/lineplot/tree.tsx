@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, ontology } from "@synnaxlabs/client";
+import { lineplot, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Access,
   Icon,
@@ -55,10 +55,17 @@ const useRename = Tree.createUseRename({
   },
 });
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await Base.retrieveSingle({
+    client,
+    store: store as Base.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state: { getName, shape },
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -69,7 +76,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const firstID = ids[0];
   const isSingle = ids.length === 1;
-  const first = getResource(firstID);
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && (
@@ -92,11 +98,14 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {(hasUpdatePermission || hasDeletePermission) && <Menu.Divider />}
       {isSingle && (
         <>
-          <Export.ContextMenuItem onClick={() => handleExport(first.id.key)} />
+          <Export.ContextMenuItem onClick={() => handleExport(firstID.key)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: first.name, ontologyID: firstID })}
+            onClick={() => handleLink({ name: getName(firstID), ontologyID: firstID })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
           <Menu.Divider />
         </>
       )}
@@ -105,17 +114,17 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
+    (entry) => {
       if (client == null) return;
       handleError(async () => {
-        const linePlot = await client.lineplots.retrieve({ key: resource.id.key });
+        const linePlot = await client.lineplots.retrieve({ key: entry.id.key });
         placeLayout(create({ key: linePlot.key, name: linePlot.name }));
-      }, `Failed to select ${resource.name}`);
+      }, `Failed to select ${entry.name}`);
     },
     [client, placeLayout, handleError],
   );

@@ -46,10 +46,17 @@ const useRename = Tree.createUseRename({
   },
 });
 
+const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+  await Log.retrieveSingle({
+    client,
+    store: store as Log.FluxSubStore,
+    query: { key: id.key },
+  });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getResource, shape },
+    state: { getName, shape },
   } = props;
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
@@ -59,7 +66,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const firstID = ids[0];
-  const firstResource = getResource(firstID);
   const isSingle = ids.length === 1;
   return (
     <ContextMenu.Menu>
@@ -80,9 +86,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: firstResource.name, ontologyID: ids[0] })}
+            onClick={() => handleLink({ name: getName(ids[0]), ontologyID: ids[0] })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem
+            {...props}
+            retrieveProperties={retrieveProperties}
+          />
           <Menu.Divider />
         </>
       )}
@@ -100,15 +109,15 @@ const loadLog = async (
   placeLayout(PlatformLog.create({ key: l.key, name: l.name }));
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
+const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   return useCallback(
-    (resource) => {
+    (entry) => {
       if (client == null) return;
-      loadLog(client, resource.id, placeLayout).catch((e: unknown) =>
-        handleError(e, `Failed to select ${resource.name}`),
+      loadLog(client, entry.id, placeLayout).catch((e: unknown) =>
+        handleError(e, `Failed to select ${entry.name}`),
       );
     },
     [client, placeLayout, handleError],

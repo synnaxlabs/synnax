@@ -52,7 +52,7 @@ export type RetrieveQuery = {
 
 const BASE_QUERY: Partial<RetrieveQuery> = { includeStatus: true };
 
-const retrieveSingle = async ({
+export const retrieveSingle = async ({
   client,
   query,
   store,
