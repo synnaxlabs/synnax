@@ -148,7 +148,7 @@ describe("Store", () => {
 });
 
 const wrapper = ({ children }: PropsWithChildren) => (
-  <Modals.Provider>{children}</Modals.Provider>
+  <Modals.Context>{children}</Modals.Context>
 );
 
 describe("Provider", () => {
