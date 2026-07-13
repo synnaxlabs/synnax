@@ -37,8 +37,8 @@ const (
 	tokenTypeNamespace         = uint32(19)
 	tokenTypeStringRaw         = uint32(20)
 	tokenTypeStringPlaceholder = uint32(21)
-	tokenTypeChannelReadWrite      = uint32(22)
-	tokenTypeChannelRead  = uint32(23)
+	tokenTypeChannelReadWrite  = uint32(22)
+	tokenTypeChannelRead       = uint32(23)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -527,6 +527,23 @@ func cat() {
 			Expect(channelRead[0]).To(Equal(decodedToken{
 				Line: 3, StartChar: 0, Length: 4, TokenType: tokenTypeChannelRead,
 			}))
+		})
+
+		It("colors the declaration of a reassigned channel read/write variable", func(ctx SpecContext) {
+			channels := []symbol.Symbol{
+				{Name: "crw_a", Type: types.Chan(types.F64()), Kind: symbol.KindChannel},
+				{Name: "crw_b", Type: types.Chan(types.F64()), Kind: symbol.KindChannel},
+				{Name: "out", Type: types.Chan(types.F64()), Kind: symbol.KindChannel},
+			}
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
+			})
+			OpenArcDocument(server, ctx, uri, "sequence main {\n\tal := crw_a\n\tal -> out\n\tal = crw_b\n}")
+			channelReadWrite := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeChannelReadWrite)
+			Expect(channelReadWrite).To(ContainElement(decodedToken{
+				Line: 1, StartChar: 1, Length: 2, TokenType: tokenTypeChannelReadWrite,
+			}))
+			Expect(channelReadWrite).To(HaveLen(3))
 		})
 	})
 
