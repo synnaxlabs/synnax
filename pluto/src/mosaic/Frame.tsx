@@ -16,29 +16,39 @@ import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 
+/**
+ * Where a drop landed within a {@link Leaf}: a drop on the leaf's body carries the
+ * region it landed in (an edge splits, center inserts), while a drop on the leaf's
+ * tab strip always lands in the center and carries the resolved insertion index.
+ */
+export type DropPosition =
+  | {
+      /** The region of the leaf body the drop landed in. */
+      location: location.Location;
+      index?: never;
+    }
+  | {
+      /** Strip drops always insert into the center of the leaf. */
+      location: "center";
+      /** The insertion index within the leaf's tab strip. */
+      index: number;
+    };
+
 /** Passed to a Frame's onDrop handler when a tab lands on a {@link Leaf}. */
-export interface OnDropProps {
+export type OnDropProps = DropPosition & {
   /** The key of the leaf the tab was dropped on. */
   nodeKey: number;
   /** The key of the dropped tab. */
   tabKey: string;
-  /** Where the tab landed relative to the leaf: an edge splits, center inserts. */
-  location: location.Location;
-  /** The insertion index within the leaf's tab strip, when dropped on the strip. */
-  index?: number;
-}
+};
 
 /** Passed to a Frame's onCreate handler when creation items land on a {@link Leaf}. */
-export interface OnCreateProps {
+export type OnCreateProps = DropPosition & {
   /** The key of the leaf the items were dropped on. */
   nodeKey: number;
-  /** Where the items landed relative to the leaf: an edge splits, center inserts. */
-  location: location.Location;
   /** The keys of the dropped creation items, e.g. ontology ID strings. */
   tabKeys: string[];
-  /** The insertion index within the leaf's tab strip, when dropped on the strip. */
-  index?: number;
-}
+};
 
 /** Passed to a Frame's onFileDrop handler when OS files land on a {@link Leaf}. */
 export interface OnFileDropProps {

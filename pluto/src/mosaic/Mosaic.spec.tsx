@@ -36,7 +36,7 @@ const stubRect = (el: Element, x: number, y: number, w: number, h: number): void
  */
 const stubLeafRects = (leaf: HTMLElement): void => {
   stubRect(leaf, 0, 0, 400, 300);
-  const tabList = leaf.querySelector('[role="tablist"]');
+  const tabList = leaf.querySelector(Tabs.LIST_SELECTOR);
   if (tabList != null) stubRect(tabList, 0, 0, 400, 32);
   leaf
     .querySelectorAll("[data-tab-key]")
@@ -108,7 +108,7 @@ const Harness = ({
 const leaf = (key: number = 1): HTMLElement => screen.getByTestId(`leaf-${key}`);
 
 const strip = (key: number = 1): HTMLElement => {
-  const el = leaf(key).querySelector<HTMLElement>('[role="tablist"]');
+  const el = leaf(key).querySelector<HTMLElement>(Tabs.LIST_SELECTOR);
   if (el == null) throw new Error("tab strip not found");
   return el;
 };
@@ -321,6 +321,27 @@ describe("Mosaic", () => {
       expect(onFileDrop).toHaveBeenCalledWith(
         expect.objectContaining({ nodeKey: 1, location: "center" }),
       );
+    });
+
+    it("should resolve file drops on the tab strip to a center drop", () => {
+      const onFileDrop = vi.fn();
+      render(<Harness onFileDrop={onFileDrop} items={[Haul.FILE]} />);
+      beginDrag(leaf());
+      drop(strip(), 150, 16);
+      expect(onFileDrop).toHaveBeenCalledTimes(1);
+      expect(onFileDrop).toHaveBeenCalledWith(
+        expect.objectContaining({ nodeKey: 1, location: "center" }),
+      );
+    });
+
+    it("should mask the whole leaf while a file drag is over the strip", () => {
+      render(<Harness onFileDrop={vi.fn()} items={[Haul.FILE]} />);
+      beginDrag(leaf());
+      dragOver(strip(), 150, 16);
+      const el = mask();
+      expect(el).not.toBeNull();
+      expect(el?.style.width).toEqual("100%");
+      expect(el?.style.height).toEqual("100%");
     });
 
     it("should ignore file drops when the frame has no onFileDrop", () => {

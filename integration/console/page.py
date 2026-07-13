@@ -287,7 +287,7 @@ class ConsolePage:
         Returns:
             The current page title
         """
-        self.page.locator("#properties").click(timeout=5000)
+        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
         return self.layout.get_input_field("Title")
 
     def copy_link(self) -> str:
