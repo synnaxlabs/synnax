@@ -30,7 +30,7 @@ func isNumeric(t basetypes.Type) bool         { return t.IsNumeric() }
 func isNumericOrString(t basetypes.Type) bool { return t.IsNumeric() || t.Kind == basetypes.KindString }
 
 // tracksChannelRead reports whether reading resolved reads from a channel: a channel
-// symbol, a chan-typed param, a channel alias, or a reactive value variable.
+// symbol, a chan-typed param, a channel read/write, or a channel read value variable.
 func tracksChannelRead(resolved *symbol.Symbol) bool {
 	switch {
 	case resolved.Kind == symbol.KindChannel:

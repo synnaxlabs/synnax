@@ -73,7 +73,7 @@ func AnalyzeVariableDeclaration(ctx context.Context[parser.IVariableDeclarationC
 }
 
 // inferVarKind classifies the just-declared value variable from its RHS and
-// records the kind on its symbol, registering a reactive `:=` initializer's flow.
+// records the kind on its symbol, registering a channel-read `:=` initializer's flow.
 func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	var (
 		ident string
@@ -99,7 +99,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	if stateful {
 		if statefulRHSTracksChannel(ctx, expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-				"channels and reactive expressions cannot be assigned to stateful variables"))
+				"channels and channel-read expressions cannot be assigned to stateful variables"))
 			return
 		}
 		// Supporting a computed seed would require folding it to a compile-time value,
@@ -109,20 +109,20 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 				"stateful variable initializer must be a literal value"))
 			return
 		}
-		sym.VarKind = symbol.VarKindConstant
+		sym.VarKind = symbol.VarKindLiteral
 		return
 	}
-	// A variable bound to a channel is an alias: it behaves exactly as the channel.
+	// A variable bound to a channel is channel read/write: it behaves exactly as the channel.
 	if sym.SourceID != nil || sym.Type.Kind == types.KindChan {
-		sym.VarKind = symbol.VarKindChannelAlias
+		sym.VarKind = symbol.VarKindChannelReadWrite
 		return
 	}
 	if expr == nil {
 		return
 	}
-	// A literal initializer holds a constant value.
+	// A literal initializer holds a literal value.
 	if isLiteralExpression(context.Child(ctx, expr)) {
-		sym.VarKind = symbol.VarKindConstant
+		sym.VarKind = symbol.VarKindLiteral
 		return
 	}
 	// A bare identifier inherits the referenced variable's kind.
@@ -137,21 +137,21 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		}
 		return
 	}
-	// A complex initializer that reads channels is reactive; otherwise it is a
-	// computed constant. AnalyzeSingleExpression also registers the reactive flow.
+	// A complex initializer that reads channels is channel-read; otherwise it is a
+	// computed literal. AnalyzeSingleExpression also registers the reactive flow.
 	if local != nil {
 		flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 		if synth, serr := ctx.Scope.Root().GetChildByParserRule(expr); serr == nil &&
 			len(synth.Channels.Read) > 0 {
-			sym.VarKind = symbol.VarKindReactive
+			sym.VarKind = symbol.VarKindChannelRead
 			return
 		}
 	}
-	sym.VarKind = symbol.VarKindConstant
+	sym.VarKind = symbol.VarKindLiteral
 }
 
-// statefulRHSTracksChannel reports whether a `$=` initializer aliases a channel or
-// reads one via a reactive expression, both disallowed for stateful variables.
+// statefulRHSTracksChannel reports whether a `$=` initializer binds a channel or
+// reads one via a channel-read expression, both disallowed for stateful variables.
 func statefulRHSTracksChannel(
 	ctx context.Context[parser.IVariableDeclarationContext],
 	expr parser.IExpressionContext,
@@ -163,16 +163,16 @@ func statefulRHSTracksChannel(
 	if isLiteralExpression(childCtx) {
 		return false
 	}
-	// A bare reference that resolves to a channel/alias/reactive variable.
+	// A bare reference that resolves to a channel, channel-read/write, or channel-read variable.
 	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
 		ref, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
 		if err != nil {
 			return false
 		}
 		return ref.Kind == symbol.KindChannel || ref.Type.Kind == types.KindChan ||
-			ref.VarKind == symbol.VarKindChannelAlias || ref.VarKind == symbol.VarKindReactive
+			ref.VarKind == symbol.VarKindChannelReadWrite || ref.VarKind == symbol.VarKindChannelRead
 	}
-	// A compound expression that reads one or more channels is reactive.
+	// A compound expression that reads one or more channels is channel-read.
 	flow.AnalyzeSingleExpression(childCtx)
 	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	return err == nil && len(synth.Channels.Read) > 0

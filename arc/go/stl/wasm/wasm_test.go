@@ -2996,9 +2996,9 @@ input_ch -> writer{output=write_target} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
 		})
 
-		It("Should handle writing to channel through global channel alias", func(ctx SpecContext) {
+		It("Should handle writing to channel through global channel read/write", func(ctx SpecContext) {
 			// Test that writing through an alias of a global channel works correctly
-			// out := output_ch   (global channel alias)
+			// out := output_ch   (global channel read/write)
 			// out = value * 4.0  (write to channel through alias)
 			chans := []symbol.Symbol{
 				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
@@ -3117,8 +3117,8 @@ input_ch -> writer{} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0, 30.0))
 		})
 
-		It("Should handle reading from global channel alias", func(ctx SpecContext) {
-			// Test reading through a global channel alias:
+		It("Should handle reading from global channel read/write", func(ctx SpecContext) {
+			// Test reading through a global channel read/write:
 			// sp := set_point_ch  (alias to global channel)
 			// threshold := sp     (read from the channel through alias)
 			chans := []symbol.Symbol{

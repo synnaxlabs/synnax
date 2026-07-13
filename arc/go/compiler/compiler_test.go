@@ -3125,7 +3125,7 @@ var _ = Describe("Compiler", func() {
 			Expect(mod.ExportedFunction("fmt$fmt_1")).ToNot(BeNil())
 		})
 
-		It("Compiles a placeholder that reads a channel-alias variable", func(ctx SpecContext) {
+		It("Compiles a placeholder that reads a channel read/write variable", func(ctx SpecContext) {
 			resolver := []symbol.Symbol{
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 				{Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 101},

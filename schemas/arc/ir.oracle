@@ -71,10 +71,10 @@ Liveness enum {
 }
 
 VarKind enum {
-    unspecified   = 0
-    channel_alias = 1
-    reactive      = 2
-    constant      = 3
+    unspecified        = 0
+    channel_read_write = 1
+    channel_read       = 2
+    literal            = 3
 
     @doc value "defines the kind of value variable a node reads or writes."
 }

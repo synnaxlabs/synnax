@@ -60,9 +60,9 @@ enum class Liveness : std::uint8_t {
 
 enum class VarKind : std::uint8_t {
     Unspecified = 0,
-    ChannelAlias = 1,
-    Reactive = 2,
-    Constant = 3,
+    ChannelReadWrite = 1,
+    ChannelRead = 2,
+    Literal = 3,
 };
 
 /// @brief Handle is a reference to a specific parameter on a specific node in the

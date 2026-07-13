@@ -14,10 +14,10 @@ from tests.arc.arc import ArcCase
 ARC_VARIABLES_SOURCE = """
 import time
 
-// ──────────────────────────────── Const ────────────────────────────────
-vars_start => const_main_sequence
+// ──────────────────────────────── Literal ────────────────────────────────
+vars_start => literal_main_sequence
 
-sequence const_main_sequence {
+sequence literal_main_sequence {
     c_f64 f64 := 10.0
     c_u32 u32 := 7
     c_i64 i64 := -5
@@ -36,44 +36,44 @@ sequence const_main_sequence {
     c_str -> str_final
 }
 
-// ──────────────────────────── ChannelAlias ─────────────────────────────
-vars_start => alias_main_sequence
+// ────────────────────────── ChannelReadWrite ───────────────────────────
+vars_start => channel_read_write_main_sequence
 
-sequence alias_main_sequence {
-    al_f64 := alias_f64_a
-    al_u32 := alias_u32_a
-    al_i64 := alias_i64_a
-    al_str := alias_str_a
+sequence channel_read_write_main_sequence {
+    al_f64 := channel_read_write_f64_a
+    al_u32 := channel_read_write_u32_a
+    al_i64 := channel_read_write_i64_a
+    al_str := channel_read_write_str_a
     al_f64 -> f64_initial
     al_u32 -> u32_initial
     al_i64 -> i64_initial
     al_str -> str_initial
-    al_f64 = alias_f64_b
-    al_u32 = alias_u32_b
-    al_i64 = alias_i64_b
-    al_str = alias_str_b
+    al_f64 = channel_read_write_f64_b
+    al_u32 = channel_read_write_u32_b
+    al_i64 = channel_read_write_i64_b
+    al_str = channel_read_write_str_b
     al_f64 -> f64_final
     al_u32 -> u32_final
     al_i64 -> i64_final
     al_str -> str_final
 }
 
-// ─────────────────────────────── Reactive ──────────────────────────────
-vars_start => reactive_main_sequence
+// ────────────────────────────── ChannelRead ────────────────────────────
+vars_start => channel_read_main_sequence
 
-sequence reactive_main_sequence {
-    r_f64 := reactive_f64 + 1.0
-    r_u32 := reactive_u32 + 1
-    r_i64 := reactive_i64 + 1
-    r_str := reactive_str + "!"
+sequence channel_read_main_sequence {
+    r_f64 := channel_read_f64 + 1.0
+    r_u32 := channel_read_u32 + 1
+    r_i64 := channel_read_i64 + 1
+    r_str := channel_read_str + "!"
     r_f64 -> f64_initial
     r_u32 -> u32_initial
     r_i64 -> i64_initial
     r_str -> str_initial
-    r_f64 = reactive_f64 + 100.0
-    r_u32 = reactive_u32 + 10
-    r_i64 = reactive_i64 + 10
-    r_str = reactive_str + "?"
+    r_f64 = channel_read_f64 + 100.0
+    r_u32 = channel_read_u32 + 10
+    r_i64 = channel_read_i64 + 10
+    r_str = channel_read_str + "?"
     r_f64 -> f64_final
     r_u32 -> u32_final
     r_i64 -> i64_final
@@ -103,17 +103,17 @@ sequence inherit_main {
 }
 
 // ─────────────────────────── top-level scope ───────────────────────────
-top_const str := "top"
+top_literal str := "top"
 
 vars_start => toplevel_seq_reader
 vars_start => toplevel_stage_reader
 
 sequence toplevel_seq_reader {
-    top_const -> toplevel_from_seq
+    top_literal -> toplevel_from_seq
 }
 
 stage toplevel_stage_reader {
-    top_const -> toplevel_from_stage
+    top_literal -> toplevel_from_stage
 }
 
 // ────────────────────────── stage-scoped var ───────────────────────────
@@ -124,17 +124,17 @@ stage stage_scope_main {
     ss_var -> stage_scoped_out
 }
 
-// ───────── alias/reactive inherited into a nested inline body ───────────
+// ── channel-read/write & channel-read inherited into a nested inline body ──
 vars_start => inherit_kind_main
 
 sequence inherit_kind_main {
-    ik_alias := inherit_alias_src
-    ik_react := inherit_react_src + "!"
+    ik_channel_read_write := inherit_channel_read_write_src
+    ik_channel_read := inherit_channel_read_src + "!"
 
     stage {
-        ik_alias -> inherit_alias_direct
-        f"a={ik_alias}" -> inherit_alias_fmt
-        ik_react -> inherit_react_direct
+        ik_channel_read_write -> inherit_channel_read_write_direct
+        f"a={ik_channel_read_write}" -> inherit_channel_read_write_fmt
+        ik_channel_read -> inherit_channel_read_direct
     }
 }
 
@@ -184,9 +184,10 @@ sequence reset_matrix_main {
 vars_start => reassign_main
 
 sequence reassign_main {
-    // Five reassignables on one jump path: rx reactive, ra alias-read, wa
-    // alias-write, rc constant, rs stateful. Each stage mutates its vars (first
-    // block) then emits the readable ones (second block); wa is write-only.
+    // Five reassignables on one jump path: rx channel-read, ra channel-read/write
+    // read, wa channel-read/write write, rc literal, rs stateful. Each stage mutates
+    // its vars (first block) then emits the readable ones (second block); wa is
+    // write-only.
     rx str := "init: " + rx_src
     ra := ch_init
     wa := wa_init
@@ -292,9 +293,9 @@ SCOPE_OUTPUTS = [
     "toplevel_from_seq",
     "toplevel_from_stage",
     "stage_scoped_out",
-    "inherit_alias_direct",
-    "inherit_alias_fmt",
-    "inherit_react_direct",
+    "inherit_channel_read_write_direct",
+    "inherit_channel_read_write_fmt",
+    "inherit_channel_read_direct",
 ]
 RESET_OUTPUTS = [
     "counter_out_1",
@@ -318,9 +319,9 @@ REEXPR_OUTPUTS = [
 OUTPUTS = VAR_OUTPUTS + INHERIT_OUTPUTS + SCOPE_OUTPUTS + RESET_OUTPUTS + REEXPR_OUTPUTS
 
 F64_CHANNELS = [
-    "alias_f64_a",
-    "alias_f64_b",
-    "reactive_f64",
+    "channel_read_write_f64_a",
+    "channel_read_write_f64_b",
+    "channel_read_f64",
     "inherit_in",
     "f64_initial",
     "f64_final",
@@ -328,16 +329,16 @@ F64_CHANNELS = [
     "inherit_out_inline_seq",
 ]
 U32_CHANNELS = [
-    "alias_u32_a",
-    "alias_u32_b",
-    "reactive_u32",
+    "channel_read_write_u32_a",
+    "channel_read_write_u32_b",
+    "channel_read_u32",
     "u32_initial",
     "u32_final",
 ]
 I64_CHANNELS = [
-    "alias_i64_a",
-    "alias_i64_b",
-    "reactive_i64",
+    "channel_read_write_i64_a",
+    "channel_read_write_i64_b",
+    "channel_read_i64",
     "i64_initial",
     "i64_final",
     "counter_out_1",
@@ -349,20 +350,20 @@ I64_CHANNELS = [
     "counter_out_7",
 ]
 STR_CHANNELS = [
-    "alias_str_a",
-    "alias_str_b",
-    "reactive_str",
+    "channel_read_write_str_a",
+    "channel_read_write_str_b",
+    "channel_read_str",
     "str_initial",
     "str_final",
     "inherit_out_inline_fmt",
     "toplevel_from_seq",
     "toplevel_from_stage",
     "stage_scoped_out",
-    "inherit_alias_src",
-    "inherit_react_src",
-    "inherit_alias_direct",
-    "inherit_alias_fmt",
-    "inherit_react_direct",
+    "inherit_channel_read_write_src",
+    "inherit_channel_read_src",
+    "inherit_channel_read_write_direct",
+    "inherit_channel_read_write_fmt",
+    "inherit_channel_read_direct",
     "rx_src",
     "rx_out",
     "ch_init",
@@ -397,11 +398,11 @@ CHANNELS: list[tuple[str, sy.DataType]] = (
 
 
 class Variables(ArcCase):
-    """Runtime coverage for scoped Arc variables and channel aliases.
+    """Runtime coverage for scoped Arc variables and channel read/write variables.
 
-    Const, ChannelAlias, and Reactive variables across the f64/u32/i64/str data
-    types, each read to its own channel, plus reassignment (const overwrite,
-    alias rebind, reactive re-express), and inheritance into inline bodies.
+    Literal, ChannelReadWrite, and ChannelRead variables across the f64/u32/i64/str data
+    types, each read to its own channel, plus reassignment (literal overwrite,
+    channel read/write rebind, channel-read re-express), and inheritance into inline bodies.
     """
 
     arc_source = ARC_VARIABLES_SOURCE
@@ -414,9 +415,9 @@ class Variables(ArcCase):
         super().setup()
 
     def verify_sequence_execution(self) -> None:
-        self._verify_const()
-        self._verify_channel_alias()
-        self._verify_reactive()
+        self._verify_literal()
+        self._verify_channel_read_write()
+        self._verify_channel_read()
         self._verify_inline_inheritance()
         self._verify_top_level_scope()
         self._verify_stage_scope()
@@ -424,8 +425,8 @@ class Variables(ArcCase):
         self._verify_scope_reset_matrix()
         self._verify_reexpr()
 
-    def _verify_const(self) -> None:
-        self.log("=== Const ===")
+    def _verify_literal(self) -> None:
+        self.log("=== Literal ===")
         self.wait_for_eq("f64_initial", 10.0)
         self.wait_for_eq("u32_initial", 7)
         self.wait_for_eq("i64_initial", -5)
@@ -435,41 +436,41 @@ class Variables(ArcCase):
         self.wait_for_eq("i64_final", -100)
         self.wait_for_eq("str_final", "bye")
 
-    def _verify_channel_alias(self) -> None:
+    def _verify_channel_read_write(self) -> None:
         self.log("=== ChannelAlias ===")
-        self.writer.write("alias_f64_a", 1.5)
-        self.writer.write("alias_u32_a", 2)
-        self.writer.write("alias_i64_a", -3)
-        self.writer.write("alias_str_a", "a")
+        self.writer.write("channel_read_write_f64_a", 1.5)
+        self.writer.write("channel_read_write_u32_a", 2)
+        self.writer.write("channel_read_write_i64_a", -3)
+        self.writer.write("channel_read_write_str_a", "a")
         self.wait_for_eq("f64_initial", 1.5)
         self.wait_for_eq("u32_initial", 2)
         self.wait_for_eq("i64_initial", -3)
         self.wait_for_eq("str_initial", "a")
 
-        self.writer.write("alias_f64_b", 9.0)
-        self.writer.write("alias_u32_b", 8)
-        self.writer.write("alias_i64_b", -7)
-        self.writer.write("alias_str_b", "b")
+        self.writer.write("channel_read_write_f64_b", 9.0)
+        self.writer.write("channel_read_write_u32_b", 8)
+        self.writer.write("channel_read_write_i64_b", -7)
+        self.writer.write("channel_read_write_str_b", "b")
         self.wait_for_eq("f64_final", 9.0)
         self.wait_for_eq("u32_final", 8)
         self.wait_for_eq("i64_final", -7)
         self.wait_for_eq("str_final", "b")
 
-    def _verify_reactive(self) -> None:
+    def _verify_channel_read(self) -> None:
         self.log("=== Reactive ===")
-        self.writer.write("reactive_f64", 2.0)
-        self.writer.write("reactive_u32", 5)
-        self.writer.write("reactive_i64", -4)
-        self.writer.write("reactive_str", "x")
+        self.writer.write("channel_read_f64", 2.0)
+        self.writer.write("channel_read_u32", 5)
+        self.writer.write("channel_read_i64", -4)
+        self.writer.write("channel_read_str", "x")
         self.wait_for_eq("f64_initial", 3.0)
         self.wait_for_eq("u32_initial", 6)
         self.wait_for_eq("i64_initial", -3)
         self.wait_for_eq("str_initial", "x!")
 
-        self.writer.write("reactive_f64", 2.0)
-        self.writer.write("reactive_u32", 5)
-        self.writer.write("reactive_i64", -4)
-        self.writer.write("reactive_str", "x")
+        self.writer.write("channel_read_f64", 2.0)
+        self.writer.write("channel_read_u32", 5)
+        self.writer.write("channel_read_i64", -4)
+        self.writer.write("channel_read_str", "x")
         self.wait_for_eq("f64_final", 102.0)
         self.wait_for_eq("u32_final", 15)
         self.wait_for_eq("i64_final", 6)
@@ -493,12 +494,12 @@ class Variables(ArcCase):
         self.wait_for_eq("stage_scoped_out", "stage")
 
     def _verify_kind_inheritance(self) -> None:
-        self.log("=== alias/reactive inherited into a nested stage ===")
-        self.writer.write("inherit_alias_src", "A")
-        self.writer.write("inherit_react_src", "R")
-        self.wait_for_eq("inherit_alias_direct", "A")
-        self.wait_for_eq("inherit_alias_fmt", "a=A")
-        self.wait_for_eq("inherit_react_direct", "R!")
+        self.log("=== channel-read/write & channel-read inherited into a nested stage ===")
+        self.writer.write("inherit_channel_read_write_src", "A")
+        self.writer.write("inherit_channel_read_src", "R")
+        self.wait_for_eq("inherit_channel_read_write_direct", "A")
+        self.wait_for_eq("inherit_channel_read_write_fmt", "a=A")
+        self.wait_for_eq("inherit_channel_read_direct", "R!")
 
     def _verify_scope_reset_matrix(self) -> None:
         self.log("=== scope-entry reset across nested re-entry ===")
@@ -516,8 +517,8 @@ class Variables(ArcCase):
         # reassign_main drives five reassignable variables through one jump path,
         # entry -> c -> a -> d -> e (skipping b), so each is exercised across the
         # out-of-order jump back into r_a (earlier in source than r_c / r_d):
-        #   rx: reactive re-expr    ra: channel-alias read
-        #   rc: constant re-expr    wa: channel-alias write
+        #   rx: channel-read re-expr    ra: channel-read/write read
+        #   rc: literal re-expr    wa: channel-read/write write
         #   rs: stateful re-expr
         # Reads (rx / ra / rc / rs) converge on the live binding every stage. wa
         # writes are one-shot, so each lands a stage after its rebind (a same-stage

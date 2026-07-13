@@ -41,9 +41,9 @@ enum Liveness {
 // VarKind defines the kind of value variable a node reads or writes.
 enum VarKind {
   VAR_KIND_UNSPECIFIED = 0;
-  VAR_KIND_CHANNEL_ALIAS = 1;
-  VAR_KIND_REACTIVE = 2;
-  VAR_KIND_CONSTANT = 3;
+  VAR_KIND_CHANNEL_READ_WRITE = 1;
+  VAR_KIND_CHANNEL_READ = 2;
+  VAR_KIND_LITERAL = 3;
 }
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow

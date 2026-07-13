@@ -18,14 +18,14 @@ func _() {
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[VarKindUnspecified-0]
-	_ = x[VarKindChannelAlias-1]
-	_ = x[VarKindReactive-2]
-	_ = x[VarKindConstant-3]
+	_ = x[VarKindChannelReadWrite-1]
+	_ = x[VarKindChannelRead-2]
+	_ = x[VarKindLiteral-3]
 }
 
-const _VarKind_name = "VarKindUnspecifiedVarKindChannelAliasVarKindReactiveVarKindConstant"
+const _VarKind_name = "VarKindUnspecifiedVarKindChannelReadWriteVarKindChannelReadVarKindLiteral"
 
-var _VarKind_index = [...]uint8{0, 18, 37, 52, 67}
+var _VarKind_index = [...]uint8{0, 18, 41, 59, 73}
 
 func (i VarKind) String() string {
 	idx := int(i) - 0

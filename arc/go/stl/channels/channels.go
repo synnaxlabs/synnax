@@ -156,7 +156,7 @@ type nodeInputs struct {
 
 // backsInternalChannel reports whether kind k is backed by a program-local channel.
 func backsInternalChannel(k ir.VarKind) bool {
-	return k == ir.VarKindConstant || k == ir.VarKindReactive
+	return k == ir.VarKindLiteral || k == ir.VarKindChannelRead
 }
 
 type source struct {
@@ -175,7 +175,7 @@ func (s *source) Init(node.Context) {}
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
-	if s.varKind == ir.VarKindConstant {
+	if s.varKind == ir.VarKindLiteral {
 		return
 	}
 	data, _, ok := s.state.readSeries(s.key)
@@ -193,8 +193,8 @@ func (s *source) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
-	// A constant variable reflects its current value: emit the newest unread series.
-	if s.varKind == ir.VarKindConstant {
+	// A literal variable reflects its current value: emit the newest unread series.
+	if s.varKind == ir.VarKindLiteral {
 		for i := range slices.Backward(data.Series) {
 			if data.Series[i].AlignmentBounds().Lower >= s.highWaterMark {
 				s.emitSeries(ctx, data, indexData, i)
@@ -203,7 +203,7 @@ func (s *source) Next(ctx node.Context) {
 		}
 		return
 	}
-	// A channel, alias, or reactive read streams: emit the oldest unread series.
+	// A channel, channel read/write, or channel read streams: emit the oldest unread series.
 	for i := range data.Series {
 		if data.Series[i].AlignmentBounds().Lower >= s.highWaterMark {
 			s.emitSeries(ctx, data, indexData, i)

@@ -152,7 +152,7 @@ var _ = Describe("Text", func() {
 				sawRead = sawRead || reads
 				sawWrite = sawWrite || writes
 				if reads || writes {
-					Expect(n.VarKind).To(Equal(ir.VarKindConstant),
+					Expect(n.VarKind).To(Equal(ir.VarKindLiteral),
 						"a node touching the var channel must carry its kind")
 				} else {
 					Expect(n.VarKind).To(Equal(ir.VarKindUnspecified),
@@ -163,7 +163,7 @@ var _ = Describe("Text", func() {
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
 		})
 
-		DescribeTable("Should seed a value variable's channel with its constant value",
+		DescribeTable("Should seed a value variable's channel with its literal value",
 			func(ctx SpecContext, decl string, expected any) {
 				source := "sequence main {\n" + decl + "\n}"
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -181,7 +181,7 @@ var _ = Describe("Text", func() {
 			Entry("i8 type minimum", `a i8 := -128`, int8(-128)),
 		)
 
-		It("Should reject a write to a reactive variable", func(ctx SpecContext) {
+		It("Should reject a write to a channel-read variable", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				r := count_ch + 1
@@ -191,10 +191,10 @@ var _ = Describe("Text", func() {
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"cannot write to reactive variable r"))
+				"cannot write to channel-read variable r"))
 		})
 
-		It("Should lower a constant reassignment to a write node", func(ctx SpecContext) {
+		It("Should lower a literal reassignment to a write node", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				msg := "hello"
@@ -209,13 +209,13 @@ var _ = Describe("Text", func() {
 			for _, n := range inter.Nodes {
 				if _, writes := n.Channels.Write[varKey]; writes {
 					sawWrite = true
-					Expect(n.VarKind).To(Equal(ir.VarKindConstant))
+					Expect(n.VarKind).To(Equal(ir.VarKindLiteral))
 				}
 			}
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
 		})
 
-		It("Should build a feeder state machine for a re-expressed reactive variable", func(ctx SpecContext) {
+		It("Should build a feeder state machine for a re-expressed channel-read variable", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				r := count_ch + 1
@@ -250,7 +250,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			// k (constant), r (reactive), and the reassignment's switch channel are backed.
 			Expect(inter.VarChannels).To(HaveLen(3))
-			// Only the literal constant is seeded; the reactive variable and the
+			// Only the literal constant is seeded; the channel-read variable and the
 			// compiler-internal switch channel are not.
 			Expect(inter.VarSeeds).To(HaveLen(1))
 		})
@@ -308,7 +308,7 @@ var _ = Describe("Text", func() {
 			}
 		})
 
-		It("Should rebind a channel alias so later reads bake the new channel", func(ctx SpecContext) {
+		It("Should rebind a channel read/write so later reads bake the new channel", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				a := count_ch
@@ -341,7 +341,7 @@ var _ = Describe("Text", func() {
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"cannot rebind alias a; the right-hand side must be a channel"))
+				"cannot rebind channel read/write variable a; the right-hand side must be a channel"))
 		})
 
 		It("Should reject rebinding an alias to a non-channel value", func(ctx SpecContext) {
@@ -355,7 +355,7 @@ var _ = Describe("Text", func() {
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"cannot rebind alias a; the right-hand side must be a channel"))
+				"cannot rebind channel read/write variable a; the right-hand side must be a channel"))
 		})
 
 		It("Should reject rebinding an alias to a channel of a different type", func(ctx SpecContext) {
@@ -367,7 +367,7 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
-			Expect(diagnostics.String()).To(ContainSubstring("cannot rebind alias a of type"))
+			Expect(diagnostics.String()).To(ContainSubstring("cannot rebind channel read/write variable a of type"))
 		})
 
 		It("Should reject reassigning a variable at the top level", func(ctx SpecContext) {
@@ -437,7 +437,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.String()).To(ContainSubstring("undefined symbol: x"))
 		})
 
-		It("Should reject assigning a channel alias to a stateful variable", func(ctx SpecContext) {
+		It("Should reject assigning a channel read/write to a stateful variable", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				c i64 $= count_ch
@@ -446,7 +446,7 @@ var _ = Describe("Text", func() {
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"channels and reactive expressions cannot be assigned to stateful variables"))
+				"channels and channel-read expressions cannot be assigned to stateful variables"))
 		})
 
 		It("Should reject assigning a reactive expression to a stateful variable", func(ctx SpecContext) {
@@ -458,7 +458,7 @@ var _ = Describe("Text", func() {
 			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 			Expect(diagnostics.String()).To(ContainSubstring(
-				"channels and reactive expressions cannot be assigned to stateful variables"))
+				"channels and channel-read expressions cannot be assigned to stateful variables"))
 		})
 
 		It("Should reject a computed stateful variable initializer", func(ctx SpecContext) {
@@ -546,7 +546,7 @@ var _ = Describe("Text", func() {
 				sawRead = sawRead || reads
 				sawWrite = sawWrite || writes
 				if reads || writes {
-					Expect(n.VarKind).To(Equal(ir.VarKindConstant),
+					Expect(n.VarKind).To(Equal(ir.VarKindLiteral),
 						"a node touching the var channel must carry its kind")
 				} else {
 					Expect(n.VarKind).To(Equal(ir.VarKindUnspecified),
@@ -3724,7 +3724,7 @@ time.wait{duration=500ms} -> output`
 			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
 		})
 
-		It("Records the aliased channel key for a placeholder that reads a channel alias", func(ctx SpecContext) {
+		It("Records the aliased channel key for a placeholder that reads a channel read/write", func(ctx SpecContext) {
 			resolver := []symbol.Symbol{
 				{Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 				{Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},

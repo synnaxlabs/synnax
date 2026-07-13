@@ -408,7 +408,7 @@ var _ = Describe("Sequence", func() {
 			Entry("negated literal", "-5", int64(-5)),
 		)
 
-		DescribeTable("Reassigns a constant variable to a negative value",
+		DescribeTable("Reassigns a literal variable to a negative value",
 			func(ctx SpecContext, lit string, want int64) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -3248,7 +3248,7 @@ var _ = Describe("Sequence", func() {
 			Expect(func() { trigger(h, ctx, 100) }).ToNot(Panic())
 		})
 
-		It("Switches a reactive variable's expression on re-expression", func(ctx SpecContext) {
+		It("Switches a channel-read variable's expression on re-expression", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"in_val":    {types.U8(), 200},
@@ -3446,7 +3446,7 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Format-string interpolation of variables", func() {
-		It("Interpolates a reassigned constant variable", func(ctx SpecContext) {
+		It("Interpolates a reassigned literal variable", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"out":       {types.String(), 102},
@@ -3488,7 +3488,7 @@ var _ = Describe("Sequence", func() {
 			Expect(lastString(out, 102)).To(Equal("n=6"))
 		})
 
-		It("Interpolates a channel alias that follows a rebind", func(ctx SpecContext) {
+		It("Interpolates a channel read/write that follows a rebind", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"sensor_a":  {types.U8(), 201},
@@ -3514,7 +3514,7 @@ var _ = Describe("Sequence", func() {
 			Expect(lastString(out, 102)).To(Equal("v=7"))
 		})
 
-		It("Interpolates a re-expressed reactive variable", func(ctx SpecContext) {
+		It("Interpolates a re-expressed channel-read variable", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"in_val":    {types.U8(), 200},
@@ -3538,7 +3538,7 @@ var _ = Describe("Sequence", func() {
 			Expect(lastString(out, 102)).To(Equal("r=105"))
 		})
 
-		It("Reads and interpolates an inherited channel alias from a nested stage", func(ctx SpecContext) {
+		It("Reads and interpolates an inherited channel read/write from a nested stage", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd":  {types.U8(), 100},
 				"sensor":     {types.U8(), 201},
@@ -3567,7 +3567,7 @@ var _ = Describe("Sequence", func() {
 			Expect(lastString(out, 103)).To(Equal("a=7"))
 		})
 
-		It("Reads an inherited reactive variable from a nested stage", func(ctx SpecContext) {
+		It("Reads an inherited channel-read variable from a nested stage", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"in_val":    {types.U8(), 200},

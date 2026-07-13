@@ -37,8 +37,8 @@ const (
 	tokenTypeNamespace         = uint32(19)
 	tokenTypeStringRaw         = uint32(20)
 	tokenTypeStringPlaceholder = uint32(21)
-	tokenTypeChannelAlias      = uint32(22)
-	tokenTypeReactiveVariable  = uint32(23)
+	tokenTypeChannelReadWrite      = uint32(22)
+	tokenTypeChannelRead  = uint32(23)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -494,7 +494,7 @@ func cat() {
 	})
 
 	Describe("variable kinds", func() {
-		It("classifies constant, stateful, channel-alias, and reactive variables distinctly", func(ctx SpecContext) {
+		It("classifies literal, stateful, channel read/write, and channel-read variables distinctly", func(ctx SpecContext) {
 			channels := []symbol.Symbol{
 				{
 					Name: "sensorData",
@@ -516,16 +516,16 @@ func cat() {
 			Expect(stateful).To(HaveLen(1))
 			Expect(stateful[0].Line).To(Equal(uint32(1)))
 
-			alias := filterByType(tokens, tokenTypeChannelAlias)
-			Expect(alias).To(HaveLen(1))
-			Expect(alias[0]).To(Equal(decodedToken{
-				Line: 2, StartChar: 0, Length: 3, TokenType: tokenTypeChannelAlias,
+			channelReadWrite := filterByType(tokens, tokenTypeChannelReadWrite)
+			Expect(channelReadWrite).To(HaveLen(1))
+			Expect(channelReadWrite[0]).To(Equal(decodedToken{
+				Line: 2, StartChar: 0, Length: 3, TokenType: tokenTypeChannelReadWrite,
 			}))
 
-			reactive := filterByType(tokens, tokenTypeReactiveVariable)
-			Expect(reactive).To(HaveLen(1))
-			Expect(reactive[0]).To(Equal(decodedToken{
-				Line: 3, StartChar: 0, Length: 4, TokenType: tokenTypeReactiveVariable,
+			channelRead := filterByType(tokens, tokenTypeChannelRead)
+			Expect(channelRead).To(HaveLen(1))
+			Expect(channelRead[0]).To(Equal(decodedToken{
+				Line: 3, StartChar: 0, Length: 4, TokenType: tokenTypeChannelRead,
 			}))
 		})
 	})
@@ -541,9 +541,9 @@ func cat() {
 			Expect(ok).To(BeTrue())
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
 			n := len(legend.TokenTypes)
-			Expect(string(legend.TokenTypes[tokenTypeChannelAlias])).To(Equal("channelAlias"))
+			Expect(string(legend.TokenTypes[tokenTypeChannelReadWrite])).To(Equal("channelAlias"))
 			Expect(string(legend.TokenTypes[n-1])).To(Equal("reactiveVariable"))
-			Expect(uint32(n - 1)).To(Equal(tokenTypeReactiveVariable))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeChannelRead))
 		})
 	})
 })

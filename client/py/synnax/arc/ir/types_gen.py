@@ -39,9 +39,9 @@ class Liveness(IntEnum):
 
 class VarKind(IntEnum):
     unspecified = 0
-    channel_alias = 1
-    reactive = 2
-    constant = 3
+    channel_read_write = 1
+    channel_read = 2
+    literal = 3
 
 
 class Handle(BaseModel):

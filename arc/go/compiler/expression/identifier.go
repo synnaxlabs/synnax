@@ -42,7 +42,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	}
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
-		// Inherited channel alias (cpu := chan): no local here, read by key.
+		// Inherited channel read/write (cpu := chan): no local here, read by key.
 		if scope.Type.Kind == types.KindChan && !sameFunction(ctx.Scope, scope) {
 			ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
 			if chanRef {

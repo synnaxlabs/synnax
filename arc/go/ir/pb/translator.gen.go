@@ -896,12 +896,12 @@ func VarKindToPB(v ir.VarKind) (VarKind, error) {
 	switch v {
 	case ir.VarKindUnspecified:
 		return VarKind_VAR_KIND_UNSPECIFIED, nil
-	case ir.VarKindChannelAlias:
-		return VarKind_VAR_KIND_CHANNEL_ALIAS, nil
-	case ir.VarKindReactive:
-		return VarKind_VAR_KIND_REACTIVE, nil
-	case ir.VarKindConstant:
-		return VarKind_VAR_KIND_CONSTANT, nil
+	case ir.VarKindChannelReadWrite:
+		return VarKind_VAR_KIND_CHANNEL_READ_WRITE, nil
+	case ir.VarKindChannelRead:
+		return VarKind_VAR_KIND_CHANNEL_READ, nil
+	case ir.VarKindLiteral:
+		return VarKind_VAR_KIND_LITERAL, nil
 	default:
 		return 0, errors.Newf("unrecognized ir.VarKind value: %v", v)
 	}
@@ -912,12 +912,12 @@ func VarKindFromPB(v VarKind) (ir.VarKind, error) {
 	switch v {
 	case VarKind_VAR_KIND_UNSPECIFIED:
 		return ir.VarKindUnspecified, nil
-	case VarKind_VAR_KIND_CHANNEL_ALIAS:
-		return ir.VarKindChannelAlias, nil
-	case VarKind_VAR_KIND_REACTIVE:
-		return ir.VarKindReactive, nil
-	case VarKind_VAR_KIND_CONSTANT:
-		return ir.VarKindConstant, nil
+	case VarKind_VAR_KIND_CHANNEL_READ_WRITE:
+		return ir.VarKindChannelReadWrite, nil
+	case VarKind_VAR_KIND_CHANNEL_READ:
+		return ir.VarKindChannelRead, nil
+	case VarKind_VAR_KIND_LITERAL:
+		return ir.VarKindLiteral, nil
 	default:
 		return 0, errors.Newf("unrecognized VarKind value: %v", v)
 	}

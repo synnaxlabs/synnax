@@ -72,9 +72,9 @@ type VarKind uint8
 
 const (
 	VarKindUnspecified VarKind = iota
-	VarKindChannelAlias
-	VarKindReactive
-	VarKindConstant
+	VarKindChannelReadWrite
+	VarKindChannelRead
+	VarKindLiteral
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow

@@ -329,8 +329,8 @@ var _ = Describe("Statement", func() {
 			)
 		})
 
-		Context("channel alias assignment to scalar variables", func() {
-			DescribeTable("should accept valid channel alias to scalar assignments",
+		Context("channel read/write assignment to scalar variables", func() {
+			DescribeTable("should accept valid channel read/write to scalar assignments",
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot[parser.IBlockContext](bCtx, block, NewRoot(nil, channels...))
@@ -338,51 +338,51 @@ var _ = Describe("Statement", func() {
 					statement.AnalyzeBlock(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				},
-				Entry("chan f64 alias assigned to f64 scalar", `{
+				Entry("chan f64 channel read/write assigned to f64 scalar", `{
 					local_ref := sensor
 					value f64 := 0.0
 					value = local_ref
 				}`),
-				Entry("chan f64 alias assigned to stateful f64 scalar", `{
+				Entry("chan f64 channel read/write assigned to stateful f64 scalar", `{
 					local_ref := sensor
 					value f64 $= 0.0
 					value = local_ref
 				}`),
-				Entry("chan f64 alias assigned to inferred-type variable", `{
+				Entry("chan f64 channel read/write assigned to inferred-type variable", `{
 					local_ref := sensor
 					value := 0.0
 					value = local_ref
 				}`),
-				Entry("chan i32 alias assigned to i32 scalar", `{
+				Entry("chan i32 channel read/write assigned to i32 scalar", `{
 					local_ref := int_chan
 					value i32 := 0
 					value = local_ref
 				}`),
-				Entry("alias-to-alias preserves chan type", `{
+				Entry("read/write-to-read/write preserves chan type", `{
 					local_ref := sensor
 					other_ref := local_ref
 				}`),
-				Entry("chan alias in comparison", `{
+				Entry("chan channel read/write in comparison", `{
 					local_ref := sensor
 					x f64 := 0.0
 					if local_ref > 100.0 { x = 1.0 }
 				}`),
-				Entry("chan alias in arithmetic", `{
+				Entry("chan channel read/write in arithmetic", `{
 					local_ref := sensor
 					result f64 := local_ref + 1.0
 				}`),
-				Entry("chan alias written to channel target", `{
+				Entry("chan channel read/write written to channel target", `{
 					sensor_ref := sensor
 					output = sensor_ref
 				}`),
-				Entry("arithmetic expr of alias assigned to scalar", `{
+				Entry("arithmetic expr of channel read/write assigned to scalar", `{
 					local_ref := sensor
 					value f64 := 0.0
 					value = local_ref * 2.0
 				}`),
 			)
 
-			It("should reject type mismatch after unwrapping channel alias", func(bCtx SpecContext) {
+			It("should reject type mismatch after unwrapping channel read/write", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					local_ref := int_chan
 					value f64 := 0.0
@@ -396,8 +396,8 @@ var _ = Describe("Statement", func() {
 			})
 		})
 
-		Context("series literals with channel alias elements", func() {
-			DescribeTable("should accept valid series literals containing channel aliases",
+		Context("series literals with channel read/write elements", func() {
+			DescribeTable("should accept valid series literals containing channel read/write variables",
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot[parser.IBlockContext](bCtx, block, NewRoot(nil, channels...))
@@ -405,54 +405,54 @@ var _ = Describe("Statement", func() {
 					statement.AnalyzeBlock(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				},
-				Entry("channel alias then exact-integer float literal", `{
+				Entry("channel read/write then exact-integer float literal", `{
 					ref := sensor
 					x := [ref, 1.0]
 				}`),
-				Entry("exact-integer float literal then channel alias", `{
+				Entry("exact-integer float literal then channel read/write", `{
 					ref := sensor
 					x := [1.0, ref]
 				}`),
-				Entry("two channel aliases of same type", `{
+				Entry("two channel read/write variables of same type", `{
 					ref1 := sensor
 					ref2 := sensor
 					x := [ref1, ref2]
 				}`),
-				Entry("channel alias then int literal", `{
+				Entry("channel read/write then int literal", `{
 					ref := sensor
 					x := [ref, 1]
 				}`),
-				Entry("int literal then channel alias", `{
+				Entry("int literal then channel read/write", `{
 					ref := sensor
 					x := [1, ref]
 				}`),
-				Entry("channel alias with arithmetic", `{
+				Entry("channel read/write with arithmetic", `{
 					ref := sensor
 					x := [ref + 1.0, 2.0]
 				}`),
-				Entry("i32 channel alias then int literal", `{
+				Entry("i32 channel read/write then int literal", `{
 					ref := int_chan
 					x := [ref, 42]
 				}`),
-				Entry("int literal then i32 channel alias", `{
+				Entry("int literal then i32 channel read/write", `{
 					ref := int_chan
 					x := [42, ref]
 				}`),
-				Entry("channel alias then non-exact float literal", `{
+				Entry("channel read/write then non-exact float literal", `{
 					ref := sensor
 					x := [ref, 1.5]
 				}`),
-				Entry("non-exact float literal then channel alias", `{
+				Entry("non-exact float literal then channel read/write", `{
 					ref := sensor
 					x := [1.5, ref]
 				}`),
-				Entry("channel alias then pi-like float literal", `{
+				Entry("channel read/write then pi-like float literal", `{
 					ref := sensor
 					x := [ref, 3.14]
 				}`),
 			)
 
-			DescribeTable("should reject invalid series literals containing channel aliases",
+			DescribeTable("should reject invalid series literals containing channel read/write variables",
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot[parser.IBlockContext](bCtx, block, NewRoot(nil, channels...))
@@ -461,25 +461,25 @@ var _ = Describe("Statement", func() {
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
 				},
-				Entry("f64 channel alias then string literal", `{
+				Entry("f64 channel read/write then string literal", `{
 					ref := sensor
 					x := [ref, "hello"]
 				}`),
-				Entry("string literal then f64 channel alias", `{
+				Entry("string literal then f64 channel read/write", `{
 					ref := sensor
 					x := ["hello", ref]
 				}`),
-				Entry("f64 alias and i32 alias", `{
+				Entry("f64 channel read/write and i32 channel read/write", `{
 					f_ref := sensor
 					i_ref := int_chan
 					x := [f_ref, i_ref]
 				}`),
-				Entry("i32 alias and f64 alias", `{
+				Entry("i32 channel read/write and f64 channel read/write", `{
 					i_ref := int_chan
 					f_ref := sensor
 					x := [i_ref, f_ref]
 				}`),
-				Entry("non-exact float literal then i32 channel alias", `{
+				Entry("non-exact float literal then i32 channel read/write", `{
 					ref := int_chan
 					x := [1.5, ref]
 				}`),

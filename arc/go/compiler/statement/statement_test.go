@@ -1365,7 +1365,7 @@ var _ = Describe("Statement Compiler", func() {
 		})
 
 		Describe("Channel Alias Reads", func() {
-			It("Should compile channel alias read assigned to f64 scalar", func(bCtx SpecContext) {
+			It("Should compile channel read/write read assigned to f64 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1394,7 +1394,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile a channel alias of a chan-typed local variable", func(bCtx SpecContext) {
+			It("Should compile a channel read/write of a chan-typed local variable", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1427,7 +1427,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel alias read assigned to stateful f64 scalar", func(bCtx SpecContext) {
+			It("Should compile channel read/write read assigned to stateful f64 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1461,7 +1461,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile i32 channel alias read assigned to i32 scalar", func(bCtx SpecContext) {
+			It("Should compile i32 channel read/write read assigned to i32 scalar", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "int_ch",
@@ -1490,7 +1490,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile channel alias read written to another channel", func(bCtx SpecContext) {
+			It("Should compile channel read/write read written to another channel", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",
@@ -1522,7 +1522,7 @@ var _ = Describe("Statement Compiler", func() {
 				))
 			})
 
-			It("Should compile conditional channel alias read with scalar assignment", func(bCtx SpecContext) {
+			It("Should compile conditional channel read/write read with scalar assignment", func(bCtx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
 						Name: "sensor",

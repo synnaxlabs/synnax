@@ -369,9 +369,9 @@ func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, roo
 func classifyVarKind(kind symbol.VarKind) *uint32 {
 	var tokenType uint32
 	switch kind {
-	case symbol.VarKindChannelAlias:
+	case symbol.VarKindChannelReadWrite:
 		tokenType = SemanticTokenTypeChannelAlias
-	case symbol.VarKindReactive:
+	case symbol.VarKindChannelRead:
 		tokenType = SemanticTokenTypeReactiveVariable
 	default:
 		return nil

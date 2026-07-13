@@ -156,26 +156,26 @@ type VarKind int
 const (
 	// VarKindNone marks a symbol that is not a value variable.
 	VarKindNone VarKind = iota
-	// VarKindChannelAlias is a variable bound to a bare channel; it behaves
+	// VarKindChannelReadWrite is a variable bound to a bare channel; it behaves
 	// exactly as that channel for both reads and writes.
-	VarKindChannelAlias
-	// VarKindReactive is a variable derived from an expression reading one or
-	// more channels; it is a read-only reactive stream.
-	VarKindReactive
-	// VarKindConstant is a value variable backed by a program-local channel; `:=`
-	// constants and `$=` statefuls share it, resetting vs persisting keyed on Kind.
-	VarKindConstant
+	VarKindChannelReadWrite
+	// VarKindChannelRead is a variable derived from an expression reading one or
+	// more channels; it is a read-only channel-backed stream.
+	VarKindChannelRead
+	// VarKindLiteral is a value variable backed by a program-local channel; `:=`
+	// literals and `$=` statefuls share it, resetting vs persisting keyed on Kind.
+	VarKindLiteral
 )
 
 // String returns the user-facing name of the kind.
 func (k VarKind) String() string {
 	switch k {
-	case VarKindChannelAlias:
-		return "alias"
-	case VarKindReactive:
-		return "reactive"
-	case VarKindConstant:
-		return "const"
+	case VarKindChannelReadWrite:
+		return "channel read/write"
+	case VarKindChannelRead:
+		return "channel read"
+	case VarKindLiteral:
+		return "literal"
 	default:
 		return "none"
 	}
@@ -197,7 +197,7 @@ type Symbol struct {
 	// from a resolver or pre-populated module members have AST == nil.
 	AST antlr.ParserRuleContext
 	// DefaultValue holds the symbol's default or seed value, or nil if it has none:
-	// an optional parameter's default, or a constant variable's initial value.
+	// an optional parameter's default, or a literal variable's initial value.
 	DefaultValue any
 	// Name is the symbol's identifier. Container symbols of anonymous kinds
 	// (KindBlock, KindLoop, top-level stages) may have an empty Name.

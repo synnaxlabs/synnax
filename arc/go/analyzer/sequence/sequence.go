@@ -47,40 +47,40 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		return
 	}
 	switch sym.VarKind {
-	case symbol.VarKindConstant, symbol.VarKindReactive:
+	case symbol.VarKindLiteral, symbol.VarKindChannelRead:
 		statement.AnalyzeAssignment(context.Child(ctx, assign))
 		if expr := assign.Expression(); expr != nil {
 			flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 		}
-	case symbol.VarKindChannelAlias:
-		analyzeAliasRebind(ctx, assign, sym)
+	case symbol.VarKindChannelReadWrite:
+		analyzeChannelReadWriteRebind(ctx, assign, sym)
 	default:
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
 	}
 }
 
-// analyzeAliasRebind checks that alias can be rebound to the channel named by assign's
-// right-hand side: the RHS must reference a channel whose value type matches the alias.
-func analyzeAliasRebind[T antlr.ParserRuleContext](
+// analyzeChannelReadWriteRebind checks that the channel read/write variable can be rebound to the channel named by assign's
+// right-hand side: the RHS must reference a channel whose value type matches the channel read/write variable.
+func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	assign parser.IAssignmentContext,
-	alias *symbol.Symbol,
+	channelReadWrite *symbol.Symbol,
 ) {
 	name := assign.IDENTIFIER().GetText()
 	target, ok := channelRebindTarget(ctx, assign.Expression())
 	if !ok {
 		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
-			"cannot rebind alias %s; the right-hand side must be a channel", name))
+			"cannot rebind channel read/write variable %s; the right-hand side must be a channel", name))
 		return
 	}
-	if !types.Equal(alias.Type.Unwrap(), target.Type.Unwrap()) {
+	if !types.Equal(channelReadWrite.Type.Unwrap(), target.Type.Unwrap()) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
-			"cannot rebind alias %s of type %s to a channel of type %s",
-			name, alias.Type.Unwrap(), target.Type.Unwrap()))
+			"cannot rebind channel read/write variable %s of type %s to a channel of type %s",
+			name, channelReadWrite.Type.Unwrap(), target.Type.Unwrap()))
 	}
 }
 
-// channelRebindTarget resolves expr to the global channel an alias rebind targets,
+// channelRebindTarget resolves expr to the global channel a channel read/write rebind targets,
 // reporting ok=false when expr is not a bare reference to a channel.
 func channelRebindTarget[T antlr.ParserRuleContext](
 	ctx context.Context[T],

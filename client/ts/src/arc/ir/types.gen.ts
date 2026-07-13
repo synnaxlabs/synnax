@@ -37,9 +37,9 @@ export const livenessZ = z.enum(Liveness);
 
 export enum VarKind {
   unspecified = 0,
-  channel_alias = 1,
-  reactive = 2,
-  constant = 3,
+  channel_read_write = 1,
+  channel_read = 2,
+  literal = 3,
 }
 export const varKindZ = z.enum(VarKind);
 

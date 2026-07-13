@@ -94,23 +94,23 @@ type shellBuilder struct {
 	// synthByAST maps each inline-body declaration to its synth scope, keyed by
 	// the declaration's parser node.
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
-	// varChannels holds the channel keys backing reactive value variables.
+	// varChannels holds the channel keys backing value variables.
 	varChannels set.Set[uint32]
-	// reExprs records reactive re-expressions (`r = new_expr`) in walk order, so a
-	// post-pass can assemble each reactive var's feeder state machine.
+	// reExprs records channel-read re-expressions (`r = new_expr`) in walk order, so a
+	// post-pass can assemble each channel-read var's feeder state machine.
 	reExprs []reExprFeeder
-	// aliasBacking maps each reassigned channel alias to the reactive channel its reads use.
-	aliasBacking map[*symbol.Symbol]*symbol.Symbol
-	// aliasWriteBackings maps each reassigned channel alias to its write-redirection machine.
-	aliasWriteBackings map[*symbol.Symbol]*aliasWriteMux
-	// aliasWriteOrder lists reassigned aliases in first-seen order for deterministic lowering.
-	aliasWriteOrder []*symbol.Symbol
-	// aliasBindingBody maps a reassigned alias to the leaf body of its most recent binding.
-	aliasBindingBody map[*symbol.Symbol]*symbol.Symbol
-	// aliasCrossBodyRead and aliasCrossBodyWrite hold aliases whose reads or writes routed
+	// channelReadWriteBacking maps each reassigned channel read/write variable to the backing channel its reads use.
+	channelReadWriteBacking map[*symbol.Symbol]*symbol.Symbol
+	// channelReadWriteWriteBackings maps each reassigned channel read/write variable to its write-redirection machine.
+	channelReadWriteWriteBackings map[*symbol.Symbol]*channelReadWriteWriteMux
+	// channelReadWriteWriteOrder lists reassigned channel read/write variables in first-seen order for deterministic lowering.
+	channelReadWriteWriteOrder []*symbol.Symbol
+	// channelReadWriteBindingBody maps a reassigned channel read/write variable to the leaf body of its most recent binding.
+	channelReadWriteBindingBody map[*symbol.Symbol]*symbol.Symbol
+	// channelReadWriteCrossBodyRead and channelReadWriteCrossBodyWrite hold channel read/write variables whose reads or writes routed
 	// through the machine; a direction with none needs none.
-	aliasCrossBodyRead  set.Set[*symbol.Symbol]
-	aliasCrossBodyWrite set.Set[*symbol.Symbol]
+	channelReadWriteCrossBodyRead  set.Set[*symbol.Symbol]
+	channelReadWriteCrossBodyWrite set.Set[*symbol.Symbol]
 }
 
 // leafBody returns the nearest enclosing stage or sequence scope.
@@ -123,29 +123,29 @@ func leafBody(scope *symbol.Symbol) *symbol.Symbol {
 	return scope
 }
 
-// boundInSameBody reports whether alias's current binding was set in refScope's leaf body,
+// boundInSameBody reports whether channel read/write variable's current binding was set in refScope's leaf body,
 // in which case the reference bakes that binding instead of routing through the machine.
-func (s *shellBuilder) boundInSameBody(alias, refScope *symbol.Symbol) bool {
-	bind, ok := s.aliasBindingBody[alias]
+func (s *shellBuilder) boundInSameBody(channelReadWrite, refScope *symbol.Symbol) bool {
+	bind, ok := s.channelReadWriteBindingBody[channelReadWrite]
 	if !ok {
 		return false
 	}
 	return leafBody(bind) == leafBody(refScope)
 }
 
-// aliasWriteMux holds the write-redirection machine for one reassigned alias.
-type aliasWriteMux struct {
-	// backing is the reactive channel the alias's writes are redirected to.
+// channelReadWriteWriteMux holds the write-redirection machine for one reassigned channel read/write variable.
+type channelReadWriteWriteMux struct {
+	// backing is the backing channel the channel read/write variable's writes are redirected to.
 	backing *symbol.Symbol
-	// initBinding is the channel the alias is bound to at its declaration.
+	// initBinding is the channel the channel read/write variable is bound to at its declaration.
 	initBinding *symbol.Symbol
 	// feeders forward backing to each rebind's channel, selected by the shared switch.
 	feeders []reExprFeeder
 }
 
-// reExprFeeder records a reactive re-expression: its feeder subgraph and switch channel.
+// reExprFeeder records a channel-read re-expression: its feeder subgraph and switch channel.
 type reExprFeeder struct {
-	// target is the reactive variable being re-expressed.
+	// target is the channel-read variable being re-expressed.
 	target *symbol.Symbol
 	// nodes and edges are the feeder subgraph computing the new expression.
 	nodes []ir.Node
@@ -155,7 +155,7 @@ type reExprFeeder struct {
 	switchSym *symbol.Symbol
 }
 
-// recordReExpr records a reactive re-expression for the feeder-machine post-pass.
+// recordReExpr records a channel-read re-expression for the feeder-machine post-pass.
 func (s *shellBuilder) recordReExpr(f reExprFeeder) {
 	s.reExprs = append(s.reExprs, f)
 }
@@ -199,11 +199,11 @@ func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *she
 		activations:         map[string]ir.Handle{},
 		synthByAST:          synthByAST,
 		varChannels:         set.New[uint32](),
-		aliasBacking:        map[*symbol.Symbol]*symbol.Symbol{},
-		aliasWriteBackings:  map[*symbol.Symbol]*aliasWriteMux{},
-		aliasBindingBody:    map[*symbol.Symbol]*symbol.Symbol{},
-		aliasCrossBodyRead:  set.New[*symbol.Symbol](),
-		aliasCrossBodyWrite: set.New[*symbol.Symbol](),
+		channelReadWriteBacking:        map[*symbol.Symbol]*symbol.Symbol{},
+		channelReadWriteWriteBackings:  map[*symbol.Symbol]*channelReadWriteWriteMux{},
+		channelReadWriteBindingBody:    map[*symbol.Symbol]*symbol.Symbol{},
+		channelReadWriteCrossBodyRead:  set.New[*symbol.Symbol](),
+		channelReadWriteCrossBodyWrite: set.New[*symbol.Symbol](),
 	}
 }
 
@@ -452,15 +452,15 @@ func analyzeIdentifierByRole(
 			shell.varChannels.Add(channelKey(sym))
 		}
 		if isSink {
-			if mux, ok := shell.aliasWriteBackings[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
-				shell.aliasCrossBodyWrite.Add(sym)
+			if mux, ok := shell.channelReadWriteWriteBackings[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
+				shell.channelReadWriteCrossBodyWrite.Add(sym)
 				sym = mux.backing
 			}
 			r, ok := buildChannelWriteNode(name, sym, kg)
 			return flowNodeResult{node: r}, ok
 		}
-		if backing, ok := shell.aliasBacking[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
-			shell.aliasCrossBodyRead.Add(sym)
+		if backing, ok := shell.channelReadWriteBacking[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
+			shell.channelReadWriteCrossBodyRead.Add(sym)
 			sym = backing
 		}
 		r, ok := buildChannelReadNode(name, sym, kg)
@@ -529,7 +529,7 @@ func isRootLevelScope(sym *symbol.Symbol) bool {
 }
 
 // channelKey returns the channel key sym refers to: its SourceID when sym is an
-// alias bound to another channel (cpu := some_channel), otherwise its own ID.
+// channel read/write bound to another channel (cpu := some_channel), otherwise its own ID.
 func channelKey(sym *symbol.Symbol) uint32 {
 	if sym.SourceID != nil {
 		return uint32(*sym.SourceID)
@@ -539,19 +539,19 @@ func channelKey(sym *symbol.Symbol) uint32 {
 
 // isVarChannel reports whether sym is a value variable backed by an internal channel.
 func isVarChannel(sym *symbol.Symbol) bool {
-	return sym.VarKind == symbol.VarKindReactive ||
-		sym.VarKind == symbol.VarKindConstant
+	return sym.VarKind == symbol.VarKindChannelRead ||
+		sym.VarKind == symbol.VarKindLiteral
 }
 
 // irVarKind maps a symbol's variable kind to its IR node representation.
 func irVarKind(k symbol.VarKind) ir.VarKind {
 	switch k {
-	case symbol.VarKindChannelAlias:
-		return ir.VarKindChannelAlias
-	case symbol.VarKindReactive:
-		return ir.VarKindReactive
-	case symbol.VarKindConstant:
-		return ir.VarKindConstant
+	case symbol.VarKindChannelReadWrite:
+		return ir.VarKindChannelReadWrite
+	case symbol.VarKindChannelRead:
+		return ir.VarKindChannelRead
+	case symbol.VarKindLiteral:
+		return ir.VarKindLiteral
 	default:
 		return ir.VarKindUnspecified
 	}
@@ -563,7 +563,7 @@ func scopeResetChannels(scopeSym *symbol.Symbol) []uint32 {
 	var out []uint32
 	for _, c := range scopeSym.Children() {
 		if !c.Internal && c.Kind == symbol.KindVariable &&
-			c.VarKind == symbol.VarKindConstant && c.DefaultValue != nil {
+			c.VarKind == symbol.VarKindLiteral && c.DefaultValue != nil {
 			out = append(out, channelKey(c))
 		}
 	}
@@ -635,8 +635,8 @@ func buildExprReadTriggers[T antlr.ParserRuleContext](
 		if rerr != nil {
 			continue
 		}
-		if backing, ok := shell.aliasBacking[chanSym]; ok && !shell.boundInSameBody(chanSym, ctx.Scope) {
-			shell.aliasCrossBodyRead.Add(chanSym)
+		if backing, ok := shell.channelReadWriteBacking[chanSym]; ok && !shell.boundInSameBody(chanSym, ctx.Scope) {
+			shell.channelReadWriteCrossBodyRead.Add(chanSym)
 			chanSym = backing
 		}
 		read, ok := buildChannelReadNode(chName, chanSym, kg)
@@ -718,7 +718,7 @@ func buildVarSeed(sym *symbol.Symbol, shell *shellBuilder) ir.VarSeed {
 	}
 }
 
-// collectSeededVars returns every reactive value variable with a literal
+// collectSeededVars returns every value variable with a literal
 // initializer. Function bodies are skipped: their locals are WASM locals.
 func collectSeededVars(root *symbol.Symbol) []*symbol.Symbol {
 	var out []*symbol.Symbol
@@ -739,7 +739,7 @@ func collectSeededVars(root *symbol.Symbol) []*symbol.Symbol {
 	return out
 }
 
-// collectExprVars returns every reactive value variable initialized by a non-literal
+// collectExprVars returns every value variable initialized by a non-literal
 // expression rather than a seed.
 func collectExprVars(root *symbol.Symbol) []*symbol.Symbol {
 	var out []*symbol.Symbol
@@ -836,7 +836,7 @@ func lowerVarWrite[T antlr.ParserRuleContext](
 	return nodes, edges, true
 }
 
-// lowerAssignment lowers a variable `=`: a constant write or an in-place alias rebind.
+// lowerAssignment lowers a variable `=`: a constant write or an in-place channel read/write rebind.
 func lowerAssignment[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	assign parser.IAssignmentContext,
@@ -855,13 +855,13 @@ func lowerAssignment[T antlr.ParserRuleContext](
 		return nil, nil, true
 	}
 	switch target.VarKind {
-	case symbol.VarKindConstant:
+	case symbol.VarKindLiteral:
 		return lowerVarWrite(ctx, target, expr, kg, shell)
-	case symbol.VarKindChannelAlias:
-		rebindAlias(ctx, target, expr)
-		shell.aliasBindingBody[target] = ctx.Scope
-		return lowerAliasRebind(ctx, target, expr, kg, shell)
-	case symbol.VarKindReactive:
+	case symbol.VarKindChannelReadWrite:
+		rebindChannelReadWrite(ctx, target, expr)
+		shell.channelReadWriteBindingBody[target] = ctx.Scope
+		return lowerChannelReadWriteRebind(ctx, target, expr, kg, shell)
+	case symbol.VarKindChannelRead:
 		return lowerReExpr(ctx, target, expr, kg, shell)
 	default:
 		return nil, nil, true
@@ -906,7 +906,7 @@ func buildFeederSwitch[T antlr.ParserRuleContext](
 	// resolution and the value-variable collectors (seed, flow, reset).
 	sw, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Kind:     symbol.KindVariable,
-		VarKind:  symbol.VarKindReactive,
+		VarKind:  symbol.VarKindChannelRead,
 		Type:     types.U8(),
 		Internal: true,
 	})
@@ -925,20 +925,20 @@ func buildFeederSwitch[T antlr.ParserRuleContext](
 	return sw, []ir.Node{pulse.node, write.node}, []ir.Edge{stepEdge}, true
 }
 
-// lowerAliasRebind records a reassigned alias's read and write feeders off one shared
+// lowerChannelReadWriteRebind records a reassigned channel read/write variable's read and write feeders off one shared
 // switch, so both its read and write machines advance to the new binding together.
-func lowerAliasRebind[T antlr.ParserRuleContext](
+func lowerChannelReadWriteRebind[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	alias *symbol.Symbol,
+	channelReadWrite *symbol.Symbol,
 	expr parser.IExpressionContext,
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, bool) {
-	readBacking, ok := shell.aliasBacking[alias]
+	readBacking, ok := shell.channelReadWriteBacking[channelReadWrite]
 	if !ok {
 		return nil, nil, true
 	}
-	mux, ok := shell.aliasWriteBackings[alias]
+	mux, ok := shell.channelReadWriteWriteBackings[channelReadWrite]
 	if !ok {
 		return nil, nil, true
 	}
@@ -946,11 +946,11 @@ func lowerAliasRebind[T antlr.ParserRuleContext](
 	if !ok {
 		return nil, nil, false
 	}
-	writeNodes, writeEdges, ok := buildAliasWriteFeeder(ctx, mux.backing, expr, kg)
+	writeNodes, writeEdges, ok := buildChannelReadWriteWriteFeeder(ctx, mux.backing, expr, kg)
 	if !ok {
 		return nil, nil, false
 	}
-	sw, stepNodes, stepEdges, ok := buildFeederSwitch(ctx, alias, kg, shell)
+	sw, stepNodes, stepEdges, ok := buildFeederSwitch(ctx, channelReadWrite, kg, shell)
 	if !ok {
 		return nil, nil, false
 	}
@@ -969,9 +969,9 @@ func lowerAliasRebind[T antlr.ParserRuleContext](
 	return stepNodes, stepEdges, true
 }
 
-// buildAliasWriteFeeder forwards a reassigned alias's write backing to the channel named
+// buildChannelReadWriteWriteFeeder forwards a reassigned channel read/write variable's write backing to the channel named
 // by expr, the write machine's per-rebind feeder.
-func buildAliasWriteFeeder[T antlr.ParserRuleContext](
+func buildChannelReadWriteWriteFeeder[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	writeBacking *symbol.Symbol,
 	expr parser.IExpressionContext,
@@ -1042,9 +1042,9 @@ func buildReExprMachine(
 	return machine, readers, true
 }
 
-// rebindAlias re-points target's alias binding to the channel named by expr, so later
+// rebindChannelReadWrite re-points target's channel read/write binding to the channel named by expr, so later
 // references resolve to it. The analyzer has validated expr names a matching channel.
-func rebindAlias[T antlr.ParserRuleContext](
+func rebindChannelReadWrite[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	target *symbol.Symbol,
 	expr parser.IExpressionContext,
@@ -1061,36 +1061,36 @@ func rebindAlias[T antlr.ParserRuleContext](
 	target.SourceID = &id
 }
 
-// createAliasBacking adds a reactive channel that redirects a reassigned alias's reads
-// or writes; role distinguishes the two so each alias gets a distinct backing.
-func createAliasBacking[T antlr.ParserRuleContext](
+// createChannelReadWriteBacking adds a backing channel that redirects a reassigned channel read/write variable's reads
+// or writes; role distinguishes the two so each channel read/write variable gets a distinct backing.
+func createChannelReadWriteBacking[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	alias *symbol.Symbol,
+	channelReadWrite *symbol.Symbol,
 	role string,
 	shell *shellBuilder,
 ) (*symbol.Symbol, bool) {
 	backing, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Kind:     symbol.KindVariable,
-		VarKind:  symbol.VarKindReactive,
-		Type:     alias.Type.Unwrap(),
+		VarKind:  symbol.VarKindChannelRead,
+		Type:     channelReadWrite.Type.Unwrap(),
 		Internal: true,
-		AST:      alias.AST,
+		AST:      channelReadWrite.AST,
 	})
 	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, alias.AST))
+		ctx.Diagnostics.Add(diagnostics.Error(err, channelReadWrite.AST))
 		return nil, false
 	}
-	backing.Name = fmt.Sprintf("__alias_backing_%s_%s_%d", role, alias.Name, backing.ID)
+	backing.Name = fmt.Sprintf("__channel_read_write_backing_%s_%s_%d", role, channelReadWrite.Name, backing.ID)
 	shell.varChannels.Add(channelKey(backing))
 	return backing, true
 }
 
-// resolveAliasInit resolves the channel an alias is bound to at its declaration.
-func resolveAliasInit[T antlr.ParserRuleContext](
+// resolveChannelReadWriteInit resolves the channel a channel read/write variable is bound to at its declaration.
+func resolveChannelReadWriteInit[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	alias *symbol.Symbol,
+	channelReadWrite *symbol.Symbol,
 ) (*symbol.Symbol, bool) {
-	lv, ok := alias.AST.(parser.ILocalVariableContext)
+	lv, ok := channelReadWrite.AST.(parser.ILocalVariableContext)
 	if !ok || lv.Expression() == nil {
 		return nil, false
 	}
@@ -1098,22 +1098,22 @@ func resolveAliasInit[T antlr.ParserRuleContext](
 	if primary == nil || primary.IDENTIFIER() == nil {
 		return nil, false
 	}
-	src, err := alias.Parent.Resolve(ctx, primary.IDENTIFIER().GetText())
+	src, err := channelReadWrite.Parent.Resolve(ctx, primary.IDENTIFIER().GetText())
 	if err != nil {
 		return nil, false
 	}
 	return src, true
 }
 
-// collectAliasBackings backs every reassigned alias before the main walk.
-func collectAliasBackings[T antlr.ParserRuleContext](
+// collectChannelReadWriteBackings backs every reassigned channel read/write variable before the main walk.
+func collectChannelReadWriteBackings[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	shell *shellBuilder,
 ) {
 	var walk func(scope *symbol.Symbol, node antlr.Tree)
 	walk = func(scope *symbol.Symbol, node antlr.Tree) {
 		if assign, ok := node.(parser.IAssignmentContext); ok {
-			recordAliasRebind(ctx, scope, assign, shell)
+			recordChannelReadWriteRebind(ctx, scope, assign, shell)
 		}
 		next := scope
 		switch node.(type) {
@@ -1129,8 +1129,8 @@ func collectAliasBackings[T antlr.ParserRuleContext](
 	walk(ctx.Scope.Root(), ctx.AST)
 }
 
-// recordAliasRebind backs assign's target if it is an alias not already backed.
-func recordAliasRebind[T antlr.ParserRuleContext](
+// recordChannelReadWriteRebind backs assign's target if it is a channel read/write variable not already backed.
+func recordChannelReadWriteRebind[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	scope *symbol.Symbol,
 	assign parser.IAssignmentContext,
@@ -1144,28 +1144,28 @@ func recordAliasRebind[T antlr.ParserRuleContext](
 		return
 	}
 	sym, err := scope.Resolve(ctx, id.GetText())
-	if err != nil || sym.VarKind != symbol.VarKindChannelAlias {
+	if err != nil || sym.VarKind != symbol.VarKindChannelReadWrite {
 		return
 	}
-	if _, ok := shell.aliasBacking[sym]; ok {
+	if _, ok := shell.channelReadWriteBacking[sym]; ok {
 		return
 	}
-	readBacking, ok := createAliasBacking(ctx, sym, "read", shell)
+	readBacking, ok := createChannelReadWriteBacking(ctx, sym, "read", shell)
 	if !ok {
 		return
 	}
-	writeBacking, ok := createAliasBacking(ctx, sym, "write", shell)
+	writeBacking, ok := createChannelReadWriteBacking(ctx, sym, "write", shell)
 	if !ok {
 		return
 	}
-	initBinding, ok := resolveAliasInit(ctx, sym)
+	initBinding, ok := resolveChannelReadWriteInit(ctx, sym)
 	if !ok {
 		return
 	}
-	shell.aliasBacking[sym] = readBacking
-	shell.aliasWriteBackings[sym] = &aliasWriteMux{backing: writeBacking, initBinding: initBinding}
-	shell.aliasWriteOrder = append(shell.aliasWriteOrder, sym)
-	shell.aliasBindingBody[sym] = sym.Parent
+	shell.channelReadWriteBacking[sym] = readBacking
+	shell.channelReadWriteWriteBackings[sym] = &channelReadWriteWriteMux{backing: writeBacking, initBinding: initBinding}
+	shell.channelReadWriteWriteOrder = append(shell.channelReadWriteWriteOrder, sym)
+	shell.channelReadWriteBindingBody[sym] = sym.Parent
 }
 
 // analyzeNextToken emits a transition intent that advances the enclosing
@@ -1229,7 +1229,7 @@ func analyzeFunctionNode(
 		return nodeResult{}, false
 	}
 	// Node.Type is the canonical module path so factories find it. After
-	// alias indirection in Resolve, sym's tree position already points at
+	// channel read/write indirection in Resolve, sym's tree position already points at
 	// the canonical module member; QualifiedName joins the parts.
 	nodeType := sym.QualifiedName()
 	freshType := types.Freshen(sym.Type, key)
@@ -1407,8 +1407,8 @@ func Analyze(
 	}
 	kg := newKeyGenerator(&i.Functions)
 	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
-	// Back reassigned aliases before lowering so reads compiled ahead of a rebind resolve.
-	collectAliasBackings(aCtx, shell)
+	// Back reassigned channel read/write variables before lowering so reads compiled ahead of a rebind resolve.
+	collectChannelReadWriteBackings(aCtx, shell)
 
 	// The root scope is always parallel and always-live.
 	i.Root = ir.Scope{
@@ -1483,13 +1483,13 @@ func Analyze(
 		i.Edges = append(i.Edges, edges...)
 	}
 
-	// Assemble each re-expressed reactive variable's feeder state machine.
-	aliasByReadBacking := make(map[*symbol.Symbol]*symbol.Symbol, len(shell.aliasBacking))
-	for alias, backing := range shell.aliasBacking {
-		aliasByReadBacking[backing] = alias
+	// Assemble each re-expressed channel-read variable's feeder state machine.
+	channelReadWriteByReadBacking := make(map[*symbol.Symbol]*symbol.Symbol, len(shell.channelReadWriteBacking))
+	for channelReadWrite, backing := range shell.channelReadWriteBacking {
+		channelReadWriteByReadBacking[backing] = channelReadWrite
 	}
 	for _, target := range shell.reExprTargets() {
-		if alias, ok := aliasByReadBacking[target]; ok && !shell.aliasCrossBodyRead.Contains(alias) {
+		if channelReadWrite, ok := channelReadWriteByReadBacking[target]; ok && !shell.channelReadWriteCrossBodyRead.Contains(channelReadWrite) {
 			continue
 		}
 		initNodes, initEdges, ok := lowerVarInit(aCtx, target, kg, shell)
@@ -1511,14 +1511,14 @@ func Analyze(
 		rootMembers = append(rootMembers, ir.Member{Scope: &machine})
 	}
 
-	// Assemble each reassigned alias's write machine, forwarding its write backing to the
+	// Assemble each reassigned channel read/write variable's write machine, forwarding its write backing to the
 	// binding current at runtime; the mirror of the read machine above.
-	for _, alias := range shell.aliasWriteOrder {
-		// An alias whose writes all baked needs no machine.
-		if !shell.aliasCrossBodyWrite.Contains(alias) {
+	for _, channelReadWrite := range shell.channelReadWriteWriteOrder {
+		// A channel read/write variable whose writes all baked needs no machine.
+		if !shell.channelReadWriteCrossBodyWrite.Contains(channelReadWrite) {
 			continue
 		}
-		mux := shell.aliasWriteBackings[alias]
+		mux := shell.channelReadWriteWriteBackings[channelReadWrite]
 		initNodes, initEdges, ok := buildBackingForward(mux.backing, mux.initBinding, kg)
 		if !ok {
 			return i, aCtx.Diagnostics
@@ -2080,7 +2080,7 @@ type stepInfo struct {
 func collectStepKeys(items []parser.ISequenceItemContext) []stepInfo {
 	steps := make([]stepInfo, 0, len(items))
 	for i, item := range items {
-		// Variable declarations are ambient (seeded or reactive), not sequential
+		// Variable declarations are ambient (seeded or channel-read), not sequential
 		// steps; a reassignment, like a flow write, is a step.
 		if item.VariableDeclaration() != nil {
 			continue
@@ -2253,7 +2253,7 @@ func analyzeSequence(
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
-			// An alias rebind produces no IR, but a sequence step still needs a
+			// An channel read/write rebind produces no IR, but a sequence step still needs a
 			// firing node to advance; clock it once with an activation pulse.
 			if len(nodes) == 0 {
 				nodes = []ir.Node{buildActivationPulse(kg).node}

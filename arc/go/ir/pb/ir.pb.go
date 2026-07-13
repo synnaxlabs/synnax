@@ -187,25 +187,25 @@ func (Liveness) EnumDescriptor() ([]byte, []int) {
 type VarKind int32
 
 const (
-	VarKind_VAR_KIND_UNSPECIFIED   VarKind = 0
-	VarKind_VAR_KIND_CHANNEL_ALIAS VarKind = 1
-	VarKind_VAR_KIND_REACTIVE      VarKind = 2
-	VarKind_VAR_KIND_CONSTANT      VarKind = 3
+	VarKind_VAR_KIND_UNSPECIFIED        VarKind = 0
+	VarKind_VAR_KIND_CHANNEL_READ_WRITE VarKind = 1
+	VarKind_VAR_KIND_CHANNEL_READ       VarKind = 2
+	VarKind_VAR_KIND_LITERAL            VarKind = 3
 )
 
 // Enum value maps for VarKind.
 var (
 	VarKind_name = map[int32]string{
 		0: "VAR_KIND_UNSPECIFIED",
-		1: "VAR_KIND_CHANNEL_ALIAS",
-		2: "VAR_KIND_REACTIVE",
-		3: "VAR_KIND_CONSTANT",
+		1: "VAR_KIND_CHANNEL_READ_WRITE",
+		2: "VAR_KIND_CHANNEL_READ",
+		3: "VAR_KIND_LITERAL",
 	}
 	VarKind_value = map[string]int32{
-		"VAR_KIND_UNSPECIFIED":   0,
-		"VAR_KIND_CHANNEL_ALIAS": 1,
-		"VAR_KIND_REACTIVE":      2,
-		"VAR_KIND_CONSTANT":      3,
+		"VAR_KIND_UNSPECIFIED":        0,
+		"VAR_KIND_CHANNEL_READ_WRITE": 1,
+		"VAR_KIND_CHANNEL_READ":       2,
+		"VAR_KIND_LITERAL":            3,
 	}
 )
 
@@ -1155,12 +1155,12 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\bLiveness\x12\x18\n" +
 	"\x14LIVENESS_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLIVENESS_ALWAYS\x10\x01\x12\x12\n" +
-	"\x0eLIVENESS_GATED\x10\x02*m\n" +
+	"\x0eLIVENESS_GATED\x10\x02*u\n" +
 	"\aVarKind\x12\x18\n" +
-	"\x14VAR_KIND_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16VAR_KIND_CHANNEL_ALIAS\x10\x01\x12\x15\n" +
-	"\x11VAR_KIND_REACTIVE\x10\x02\x12\x15\n" +
-	"\x11VAR_KIND_CONSTANT\x10\x03B\x7f\n" +
+	"\x14VAR_KIND_UNSPECIFIED\x10\x00\x12\x1f\n" +
+	"\x1bVAR_KIND_CHANNEL_READ_WRITE\x10\x01\x12\x19\n" +
+	"\x15VAR_KIND_CHANNEL_READ\x10\x02\x12\x14\n" +
+	"\x10VAR_KIND_LITERAL\x10\x03B\x7f\n" +
 	"\rcom.arc.ir.pbB\aIrProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/ir/pb\xa2\x02\x03AIP\xaa\x02\tArc.Ir.Pb\xca\x02\tArc\\Ir\\Pb\xe2\x02\x15Arc\\Ir\\Pb\\GPBMetadata\xea\x02\vArc::Ir::Pbb\x06proto3"
 
 var (

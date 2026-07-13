@@ -494,7 +494,7 @@ var _ = Describe("Channel", func() {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
 						Type:    "on",
-						VarKind: ir.VarKindConstant,
+						VarKind: ir.VarKindLiteral,
 						Inputs:  types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
 					},
 					State: progState.Node("source"),

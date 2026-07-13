@@ -211,7 +211,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("reassigning a constant variable in a stage", `
+			Entry("reassigning a literal variable in a stage", `
 				sequence main {
 					counter := 0
 					stage s1 {
@@ -219,7 +219,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("reassigning a constant variable in a sequence body", `
+			Entry("reassigning a literal variable in a sequence body", `
 				sequence main {
 					counter := 0
 					counter = 1
@@ -227,7 +227,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("re-expressing a reactive variable in a sequence body", `
+			Entry("re-expressing a channel-read variable in a sequence body", `
 				sequence main {
 					r := pressure + 1
 					r = pressure + 2
@@ -235,7 +235,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("re-expressing a reactive variable in a stage", `
+			Entry("re-expressing a channel-read variable in a stage", `
 				sequence main {
 					r := pressure + 1
 					stage s1 {
@@ -251,14 +251,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("channel alias declared in a sequence body", `
+			Entry("channel read/write declared in a sequence body", `
 				sequence main {
 					p := pressure
 					stage s1 {
 					}
 				}
 			`),
-			Entry("rebinding a channel alias to a same-type channel in a sequence body", `
+			Entry("rebinding a channel read/write to a same-type channel in a sequence body", `
 				sequence main {
 					p := pressure
 					p = valve_cmd
@@ -346,14 +346,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "undefined symbol: x"),
-			Entry("rebinding a channel alias to a different-type channel", `
+			Entry("rebinding a channel read/write to a different-type channel", `
 				sequence main {
 					p := pressure
 					p = start_cmd
 					stage s1 {
 					}
 				}
-			`, "cannot rebind alias p"),
+			`, "cannot rebind channel read/write variable p"),
 			Entry("reassigning a variable that was never declared", `
 				sequence main {
 					stage s1 {
@@ -393,7 +393,7 @@ var _ = Describe("Sequence Analyzer", func() {
 	Describe("Variables And Aliases In Flows", func() {
 		DescribeTable("Valid",
 			analyzeAndExpectSuccess,
-			Entry("channel alias drives a transition condition", `
+			Entry("channel read/write drives a transition condition", `
 				sequence main {
 					p := pressure
 					stage s1 {
@@ -419,7 +419,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
-			Entry("channel alias is a flow source", `
+			Entry("channel read/write is a flow source", `
 				sequence main {
 					p := pressure
 					stage s1 {
