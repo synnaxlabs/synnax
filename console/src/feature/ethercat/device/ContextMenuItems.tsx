@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type device } from "@synnaxlabs/client";
-import { Icon, Menu } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { type Device as PDevice, Flux, Icon, Menu } from "@synnaxlabs/pluto";
+import { useCallback, useMemo } from "react";
 
-import {
-  useSelectEnabledState,
-  useToggleEnabled,
-} from "@/feature/ethercat/device/queries";
+import { useToggleEnabled } from "@/feature/ethercat/device/queries";
+import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { useConfigureModal } from "@/feature/ethercat/device/useConfigureModal";
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
@@ -35,11 +33,19 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
 
 export const ContextMenuItems = (props: Tree.ContextMenuProps) => {
   const keys = props.selection.ids.map((id) => id.key);
+  const store = Flux.useStore<PDevice.FluxSubStore>();
   const { update: toggleEnabled } = useToggleEnabled();
   const configure = useConfigureModal();
   const onConfigure = (deviceKey: device.Key) => configure({ deviceKey });
 
-  const { allDisabled, allEnabled } = useSelectEnabledState({ keys });
+  const { allDisabled, allEnabled } = useMemo(() => {
+    const devices = store.devices.get(keys) as SlaveDevice[];
+    const disabledCount = devices.filter((d) => !d.properties?.enabled).length;
+    return {
+      allDisabled: disabledCount === devices.length,
+      allEnabled: disabledCount === 0,
+    };
+  }, [store, keys]);
 
   const handleDisable = useCallback(() => {
     toggleEnabled({ keys, enabled: false });
