@@ -9,8 +9,30 @@
 
 import { type PropsWithChildren } from "react";
 
-import { TABS } from "@/app/panel/tabs";
+import { Selector } from "@/app/selector";
+import { Arc } from "@/feature/arc";
+import { Docs } from "@/feature/docs";
+import { LinePlot } from "@/feature/lineplot";
+import { Log } from "@/feature/log";
+import { Range } from "@/feature/range";
+import { Schematic } from "@/feature/schematic";
+import { Status } from "@/feature/status";
+import { Table } from "@/feature/table";
+import { Task } from "@/feature/task";
 import { Panel } from "@/platform/panel";
+
+const TABS: Panel.Tabs = {
+  ...Status.TABS,
+  ...Arc.TABS,
+  ...Range.TABS,
+  ...Docs.TABS,
+  ...Selector.TABS,
+  ...LinePlot.TABS,
+  ...Log.TABS,
+  ...Schematic.TABS,
+  ...Table.TABS,
+  ...Task.TABS,
+};
 
 export interface ContextProps extends PropsWithChildren {}
 
