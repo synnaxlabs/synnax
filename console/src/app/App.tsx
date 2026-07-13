@@ -27,14 +27,14 @@ import { Errors } from "@/platform/errors";
 import { Layout as PlatformLayout } from "@/platform/layout";
 import { Runtime } from "@/platform/runtime";
 import { Session } from "@/session";
-import WorkerURL from "@/worker?worker&url";
+import workerURL from "@/worker?worker&url";
 
 const AppUnderContext = (): ReactElement => {
   Haul.useBlockDefaultDropBehavior();
   Runtime.useExternalLinkHandler();
 
   return (
-    <Pluto.Context workerURL={WorkerURL}>
+    <Pluto.Context workerURL={workerURL}>
       <Vis.Canvas>
         <Session.Modals.Provider>
           <PlatformLayout.Window />
