@@ -215,7 +215,7 @@ class StlRanges(ArcCase):
 
     def _verify_parents(self, found: dict[str, sy.Range]) -> None:
         children = self.client.ontology.retrieve_children(self._parent.ontology_id)
-        keys = {res.id.key for res in children}
+        keys = {res.key for res in children}
         for name in CHILD_NAMES:
             if str(found[name].key) not in keys:
                 self.fail(
