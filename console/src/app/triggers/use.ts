@@ -16,6 +16,18 @@ import { Layout } from "@/platform/layout";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 
+const PREVENT_DEFAULT_ON: Triggers.Trigger[] = [
+  ["Control", "P"],
+  ["Control", "Shift", "P"],
+  ["Control", "MouseLeft"],
+  ["Control", "W"],
+];
+
+export const PROVIDER_PROPS: Triggers.ProviderProps = {
+  preventDefaultOn: PREVENT_DEFAULT_ON,
+  preventDefaultOptions: { double: true },
+};
+
 const CLOSE_WINDOW_TIMEOUT = TimeSpan.milliseconds(350);
 
 export const use = (): void => {
