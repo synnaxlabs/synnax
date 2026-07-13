@@ -18,7 +18,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Menu } from "@/menu";
 import { Select } from "@/select";
-import { panelID, tabID, useFrameID } from "@/tabs/Frame";
+import { KEY_ATTRIBUTE, panelID, tabID, useFrameID } from "@/tabs/Frame";
 import { useSelectorContext } from "@/tabs/Selector";
 import { Triggers } from "@/triggers";
 
@@ -87,7 +87,7 @@ export const Tab = ({
       role="tab"
       aria-selected={selected}
       aria-controls={panelID(frameID, itemKey)}
-      data-tab-key={itemKey}
+      {...{ [KEY_ATTRIBUTE]: itemKey }}
       data-menu-key={itemKey}
       tabIndex={selected ? 0 : -1}
       size={size}

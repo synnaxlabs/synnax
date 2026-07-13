@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export {
+  type DropPosition,
   Frame,
   type FrameProps,
   type OnCreateProps,

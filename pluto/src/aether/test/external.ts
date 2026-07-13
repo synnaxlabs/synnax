@@ -7,4 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as aetherTest from "@/aether/test/external";
+export * from "@/aether/test/Composite";
+export * from "@/aether/test/driver";
+export * from "@/aether/test/Leaf";
+export * from "@/aether/test/provider";
