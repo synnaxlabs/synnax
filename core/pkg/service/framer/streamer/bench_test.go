@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -98,8 +99,16 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
+	writerSvc, err := writer.NewService(writer.ServiceConfig{
+		Framer:  node.Framer,
+		Channel: channelSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open writer service: %v", err)
+	}
 	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
 		Framer:  node.Framer,
+		Writer:  writerSvc,
 		Channel: channelSvc,
 		Status:  statusSvc,
 	})

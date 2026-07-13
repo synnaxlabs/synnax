@@ -66,7 +66,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			continue
 		}
 
-		if err = db.openExisting(ctx, ChannelKey(key)); err != nil {
+		if err = db.openVirtualOrUnary(ctx, Channel{Key: ChannelKey(key)}); err != nil {
 			return nil, err
 		}
 	}
@@ -78,11 +78,13 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) openVirtual(ch Channel) error {
+func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	if _, isOpen := db.mu.dbs.virtual[ch.Key]; isOpen {
 		return nil
 	}
-	v, err := virtual.Open(virtual.Config{
+	v, err := virtual.Open(ctx, virtual.Config{
+		MetaCodec:       db.metaCodec,
+		FS:              fs,
 		Channel:         ch,
 		Instrumentation: db.Instrumentation,
 	})
@@ -113,7 +115,12 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
 		idxDB, ok := db.mu.dbs.unary[u.Channel().Index]
 		if !ok {
-			return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
+			if err = db.openVirtualOrUnary(ctx, Channel{Key: u.Channel().Index}); err != nil {
+				return err
+			}
+			if idxDB, ok = db.mu.dbs.unary[u.Channel().Index]; !ok {
+				return validate.PathedError(indexChannelNotFoundError(u.Channel().Index), "index")
+			}
 		}
 		u.SetIndex(idxDB.Index())
 	}
@@ -121,41 +128,16 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 	return nil
 }
 
-// openExisting reads the metadata in the given channel's directory and opens the
-// channel's storage engine. It is only called while opening the database. Directories
-// left behind by virtual channels created before virtual registration became purely
-// in-memory are removed rather than opened; the caller is responsible for re-creating
-// any virtual channels it needs.
-func (db *DB) openExisting(ctx context.Context, key ChannelKey) error {
-	fs, err := db.fs.Sub(keyToDirName(key))
+func (db *DB) openVirtualOrUnary(ctx context.Context, ch Channel) error {
+	fs, err := db.fs.Sub(keyToDirName(ch.Key))
 	if err != nil {
 		return err
 	}
-	virtual, err := meta.ReadVirtualFlag(ctx, fs, db.metaCodec)
-	if err != nil {
-		return err
+	err = db.openVirtual(ctx, ch, fs)
+	if errors.Is(err, virtual.ErrNotVirtual) {
+		err = db.openUnary(ctx, ch, fs)
 	}
-	if virtual {
-		db.L.Info(
-			"removing legacy directory for virtual channel",
-			zap.Uint32("key", key),
-		)
-		return db.fs.Remove(keyToDirName(key))
-	}
-	ch, err := meta.Open(ctx, fs, Channel{Key: key}, db.metaCodec)
-	if err != nil {
-		return errors.Skip(err, meta.ErrIgnoreChannel)
-	}
-	// The boot scan visits directories in arbitrary order, so a data channel may be
-	// reached before the index it references; open the index first.
-	if ch.Index != 0 && !ch.IsIndex {
-		if _, ok := db.mu.dbs.unary[ch.Index]; !ok {
-			if err := db.openExisting(ctx, ch.Index); err != nil {
-				return err
-			}
-		}
-	}
-	return errors.Skip(db.openUnary(ctx, ch, fs), meta.ErrIgnoreChannel)
+	return errors.Skip(err, meta.ErrIgnoreChannel)
 }
 
 func openFS(opts *options) error {

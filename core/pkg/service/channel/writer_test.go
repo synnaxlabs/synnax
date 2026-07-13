@@ -895,7 +895,7 @@ var _ = Describe("Writer", func() {
 			})
 			It("Should not allow deletion of index channel with dependent channels", func(ctx SpecContext) {
 				Expect(channelWriter.Delete(ctx, idxCh.Key(), true)).To(
-					MatchError(ContainSubstring("because it indexes channel")),
+					MatchError(ContainSubstring("because it indexes data in channel")),
 				)
 			})
 			It("Should delete the channel without error", func(ctx SpecContext) {

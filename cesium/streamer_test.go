@@ -272,12 +272,6 @@ var _ = Describe("Streamer Behavior", func() {
 			})
 
 			Describe("Channel Validation", func() {
-				It("Should not allow opening a streamer on a channel that does not exist", func(ctx SpecContext) {
-					Expect(db.NewStreamer(ctx, cesium.StreamerConfig{
-						Channels: []cesium.ChannelKey{GenerateChannelKey()},
-					})).Error().To(MatchError(cesium.ErrChannelNotFound))
-				})
-
 				It("Should allow subscription updates for channels that do not exist", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(

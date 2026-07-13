@@ -82,12 +82,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				IsIndex:  true,
 			}
 			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
-			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  []channel.Key{ch.Key()},
 			}))
 			fr := frame.NewUnary(ch.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
 			MustSucceed(w.Write(fr))
+			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 				Keys:   []channel.Key{ch.Key()},
@@ -901,7 +902,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 				// Write channel A with index A
 				keysA := []channel.Key{idxA.Key(), dataA.Key()}
-				wA := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				wA := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keysA,
 					EnableAutoCommit: new(true),
@@ -913,10 +914,11 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](10, 20, 30),
 					},
 				)))
+				Expect(wA.Close()).To(Succeed())
 
 				// Write channel B with index B
 				keysB := []channel.Key{idxB.Key(), dataB.Key()}
-				wB := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				wB := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 					Start:            telem.SecondTS,
 					Keys:             keysB,
 					EnableAutoCommit: new(true),
@@ -928,6 +930,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 						telem.NewSeriesV[float32](1, 2, 3),
 					},
 				)))
+				Expect(wB.Close()).To(Succeed())
 
 				calc := &channel.Channel{
 					Name:       "interleaved_calc",
@@ -968,7 +971,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}
 			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -981,6 +984,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				},
 			)
 			Expect(w.Write(fr)).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 				Keys:             keys,
@@ -1019,7 +1023,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}
 			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1032,6 +1036,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				},
 			)
 			Expect(w.Write(fr)).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 				Keys:             keys,
@@ -1073,7 +1078,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			}
 			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
 			keys := []channel.Key{indexCh.Key(), dataCh.Key()}
-			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1086,6 +1091,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				},
 			)
 			MustSucceed(w.Write(fr))
+			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 				Keys:             keys,
@@ -1132,7 +1138,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			Expect(channelWriter.Create(ctx, calculation)).To(Succeed())
 
 			keys := []channel.Key{indexCh.Key(), dataCh1.Key(), dataCh2.Key()}
-			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+			w := MustSucceed(node.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start:            telem.SecondTS,
 				Keys:             keys,
 				EnableAutoCommit: new(true),
@@ -1146,6 +1152,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				},
 			)
 			Expect(w.Write(fr)).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
 
 			iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 				Keys:             []channel.Key{calculation.Key(), calculation.Index()},

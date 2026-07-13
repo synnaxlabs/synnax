@@ -30,9 +30,8 @@ var _ proxy.Entry = renameBatchEntry{}
 func (r renameBatchEntry) Lease() node.Key { return r.key.Lease() }
 
 // Rename renames each storage channel keyed in renames to its corresponding new name,
-// routing each key to its leaseholder. Free-virtual channels are renamed on the same
-// path as gateway-leased channels, renaming this node's transient registration; other
-// nodes pick up the new name when they next register the channel at startup.
+// routing each key to its leaseholder. Free channels have no storage registration and
+// are skipped.
 func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
 	entries := lo.MapToSlice(renames, func(key Key, name string) renameBatchEntry {
 		return renameBatchEntry{key: key, name: name}
@@ -49,10 +48,7 @@ func (s *Service) Rename(ctx context.Context, renames map[Key]string) error {
 			return err
 		}
 	}
-	return s.cfg.TS.RenameChannels(
-		ctx,
-		storageRenames(zipRenameBatch(append(batch.Gateway, batch.Free...))),
-	)
+	return s.cfg.TS.RenameChannels(ctx, storageRenames(zipRenameBatch(batch.Gateway)))
 }
 
 func (s *Service) renameHandler(

@@ -16,11 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -43,38 +41,6 @@ var _ = Describe("Service", func() {
 				ValidateNames: new(false),
 			})
 			Expect(noValidateSvc.ShouldValidateNames()).To(BeFalse())
-		})
-	})
-
-	Describe("OpenService", func() {
-		// expectStartupRegistration creates a virtual channel with the given
-		// leaseholder, drops its storage registration to mirror a process restart (the
-		// channel table survives on disk while virtual channel registrations do not),
-		// and asserts that reopening the service re-registers it.
-		expectStartupRegistration := func(ctx context.Context, leaseholder node.Key) {
-			n := mock.NewNode(ctx)
-			first, _ := openService(ctx, n)
-			ch := channel.Channel{
-				Name:        UniqueChannelName(),
-				DataType:    telem.Int64T,
-				Virtual:     true,
-				Leaseholder: leaseholder,
-			}
-			Expect(first.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			Expect(n.Storage.TS.DeleteChannel(ch.Key().StorageKey())).To(Succeed())
-			Expect(n.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).Error().
-				To(MatchError(query.ErrNotFound))
-			MustOpen(channel.OpenService(ctx, serviceConfig(ctx, n)))
-			stored := MustSucceed(
-				n.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
-			)
-			Expect(stored.Virtual).To(BeTrue())
-		}
-		It("Should register free channels found in the channel table at startup", func(ctx SpecContext) {
-			expectStartupRegistration(ctx, node.KeyFree)
-		})
-		It("Should register virtual channels leased to the node at startup", func(ctx SpecContext) {
-			expectStartupRegistration(ctx, 1)
 		})
 	})
 

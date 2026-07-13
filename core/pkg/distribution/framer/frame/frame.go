@@ -56,21 +56,22 @@ func (f Frame) SplitByLeaseholder() map[node.Key]Frame {
 	return frames
 }
 
-// SplitByHost splits the frame into two frames based on the leaseholder of each
+// SplitByHost splits the frame into three frames based on the leaseholder of each
 // channel:
-//   - local: contains series for channels serviced by the specified host, i.e.
-//     channels it holds the lease for and free channels, which every node services
-//     through its local storage engine
+//   - local: contains series for channels leased by the specified host
 //   - remote: contains series for channels leased by other hosts
-func (f Frame) SplitByHost(host node.Key) (local Frame, remote Frame) {
+//   - free: contains series for channels that are not leased by any host
+func (f Frame) SplitByHost(host node.Key) (local Frame, remote Frame, free Frame) {
 	for key, series := range f.Entries() {
-		if key.Lease() == host || key.Free() {
+		if key.Lease() == host {
 			local = local.Append(key, series)
+		} else if key.Free() {
+			free = free.Append(key, series)
 		} else {
 			remote = remote.Append(key, series)
 		}
 	}
-	return local, remote
+	return local, remote, free
 }
 
 // Extend appends the keys and series from another frame to this frame.

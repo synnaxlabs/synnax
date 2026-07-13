@@ -22,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -73,8 +74,13 @@ var _ = Describe("Streamer", Ordered, func() {
 			Status:       statusSvc,
 		}))
 		channelWriter = channelSvc.NewWriter(nil)
+		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
+			Framer:  node.Framer,
+			Channel: channelSvc,
+		}))
 		calc := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:  node.Framer,
+			Writer:  writerSvc,
 			Channel: channelSvc,
 			Status:  statusSvc,
 		}))

@@ -54,6 +54,13 @@ type Config struct {
 	//
 	// [REQUIRED]
 	TS *ts.DB
+	// FreeWrites is the pipeline for moving data for free virtual channels. Free
+	// virtual channels are not leased to any node and their data is not stored in the
+	// cluster; their writes are propagated straight through the relay. This is mostly
+	// used for signaling changes in cluster meta-data.
+	//
+	// [REQUIRED]
+	FreeWrites confluence.Outlet[Response]
 	// Instrumentation is used for logging, tracing, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -95,6 +102,7 @@ func (c Config) Override(other Config) Config {
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
+	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
 	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
 	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
 	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
@@ -107,6 +115,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "host_provider", c.HostResolver)
 	validate.NotNil(v, "ts", c.TS)
+	validate.NotNil(v, "free_writes", c.FreeWrites)
 	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
 	validate.Positive(v, "response_buffer_size", c.ResponseBufferSize)
 	validate.Positive(v, "demand_buffer_size", c.DemandBufferSize)

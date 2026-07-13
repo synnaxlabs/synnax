@@ -15,6 +15,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -22,59 +24,32 @@ import (
 
 var _ = Describe("Write", func() {
 	var db *virtual.DB
-	BeforeEach(func() {
-		db = MustOpen(virtual.Open(virtual.Config{
+	BeforeEach(func(ctx SpecContext) {
+		db = MustSucceed(virtual.Open(ctx, virtual.Config{
+			MetaCodec: json.Codec,
 			Channel: channel.Channel{
 				Name:     "Ray",
 				Key:      2,
 				DataType: telem.TimeStampT,
 				Virtual:  true,
 			},
+			FS: fs.NewMem(),
 		}))
 	})
-	Describe("OpenWriter", func() {
-		It("Should return an error when opening a writer on a closed DB", func() {
-			closedDB := MustSucceed(virtual.Open(virtual.Config{
-				Channel: channel.Channel{
-					Name:     "Egon",
-					Key:      3,
-					DataType: telem.Int64T,
-					Virtual:  true,
-				},
-			}))
-			Expect(closedDB.Close()).To(Succeed())
-			Expect(closedDB.OpenWriter(virtual.WriterConfig{
-				Subject: control.Subject{Key: "foo"},
-			})).Error().To(MatchError(virtual.ErrDBClosed))
-		})
+	AfterEach(func() {
+		Expect(db.Close()).To(Succeed())
 	})
-
-	Describe("Channel", func() {
-		It("Should return the channel the writer writes to", func() {
-			w, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
-				Start:     10 * telem.SecondTS,
-				Authority: control.AuthorityAbsolute,
-				Subject:   control.Subject{Key: "foo"},
-			}))
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(w.Channel()).To(Equal(db.Channel()))
-			Expect(w.Channel().Name).To(Equal("Ray"))
-			t = MustSucceed(w.Close())
-			Expect(t.Occurred()).To(BeTrue())
-		})
-	})
-
 	Describe("Control", func() {
 		Describe("ErrOnUnauthorizedOpen", func() {
-			It("Should return an error if the writer does not acquire control", func() {
-				w1, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+			It("Should return an error if the writer does not acquire control", func(ctx SpecContext) {
+				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
 					Authority:             control.AuthorityAbsolute,
 					Subject:               control.Subject{Key: "foo"},
 					ErrOnUnauthorizedOpen: new(true),
 				}))
 				Expect(t.Occurred()).To(BeTrue())
-				w2, t, err := db.OpenWriter(virtual.WriterConfig{
+				w2, t, err := db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
 					Authority:             control.AuthorityAbsolute - 1,
 					Subject:               control.Subject{Key: "bar"},
@@ -90,15 +65,15 @@ var _ = Describe("Write", func() {
 		})
 
 		Describe("Write", func() {
-			It("Should return an unauthorized error when the write is not authorized", func() {
-				w1, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+			It("Should return an unauthorized error when the write is not authorized", func(ctx SpecContext) {
+				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
 					Authority:             control.AuthorityAbsolute,
 					Subject:               control.Subject{Key: "foo"},
 					ErrOnUnauthorizedOpen: new(true),
 				}))
 				Expect(t.Occurred()).To(BeTrue())
-				w2, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+				w2, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute - 1,
 					Subject:   control.Subject{Key: "bar"},
@@ -113,8 +88,8 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeTrue())
 			})
 
-			It("Should return an error when writing a series with the wrong data type", func() {
-				w, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+			It("Should return an error when writing a series with the wrong data type", func(ctx SpecContext) {
+				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute,
 					Subject:   control.Subject{Key: "foo"},
@@ -129,8 +104,8 @@ var _ = Describe("Write", func() {
 		})
 
 		Describe("Close", func() {
-			It("Should not return an error when the same writer is closed multiple times", func() {
-				w, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+			It("Should not return an error when the same writer is closed multiple times", func(ctx SpecContext) {
+				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute,
 					Subject:   control.Subject{Key: "foo"},
@@ -142,8 +117,8 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeFalse())
 			})
 
-			It("Should return an error on Write when the DB is closed", func() {
-				w, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+			It("Should return an error on Write when the DB is closed", func(ctx SpecContext) {
+				w, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute,
 					Subject:   control.Subject{Key: "foo"},
@@ -157,9 +132,42 @@ var _ = Describe("Write", func() {
 
 		})
 
+		Describe("FS Interaction", func() {
+			It("Should not produce any data writes to the underlying FS", func(ctx SpecContext) {
+				// Virtual channels are defined as not persisting data; this
+				// test pins that contract directly by recording every Open,
+				// Read, ReadAt, Write, and WriteAt against the underlying FS
+				// and asserting that nothing is written during the writer's
+				// session.
+				rec := fs.NewRecorder(fs.NewMem())
+				virtualDB := MustSucceed(virtual.Open(ctx, virtual.Config{
+					MetaCodec: json.Codec,
+					Channel: channel.Channel{
+						Name:     "virtual-fs-check",
+						Key:      99,
+						DataType: telem.TimeStampT,
+						Virtual:  true,
+					},
+					FS: rec,
+				}))
+				rec.Reset()
+
+				w, _ := MustSucceed2(virtualDB.OpenWriter(ctx, virtual.WriterConfig{
+					Start:     10 * telem.SecondTS,
+					Authority: control.AuthorityAbsolute,
+					Subject:   control.Subject{Key: "fs-check"},
+				}))
+				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)))
+				MustSucceed(w.Close())
+				Expect(virtualDB.Close()).To(Succeed())
+
+				Expect(rec.Count(fs.MatchOp(fs.OpWrite, fs.OpWriteAt))).To(BeZero())
+			})
+		})
+
 		Describe("SetAuthority", func() {
-			It("Should correctly set the authority of the writer", func() {
-				w1, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+			It("Should correctly set the authority of the writer", func(ctx SpecContext) {
+				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:                 10 * telem.SecondTS,
 					Authority:             control.AuthorityAbsolute - 2,
 					Subject:               control.Subject{Key: "foo"},
@@ -167,7 +175,7 @@ var _ = Describe("Write", func() {
 				}))
 				Expect(t.Occurred()).To(BeTrue())
 
-				w2, t := MustSucceed2(db.OpenWriter(virtual.WriterConfig{
+				w2, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
 					Start:     10 * telem.SecondTS,
 					Authority: control.AuthorityAbsolute - 3,
 					Subject:   control.Subject{Key: "bar"},

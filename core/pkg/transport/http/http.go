@@ -82,9 +82,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		OntologyMoveChildren:   http.NewUnaryServer[ontology.MoveChildrenRequest, types.Nil](router, "/api/v1/ontology/move-children"),
 
 		// GROUP
-		GroupCreate: http.NewUnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
-		GroupDelete: http.NewUnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
-		GroupRename: http.NewUnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupCreate:   http.NewUnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
+		GroupDelete:   http.NewUnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
+		GroupRename:   http.NewUnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupRetrieve: http.NewUnaryServer[group.RetrieveRequest, group.RetrieveResponse](router, "/api/v1/ontology/retrieve-group"),
 
 		// RANGE
 		RangeRetrieve: http.NewUnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](router, "/api/v1/range/retrieve"),

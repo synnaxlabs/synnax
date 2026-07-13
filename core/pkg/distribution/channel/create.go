@@ -21,9 +21,9 @@ import (
 // Create assigns local keys to the provided new channels (those with a zero LocalKey)
 // by routing to each channel's leaseholder to draw from that node's key counter, and
 // creates the corresponding storage channels there. The returned channels carry their
-// assigned keys, in the same order as the input. Free-virtual channels draw their keys
-// from the bootstrapper. A channel with an unspecified (zero) leaseholder defaults to
-// the host node.
+// assigned keys, in the same order as the input. Free channels draw their keys from
+// the bootstrapper and are never registered in storage. A channel with an unspecified
+// (zero) leaseholder defaults to the host node.
 func (s *Service) Create(ctx context.Context, channels []Channel) ([]Channel, error) {
 	out := make([]Channel, len(channels))
 	copy(out, channels)
@@ -104,18 +104,11 @@ func (s *Service) allocateGateway(ctx context.Context, channels []Channel) error
 	})...)
 }
 
+// allocateFree assigns keys to free channels from the bootstrapper's counter. Free
+// channels have no storage registration; their writes flow through the distribution
+// relay rather than the storage engine.
 func (s *Service) allocateFree(ctx context.Context, channels []Channel) error {
-	if err := assignKeys(ctx, s.freeCounter, channels); err != nil {
-		return err
-	}
-	// Free channels are created in the local storage engine on the same path as
-	// gateway-leased channels. Every free create executes here on the bootstrapper, so
-	// a newly created channel can never collide with an existing storage registration;
-	// other nodes register free channels when they scan the channel table at startup
-	// (see RegisterVirtualStorage).
-	return s.cfg.TS.CreateChannel(ctx, lo.Map(channels, func(c Channel, _ int) ts.Channel {
-		return c.Storage()
-	})...)
+	return assignKeys(ctx, s.freeCounter, channels)
 }
 
 func (s *Service) allocateRemote(
@@ -140,14 +133,4 @@ func (s *Service) allocateRemote(
 	}
 	copy(channels, res.Channels)
 	return nil
-}
-
-// RegisterVirtualStorage registers the given virtual channels in this node's local
-// storage engine. Virtual channels are never persisted by the storage layer and vanish
-// on restart, so each node re-registers the virtual channels it serves writes for once
-// at startup; creates after startup register through Create.
-func (s *Service) RegisterVirtualStorage(ctx context.Context, channels []Channel) error {
-	return s.cfg.TS.CreateChannel(ctx, lo.Map(channels, func(c Channel, _ int) ts.Channel {
-		return c.Storage()
-	})...)
 }

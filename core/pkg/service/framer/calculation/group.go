@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -43,6 +44,7 @@ type OnStatusChange = func(context.Context, ...calculator.Status)
 type groupConfig struct {
 	alamos.Instrumentation
 	framer         *framer.Service
+	writer         *writer.Service
 	onStatusChange OnStatusChange
 	calculators    calculator.Group
 }
@@ -52,6 +54,7 @@ var _ config.Config[groupConfig] = (*groupConfig)(nil)
 func (c groupConfig) Override(other groupConfig) groupConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.framer = override.Nil(c.framer, other.framer)
+	c.writer = override.Nil(c.writer, other.writer)
 	c.calculators = override.Slice(c.calculators, other.calculators)
 	c.onStatusChange = override.Nil(c.onStatusChange, other.onStatusChange)
 	return c
@@ -60,6 +63,7 @@ func (c groupConfig) Override(other groupConfig) groupConfig {
 func (c groupConfig) Validate() error {
 	v := validate.New("calculation.group.config")
 	validate.NotNil(v, "framer", c.framer)
+	validate.NotNil(v, "writer", c.writer)
 	validate.NotEmptySlice(v, "calculators", c.calculators)
 	validate.NotNil(v, "on_status_change", c.onStatusChange)
 	return v.Error()
@@ -93,7 +97,7 @@ func openGroup(ctx context.Context, cfgs ...groupConfig) (*group, error) {
 		return nil, err
 	}
 
-	wrt, err := cfg.framer.NewStreamWriter(ctx, framer.WriterConfig{
+	wrt, err := cfg.writer.NewStream(ctx, writer.Config{
 		Keys:  writeKeys,
 		Start: telem.Now(),
 	})

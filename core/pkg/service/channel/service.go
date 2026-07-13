@@ -13,7 +13,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/parser"
@@ -179,25 +178,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet.Insert(KeysFromChannels(externalNonVirtualChannels)...)
-	// Virtual channels are never persisted by the storage layer, so every boot
-	// re-registers the ones this node serves writes for: free channels and virtual
-	// channels leased to this node.
-	var virtualChannels []Channel
-	if err = s.table.NewRetrieve().
-		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return c.Virtual &&
-				(c.Free() || c.Leaseholder == cfg.HostResolver.HostKey()), nil
-		})).
-		Entries(&virtualChannels).
-		Exec(ctx, cfg.DB); !ok(err, nil) {
-		return nil, err
-	}
-	if err = cfg.Channel.RegisterVirtualStorage(ctx, lo.Map(
-		virtualChannels,
-		func(ch Channel, _ int) channel.Channel { return ch.Distribution() },
-	)); !ok(err, nil) {
-		return nil, err
-	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	return s, nil

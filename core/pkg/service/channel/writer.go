@@ -258,7 +258,9 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 	// channels.
 	indexChannels := make([]Channel, 0, len(channels))
 	calcNeedingIndex := make([]int, 0)
-	batchIsIndexByName := make(map[string]bool, len(channels))
+	// The bool carries whether the batch channel is an index, with absence meaning
+	// "not in the batch" — three states, so this is a map rather than a set.
+	batchIsIndexByName := make(map[string]bool, len(channels)) //nolint:set
 	for _, ch := range channels {
 		batchIsIndexByName[ch.Name] = ch.IsIndex
 	}

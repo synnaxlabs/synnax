@@ -32,6 +32,10 @@ func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
+func OntologyIDsFromGroups(groups []Group) []ontology.ID {
+	return lo.Map(groups, func(g Group, _ int) ontology.ID { return OntologyID(g.Key) })
+}
+
 func newResource(g Group) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(g.Key), g.Name, g)
 }
