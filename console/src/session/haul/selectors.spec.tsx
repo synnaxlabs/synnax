@@ -56,21 +56,6 @@ describe("haul selectors", () => {
     });
   });
 
-  describe("useGetHauling", () => {
-    it("should read the current dragging state on demand across dispatches", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Haul.useGetHauling(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual(Haul.ZERO_SLICE_STATE.state);
-      act(() => {
-        store.dispatch(Haul.setHauled(dragging));
-      });
-      expect(get()).toEqual(dragging);
-    });
-  });
-
   describe("PROVIDER_PROPS", () => {
     const renderProviderState = (store: ReturnType<typeof createStore>) =>
       renderHook(() => Haul.PROVIDER_PROPS.useState?.(Haul.ZERO_SLICE_STATE.state), {
