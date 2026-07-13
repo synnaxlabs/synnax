@@ -59,7 +59,7 @@ interface LeafTabsProps {
 
 const LeafTabs = ({ nodeKey, tabs }: LeafTabsProps): ReactElement => {
   const { startDrag, onDragEnd } = Mosaic.useDragTab();
-  const selectorDropProps = Mosaic.useSelectorDropProps({ nodeKey });
+  const selectorDropProps = Mosaic.useSelectorDropProps({ nodeKey, tabKeys: tabs });
   return (
     <Mosaic.Leaf nodeKey={nodeKey} data-testid={`leaf-${nodeKey}`}>
       <Tabs.Frame initialValue={tabs[0] ?? ""}>
@@ -204,6 +204,20 @@ describe("Mosaic", () => {
         location: "center",
         index: 1,
       });
+    });
+
+    it("should reject dropping a leaf's sole tab back onto its own strip", () => {
+      const onDrop = vi.fn();
+      render(
+        <Harness
+          tabs={["a"]}
+          onDrop={onDrop}
+          items={[Mosaic.createTabDropHaulItem("a")]}
+        />,
+      );
+      beginDrag(leaf());
+      drop(strip(), 50, 16);
+      expect(onDrop).not.toHaveBeenCalled();
     });
 
     it("should resolve a drop past the last tab to the end of the strip", () => {
