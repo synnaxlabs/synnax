@@ -14,9 +14,41 @@ import {
   useRef,
 } from "react";
 
+import { useSyncedRef } from "@/hooks";
 import { useContext } from "@/portal/Context";
 
-export interface OutProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+// React synthetic events on hosted content bubble through the React tree of its
+// In, not the DOM tree of the host, so handlers passed here are bound natively
+// on the host element to catch interaction with whatever it currently hosts.
+const DELEGATED_EVENTS = {
+  onClick: "click",
+  onDoubleClick: "dblclick",
+  onContextMenu: "contextmenu",
+  onPointerDown: "pointerdown",
+  onPointerUp: "pointerup",
+  onMouseDown: "mousedown",
+  onMouseUp: "mouseup",
+  onMouseEnter: "mouseenter",
+  onMouseLeave: "mouseleave",
+  onKeyDown: "keydown",
+  onKeyUp: "keyup",
+} as const satisfies Record<string, keyof HTMLElementEventMap>;
+
+type DelegatedEventMap = typeof DELEGATED_EVENTS;
+
+/**
+ * HostHandlers mirrors the matching React handler props on a div, but each
+ * receives the native event since it fires from a natively bound listener.
+ */
+export type HostHandlers = {
+  [K in keyof DelegatedEventMap]?: (
+    ev: HTMLElementEventMap[DelegatedEventMap[K]],
+  ) => void;
+};
+
+export interface OutProps
+  extends Omit<ComponentPropsWithoutRef<"div">, "children" | keyof HostHandlers>,
+    HostHandlers {
   /**
    * itemKey addresses the {@link In} content to host. While null or not yet
    * registered, the Out renders an empty host and attaches the content as
@@ -28,12 +60,53 @@ export interface OutProps extends Omit<ComponentPropsWithoutRef<"div">, "childre
 /**
  * Out hosts the content of the {@link In} registered under itemKey at its own
  * position in the DOM. When several Outs address the same key, the last one
- * mounted hosts the content. Remaining props are forwarded to the host div,
- * whose children the content lays out as.
+ * mounted hosts the content. Handler props ({@link HostHandlers}) fire for
+ * interaction with the hosted content; remaining props are forwarded to the
+ * host div, whose children the content lays out as.
  */
-export const Out = ({ itemKey, ...rest }: OutProps): ReactElement => {
+export const Out = ({
+  itemKey,
+  onClick,
+  onDoubleClick,
+  onContextMenu,
+  onPointerDown,
+  onPointerUp,
+  onMouseDown,
+  onMouseUp,
+  onMouseEnter,
+  onMouseLeave,
+  onKeyDown,
+  onKeyUp,
+  ...rest
+}: OutProps): ReactElement => {
   const registry = useContext("Portal.Out");
   const host = useRef<HTMLDivElement>(null);
+  const handlers = useSyncedRef<HostHandlers>({
+    onClick,
+    onDoubleClick,
+    onContextMenu,
+    onPointerDown,
+    onPointerUp,
+    onMouseDown,
+    onMouseUp,
+    onMouseEnter,
+    onMouseLeave,
+    onKeyDown,
+    onKeyUp,
+  });
+  useLayoutEffect(() => {
+    const hostEl = host.current;
+    if (hostEl == null) return;
+    const bound = Object.entries(DELEGATED_EVENTS).map(([reactName, nativeName]) => {
+      const listener = (ev: Event): void =>
+        (handlers.current[reactName as keyof HostHandlers] as
+          | ((e: Event) => void)
+          | undefined)?.(ev);
+      hostEl.addEventListener(nativeName, listener);
+      return () => hostEl.removeEventListener(nativeName, listener);
+    });
+    return () => bound.forEach((unbind) => unbind());
+  }, []);
   // Attachment is fully imperative: the hosted element never appears in JSX,
   // so routing it through state would only add a second pre-paint render on
   // mount and a re-render per registry change. A layout effect (rather than
