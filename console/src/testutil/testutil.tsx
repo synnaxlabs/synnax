@@ -140,7 +140,7 @@ const composeConsole = (
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
       <Provider store={store}>
-        <Session.Modals.Provider>{children}</Session.Modals.Provider>
+        <Session.Modals.Context>{children}</Session.Modals.Context>
       </Provider>
     </SynnaxWrapper>
   );
@@ -171,7 +171,7 @@ export const renderLinkHook = async <H,>(
   const store = await createTestStore();
   const Wrapper = ({ children }: PropsWithChildren) => (
     <Provider store={store}>
-      <Session.Modals.Provider>{children}</Session.Modals.Provider>
+      <Session.Modals.Context>{children}</Session.Modals.Context>
     </Provider>
   );
   const { result } = renderHook(

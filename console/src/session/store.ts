@@ -161,7 +161,7 @@ export interface CreateStoreOptions extends Partial<
   enablePersistence?: boolean;
 }
 
-export const configureStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
+export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
   const {
     runtime = new Runtime.Drift<State, Action>(),
     enablePrerender = !IS_DEV,
