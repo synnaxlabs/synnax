@@ -30,6 +30,11 @@ This RFC splits the two without adding any new fields, endpoints, or command typ
 4. The Console autosaves the task form. Its controls become a play/pause button that is
    always visible and a redeploy button (which sends `start`) that appears only when the
    task is running and drifted.
+5. Task keys migrate from rack-encoded uint64s to UUIDs, and the rack becomes a plain
+   field on the task row. A task no longer needs a rack to exist, and moving one is a
+   field write instead of a delete-and-recreate.
+6. Console task tabs become resource tabs backed by the task row, created instantly as
+   drafts. The view-tab machinery for unsaved tasks is deleted.
 
 The task keeps a single `config` field. The config hardware runs lives where it always
 has: in the driver's task instance. Deployment is not a new verb; it is what `start` now
@@ -55,6 +60,13 @@ The fused model has real costs beyond blocking autosave:
   driver reconfigures unconditionally (`driver/task/manager.cpp:172-192`).
 - Work in progress is lost on tab close, because the form holds the draft in local state
   until Configure is pressed.
+- The Console cannot model a task as a first-class resource tab, because a task may not
+  exist server-side until Configure runs. The form code carries three different
+  "unsaved" sentinels (an absent key, the string `"0"`, and the empty string in the zero
+  payloads), a zero rack fallback, an in-place tab args rewrite when a task first
+  persists, and a dual-mode tab name component. Every other document-backed feature
+  (schematics, line plots, tables, logs, arcs) creates the document first and opens a
+  resource tab pointing at it.
 
 The workflow-automation tools closest to Synnax's task model all landed on the same
 shape within the last two years: n8n moved from a save button to autosave plus an
@@ -186,6 +198,80 @@ never engage hardware. The Console therefore shows drift only for running tasks.
 disconnected rack is surfaced by the existing heartbeat UX; no third "drift unknown"
 state is introduced.
 
+## 3.6 - UUID keys and a rack field
+
+Task keys today are uint64s with the rack key packed into the high bits: a task's rack
+is fixed at creation, every client derives it with `task.rackKey(key)`, and moving a
+task to another rack means deleting and recreating it. This is also what forces a rack
+to be chosen before a task can exist at all.
+
+Task keys become UUIDs and the rack becomes a plain field on the task row
+(`schemas/synnax/task.oracle`). Consequences:
+
+- A draft can be created instantly from any entry point with no rack chosen. The `rack`
+  field is optional on a draft and required to start; `start` on a rackless task fails
+  with a clear error. Rack is just more config that must be valid to deploy.
+- A rack change is a field write. The delete-and-recreate flow and its confirmation
+  dialog are deleted.
+- Clients mint keys locally, enabling the optimistic create-then-open flow the Console
+  uses for every other resource.
+
+A one-time migration re-keys existing task rows to UUIDs, populates `rack` from the old
+key's rack bits, and rewrites every stored reference to the old key: ontology resources
+and relationships, statuses, and the legacy Console layouts covered in section 7.
+
+## 3.7 - Set events carry metadata; drivers filter
+
+`sy_task_set` today carries only the key, and drivers filter it by the key's rack bits.
+With UUID keys that filter is gone, so the payload extends to the full task metadata:
+everything except `config` and `status`. Two things fall out:
+
+- The set event stays a broadcast. Every driver sees every set and keeps or drops it by
+  comparing the payload's `rack` field to its own rack, the same architecture as today
+  with a different predicate. No server-side routing is introduced, and rackless drafts
+  are dropped by every driver.
+- The metadata refresh needs no fetch at all: renames, rack changes, and every other
+  metadata edit arrive in the event itself. Config stays excluded, so the row fetch
+  happens exactly once, at start.
+
+Command routing follows the same broadcast shape on `sy_task_cmd`, with a two-part
+driver-side predicate:
+
+- `start`: execute when the row's rack matches this driver, building the instance if
+  none exists (section 3.2).
+- Every other command type (`stop`, scan, connection tests, custom types): execute when
+  this driver holds a live instance for the key, regardless of the row's current rack.
+
+Commands other than start target the deployed instance wherever it lives; start targets
+the rack the row names. This split is what makes rack moves work.
+
+## 3.8 - A rack move is drift
+
+Autosave must never touch running hardware, and the rack field is config like any other.
+When the rack field changes under a running task, nothing happens to the instance: it
+keeps running on the old rack, because the deployed instance, including where it is
+deployed, is the record.
+
+Drift widens to cover it:
+
+```
+drifted = hash(row.config) != status.details.config_hash
+       || row.rack != status.details.rack
+```
+
+The driver reports the rack it is running on in status details alongside the config
+hash. The Console shows the same redeploy control as for config drift. Redeploy sends
+`start`: the old driver holds an instance whose row now names a different rack, so it
+stops and frees it (the non-start predicate above), while the new driver builds from the
+row and runs.
+
+The stop on the old rack and the start on the new one are not serialized across two
+drivers, so there is a brief window where both instances may exist; channel write
+authority arbitrates during it (open question, section 9).
+
+For a stopped task, a rack change does nothing anywhere. The next start simply lands on
+the new rack.
+
 ---
 
 # 4 - Driver Changes
@@ -201,10 +287,12 @@ state is introduced.
   of a never-started task. All other command types route to `exec` unchanged.
 - The `CONFIGURE` op records the hash of the config it built from on the task entry, and
   every status emitted for the task carries it in `details.config_hash`.
-- `process_task_set` no longer enqueues `CONFIGURE`. It re-fetches the task and updates
-  the cached entry's metadata (name) in place, so statuses reflect renames immediately
-  and renaming never restarts a task. Delete handling is untouched. The fetch is one KV
-  read per autosave batch, which is negligible.
+- `process_task_set` no longer enqueues `CONFIGURE`. It updates the cached entry's
+  metadata in place from the event payload (section 3.7), no fetch needed, so statuses
+  reflect renames immediately and renaming never restarts a task. Delete handling is
+  untouched.
+- Command dispatch applies the section 3.7 predicate: `start` checks the row's rack;
+  every other command checks for a live instance.
 - Boot (`configure_initial_tasks`) is unchanged: configure all non-snapshot tasks from
   `config`, honoring `auto_start`.
 
@@ -217,10 +305,10 @@ and refreshes metadata instead, and boot is unchanged.
 
 ## 4.3 - Status details schema
 
-`StatusDetails` (`core/pkg/service/task/types.gen.go:28-37`) gains a `config_hash` field
-in `schemas/synnax/task.oracle`, regenerated across Go, TS, Python, and C++. The hash is
-a stable non-cryptographic 64-bit hash (xxhash or equivalent) available in both C++ and
-TS; the exact algorithm is pinned during implementation.
+`StatusDetails` (`core/pkg/service/task/types.gen.go:28-37`) gains `config_hash` and
+`rack` fields in `schemas/synnax/task.oracle`, regenerated across Go, TS, Python, and
+C++. The hash is a stable non-cryptographic 64-bit hash (xxhash or equivalent) available
+in both C++ and TS; the exact algorithm is pinned during implementation.
 
 ---
 
@@ -270,15 +358,79 @@ not been configured" to the arc vocabulary, "Not deployed".
 | yes     | no      | pause                    | stop                   |
 | yes     | yes     | pause + redeploy + badge | stop / start (rebuild) |
 
-Stopped tasks never show a drift badge (section 3.5).
+Stopped tasks never show a drift badge (section 3.5). A running task whose row names a
+different rack shows the same redeploy control and badge (section 3.8).
+
+## 5.4 - Task tabs become resource tabs
+
+Panel tabs are a discriminated union: a resource tab points at an ontology ID and a view
+tab carries a type string and opaque args (`client/ts/src/panel/types.gen.ts`). Tasks
+are the last document-backed feature rendered as view tabs, kept there only because a
+task might not exist server-side until Configure ran. With instant drafts that reason is
+gone. Task tabs become `{ variant: "resource", resource: task ontology ID }`, exactly
+like schematics, line plots, tables, logs, and arcs, aside from one nested type switch
+described below.
+
+What this deletes:
+
+- The three unsaved sentinels: the absent `taskKey` in view args, the `"0"` key in
+  `useKey`, and the `""` key in every `ZERO_*_PAYLOAD`.
+- The zero rack fallback (`rackKey ?? 0`) in the form and pluto task queries: rack is a
+  plain form field backed by the row.
+- The persisted transition: `afterSave` rewriting the view args with the new key. The
+  tab points at the resource from the moment it opens and its content never changes.
+- The dual-mode tab name component: resource tabs use the standard
+  `createEditableTabName` driven by the backing resource.
+- The `formArgsZ` view args schema: device and imported-config seeding move into the
+  create call (section 5.5).
+
+Resource tabs also bring per-panel dedupe for free: a task backs at most one tab per
+panel, and opening it again focuses the existing tab.
+
+Renderer dispatch is the one task-specific wrinkle. All tasks share the `task` ontology
+type, but each task type needs its own form. The panel registry gains a single `task`
+entry whose content resolves the row's `type` and dispatches to a per-integration form
+registry inside the task domain, the same nested-dispatch shape the device feature uses
+for device makes. Integrations stop registering panel tab types for tasks entirely.
+
+## 5.5 - Creation is create-then-open
+
+Every entry point creates the draft row first (client-minted UUID, optimistic write) and
+then opens the resource tab, the same flow as every other resource:
+
+- Task selector: picking a type creates a draft from the integration's zero payload and
+  swaps the selector tab in place to the task resource tab, matching the app-level
+  empty-tab selector.
+- Device context menu: the draft is seeded with one channel bound to the device, and
+  `rack` is set from the device's rack.
+- Import: the draft is seeded with the parsed config.
+- The toolbar list and ontology tree open existing tasks as resource tabs directly.
+
+Abandoned drafts are accepted: a rackless zero-config row is inert, never reaches a
+driver, shows up in the task list, and can be deleted there. Schematics behave
+identically today, and the planned version-control system (section 8) is the eventual
+home for draft lifecycle management.
+
+## 5.6 - Ontology placement
+
+Tasks parent under their rack today. A rackless draft would have no parent and be
+invisible to the tree and search, so drafts parent under a cluster-level "Tasks" group
+and reparent under the rack when the rack field is set or changed, using the same
+reparenting machinery NI chassis modules use.
 
 ---
 
 # 6 - TypeScript and Python Clients
 
+- **Key type**: `task.Key` becomes a UUID string in every client. `task.rackKey(key)`
+  and the key-packing helpers are deleted, and call sites read the `rack` field.
+- **Creation**: task creation gets a first-class `client.tasks.create({ ..., rack? })`
+  in every client, with `rack` optional per section 3.6. `rack.createTask` remains as
+  sugar that pre-fills the rack field, since tasks stay operationally bound to racks
+  even though the key no longer encodes one.
 - **TS**: `Task.executeCommandSync("start")` works unchanged; the richer semantics live
-  entirely in the driver. `StatusDetails` regenerates with `configHash`, and a small
-  `drifted` helper compares it against a hash of the task's config.
+  entirely in the driver. `StatusDetails` regenerates with `configHash` and `rack`, and
+  a small `drifted` helper implements the section 3.8 comparison.
 - **Python**: `tasks.configure(...)` becomes a plain save that returns immediately.
   There is no driver acknowledgment to await, because saving no longer touches the
   driver. Hardware validation errors that configure used to surface now surface at
@@ -294,18 +446,37 @@ is out of scope here.
 
 # 7 - Rollout
 
-No schema migration for the task row. Phases:
+Two migrations ship with this work:
 
-1. `StatusDetails.config_hash` in the oracle schema, regenerated across all languages.
-2. Driver changes (C++ manager, Go embedded): start interception, hash reporting,
-   metadata-only set handling. Compatibility: an old console against a new driver keeps
-   working, since its configure-style save triggers no reconfigure but its start does; a
-   new console against an old driver autosaves configs that the old driver deploys on
-   every save, which is the old behavior, not a breakage. Release notes pin the
-   recommended pairing.
-3. Console and pluto UX: autosave, controls, drift badges.
+1. **Task identity migration**: re-key task rows to UUIDs, populate `rack` from the old
+   key's rack bits, and rewrite ontology resources, relationships, and statuses that
+   reference the old keys, retaining the uint64-to-UUID map for step 2.
+2. **Legacy layout conversion**: `MigrateProjectLayouts`
+   (`core/pkg/service/panel/migrate.go`) converts pre-panel Console layouts into panels
+   and currently drops task layouts. It extends to map legacy task layout tabs, whose
+   layout key is the old uint64 task key and whose layout type is a task type, to task
+   resource tabs through the uint64-to-UUID map, ordered after the identity migration.
+   Panels have never shipped in a release, so no existing panel documents need
+   converting; only this legacy conversion path is touched. Legacy layouts for unsaved
+   tasks have random keys and keep being dropped, which is correct.
+
+Phases:
+
+1. Oracle schema changes: task key to UUID, `rack` field, the extended `sy_task_set`
+   payload, and `StatusDetails.config_hash`/`rack`, regenerated across all languages,
+   plus the migrations above.
+2. Driver changes (C++ manager, Go embedded): start interception, hash and rack
+   reporting, metadata-only set handling, the section 3.7 command predicate.
+3. Console and pluto UX: autosave, controls, drift badges, resource tabs, and the
+   create-then-open flows.
 4. Python and TS client adjustments plus integration tests: draft-edit-without-restart,
-   start-syncs-config, drift derivation from status hash, rename-without-restart.
+   start-syncs-config, drift derivation from status hash and rack, rack-move redeploy,
+   rename-without-restart.
+
+Compatibility: the key migration is a hard break for any client that packs or unpacks
+rack keys out of task keys, so server, driver, and clients version together in one
+release. Within that release the deploy semantics remain forgiving: an old start against
+a new driver still deploys the latest config, and stop always works.
 
 ---
 
@@ -337,3 +508,7 @@ No schema migration for the task row. Phases:
    answer determines whether a stopped task's last status keeps a meaningful hash.
 3. Exact hash algorithm and its availability across C++, Go, TS, and Python (xxhash64 is
    the leading candidate).
+4. During a rack-move redeploy, the old instance's stop and the new instance's start are
+   not serialized across the two drivers. Is channel write authority sufficient
+   arbitration for the overlap window, or should the new driver wait for the old
+   instance's stopped status before starting?
