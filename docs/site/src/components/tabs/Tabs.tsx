@@ -25,27 +25,21 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
   const [selected, setSelected] = useState<string>(tabs[0].tabKey);
 
   const handleSelect = (tabKey: string) => {
-    if (queryParamKey == null) return setSelected(tabKey);
+    setSelected(tabKey);
+    if (queryParamKey == null) return;
     const url = new URL(window.location.href);
     url.searchParams.set(queryParamKey, tabKey);
     window.history.pushState({}, "", url.toString());
     window.dispatchEvent(new CustomEvent("urlchange"));
-    setSelected(tabKey);
-  };
-
-  const getSelected = (): string => {
-    if (queryParamKey == null) return selected;
-    const url = new URL(window.location.href);
-    return url.searchParams.get(queryParamKey) ?? selected;
   };
 
   useEffect(() => {
+    if (queryParamKey == null) return;
     const updateFromURL = () => {
-      if (queryParamKey == null) return;
       const url = new URL(window.location.href);
       setSelected(url.searchParams.get(queryParamKey) ?? tabs[0].tabKey);
     };
-    handleSelect(getSelected());
+    updateFromURL();
     window.addEventListener("popstate", updateFromURL);
     window.addEventListener("urlchange", updateFromURL);
     return () => {
@@ -55,7 +49,7 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
   }, [queryParamKey]);
 
   return (
-    <Base.Frame value={getSelected()} onChange={handleSelect}>
+    <Base.Frame value={selected} onChange={handleSelect}>
       <Base.Selector>
         {tabs.map(({ tabKey, name, icon }) => (
           <Base.Tab key={tabKey} itemKey={tabKey}>
