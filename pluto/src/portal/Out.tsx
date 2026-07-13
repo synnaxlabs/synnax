@@ -47,7 +47,8 @@ export type HostHandlers = {
 };
 
 export interface OutProps
-  extends Omit<ComponentPropsWithoutRef<"div">, "children" | keyof HostHandlers>,
+  extends
+    Omit<ComponentPropsWithoutRef<"div">, "children" | keyof HostHandlers>,
     HostHandlers {
   /**
    * itemKey addresses the {@link In} content to host. While null or not yet
@@ -99,9 +100,10 @@ export const Out = ({
     if (hostEl == null) return;
     const bound = Object.entries(DELEGATED_EVENTS).map(([reactName, nativeName]) => {
       const listener = (ev: Event): void =>
-        (handlers.current[reactName as keyof HostHandlers] as
-          | ((e: Event) => void)
-          | undefined)?.(ev);
+        (
+          handlers.current[reactName as keyof HostHandlers] as
+            ((e: Event) => void) | undefined
+        )?.(ev);
       hostEl.addEventListener(nativeName, listener);
       return () => hostEl.removeEventListener(nativeName, listener);
     });
