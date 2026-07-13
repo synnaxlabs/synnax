@@ -21,12 +21,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// freeWritePipelineBuffer sets the channel buffer size for moving free-channel writes
+// from the writer pipeline into the relay.
+const freeWritePipelineBuffer = 4000
 
 // Service is the distribution layer interface for reading, writing, and streaming
 // telemetry frames through Synnax. The service provides access to three APIs: writers
@@ -110,11 +115,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
+	freeWrites := confluence.NewStream[relay.Response](freeWritePipelineBuffer)
 	if s.relay, err = relay.Open(relay.Config{
 		Instrumentation: cfg.Child("relay"),
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Relay(),
+		FreeWrites:      freeWrites,
 	}); !ok(err, s.relay) {
 		return nil, err
 	}
@@ -123,6 +130,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		TS:              cfg.TS,
 		HostResolver:    cfg.HostResolver,
 		Transport:       cfg.Transport.Writer(),
+		FreeWrites:      freeWrites,
 	}); !ok(err, nil) {
 		return nil, err
 	}

@@ -134,4 +134,3 @@ func (s *Service) allocateRemote(
 	copy(channels, res.Channels)
 	return nil
 }
-

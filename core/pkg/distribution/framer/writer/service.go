@@ -20,12 +20,14 @@ package writer
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -114,6 +116,13 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	AutoIndex *bool
+	// FreeIndexes maps each free channel in Keys that has an index to the key of that
+	// index channel. Free frames are stamped with per-index alignments derived from
+	// this map. It is host-local plumbing supplied by the service layer and is never
+	// sent to peers, as free frames are split off before peer routing.
+	//
+	// [OPTIONAL]
+	FreeIndexes map[channel.Key]channel.Key
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -214,6 +223,7 @@ func (c Config) Override(other Config) Config {
 	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.AutoIndex = override.Nil(c.AutoIndex, other.AutoIndex)
+	c.FreeIndexes = override.Nil(c.FreeIndexes, other.FreeIndexes)
 	return c
 }
 
@@ -230,6 +240,10 @@ type ServiceConfig struct {
 	// TS is the local time series store to write to.
 	// [REQUIRED]
 	TS *ts.DB
+	// FreeWrites is the write pipeline where samples from free channels should be
+	// routed into the distribution relay.
+	// [REQUIRED]
+	FreeWrites confluence.Inlet[relay.Response]
 	alamos.Instrumentation
 }
 
@@ -245,6 +259,7 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "ts", cfg.TS)
 	validate.NotNil(v, "host_provider", cfg.HostResolver)
 	validate.NotNil(v, "transport", cfg.Transport)
+	validate.NotNil(v, "free_writes", cfg.FreeWrites)
 	return v.Error()
 }
 
@@ -253,6 +268,7 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
+	cfg.FreeWrites = override.Nil(cfg.FreeWrites, other.FreeWrites)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
@@ -261,7 +277,11 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
 	server *server
-	cfg    ServiceConfig
+	// freeWriteAlignments tracks per-index alignment counters shared across all
+	// writers opened on this service, so concurrent free writers stamp distinct
+	// alignment domains.
+	freeWriteAlignments *freeWriteAlignments
+	cfg                 ServiceConfig
 }
 
 // NewService opens the writer service using the given configuration. Also binds a
@@ -271,14 +291,21 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{cfg: cfg, server: startServer(cfg)}, nil
+	return &Service{
+		cfg:    cfg,
+		server: startServer(cfg),
+		freeWriteAlignments: &freeWriteAlignments{
+			alignments: make(map[channel.Key]*atomic.Uint32),
+		},
+	}, nil
 }
 
 const (
 	synchronizerAddr       = address.Address("synchronizer")
 	peerSenderAddr         = address.Address("peer_sender")
 	gatewayWriterAddr      = address.Address("gateway_writer")
-	peerGatewaySwitchAddr  = address.Address("peer_gateway_switch")
+	freeWriterAddr         = address.Address("free_writer")
+	peerGatewaySwitchAddr  = address.Address("peer_gateway_free_switch")
 	sequencerAddr          = address.Address("sequencer")
 	sequencerResponsesAddr = address.Address("sequencer_responses")
 )
@@ -329,13 +356,9 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		pipe              = plumber.New()
 		receiverAddresses []address.Address
 		routeSequencerTo  address.Address
-	)
-	// Free channels are registered as virtual channels in the local storage engine, so
-	// their writes ride the gateway branch.
-	batch.Gateway = append(batch.Gateway, batch.Free...)
-	var (
-		hasPeer    = len(batch.Peers) > 0
-		hasGateway = len(batch.Gateway) > 0
+		hasPeer           = len(batch.Peers) > 0
+		hasGateway        = len(batch.Gateway) > 0
+		hasFree           = len(batch.Free) > 0
 	)
 
 	seq := &sequencer{}
@@ -344,10 +367,13 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	plumber.SetSegment(
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(batch.Peers)+lo.Ternary(hasGateway, 1, 0), s.cfg.Instrumentation),
+		newSynchronizer(
+			len(batch.Peers)+lo.Ternary(hasGateway, 1, 0)+lo.Ternary(hasFree, 1, 0),
+			s.cfg.Instrumentation,
+		),
 	)
 
-	switchTargets := make([]address.Address, 0, 2)
+	switchTargets := make([]address.Address, 0, 3)
 	var peerSenders map[address.Address]freighter.StreamSenderCloser[Request]
 	if hasPeer {
 		routeSequencerTo = peerSenderAddr
@@ -381,12 +407,20 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
 	}
 
+	if hasFree {
+		routeSequencerTo = freeWriterAddr
+		switchTargets = append(switchTargets, freeWriterAddr)
+		w := s.newFree(cfg.Mode, *cfg.Sync, cfg.FreeIndexes, cfg.ControlSubject.Group)
+		plumber.SetSegment(pipe, freeWriterAddr, w)
+		receiverAddresses = append(receiverAddresses, freeWriterAddr)
+	}
+
 	if len(switchTargets) > 1 {
 		routeSequencerTo = peerGatewaySwitchAddr
 		plumber.SetSegment(
 			pipe,
 			peerGatewaySwitchAddr,
-			newPeerGatewaySwitch(hostKey, hasPeer, hasGateway),
+			newPeerGatewayFreeSwitch(hostKey, hasPeer, hasGateway, hasFree),
 		)
 		plumber.MultiRouter[Request]{
 			SourceTargets: []address.Address{peerGatewaySwitchAddr},
