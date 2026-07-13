@@ -17,6 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
 import { getIcon, parseType } from "@/feature/task/types";
 import { retrieveAndOpenTab } from "@/feature/task/views";
 import { type Command } from "@/platform/command";
@@ -69,6 +70,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
 };
 
 export const TABS: Panel.Tabs = {
+  [SELECTOR_TAB_TYPE]: Selector,
   ...EtherCAT.Task.TABS,
   ...HTTP.Task.TABS,
   ...LabJack.Task.TABS,

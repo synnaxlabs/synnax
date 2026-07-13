@@ -28,6 +28,7 @@ import {
 import { array, strings } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 
+import { useOpenSelector } from "@/feature/task/Selector";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
 import { Cluster } from "@/platform/cluster";
@@ -44,21 +45,14 @@ import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
 
-const TASK_SELECTOR_VIEW = {
-  variant: "view",
-  type: "selector",
-  args: { variant: "task" },
-} as const;
-
 const EmptyContent = () => {
-  const openTab = Panel.useOpenTab();
-  const handleClick = () => openTab(TASK_SELECTOR_VIEW);
+  const openSelector = useOpenSelector();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   return (
     <Empty.Action
       message="No existing tasks."
       action={hasCreatePermission ? "Create a task" : undefined}
-      onClick={handleClick}
+      onClick={() => openSelector()}
     />
   );
 };
@@ -78,6 +72,7 @@ const Content = () => {
   const confirm = Modals.useConfirm();
   const menuProps = Menu.useContextMenu();
   const openTab = Panel.useOpenTab();
+  const openSelector = useOpenSelector();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const { data, getItem, subscribe, retrieve } = Task.useList({
     initialQuery: INITIAL_QUERY,
@@ -198,10 +193,7 @@ const Content = () => {
           <Toolbar.Title icon={<Icon.Task />}>Tasks</Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
-              <Toolbar.Action
-                tooltip="Create task"
-                onClick={() => openTab(TASK_SELECTOR_VIEW)}
-              >
+              <Toolbar.Action tooltip="Create task" onClick={() => openSelector()}>
                 <Icon.Add />
               </Toolbar.Action>
             </Toolbar.Actions>

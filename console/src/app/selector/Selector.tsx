@@ -37,13 +37,10 @@ export const createEmptyTab = (): panel.NewTab => ({
   args: {},
 });
 
-export type PickerVariant = "component" | "task";
-
-export const useOpenTab = (): ((variant?: PickerVariant) => void) => {
+export const useOpenTab = (): (() => void) => {
   const openTab = Panel.useOpenTab();
   return useCallback(
-    (variant: PickerVariant = "component") =>
-      openTab({ variant: "view", type: TAB_TYPE, args: { variant } }),
+    () => openTab({ variant: "view", type: TAB_TYPE, args: {} }),
     [openTab],
   );
 };

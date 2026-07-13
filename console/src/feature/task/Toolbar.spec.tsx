@@ -131,8 +131,8 @@ describe("task/Toolbar", () => {
     const { created } = await renderToolbar();
     await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(getIconButton(document.body, "add"));
-    const args = await awaitViewTab(created, "selector");
-    expect(args).toEqual({ variant: "task" });
+    const args = await awaitViewTab(created, "taskSelector");
+    expect(args).toEqual({});
   });
 
   it("opens the task's configuration view on double click", async () => {

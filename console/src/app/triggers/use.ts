@@ -118,7 +118,7 @@ export const use = (): void => {
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
         if (stage !== "start" || !createComponentEnabled) return;
-        openSelector("component");
+        openSelector();
       },
       [createComponentEnabled, openSelector],
     ),
