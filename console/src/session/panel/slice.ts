@@ -53,14 +53,6 @@ export interface PanelKeyPayload extends Window.OptionalKeyParams {
   key: panel.Key;
 }
 
-export interface TabKeyPayload extends Window.OptionalKeyParams {
-  tabKey: panel.TabKey;
-}
-
-export interface SetSelectedTabsPayload extends PanelKeyPayload {
-  selectedTabs: panel.TabKey[];
-}
-
 export interface TabAndPanelKeyPayload extends PanelKeyPayload {
   tabKey: string;
 }
@@ -99,8 +91,7 @@ const { actions, reducer } = createSlice({
     }),
     remove: withWindowKey<PanelKeyPayload, SliceState>((win, { payload: { key } }) => {
       delete win.panels[key];
-      if (Object.keys(win.panels).length > 0) return;
-      win.selected = undefined;
+      if (win.selected === key) win.selected = undefined;
     }),
     selectTab: withSelectedState<SelectTabPayload>(
       (pan, { payload: { tabKey, otherTabKeys } }) => {

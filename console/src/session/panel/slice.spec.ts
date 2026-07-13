@@ -177,6 +177,38 @@ describe("Panel Slice", () => {
       );
       expect(Panel.selectSelected(state)).toBeUndefined();
     });
+
+    // Regression: remove previously cleared the selection only when the panel list
+    // became empty, leaving a dangling selected key when other panels remained.
+    it("should clear the selection when the selected panel is removed while others remain", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.internalSelectTab({
+          key: OTHER_PANEL,
+          tabKey: OTHER_TAB,
+          otherTabKeys: [OTHER_TAB],
+        }),
+        Panel.remove({ key: PANEL }),
+      );
+      expect(Panel.selectSelected(state)).toBeUndefined();
+      expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
+    });
+
+    // A selected panel has no per-panel entry until a tab is selected in it, so
+    // removing the last stored entry must not clear an unrelated selection.
+    it("should retain the selection when a different panel is removed", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({
+          key: OTHER_PANEL,
+          tabKey: OTHER_TAB,
+          otherTabKeys: [OTHER_TAB],
+        }),
+        Panel.remove({ key: OTHER_PANEL }),
+      );
+      expect(Panel.selectSelected(state)).toEqual(PANEL);
+    });
   });
 
   describe("reset", () => {

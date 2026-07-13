@@ -387,6 +387,27 @@ describe("panel selectors", () => {
       });
       expect(result.current).toBe(false);
     });
+
+    // Regression: the visibility check previously read the raw key parameter, so an
+    // omitted key inside a panel scope fell back to the window's selected panel
+    // instead of the scope's panel.
+    it("should read the scope panel's selection, not the window's selected panel", async () => {
+      const { Wrapper, store } = await setup({ scope: PANEL });
+      const { result } = renderHook(
+        () => ({
+          scoped: Panel.useSelectIsTabVisible(undefined, TAB),
+          foreign: Panel.useSelectIsTabVisible(undefined, OTHER_TAB),
+        }),
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        selectTab(store, PANEL, TAB);
+        selectTab(store, OTHER_PANEL, OTHER_TAB);
+        store.dispatch(Panel.select({ key: OTHER_PANEL }));
+      });
+      expect(result.current.scoped).toBe(true);
+      expect(result.current.foreign).toBe(false);
+    });
   });
 
   describe("getters", () => {

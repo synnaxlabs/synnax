@@ -205,9 +205,9 @@ export const useSelectIsTabVisible = (
   return Select.useMemo(
     (state: RequiredStoreState) => {
       if (resolvedPanel == null || resolvedTab == null) return false;
-      const selected = selectSelectedTabs(state, key);
+      const selected = selectSelectedTabs(state, resolvedPanel);
       const isOverlaid = selectOverlaid(state);
-      if (isOverlaid) return selected.length > 0 && resolvedTab == selected[0];
+      if (isOverlaid) return selected.length > 0 && resolvedTab === selected[0];
       return selected.includes(resolvedTab);
     },
     [resolvedPanel, resolvedTab],
