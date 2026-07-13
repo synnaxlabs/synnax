@@ -90,17 +90,17 @@ func tabKeys(n panel.Node) []uuid.UUID {
 func tabByKey(n panel.Node, key uuid.UUID) (panel.Tab, bool) {
 	switch v := n.Variant.(type) {
 	case panel.NodeLeaf:
-		for _, t := range v.Leaf.Tabs {
+		for _, t := range v.Tabs {
 			if t.Key() == key {
 				return t, true
 			}
 		}
 		return panel.Tab{}, false
 	case panel.NodeSplit:
-		if t, ok := tabByKey(v.Split.First, key); ok {
+		if t, ok := tabByKey(v.First, key); ok {
 			return t, true
 		}
-		return tabByKey(v.Split.Last, key)
+		return tabByKey(v.Last, key)
 	default:
 		return panel.Tab{}, false
 	}
