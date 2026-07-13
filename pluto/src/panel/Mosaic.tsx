@@ -90,7 +90,7 @@ const Leaf = memo(({ nodeKey, onAdd, ...rest }: NodeProps): ReactElement => {
   const { tabs } = useSelectLeafNode({ nodeKey });
   const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
   const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
-  const selectorDropProps = Base.useSelectorDropProps({ nodeKey });
+  const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
   return (
     <Base.Leaf nodeKey={nodeKey} grow>
       <Tabs.Frame grow>
