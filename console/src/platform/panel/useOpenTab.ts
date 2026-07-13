@@ -36,21 +36,17 @@ export const useOpenTab = (): ((params: OpenTabParams) => void) => {
     },
     [parentTabKey, dispatch, selectTab],
   );
-  const { update: createPanel } = Panel.useCreate<panel.Tab>({
+  const { update: createPanel } = Panel.useCreate({
     afterOptimistic: useCallback(
       ({
-        data: { key },
+        data: { key, root },
         rollbacks,
-        extra: tab,
-      }: Flux.AfterOptimisticParams<
-        panel.Panel,
-        false,
-        Panel.FluxSubStore,
-        panel.Tab
-      >) => {
+      }: Flux.AfterOptimisticParams<panel.Panel, false, Panel.FluxSubStore>) => {
         dispatchSession(Session.Panel.select({ key }));
         rollbacks.push(() => dispatchSession(Session.Panel.clearSelected({})));
-        selectTab(tab.key, key);
+        // This hook only creates panels with a single-tab leaf root (below), so the
+        // tab to focus is the one seeded into the root.
+        if (root.variant === "leaf") selectTab(root.tabs[0].key, key);
       },
       [dispatchSession, selectTab],
     ),
@@ -64,10 +60,7 @@ export const useOpenTab = (): ((params: OpenTabParams) => void) => {
       // remote dispatch that would race the create and fail with "panel not
       // found", while the local store update keeps focus optimistic.
       const tab: panel.Tab = { key: parentTabKey ?? uuid.create(), ...params };
-      createPanel(
-        { name: "New Panel", root: { variant: "leaf", tabs: [tab] } },
-        { extra: tab },
-      );
+      createPanel({ name: "New Panel", root: { variant: "leaf", tabs: [tab] } });
     },
     [parentPanelKey, parentTabKey, getSelected, insertIntoExisting, createPanel],
   );
