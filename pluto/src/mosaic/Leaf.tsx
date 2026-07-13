@@ -25,6 +25,7 @@ import { Haul } from "@/haul";
 import { useCombinedRefs } from "@/hooks";
 import { useContext } from "@/mosaic/Frame";
 import { filterTabCreateHaulItems, filterTabDropHaulItems } from "@/mosaic/haul";
+import { Tabs } from "@/tabs";
 
 const MASK_STYLE: Record<location.Location, CSSProperties> = {
   top: { left: "0%", top: "0%", width: "100%", height: "50%" },
@@ -48,12 +49,18 @@ const insertLocation = ({ x: px, y: py }: xy.XY): location.Location => {
   throw new Error("[bug] - invalid insert position");
 };
 
-const TAB_KEY_SELECTOR = "[data-tab-key]";
-
 const leafTabKeys = (el: HTMLElement): string[] =>
-  Array.from(el.querySelectorAll(TAB_KEY_SELECTOR))
-    .map((tab) => tab.getAttribute("data-tab-key"))
+  Array.from(el.querySelectorAll(Tabs.KEY_SELECTOR))
+    .map((tab) => tab.getAttribute(Tabs.KEY_ATTRIBUTE))
     .filter((key): key is string => key != null);
+
+// The strip sits on the leaf's top edge, so measuring its cursor position against
+// the leaf box would resolve a split; a drop on the strip means "into this leaf".
+// Only file drags reach the leaf over the strip: the Selector claims tab drops.
+const overTabStrip = (el: HTMLElement, cursor: xy.XY): boolean => {
+  const strip = el.querySelector(Tabs.LIST_SELECTOR);
+  return strip != null && box.contains(box.construct(strip), cursor);
+};
 
 const resolveLocation = (
   el: HTMLElement,
@@ -61,6 +68,7 @@ const resolveLocation = (
 ): location.Location => {
   if (leafTabKeys(el).length === 0) return "center";
   const cursor = xy.construct(event.clientX, event.clientY);
+  if (overTabStrip(el, cursor)) return "center";
   const b = box.construct(el);
   return insertLocation({
     x: (cursor.x - box.left(b)) / box.width(b),
@@ -80,7 +88,9 @@ export interface LeafProps extends Omit<Flex.BoxProps, "onDrop" | "onDragOver"> 
  * to the Frame's onDrop, onCreate, and onFileDrop handlers with this leaf's key.
  * Drops on the pane's tab strip belong to the Tabs.Selector composed inside it:
  * wire it up with {@link useSelectorDropProps} so it claims strip drops (with an
- * insertion index) before they reach the leaf.
+ * insertion index) before they reach the leaf. OS file drags are the exception:
+ * the strip rejects them, so they fall through to the leaf, which resolves the
+ * strip region to a center drop.
  *
  * The leaf discovers its tabs from the DOM: tabs are elements with a
  * `data-tab-key` attribute, rendered by the Tabs parts composed inside it.
