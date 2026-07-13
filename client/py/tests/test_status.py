@@ -272,8 +272,7 @@ class TestStatusClient:
 
         parent_id_str = f"group:{str(parent_group.key)}"
         children = client.ontology.retrieve_children(parent_id_str)
-        status_resource = next((r for r in children if r.id.key == created.key), None)
-        assert status_resource is not None
+        assert any(r.key == created.key for r in children)
 
     def test_ontology_id_helper(self):
         """Should create proper ontology ID."""
