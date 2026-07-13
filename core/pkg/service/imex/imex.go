@@ -30,6 +30,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
@@ -81,16 +82,16 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 	)
 }
 
-// NewErrUnsupportedProject constructs a validation error for an Importer that was
-// handed a project resource it does not support — e.g. a log import created under
-// anything other than a project. The returned error is path-scoped to the "project"
-// field so API responses can present it as a structured field error.
-func NewErrUnsupportedProject(typ string, project ontology.ID, supported ontology.ResourceType) error {
+// NewErrUnsupportedProject constructs a validation error for an import whose project
+// param references a resource that is not a project — e.g. a log import created under
+// a group. The returned error is path-scoped to the "project" field so API responses
+// can present it as a structured field error.
+func NewErrUnsupportedProject(typ ontology.ResourceType, got ontology.ID) error {
 	return validate.PathedError(
 		errors.Wrapf(
 			validate.ErrValidation,
 			"a %s can only be imported under a %s, got a resource of type %q",
-			typ, supported, project.Type,
+			typ, ontology.ResourceTypeProject, got.Type,
 		),
 		"project",
 	)
@@ -394,11 +395,12 @@ type ImportOptions struct {
 	// stripped — becomes the envelope's name. A `name` in the body always wins. The
 	// fallback is applied by the registry before the envelope reaches an Importer.
 	FileName string
-	// Project is the ontology resource to create the imported resource under. The
+	// Project is the key of the project to create the imported resource under. The
 	// registry passes it through untouched: each Importer decides how (and whether) a
-	// project applies to its resource type, and must reject resources it does not
-	// support. A zero Project means no project was requested.
-	Project ontology.ID
+	// project applies to its resource type. A zero Project means no project was
+	// requested. The API layer guarantees the key was parsed from a project ontology
+	// ID, so importers can use it directly.
+	Project project.Key
 }
 
 // Importer materializes a resource from an Envelope and persists it. The envelope's

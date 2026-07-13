@@ -12,6 +12,7 @@ package imex
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
@@ -19,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -66,7 +69,7 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	opts, err := parseImportOptions(ctx)
+	opts, err := parseImportOptions(ctx, resourceType)
 	if err != nil {
 		return ImportResponse{}, err
 	}
@@ -78,11 +81,11 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	if !opts.Project.IsZero() {
+	if opts.Project != uuid.Nil {
 		if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{opts.Project},
+			Objects: []ontology.ID{project.OntologyID(opts.Project)},
 		}); err != nil {
 			return ImportResponse{}, err
 		}
@@ -95,9 +98,13 @@ func (s *Service) Import(
 }
 
 // parseImportOptions extracts the optional file_name and project query parameters from
-// the request's freighter params. An empty or absent project yields a zero Project;
-// a malformed project ID returns a validation error.
-func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
+// the request's freighter params. An empty or absent project yields a zero Project; a
+// project that is malformed or does not reference a project resource returns a
+// validation error. typ names the imported resource type in that error.
+func parseImportOptions(
+	ctx context.Context,
+	typ ontology.ResourceType,
+) (imex.ImportOptions, error) {
 	var (
 		opts   imex.ImportOptions
 		params = freighter.MDFromContext(ctx).Params
@@ -113,7 +120,16 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			if err != nil {
 				return imex.ImportOptions{}, err
 			}
-			opts.Project = id
+			if id.Type != ontology.ResourceTypeProject {
+				return imex.ImportOptions{}, imex.NewErrUnsupportedProject(typ, id)
+			}
+			key, err := uuid.Parse(id.Key)
+			if err != nil {
+				return imex.ImportOptions{}, errors.Wrapf(
+					err, "invalid project key %q", id.Key,
+				)
+			}
+			opts.Project = key
 		}
 	}
 	return opts, nil

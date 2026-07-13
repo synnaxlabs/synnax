@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -102,9 +103,9 @@ func (s *testService) Import(
 	if err := w.DefineResources(ctx, id); err != nil {
 		return ontology.ID{}, err
 	}
-	if !opts.Project.IsZero() {
+	if opts.Project != uuid.Nil {
 		if err := w.DefineRelationships(
-			ctx, opts.Project, ontology.RelationshipTypeParentOf, id,
+			ctx, project.OntologyID(opts.Project), ontology.RelationshipTypeParentOf, id,
 		); err != nil {
 			return ontology.ID{}, err
 		}
@@ -351,36 +352,32 @@ var _ = Describe("Service", func() {
 		})
 
 		Describe("Project", func() {
-			var projectID ontology.ID
+			var projectKey project.Key
 			BeforeEach(func(ctx SpecContext) {
-				projectID = ontology.ID{
-					Type: ontology.ResourceTypeGroup,
-					Key:  uuid.NewString(),
-				}
-				Expect(otg.NewWriter(nil).DefineResources(ctx, projectID)).To(Succeed())
+				projectKey = uuid.New()
+				Expect(otg.NewWriter(nil).DefineResources(
+					ctx, project.OntologyID(projectKey),
+				)).To(Succeed())
 			})
 
-			It("Should attach the imported resource under the given project resource", func(ctx SpecContext) {
+			It("Should attach the imported resource under the given project", func(ctx SpecContext) {
 				id := MustSucceed(svc.Import(
 					ctx, db, sampleEnvelope("Parented", ontology.ResourceTypeChannel),
-					imex.ImportOptions{Project: projectID},
+					imex.ImportOptions{Project: projectKey},
 				))
 				Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-					From: projectID,
+					From: project.OntologyID(projectKey),
 					Type: ontology.RelationshipTypeParentOf,
 					To:   id,
 				})).To(BeTrue())
 			})
 
-			It("Should roll back the import when the project resource does not exist", func(ctx SpecContext) {
+			It("Should roll back the import when the project does not exist", func(ctx SpecContext) {
 				err := db.WithTx(ctx, func(tx gorp.Tx) error {
 					_, err := svc.Import(
 						ctx, tx,
 						sampleEnvelope("Orphaned", ontology.ResourceTypeChannel),
-						imex.ImportOptions{Project: ontology.ID{
-							Type: ontology.ResourceTypeGroup,
-							Key:  uuid.NewString(),
-						}},
+						imex.ImportOptions{Project: uuid.New()},
 					)
 					return err
 				})
