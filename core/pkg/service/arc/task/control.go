@@ -195,8 +195,8 @@ type controlWarner struct {
 	done chan struct{}
 	// stopOnce guards done against a double close.
 	stopOnce sync.Once
-	// decodeErrLogged makes a malformed digest log once. Only touched by observe, which
-	// runs on the single sink goroutine, so no synchronization is needed.
+	// decodeErrLogged logs a malformed digest once. observe is its only writer and the
+	// UnarySink contract runs observe sequentially, so no synchronization is needed.
 	decodeErrLogged bool
 }
 
