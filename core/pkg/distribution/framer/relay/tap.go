@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 )
@@ -149,7 +150,11 @@ func (t *tapper) updateTaps(
 		if _, ok := t.taps[nk]; !ok {
 			tc, err := t.tapInto(ctx, nk, keys)
 			if err != nil {
-				t.L.Error("failed to open new tap", zap.Uint16("node", uint16(nk)))
+				t.L.Error(
+					"failed to open new tap",
+					zap.Uint16("node", uint16(nk)),
+					zap.Error(err),
+				)
 			} else {
 				t.taps[nk] = tc
 			}
@@ -178,7 +183,7 @@ func (t *tapper) tapInto(
 	keys channel.Keys,
 ) (tap, error) {
 	if nodeKey == t.HostResolver.HostKey() {
-		return t.tapIntoGateway(keys)
+		return t.tapIntoGateway(ctx, keys)
 	}
 	return t.tapIntoPeer(ctx, nodeKey)
 }
@@ -198,19 +203,61 @@ func (t *tapper) startTap(
 }
 
 // tapIntoGateway opens a new tap over the host's local storage engine, subscribed to
-// the given channels.
-func (t *tapper) tapIntoGateway(keys channel.Keys) (tap, error) {
-	str, err := cesium.NewTranslatedStreamer(
-		t.TS,
-		ts.StreamerConfig{Channels: keys.Storage()},
-		reqToStorage,
-		resFromStorage,
-	)
-	if err != nil {
-		return tap{}, err
+// the given channels. Keys that do not resolve in local storage (e.g. a channel that
+// was deleted after a streamer demanded it) are dropped with a warning rather than
+// failing the tap, so a single stale key cannot starve every streamer demanding host
+// channels.
+func (t *tapper) tapIntoGateway(ctx context.Context, keys channel.Keys) (tap, error) {
+	for {
+		valid, err := t.filterToStorage(ctx, keys)
+		if err != nil {
+			return tap{}, err
+		}
+		str, err := cesium.NewTranslatedStreamer(
+			t.TS,
+			ts.StreamerConfig{Channels: valid.Storage()},
+			reqToStorage,
+			resFromStorage,
+		)
+		if err == nil {
+			requests, closer := t.startTap(str, "gateway_tap")
+			return tap{Closer: closer, requests: requests}, nil
+		}
+		if !errors.Is(err, ts.ErrChannelNotFound) {
+			return tap{}, err
+		}
+		// A channel was deleted between the existence check and opening the streamer.
+		// Retry against the latest storage state; the valid set strictly shrinks on
+		// each pass, so this terminates.
+		keys = valid
 	}
-	requests, closer := t.startTap(str, "gateway_tap")
-	return tap{Closer: closer, requests: requests}, nil
+}
+
+// filterToStorage returns the subset of keys that resolve in the host's storage
+// engine, logging a warning naming any dropped keys.
+func (t *tapper) filterToStorage(
+	ctx context.Context,
+	keys channel.Keys,
+) (channel.Keys, error) {
+	valid := make(channel.Keys, 0, len(keys))
+	var dropped channel.Keys
+	for _, key := range keys {
+		if _, err := t.TS.RetrieveChannel(ctx, key.StorageKey()); err != nil {
+			if !errors.Is(err, ts.ErrChannelNotFound) {
+				return nil, err
+			}
+			dropped = append(dropped, key)
+		} else {
+			valid = append(valid, key)
+		}
+	}
+	if len(dropped) > 0 {
+		t.L.Warn(
+			"dropping channels not found in local storage from gateway tap",
+			zap.Uint32s("keys", dropped.Uint32()),
+		)
+	}
+	return valid, nil
 }
 
 // tapIntoPeer opens a new tap that sends requests and receives responses

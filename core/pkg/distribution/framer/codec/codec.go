@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/bit"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -221,7 +222,8 @@ func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 		return err
 	}
 	if len(dataTypes) != len(keys) {
-		return errors.Newf(
+		return errors.Wrapf(
+			query.ErrNotFound,
 			"channel resolver returned %d data types for %d channel keys",
 			len(dataTypes),
 			len(keys),

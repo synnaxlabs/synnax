@@ -251,7 +251,7 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 			continue
 		}
 		if ch.IsCalculated() {
-			node, err := s.inspectNode(ctx, nil, ch, analyzer)
+			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
 			if err != nil {
 				s.L.Info("calculated channel has invalid expression",
 					zap.Stringer("channel", ch.Key()),
@@ -263,26 +263,26 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 				s.L.Debug("calculated channel inspected",
 					zap.Stringer("channel", ch.Key()),
 					zap.String("name", ch.Name),
-					zap.Stringers("deps", node.deps),
+					zap.Stringers("deps", nd.deps),
 				)
 				s.clearNodeStatus(ctx, ch.Key())
 			}
-			if !node.invalid && node.DataType != ch.DataType {
+			if !nd.invalid && nd.DataType != ch.DataType {
 				s.L.Debug("calculated channel DataType changed",
 					zap.Stringer("channel", ch.Key()),
 					zap.String("old", string(ch.DataType)),
-					zap.String("new", string(node.DataType)),
+					zap.String("new", string(nd.DataType)),
 				)
-				updates = append(updates, node.Channel)
+				updates = append(updates, nd.Channel)
 			}
-			s.upsertNode(node)
+			s.upsertNode(nd)
 			s.enqueueDependents(ch.Key(), queued)
 			continue
 		}
 		s.enqueueDependents(ch.Key(), queued)
 		unresolvedNames = append(unresolvedNames, ch.Name)
 	}
-	updates = append(updates, s.reconcileQueued(ctx, nil, queued, unresolvedNames, nil, analyzer)...)
+	updates = append(updates, s.reconcileQueued(ctx, nil, queued, unresolvedNames, analyzer)...)
 	s.mu.Unlock()
 	if len(updates) > 0 {
 		s.L.Info("updating channel data types", zap.Int("count", len(updates)))
@@ -352,12 +352,8 @@ func (s *Graph) reconcileQueued(
 	tx gorp.Tx,
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
-	overlayMap map[channel.Key]channel.Channel,
 	analyzer *channel.CalculationAnalyzer,
 ) []channel.Channel {
-	if overlayMap == nil {
-		overlayMap = make(map[channel.Key]channel.Channel)
-	}
 	s.enqueueUnresolved(unresolvedNames, queued)
 	if len(queued) > 0 {
 		s.L.Debug("reconciling dependent channels", zap.Int("count", len(queued)))
@@ -401,7 +397,6 @@ func (s *Graph) reconcileQueued(
 						zap.String("new", string(newNode.DataType)),
 					)
 					updates = append(updates, newNode.Channel)
-					overlayMap[key] = newNode.Channel
 				}
 				s.enqueueDependents(key, next)
 			}

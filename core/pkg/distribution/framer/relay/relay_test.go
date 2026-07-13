@@ -462,6 +462,119 @@ var _ = Describe("Relay", func() {
 			confluence.Drain(res)
 		})
 	})
+	// The relay does not validate streamer keys against storage: the service layer
+	// validates at open time, but a channel can be deleted between that check and the
+	// demand reaching the tapper, and mid-stream key updates are never validated. The
+	// gateway tap must drop keys that don't resolve in local storage instead of
+	// failing outright, since a failed tap starves every streamer demanding host
+	// channels on the node.
+	Describe("Unknown Keys", Ordered, func() {
+		var svc mock.Node
+		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
+			svc = mock.NewNode(ctx)
+		})
+
+		newUniqueChannels := func(ctx context.Context, n int) []channel.Channel {
+			chs := make([]channel.Channel, n)
+			ts := time.Now().UnixNano()
+			for i := range chs {
+				chs[i] = channel.Channel{
+					Name:     fmt.Sprintf("unknown_keys_%d_%d", ts, i),
+					Virtual:  true,
+					DataType: telem.Int64T,
+				}
+			}
+			return MustSucceed(svc.Channel.Create(ctx, chs))
+		}
+
+		It("Should deliver frames for valid keys when the streamer also demands an unknown host-leased key", func(ctx SpecContext) {
+			chs := newUniqueChannels(ctx, 3)
+			keys := channel.KeysFromChannels(chs)
+			unknown := channel.NewKey(node.KeyBootstrapper, 0xFFFFF)
+
+			reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+				Keys:        append(channel.Keys{unknown}, keys...),
+				SendOpenAck: new(true),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			req, res := confluence.Attach(reader, 10)
+			reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+			var ack relay.Response
+			Eventually(res.Outlet()).Should(Receive(&ack))
+			Expect(ack.Frame.Empty()).To(BeTrue())
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesV[int64](1, 2, 3),
+				telem.NewSeriesV[int64](4, 5, 6),
+				telem.NewSeriesV[int64](7, 8, 9),
+			}))).To(BeTrue())
+
+			var got relay.Response
+			Eventually(res.Outlet()).Should(Receive(&got))
+			Expect(got.Frame.Count()).To(Equal(3))
+			Expect(got.Frame.KeysSlice()).To(ConsistOf(keys))
+			req.Close()
+			confluence.Drain(res)
+		})
+
+		It("Should not starve a concurrent streamer with valid keys when another streamer demands an unknown key", func(ctx SpecContext) {
+			chs := newUniqueChannels(ctx, 2)
+			keys := channel.KeysFromChannels(chs)
+			unknown := channel.NewKey(node.KeyBootstrapper, 0xFFFFE)
+
+			// The streamer with the unknown key opens first, so its demand is the one
+			// that opens the shared gateway tap.
+			mixed := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+				Keys:        append(channel.Keys{unknown}, keys...),
+				SendOpenAck: new(true),
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			mixedReq, mixedRes := confluence.Attach(mixed, 10)
+			mixed.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			var ack relay.Response
+			Eventually(mixedRes.Outlet()).Should(Receive(&ack))
+			Expect(ack.Frame.Empty()).To(BeTrue())
+
+			valid := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: new(true),
+			}))
+			validReq, validRes := confluence.Attach(valid, 10)
+			valid.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(validRes.Outlet()).Should(Receive(&ack))
+			Expect(ack.Frame.Empty()).To(BeTrue())
+
+			w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			defer func() { Expect(w.Close()).To(Succeed()) }()
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesV[int64](1, 2, 3),
+				telem.NewSeriesV[int64](4, 5, 6),
+			}))).To(BeTrue())
+
+			var got relay.Response
+			Eventually(mixedRes.Outlet()).Should(Receive(&got))
+			Expect(got.Frame.Count()).To(Equal(2))
+			Eventually(validRes.Outlet()).Should(Receive(&got))
+			Expect(got.Frame.Count()).To(Equal(2))
+
+			mixedReq.Close()
+			validReq.Close()
+			confluence.Drain(mixedRes)
+			confluence.Drain(validRes)
+		})
+	})
 })
 
 func newChannelSet() []channel.Channel {

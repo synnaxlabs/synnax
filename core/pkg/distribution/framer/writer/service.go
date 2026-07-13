@@ -24,6 +24,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
@@ -347,10 +348,11 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	)
 
 	switchTargets := make([]address.Address, 0, 2)
+	var peerSenders map[address.Address]freighter.StreamSenderCloser[Request]
 	if hasPeer {
 		routeSequencerTo = peerSenderAddr
 		switchTargets = append(switchTargets, peerSenderAddr)
-		sender, receivers, _receiverAddresses, err := s.openManyPeers(
+		sender, receivers, _receiverAddresses, senders, err := s.openManyPeers(
 			ctx,
 			cfg,
 			batch.Peers,
@@ -358,6 +360,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		if err != nil {
 			return nil, err
 		}
+		peerSenders = senders
 		plumber.SetSink(pipe, peerSenderAddr, sender)
 		receiverAddresses = _receiverAddresses
 		for i, receiver := range receivers {
@@ -370,7 +373,9 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		switchTargets = append(switchTargets, gatewayWriterAddr)
 		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway))
 		if err != nil {
-			return nil, err
+			// The peer streams already opened remote writers that hold control over
+			// their channels; close them so that control is released.
+			return nil, s.closePeerClients(peerSenders, err)
 		}
 		plumber.SetSegment(pipe, gatewayWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)

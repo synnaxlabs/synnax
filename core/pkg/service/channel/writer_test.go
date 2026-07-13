@@ -211,6 +211,16 @@ var _ = Describe("Writer", func() {
 					Expect(channelWriter.Create(ctx, &ch2)).
 						To(MatchError(ContainSubstring(fmt.Sprintf("channel with name '%s' already exists", ch.Name))))
 				})
+				It("Should return a validation error if an operation has an invalid type", func(ctx SpecContext) {
+					ch2 := channel.Channel{
+						Name:        UniqueChannelName(),
+						DataType:    telem.Float64T,
+						Leaseholder: 1,
+						Operations:  []channel.Operation{{Type: "not-a-real-op"}},
+					}
+					Expect(channelWriter.Create(ctx, &ch2)).
+						To(MatchError(ContainSubstring("operations.0.type: invalid type")))
+				})
 			})
 		})
 		Context("Multiple channels", func() {
@@ -307,8 +317,12 @@ var _ = Describe("Writer", func() {
 					Expect(resChannels[0].Virtual).To(BeTrue())
 					Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
 
-					err := svc.NewRetrieve().Where(channel.MatchKeys(originalKey)).Entries(&resChannels).Exec(ctx, nil)
-					Expect(err).To(MatchError(query.ErrNotFound))
+					Expect(
+						svc.NewRetrieve().
+							Where(channel.MatchKeys(originalKey)).
+							Entries(&resChannels).
+							Exec(ctx, nil),
+					).To(MatchError(query.ErrNotFound))
 				})
 				It("Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one", func(ctx SpecContext) {
 					ch := channel.Channel{
@@ -423,8 +437,9 @@ var _ = Describe("Writer", func() {
 					Expression: "return 1 + 1",
 					Virtual:    true,
 				}
-				err := channelWriter.Create(ctx, &calcCh)
-				Expect(err).To(MatchError(ContainSubstring("calculated channels cannot specify an index manually")))
+				Expect(channelWriter.Create(ctx, &calcCh)).To(
+					MatchError(ContainSubstring("calculated channels cannot specify an index manually")),
+				)
 			})
 
 			It("Should retrieve existing calculated channel with its index", func(ctx SpecContext) {
@@ -494,6 +509,117 @@ var _ = Describe("Writer", func() {
 					Entries(&indexChannels).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(indexChannels).To(HaveLen(2))
+			})
+
+			It("Should reject a calculated channel whose auto-created index name collides with an existing channel", func(ctx SpecContext) {
+				name := UniqueChannelName()
+				taken := channel.Channel{
+					Name:     name + "_time",
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &taken)).To(Succeed())
+				calcCh := channel.Channel{
+					Name:       name,
+					DataType:   telem.Float64T,
+					Expression: "return 1 + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calcCh)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot serve as the index for a calculated channel")),
+				))
+			})
+
+			It("Should adopt an orphaned index when re-creating a calculated channel", func(ctx SpecContext) {
+				name := UniqueChannelName()
+				calcCh := channel.Channel{
+					Name:       name,
+					DataType:   telem.Float64T,
+					Expression: "return 1 + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+				originalIndex := calcCh.LocalIndex
+
+				// Deleting the calculated channel leaves its auto-created index behind;
+				// re-creating a calculated channel with the same name must reuse it
+				// rather than duplicating the index name.
+				Expect(channelWriter.Delete(ctx, calcCh.Key(), false)).To(Succeed())
+				recreated := channel.Channel{
+					Name:       name,
+					DataType:   telem.Float64T,
+					Expression: "return 1 + 1",
+				}
+				Expect(channelWriter.Create(ctx, &recreated)).To(Succeed())
+				Expect(recreated.LocalIndex).To(Equal(originalIndex))
+
+				var indexChannels []channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchNames(name+"_time")).
+					Entries(&indexChannels).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(indexChannels).To(HaveLen(1))
+			})
+
+			It("Should reject adopting a non-index channel as a calculated channel's index", func(ctx SpecContext) {
+				name := UniqueChannelName()
+				taken := channel.Channel{
+					Name:     name + "_time",
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &taken)).To(Succeed())
+				calcCh := channel.Channel{
+					Name:       name,
+					DataType:   telem.Float64T,
+					Expression: "return 1 + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calcCh, channel.RetrieveIfNameExists())).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot serve as the index for a calculated channel")),
+				))
+			})
+
+			It("Should reject a batch containing a non-index channel that collides with an auto-created index name", func(ctx SpecContext) {
+				name := UniqueChannelName()
+				chs := []channel.Channel{
+					{Name: name, DataType: telem.Float64T, Expression: "return 1 + 1"},
+					{Name: name + "_time", DataType: telem.Float64T, Virtual: true},
+				}
+				Expect(channelWriter.CreateMany(ctx, &chs)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("a non-index channel with that name is in the same request")),
+				))
+			})
+
+			It("Should reuse the existing index when overwriting a calculated channel", func(ctx SpecContext) {
+				name := UniqueChannelName()
+				calcCh := channel.Channel{
+					Name:       name,
+					DataType:   telem.Float64T,
+					Expression: "return 1 + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calcCh)).To(Succeed())
+				originalIndex := calcCh.LocalIndex
+
+				replacement := channel.Channel{
+					Name:       name,
+					DataType:   telem.Float64T,
+					Expression: "return 2 + 2",
+				}
+				Expect(channelWriter.Create(
+					ctx,
+					&replacement,
+					channel.OverwriteIfNameExistsAndDifferentProperties(),
+				)).To(Succeed())
+
+				var indexChannels []channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchNames(name+"_time")).
+					Entries(&indexChannels).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(indexChannels).To(HaveLen(1))
+				Expect(indexChannels[0].LocalKey).To(Equal(originalIndex))
+				Expect(replacement.LocalIndex).To(Equal(originalIndex))
 			})
 
 			It("Should create internal index for internal calculated channel", func(ctx SpecContext) {
@@ -768,7 +894,9 @@ var _ = Describe("Writer", func() {
 				Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 			})
 			It("Should not allow deletion of index channel with dependent channels", func(ctx SpecContext) {
-				Expect(channelWriter.Delete(ctx, idxCh.Key(), true)).ToNot(Succeed())
+				Expect(channelWriter.Delete(ctx, idxCh.Key(), true)).To(
+					MatchError(ContainSubstring("because it indexes channel")),
+				)
 			})
 			It("Should delete the channel without error", func(ctx SpecContext) {
 				Expect(channelWriter.DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()}, true)).To(Succeed())
@@ -780,9 +908,8 @@ var _ = Describe("Writer", func() {
 			})
 			It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
 				Expect(channelWriter.Delete(ctx, ch.Key(), true)).To(Succeed())
-				channels, err := dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
-				Expect(err).To(MatchError(ts.ErrChannelNotFound))
-				Expect(channels).To(BeEmpty())
+				Expect(dist.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())).
+					Error().To(MatchError(ts.ErrChannelNotFound))
 			})
 		})
 		Context("Nonexistent Channels", func() {
@@ -1055,6 +1182,45 @@ var _ = Describe("Writer", func() {
 			Expect(retrieve.Where(channel.MatchKeys(createdChannels[0].Key())).Entry(&singleChannel).Exec(ctx, nil)).To(Succeed())
 			Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 		})
+		It("Should not allocate keys or storage for a create rejected by the limit", func(ctx SpecContext) {
+			channels := make([]channel.Channel, int(limit))
+			for i := range limit {
+				ch := channel.Channel{
+					IsIndex:     true,
+					DataType:    telem.TimeStampT,
+					Name:        fmt.Sprintf("LimitTest%d", i),
+					Leaseholder: 1,
+				}
+				Expect(limitWriter.Create(ctx, &ch)).To(Succeed())
+				channels[i] = ch
+			}
+			overLimitCh := channel.Channel{
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Name:        "OverLimit",
+				Leaseholder: 1,
+			}
+			Expect(limitWriter.Create(ctx, &overLimitCh)).
+				To(MatchError(ContainSubstring("channel limit exceeded")))
+
+			// The rejected create must not leave an orphaned storage channel behind at
+			// the key it would have been allocated.
+			nextKey := channel.NewKey(1, channels[limit-1].LocalKey+1)
+			Expect(dist.Storage.TS.RetrieveChannels(ctx, nextKey.StorageKey())).
+				Error().To(MatchError(ts.ErrChannelNotFound))
+
+			// The rejected create must not burn a local key: after freeing capacity,
+			// the next create receives the next sequential key.
+			Expect(limitWriter.Delete(ctx, channels[0].Key(), false)).To(Succeed())
+			newCh := channel.Channel{
+				IsIndex:     true,
+				DataType:    telem.TimeStampT,
+				Name:        "NewAfterReject",
+				Leaseholder: 1,
+			}
+			Expect(limitWriter.Create(ctx, &newCh)).To(Succeed())
+			Expect(newCh.LocalKey).To(Equal(channels[limit-1].LocalKey + 1))
+		})
 		It("Should not edit the channel limit if a deletion fails in TS", func(ctx SpecContext) {
 			createdChannels := make([]channel.Channel, int(limit))
 			for i := range limit {
@@ -1114,9 +1280,10 @@ var _ = Describe("Writer", func() {
 				Leaseholder: node.KeyFree,
 			}
 			Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
-			err := channelWriter.ChangeDataType(ctx, ch.Key(), telem.Float32T)
-			Expect(err).To(MatchError(validate.ErrValidation))
-			Expect(err).To(MatchError(ContainSubstring("cannot change the data type of non-calculated channel")))
+			Expect(channelWriter.ChangeDataType(ctx, ch.Key(), telem.Float32T)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot change the data type of non-calculated channel")),
+			))
 			var retrieved channel.Channel
 			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.DataType).To(Equal(telem.Float64T))
