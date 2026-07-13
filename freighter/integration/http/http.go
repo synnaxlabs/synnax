@@ -114,7 +114,7 @@ func unaryParamEcho(ctx context.Context, req Message) (Message, error) {
 	keys := strings.Split(req.Message, ",")
 	values := make([]string, len(keys))
 	for i, k := range keys {
-		if v, ok := freighter.MDFromContext(ctx).Params.Get(k); ok {
+		if v, ok := freighter.MDFromContext(ctx).Get(k); ok {
 			values[i], _ = v.(string)
 		}
 	}
