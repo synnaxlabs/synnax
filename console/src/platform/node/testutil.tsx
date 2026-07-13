@@ -20,8 +20,8 @@ import {
 
 export const createCluster = (
   key: string,
-  overrides: Partial<Session.Node.Cluster> = {},
-): Session.Node.Cluster => ({
+  overrides: Partial<Session.Node.Node> = {},
+): Session.Node.Node => ({
   key,
   name: key,
   host: "localhost",
@@ -33,13 +33,13 @@ export const createCluster = (
 });
 
 export const createClusterState = (
-  clusters: Session.Node.Cluster[],
+  clusters: Session.Node.Node[],
   selected?: string,
 ): ConsolePreloadedState => ({
   [Session.Node.SLICE_NAME]: {
     version: 0,
     selected,
-    clusters: Object.fromEntries(clusters.map((c) => [c.key, c])),
+    nodes: Object.fromEntries(clusters.map((c) => [c.key, c])),
   },
 });
 

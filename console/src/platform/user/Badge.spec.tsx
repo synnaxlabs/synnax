@@ -19,7 +19,7 @@ const createClusterState = (username: string, selected = "LOCAL") => ({
   [Session.Node.SLICE_NAME]: {
     version: 0 as const,
     selected,
-    clusters: {
+    nodes: {
       LOCAL: {
         key: "LOCAL",
         name: "Local",

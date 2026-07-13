@@ -37,7 +37,7 @@ const createState = (clusterKeys: string[], selected: string | null): State => (
   [Session.Node.SLICE_NAME]: {
     ...Session.Node.ZERO_SLICE_STATE,
     selected: selected ?? undefined,
-    clusters: Object.fromEntries(
+    nodes: Object.fromEntries(
       clusterKeys.map((k) => [
         k,
         {
@@ -184,7 +184,7 @@ describe("useLink", () => {
         [Session.Node.SLICE_NAME]: {
           ...Session.Node.ZERO_SLICE_STATE,
           selected: clusterKey,
-          clusters: {
+          nodes: {
             [clusterKey]: {
               key: clusterKey,
               name: "Local",

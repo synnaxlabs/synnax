@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type Cluster,
+  type Node,
   SLICE_NAME,
   type SliceState,
   type StoreState,
@@ -26,20 +26,20 @@ export const selectSelectedKey = (state: StoreState): string | undefined =>
 export const useSelectSelectedKey = (): string | undefined =>
   Select.useMemo((s: StoreState) => selectSelectedKey(s), []);
 
-export const selectState = (state: StoreState, key?: string): Cluster | undefined =>
-  Select.byKey(selectSliceState(state).clusters, key, selectSelectedKey(state));
+export const selectState = (state: StoreState, key?: string): Node | undefined =>
+  Select.byKey(selectSliceState(state).nodes, key, selectSelectedKey(state));
 
-export const useSelectState = (key?: string): Cluster | undefined =>
+export const useSelectState = (key?: string): Node | undefined =>
   Select.useMemo((s: StoreState) => selectState(s, key), [key]);
 
-export const selectMany = (state: StoreState, keys?: string[]): Cluster[] =>
-  Select.byKeys(state.cluster.clusters, keys);
+export const selectMany = (state: StoreState, keys?: string[]): Node[] =>
+  Select.byKeys(state.node.nodes, keys);
 
-export const useSelectMany = (keys?: string[]): Cluster[] =>
+export const useSelectMany = (keys?: string[]): Node[] =>
   Select.useMemo((s: StoreState) => selectMany(s, keys), [keys]);
 
 export const selectAllNames = (state: StoreState): string[] =>
-  Object.values(selectSliceState(state).clusters).map((c) => c.name);
+  Object.values(selectSliceState(state).nodes).map((c) => c.name);
 
 export const useSelectAllNames = (): string[] =>
   Select.useMemo((s: StoreState) => selectAllNames(s), []);

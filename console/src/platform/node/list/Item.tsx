@@ -27,7 +27,7 @@ import { Session } from "@/session";
 
 interface ListItemProps extends List.ItemProps<string> {
   validateName: (name: string) => boolean;
-  item: Session.Node.Cluster;
+  item: Session.Node.Node;
   loading: boolean;
 }
 

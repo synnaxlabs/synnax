@@ -31,7 +31,7 @@ export interface ConnectModalParams {
   clusterKey?: string;
 }
 
-const baseFormSchema = Session.Node.clusterZ.pick({
+const baseFormSchema = Session.Node.nodeZ.pick({
   name: true,
   host: true,
   port: true,

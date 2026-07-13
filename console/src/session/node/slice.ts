@@ -12,17 +12,17 @@ import { synnaxParamsZ } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const clusterZ = synnaxParamsZ
+export const nodeZ = synnaxParamsZ
   .extend({ key: z.string(), name: z.string().min(1, { message: "Name is required" }) })
   .omit({
     connectivityPollFrequency: true,
     retry: true,
     clockSkewThreshold: true,
   });
-export type Cluster = z.infer<typeof clusterZ>;
+export type Node = z.infer<typeof nodeZ>;
 
 const LOCAL_KEY = "LOCAL";
-const LOCAL: Cluster = {
+const LOCAL: Node = {
   key: LOCAL_KEY,
   name: "Local",
   host: "localhost",
@@ -33,7 +33,7 @@ const LOCAL: Cluster = {
 };
 
 const DEMO_KEY = "DEMO";
-const DEMO: Cluster = {
+const DEMO: Node = {
   key: DEMO_KEY,
   name: "Demo",
   host: "demo.synnaxlabs.com",
@@ -46,21 +46,19 @@ const DEMO: Cluster = {
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   selected: z.string().optional(),
-  clusters: z
-    .record(z.string(), clusterZ)
-    .default({ [LOCAL_KEY]: LOCAL, [DEMO_KEY]: DEMO }),
+  nodes: z.record(z.string(), nodeZ).default({ [LOCAL_KEY]: LOCAL, [DEMO_KEY]: DEMO }),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
 
-export const SLICE_NAME = "cluster";
+export const SLICE_NAME = "node";
 
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export type SetPayload = Cluster;
+export type SetPayload = Node;
 
 export type SelectPayload = string;
 
@@ -77,26 +75,26 @@ export interface ChangeKeyPayload {
 }
 
 const checkName = (state: SliceState, name: string, key?: string) => {
-  if (Object.values(state.clusters).some((c) => c.name === name && c.key !== key))
+  if (Object.values(state.nodes).some((c) => c.name === name && c.key !== key))
     throw new Error(`A cluster with the name ${name} already exists.`);
 };
 
 /**
- *  Purges any duplicate clusters with the exact same host, port, secure, username, and
- *  password, while keeping the cluster with the given key.
+ *  Purges any duplicate nodes with the exact same host, port, secure, username, and
+ *  password, while keeping the node with the given key.
  */
-const purgeDuplicateClusters = (state: SliceState, keep?: string) => {
-  const clusters = Object.values(state.clusters);
-  for (const cluster of clusters) {
-    const duplicate = clusters.find(
+const purgeDuplicateNodes = (state: SliceState, keep?: string) => {
+  const nodes = Object.values(state.nodes);
+  for (const node of nodes) {
+    const duplicate = nodes.find(
       (c) =>
         (keep == null || c.key !== keep) &&
-        c.key !== cluster.key &&
-        c.host === cluster.host &&
-        c.port === cluster.port &&
-        c.secure === cluster.secure,
+        c.key !== node.key &&
+        c.host === node.host &&
+        c.port === node.port &&
+        c.secure === node.secure,
     );
-    if (duplicate) delete state.clusters[duplicate.key];
+    if (duplicate) delete state.nodes[duplicate.key];
   }
 };
 
@@ -104,12 +102,12 @@ const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    set: (state, { payload: cluster }: PayloadAction<SetPayload>) => {
-      state.clusters[cluster.key] = cluster;
-      purgeDuplicateClusters(state, cluster.key);
+    set: (state, { payload: node }: PayloadAction<SetPayload>) => {
+      state.nodes[node.key] = node;
+      purgeDuplicateNodes(state, node.key);
     },
-    remove: ({ clusters }, { payload: keys }: PayloadAction<RemovePayload>) =>
-      array.toArray(keys).forEach((key) => delete clusters[key]),
+    remove: ({ nodes }, { payload: keys }: PayloadAction<RemovePayload>) =>
+      array.toArray(keys).forEach((key) => delete nodes[key]),
     select: (state, { payload: key }: PayloadAction<SelectPayload>) => {
       state.selected = key;
     },
@@ -118,15 +116,15 @@ const { actions, reducer } = createSlice({
     },
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       checkName(state, name);
-      state.clusters[key].name = name;
+      state.nodes[key].name = name;
     },
     changeKey: (
       state,
       { payload: { oldKey, newKey } }: PayloadAction<ChangeKeyPayload>,
     ) => {
-      const cluster = state.clusters[oldKey];
-      delete state.clusters[oldKey];
-      state.clusters[newKey] = { ...cluster, key: newKey };
+      const node = state.nodes[oldKey];
+      delete state.nodes[oldKey];
+      state.nodes[newKey] = { ...node, key: newKey };
       if (state.selected === oldKey) state.selected = newKey;
     },
   },

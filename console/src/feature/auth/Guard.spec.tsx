@@ -24,7 +24,7 @@ const CLUSTER_KEY = "local";
 
 const clusterState = (): Session.Node.SliceState => ({
   ...Session.Node.ZERO_SLICE_STATE,
-  clusters: {
+  nodes: {
     [CLUSTER_KEY]: {
       key: CLUSTER_KEY,
       name: "Local",

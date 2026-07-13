@@ -10,7 +10,7 @@
 import { Session } from "@/session";
 
 export interface ConnectionParams extends Pick<
-  Session.Node.Cluster,
+  Session.Node.Node,
   "name" | "host" | "port" | "secure"
 > {}
 

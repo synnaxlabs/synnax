@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { Node } from "@/session/node";
 
-const CLUSTER_A: Node.Cluster = {
+const CLUSTER_A: Node.Node = {
   key: "a",
   name: "Alpha",
   host: "a.example.com",
@@ -21,7 +21,7 @@ const CLUSTER_A: Node.Cluster = {
   secure: false,
 };
 
-const CLUSTER_B: Node.Cluster = {
+const CLUSTER_B: Node.Node = {
   key: "b",
   name: "Beta",
   host: "b.example.com",
@@ -31,11 +31,11 @@ const CLUSTER_B: Node.Cluster = {
   secure: true,
 };
 
-const storeWith = (clusters: Node.Cluster[], selected?: string): Node.StoreState => ({
+const storeWith = (clusters: Node.Node[], selected?: string): Node.StoreState => ({
   [Node.SLICE_NAME]: {
     version: 0,
     selected,
-    clusters: Object.fromEntries(clusters.map((c) => [c.key, c])),
+    nodes: Object.fromEntries(clusters.map((c) => [c.key, c])),
   },
 });
 

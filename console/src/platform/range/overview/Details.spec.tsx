@@ -90,7 +90,7 @@ describe("Range.Details", () => {
         [Session.Node.SLICE_NAME]: {
           version: 0,
           selected: "local",
-          clusters: {
+          nodes: {
             local: {
               key: "local",
               name: "Local",
