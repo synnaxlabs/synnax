@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
-import { Color, type Haul, type Mosaic } from "@synnaxlabs/pluto";
+import { type Mosaic } from "@synnaxlabs/pluto";
 import { useMemo, useSyncExternalStore } from "react";
 
 import {
@@ -199,17 +199,3 @@ export const selectActiveMosaicLayout = (
 
 export const useSelectActiveMosaicLayout = (): State | undefined =>
   Select.useMemo(selectActiveMosaicLayout, []);
-
-export const selectHauling = (state: StoreState): Haul.DraggingState =>
-  selectSliceState(state).hauling;
-
-export const useSelectHauling = (): Haul.DraggingState =>
-  Select.useMemo(selectHauling, []);
-
-export const selectColorContext = (state: StoreState): Color.ContextState => {
-  const rawContext = selectSliceState(state).colorContext;
-  return Color.contextStateZ.parse(rawContext);
-};
-
-export const useSelectColorContext = (): Color.ContextState =>
-  Select.useMemo(selectColorContext, []);

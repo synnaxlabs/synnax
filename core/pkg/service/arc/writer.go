@@ -53,7 +53,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		}
 	}
 	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
-		a.Text.Doc = text.Seed(a.Text.Raw)
+		a.Text.Doc = text.Create(a.Text.Raw)
 	}
 	if err = a.Validate(); err != nil {
 		return err

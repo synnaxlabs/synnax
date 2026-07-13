@@ -517,7 +517,7 @@
   "moduleExtensions": {
     "//vendor:esi.bzl%esi": {
       "general": {
-        "bzlTransitiveDigest": "MC2xTei5jha9Q5ZYjq0kF5tZDZHoDVqeepnWyc9fLlY=",
+        "bzlTransitiveDigest": "ojimv3yajeyAcC7YC2BGhMN66h+Wsjwa4lxhYW5kMLg=",
         "usagesDigest": "Rrwlqro+M2faiRxeeoz7paIoyyQhHAuwmZDVUQt1cdg=",
         "recordedInputs": [
           "REPO_MAPPING:,bazel_tools bazel_tools"

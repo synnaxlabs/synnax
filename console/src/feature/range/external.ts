@@ -12,17 +12,18 @@ import { Overview } from "@/feature/range/overview/Overview";
 import { type Layout } from "@/platform/layout";
 import { Range } from "@/platform/range";
 
+export * from "@/feature/range/commands";
 export * from "@/feature/range/ContextMenu";
 export * from "@/feature/range/Explorer";
 export * from "@/feature/range/link";
 export * from "@/feature/range/list";
-export * from "@/feature/range/ontology";
 export * from "@/feature/range/overview/Overview";
-export * from "@/feature/range/palette";
+export * from "@/feature/range/search";
 export * from "@/feature/range/Toolbar";
+export * from "@/feature/range/tree";
 export * from "@/platform/range/external";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [Range.OVERVIEW_LAYOUT_TYPE]: Overview,
   [EXPLORER_LAYOUT_TYPE]: Explorer,
 };

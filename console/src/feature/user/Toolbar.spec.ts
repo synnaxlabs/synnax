@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -16,7 +16,7 @@ import {
   expandTreeRow,
   findModalButton,
   renderToolbar,
-} from "@/platform/ontology/menuTestutil";
+} from "@/platform/tree/menuTestutil";
 import { getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();

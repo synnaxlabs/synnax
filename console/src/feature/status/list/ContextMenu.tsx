@@ -13,7 +13,7 @@ import { useCallback, useMemo } from "react";
 
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Modals } from "@/platform/modals";
-import { Ontology } from "@/platform/ontology";
+import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
@@ -24,7 +24,7 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
 
-  const confirm = Ontology.useConfirmDelete({
+  const confirm = Tree.useConfirmDelete({
     type: "Status",
     description: "This action cannot be undone.",
   });

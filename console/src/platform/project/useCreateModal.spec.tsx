@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -38,7 +39,9 @@ describe("Project.useCreateModal", () => {
     await waitFor(() =>
       expect(screen.getByPlaceholderText("Project Name")).toBeTruthy(),
     );
-    const createBtn = screen.getByRole("button", { name: "Create" });
+    const createBtn = await waitFor(() =>
+      screen.getByRole("button", { name: "Create" }),
+    );
     expect(createBtn.className).toContain("pluto--disabled");
   });
 

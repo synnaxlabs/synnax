@@ -13,9 +13,9 @@ import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { Ontology } from "@/platform/ontology";
 import { Project as PlatformProject } from "@/platform/project";
 import { Toolbar } from "@/platform/toolbar";
+import { Tree } from "@/platform/tree";
 
 const Actions = (): ReactElement | null => {
   const openCreate = PlatformProject.useCreateModal();
@@ -38,7 +38,7 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Project />}>Projects</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Ontology.Tree root={groupID} emptyContent={<EmptyContent />} />
+      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
     </Toolbar.Content>
   );
 };
@@ -56,7 +56,7 @@ const EmptyContent = () => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "project",
   icon: <Icon.Project />,
   content: <Content />,
