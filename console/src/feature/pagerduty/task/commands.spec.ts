@@ -19,7 +19,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("PagerDuty palette commands", () => {
+describe("PagerDuty Task Commands", () => {
   it("should open the alert task view from the create alert task command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),

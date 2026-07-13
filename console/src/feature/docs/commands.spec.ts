@@ -19,7 +19,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("docs palette", () => {
+describe("Docs Commands", () => {
   it("should open the docs view as a tab when the read command is selected", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),

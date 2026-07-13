@@ -19,7 +19,7 @@ import { resolveFocusedTab, stubGeometry } from "@/testutil";
 
 stubGeometry();
 
-describe("lineplot palette", () => {
+describe("LinePlot Commands", () => {
   it("creates a line plot on the server and opens it as a tab", async () => {
     const proj = await client.projects.retrieve(await project());
     const { store, openCommandPalette, selectCommand } = await renderPalette({

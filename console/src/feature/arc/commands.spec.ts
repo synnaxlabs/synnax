@@ -21,7 +21,7 @@ stubGeometry();
 
 const client = createTestClient();
 
-describe("arc palette", () => {
+describe("Arc Commands", () => {
   it("opens the arc explorer view from the open explorer command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("project"),
@@ -53,7 +53,7 @@ describe("arc palette", () => {
     });
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette();
-    const item = await screen.findByText("Create an Arc Automation");
+    const item = await screen.findByText("Create an Arc automation");
     await act(async () => {
       fireEvent.click(item);
     });

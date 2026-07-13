@@ -19,7 +19,7 @@ import { resolveFocusedTab, stubGeometry } from "@/testutil";
 
 stubGeometry();
 
-describe("table palette", () => {
+describe("Table Commands", () => {
   it("creates a table on the server and opens it as a tab", async () => {
     const proj = await client.projects.retrieve(await project());
     const { store, openCommandPalette, selectCommand } = await renderPalette({
