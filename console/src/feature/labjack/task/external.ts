@@ -21,7 +21,7 @@ import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export * from "@/feature/labjack/task/palette";
+export * from "@/feature/labjack/task/commands";
 export * from "@/feature/labjack/task/Read";
 export * from "@/feature/labjack/task/SelectInputChannelTypeField";
 export * from "@/feature/labjack/task/SelectOutputChannelType";
@@ -38,7 +38,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [WRITE_TYPE]: Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
 };

@@ -11,7 +11,6 @@ import { Errors, Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { createSelectorLayout, useSelectorVisible } from "@/app/vis/Selector";
-import { type LayoutType } from "@/app/vis/types";
 import { Arc } from "@/feature/arc";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
@@ -22,6 +21,13 @@ import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 import { Session } from "@/session";
+
+type LayoutType =
+  | LinePlot.LayoutType
+  | Log.LayoutType
+  | Schematic.LayoutType
+  | Table.LayoutType
+  | Arc.EditorLayoutType;
 
 interface ToolbarProps {
   layoutKey: string;
@@ -73,7 +79,7 @@ const Content = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "visualization",
   content: <Content />,
   tooltip: "Visualize",

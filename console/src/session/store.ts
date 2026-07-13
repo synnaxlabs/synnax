@@ -21,7 +21,9 @@ import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-
 
 import { Arc } from "@/session/arc";
 import { Cluster } from "@/session/cluster";
+import { Color } from "@/session/color";
 import { Docs } from "@/session/docs";
+import { Haul } from "@/session/haul";
 import { Layout } from "@/session/layout";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
@@ -36,7 +38,7 @@ import { Table } from "@/session/table";
 import { Theme } from "@/session/theme";
 
 const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
-  ...Layout.PERSIST_EXCLUDE,
+  Haul.PERSIST_EXCLUDE,
   ...Arc.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
   ...Log.PERSIST_EXCLUDE,
@@ -47,8 +49,10 @@ const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
 export const ZERO_STATE: State = {
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
+  [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
+  [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
   [Layout.SLICE_NAME]: Layout.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
@@ -64,8 +68,10 @@ export const ZERO_STATE: State = {
 export const reducer = combineReducers({
   [Arc.SLICE_NAME]: Arc.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
+  [Color.SLICE_NAME]: Color.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
+  [Haul.SLICE_NAME]: Haul.reducer,
   [Layout.SLICE_NAME]: Layout.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
   [Log.SLICE_NAME]: Log.reducer,
@@ -81,8 +87,10 @@ export const reducer = combineReducers({
 export interface State {
   [Arc.SLICE_NAME]: Arc.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
+  [Color.SLICE_NAME]: Color.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
+  [Haul.SLICE_NAME]: Haul.SliceState;
   [Layout.SLICE_NAME]: Layout.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
@@ -98,8 +106,10 @@ export interface State {
 export type Action =
   | Arc.Action
   | Cluster.Action
+  | Color.Action
   | Docs.Action
   | Drift.Action
+  | Haul.Action
   | Layout.Action
   | Log.Action
   | LinePlot.Action
@@ -151,7 +161,7 @@ export interface CreateStoreOptions extends Partial<
   enablePersistence?: boolean;
 }
 
-export const configureStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
+export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store> => {
   const {
     runtime = new Runtime.Drift<State, Action>(),
     enablePrerender = !IS_DEV,

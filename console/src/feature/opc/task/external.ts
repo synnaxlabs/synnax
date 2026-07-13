@@ -21,7 +21,7 @@ import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export * from "@/feature/opc/task/palette";
+export * from "@/feature/opc/task/commands";
 export * from "@/feature/opc/task/Read";
 export * from "@/feature/opc/task/types";
 export * from "@/feature/opc/task/Write";
@@ -36,7 +36,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   [WRITE_TYPE]: Task.createIngester(WRITE_SCHEMAS.config, WRITE_LAYOUT),
 };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
 };

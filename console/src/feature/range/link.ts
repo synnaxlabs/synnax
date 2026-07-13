@@ -27,3 +27,5 @@ export const useLink = (): Link.Handler => {
     [dispatch, placeLayout],
   );
 };
+
+export const LINKS: Link.Registry = { range: useLink };

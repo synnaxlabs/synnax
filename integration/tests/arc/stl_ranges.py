@@ -217,7 +217,7 @@ class StlRanges(ArcCase):
         for parent_name, child_names in CHILDREN_BY_PARENT.items():
             parent = found[parent_name]
             children = self.client.ontology.retrieve_children(parent.ontology_id)
-            keys = {res.id.key for res in children}
+            keys = {res.key for res in children}
             for name in child_names:
                 if str(found[name].key) not in keys:
                     self.fail(

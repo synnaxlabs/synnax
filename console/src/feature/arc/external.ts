@@ -18,14 +18,15 @@ import { type Import } from "@/platform/import";
 import { type Layout } from "@/platform/layout";
 import { type Selector } from "@/platform/selector";
 
+export * from "@/feature/arc/commands";
 export * from "@/feature/arc/editor";
 export * from "@/feature/arc/Explorer";
 export * from "@/feature/arc/export";
 export * from "@/feature/arc/import";
 export * from "@/feature/arc/link";
-export * from "@/feature/arc/ontology";
-export * from "@/feature/arc/palette";
+export * from "@/feature/arc/search";
 export * from "@/feature/arc/toolbar/Toolbar";
+export * from "@/feature/arc/tree";
 export * from "@/platform/arc/external";
 
 export const EDITOR_LAYOUT_TYPE = Arc.LAYOUT_TYPE;
@@ -35,7 +36,7 @@ export const EXTRACTORS: Export.Extractors = { [EDITOR_LAYOUT_TYPE]: extract };
 
 export const FILE_INGESTERS: Import.FileIngesters = { [EDITOR_LAYOUT_TYPE]: ingest };
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
   [EDITOR_LAYOUT_TYPE]: Editor.Editor,
 };

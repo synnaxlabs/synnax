@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ToggleCommand } from "@/feature/theme/ToggleCommand";
-import { type Palette } from "@/platform/palette";
+import { ToggleCommand } from "@/feature/theme/commands";
+import { type Command } from "@/platform/command";
 
-export const COMMANDS: Palette.Command[] = [ToggleCommand];
+export const COMMANDS: Command.Command[] = [ToggleCommand];

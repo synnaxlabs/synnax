@@ -68,7 +68,7 @@ const createRenderer = ({
     showControls,
   });
 
-const seedLayout = (
+const createLayout = (
   store: TestStore,
   key: string,
   args: Task.FormLayoutArgs = {},
@@ -104,7 +104,7 @@ describe("wrapForm", () => {
   it("should render the header name field, the child form, and the controls", async () => {
     const Renderer = createRenderer();
     const store = await createTestStore();
-    seedLayout(store, "l1");
+    createLayout(store, "l1");
     await renderWithConsole(
       <Renderer layoutKey="l1" visible focused={false} onClose={() => {}} />,
       { store },
@@ -117,7 +117,7 @@ describe("wrapForm", () => {
   it("should omit the controls when showControls is false", async () => {
     const Renderer = createRenderer({ showControls: false });
     const store = await createTestStore();
-    seedLayout(store, "l2");
+    createLayout(store, "l2");
     await renderWithConsole(
       <Renderer layoutKey="l2" visible focused={false} onClose={() => {}} />,
       { store },
@@ -129,7 +129,7 @@ describe("wrapForm", () => {
   it("should mark the layout as having unsaved changes when the form is edited", async () => {
     const Renderer = createRenderer();
     const store = await createTestStore();
-    seedLayout(store, "l3");
+    createLayout(store, "l3");
     await renderWithConsole(
       <Renderer layoutKey="l3" visible focused={false} onClose={() => {}} />,
       { store },
@@ -148,7 +148,7 @@ describe("wrapForm", () => {
     const renderProbe = async (layoutKey: string, args: Task.FormLayoutArgs = {}) => {
       const Renderer = createRenderer({ Form: RackKeyProbe });
       const store = await createTestStore();
-      seedLayout(store, layoutKey, args);
+      createLayout(store, layoutKey, args);
       await renderWithConsole(
         <Renderer layoutKey={layoutKey} visible focused={false} onClose={() => {}} />,
         { store },
@@ -181,7 +181,7 @@ describe("wrapForm", () => {
       });
       const layoutKey = uniqueName("layout");
       const store = await createTestStore();
-      seedLayout(store, layoutKey);
+      createLayout(store, layoutKey);
       const { wrapper } = await createConsoleWrapper({ client, store });
       render(
         <Renderer layoutKey={layoutKey} visible focused={false} onClose={() => {}} />,

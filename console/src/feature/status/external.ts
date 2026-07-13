@@ -10,11 +10,12 @@
 import { Explorer, EXPLORER_LAYOUT_TYPE } from "@/feature/status/Explorer";
 import { type Layout } from "@/platform/layout";
 
+export * from "@/feature/status/commands";
 export * from "@/feature/status/Explorer";
-export * from "@/feature/status/palette";
 export * from "@/feature/status/Toolbar";
+export * from "@/feature/status/tree";
 export * from "@/platform/status/external";
 
-export const LAYOUTS: Record<string, Layout.Renderer> = {
+export const LAYOUTS: Layout.Renderers = {
   [EXPLORER_LAYOUT_TYPE]: Explorer,
 };

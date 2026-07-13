@@ -13,8 +13,8 @@ import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { Ontology } from "@/platform/ontology";
 import { Toolbar } from "@/platform/toolbar";
+import { Tree } from "@/platform/tree";
 import { User as PlatformUser } from "@/platform/user";
 
 const Content = (): ReactElement => {
@@ -33,7 +33,7 @@ const Content = (): ReactElement => {
           </Toolbar.Actions>
         )}
       </Toolbar.Header>
-      <Ontology.Tree root={groupID} emptyContent={<EmptyContent />} />
+      <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />
     </Toolbar.Content>
   );
 };
@@ -50,7 +50,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "user",
   icon: <Icon.User />,
   content: <Content />,

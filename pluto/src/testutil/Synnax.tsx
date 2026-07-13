@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { id } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
@@ -21,26 +20,20 @@ import { status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
-import {
-  MOCK_RENDER_CONTEXT_REGISTRY,
-  type MockRenderContext,
-  MockRenderContextProvider,
-  mockRenderContextProviderStateZ,
-  registerMockRenderContext,
-} from "@/testutil/render";
+import { canvasTest } from "@/vis/render/test";
 
 interface RenderContextSeedProps extends PropsWithChildren {
-  contextKey: string;
+  context: canvasTest.Recorder;
 }
 
 const RenderContextSeed = ({
-  contextKey,
+  context,
   children,
 }: RenderContextSeedProps): ReactElement => {
   const { path } = Aether.useLifecycle({
-    type: MockRenderContextProvider.TYPE,
-    schema: mockRenderContextProviderStateZ,
-    initialState: { contextKey },
+    type: canvasTest.RenderProvider.TYPE,
+    schema: canvasTest.RenderProvider.stateZ,
+    initialState: { context },
   });
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };
@@ -49,29 +42,26 @@ const newWrapper = (
   client: Client | null,
   fluxClient: Flux.Client,
   additionalRegistry?: aether.ComponentRegistry,
-  renderContext?: MockRenderContext,
+  renderContext?: canvasTest.Recorder,
 ) => {
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
     ...flux.createRegistry({ storeConfig: {} }),
-    ...(renderContext != null ? MOCK_RENDER_CONTEXT_REGISTRY : {}),
+    ...(renderContext != null
+      ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
+      : {}),
     ...additionalRegistry,
   });
-  let contextKey: string | null = null;
-  if (renderContext != null) {
-    contextKey = id.create();
-    registerMockRenderContext(contextKey, renderContext);
-  }
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
           <Flux.Provider client={fluxClient}>
-            {contextKey == null ? (
+            {renderContext == null ? (
               children
             ) : (
-              <RenderContextSeed contextKey={contextKey}>{children}</RenderContextSeed>
+              <RenderContextSeed context={renderContext}>{children}</RenderContextSeed>
             )}
           </Flux.Provider>
         </Synnax.TestProvider>
@@ -93,9 +83,9 @@ export interface CreateSynnaxWrapperArgs {
   /**
    * Seeds the given fake render context into the aether tree, so canvas-rendered
    * components can mount and record draw calls without a real canvas. Construct one
-   * with {@link mockRenderContext} and keep the reference for assertions.
+   * with {@link canvasTest.record} and keep the reference for assertions.
    */
-  renderContext?: MockRenderContext;
+  renderContext?: canvasTest.Recorder;
 }
 
 const createFluxClient = (args: CreateSynnaxWrapperArgs): Flux.Client => {

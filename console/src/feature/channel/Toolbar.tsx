@@ -14,8 +14,8 @@ import { type ReactElement } from "react";
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
-import { Ontology } from "@/platform/ontology";
 import { Toolbar } from "@/platform/toolbar";
+import { Tree } from "@/platform/tree";
 
 const Actions = (): ReactElement | null => {
   const openCreate = PlatformChannel.useCreateModal();
@@ -45,7 +45,7 @@ const Content = (): ReactElement => {
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
         <Actions />
       </Toolbar.Header>
-      <Ontology.Tree
+      <Tree.Tree
         root={g == null ? undefined : group.ontologyID(g.key)}
         emptyContent={<EmptyContent />}
       />
@@ -65,7 +65,7 @@ const EmptyContent = (): ReactElement => {
   );
 };
 
-export const TOOLBAR: Nav.Item = {
+export const TOOLBAR: Nav.Toolbar = {
   key: "channel",
   icon: <Icon.Channel />,
   content: <Content />,

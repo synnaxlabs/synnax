@@ -25,7 +25,7 @@ const Harness = ({ crude }: HarnessProps) => {
   return (
     <>
       <button onClick={() => add(crude)}>add</button>
-      <Notifications.Notifications notifications={Task.NOTIFICATIONS} />
+      <Notifications.Feed notifications={Task.NOTIFICATIONS} />
     </>
   );
 };
