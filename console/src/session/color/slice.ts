@@ -13,8 +13,10 @@ import { Color } from "@synnaxlabs/pluto";
 export const SLICE_NAME = "color";
 
 export interface SliceState {
-  // context is the color picker's shared context: recent colors and frequency
-  // data reused across pickers and windows.
+  /**
+   * The color picker's shared context: recent colors and frequency data reused
+   * across pickers and windows.
+   */
   context: Color.ContextState;
 }
 
