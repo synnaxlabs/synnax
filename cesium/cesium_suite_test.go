@@ -47,28 +47,6 @@ func virtualChannel(key cesium.ChannelKey, name string) cesium.Channel {
 	}
 }
 
-// virtualIndexChannel returns a virtual index channel with the given key and name.
-func virtualIndexChannel(key cesium.ChannelKey, name string) cesium.Channel {
-	return cesium.Channel{
-		Key:      key,
-		Name:     name,
-		DataType: telem.TimeStampT,
-		IsIndex:  true,
-		Virtual:  true,
-	}
-}
-
-// virtualDataChannel returns a virtual channel indexed by index.
-func virtualDataChannel(key, index cesium.ChannelKey, name string) cesium.Channel {
-	return cesium.Channel{
-		Key:      key,
-		Name:     name,
-		DataType: telem.Int64T,
-		Index:    index,
-		Virtual:  true,
-	}
-}
-
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")

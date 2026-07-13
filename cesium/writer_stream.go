@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -108,14 +107,14 @@ type streamWriter struct {
 	confluence.AbstractUnarySource[WriterResponse]
 	relay           confluence.Inlet[relayResponse]
 	accumulatedErr  error
+	errSent         bool
 	virtual         *virtualWriter
 	updateDBControl func(ctx context.Context, u ControlUpdate) error
+	internal        []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
 	keyToIdx map[ChannelKey]*idxWriter
-	internal []*idxWriter
 	WriterConfig
-	errSent bool
 }
 
 // Flow implements the confluence.Flow interface.
@@ -197,7 +196,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) error
 
 	}
 	for _, chW := range w.virtual.internal {
-		if auth, ok := getAuth(chW.Channel().Key); ok {
+		if auth, ok := getAuth(chW.Channel.Key); ok {
 			if t := chW.SetAuthority(auth); t.Occurred() {
 				u.Transfers = append(u.Transfers, t)
 			}
@@ -242,9 +241,6 @@ func (w *streamWriter) maybeSendRes(
 }
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
-	if err := w.validateSeries(req.Frame); err != nil {
-		return err
-	}
 	if *w.AutoIndex {
 		req.Frame = w.autoStamp(req.Frame)
 	}
@@ -286,42 +282,6 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) error {
 		}
 	}
 	return accumulatedErr
-}
-
-// validateSeries checks that every series in fr targets a channel the writer is
-// responsible for and has a structurally valid data buffer for its declared data type
-// (see telem.Series.Validate), rejecting the write before any data is applied.
-func (w *streamWriter) validateSeries(fr Frame) error {
-	for i, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(i) {
-			continue
-		}
-		if !w.owns(k) {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"channel %d is not part of the writer's channel set",
-				k,
-			)
-		}
-		s := fr.RawSeriesAt(i)
-		if err := s.Validate(); err != nil {
-			return errors.Wrapf(err, "channel %d", k)
-		}
-	}
-	return nil
-}
-
-// owns reports whether the writer is responsible for writes to the given channel.
-func (w *streamWriter) owns(k ChannelKey) bool {
-	if _, ok := w.virtual.internal[k]; ok {
-		return true
-	}
-	for _, idx := range w.internal {
-		if _, ok := idx.internal[k]; ok {
-			return true
-		}
-	}
-	return false
 }
 
 // autoStamp injects a TimeStamp series for each idxWriter whose index channel is
@@ -482,12 +442,6 @@ type unaryWriterState struct {
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
 	internal map[ChannelKey]*unaryWriterState
-	// dataAuth tracks the most recent control authority for each data channel in this
-	// group (i.e. the keys of internal excluding the index itself). Populated only when
-	// the streamWriter has AutoIndex enabled and writingToIdx is true; updated by
-	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
-	// authority as the max across its referencing data channels.
-	dataAuth map[ChannelKey]xcontrol.Authority
 	idx      struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		*index.Domain
@@ -503,21 +457,13 @@ type idxWriter struct {
 		// without inheriting future timestamps the caller wrote explicitly.
 		autoStampClock telem.TimeStamp
 	}
-	// lastCommitEnd stores the end timestamp from the last successful commit,
-	// returned when Commit is called with no new data to commit.
-	lastCommitEnd telem.TimeStamp
+	// numWriteCalls tracks the number of write calls made to the idxWriter.
+	numWriteCalls int
 	// sampleCount is the total number of samples written to the index as if it were a
 	// single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
-	sampleCount int64
-	start       telem.TimeStamp
-	// scanDataLen is a transient scratch field set during the single frame scan in
-	// streamWriter.autoStamp. Holds the length of the first non-empty data channel
-	// observed for this group (the size of the auto-stamped series). Reset to zero at
-	// the start of every autoStamp call.
-	scanDataLen int64
-	// numWriteCalls tracks the number of write calls made to the idxWriter.
-	numWriteCalls   int
+	sampleCount     int64
+	start           telem.TimeStamp
 	domainAlignment uint32
 	// writingToIdx is true when the Write is writing to the index channel. This is
 	// typically true, which allows us to avoid unnecessary lookups.
@@ -526,11 +472,25 @@ type idxWriter struct {
 	// successful commit. This prevents stale commits when a control transfer
 	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
 	hasUncommittedData bool
+	// lastCommitEnd stores the end timestamp from the last successful commit,
+	// returned when Commit is called with no new data to commit.
+	lastCommitEnd telem.TimeStamp
+	// dataAuth tracks the most recent control authority for each data channel in this
+	// group (i.e. the keys of internal excluding the index itself). Populated only when
+	// the streamWriter has AutoIndex enabled and writingToIdx is true; updated by
+	// SetAuthority calls so that maxDataAuth can recompute the implicit index's
+	// authority as the max across its referencing data channels.
+	dataAuth map[ChannelKey]xcontrol.Authority
 	// scanIdxPresent is a transient scratch field set during the single frame scan in
 	// streamWriter.autoStamp. True when the caller's frame already contains this
 	// idxWriter's index key (in which case no stamping is needed). Reset to false at
 	// the start of every autoStamp call.
 	scanIdxPresent bool
+	// scanDataLen is a transient scratch field set during the single frame scan in
+	// streamWriter.autoStamp. Holds the length of the first non-empty data channel
+	// observed for this group (the size of the auto-stamped series). Reset to zero at
+	// the start of every autoStamp call.
+	scanDataLen int64
 	// setAuthExplicit is a transient scratch field used during the per-channel scan in
 	// streamWriter.propagateAuthority. True when the caller explicitly named this
 	// idxWriter's index key in the SetAuthority config, in which case the index
@@ -838,22 +798,8 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 	return w.idx.Stamp(ctx, w.start, w.sampleCount-1, true)
 }
 
-// virtualGroup tracks the shared write alignment for an index group of virtual channels
-// within a single writer. Every member of the group is stamped with the group's current
-// alignment, and writes to the group's index channel advance the sample position, so
-// series written across the group correlate sample-for-sample.
-type virtualGroup struct {
-	// indexKey is the key of the group's index channel.
-	indexKey ChannelKey
-	// alignment is the group's current write position.
-	alignment telem.Alignment
-}
-
 type virtualWriter struct {
-	internal map[ChannelKey]*virtual.Writer
-	// groups maps each virtual channel belonging to an index group to the group's
-	// shared alignment state. Channels without an index are absent.
-	groups    map[ChannelKey]*virtualGroup
+	internal  map[ChannelKey]*virtual.Writer
 	digestKey channel.Key
 }
 
@@ -877,21 +823,8 @@ func (w virtualWriter) write(filterUnauthorized *[]ChannelKey, fr Frame) (Frame,
 			*filterUnauthorized = append(*filterUnauthorized, k)
 			continue
 		}
-		if g, grouped := w.groups[k]; grouped {
-			alignment = g.alignment
-		}
 		s.Alignment = alignment
 		fr.SetRawSeriesAt(rawI, s)
-	}
-	// Advance group alignments only after stamping the whole frame so that every
-	// series in it, including the index series itself, shares the same alignment.
-	for rawI, k := range fr.RawKeys() {
-		if fr.ShouldExcludeRaw(rawI) || lo.Contains(*filterUnauthorized, k) {
-			continue
-		}
-		if g, grouped := w.groups[k]; grouped && g.indexKey == k {
-			g.alignment = g.alignment.AddSamples(uint32(fr.RawSeriesAt(rawI).Len()))
-		}
 	}
 	return fr, accumulatedErr
 }
@@ -902,7 +835,7 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 	for _, chW := range w.internal {
 		// We do not want to clean up the digest channel since we want to use it to send
 		// updates for closures.
-		if chW.Channel().Key != w.digestKey {
+		if chW.Channel.Key != w.digestKey {
 			transfer, closeErr := chW.Close()
 			if closeErr != nil {
 				err = errors.Join(err, closeErr)

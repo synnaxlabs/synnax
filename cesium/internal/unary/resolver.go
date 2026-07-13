@@ -32,14 +32,14 @@ import (
 // rebuilds run.
 const scanBufferSize = 64 * telem.Kilobyte
 
-// offsetTable stores byte offsets for each sample in a single variable-length domain.
-// Offsets are uint32, matching domain.pointer.size; domains larger than ~4GB are
-// unsupported at the storage layer. end is the End timestamp of the pointer at the time
-// the table was built, used to invalidate the cache when a subsequent write appends
-// more data and extends the pointer's End.
+// offsetTable stores byte offsets for each sample in a single variable-length
+// domain. Offsets are uint32, matching domain.pointer.size; domains larger than
+// ~4GB are unsupported at the storage layer. end is the End timestamp of the
+// pointer at the time the table was built, used to invalidate the cache when a
+// subsequent write appends more data and extends the pointer's End.
 type offsetTable struct {
-	offsets     []uint32
 	end         telem.TimeStamp
+	offsets     []uint32
 	sampleCount int64
 }
 
@@ -47,13 +47,14 @@ func (t *offsetTable) byteOffsetAt(sampleIdx int64) telem.Size {
 	return telem.Size(t.offsets[sampleIdx])
 }
 
-// offsetCache memoizes per-domain offset tables for variable-length channels. Tables
-// are keyed by the Start timestamp of the domain pointer they describe. Pointer Starts
-// are unique within a DB (non-overlapping ranges) and immutable once set, so they are
-// stable cache keys even when other pointers are inserted or removed before this one.
+// offsetCache memoizes per-domain offset tables for variable-length channels.
+// Tables are keyed by the Start timestamp of the domain pointer they describe.
+// Pointer Starts are unique within a DB (non-overlapping ranges) and immutable
+// once set, so they are stable cache keys even when other pointers are
+// inserted or removed before this one.
 type offsetCache struct {
-	tables map[telem.TimeStamp]*offsetTable
 	mu     sync.RWMutex
+	tables map[telem.TimeStamp]*offsetTable
 }
 
 func newOffsetCache() *offsetCache {
@@ -154,19 +155,19 @@ func logTruncation(
 
 // offsetResolver translates sample indices to byte offsets within domain files.
 // Fixed-density channels have a zero cache and rely on density arithmetic;
-// variable-length channels carry a per-domain offset cache that is built on first
-// access by scanning the length-prefixed records.
+// variable-length channels carry a per-domain offset cache that is built on
+// first access by scanning the length-prefixed records.
 type offsetResolver struct {
-	// rebuilds collapses concurrent rebuilds of the same domain into a single scan.
-	// Callers that miss on the same start timestamp wait for the leader to finish and
-	// share its result rather than each opening their own reader and walking the same
-	// length prefixes. Unused for fixed-density channels.
-	rebuilds singleflight.Group
-	cache    *offsetCache // nil for fixed-density channels
-	// ins is the resolver's instrumentation handle. Used by tableFor's scan path to
-	// surface on-disk truncation warnings; otherwise unused.
+	// ins is the resolver's instrumentation handle. Used by tableFor's scan
+	// path to surface on-disk truncation warnings; otherwise unused.
 	ins     alamos.Instrumentation
 	density telem.Density
+	cache   *offsetCache // nil for fixed-density channels
+	// rebuilds collapses concurrent rebuilds of the same domain into a single
+	// scan. Callers that miss on the same start timestamp wait for the leader
+	// to finish and share its result rather than each opening their own reader
+	// and walking the same length prefixes. Unused for fixed-density channels.
+	rebuilds singleflight.Group
 }
 
 func newOffsetResolver(dt telem.DataType, ins alamos.Instrumentation) *offsetResolver {
@@ -276,21 +277,22 @@ func (r *offsetResolver) newTracker(start telem.TimeStamp) *offsetTracker {
 	return t
 }
 
-// offsetTracker tracks per-domain offset state for a unary writer chain. The tracker is
-// owned by the controlledWriter, so all Writers that share that resource (i.e. that
+// offsetTracker tracks per-domain offset state for a unary writer chain. The tracker
+// is owned by the controlledWriter, so all Writers that share that resource (i.e. that
 // take control of the same region across handoffs) observe the same tracker state.
-// Fixed-density and variable-length channels share the cumulative-count behavior at the
-// alignment math site by deriving it from the underlying domain.Writer for
+// Fixed-density and variable-length channels share the cumulative-count behavior at
+// the alignment math site by deriving it from the underlying domain.Writer for
 // fixed-density and from the tracker's running counter for variable-length, both of
 // which advance monotonically across handoff. Variable-length channels additionally
-// track per-domain byte offsets so they can publish them to the offset cache on commit.
+// track per-domain byte offsets so they can publish them to the offset cache on
+// commit.
 type offsetTracker struct {
 	// resolver is the offsetResolver this tracker was created from. Used by publish to
 	// install committed offsets into the resolver's cache.
 	resolver *offsetResolver
-	// domainOffsets is the running list of per-sample byte offsets within the current
-	// domain for variable-length trackers; nil for fixed-density. Reset on rollover.
-	domainOffsets []uint32
+	// density is the sample density of the channel for fixed-density trackers; zero
+	// for variable-length trackers.
+	density telem.Density
 	// currentStart is the start timestamp of the domain currently being tracked.
 	// Updated to commitEnd on rollover so subsequent publishes target the new domain.
 	// Unused for fixed-density.
@@ -300,14 +302,14 @@ type offsetTracker struct {
 	// relative to the start of the current file. Reset on rollover. Unused for
 	// fixed-density.
 	domainBytes int64
-	// density is the sample density of the channel for fixed-density trackers; zero for
-	// variable-length trackers.
-	density telem.Density
-	// sessionSamples is the cumulative sample count for variable-length trackers across
-	// every domain in the controlled resource's lifetime. Used for alignment math and
-	// the end-timestamp lookup at commit time. Survives control handoff because the
-	// tracker is shared across Writers via controlledWriter. Unused for fixed-density
-	// (count derives from dw.Len() instead).
+	// domainOffsets is the running list of per-sample byte offsets within the current
+	// domain for variable-length trackers; nil for fixed-density. Reset on rollover.
+	domainOffsets []uint32
+	// sessionSamples is the cumulative sample count for variable-length trackers
+	// across every domain in the controlled resource's lifetime. Used for alignment
+	// math and the end-timestamp lookup at commit time. Survives control handoff
+	// because the tracker is shared across Writers via controlledWriter. Unused for
+	// fixed-density (count derives from dw.Len() instead).
 	sessionSamples int64
 }
 

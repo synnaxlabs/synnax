@@ -14,8 +14,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -23,27 +23,16 @@ import (
 	"go.uber.org/zap"
 )
 
-// CreateChannel creates the given channels in the database. Index channels are created
-// before the other channels in the batch, so a channel may reference an index defined
-// anywhere within the same call.
-func (db *DB) CreateChannel(ctx context.Context, channels ...Channel) error {
+// CreateChannel creates a channel in the database.
+func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	for _, ch := range channels {
-		if ch.IsIndex {
-			if err := db.createChannel(ctx, ch); err != nil {
-				return err
-			}
-		}
-	}
-	for _, ch := range channels {
-		if !ch.IsIndex {
-			if err := db.createChannel(ctx, ch); err != nil {
-				return err
-			}
+	for _, c := range ch {
+		if err := db.createChannel(ctx, c); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -130,7 +119,7 @@ func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string)
 		return nil
 	}
 	if v, ok := db.mu.dbs.virtual[key]; ok {
-		if err := v.RenameChannel(newName); err != nil {
+		if err := v.RenameChannel(ctx, newName); err != nil {
 			return err
 		}
 		db.mu.dbs.virtual[key] = v
@@ -157,18 +146,9 @@ func (db *DB) createChannel(ctx context.Context, ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
-	ch.Version = channel.VersionCurrent
-	if ch.Virtual {
-		return db.openVirtual(ch)
-	}
-	fs, err := db.fs.Sub(keyToDirName(ch.Key))
-	if err != nil {
-		return err
-	}
-	if ch, err = meta.Open(ctx, fs, ch, db.metaCodec); err != nil {
-		return err
-	}
-	return db.openUnary(ctx, ch, fs)
+	ch.Version = version.VersionCurrent
+	err = db.openVirtualOrUnary(ctx, ch)
+	return err
 }
 
 func indexChannelNotFoundError(key ChannelKey) error {
@@ -185,35 +165,11 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		return errors.Wrapf(validate.ErrValidation, "cannot create channel %v because it already exists", ch)
 	}
 	if ch.Virtual {
-		if ch.Index != 0 && !ch.IsIndex {
-			indexDB, ok := db.mu.dbs.virtual[ch.Index]
-			if !ok {
-				if _, unaryOk := db.mu.dbs.unary[ch.Index]; unaryOk {
-					return validate.PathedError(
-						errors.Wrapf(validate.ErrValidation, "virtual channel cannot be indexed by stored channel %d", ch.Index),
-						"index",
-					)
-				}
-				return validate.PathedError(indexChannelNotFoundError(ch.Index), "index")
-			}
-			if !indexDB.Channel().IsIndex {
-				return validate.PathedError(
-					errors.Wrapf(validate.ErrValidation, "channel %v is not an index", indexDB.Channel()),
-					"index",
-				)
-			}
-		}
 		return nil
 	}
 	if ch.Index != 0 && !ch.IsIndex {
 		indexDB, ok := db.mu.dbs.unary[ch.Index]
 		if !ok {
-			if _, virtualOk := db.mu.dbs.virtual[ch.Index]; virtualOk {
-				return validate.PathedError(
-					errors.Wrapf(validate.ErrValidation, "stored channel cannot be indexed by virtual channel %d", ch.Index),
-					"index",
-				)
-			}
 			return validate.PathedError(indexChannelNotFoundError(ch.Index), "index")
 		}
 		if !indexDB.Channel().IsIndex {
@@ -299,34 +255,29 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 		if err := vDB.Close(); err != nil {
 			return err
 		}
+		if err := db.fs.Rename(oldDir, newDir); err != nil {
+			return err
+		}
+		newFS, err := db.fs.Sub(keyToDirName(newKey))
+		if err != nil {
+			return err
+		}
 		newChannel := vDB.Channel()
 		newChannel.Key = newKey
-		if newChannel.IsIndex {
-			newChannel.Index = newKey
-		}
-		newDB, err := virtual.Open(virtual.Config{
+		newDB, err := virtual.Open(ctx, virtual.Config{
 			Instrumentation: db.Instrumentation,
 			Channel:         newChannel,
+			MetaCodec:       db.metaCodec,
+			FS:              newFS,
 		})
 		if err != nil {
 			return err
 		}
+		if err = newDB.SetChannelKeyInMeta(ctx, newKey); err != nil {
+			return err
+		}
 		delete(db.mu.dbs.virtual, oldKey)
 		db.mu.dbs.virtual[newKey] = *newDB
-
-		// If the DB is an index channel, update every virtual DB that referenced the
-		// old key as its index.
-		if newChannel.IsIndex {
-			for otherDBKey := range db.mu.dbs.virtual {
-				otherDB := db.mu.dbs.virtual[otherDBKey]
-				if otherDB.Channel().Index == oldKey && otherDBKey != newKey {
-					if err = otherDB.SetIndexKey(newKey); err != nil {
-						return err
-					}
-					db.mu.dbs.virtual[otherDBKey] = otherDB
-				}
-			}
-		}
 	}
 
 	return nil

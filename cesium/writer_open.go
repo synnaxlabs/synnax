@@ -66,25 +66,6 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	Sync *bool
-	// AutoIndex causes the writer to generate timestamps for any index channel
-	// referenced by the writer's data channels whose series is omitted from a Write
-	// frame. The first sample in each Write call is stamped with telem.Now() on this
-	// node; remaining samples in the same call are spaced 1ns apart. Auto-stamps are
-	// strictly monotonic across Write calls — the next call's first sample is greater
-	// than the last sample of the previous auto-stamp.
-	//
-	// When AutoIndex is true, any index channel referenced by a data channel in
-	// Channels but not present in Channels itself is implicitly opened for writing.
-	// SetAuthority calls that name a data channel propagate to its index channel,
-	// taking the max authority across all data channels referencing that index.
-	//
-	// When AutoIndex is true and Start is left as its zero value, Start is defaulted to
-	// telem.Now() at open time so the writer's domain aligns with the auto-stamped
-	// timestamps. Callers who pass an explicit index series whose timestamps fall
-	// before this defaulted Start will have that write rejected.
-	//
-	// [OPTIONAL] - Defaults to false.
-	AutoIndex *bool
 	// Name sets the human-readable name for the writer, which is useful for identifying
 	// it in control transfer scenarios.
 	//
@@ -115,6 +96,25 @@ type WriterConfig struct {
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
+	// AutoIndex causes the writer to generate timestamps for any index channel
+	// referenced by the writer's data channels whose series is omitted from a Write
+	// frame. The first sample in each Write call is stamped with telem.Now() on this
+	// node; remaining samples in the same call are spaced 1ns apart. Auto-stamps are
+	// strictly monotonic across Write calls — the next call's first sample is greater
+	// than the last sample of the previous auto-stamp.
+	//
+	// When AutoIndex is true, any index channel referenced by a data channel in
+	// Channels but not present in Channels itself is implicitly opened for writing.
+	// SetAuthority calls that name a data channel propagate to its index channel,
+	// taking the max authority across all data channels referencing that index.
+	//
+	// When AutoIndex is true and Start is left as its zero value, Start is defaulted to
+	// telem.Now() at open time so the writer's domain aligns with the auto-stamped
+	// timestamps. Callers who pass an explicit index series whose timestamps fall
+	// before this defaulted Start will have that write rejected.
+	//
+	// [OPTIONAL] - Defaults to false.
+	AutoIndex *bool
 }
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -266,11 +266,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
-			// Assign into the map only after checking the error: a direct
-			// multi-assignment would store a nil writer that the deferred cleanup
-			// then calls Close on.
-			var vW *virtual.Writer
-			vW, transfer, err = v.OpenWriter(virtual.WriterConfig{
+			virtualWriters[key], transfer, err = v.OpenWriter(ctx, virtual.WriterConfig{
 				Subject:               cfg.ControlSubject,
 				Start:                 cfg.Start,
 				Authority:             cfg.authority(i),
@@ -279,7 +275,6 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			if err != nil {
 				return nil, err
 			}
-			virtualWriters[key] = vW
 		} else {
 			var uW *unary.Writer
 			uW, transfer, err = u.OpenWriter(
@@ -353,46 +348,12 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		}
 	}
 
-	// Group virtual writers by their index channel. Each group allocates one fresh
-	// alignment domain per writer open from the index channel's DB, so alignments
-	// correlate across the group's members and stay unique across writers.
-	var memberGroups map[ChannelKey]*virtualGroup
-	if len(virtualWriters) > 0 {
-		groupsByIndex := make(map[ChannelKey]*virtualGroup)
-		for key, vw := range virtualWriters {
-			idxKey := vw.Channel().Index
-			if vw.Channel().IsIndex {
-				idxKey = vw.Channel().Key
-			}
-			if idxKey == 0 {
-				continue
-			}
-			g, ok := groupsByIndex[idxKey]
-			if !ok {
-				idxDB, idxOk := db.mu.dbs.virtual[idxKey]
-				if !idxOk {
-					return nil, channel.NewNotFoundError(idxKey)
-				}
-				g = &virtualGroup{indexKey: idxKey, alignment: idxDB.AllocateLeadingAlignment()}
-				groupsByIndex[idxKey] = g
-			}
-			if memberGroups == nil {
-				memberGroups = make(map[ChannelKey]*virtualGroup)
-			}
-			memberGroups[key] = g
-		}
-	}
-
 	w = &streamWriter{
 		WriterConfig: cfg,
 		internal:     make([]*idxWriter, 0, len(domainWriters)),
 		relay:        db.relay.inlet,
-		virtual: &virtualWriter{
-			internal:  virtualWriters,
-			digestKey: db.mu.digests.key,
-			groups:    memberGroups,
-		},
-		keyToIdx: keyToIdx,
+		virtual:      &virtualWriter{internal: virtualWriters, digestKey: db.mu.digests.key},
+		keyToIdx:     keyToIdx,
 		updateDBControl: func(ctx context.Context, update ControlUpdate) error {
 			db.mu.RLock()
 			defer db.mu.RUnlock()

@@ -212,7 +212,7 @@ var _ = Describe("Delete", func() {
 							By("Deleting channel")
 							err := db.DeleteChannel(dependent)
 							Expect(err).To(HaveOccurred())
-							Expect(err).To(MatchError(ContainSubstring("cannot delete channel [dependent]<%d> because it indexes channel [dependee]<%d>", dependent, dependee)))
+							Expect(err).To(MatchError(ContainSubstring("cannot delete channel [dependent]<%d> because it indexes data in channel [dependee]<%d>", dependent, dependee)))
 
 							By("Deleting channel that depend on it")
 							Expect(db.DeleteChannel(dependee)).To(Succeed())
@@ -343,8 +343,10 @@ var _ = Describe("Delete", func() {
 					})
 					It("Should delete a virtual channel", func(ctx SpecContext) {
 						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "VirtualChannel", Virtual: true, DataType: telem.Int64T})).To(Succeed())
-						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
+						Expect(fs.Exists(channelKeyToPath(key))).To(BeTrue())
 						Expect(db.DeleteChannel(key)).To(Succeed())
+						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
+						Eventually(fs.Exists).WithArguments(channelKeyToPath(key)).Should(BeFalse())
 						for _, f := range MustSucceed(fs.List("")) {
 							Expect(f.Name()).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
@@ -822,73 +824,6 @@ var _ = Describe("Delete", func() {
 						Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
 					})
 				})
-			})
-		})
-	}
-})
-
-var _ = Describe("Virtual Channel Deletion", func() {
-	for fsName, openFS := range FileSystems {
-		Context("FS: "+fsName, Ordered, func() {
-			var db *cesium.DB
-			BeforeAll(func(ctx SpecContext) {
-				ShouldNotLeakGoroutines()
-				db = mustOpenDBOnFS(ctx, openFS())
-			})
-
-			It("Should delete a virtual channel without touching the file system", func(ctx SpecContext) {
-				key := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx, virtualChannel(key, "deleted"))).To(Succeed())
-				Expect(db.DeleteChannel(key)).To(Succeed())
-				Expect(db.RetrieveChannel(ctx, key)).Error().
-					To(MatchError(cesium.ErrChannelNotFound))
-			})
-
-			It("Should not delete a virtual index that other virtual channels depend on", func(ctx SpecContext) {
-				idx := GenerateChannelKey()
-				data := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx,
-					virtualIndexChannel(idx, "guarded_idx"),
-					virtualDataChannel(data, idx, "dependent"),
-				)).To(Succeed())
-				Expect(db.DeleteChannel(idx)).To(MatchError(ContainSubstring("indexes channel")))
-				Expect(db.DeleteChannel(data)).To(Succeed())
-				Expect(db.DeleteChannel(idx)).To(Succeed())
-			})
-
-			It("Should delete a batch of virtual channels along with their index", func(ctx SpecContext) {
-				idx := GenerateChannelKey()
-				data := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx,
-					virtualIndexChannel(idx, "batch_idx"),
-					virtualDataChannel(data, idx, "batch_data"),
-				)).To(Succeed())
-				Expect(db.DeleteChannels([]cesium.ChannelKey{idx, data})).To(Succeed())
-				Expect(db.RetrieveChannel(ctx, data)).Error().
-					To(MatchError(cesium.ErrChannelNotFound))
-				Expect(db.RetrieveChannel(ctx, idx)).Error().
-					To(MatchError(cesium.ErrChannelNotFound))
-			})
-
-			It("Should delete a mixed batch of virtual and stored channels", func(ctx SpecContext) {
-				virtualKey := GenerateChannelKey()
-				storedKey := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx,
-					virtualChannel(virtualKey, "mixed_virtual"),
-					cesium.Channel{
-						Key:      storedKey,
-						Name:     "mixed_stored",
-						DataType: telem.TimeStampT,
-						IsIndex:  true,
-					},
-				)).To(Succeed())
-				Expect(db.DeleteChannels(
-					[]cesium.ChannelKey{virtualKey, storedKey},
-				)).To(Succeed())
-				Expect(db.RetrieveChannel(ctx, virtualKey)).Error().
-					To(MatchError(cesium.ErrChannelNotFound))
-				Expect(db.RetrieveChannel(ctx, storedKey)).Error().
-					To(MatchError(cesium.ErrChannelNotFound))
 			})
 		})
 	}

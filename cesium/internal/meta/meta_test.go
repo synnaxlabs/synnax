@@ -11,7 +11,6 @@ package meta_test
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -78,8 +77,8 @@ var _ = Describe("Meta", func() {
 							channel.Channel{
 								Key:      key,
 								Name:     "John",
-								IsIndex:  true,
-								DataType: telem.TimeStampT,
+								Virtual:  true,
+								DataType: telem.Int64T,
 							},
 							json.Codec),
 					)
@@ -95,9 +94,20 @@ var _ = Describe("Meta", func() {
 					Entry(
 						"datatype not set",
 						channel.Channel{
-							Key: GenerateChannelKey(), Name: "Wick", IsIndex: true,
+							Key: GenerateChannelKey(), Name: "Wick", Virtual: true,
 						},
 						"data_type",
+					),
+					Entry(
+						"virtual indexed",
+						channel.Channel{
+							Key:      GenerateChannelKey(),
+							Virtual:  true,
+							Name:     "Snow?",
+							Index:    500000000,
+							DataType: telem.Int64T,
+						},
+						"virtual channel cannot be indexed",
 					),
 					Entry(
 						"index not type timestamp",
@@ -121,8 +131,8 @@ var _ = Describe("Meta", func() {
 					channel.Channel{
 						Key:      key,
 						Name:     "Faraday",
-						IsIndex:  true,
-						DataType: telem.TimeStampT,
+						Virtual:  true,
+						DataType: telem.Int64T,
 					},
 					json.Codec,
 				))
@@ -140,53 +150,9 @@ var _ = Describe("Meta", func() {
 				ch2 := MustSucceed(meta.Read(ctx, subFs, json.Codec))
 				Expect(ch2.Key).To(Equal(key))
 				Expect(ch2.Name).To(Equal("Faraday"))
-				Expect(ch2.IsIndex).To(BeTrue())
-				Expect(ch2.DataType).To(Equal(telem.TimeStampT))
+				Expect(ch2.Virtual).To(BeTrue())
+				Expect(ch2.DataType).To(Equal(telem.Int64T))
 
-			})
-
-			Describe("ReadVirtualFlag", func() {
-				It("Should report true for a meta file persisted for a virtual channel by a previous version", func(ctx SpecContext) {
-					key := GenerateChannelKey()
-					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-					f := MustSucceed(subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY))
-					MustSucceed(f.Write(fmt.Appendf(nil,
-						`{"key":%d,"name":"legacy","data_type":"int64","virtual":true,"version":2}`,
-						key,
-					)))
-					Expect(f.Close()).To(Succeed())
-					Expect(meta.ReadVirtualFlag(ctx, subFs, json.Codec)).To(BeTrue())
-				})
-
-				It("Should report false when the meta file does not exist", func(ctx SpecContext) {
-					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(GenerateChannelKey()))))
-					Expect(meta.ReadVirtualFlag(ctx, subFs, json.Codec)).To(BeFalse())
-				})
-
-				It("Should report false for a stored channel's meta file", func(ctx SpecContext) {
-					key := GenerateChannelKey()
-					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(key))))
-					MustSucceed(meta.Open(
-						ctx,
-						subFs,
-						channel.Channel{
-							Key:      key,
-							Name:     "stored",
-							IsIndex:  true,
-							DataType: telem.TimeStampT,
-						},
-						json.Codec,
-					))
-					Expect(meta.ReadVirtualFlag(ctx, subFs, json.Codec)).To(BeFalse())
-				})
-
-				It("Should report false for a meta file that cannot be decoded", func(ctx SpecContext) {
-					subFs := MustSucceed(fs.Sub(strconv.Itoa(int(GenerateChannelKey()))))
-					f := MustSucceed(subFs.Open("meta.json", os.O_CREATE|os.O_WRONLY))
-					MustSucceed(f.Write([]byte("not-json")))
-					Expect(f.Close()).To(Succeed())
-					Expect(meta.ReadVirtualFlag(ctx, subFs, json.Codec)).To(BeFalse())
-				})
 			})
 		})
 	}
