@@ -304,13 +304,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 const (
-	synchronizerAddr       = address.Address("synchronizer")
-	peerSenderAddr         = address.Address("peer_sender")
-	gatewayWriterAddr      = address.Address("gateway_writer")
-	freeWriterAddr         = address.Address("free_writer")
-	peerGatewaySwitchAddr  = address.Address("peer_gateway_free_switch")
-	sequencerAddr          = address.Address("sequencer")
-	sequencerResponsesAddr = address.Address("sequencer_responses")
+	synchronizerAddr      = address.Address("synchronizer")
+	peerSenderAddr        = address.Address("peer_sender")
+	gatewayWriterAddr     = address.Address("gateway_writer")
+	freeWriterAddr        = address.Address("free_writer")
+	peerGatewaySwitchAddr = address.Address("peer_gateway_free_switch")
+	sequencerAddr         = address.Address("sequencer")
 )
 
 // Open a new writer using the given configuration. The provided context is used to
@@ -364,9 +363,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		hasFree           = len(batch.Free) > 0
 	)
 
-	seq := &sequencer{}
-	plumber.SetSegment(pipe, sequencerAddr, seq)
-	plumber.SetSource(pipe, sequencerResponsesAddr, &seq.responses)
+	plumber.SetSegment(pipe, sequencerAddr, &sequencer{})
 	plumber.SetSegment(
 		pipe,
 		synchronizerAddr,
@@ -444,6 +441,6 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
 	lo.Must0(seg.RouteInletTo(sequencerAddr))
-	lo.Must0(seg.RouteOutletFrom(sequencerResponsesAddr, synchronizerAddr))
+	lo.Must0(seg.RouteOutletFrom(synchronizerAddr))
 	return seg, nil
 }

@@ -113,7 +113,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		return nil, err
 	}
 	pipe := plumber.New()
-	plumber.SetSegment[Request, Request](pipe, validatorAddr, newValidator(keys, channelMap))
+	plumber.SetSegment[Request, Request](pipe, validatorAddr, newValidator(channelMap))
 	plumber.SetSegment[Request, Response](pipe, distributionAddr, dist)
 	plumber.MustConnect[Request](pipe, validatorAddr, distributionAddr, 30)
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}

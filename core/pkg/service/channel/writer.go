@@ -258,22 +258,26 @@ func (w Writer) create(ctx context.Context, _channels *[]Channel, opts createOpt
 	// channels.
 	indexChannels := make([]Channel, 0, len(channels))
 	calcNeedingIndex := make([]int, 0)
-	// The bool carries whether the batch channel is an index, with absence meaning
-	// "not in the batch" — three states, so this is a map rather than a set.
-	batchIsIndexByName := make(map[string]bool, len(channels)) //nolint:set
-	for _, ch := range channels {
-		batchIsIndexByName[ch.Name] = ch.IsIndex
+	batchPositionByName := make(map[string]int, len(channels))
+	for i, ch := range channels {
+		batchPositionByName[ch.Name] = i
 	}
 	for i, ch := range channels {
 		if !ch.IsCalculated() || ch.LocalIndex != 0 {
 			continue
 		}
 		indexName := ch.Name + calculatedIndexNameSuffix
-		if isIndex, inBatch := batchIsIndexByName[indexName]; inBatch {
-			if !isIndex {
+		if bi, inBatch := batchPositionByName[indexName]; inBatch {
+			// An in-batch channel can only serve as the index if it satisfies the same
+			// predicate as an adopted existing index below. Adopting a host-leased or
+			// persisted index would graft its LocalKey into the calculated channel's
+			// free keyspace, producing an index key that resolves to the wrong channel.
+			b := channels[bi]
+			if !b.IsIndex || !b.Virtual || b.Leaseholder != node.KeyFree ||
+				b.DataType != telem.TimeStampT {
 				return errors.Wrapf(
 					validate.ErrValidation,
-					"cannot auto-create index %q for calculated channel %q: a non-index channel with that name is in the same request",
+					"channel %q in the same request cannot serve as the index for calculated channel %q",
 					indexName,
 					ch.Name,
 				)
@@ -520,7 +524,9 @@ func (w Writer) allocateAndWrite(
 }
 
 // validNamePattern matches valid channel names: a leading letter or underscore followed
-// by letters, digits, and underscores.
+// by letters, digits, and underscores. Because every stored channel name is accepted by
+// this pattern, MatchNames also uses it to decide whether an input is a literal
+// exact-match target (routable through the name index) or a regex pattern.
 var validNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
 // validateChannelNames rejects a create/rename request whose proposed names are empty,
