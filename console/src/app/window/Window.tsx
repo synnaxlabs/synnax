@@ -13,6 +13,7 @@ import { Drift } from "@synnaxlabs/drift";
 import { Component, Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useEffect } from "react";
 
+import { Notifications } from "@/app/notifications";
 import { Aux } from "@/app/window/Aux";
 import { Main } from "@/app/window/Main";
 import { ContextMenu } from "@/platform/context-menu";
@@ -63,6 +64,7 @@ export const Window = memo((): ReactElement | null => {
       onContextMenu={menuProps.open}
     >
       <Modals.Stack />
+      <Notifications.Feed />
       <Menu.ContextMenu menu={menu} {...menuProps}>
         {isMain ? <Main /> : <Aux />}
       </Menu.ContextMenu>

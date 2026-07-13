@@ -11,7 +11,6 @@ import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Mosaic } from "@/app/mosaic";
-import { Notifications } from "@/app/notifications";
 import { Auth } from "@/feature/auth";
 import { Project } from "@/feature/project";
 
@@ -20,14 +19,11 @@ import { Project } from "@/feature/project";
  * panel selector strip and no navigation chrome.
  */
 export const Aux = (): ReactElement => (
-  <>
-    <Notifications.Feed />
-    <Auth.Guard>
-      <Project.Guard>
-        <Flex.Box x gap="tiny" grow style={{ padding: "0 1rem 1rem 1rem" }}>
-          <Mosaic.Mosaic />
-        </Flex.Box>
-      </Project.Guard>
-    </Auth.Guard>
-  </>
+  <Auth.Guard>
+    <Project.Guard>
+      <Flex.Box x gap="tiny" grow style={{ padding: "0 1rem 1rem 1rem" }}>
+        <Mosaic.Mosaic />
+      </Flex.Box>
+    </Project.Guard>
+  </Auth.Guard>
 );

@@ -13,7 +13,6 @@ import { type ReactElement } from "react";
 import { Link } from "@/app/link";
 import { Mosaic } from "@/app/mosaic";
 import { Nav } from "@/app/nav";
-import { Notifications } from "@/app/notifications";
 import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
@@ -40,8 +39,6 @@ const SideEffect = (): null => {
  */
 export const Main = (): ReactElement => (
   <>
-    {/* We need to place notifications here so they are in the proper stacking context */}
-    <Notifications.Feed />
     <SideEffect />
     <Auth.Guard>
       <Project.Guard>
