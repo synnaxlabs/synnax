@@ -51,9 +51,9 @@ export const ZERO_STATE: State = {
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
   [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
-  [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
+  [Haul.SLICE_NAME]: Haul.ZERO_SLICE_STATE,
   [Nav.SLICE_NAME]: Nav.ZERO_SLICE_STATE,
   [Panel.SLICE_NAME]: Panel.ZERO_SLICE_STATE,
   [Log.SLICE_NAME]: Log.ZERO_SLICE_STATE,
@@ -70,9 +70,9 @@ export const reducer = combineReducers({
   [Arc.SLICE_NAME]: Arc.reducer,
   [Cluster.SLICE_NAME]: Cluster.reducer,
   [Color.SLICE_NAME]: Color.reducer,
-  [Haul.SLICE_NAME]: Haul.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
+  [Haul.SLICE_NAME]: Haul.reducer,
   [Nav.SLICE_NAME]: Nav.reducer,
   [Panel.SLICE_NAME]: Panel.reducer,
   [Log.SLICE_NAME]: Log.reducer,
@@ -89,9 +89,9 @@ export interface State {
   [Arc.SLICE_NAME]: Arc.SliceState;
   [Cluster.SLICE_NAME]: Cluster.SliceState;
   [Color.SLICE_NAME]: Color.SliceState;
-  [Haul.SLICE_NAME]: Haul.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
+  [Haul.SLICE_NAME]: Haul.SliceState;
   [Log.SLICE_NAME]: Log.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Project.SLICE_NAME]: Project.SliceState;
@@ -108,9 +108,9 @@ export type Action =
   | Arc.Action
   | Cluster.Action
   | Color.Action
-  | Haul.Action
   | Docs.Action
   | Drift.Action
+  | Haul.Action
   | Log.Action
   | LinePlot.Action
   | Nav.Action
