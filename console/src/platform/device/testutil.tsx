@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type ontology, type Synnax } from "@synnaxlabs/client";
+import { device, type Synnax } from "@synnaxlabs/client";
 import { Form, Menu as PMenu } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { render, type RenderResult } from "@testing-library/react";
@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Modals } from "@/platform/modals";
+import { type Tree } from "@/platform/tree";
 import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
@@ -51,10 +52,10 @@ export const createTestDevice = async (
   });
 };
 
-/** Builds the ontology resource the tree hands to device context-menu items. */
-export const createDeviceResource = (
+/** Builds the tree entry the tree hands to device context-menu items. */
+export const createDeviceEntry = (
   dev: Pick<device.Device, "key" | "name">,
-): ontology.Resource => createEntry(device.ontologyID(dev.key), dev.name);
+): Tree.Entry => createEntry(device.ontologyID(dev.key), dev.name);
 
 export interface RenderMenuItemOptions {
   /** Client backing the console wrapper; null (default) for cluster-free specs. */

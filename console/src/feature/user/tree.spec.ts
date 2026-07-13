@@ -24,23 +24,21 @@ const Item = User.TREE_ITEMS.user;
 const createUser = async () =>
   await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
 
-const userResource = (key: string, username: string) =>
+const userEntry = (key: string, username: string) =>
   createEntry(user.ontologyID(key), username);
 
-const renderMenu = async (
-  resources: ReturnType<typeof userResource>[],
-): Promise<void> => {
+const renderMenu = async (entries: ReturnType<typeof userEntry>[]): Promise<void> => {
   assertDefined(Item.ContextMenu);
   await renderTreeContextMenu(Item.ContextMenu, {
     client,
-    resources,
+    entries,
   });
 };
 
 describe("user ontology service", () => {
   it("should expose username, role, and delete actions for another user", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, u.username)]);
+    await renderMenu([userEntry(u.key, u.username)]);
     expect(await screen.findByText("Change username")).toBeTruthy();
     expect(screen.getByText("Change role")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
@@ -49,7 +47,7 @@ describe("user ontology service", () => {
 
   it("should not offer username or role changes for the logged-in user", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, "synnax")]);
+    await renderMenu([userEntry(u.key, "synnax")]);
     expect(await screen.findByText("Delete")).toBeTruthy();
     expect(screen.queryByText("Change username")).toBeNull();
     expect(screen.queryByText("Change role")).toBeNull();
@@ -57,14 +55,14 @@ describe("user ontology service", () => {
 
   it("should not offer a role change for the root user", async () => {
     const root = await client.users.retrieve({ username: "synnax" });
-    await renderMenu([userResource(root.key, uniqueName("root_alias"))]);
+    await renderMenu([userEntry(root.key, uniqueName("root_alias"))]);
     expect(await screen.findByText("Change username")).toBeTruthy();
     await waitFor(() => expect(screen.queryByText("Change role")).toBeNull());
   });
 
   it("should open the assign role modal for the selected user", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, u.username)]);
+    await renderMenu([userEntry(u.key, u.username)]);
     fireEvent.click(await screen.findByText("Change role"));
     expect(await screen.findByText(u.username)).toBeTruthy();
     expect(findModalButton("Assign")).toBeTruthy();
@@ -72,7 +70,7 @@ describe("user ontology service", () => {
 
   it("should delete the user on the cluster after confirmation", async () => {
     const u = await createUser();
-    await renderMenu([userResource(u.key, u.username)]);
+    await renderMenu([userEntry(u.key, u.username)]);
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${u.username}?`);
     fireEvent.click(findModalButton("Delete"));
@@ -87,9 +85,9 @@ describe("user ontology service", () => {
     const u = await createUser();
     const store = createTestFluxStore();
     store.users.set(u.key, u);
-    const items = Item.haulItems(userResource(u.key, u.username), store);
+    const items = Item.haulItems(userEntry(u.key, u.username), store);
     expect(items).toHaveLength(1);
     expect(items[0].key).toBe(u.key);
-    expect(Item.haulItems(userResource("missing", "missing"), store)).toHaveLength(0);
+    expect(Item.haulItems(userEntry("missing", "missing"), store)).toHaveLength(0);
   });
 });

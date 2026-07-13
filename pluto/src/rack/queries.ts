@@ -56,7 +56,7 @@ export const retrieveSingle = async ({
   client,
   query,
   store,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>): Promise<rack.Payload> => {
   const cached = store.racks.get(query.key);
   if (cached != null) {
     const status = await Status.retrieveSingle<typeof rack.statusDetailsZ>({

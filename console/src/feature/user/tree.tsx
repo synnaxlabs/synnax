@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Access, type Flux, Icon, List, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -55,7 +55,11 @@ const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
   );
 };
 
-const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
   await User.retrieveSingle({
     client,
     store: store as User.FluxSubStore,

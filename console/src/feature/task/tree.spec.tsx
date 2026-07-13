@@ -22,8 +22,8 @@ import { findLastButton } from "@/platform/modals/testutil";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
-  createExecutingHandleError,
   createEntry,
+  createExecutingHandleError,
   createSelection,
   createState,
 } from "@/platform/tree/testutil";

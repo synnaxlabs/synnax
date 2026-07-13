@@ -25,9 +25,9 @@ import { createConsoleWrapper, createTestStore, type TestStore } from "@/testuti
 
 export interface RenderTreeContextMenuOptions {
   client: Client;
-  /** Resources backing the tree state. */
-  resources: ontology.Resource[];
-  /** The selected ids; defaults to every resource. */
+  /** Entries backing the tree state. */
+  entries: Tree.Entry[];
+  /** The selected ids; defaults to every entry. */
   selected?: ontology.ID[];
   /** The tree parent of the selection; defaults to the root. */
   parentID?: ontology.ID;
@@ -43,14 +43,14 @@ export interface TreeContextMenuHandle {
 
 /**
  * Renders a domain's TreeContextMenu against the full console provider stack with a
- * live modal stack, backed by the given resources and selection. Returns the store and
+ * live modal stack, backed by the given entries and selection. Returns the store and
  * the exact props handed to the menu so specs can re-invoke handlers or inspect state.
  */
 export const renderTreeContextMenu = async (
   TreeContextMenu: Tree.ContextMenu,
   {
     client,
-    resources,
+    entries,
     selected,
     parentID,
     store,
@@ -66,10 +66,10 @@ export const renderTreeContextMenu = async (
       overrides: baseOverrides,
     }),
     selection: createSelection({
-      ids: selected ?? resources.map((r) => r.id),
+      ids: selected ?? entries.map((e) => e.id),
       parentID,
     }),
-    state: createState(resources, stateOverrides),
+    state: createState(entries, stateOverrides),
   };
   const { wrapper } = await createConsoleWrapper({ client, store: resolvedStore });
   render(

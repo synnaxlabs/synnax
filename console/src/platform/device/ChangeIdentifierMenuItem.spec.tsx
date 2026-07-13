@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Device } from "@/platform/device";
 import {
-  createDeviceResource,
+  createDeviceEntry,
   createTestDevice,
   renderMenuItem,
 } from "@/platform/device/testutil";
@@ -29,11 +29,11 @@ const runHandler: Status.ErrorHandler = (funcOrExc) => {
 };
 
 const renderItem = async (devices: device.Device[], itemClient: Synnax | null) => {
-  const resources = devices.map(createDeviceResource);
+  const entries = devices.map(createDeviceEntry);
   return await renderMenuItem(
     <Device.ChangeIdentifierMenuItem
       icon="Hardware"
-      selection={createSelection({ ids: resources.map((r) => r.id) })}
+      selection={createSelection({ ids: entries.map((r) => r.id) })}
       handleError={runHandler}
     />,
     { client: itemClient },
@@ -50,17 +50,17 @@ describe("ChangeIdentifierMenuItem", () => {
   it("should render nothing when more than one device is selected", async () => {
     const a = await createTestDevice(client, { configured: true });
     const b = await createTestDevice(client, { configured: true });
-    const resources = [a, b].map(createDeviceResource);
+    const entries = [a, b].map(createDeviceEntry);
     await renderMenuItem(
       <>
         <Device.ChangeIdentifierMenuItem
           icon="Hardware"
-          selection={createSelection({ ids: [resources[0].id] })}
+          selection={createSelection({ ids: [entries[0].id] })}
           handleError={runHandler}
         />
         <Device.ChangeIdentifierMenuItem
           icon="Hardware"
-          selection={createSelection({ ids: resources.map((r) => r.id) })}
+          selection={createSelection({ ids: entries.map((r) => r.id) })}
           handleError={runHandler}
         />
       </>,
@@ -72,14 +72,11 @@ describe("ChangeIdentifierMenuItem", () => {
 
   it("should render nothing when the device is not configured", async () => {
     const dev = await createTestDevice(client, { configured: false });
-    const resource = createDeviceResource(dev);
-    const selection = createSelection({ ids: [resource.id] });
+    const entry = createDeviceEntry(dev);
+    const selection = createSelection({ ids: [entry.id] });
     await renderMenuItem(
       <>
-        <Device.ConfigureMenuItem
-          onConfigure={() => {}}
-          selection={selection}
-        />
+        <Device.ConfigureMenuItem onConfigure={() => {}} selection={selection} />
         <Device.ChangeIdentifierMenuItem
           icon="Hardware"
           selection={selection}

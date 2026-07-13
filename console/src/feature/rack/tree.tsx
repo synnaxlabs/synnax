@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  arc,
-  type ontology,
-  rack,
-  type Synnax as Client,
-  task,
-} from "@synnaxlabs/client";
+import { arc, rack, task } from "@synnaxlabs/client";
 import { Access, Icon, List, Menu, Rack, Text, Tree as PTree } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
@@ -63,7 +57,11 @@ const useDelete = Tree.createUseDelete({
   convertKey: Number,
 });
 
-const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
   await Rack.retrieveSingle({
     client,
     store: store as Rack.FluxSubStore,

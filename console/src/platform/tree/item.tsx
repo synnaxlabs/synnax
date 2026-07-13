@@ -8,7 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { type Flux, type Haul, Icon, List, Text, Tree as Base } from "@synnaxlabs/pluto";
+import {
+  type Flux,
+  type Haul,
+  Icon,
+  List,
+  Text,
+  Tree as Base,
+} from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { type ContextMenu, type Entry } from "@/platform/tree/types";

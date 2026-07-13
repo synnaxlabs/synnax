@@ -13,7 +13,6 @@ import {
   type ontology,
   project,
   schematic,
-  type Synnax as Client,
   table,
 } from "@synnaxlabs/client";
 import {
@@ -65,7 +64,11 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
-const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
   await Base.retrieveSingle({
     client,
     store: store as Base.FluxSubStore,

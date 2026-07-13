@@ -63,11 +63,11 @@ export const {
   useRetrieveObservable,
   useEnsureRetrieved,
 } = Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
-    name: RESOURCE_NAME,
-    retrieve: retrieveSingle,
-    mountListeners: ({ store, query: { key }, onChange }) =>
-      store.schematics.onSet(onChange, key),
-  });
+  name: RESOURCE_NAME,
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, query: { key }, onChange }) =>
+    store.schematics.onSet(onChange, key),
+});
 
 export type RetrieveMultipleQuery = schematic.RetrieveMultipleParams;
 

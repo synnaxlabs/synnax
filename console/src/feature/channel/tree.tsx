@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  channel,
-  isCalculated,
-  ontology,
-  ranger,
-  status,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
+import { channel, isCalculated, ontology, ranger, status } from "@synnaxlabs/client";
 import {
   Access,
   Channel as PChannel,
@@ -77,10 +70,7 @@ const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   );
 };
 
-const haulItems = (
-  { name, id: otgID }: Tree.Entry,
-  store: Flux.Store,
-): Haul.Item[] => {
+const haulItems = ({ name, id: otgID }: Tree.Entry, store: Flux.Store): Haul.Item[] => {
   const t = telem.sourcePipeline("string", {
     connections: [
       {
@@ -167,7 +157,11 @@ export const useDeleteAlias = ({
   );
 };
 
-const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
   (
     await PChannel.retrieveSingle({
       client,

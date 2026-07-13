@@ -31,8 +31,7 @@ const createLog = async () => {
   return await client.logs.create(proj.key, { name: uniqueName("log") });
 };
 
-const logResource = (key: string, name: string) =>
-  createEntry(log.ontologyID(key), name);
+const logEntry = (key: string, name: string) => createEntry(log.ontologyID(key), name);
 
 describe("log ontology service", () => {
   it("should expose rename, group, delete, export, and link actions", async () => {
@@ -40,7 +39,7 @@ describe("log ontology service", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [logResource(l.key, l.name)],
+      entries: [logEntry(l.key, l.name)],
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
@@ -55,7 +54,7 @@ describe("log ontology service", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [logResource(l.key, l.name)],
+      entries: [logEntry(l.key, l.name)],
       baseOverrides: { removeLayout },
     });
     fireEvent.click(await screen.findByText("Delete"));
@@ -87,8 +86,8 @@ describe("log ontology service", () => {
   });
 
   it("should haul a mosaic tab creation item", () => {
-    const res = logResource("abc", "l");
-    const items = Item.haulItems(res, createTestFluxStore());
+    const entry = logEntry("abc", "l");
+    const items = Item.haulItems(entry, createTestFluxStore());
     expect(items).toHaveLength(1);
   });
 });

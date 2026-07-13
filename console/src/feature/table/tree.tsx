@@ -54,7 +54,11 @@ const useRename = Tree.createUseRename({
   },
 });
 
-const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
   await Base.retrieveSingle({
     client,
     store: store as Base.FluxSubStore,

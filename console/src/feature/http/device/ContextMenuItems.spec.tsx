@@ -13,7 +13,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
+import { createDeviceEntry, createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { type Tree } from "@/platform/tree";
 import {
@@ -28,12 +28,12 @@ const client = createTestClient();
 
 const renderContextMenuItems = async (configured: boolean) => {
   const dev = await createTestDevice(client, { configured });
-  const resource = createDeviceResource(dev);
+  const entry = createDeviceEntry(dev);
   const { wrapper, store } = await createConsoleWrapper({ client });
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
-    selection: createSelection({ ids: [resource.id] }),
-    state: createState([resource]),
+    selection: createSelection({ ids: [entry.id] }),
+    state: createState([entry]),
   };
   render(
     <>
@@ -44,7 +44,7 @@ const renderContextMenuItems = async (configured: boolean) => {
     </>,
     { wrapper },
   );
-  return { store, deviceKey: resource.id.key };
+  return { store, deviceKey: entry.id.key };
 };
 
 describe("HTTP device ContextMenuItems", () => {

@@ -118,8 +118,8 @@ describe("Tree.Tree", () => {
     const item = await screen.findByText(childName);
     fireEvent.doubleClick(item);
     await waitFor(() => expect(onSelect).toHaveBeenCalled());
-    const [resource] = onSelect.mock.calls[0];
-    expect(resource.name).toBe(childName);
+    const [entry] = onSelect.mock.calls[0];
+    expect(entry.name).toBe(childName);
   });
 
   it("should move a resource to a new parent when dragged onto it", async () => {

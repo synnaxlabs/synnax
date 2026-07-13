@@ -13,7 +13,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { LabJack } from "@/feature/labjack";
-import { createDeviceResource, createTestDevice } from "@/platform/device/testutil";
+import { createDeviceEntry, createTestDevice } from "@/platform/device/testutil";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
@@ -28,11 +28,11 @@ const client = createTestClient();
 const renderItems = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
   const dev = await createTestDevice(client, { configured: true });
-  const resource = createDeviceResource(dev);
+  const entry = createDeviceEntry(dev);
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
-    selection: createSelection({ ids: [resource.id] }),
-    state: createState([resource]),
+    selection: createSelection({ ids: [entry.id] }),
+    state: createState([entry]),
   };
   render(
     <PMenu.Menu>
@@ -40,7 +40,7 @@ const renderItems = async () => {
     </PMenu.Menu>,
     { wrapper },
   );
-  return { store, key: resource.id.key };
+  return { store, key: entry.id.key };
 };
 
 describe("LabJack device ContextMenuItems", () => {

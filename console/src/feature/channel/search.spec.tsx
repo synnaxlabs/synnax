@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel as channelClient, DataType, type ontology } from "@synnaxlabs/client";
+import { channel as channelClient, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Select } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 import { Channel } from "@/feature/channel";
 import { placeLayout } from "@/platform/layout/testutil";
 import { LinePlot } from "@/platform/lineplot";
+import { type Tree } from "@/platform/tree";
 import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
@@ -34,19 +35,19 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
 const SearchListItem = Channel.SEARCH_LIST_ITEMS.channel;
 if (SearchListItem == null) throw new Error("channel SearchListItem is not defined");
 
-const renderSearchItems = async (resources: ontology.Resource[]) => {
+const renderSearchItems = async (entries: Tree.Entry[]) => {
   const Harness = (): ReactElement => {
-    const staticProps = List.useStaticData<string, ontology.Resource>({
-      data: resources,
+    const staticProps = List.useStaticData<string, Tree.Entry>({
+      data: entries,
     });
     return (
-      <Select.Frame<string, ontology.Resource>
+      <Select.Frame<string, Tree.Entry>
         {...staticProps}
         value={undefined}
         onChange={() => {}}
       >
-        {resources.map((resource, i) => (
-          <SearchListItem key={resource.key} itemKey={resource.key} index={i} />
+        {entries.map((entry, i) => (
+          <SearchListItem key={entry.key} itemKey={entry.key} index={i} />
         ))}
       </Select.Frame>
     );

@@ -46,7 +46,11 @@ const useRename = Tree.createUseRename({
   },
 });
 
-const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
   await Log.retrieveSingle({
     client,
     store: store as Log.FluxSubStore,
@@ -65,7 +69,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const firstID = ids[0];
   const isSingle = ids.length === 1;
   return (
     <ContextMenu.Menu>

@@ -26,14 +26,14 @@ const client = createTestClient();
 
 const renderCopyItem = async (
   ids: ontology.ID[],
-  resources: ontology.Resource[],
+  entries: Tree.Entry[],
   retrieveProperties: Tree.CopyPropertiesContextMenuItemProps["retrieveProperties"],
 ): Promise<void> => {
   const store = await createTestStore();
   const props: Tree.CopyPropertiesContextMenuItemProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids }),
-    state: createState(resources),
+    state: createState(entries),
     retrieveProperties,
   };
   await renderWithConsole(
@@ -47,7 +47,7 @@ const renderCopyItem = async (
 describe("CopyPropertiesContextMenuItem", () => {
   const chID = ontology.idZ.parse("channel:1");
   const properties = { rate: 25, virtual: false };
-  const resource = createEntry(chID, "my_channel");
+  const entry = createEntry(chID, "my_channel");
   let writeText: Mock;
 
   beforeEach(() => {
@@ -56,7 +56,7 @@ describe("CopyPropertiesContextMenuItem", () => {
 
   it("should copy the retrieved properties as JSON when clicked", async () => {
     const retrieveProperties = vi.fn(async () => properties);
-    await renderCopyItem([chID], [resource], retrieveProperties);
+    await renderCopyItem([chID], [entry], retrieveProperties);
     fireEvent.click(screen.getByText("Copy properties"));
     await waitFor(() =>
       expect(writeText).toHaveBeenCalledWith(JSON.stringify(properties)),
@@ -66,10 +66,10 @@ describe("CopyPropertiesContextMenuItem", () => {
     );
   });
 
-  it("should render nothing when more than one resource is selected", async () => {
+  it("should render nothing when more than one entry is selected", async () => {
     const otherID = ontology.idZ.parse("channel:2");
     const other = createEntry(otherID, "other_channel");
-    await renderCopyItem([chID, otherID], [resource, other], vi.fn());
+    await renderCopyItem([chID, otherID], [entry, other], vi.fn());
     expect(screen.queryByText("Copy properties")).toBeNull();
   });
 

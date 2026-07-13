@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
-import { createDeviceResource } from "@/platform/device/testutil";
+import { createDeviceEntry } from "@/platform/device/testutil";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
@@ -49,13 +49,11 @@ const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const loaders = keys.map((k) => <SlaveLoader key={k} deviceKey={k} />);
   const result = render(<div>{loaders}</div>, { wrapper });
   for (const k of keys) await screen.findByText(`loaded:${k}`);
-  const resources = devices.map((d) =>
-    createDeviceResource(d),
-  );
+  const entries = devices.map((d) => createDeviceEntry(d));
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
-    selection: createSelection({ ids: resources.map((r) => r.id) }),
-    state: createState(resources),
+    selection: createSelection({ ids: entries.map((r) => r.id) }),
+    state: createState(entries),
   };
   result.rerender(
     <>

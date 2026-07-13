@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, project } from "@synnaxlabs/client";
+import { project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List, Select } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -15,6 +15,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
+import { type Tree } from "@/platform/tree";
 import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
@@ -27,21 +28,21 @@ describe("project/search", () => {
       name: uniqueName("project"),
       layout: {},
     });
-    const resource = createEntry(project.ontologyID(p.key), p.name);
+    const entry = createEntry(project.ontologyID(p.key), p.name);
     const SearchListItem = Project.SEARCH_LIST_ITEMS.project;
     if (SearchListItem == null)
       throw new Error("project SearchListItem is not defined");
     const Harness = (): ReactElement => {
-      const staticProps = List.useStaticData<string, ontology.Resource>({
-        data: [resource],
+      const staticProps = List.useStaticData<string, Tree.Entry>({
+        data: [entry],
       });
       return (
-        <Select.Frame<string, ontology.Resource>
+        <Select.Frame<string, Tree.Entry>
           {...staticProps}
           value={undefined}
           onChange={() => {}}
         >
-          <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+          <SearchListItem key={entry.key} itemKey={entry.key} index={0} />
         </Select.Frame>
       );
     };

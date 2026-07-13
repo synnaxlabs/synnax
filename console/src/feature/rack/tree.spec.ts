@@ -40,14 +40,14 @@ const createNIRackWithScanner = async () => {
   return { rack: r, scanTask };
 };
 
-const rackResource = (key: number, name: string) =>
+const rackEntry = (key: number, name: string) =>
   createEntry(rack.ontologyID(key), name);
 
 const renderMenu = async (racks: { key: number; name: string }[]) => {
   assertDefined(Item.ContextMenu);
   return await renderTreeContextMenu(Item.ContextMenu, {
     client,
-    resources: racks.map((r) => rackResource(r.key, r.name)),
+    entries: racks.map((r) => rackEntry(r.key, r.name)),
   });
 };
 

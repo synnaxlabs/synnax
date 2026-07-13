@@ -9,7 +9,7 @@
 
 import "@/feature/device/tree.css";
 
-import { device, type ontology, status, type Synnax as Client } from "@synnaxlabs/client";
+import { device, status } from "@synnaxlabs/client";
 import {
   Access,
   Device,
@@ -41,7 +41,11 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
-const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
   await Device.retrieveSingle({
     client,
     store: store as Device.FluxSubStore,

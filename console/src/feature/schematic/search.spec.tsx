@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { List, Select } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -15,6 +15,7 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
+import { type Tree } from "@/platform/tree";
 import { createEntry } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { renderWithConsole, uniqueName } from "@/testutil";
@@ -23,21 +24,21 @@ describe("schematic/search", () => {
   it("places the schematic's layout when the search result is selected", async () => {
     const key = uuid.create();
     const name = uniqueName("schematic");
-    const resource = createEntry(schematic.ontologyID(key), name);
+    const entry = createEntry(schematic.ontologyID(key), name);
     const SearchListItem = Schematic.SEARCH_LIST_ITEMS.schematic;
     if (SearchListItem == null)
       throw new Error("schematic SearchListItem is not defined");
     const Harness = (): ReactElement => {
-      const staticProps = List.useStaticData<string, ontology.Resource>({
-        data: [resource],
+      const staticProps = List.useStaticData<string, Tree.Entry>({
+        data: [entry],
       });
       return (
-        <Select.Frame<string, ontology.Resource>
+        <Select.Frame<string, Tree.Entry>
           {...staticProps}
           value={undefined}
           onChange={() => {}}
         >
-          <SearchListItem key={resource.key} itemKey={resource.key} index={0} />
+          <SearchListItem key={entry.key} itemKey={entry.key} index={0} />
         </Select.Frame>
       );
     };

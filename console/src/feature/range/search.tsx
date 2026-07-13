@@ -14,6 +14,7 @@ import { Layout } from "@/platform/layout";
 import { Palette } from "@/platform/palette";
 import { Range } from "@/platform/range";
 import { type Search } from "@/platform/search";
+import { type Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const SearchListItem: Search.ListItem = (props) => {

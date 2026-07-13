@@ -12,7 +12,10 @@ import { Access, Device, Icon, Menu } from "@synnaxlabs/pluto";
 
 import { type Tree } from "@/platform/tree";
 
-export interface ConfigureMenuItemProps extends Pick<Tree.ContextMenuProps, "selection"> {
+export interface ConfigureMenuItemProps extends Pick<
+  Tree.ContextMenuProps,
+  "selection"
+> {
   onConfigure: (deviceKey: device.Key) => void;
 }
 

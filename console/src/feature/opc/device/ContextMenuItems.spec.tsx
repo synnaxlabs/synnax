@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
-import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
+import { createDeviceEntry, renderMenuItem } from "@/platform/device/testutil";
 import {
   createBaseProps,
   createSelection,
@@ -27,12 +27,12 @@ const client = createTestClient();
 const renderItems = async () => {
   const dev = await createOPCDevice(client);
   const propsStore = await createTestStore();
-  const resource = createDeviceResource(dev);
+  const entry = createDeviceEntry(dev);
   const handle = await renderMenuItem(
     <OPC.Device.ContextMenuItems
       {...createBaseProps({ client, store: propsStore })}
-      selection={createSelection({ ids: [resource.id] })}
-      state={createState([resource])}
+      selection={createSelection({ ids: [entry.id] })}
+      state={createState([entry])}
     />,
     { client },
   );

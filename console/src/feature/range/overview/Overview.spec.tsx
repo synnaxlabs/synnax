@@ -24,6 +24,7 @@ import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { Range as CommonRange } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import { type Tree } from "@/platform/tree";
 import {
   createConsoleWrapper,
   getIconButton,
@@ -120,8 +121,8 @@ describe("range/overview/Overview", () => {
     const item = await screen.findByText((await client.ontology.retrieve(snapID)).name);
     fireEvent.click(item);
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
-    const [resource] = onSnapshotClick.mock.calls[0] as [ontology.Resource];
-    expect(resource.id.key).toBe(snapID.key);
+    const [entry] = onSnapshotClick.mock.calls[0] as [Tree.Entry];
+    expect(entry.id.key).toBe(snapID.key);
   });
 
   it("deletes a snapshot through its service after confirmation", async () => {

@@ -14,7 +14,7 @@ import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import {
-  createDeviceResource,
+  createDeviceEntry,
   createTestDevice,
   renderMenuItem,
 } from "@/platform/device/testutil";
@@ -27,11 +27,11 @@ const renderItem = async (
   itemClient: Synnax | null,
 ): Promise<Mock> => {
   const onConfigure = vi.fn();
-  const resources = devices.map(createDeviceResource);
+  const entries = devices.map(createDeviceEntry);
   await renderMenuItem(
     <Device.ConfigureMenuItem
       onConfigure={onConfigure}
-      selection={createSelection({ ids: resources.map((r) => r.id) })}
+      selection={createSelection({ ids: entries.map((r) => r.id) })}
     />,
     { client: itemClient },
   );
@@ -48,16 +48,16 @@ describe("ConfigureMenuItem", () => {
   it("should render nothing when more than one device is selected", async () => {
     const a = await createTestDevice(client, { configured: false });
     const b = await createTestDevice(client, { configured: false });
-    const resources = [a, b].map(createDeviceResource);
+    const entries = [a, b].map(createDeviceEntry);
     await renderMenuItem(
       <>
         <Device.ConfigureMenuItem
           onConfigure={vi.fn()}
-          selection={createSelection({ ids: [resources[0].id] })}
+          selection={createSelection({ ids: [entries[0].id] })}
         />
         <Device.ConfigureMenuItem
           onConfigure={vi.fn()}
-          selection={createSelection({ ids: resources.map((r) => r.id) })}
+          selection={createSelection({ ids: entries.map((r) => r.id) })}
         />
       </>,
       { client },
@@ -68,8 +68,8 @@ describe("ConfigureMenuItem", () => {
 
   it("should render nothing when the device is already configured", async () => {
     const dev = await createTestDevice(client, { configured: true });
-    const resource = createDeviceResource(dev);
-    const selection = createSelection({ ids: [resource.id] });
+    const entry = createDeviceEntry(dev);
+    const selection = createSelection({ ids: [entry.id] });
     await renderMenuItem(
       <>
         <Device.ChangeIdentifierMenuItem
@@ -77,10 +77,7 @@ describe("ConfigureMenuItem", () => {
           selection={selection}
           handleError={() => {}}
         />
-        <Device.ConfigureMenuItem
-          onConfigure={vi.fn()}
-          selection={selection}
-        />
+        <Device.ConfigureMenuItem onConfigure={vi.fn()} selection={selection} />
       </>,
       { client },
     );

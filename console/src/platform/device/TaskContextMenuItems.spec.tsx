@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import {
-  createDeviceResource,
+  createDeviceEntry,
   createTestDevice,
   renderMenuItem,
 } from "@/platform/device/testutil";
@@ -40,8 +40,8 @@ const configs: Device.TaskContextMenuItemConfig[] = [
 const setup = async (configured: boolean, itemClient: Synnax | null = client) => {
   const onConfigure = vi.fn();
   const dev = await createTestDevice(client, { configured });
-  const resource = createDeviceResource(dev);
-  const selection = createSelection({ ids: [resource.id] });
+  const entry = createDeviceEntry(dev);
+  const selection = createSelection({ ids: [entry.id] });
   const { store } = await renderMenuItem(
     <>
       <Device.ChangeIdentifierMenuItem

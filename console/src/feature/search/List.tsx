@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
 import { Component, Icon, List as Base, Ontology, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Palette } from "@/platform/palette";
 import { type Search } from "@/platform/search";
+import { type Tree } from "@/platform/tree";
 
 const emptyContent = (
   <Text.Text status="disabled" center level="h4">

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { lineplot, ontology } from "@synnaxlabs/client";
 import {
   Access,
   Icon,
@@ -55,7 +55,11 @@ const useRename = Tree.createUseRename({
   },
 });
 
-const retrieveProperties = async ({ client, store, id }: Tree.RetrievePropertiesParams) =>
+const retrieveProperties = async ({
+  client,
+  store,
+  id,
+}: Tree.RetrievePropertiesParams) =>
   await Base.retrieveSingle({
     client,
     store: store as Base.FluxSubStore,

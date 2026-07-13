@@ -25,14 +25,14 @@ const Item = Group.TREE_ITEMS.group;
 const createGroup = async (parent: ontology.ID) =>
   await client.groups.create({ parent, name: uniqueName("group") });
 
-const groupResource = (key: string, name: string) =>
+const groupEntry = (key: string, name: string) =>
   createEntry(group.ontologyID(key), name);
 
 describe("group ontology service", () => {
   it("should always accept drops and haul the group's own id", () => {
     expect(Item.canDrop({ source: { key: "s", type: "t" }, items: [] })).toBe(true);
-    const res = groupResource("g1", "g");
-    expect(Item.haulItems(res, createTestFluxStore())).toEqual([res.id]);
+    const entry = groupEntry("g1", "g");
+    expect(Item.haulItems(entry, createTestFluxStore())).toEqual([entry.id]);
   });
 
   it("should hide rename and ungroup for a zero-depth selection", async () => {
@@ -40,7 +40,7 @@ describe("group ontology service", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [groupResource(g.key, g.name)],
+      entries: [groupEntry(g.key, g.name)],
     });
     expect(await screen.findByText("New group")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
@@ -65,15 +65,15 @@ describe("group ontology service", () => {
       },
     ];
     const shape = PTree.flatten({ nodes, expanded: [parentKey, childKey] });
-    const resources = [
-      groupResource(parent.key, parent.name),
-      groupResource(child.key, child.name),
-      groupResource(grandchild.key, grandchild.name),
+    const entries = [
+      groupEntry(parent.key, parent.name),
+      groupEntry(child.key, child.name),
+      groupEntry(grandchild.key, grandchild.name),
     ];
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources,
+      entries,
       selected: [childID],
       parentID,
       stateOverrides: { nodes, shape },
@@ -101,10 +101,7 @@ describe("group ontology service", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [
-        groupResource(parent.key, parent.name),
-        groupResource(child.key, child.name),
-      ],
+      entries: [groupEntry(parent.key, parent.name), groupEntry(child.key, child.name)],
       selected: [childID],
       stateOverrides: { nodes, shape },
     });

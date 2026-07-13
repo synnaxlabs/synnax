@@ -31,7 +31,7 @@ const Item = Project.TREE_ITEMS.project;
 const createProject = async () =>
   await client.projects.create({ name: uniqueName("project"), layout: {} });
 
-const projectResource = (key: string, name: string) =>
+const projectEntry = (key: string, name: string) =>
   createEntry(project.ontologyID(key), name);
 
 // The context menu's hooks require an active project, matching the Project.Guard the
@@ -49,7 +49,7 @@ describe("project ontology service", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [projectResource(p.key, p.name)],
+      entries: [projectEntry(p.key, p.name)],
       store: await createStoreWithActive(p.key),
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
@@ -68,7 +68,7 @@ describe("project ontology service", () => {
     assertDefined(Item.ContextMenu);
     const { store } = await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [projectResource(p.key, p.name)],
+      entries: [projectEntry(p.key, p.name)],
       store: await createStoreWithActive(p.key),
     });
     fireEvent.click(await screen.findByText("Create log"));
@@ -84,7 +84,7 @@ describe("project ontology service", () => {
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
-      resources: [projectResource(p.key, p.name)],
+      entries: [projectEntry(p.key, p.name)],
       store,
     });
     fireEvent.click(await screen.findByText("Delete"));

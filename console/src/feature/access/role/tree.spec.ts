@@ -26,7 +26,7 @@ const PolicyItem = Access.Policy.TREE_ITEMS.policy;
 const createRole = async () =>
   await client.access.roles.create({ name: uniqueName("role") });
 
-const roleResource = (key: string, name: string) =>
+const roleEntry = (key: string, name: string) =>
   createEntry(access.role.ontologyID(key), name);
 
 describe("role ontology service", () => {
@@ -35,7 +35,7 @@ describe("role ontology service", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name)],
+      entries: [roleEntry(role.key, role.name)],
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
@@ -48,7 +48,7 @@ describe("role ontology service", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name)],
+      entries: [roleEntry(role.key, role.name)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     await waitFor(() => expect(screen.queryByText("Rename")).toBeNull());
@@ -60,7 +60,7 @@ describe("role ontology service", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name)],
+      entries: [roleEntry(role.key, role.name)],
     });
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${role.name}?`);
@@ -94,9 +94,7 @@ describe("role ontology service", () => {
 describe("policy ontology service", () => {
   it("should stay hidden in the tree and declare no children", () => {
     expect(PolicyItem.type).toBe("policy");
-    expect(
-      PolicyItem.visible?.(access.policy.ontologyID("p1")),
-    ).toBe(false);
+    expect(PolicyItem.visible?.(access.policy.ontologyID("p1"))).toBe(false);
     expect(PolicyItem.hasChildren).toBe(false);
   });
 });

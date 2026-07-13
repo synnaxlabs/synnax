@@ -157,9 +157,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
-            onClick={() =>
-              handleLink({ name: getName(ids[0]), ontologyID: ids[0] })
-            }
+            onClick={() => handleLink({ name: getName(ids[0]), ontologyID: ids[0] })}
           />
           <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />
           <Menu.Divider />
