@@ -52,9 +52,9 @@ const (
 	// fileNameParam carries the name of the file the envelope was read from, used as
 	// the envelope name when the body has no `name` field.
 	fileNameParam = "file_name"
-	// parentParam carries the string form of the ontology ID to parent the imported
-	// resource under.
-	parentParam = "parent"
+	// projectParam carries the string form of the project's ontology ID to parent the
+	// imported resource under.
+	projectParam = "project"
 )
 
 func (s *Service) Import(
@@ -94,9 +94,9 @@ func (s *Service) Import(
 	return id, nil
 }
 
-// parseImportOptions extracts the optional file_name and parent query parameters from
-// the request's freighter params. An empty or absent parent yields a zero Parent;
-// a malformed parent ID returns a validation error.
+// parseImportOptions extracts the optional file_name and project query parameters from
+// the request's freighter params. An empty or absent project yields a zero Parent;
+// a malformed project ID returns a validation error.
 func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 	var (
 		opts   imex.ImportOptions
@@ -107,7 +107,7 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			opts.FileName = s
 		}
 	}
-	if v, ok := params.Get(parentParam); ok {
+	if v, ok := params.Get(projectParam); ok {
 		if s, ok := v.(string); ok && s != "" {
 			parent, err := ontology.ParseID(s)
 			if err != nil {

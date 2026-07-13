@@ -96,7 +96,7 @@ export class Client {
         encoding,
         params: {
           file_name: fileName,
-          parent: ontology.idToString(project.ontologyID(projectKey)),
+          project: ontology.idToString(project.ontologyID(projectKey)),
         },
       },
       ontology.idZ,

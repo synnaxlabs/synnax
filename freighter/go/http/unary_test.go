@@ -312,17 +312,17 @@ var _ = Describe("Unary", func() {
 		}
 
 		It("should expose freighterctx-prefixed query params with the prefix stripped", func(ctx context.Context) {
-			bindParamEcho("file_name", "parent")
+			bindParamEcho("file_name", "project")
 			res := post(
 				ctx,
-				"freighterctxfile_name=Metrics%20Log.json&freighterctxparent=project:abc",
+				"freighterctxfile_name=Metrics%20Log.json&freighterctxproject=project:abc",
 			)
 			Expect(res.Message).To(Equal("Metrics Log.json|project:abc"))
 		})
 
 		It("should not expose unprefixed query params to the handler", func(ctx context.Context) {
-			bindParamEcho("file_name", "parent")
-			res := post(ctx, "file_name=Metrics%20Log.json&parent=project:abc")
+			bindParamEcho("file_name", "project")
+			res := post(ctx, "file_name=Metrics%20Log.json&project=project:abc")
 			Expect(res.Message).To(Equal("|"))
 		})
 	})

@@ -46,7 +46,7 @@ class Client:
         :returns: the new resource's ontology ID.
         """
         params = (
-            {"parent": str(project_ontology_id(project))}
+            {"project": str(project_ontology_id(project))}
             if project is not None
             else None
         )

@@ -83,8 +83,8 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 
 // NewErrUnsupportedParent constructs a validation error for an Importer that was handed
 // a parent it does not support — e.g. a log import parented under anything other than a
-// project. The returned error is path-scoped to the "parent" field so API responses can
-// present it as a structured field error.
+// project. The returned error is path-scoped to the "project" field so API responses
+// can present it as a structured field error.
 func NewErrUnsupportedParent(typ string, parent ontology.ID, supported ontology.ResourceType) error {
 	return validate.PathedError(
 		errors.Wrapf(
@@ -92,7 +92,7 @@ func NewErrUnsupportedParent(typ string, parent ontology.ID, supported ontology.
 			"a %s can only be imported under a %s, got parent of type %q",
 			typ, supported, parent.Type,
 		),
-		"parent",
+		"project",
 	)
 }
 

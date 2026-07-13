@@ -134,10 +134,10 @@ describe("http", () => {
     test("params reach the server as request params", async () => {
       const response = await client.upload(
         "/paramEcho",
-        JSON.stringify({ message: "file_name,parent" }),
+        JSON.stringify({ message: "file_name,project" }),
         {
           encoding: "JSON",
-          params: { file_name: "My Log.json", parent: "project:abc" },
+          params: { file_name: "My Log.json", project: "project:abc" },
         },
         messageZ,
       );
@@ -147,7 +147,7 @@ describe("http", () => {
     test("the server sees no request params when params are omitted", async () => {
       const response = await client.upload(
         "/paramEcho",
-        JSON.stringify({ message: "file_name,parent" }),
+        JSON.stringify({ message: "file_name,project" }),
         { encoding: "JSON" },
         messageZ,
       );
@@ -186,11 +186,11 @@ describe("http", () => {
     test("params reach the server as request params", async () => {
       const stream = await client.download(
         "/paramEcho",
-        { message: "file_name,parent" },
+        { message: "file_name,project" },
         messageZ,
         {
           encoding: "JSON",
-          params: { file_name: "My Log.json", parent: "project:abc" },
+          params: { file_name: "My Log.json", project: "project:abc" },
         },
       );
       const decoded = await new Response(stream).json();
@@ -200,7 +200,7 @@ describe("http", () => {
     test("the server sees no request params when params are omitted", async () => {
       const stream = await client.download(
         "/paramEcho",
-        { message: "file_name,parent" },
+        { message: "file_name,project" },
         messageZ,
         { encoding: "JSON" },
       );

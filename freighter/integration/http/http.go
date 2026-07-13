@@ -12,6 +12,7 @@ package http
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -108,8 +109,10 @@ func unaryEcho(_ context.Context, req Message) (Message, error) {
 }
 
 // unaryParamEcho echoes the request params named in req.Message (comma-separated)
-// back joined by "|", with absent params echoed as empty strings. Lets clients verify
-// which out-of-band request params reached the handler and with what values.
+// back sorted and joined by "|", with absent params echoed as empty strings. Values
+// are sorted so the response is deterministic regardless of the order the keys are
+// requested in. Lets clients verify which out-of-band request params reached the
+// handler and with what values.
 func unaryParamEcho(ctx context.Context, req Message) (Message, error) {
 	keys := strings.Split(req.Message, ",")
 	values := make([]string, len(keys))
@@ -118,6 +121,7 @@ func unaryParamEcho(ctx context.Context, req Message) (Message, error) {
 			values[i], _ = v.(string)
 		}
 	}
+	slices.Sort(values)
 	return Message{Message: strings.Join(values, "|")}, nil
 }
 

@@ -84,7 +84,7 @@ func (s *Service) Import(
 
 // parentProjectKey resolves the import parent to a project key. A zero parent resolves
 // to uuid.Nil (no project); any parent that is not a project is rejected with a
-// validation error scoped to the "parent" field.
+// validation error scoped to the "project" field.
 func parentProjectKey(parent ontology.ID) (project.Key, error) {
 	if parent.IsZero() {
 		return uuid.Nil, nil
