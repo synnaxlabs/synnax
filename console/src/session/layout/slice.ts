@@ -9,7 +9,6 @@
 
 import { createSlice, current, type PayloadAction } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, Haul } from "@synnaxlabs/pluto";
 import { deep, type direction, id, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -174,13 +173,11 @@ export const MAIN_LAYOUT: State = {
 export const sliceStateZ = z.object({
   version: z.literal(0).default(0),
   layouts: z.record(z.string(), stateZ).default({ [MAIN_LAYOUT_KEY]: MAIN_LAYOUT }),
-  hauling: Haul.draggingStateZ.default(Haul.ZERO_DRAGGING_STATE),
   mosaics: z
     .record(z.string(), mosaicStateZ)
     .default({ [MAIN_LAYOUT_KEY]: ZERO_MOSAIC_STATE }),
   altKeyToKey: z.record(z.string(), z.string()).default({}),
   keyToAltKey: z.record(z.string(), z.string()).default({}),
-  colorContext: Color.contextStateZ.default(Color.ZERO_CONTEXT_STATE),
 });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 
@@ -200,10 +197,6 @@ export const SLICE_NAME = "layout";
 export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
-
-export const PERSIST_EXCLUDE = ["hauling"].map(
-  (key) => `${SLICE_NAME}.${key}`,
-) as Array<deep.Key<StoreState>>;
 
 /** Signature for the placeLayout action. */
 export type PlacePayload = State;
@@ -257,8 +250,6 @@ interface SetUnsavedChangesPayload {
   unsavedChanges: boolean;
 }
 
-interface SetHaulingPayload extends Haul.DraggingState {}
-
 export interface SetProjectPayload {
   slice: SliceState;
 }
@@ -266,10 +257,6 @@ export interface SetProjectPayload {
 interface SetArgsPayload<T = unknown> {
   key: string;
   args: T;
-}
-
-export interface SetColorContextPayload {
-  state: Color.ContextState;
 }
 
 const purgeEmptyMosaics = (state: SliceState) => {
@@ -388,9 +375,6 @@ export const { actions, reducer } = createSlice({
       state.layouts[key] = layout;
       if (layout.type !== MOSAIC_WINDOW_TYPE) purgeEmptyMosaics(state);
     },
-    setHauled: (state, { payload }: PayloadAction<SetHaulingPayload>) => {
-      state.hauling = payload;
-    },
     remove: (state, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       keys.forEach((contentKey) => {
         const layout = select(state, contentKey);
@@ -504,7 +488,6 @@ export const { actions, reducer } = createSlice({
           ...slice.layouts,
           main: MAIN_LAYOUT,
         },
-        hauling: s.hauling,
       });
       reconcileMosaicLayouts(next);
       return next;
@@ -515,7 +498,6 @@ export const { actions, reducer } = createSlice({
         ...layoutsToPreserve(state.layouts),
         main: MAIN_LAYOUT,
       },
-      hauling: state.hauling,
     }),
     setArgs: (state, { payload: { key, args } }: PayloadAction<SetArgsPayload>) => {
       const layout = select(state, key);
@@ -535,9 +517,6 @@ export const { actions, reducer } = createSlice({
       if (layout == null) return;
       const mosaic = state.mosaics[layout.windowKey];
       mosaic.focused = key;
-    },
-    setColorContext: (state, { payload }: PayloadAction<SetColorContextPayload>) => {
-      state.colorContext = payload.state;
     },
     setUnsavedChanges: (
       state,
@@ -568,9 +547,7 @@ export const {
   setAltKey,
   splitMosaicNode,
   rename,
-  setHauled,
   setProject,
-  setColorContext,
   clearProject,
   setUnsavedChanges,
 } = actions;

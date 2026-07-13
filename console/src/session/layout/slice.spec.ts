@@ -9,7 +9,6 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Color, type Haul } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Layout } from "@/session/layout";
@@ -226,28 +225,6 @@ describe("Layout Slice", () => {
         (t) => t.tabKey === "plot-1",
       );
       expect(tab?.unsavedChanges).toBe(true);
-    });
-  });
-
-  describe("setHauled", () => {
-    it("should overwrite the hauling state", () => {
-      const haul: Haul.DraggingState = {
-        source: { key: "src", type: "drag" },
-        items: [{ key: "item-1", type: "drag" }],
-      };
-      store.dispatch(Layout.setHauled(haul));
-      expect(Layout.selectHauling(state())).toEqual(haul);
-    });
-  });
-
-  describe("setColorContext", () => {
-    it("should overwrite the color context", () => {
-      const ctx: Color.ContextState = {
-        ...Color.ZERO_CONTEXT_STATE,
-        frequent: { "#ff0000": { lastUsed: 1, count: 1, relevance: 1 } },
-      };
-      store.dispatch(Layout.setColorContext({ state: ctx }));
-      expect(Layout.selectColorContext(state())).toEqual(ctx);
     });
   });
 
