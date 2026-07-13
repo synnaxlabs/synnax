@@ -113,7 +113,7 @@ class ProjectClient:
         """
         self.layout.close_left_toolbar()
         add_btn = self.layout.page.locator(
-            ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector button:has(.pluto-icon--add)"
+            ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.dispatch_event("click")
@@ -968,9 +968,8 @@ class ProjectClient:
         pane.first.wait_for(state="visible", timeout=5000)
 
         active_tab = (
-            self.layout.page.locator(
-                ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
-            )
+            self.layout.page.locator(".pluto-tabs-selector")
+            .locator("div")
             .filter(has=self.layout.page.locator("[aria-label='pluto-tabs__close']"))
             .last
         )
@@ -1061,9 +1060,9 @@ class ProjectClient:
         plot_pane = self.layout.page.locator(".pluto-line-plot")
         plot_pane.first.wait_for(state="visible", timeout=5000)
 
-        tabs = self.layout.page.locator(
-            ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
-        ).filter(has=self.layout.page.locator("[aria-label='pluto-tabs__close']"))
+        tabs = self.layout.page.locator(".pluto-tabs-selector div").filter(
+            has=self.layout.page.locator("[aria-label='pluto-tabs__close']")
+        )
         tab_count = tabs.count()
         actual_tab_name = "Line Plot"
         if tab_count > 0:
