@@ -47,7 +47,7 @@ class Plot(ConsolePage):
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
 
-        data_tab = self.page.locator("#data")
+        data_tab = self.page.get_by_role("tab", name="Data", exact=True)
         data_tab.click(timeout=5000)
 
         axis_label = self.page.locator("label").filter(has_text=axis)
@@ -119,8 +119,7 @@ class Plot(ConsolePage):
     def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
         """Set axis configuration with the given parameters."""
         self.notifications.close_all()
-        self.page.get_by_text("Axes").click(timeout=5000)
-        self.page.wait_for_selector(".pluto-tabs__tab", timeout=5000)
+        self.page.get_by_role("tab", name="Axes", exact=True).click(timeout=5000)
 
         self._select_axis_tab(axis)
 
@@ -131,19 +130,7 @@ class Plot(ConsolePage):
 
     def _select_axis_tab(self, axis: Axis) -> None:
         """Select the axis tab in the configuration panel."""
-        selectors = [
-            f"#{axis.lower()}",
-            f"#{axis}",
-            f".pluto-tabs__tab:has-text('{axis}')",
-        ]
-
-        for selector in selectors:
-            locator = self.page.locator(selector)
-            if locator.count() > 0:
-                locator.click(timeout=5000)
-                return
-
-        raise RuntimeError(f"Could not find axis tab: {axis}")
+        self.page.get_by_role("tab", name=axis, exact=True).click(timeout=5000)
 
     def _set_axis_property(self, key: str, value: Any) -> None:
         """Set a single axis property."""
@@ -206,7 +193,7 @@ class Plot(ConsolePage):
             title: The new title for the plot
         """
         self.notifications.close_all()
-        self.page.locator("#properties").click(timeout=5000)
+        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
 
         title_input = (
             self.page.locator("label:has-text('Title')")
@@ -224,7 +211,7 @@ class Plot(ConsolePage):
             thickness: Stroke width (1-10)
         """
         self.notifications.close_all()
-        self.page.locator("#lines").click(timeout=5000)
+        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         if lines_container.count() == 0:
@@ -249,7 +236,7 @@ class Plot(ConsolePage):
             label: New label for the line
         """
         self.notifications.close_all()
-        self.page.locator("#lines").click(timeout=5000)
+        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         lines_container.wait_for(state="visible", timeout=5000)
@@ -268,7 +255,7 @@ class Plot(ConsolePage):
             The current stroke width
         """
         self.notifications.close_all()
-        self.page.locator("#lines").click(timeout=5000)
+        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         line_item = lines_container.locator(".pluto-list__item").first
@@ -283,7 +270,7 @@ class Plot(ConsolePage):
         """
         self.notifications.close_all()
         self.layout.show_visualization_toolbar()
-        self.page.locator("#lines").click(timeout=5000)
+        self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         line_items = lines_container.locator(".pluto-list__item")
@@ -335,7 +322,7 @@ class Plot(ConsolePage):
         channel_item.wait_for(state="visible", timeout=5000)
 
         self.layout.show_visualization_toolbar()
-        data_tab = self.page.locator("#data")
+        data_tab = self.page.get_by_role("tab", name="Data", exact=True)
         data_tab.click(timeout=5000)
 
         axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
@@ -417,7 +404,7 @@ class Plot(ConsolePage):
         """Check if a channel is shown on the specified axis in the toolbar."""
         self.layout.get_tab(self.page_name).click()
         self.layout.show_visualization_toolbar()
-        self.page.locator("#data").click(timeout=5000)
+        self.page.get_by_role("tab", name="Data", exact=True).click(timeout=5000)
         axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
         result = axis_section.get_by_text(channel_name).count() > 0
         return result

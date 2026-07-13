@@ -27,6 +27,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Haul } from "@/haul";
 import { useCombinedRefs } from "@/hooks";
+import { KEY_ATTRIBUTE, KEY_SELECTOR } from "@/tabs/Frame";
 import { Triggers } from "@/triggers";
 
 /**
@@ -51,9 +52,13 @@ const [Context, useContext] = context.create<ContextValue>({
   providerName: "Tabs.Selector",
 });
 
-export { useContext as useSelectorContext };
+/** LIST_ROLE is the ARIA role a Selector renders on the tab strip. */
+export const LIST_ROLE = "tablist";
 
-const TAB_SELECTOR = "[data-tab-key]";
+/** LIST_SELECTOR matches the tab strip rendered by Selector via {@link LIST_ROLE}. */
+export const LIST_SELECTOR = `[role="${LIST_ROLE}"]`;
+
+export { useContext as useSelectorContext };
 
 /**
  * getInsertionIndex returns the index at which a tab dropped at the given cursor
@@ -63,7 +68,7 @@ const TAB_SELECTOR = "[data-tab-key]";
 const getInsertionIndex = (selector: Element, cursor: xy.Crude): number => {
   const pos = xy.construct(cursor);
   const horizontal = selector.getAttribute("aria-orientation") !== "vertical";
-  const tabs = selector.querySelectorAll(TAB_SELECTOR);
+  const tabs = selector.querySelectorAll(KEY_SELECTOR);
   let i = 0;
   for (const tab of tabs) {
     const center = box.center(box.construct(tab));
@@ -83,7 +88,7 @@ const getIndicatorOffset = (
   index: number,
   horizontal: boolean,
 ): number => {
-  const tabs = selector.querySelectorAll<HTMLElement>(TAB_SELECTOR);
+  const tabs = selector.querySelectorAll<HTMLElement>(KEY_SELECTOR);
   if (tabs.length === 0) return 0;
   if (index < tabs.length) {
     const tab = tabs[index];
@@ -113,8 +118,8 @@ const applyReorderPreview = (
   draggedKey: string,
   horizontal: boolean,
 ): boolean => {
-  const tabs = Array.from(selector.querySelectorAll<HTMLElement>(TAB_SELECTOR));
-  const dragged = tabs.findIndex((t) => t.getAttribute("data-tab-key") === draggedKey);
+  const tabs = Array.from(selector.querySelectorAll<HTMLElement>(KEY_SELECTOR));
+  const dragged = tabs.findIndex((t) => t.getAttribute(KEY_ATTRIBUTE) === draggedKey);
   if (dragged === -1) return false;
   const gap = mainAxisSize(tabs[dragged], horizontal);
   const axis = horizontal ? "X" : "Y";
@@ -138,7 +143,7 @@ const applyReorderPreview = (
  * layout; without it the reset animates, closing the gap for a cancelled drag.
  */
 const resetTabs = (selector: HTMLElement, snap: boolean): void => {
-  const tabs = Array.from(selector.querySelectorAll<HTMLElement>(TAB_SELECTOR));
+  const tabs = Array.from(selector.querySelectorAll<HTMLElement>(KEY_SELECTOR));
   if (snap) tabs.forEach((tab) => (tab.style.transition = "none"));
   tabs.forEach((tab) => {
     tab.classList.remove(HAULED_CLASS);
@@ -222,9 +227,10 @@ export const Selector = ({
       const next = horizontal ? "ArrowRight" : "ArrowDown";
       const prev = horizontal ? "ArrowLeft" : "ArrowUp";
       if (![next, prev, "Home", "End"].includes(key)) return;
-      // Only rove when a tab itself is focused: arrow keys pressed inside a tab's
+      // Only hover when a tab itself is focused: arrow keys pressed inside a tab's
       // children (an editable name, a close button) must keep their own meaning.
-      if ((e.target as HTMLElement).getAttribute?.("role") !== "tab") return;
+      if (!(e.target instanceof HTMLElement) || e.target.getAttribute("role") !== "tab")
+        return;
       const tabs = Array.from(el.querySelectorAll<HTMLElement>('[role="tab"]'));
       if (tabs.length === 0) return;
       let target: number;
@@ -366,7 +372,7 @@ export const Selector = ({
     <Context value={ctx}>
       <Flex.Box
         ref={combinedRef}
-        role="tablist"
+        role={LIST_ROLE}
         aria-orientation={horizontal ? "horizontal" : "vertical"}
         className={CSS(
           CSS.BE("tabs", "selector"),
