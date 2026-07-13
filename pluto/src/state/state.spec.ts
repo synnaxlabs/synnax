@@ -152,15 +152,36 @@ describe("state", () => {
       expect(result.current[1]).toBe(onChange);
     });
 
-    it("should not notify onChange when value is absent even if onChange is set", () => {
+    it("should update internal state and notify onChange when uncontrolled", () => {
       const onChange = vi.fn();
       const { result } = renderHook(() =>
         state.usePassthrough<number>({ initial: 3, onChange }),
       );
-      expect(result.current[0]).toBe(3);
       act(() => result.current[1](8));
       expect(result.current[0]).toBe(8);
-      expect(onChange).not.toHaveBeenCalled();
+      expect(onChange).toHaveBeenCalledTimes(1);
+      expect(onChange).toHaveBeenCalledWith(8);
+    });
+
+    it("should forward function updaters to onChange when uncontrolled", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        state.usePassthrough<number>({ initial: 1, onChange }),
+      );
+      const updater = (prev: number) => prev + 1;
+      act(() => result.current[1](updater));
+      expect(result.current[0]).toBe(2);
+      expect(onChange).toHaveBeenCalledWith(updater);
+    });
+
+    it("should keep a stable setter identity across state updates", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        state.usePassthrough<number>({ initial: 0, onChange }),
+      );
+      const first = result.current[1];
+      act(() => result.current[1](1));
+      expect(result.current[1]).toBe(first);
     });
   });
 
@@ -198,6 +219,16 @@ describe("state", () => {
       );
       expect(result.current[0]).toBe(42);
       expect(result.current[1]).toBe(onChange);
+    });
+
+    it("should keep a stable setter identity across state updates", () => {
+      const onChange = vi.fn();
+      const { result } = renderHook(() =>
+        state.usePurePassthrough<number>({ initialValue: 0, onChange }),
+      );
+      const first = result.current[1];
+      act(() => result.current[1](1));
+      expect(result.current[1]).toBe(first);
     });
   });
 
