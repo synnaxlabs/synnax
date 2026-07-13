@@ -10,7 +10,6 @@
 import { NotFoundError, type project, table } from "@synnaxlabs/client";
 import { array, compare, id, uuid, type xy } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
-import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
@@ -204,17 +203,8 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<
 // useCreate creates a new table. If the caller passes no rows or columns,
 // the table opens with a 2x2 grid of empty text cells so the user lands on
 // a usable starter layout instead of a blank canvas.
-export const useCreate = <Extra = void>(
-  args?: Flux.UseDirectUpdateParams<
-    CreateParams,
-    table.Table,
-    z.ZodNever,
-    false,
-    FluxSubStore,
-    Extra
-  >,
-): Flux.UseDirectUpdateReturn<CreateParams, z.ZodNever, Extra> => {
-  const base = useCreateBase<Extra>(args);
+export const useCreate: typeof useCreateBase = (args) => {
+  const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
   const themeRef = useSyncedRef(Theming.use());
   const withDefaultLayout = useCallback(

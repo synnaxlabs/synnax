@@ -60,18 +60,9 @@ export type CreateUpdateParams<
   allowDisconnected?: AllowDisconnected;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
-/**
- * UpdateOptions is the second argument to the update methods returned by a flux
- * update hook. extra is carried on the options object alongside the standard
- * fetch options and is threaded into beforeUpdate, afterOptimistic,
- * afterSuccess, and afterFailure so extension callers can pass per-call context
- * into their own lifecycle callbacks.
- */
-export type UpdateOptions<Extra = void> = base.FetchOptions & { extra?: Extra };
-
-export interface UseObservableUpdateReturn<Input extends base.Data, Extra = void> {
-  update: (data: Input, opts?: UpdateOptions<Extra>) => void;
-  updateAsync: (data: Input, opts?: UpdateOptions<Extra>) => Promise<boolean>;
+export interface UseObservableUpdateReturn<Input extends base.Data> {
+  update: (data: Input, opts?: base.FetchOptions) => void;
+  updateAsync: (data: Input, opts?: base.FetchOptions) => Promise<boolean>;
 }
 
 export interface UseObservableUpdateParams<
@@ -80,22 +71,21 @@ export interface UseObservableUpdateParams<
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
   SubStore extends base.Store = {},
-  Extra = void,
 > {
   debounce?: CrudeTimeSpan;
   onChange: state.Setter<Result<Input | undefined, StatusDetails>>;
   scope?: string;
   beforeUpdate?: (
-    params: BeforeUpdateParams<Input, AllowDisconnected, SubStore, Extra>,
+    params: BeforeUpdateParams<Input, AllowDisconnected, SubStore>,
   ) => Promise<Input | boolean> | Input | boolean;
   afterOptimistic?: (
-    params: AfterOptimisticParams<Output, AllowDisconnected, SubStore, Extra>,
+    params: AfterOptimisticParams<Output, AllowDisconnected, SubStore>,
   ) => Promise<void> | void;
   afterSuccess?: (
-    params: AfterSuccessParams<Output, AllowDisconnected, Extra>,
+    params: AfterSuccessParams<Output, AllowDisconnected>,
   ) => Promise<void> | void;
   afterFailure?: (
-    params: AfterFailureParams<Input, AllowDisconnected, Extra>,
+    params: AfterFailureParams<Input, AllowDisconnected>,
   ) => Promise<void> | void;
 }
 
@@ -103,47 +93,39 @@ export interface BeforeUpdateParams<
   Data extends base.Data,
   AllowDisconnected extends boolean = false,
   Store extends base.Store = {},
-  Extra = void,
 > {
   rollbacks: destructor.Destructor[];
   client: AllowDisconnected extends true ? Client | null : Client;
   data: Data;
   store: Store;
-  extra: Extra;
 }
 
 export interface AfterOptimisticParams<
   Output extends base.Data,
   AllowDisconnected extends boolean = false,
   Store extends base.Store = {},
-  Extra = void,
 > {
   rollbacks: destructor.Destructor[];
   client: AllowDisconnected extends true ? Client | null : Client;
   data: Output;
   store: Store;
-  extra: Extra;
 }
 
 export interface AfterSuccessParams<
   Output extends base.Data,
   AllowDisconnected extends boolean = false,
-  Extra = void,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
   data: Output;
-  extra: Extra;
 }
 
 export interface AfterFailureParams<
   Data extends base.Data,
   AllowDisconnected extends boolean = false,
-  Extra = void,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
   status: status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
   data: Data;
-  extra: Extra;
 }
 
 export interface UseDirectUpdateParams<
@@ -152,24 +134,15 @@ export interface UseDirectUpdateParams<
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
   SubStore extends base.Store = {},
-  Extra = void,
 > extends Omit<
-  UseObservableUpdateParams<
-    Input,
-    Output,
-    StatusDetails,
-    AllowDisconnected,
-    SubStore,
-    Extra
-  >,
+  UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected, SubStore>,
   "onChange"
 > {}
 
 export type UseDirectUpdateReturn<
   Input extends base.Data,
   StatusDetails extends z.ZodType = z.ZodNever,
-  Extra = void,
-> = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input, Extra>;
+> = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input>;
 
 export interface UseObservableUpdate<
   Input extends base.Data,
@@ -187,16 +160,6 @@ export interface UseObservableUpdate<
       SubStore
     >,
   ): UseObservableUpdateReturn<Input>;
-  <Extra>(
-    args: UseObservableUpdateParams<
-      Input,
-      Output,
-      StatusDetails,
-      AllowDisconnected,
-      SubStore,
-      Extra
-    >,
-  ): UseObservableUpdateReturn<Input, Extra>;
 }
 
 export interface UseUpdate<
@@ -215,16 +178,6 @@ export interface UseUpdate<
       SubStore
     >,
   ): UseDirectUpdateReturn<Input, StatusDetails>;
-  <Extra>(
-    args?: UseDirectUpdateParams<
-      Input,
-      Output,
-      StatusDetails,
-      AllowDisconnected,
-      SubStore,
-      Extra
-    >,
-  ): UseDirectUpdateReturn<Input, StatusDetails, Extra>;
 }
 
 export interface CreateUpdateReturn<
@@ -250,18 +203,16 @@ const useObservable = <
   Output extends base.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
-  Extra = void,
 >(
   params: UseObservableUpdateParams<
     Input,
     Output,
     StatusDetails,
     AllowDisconnected,
-    Store,
-    Extra
+    Store
   > &
     CreateUpdateParams<Input, Store, Output, StatusDetails, AllowDisconnected>,
-): UseObservableUpdateReturn<Input, Extra> => {
+): UseObservableUpdateReturn<Input> => {
   const {
     onChange,
     update,
@@ -279,12 +230,8 @@ const useObservable = <
   const store = useStore<Store>(scope);
   const addStatus = useAdder();
   const runUpdate = useCallback(
-    async (
-      data: Input,
-      opts: base.FetchOptions & { extra?: Extra } = {},
-    ): Promise<boolean> => {
-      const { signal, extra: rawExtra } = opts;
-      const extra: Extra = rawExtra as Extra;
+    async (data: Input, opts: base.FetchOptions = {}): Promise<boolean> => {
+      const { signal } = opts;
 
       const rollbacks: destructor.Destructor[] = [];
       const runRollbacks = () => {
@@ -324,7 +271,6 @@ const useObservable = <
             data,
             rollbacks,
             store,
-            extra,
           });
           if (signal?.aborted === true) return false;
           if (updatedValue === false) {
@@ -347,7 +293,7 @@ const useObservable = <
 
         const onOptimisticComplete = async (output: Output): Promise<void> => {
           if (signal?.aborted === true) return;
-          await afterOptimistic?.({ client, data: output, store, rollbacks, extra });
+          await afterOptimistic?.({ client, data: output, store, rollbacks });
         };
 
         const output = await update({
@@ -367,7 +313,7 @@ const useObservable = <
           ),
         );
         if (output === false) return false;
-        await afterSuccess?.({ client, data: output, extra });
+        await afterSuccess?.({ client, data: output });
         return true;
       } catch (error) {
         runRollbacks();
@@ -377,7 +323,7 @@ const useObservable = <
         const { status } = result;
         onChange(result);
         addStatus(status);
-        await afterFailure?.({ client, status, data, extra });
+        await afterFailure?.({ client, status, data });
         return false;
       }
     },
@@ -399,16 +345,13 @@ const useObservable = <
     ],
   );
   const handleUpdate = useDebouncedCallback(
-    (data: Input, opts?: base.FetchOptions & { extra?: Extra }) => {
+    (data: Input, opts?: base.FetchOptions) => {
       void runUpdate(data, opts);
     },
     debounce,
     [runUpdate],
   );
-  return {
-    update: handleUpdate,
-    updateAsync: runUpdate,
-  };
+  return { update: handleUpdate, updateAsync: runUpdate };
 };
 
 const useDirect = <
@@ -417,18 +360,16 @@ const useDirect = <
   Output extends base.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
-  Extra = void,
 >(
   params: UseDirectUpdateParams<
     Input,
     Output,
     StatusDetails,
     AllowDisconnected,
-    Store,
-    Extra
+    Store
   > &
     CreateUpdateParams<Input, Store, Output, StatusDetails, AllowDisconnected>,
-): UseDirectUpdateReturn<Input, StatusDetails, Extra> => {
+): UseDirectUpdateReturn<Input, StatusDetails> => {
   const { name, verbs, ...restParams } = params;
   const initialStatusDetails = parseInitialStatusDetails<StatusDetails>(params);
   const [result, setResult] = useState<Result<Input | undefined, StatusDetails>>(
@@ -438,20 +379,15 @@ const useDirect = <
       initialStatusDetails,
     ),
   );
-  const methods = useObservable<
-    Input,
-    Store,
-    Output,
-    StatusDetails,
-    AllowDisconnected,
-    Extra
-  >({
-    ...restParams,
-    initialStatusDetails,
-    verbs,
-    name,
-    onChange: setResult,
-  });
+  const methods = useObservable<Input, Store, Output, StatusDetails, AllowDisconnected>(
+    {
+      ...restParams,
+      initialStatusDetails,
+      verbs,
+      name,
+      onChange: setResult,
+    },
+  );
   return { ...result, ...methods };
 };
 
@@ -476,31 +412,29 @@ export const createUpdate = <
   AllowDisconnected,
   ScopedStore
 > => ({
-  useObservableUpdate: <Extra = void>(
+  useObservableUpdate: (
     params: UseObservableUpdateParams<
       Input,
       Output,
       StatusDetails,
       AllowDisconnected,
-      ScopedStore,
-      Extra
+      ScopedStore
     >,
   ) =>
-    useObservable<Input, ScopedStore, Output, StatusDetails, AllowDisconnected, Extra>({
+    useObservable<Input, ScopedStore, Output, StatusDetails, AllowDisconnected>({
       ...params,
       ...createParams,
     }),
-  useUpdate: <Extra = void>(
+  useUpdate: (
     params: UseDirectUpdateParams<
       Input,
       Output,
       StatusDetails,
       AllowDisconnected,
-      ScopedStore,
-      Extra
+      ScopedStore
     > = {},
   ) =>
-    useDirect<Input, ScopedStore, Output, StatusDetails, AllowDisconnected, Extra>({
+    useDirect<Input, ScopedStore, Output, StatusDetails, AllowDisconnected>({
       ...params,
       ...createParams,
     }),
