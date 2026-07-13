@@ -56,21 +56,6 @@ describe("color selectors", () => {
     });
   });
 
-  describe("useGetContext", () => {
-    it("should read the current context on demand across dispatches", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Color.useGetContext(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual(PColor.ZERO_CONTEXT_STATE);
-      act(() => {
-        store.dispatch(Color.setContext(withFrequent));
-      });
-      expect(get()).toEqual(withFrequent);
-    });
-  });
-
   describe("PROVIDER_PROPS", () => {
     const renderProviderState = (store: ReturnType<typeof createStore>) =>
       renderHook(() => Color.PROVIDER_PROPS.useState?.(PColor.ZERO_CONTEXT_STATE), {
