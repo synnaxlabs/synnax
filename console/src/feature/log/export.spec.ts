@@ -29,7 +29,7 @@ describe("log extractor", () => {
     expect(name).toBe(l.name);
     const parsed = JSON.parse(data);
     expect(parsed).toMatchObject({ type: Log.LAYOUT_TYPE });
-    expect(parsed.version).toBe("2.0.0");
+    expect(parsed.version).toBe(2);
   });
 
   it("should reject with a disconnected error when no client exists", async () => {
