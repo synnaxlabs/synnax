@@ -28,15 +28,6 @@ from x.fs import FilePath, stream_to_file
 
 _FILE_CONTENT_TYPES: dict[str, str] = {"json": "application/json"}
 
-# The prefix freighter servers require on query-string parameters that should be
-# exposed to handlers as request params. Unprefixed query parameters are ignored so
-# arbitrary query strings never leak into the request context.
-_FREIGHTER_CTX_PREFIX = "freighterctx"
-
-# The request param carrying the uploaded file's name, sent automatically by upload so
-# servers can derive resource metadata (e.g. a default name) from it.
-_FILE_NAME_PARAM = "file_name"
-
 
 def _file_content_type(path: FilePath) -> str:
     """:returns: the wire content type negotiated for path's extension.
@@ -129,7 +120,7 @@ class HTTPClient(MiddlewareCollector):
         the concern is request semantics, not the body.) A failed upload surfaces to the
         caller instead, leaving the retry decision to the caller.
         """
-        all_params = {_FILE_NAME_PARAM: os.path.basename(os.fspath(req))}
+        all_params = {"file_name": os.path.basename(os.fspath(req))}
         if params is not None:
             all_params.update(params)
         with open(req, "rb") as f:
@@ -179,7 +170,7 @@ class HTTPClient(MiddlewareCollector):
         url = self._endpoint.child(target).stringify()
         if params is None or len(params) == 0:
             return url
-        prefixed = {f"{_FREIGHTER_CTX_PREFIX}{k}": v for k, v in params.items()}
+        prefixed = {f"freighterctx{k}": v for k, v in params.items()}
         return f"{url}?{urlencode(prefixed)}"
 
     def _typed_response_request(

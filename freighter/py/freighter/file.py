@@ -41,8 +41,8 @@ class FileTransport(Transport, Protocol):
         :param target: the target address of the server.
         :param req: a file path streamed from disk as the request body.
         :param res_t: the expected response payload type.
-        :param params: request params carrying per-transfer metadata out-of-band,
-            since the body is the raw file bytes. Keys are the bare param names — the
+        :param params: request params carrying per-transfer metadata out-of-band, since
+            the body is the raw file bytes. Keys are the bare param names — the
             transport handles how they travel on the wire.
         :return: the response returned by the server.
         :raises Unreachable: when the target cannot be reached.

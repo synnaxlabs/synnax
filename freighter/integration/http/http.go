@@ -108,9 +108,9 @@ func unaryEcho(_ context.Context, req Message) (Message, error) {
 	return req, nil
 }
 
-// unaryParamEcho echoes the request params named in req.Message (comma-separated)
-// back sorted and joined by "|", with absent params echoed as empty strings. Values
-// are sorted so the response is deterministic regardless of the order the keys are
+// unaryParamEcho echoes the request params named in req.Message (comma-separated) back
+// sorted and joined by "|", with absent params echoed as empty strings. Values are
+// sorted so the response is deterministic regardless of the order the keys are
 // requested in. Lets clients verify which out-of-band request params reached the
 // handler and with what values.
 func unaryParamEcho(ctx context.Context, req Message) (Message, error) {
