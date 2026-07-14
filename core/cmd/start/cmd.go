@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
+	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
@@ -106,18 +107,18 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		return address.Address(peer)
 	})
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
-	listeners, err := parseListeners(factoryCfg)
+	listeners, err := listener.Parse(factoryCfg)
 	if err != nil {
 		return CoreConfig{}, err
 	}
-	factoryCfg.Hosts = lo.Map(listeners, func(l listenerSpec, _ int) address.Address {
-		return l.address
+	factoryCfg.Hosts = lo.Map(listeners, func(l listener.Config, _ int) address.Address {
+		return l.Address
 	})
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
-		autoCert:            new(viper.GetBool(FlagAutoCert)),
+		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
 		verifier:            viper.GetString(FlagDecoded),
 		memBacked:           new(viper.GetBool(FlagMem)),
 		listeners:           listeners,

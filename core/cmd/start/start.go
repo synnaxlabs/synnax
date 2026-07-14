@@ -22,6 +22,7 @@ import (
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
+	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -29,9 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
-	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
-	"github.com/synnaxlabs/synnax/pkg/security/cert/tailscale"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -61,7 +59,7 @@ type CoreConfig struct {
 	dataPath             string
 	verifier             string
 	rootCredentials      auth.Credentials
-	listeners            []listenerSpec
+	listeners            listener.Configs
 	peers                []address.Address
 	disabledIntegrations []string
 	enabledIntegrations  []string
@@ -85,9 +83,9 @@ func (c CoreConfig) Validate() error {
 	validate.NotNil(v, "debug", c.debug)
 	validate.NotNil(v, "auto_cert", c.autoCert)
 	validate.NotNil(v, "mem_backed", c.memBacked)
-	validateListeners(v, c.listeners)
+	v.Exec(c.listeners.Validate)
 	if c.insecure != nil && !*c.insecure {
-		validateAdvertiseSource(v, c.listeners)
+		v.Exec(c.listeners.ValidateAdvertiseSource)
 	}
 	validate.NotEmptyString(v, "data_path", c.dataPath)
 	validate.NonZero(v, "slow_consumer_timeout", c.slowConsumerTimeout)
@@ -125,47 +123,6 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		disabledIntegrations: override.Slice(c.disabledIntegrations, other.disabledIntegrations),
 		validateChannelNames: override.Nil(c.validateChannelNames, other.validateChannelNames),
 	}
-}
-
-// advertiseAddress returns the address peers use to reach this node. It is the sole
-// listener marked advertise, or the first listener when none is marked.
-func (c CoreConfig) advertiseAddress() address.Address {
-	for _, l := range c.listeners {
-		if l.advertise {
-			return l.address
-		}
-	}
-	return c.listeners[0].address
-}
-
-// sourceFactories is the set of certificate sources a listener may select. cmd/start
-// owns this list so implementation-specific sources (tailscale) never enter the base
-// cert package.
-var sourceFactories = []cert.SourceFactory{
-	file.Factory{},
-	auto.Factory{},
-	tailscale.Factory{},
-}
-
-// buildServerListeners resolves each listener spec into a server.Listener, backing every
-// secure listener with a TLS config from its certificate source.
-func (c CoreConfig) buildServerListeners(
-	p security.Provider,
-	factories []cert.SourceFactory,
-) ([]server.Listener, error) {
-	out := make([]server.Listener, len(c.listeners))
-	for i, spec := range c.listeners {
-		l := server.Listener{Address: spec.address}
-		if !*c.insecure {
-			src, err := cert.Resolve(factories, spec.sourceConfig(c.certFactoryConfig))
-			if err != nil {
-				return nil, err
-			}
-			l.TLS = p.TLSConfigFor(src)
-		}
-		out[i] = l
-	}
-	return out, nil
 }
 
 // BootupCore contains the most important Core startup logic. It does and should not
@@ -249,7 +206,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 
 	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:      cfg.Child("distribution"),
-		AdvertiseAddress:     cfg.advertiseAddress(),
+		AdvertiseAddress:     cfg.listeners.AdvertiseAddress(),
 		PeerAddresses:        cfg.peers,
 		AspenTransport:       aspenTransport,
 		Transport:            distTransport,
@@ -301,7 +258,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	serverListeners, err := cfg.buildServerListeners(securityProvider, sourceFactories)
+	serverListeners, err := cfg.listeners.Resolve(securityProvider, cfg.certFactoryConfig, *cfg.insecure)
 	if !ok(err, nil) {
 		return err
 	}
@@ -348,7 +305,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 			Insecure:            cfg.insecure,
 			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
 			Instrumentation:     cfg.Child("driver"),
-			Address:             cfg.advertiseAddress(),
+			Address:             cfg.listeners.AdvertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			ClusterKey:          distributionLayer.Cluster.Key(),
 			Credentials:         cfg.rootCredentials,
@@ -368,7 +325,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 
 	cfg.L.Infof(
 		"\033[32mSynnax is running and available at %v \033[0m",
-		cfg.advertiseAddress(),
+		cfg.listeners.AdvertiseAddress(),
 	)
 
 	if onServerStarted != nil {

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	cmdinst "github.com/synnaxlabs/synnax/cmd/instrumentation"
+	"github.com/synnaxlabs/synnax/cmd/listener"
 	cmdstart "github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/x/errors"
 	xos "github.com/synnaxlabs/x/os"
@@ -288,7 +289,7 @@ func status() (_ StatusInfo, err error) {
 			info.DataDir = v.GetString(cmdstart.FlagData)
 			info.LogFile = v.GetString(cmdinst.FlagLogFilePath)
 			info.CertsDir = v.GetString(cert.FlagCertsDir)
-			info.Listen = v.GetString(cmdstart.FlagListen)
+			info.Listen = v.GetString(listener.FlagListen)
 			info.Insecure = v.GetBool(cmdstart.FlagInsecure)
 		}
 	}

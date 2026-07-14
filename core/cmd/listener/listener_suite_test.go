@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package start
+package listener_test
 
 import (
 	"testing"
@@ -19,7 +19,7 @@ import (
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-func TestStart(t *testing.T) {
+func TestListener(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Start Suite")
+	RunSpecs(t, "Listener Suite")
 }
