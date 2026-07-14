@@ -37,13 +37,6 @@ class Liveness(IntEnum):
     gated = 2
 
 
-class VarKind(IntEnum):
-    unspecified = 0
-    channel_read_write = 1
-    channel_read = 2
-    literal = 3
-
-
 class Handle(BaseModel):
     """Is a reference to a specific parameter on a specific node in the dataflow graph.
 
@@ -75,7 +68,8 @@ class Node(BaseModel):
         inputs: Contains input parameter type signatures.
         outputs: Contains output parameter type signatures.
         channels: Contains channel read/write mappings.
-        var_kind: Is the kind of value variable this node reads or writes, if any.
+        is_literal: Reports whether the node's variable is a literal, so a source latches its newest value rather than streaming.
+        backs_internal_channel: Reports whether a sink loops back into a program-local channel rather than an external one.
     """
 
     key: str
@@ -83,7 +77,8 @@ class Node(BaseModel):
     inputs: types.Params = Field(default_factory=list)
     outputs: types.Params = Field(default_factory=list)
     channels: types.Channels
-    var_kind: VarKind
+    is_literal: bool
+    backs_internal_channel: bool
 
 
 class Authorities(BaseModel):

@@ -34,6 +34,12 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		name = head + "." + tail
 	}
 	chanRef := ctx.Hint.Kind == types.KindChan
+	// Reactive vars read from their internal channel, even same-unit.
+	if scope.IsReactive() {
+		ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
+		emitChannelRead(ctx, scope.Type)
+		return scope.Type.Unwrap(), nil
+	}
 	// A value variable inherited from an enclosing reactive scope is backed by a channel read by key.
 	if isInheritedVarChannel(ctx.Scope, scope) {
 		ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))

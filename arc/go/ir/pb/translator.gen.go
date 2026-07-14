@@ -518,17 +518,14 @@ func NodeToPB(r ir.Node) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	varKindVal, err := VarKindToPB(r.VarKind)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Node{
-		Key:      r.Key,
-		Type:     r.Type,
-		Inputs:   inputsVal,
-		Outputs:  outputsVal,
-		Channels: channelsVal,
-		VarKind:  varKindVal,
+		Key:                  r.Key,
+		Type:                 r.Type,
+		IsLiteral:            r.IsLiteral,
+		BacksInternalChannel: r.BacksInternalChannel,
+		Inputs:               inputsVal,
+		Outputs:              outputsVal,
+		Channels:             channelsVal,
 	}
 	return pb, nil
 }
@@ -552,12 +549,10 @@ func NodeFromPB(pb *Node) (ir.Node, error) {
 	if err != nil {
 		return ir.Node{}, err
 	}
-	r.VarKind, err = VarKindFromPB(pb.VarKind)
-	if err != nil {
-		return ir.Node{}, err
-	}
 	r.Key = pb.Key
 	r.Type = pb.Type
+	r.IsLiteral = pb.IsLiteral
+	r.BacksInternalChannel = pb.BacksInternalChannel
 	return r, nil
 }
 
@@ -888,37 +883,5 @@ func ScopeModeFromPB(v ScopeMode) (ir.ScopeMode, error) {
 		return ir.ScopeModeSequential, nil
 	default:
 		return 0, errors.Newf("unrecognized ScopeMode value: %v", v)
-	}
-}
-
-// VarKindToPB converts ir.VarKind to VarKind.
-func VarKindToPB(v ir.VarKind) (VarKind, error) {
-	switch v {
-	case ir.VarKindUnspecified:
-		return VarKind_VAR_KIND_UNSPECIFIED, nil
-	case ir.VarKindChannelReadWrite:
-		return VarKind_VAR_KIND_CHANNEL_READ_WRITE, nil
-	case ir.VarKindChannelRead:
-		return VarKind_VAR_KIND_CHANNEL_READ, nil
-	case ir.VarKindLiteral:
-		return VarKind_VAR_KIND_LITERAL, nil
-	default:
-		return 0, errors.Newf("unrecognized ir.VarKind value: %v", v)
-	}
-}
-
-// VarKindFromPB converts VarKind to ir.VarKind.
-func VarKindFromPB(v VarKind) (ir.VarKind, error) {
-	switch v {
-	case VarKind_VAR_KIND_UNSPECIFIED:
-		return ir.VarKindUnspecified, nil
-	case VarKind_VAR_KIND_CHANNEL_READ_WRITE:
-		return ir.VarKindChannelReadWrite, nil
-	case VarKind_VAR_KIND_CHANNEL_READ:
-		return ir.VarKindChannelRead, nil
-	case VarKind_VAR_KIND_LITERAL:
-		return ir.VarKindLiteral, nil
-	default:
-		return 0, errors.Newf("unrecognized VarKind value: %v", v)
 	}
 }

@@ -107,25 +107,17 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		if expr != nil && sym.Type.IsValid() && sym.DefaultValue == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"stateful variable initializer must be a literal value"))
-			return
 		}
-		sym.VarKind = symbol.VarKindLiteral
 		return
 	}
-	// A variable bound to a channel is channel read/write: it behaves exactly as the channel.
+	// Channel read/write and literals already carry their type and SourceID.
 	if sym.SourceID != nil || sym.Type.Kind == types.KindChan {
-		sym.VarKind = symbol.VarKindChannelReadWrite
 		return
 	}
-	if expr == nil {
+	if expr == nil || isLiteralExpression(context.Child(ctx, expr)) {
 		return
 	}
-	// A literal initializer holds a literal value.
-	if isLiteralExpression(context.Child(ctx, expr)) {
-		sym.VarKind = symbol.VarKindLiteral
-		return
-	}
-	// A bare identifier inherits the referenced variable's kind.
+	// A bare identifier bound to a reactive variable is itself reactive.
 	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
 		if ref, rerr := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText()); rerr == nil {
 			if ref.Kind == symbol.KindStatefulVariable {
@@ -133,21 +125,21 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 					"stateful variables cannot be assigned to ':=' variables"))
 				return
 			}
-			sym.VarKind = ref.VarKind
+			if ref.IsReactive() {
+				sym.Type = types.ReadChan(sym.Type)
+			}
 		}
 		return
 	}
-	// A complex initializer that reads channels is channel-read; otherwise it is a
-	// computed literal. AnalyzeSingleExpression also registers the reactive flow.
+	// A complex initializer that reads channels is reactive: retype it as a
+	// read-only channel. AnalyzeSingleExpression also registers the reactive flow.
 	if local != nil {
 		flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 		if synth, serr := ctx.Scope.Root().GetChildByParserRule(expr); serr == nil &&
 			len(synth.Channels.Read) > 0 {
-			sym.VarKind = symbol.VarKindChannelRead
-			return
+			sym.Type = types.ReadChan(sym.Type)
 		}
 	}
-	sym.VarKind = symbol.VarKindLiteral
 }
 
 // statefulRHSTracksChannel reports whether a `$=` initializer binds a channel or
@@ -169,8 +161,7 @@ func statefulRHSTracksChannel(
 		if err != nil {
 			return false
 		}
-		return ref.Kind == symbol.KindChannel || ref.Type.Kind == types.KindChan ||
-			ref.VarKind == symbol.VarKindChannelReadWrite || ref.VarKind == symbol.VarKindChannelRead
+		return ref.Kind == symbol.KindChannel || ref.Type.Kind == types.KindChan
 	}
 	// A compound expression that reads one or more channels is channel-read.
 	flow.AnalyzeSingleExpression(childCtx)
@@ -267,10 +258,12 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 			// Global channel - create a variable that holds the channel key
 			// Use KindVariable so it gets a WASM local assigned
 			sourceID := chanSym.ID
+			chanType := chanSym.Type
+			chanType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
 			_, err := childCtx.Scope.Add(ctx, symbol.Symbol{
 				Name:     name,
 				Kind:     symbol.KindVariable,
-				Type:     chanSym.Type, // Keep Chan(F32) type
+				Type:     chanType,
 				AST:      ctx.AST,
 				SourceID: &sourceID,
 			})
@@ -303,6 +296,9 @@ func analyzeLocalVariable(ctx context.Context[parser.ILocalVariableContext]) {
 	var sourceID *int
 	if varType.Kind == types.KindChan && expr != nil {
 		sourceID = getChannelSourceFromExpr(ctx, expr)
+		if sourceID != nil {
+			varType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+		}
 	}
 
 	defaultValue := constDefaultValue(expr, varType)

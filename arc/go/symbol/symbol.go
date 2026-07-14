@@ -149,42 +149,31 @@ const (
 	KindAmbient
 )
 
-// VarKind categorizes a value variable by how it is declared, fixing its
-// read/write/reassignment semantics. VarKindNone marks a non-value variable.
-type VarKind int
-
-const (
-	// VarKindNone marks a symbol that is not a value variable.
-	VarKindNone VarKind = iota
-	// VarKindChannelReadWrite is a variable bound to a bare channel; it behaves
-	// exactly as that channel for both reads and writes.
-	VarKindChannelReadWrite
-	// VarKindChannelRead is a variable derived from an expression reading one or
-	// more channels; it is a read-only channel-backed stream.
-	VarKindChannelRead
-	// VarKindLiteral is a value variable backed by a program-local channel; `:=`
-	// literals and `$=` statefuls share it, resetting vs persisting keyed on Kind.
-	VarKindLiteral
-)
-
-// String returns the user-facing name of the kind.
-func (k VarKind) String() string {
-	switch k {
-	case VarKindChannelReadWrite:
-		return "channel read/write"
-	case VarKindChannelRead:
-		return "channel read"
-	case VarKindLiteral:
-		return "literal"
-	default:
-		return "none"
-	}
+// IsValueVariable reports whether s is a `:=`/`$=` value binding.
+func (s *Symbol) IsValueVariable() bool {
+	return s.Kind == KindVariable || s.Kind == KindStatefulVariable
 }
 
-// BacksInternalChannel reports whether this kind is backed by a program-local
-// channel (channel-read and literal) rather than a real external channel.
-func (k VarKind) BacksInternalChannel() bool {
-	return k == VarKindChannelRead || k == VarKindLiteral
+// IsChannelReadWrite reports whether s is a value variable aliasing a channel.
+func (s *Symbol) IsChannelReadWrite() bool {
+	return s.IsValueVariable() && s.Type.Kind == types.KindChan && s.Type.ChanDirection.IsWrite()
+}
+
+// IsReactive reports whether s is a value variable derived from a channel read:
+// a read-only, channel-backed stream.
+func (s *Symbol) IsReactive() bool {
+	return s.IsValueVariable() && s.Type.Kind == types.KindChan && !s.Type.ChanDirection.IsWrite()
+}
+
+// IsLiteral reports whether s is a value variable holding a literal, not a channel.
+func (s *Symbol) IsLiteral() bool {
+	return s.IsValueVariable() && s.Type.Kind != types.KindChan
+}
+
+// BacksInternalChannel reports whether s is a value variable backed by a
+// program-local channel (reactive or literal) rather than an external channel.
+func (s *Symbol) BacksInternalChannel() bool {
+	return s.IsValueVariable() && s.SourceID == nil
 }
 
 // Symbol is a named entity in an Arc program and, when it has Children, a
@@ -210,9 +199,6 @@ type Symbol struct {
 	Name string
 	// Kind categorizes the symbol.
 	Kind Kind
-	// VarKind categorizes a value variable (Kind KindVariable or
-	// KindStatefulVariable) for its read/write semantics; VarKindNone otherwise.
-	VarKind VarKind
 	// ID is a unique identifier within the containing function scope. Only
 	// assigned to symbols whose Kind allocates a runtime slot.
 	ID int

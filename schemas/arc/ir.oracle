@@ -70,15 +70,6 @@ Liveness enum {
     @doc value "defines whether a Scope is continuously active or must be activated."
 }
 
-VarKind enum {
-    unspecified        = 0
-    channel_read_write = 1
-    channel_read       = 2
-    literal            = 3
-
-    @doc value "defines the kind of value variable a node reads or writes."
-}
-
 Transition struct {
     on        Handle  {
         @doc value "is the dataflow handle whose truthy value fires this transition."
@@ -195,23 +186,26 @@ Functions Function[] {
 }
 
 Node struct {
-    key      string         {
+    key                    string         {
         @doc value "is the unique identifier for this node instance."
     }
-    type     string         {
+    type                   string         {
         @doc value "is the function type being instantiated."
     }
-    inputs   types.Params   {
+    inputs                 types.Params   {
         @doc value "contains input parameter type signatures."
     }
-    outputs  types.Params   {
+    outputs                types.Params   {
         @doc value "contains output parameter type signatures."
     }
-    channels types.Channels {
+    channels               types.Channels {
         @doc value "contains channel read/write mappings."
     }
-    var_kind VarKind        {
-        @doc value "is the kind of value variable this node reads or writes, if any."
+    is_literal             bool           {
+        @doc value "reports whether the node's variable is a literal, so a source latches its newest value rather than streaming."
+    }
+    backs_internal_channel bool           {
+        @doc value "reports whether a sink loops back into a program-local channel rather than an external one."
     }
 
     @doc value   """

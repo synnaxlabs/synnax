@@ -127,10 +127,10 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	if isSource {
 		return &source{
-			State:   cfg.State,
-			key:     inputs.Channel,
-			state:   h.state,
-			varKind: cfg.Node.VarKind,
+			State:     cfg.State,
+			key:       inputs.Channel,
+			state:     h.state,
+			isLiteral: cfg.Node.IsLiteral,
 		}, nil
 	}
 	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
@@ -138,11 +138,11 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return nil, err
 	}
 	return &sink{
-		State:    cfg.State,
-		state:    h.state,
-		key:      inputs.Channel,
-		varKind:  cfg.Node.VarKind,
-		inputIdx: inputIdx,
+		State:         cfg.State,
+		state:         h.state,
+		key:           inputs.Channel,
+		backsInternal: cfg.Node.BacksInternalChannel,
+		inputIdx:      inputIdx,
 	}, nil
 }
 
@@ -158,7 +158,7 @@ type source struct {
 	*node.State
 	state         *ProgramState
 	key           uint32
-	varKind       ir.VarKind
+	isLiteral     bool
 	highWaterMark telem.Alignment
 	clock         telem.MonoClock
 }
@@ -170,7 +170,7 @@ func (s *source) Init(node.Context) {}
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
-	if s.varKind == ir.VarKindLiteral {
+	if s.isLiteral {
 		return
 	}
 	data, _, ok := s.state.readSeries(s.key)
@@ -189,7 +189,7 @@ func (s *source) Next(ctx node.Context) {
 		return
 	}
 	// A literal variable reflects its current value: emit the newest unread series.
-	if s.varKind == ir.VarKindLiteral {
+	if s.isLiteral {
 		for i := range slices.Backward(data.Series) {
 			if data.Series[i].AlignmentBounds().Lower >= s.highWaterMark {
 				s.emitSeries(ctx, data, indexData, i)
@@ -231,10 +231,10 @@ func (s *source) emitSeries(ctx node.Context, data, indexData telem.MultiSeries,
 
 type sink struct {
 	*node.State
-	state    *ProgramState
-	key      uint32
-	varKind  ir.VarKind
-	inputIdx int
+	state         *ProgramState
+	key           uint32
+	backsInternal bool
+	inputIdx      int
 }
 
 func (s *sink) Next(ctx node.Context) {
@@ -246,7 +246,7 @@ func (s *sink) Next(ctx node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	if s.varKind.BacksInternalChannel() {
+	if s.backsInternal {
 		s.state.appendVarRead(s.key, data.DeepCopy())
 		ctx.SetDeadline(ctx.Elapsed)
 	} else {

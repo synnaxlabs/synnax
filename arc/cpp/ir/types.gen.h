@@ -30,12 +30,12 @@ namespace arc::ir {
 
 struct Handle;
 struct Body;
+struct Node;
 struct Authorities;
 struct VarSeed;
 struct Transition;
 struct Function;
 struct Edge;
-struct Node;
 struct Member;
 struct Scope;
 struct IR;
@@ -56,13 +56,6 @@ enum class Liveness : std::uint8_t {
     Unspecified = 0,
     Always = 1,
     Gated = 2,
-};
-
-enum class VarKind : std::uint8_t {
-    Unspecified = 0,
-    ChannelReadWrite = 1,
-    ChannelRead = 2,
-    Literal = 3,
 };
 
 /// @brief Handle is a reference to a specific parameter on a specific node in the
@@ -95,6 +88,40 @@ struct Body {
     using proto_type = ::arc::ir::pb::Body;
     [[nodiscard]] std::pair<::arc::ir::pb::Body, x::errors::Error> to_proto() const;
     static std::pair<Body, x::errors::Error> from_proto(const ::arc::ir::pb::Body &pb);
+};
+
+/// @brief Node is a concrete instantiation of a function with typed parameters and
+/// values.
+struct Node {
+    /// @brief key is the unique identifier for this node instance.
+    std::string key;
+    /// @brief type is the function type being instantiated.
+    std::string type;
+    /// @brief inputs contains input parameter type signatures.
+    ::arc::types::Params inputs;
+    /// @brief outputs contains output parameter type signatures.
+    ::arc::types::Params outputs;
+    /// @brief channels contains channel read/write mappings.
+    ::arc::types::Channels channels;
+    /// @brief is_literal reports whether the node's variable is a literal, so a source
+    /// latches its newest value rather than streaming.
+    bool is_literal = false;
+    /// @brief backs_internal_channel reports whether a sink loops back into a
+    /// program-local
+    /// channel rather than an external one.
+    bool backs_internal_channel = false;
+
+    static Node parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Node;
+    [[nodiscard]] std::pair<::arc::ir::pb::Node, x::errors::Error> to_proto() const;
+    static std::pair<Node, x::errors::Error> from_proto(const ::arc::ir::pb::Node &pb);
+    [[nodiscard]] std::pair<size_t, x::errors::Error>
+    resolve_input(const std::string &name) const;
+    [[nodiscard]] std::string to_string() const;
+    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
+    friend std::ostream &operator<<(std::ostream &os, const Node &n);
 };
 
 /// @brief Authorities holds the static authority declarations from an Arc program.
@@ -179,6 +206,60 @@ struct Function {
     friend std::ostream &operator<<(std::ostream &os, const Function &f);
 };
 
+struct Nodes : private std::vector<Node> {
+    using Base = std::vector<Node>;
+
+    // Inherit constructors - these are instantiated at point of use, not declaration
+    using Base::Base;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Nodes();
+
+    // Container interface
+    using Base::begin;
+    using Base::capacity;
+    using Base::cbegin;
+    using Base::cend;
+    using Base::const_iterator;
+    using Base::const_reference;
+    using Base::const_reverse_iterator;
+    using Base::crbegin;
+    using Base::crend;
+    using Base::difference_type;
+    using Base::empty;
+    using Base::end;
+    using Base::iterator;
+    using Base::max_size;
+    using Base::rbegin;
+    using Base::reference;
+    using Base::rend;
+    using Base::reserve;
+    using Base::reverse_iterator;
+    using Base::shrink_to_fit;
+    using Base::size;
+    using Base::size_type;
+    using Base::value_type;
+    using Base::operator[];
+    using Base::assign;
+    using Base::at;
+    using Base::back;
+    using Base::clear;
+    using Base::data;
+    using Base::emplace;
+    using Base::emplace_back;
+    using Base::erase;
+    using Base::front;
+    using Base::insert;
+    using Base::pop_back;
+    using Base::push_back;
+    using Base::resize;
+    using Base::swap;
+
+    static Nodes parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 struct VarSeeds : private std::vector<VarSeed> {
     using Base = std::vector<VarSeed>;
 
@@ -250,35 +331,6 @@ struct Edge {
     static std::pair<Edge, x::errors::Error> from_proto(const ::arc::ir::pb::Edge &pb);
     [[nodiscard]] std::string to_string() const;
     friend std::ostream &operator<<(std::ostream &os, const Edge &e);
-};
-
-/// @brief Node is a concrete instantiation of a function with typed parameters and
-/// values.
-struct Node {
-    /// @brief key is the unique identifier for this node instance.
-    std::string key;
-    /// @brief type is the function type being instantiated.
-    std::string type;
-    /// @brief inputs contains input parameter type signatures.
-    ::arc::types::Params inputs;
-    /// @brief outputs contains output parameter type signatures.
-    ::arc::types::Params outputs;
-    /// @brief channels contains channel read/write mappings.
-    ::arc::types::Channels channels;
-    /// @brief var_kind is the kind of value variable this node reads or writes, if any.
-    VarKind var_kind;
-
-    static Node parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::Node;
-    [[nodiscard]] std::pair<::arc::ir::pb::Node, x::errors::Error> to_proto() const;
-    static std::pair<Node, x::errors::Error> from_proto(const ::arc::ir::pb::Node &pb);
-    [[nodiscard]] std::pair<size_t, x::errors::Error>
-    resolve_input(const std::string &name) const;
-    [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Node &n);
 };
 
 struct Functions : private std::vector<Function> {
@@ -386,60 +438,6 @@ struct Edges : private std::vector<Edge> {
     using Base::swap;
 
     static Edges parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct Nodes : private std::vector<Node> {
-    using Base = std::vector<Node>;
-
-    // Inherit constructors - these are instantiated at point of use, not declaration
-    using Base::Base;
-    // The default constructor is defined out-of-line below so it instantiates the
-    // element type's destructor only after the element type is complete; the element
-    // may be forward-declared here to break a reference cycle.
-    Nodes();
-
-    // Container interface
-    using Base::begin;
-    using Base::capacity;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::const_iterator;
-    using Base::const_reference;
-    using Base::const_reverse_iterator;
-    using Base::crbegin;
-    using Base::crend;
-    using Base::difference_type;
-    using Base::empty;
-    using Base::end;
-    using Base::iterator;
-    using Base::max_size;
-    using Base::rbegin;
-    using Base::reference;
-    using Base::rend;
-    using Base::reserve;
-    using Base::reverse_iterator;
-    using Base::shrink_to_fit;
-    using Base::size;
-    using Base::size_type;
-    using Base::value_type;
-    using Base::operator[];
-    using Base::assign;
-    using Base::at;
-    using Base::back;
-    using Base::clear;
-    using Base::data;
-    using Base::emplace;
-    using Base::emplace_back;
-    using Base::erase;
-    using Base::front;
-    using Base::insert;
-    using Base::pop_back;
-    using Base::push_back;
-    using Base::resize;
-    using Base::swap;
-
-    static Nodes parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -555,11 +553,11 @@ struct IR {
     friend std::ostream &operator<<(std::ostream &os, const IR &ir);
 };
 
+inline Nodes::Nodes() = default;
+
 inline VarSeeds::VarSeeds() = default;
 
 inline Functions::Functions() = default;
 
 inline Edges::Edges() = default;
-
-inline Nodes::Nodes() = default;
 }

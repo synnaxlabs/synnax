@@ -22,6 +22,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// readWriteChan builds the read+write channel type a bare channel alias carries.
+func readWriteChan(elem types.Type) types.Type {
+	t := types.Chan(elem)
+	t.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+	return t
+}
+
 var _ = Describe("Statement", func() {
 	// Helper to set up function context for tests that need it
 	setupFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
@@ -323,10 +330,21 @@ var _ = Describe("Statement", func() {
 					varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
 					Expect(varScope.Type).To(Equal(expectedType))
 				},
-				Entry("f64 channel", "sensor", types.Chan(types.F64())),
-				Entry("i32 channel", "int_chan", types.Chan(types.I32())),
+				Entry("f64 channel", "sensor", readWriteChan(types.F64())),
+				Entry("i32 channel", "int_chan", readWriteChan(types.I32())),
 				Entry("i32 channel addition", "int_chan + 1", types.I32()),
 			)
+
+			It("should give a channel alias a source, not an internal channel", func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement("current := sensor"))
+				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil, channels...))
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
+				Expect(varScope.IsChannelReadWrite()).To(BeTrue())
+				Expect(varScope.SourceID).ToNot(BeNil())
+				Expect(varScope.BacksInternalChannel()).To(BeFalse())
+			})
 		})
 
 		Context("channel read/write assignment to scalar variables", func() {

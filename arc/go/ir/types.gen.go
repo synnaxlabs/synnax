@@ -65,18 +65,6 @@ const (
 	LivenessGated
 )
 
-// VarKind defines the kind of value variable a node reads or writes.
-type VarKind uint8
-
-//go:generate stringer -type=VarKind
-
-const (
-	VarKindUnspecified VarKind = iota
-	VarKindChannelReadWrite
-	VarKindChannelRead
-	VarKindLiteral
-)
-
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
 type Handle struct {
@@ -176,8 +164,12 @@ type Node struct {
 	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
-	// VarKind is the kind of value variable this node reads or writes, if any.
-	VarKind VarKind `json:"var_kind" msgpack:"var_kind"`
+	// IsLiteral reports whether the node's variable is a literal, so a source latches its
+	// newest value rather than streaming.
+	IsLiteral bool `json:"is_literal" msgpack:"is_literal"`
+	// BacksInternalChannel reports whether a sink loops back into a program-local channel
+	// rather than an external one.
+	BacksInternalChannel bool `json:"backs_internal_channel" msgpack:"backs_internal_channel"`
 }
 
 // Authorities holds the static authority declarations from an Arc program.

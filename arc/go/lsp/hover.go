@@ -451,11 +451,11 @@ func resolveDotted(
 
 // variableTypeDetail renders a value variable's hover type, tagged by its kind.
 func variableTypeDetail(sym *symbol.Symbol) string {
-	switch sym.VarKind {
-	case symbol.VarKindChannelReadWrite:
+	switch {
+	case sym.IsChannelReadWrite():
 		return "chan read/write " + sym.Type.UnwrapChan().String()
-	case symbol.VarKindChannelRead:
-		return "chan read " + sym.Type.String()
+	case sym.IsReactive():
+		return "chan read " + sym.Type.UnwrapChan().String()
 	default:
 		return sym.Type.String()
 	}

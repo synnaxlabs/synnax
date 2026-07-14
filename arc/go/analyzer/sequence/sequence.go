@@ -46,14 +46,14 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 			"compound and indexed assignment to a variable are not yet supported"))
 		return
 	}
-	switch sym.VarKind {
-	case symbol.VarKindLiteral, symbol.VarKindChannelRead:
+	switch {
+	case sym.IsChannelReadWrite():
+		analyzeChannelReadWriteRebind(ctx, assign, sym)
+	case sym.IsValueVariable():
 		statement.AnalyzeAssignment(context.Child(ctx, assign))
 		if expr := assign.Expression(); expr != nil {
 			flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 		}
-	case symbol.VarKindChannelReadWrite:
-		analyzeChannelReadWriteRebind(ctx, assign, sym)
 	default:
 		rejectReactiveAssignment(ctx.Diagnostics, assign)
 	}

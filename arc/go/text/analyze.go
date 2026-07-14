@@ -448,7 +448,7 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
-		if sym.VarKind.BacksInternalChannel() {
+		if sym.BacksInternalChannel() {
 			shell.varChannels.Add(channelKey(sym))
 		}
 		if isSink {
@@ -537,27 +537,13 @@ func channelKey(sym *symbol.Symbol) uint32 {
 	return uint32(sym.ID)
 }
 
-// irVarKind maps a symbol's variable kind to its IR node representation.
-func irVarKind(k symbol.VarKind) ir.VarKind {
-	switch k {
-	case symbol.VarKindChannelReadWrite:
-		return ir.VarKindChannelReadWrite
-	case symbol.VarKindChannelRead:
-		return ir.VarKindChannelRead
-	case symbol.VarKindLiteral:
-		return ir.VarKindLiteral
-	default:
-		return ir.VarKindUnspecified
-	}
-}
-
 // scopeResetChannels returns the channels of `:=` constant variables declared in
 // scopeSym, re-seeded on each entry; `$=` variables are omitted so they persist.
 func scopeResetChannels(scopeSym *symbol.Symbol) []uint32 {
 	var out []uint32
 	for _, c := range scopeSym.Children() {
-		if !c.Internal && c.Kind == symbol.KindVariable &&
-			c.VarKind == symbol.VarKindLiteral && c.DefaultValue != nil {
+		if !c.Internal && c.Kind == symbol.KindVariable && c.IsLiteral() &&
+			c.DefaultValue != nil {
 			out = append(out, channelKey(c))
 		}
 	}
@@ -581,12 +567,13 @@ func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (no
 	chKey := channelKey(sym)
 	chanType, valType := chanAndValueTypes(sym, false)
 	n := ir.Node{
-		Key:      nodeKey,
-		Type:     "on",
-		Channels: types.NewChannels(),
-		Inputs:   types.Params{{Name: "channel", Type: chanType, Value: chKey}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: valType}},
-		VarKind:  irVarKind(sym.VarKind),
+		Key:                  nodeKey,
+		Type:                 "on",
+		Channels:             types.NewChannels(),
+		Inputs:               types.Params{{Name: "channel", Type: chanType, Value: chKey}},
+		Outputs:              types.Params{{Name: ir.DefaultOutputParam, Type: valType}},
+		IsLiteral:            sym.IsLiteral(),
+		BacksInternalChannel: sym.BacksInternalChannel(),
 	}
 	n.Channels.Read[chKey] = sym.Name
 	return newNodeResult(n, "", ir.DefaultOutputParam), true
@@ -604,8 +591,9 @@ func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (n
 			{Name: ir.DefaultInputParam, Type: valType},
 			{Name: "channel", Type: chanType, Value: chKey},
 		},
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-		VarKind: irVarKind(sym.VarKind),
+		Outputs:              types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		IsLiteral:            sym.IsLiteral(),
+		BacksInternalChannel: sym.BacksInternalChannel(),
 	}
 	n.Channels.Write[chKey] = sym.Name
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
@@ -637,7 +625,7 @@ func buildExprReadTriggers[T antlr.ParserRuleContext](
 		if !ok {
 			return nil, false
 		}
-		if chanSym.VarKind.BacksInternalChannel() {
+		if chanSym.BacksInternalChannel() {
 			shell.varChannels.Add(channelKey(chanSym))
 		}
 		reads = append(reads, read)
@@ -656,7 +644,7 @@ func flowWriteKey(ctx acontext.Context[parser.IFlowStatementContext]) (uint32, b
 		return 0, false
 	}
 	sym, err := ctx.Scope.Resolve(ctx, id.IDENTIFIER().GetText())
-	if err != nil || (!sym.VarKind.BacksInternalChannel() && sym.Kind != symbol.KindChannel && sym.Type.Kind != types.KindChan) {
+	if err != nil || (!sym.BacksInternalChannel() && sym.Kind != symbol.KindChannel && sym.Type.Kind != types.KindChan) {
 		return 0, false
 	}
 	return channelKey(sym), true
@@ -723,7 +711,7 @@ func collectSeededVars(root *symbol.Symbol) []*symbol.Symbol {
 			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
 				continue
 			}
-			if !c.Internal && c.VarKind.BacksInternalChannel() && c.DefaultValue != nil {
+			if !c.Internal && c.BacksInternalChannel() && c.DefaultValue != nil {
 				out = append(out, c)
 			}
 			walk(c)
@@ -744,7 +732,7 @@ func collectExprVars(root *symbol.Symbol) []*symbol.Symbol {
 			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
 				continue
 			}
-			if !c.Internal && c.Kind == symbol.KindVariable && c.VarKind.BacksInternalChannel() &&
+			if !c.Internal && c.Kind == symbol.KindVariable && c.BacksInternalChannel() &&
 				c.DefaultValue == nil {
 				if lv, ok := c.AST.(parser.ILocalVariableContext); ok && lv.Expression() != nil {
 					out = append(out, c)
@@ -794,12 +782,12 @@ func lowerVarWrite[T antlr.ParserRuleContext](
 	// A bare identifier copies the referenced channel's stream directly.
 	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
 		if src, err := base.Scope.Resolve(base, primary.IDENTIFIER().GetText()); err == nil &&
-			(src.VarKind.BacksInternalChannel() || src.Kind == symbol.KindChannel) {
+			(src.BacksInternalChannel() || src.Kind == symbol.KindChannel) {
 			read, rok := buildChannelReadNode(src.Name, src, kg)
 			if !rok {
 				return nil, nil, false
 			}
-			if src.VarKind.BacksInternalChannel() {
+			if src.BacksInternalChannel() {
 				shell.varChannels.Add(channelKey(src))
 			}
 			edge := ir.Edge{Source: read.output, Target: write.input, Kind: ir.EdgeKindContinuous}
@@ -848,15 +836,15 @@ func lowerAssignment[T antlr.ParserRuleContext](
 	if err != nil {
 		return nil, nil, true
 	}
-	switch target.VarKind {
-	case symbol.VarKindLiteral:
-		return lowerVarWrite(ctx, target, expr, kg, shell)
-	case symbol.VarKindChannelReadWrite:
+	switch {
+	case target.IsChannelReadWrite():
 		rebindChannelReadWrite(ctx, target, expr)
 		shell.channelReadWriteBindingBody[target] = ctx.Scope
 		return lowerChannelReadWriteRebind(ctx, target, expr, kg, shell)
-	case symbol.VarKindChannelRead:
+	case target.IsReactive():
 		return lowerReExpr(ctx, target, expr, kg, shell)
+	case target.IsValueVariable():
+		return lowerVarWrite(ctx, target, expr, kg, shell)
 	default:
 		return nil, nil, true
 	}
@@ -900,8 +888,7 @@ func buildFeederSwitch[T antlr.ParserRuleContext](
 	// resolution and the value-variable collectors (seed, flow, reset).
 	sw, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Kind:     symbol.KindVariable,
-		VarKind:  symbol.VarKindChannelRead,
-		Type:     types.U8(),
+		Type:     types.ReadChan(types.U8()),
 		Internal: true,
 	})
 	if err != nil {
@@ -1065,8 +1052,7 @@ func createChannelReadWriteBacking[T antlr.ParserRuleContext](
 ) (*symbol.Symbol, bool) {
 	backing, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
 		Kind:     symbol.KindVariable,
-		VarKind:  symbol.VarKindChannelRead,
-		Type:     channelReadWrite.Type.Unwrap(),
+		Type:     types.ReadChan(channelReadWrite.Type.Unwrap()),
 		Internal: true,
 		AST:      channelReadWrite.AST,
 	})
@@ -1138,7 +1124,7 @@ func recordChannelReadWriteRebind[T antlr.ParserRuleContext](
 		return
 	}
 	sym, err := scope.Resolve(ctx, id.GetText())
-	if err != nil || sym.VarKind != symbol.VarKindChannelReadWrite {
+	if err != nil || !sym.IsChannelReadWrite() {
 		return
 	}
 	if _, ok := shell.channelReadWriteBacking[sym]; ok {

@@ -445,7 +445,8 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	if err := nv.Channels.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Int64(int64(nv.VarKind))
+	w.Bool(nv.IsLiteral)
+	w.Bool(nv.BacksInternalChannel)
 	return nil
 }
 
@@ -496,12 +497,11 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	if err = nv.Channels.DecodeOrc(r); err != nil {
 		return err
 	}
-	{
-		v, err := r.Int64()
-		if err != nil {
-			return err
-		}
-		nv.VarKind = VarKind(v)
+	if nv.IsLiteral, err = r.Bool(); err != nil {
+		return err
+	}
+	if nv.BacksInternalChannel, err = r.Bool(); err != nil {
+		return err
 	}
 	return nil
 }

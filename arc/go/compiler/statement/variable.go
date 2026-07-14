@@ -52,6 +52,9 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	if err != nil {
 		return err
 	}
+	if varScope.IsReactive() {
+		return nil
+	}
 	varType := varScope.Type
 
 	// Special case: if LHS has channel type and RHS is a symbol with channel type,
@@ -367,6 +370,10 @@ func compileAssignment(
 	scope, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		return err
+	}
+	// Reactive reassignment is handled by the feeder machine, not inline WASM.
+	if scope.IsReactive() {
+		return nil
 	}
 
 	if compoundOp := ctx.AST.CompoundOp(); compoundOp != nil {

@@ -493,9 +493,9 @@ var _ = Describe("Channel", func() {
 			It("Should not re-emit a variable's current value after reset", func(ctx SpecContext) {
 				source := MustSucceed(factory.Create(ctx, rnode.Config{
 					Node: ir.Node{
-						Type:    "on",
-						VarKind: ir.VarKindLiteral,
-						Inputs:  types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
+						Type:      "on",
+						IsLiteral: true,
+						Inputs:    types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
 					},
 					State: progState.Node("source"),
 				}))

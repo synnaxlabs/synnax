@@ -48,10 +48,7 @@ func tracksChannelRead(resolved *symbol.Symbol) bool {
 // isReactiveValueVar reports whether resolved is a value variable backed by a
 // program-local channel rather than a WASM local declared in a function body.
 func isReactiveValueVar(resolved *symbol.Symbol) bool {
-	if resolved.Kind != symbol.KindVariable && resolved.Kind != symbol.KindStatefulVariable {
-		return false
-	}
-	if resolved.Type.Kind == basetypes.KindChan || resolved.SourceID != nil {
+	if !resolved.BacksInternalChannel() {
 		return false
 	}
 	_, err := resolved.ClosestAncestorOfKind(symbol.KindFunction)

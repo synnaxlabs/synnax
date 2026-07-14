@@ -360,18 +360,18 @@ func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, roo
 	if err != nil || sym == nil {
 		return nil
 	}
-	if t := classifyVarKind(sym.VarKind); t != nil {
+	if t := classifyVarKind(sym); t != nil {
 		return t
 	}
 	return mapSymbolKind(sym.Kind)
 }
 
-func classifyVarKind(kind symbol.VarKind) *uint32 {
+func classifyVarKind(sym *symbol.Symbol) *uint32 {
 	var tokenType uint32
-	switch kind {
-	case symbol.VarKindChannelReadWrite:
+	switch {
+	case sym.IsChannelReadWrite():
 		tokenType = SemanticTokenTypeChannelAlias
-	case symbol.VarKindChannelRead:
+	case sym.IsReactive():
 		tokenType = SemanticTokenTypeReactiveVariable
 	default:
 		return nil

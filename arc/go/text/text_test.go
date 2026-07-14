@@ -152,11 +152,15 @@ var _ = Describe("Text", func() {
 				sawRead = sawRead || reads
 				sawWrite = sawWrite || writes
 				if reads || writes {
-					Expect(n.VarKind).To(Equal(ir.VarKindLiteral),
+					Expect(n.IsLiteral).To(BeTrue(),
 						"a node touching the var channel must carry its kind")
+					Expect(n.BacksInternalChannel).To(BeTrue(),
+						"a node touching the var channel must back the internal channel")
 				} else {
-					Expect(n.VarKind).To(Equal(ir.VarKindUnspecified),
-						"a node not touching the var channel must be unspecified")
+					Expect(n.IsLiteral).To(BeFalse(),
+						"a node not touching the var channel must not be held")
+					Expect(n.BacksInternalChannel).To(BeFalse(),
+						"a node not touching the var channel must not back one")
 				}
 			}
 			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
@@ -209,7 +213,8 @@ var _ = Describe("Text", func() {
 			for _, n := range inter.Nodes {
 				if _, writes := n.Channels.Write[varKey]; writes {
 					sawWrite = true
-					Expect(n.VarKind).To(Equal(ir.VarKindLiteral))
+					Expect(n.IsLiteral).To(BeTrue())
+					Expect(n.BacksInternalChannel).To(BeTrue())
 				}
 			}
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
@@ -546,11 +551,15 @@ var _ = Describe("Text", func() {
 				sawRead = sawRead || reads
 				sawWrite = sawWrite || writes
 				if reads || writes {
-					Expect(n.VarKind).To(Equal(ir.VarKindLiteral),
+					Expect(n.IsLiteral).To(BeTrue(),
 						"a node touching the var channel must carry its kind")
+					Expect(n.BacksInternalChannel).To(BeTrue(),
+						"a node touching the var channel must back the internal channel")
 				} else {
-					Expect(n.VarKind).To(Equal(ir.VarKindUnspecified),
-						"a node not touching the var channel must be unspecified")
+					Expect(n.IsLiteral).To(BeFalse(),
+						"a node not touching the var channel must not be held")
+					Expect(n.BacksInternalChannel).To(BeFalse(),
+						"a node not touching the var channel must not back one")
 				}
 			}
 			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
