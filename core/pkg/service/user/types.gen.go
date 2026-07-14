@@ -12,8 +12,12 @@
 package user
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/user/types/v0"
+	latest "github.com/synnaxlabs/synnax/pkg/service/user/types/v0"
 )
 
-type Key = v0.Key
-type User = v0.User
+// Key is a unique identifier for a user, represented as a UUID.
+type Key = latest.Key
+
+// User is an account entity representing a person accessing the Synnax system. Users
+// can have roles assigned for permission management.
+type User = latest.User

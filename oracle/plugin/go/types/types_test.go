@@ -1883,6 +1883,26 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("version-laid-out packages", func() {
+			It("Should emit a types/ selector alias file", func(ctx SpecContext) {
+				source := `
+					@go output "out"
+					@go version 3
+					Entry struct {
+						key uuid @key
+						@go marshal
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+				ExpectContent(resp, "out/types/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"package types",
+						`"github.com/synnaxlabs/synnax/out/types/v3"`,
+						"type Entry = latest.Entry",
+					)
+			})
+
 			It("Should emit types into types/vN with a root alias file", func(ctx SpecContext) {
 				source := `
 					@go output "out"
@@ -1895,7 +1915,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
-				Expect(resp.Files).To(HaveLen(2))
+				Expect(resp.Files).To(HaveLen(3))
 				ExpectContent(resp, "out/types/v3/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
@@ -1907,7 +1927,7 @@ var _ = Describe("Go Types Plugin", func() {
 					ToContain(
 						"package out",
 						`"github.com/synnaxlabs/synnax/out/types/v3"`,
-						"type Entry = v3.Entry",
+						"type Entry = latest.Entry",
 					)
 			})
 
@@ -1931,9 +1951,9 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Color = v1.Color",
-						"ColorRed = v1.ColorRed",
-						"ColorBlue = v1.ColorBlue",
+						"type Color = latest.Color",
+						"ColorRed = latest.ColorRed",
+						"ColorBlue = latest.ColorBlue",
 					)
 			})
 
@@ -1956,8 +1976,8 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Status[D any] = v0.Status[D]",
-						"type Entry = v0.Entry",
+						"type Status[D any] = latest.Status[D]",
+						"type Entry = latest.Entry",
 					)
 			})
 
@@ -1984,11 +2004,11 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Scale = v2.Scale",
-						"type ScaleVariant = v2.ScaleVariant",
-						"type ScaleType = v2.ScaleType",
-						"type ScaleLinear = v2.ScaleLinear",
-						"ScaleTypeLinear = v2.ScaleTypeLinear",
+						"type Scale = latest.Scale",
+						"type ScaleVariant = latest.ScaleVariant",
+						"type ScaleType = latest.ScaleType",
+						"type ScaleLinear = latest.ScaleLinear",
+						"ScaleTypeLinear = latest.ScaleTypeLinear",
 					)
 			})
 

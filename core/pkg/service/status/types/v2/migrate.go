@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// MigrateStatus migrates a persisted v54 status into the current server-side Status
+// MigrateStatus migrates a persisted v1 status into the current server-side Status
 // entity. Labels are intentionally dropped: they are no longer persisted on the status
 // and are instead resolved at read time from the label relationship. All other fields
 // are copied across unchanged.

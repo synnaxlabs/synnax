@@ -93,11 +93,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if len(pathMap) == 0 {
 		return resp, nil
 	}
+	pathFilter := func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok }
 	aliasGen := &framework.Generator{
 		Domain:          "go",
 		FilePattern:     p.Options.FileNamePattern,
 		FileGenerator:   &aliasFileGenerator{pathMap: pathMap},
-		PathFilter:      func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok },
+		PathFilter:      pathFilter,
 		MergeByName:     false,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
@@ -108,6 +109,21 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 	resp.Files = append(resp.Files, aliasResp.Files...)
+	selectorGen := &framework.Generator{
+		Domain:          "go",
+		FilePattern:     "types/" + p.Options.FileNamePattern,
+		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, pkg: "types"},
+		PathFilter:      pathFilter,
+		MergeByName:     false,
+		CollectTypeDefs: true,
+		CollectEnums:    true,
+		CollectUnions:   true,
+	}
+	selectorResp, err := selectorGen.Generate(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, selectorResp.Files...)
 	return resp, nil
 }
 

@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"text/template"
 
+	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
@@ -22,22 +23,30 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-// aliasFileGenerator emits the package-root re-export surface for a
-// version-laid-out package: a type alias for every type generated into the
-// current types/vN sub-package, plus const re-declarations for enum members
-// and union discriminator values. Methods travel with the aliased types, so
-// the root package presents the full generated API.
+// aliasFileGenerator emits a re-export surface for a version-laid-out
+// package: a type alias for every type generated into the current types/vN
+// sub-package, plus const re-declarations for enum members and union
+// discriminator values. Methods travel with the aliased types, so the alias
+// package presents the full generated API. It serves both the package root
+// (package <resource>) and the types/ selector (package types).
 type aliasFileGenerator struct {
 	// pathMap maps each version-laid-out root path to its current types/vN
 	// sub-path.
 	pathMap map[string]string
+	// pkg overrides the emitted package name; empty derives it from the
+	// output path (the package-root case).
+	pkg string
 }
 
 type aliasDecl struct {
+	// Name is the bare type name, used to prefix the doc comment.
+	Name string
 	// LHS is the alias declaration head ("Status[Details any]").
 	LHS string
-	// RHS is the aliased target ("v0.Status[Details]").
+	// RHS is the aliased target ("latest.Status[Details]").
 	RHS string
+	// Doc is the rendered documentation comment, if any.
+	Doc string
 }
 
 type aliasConst struct{ Name, Target string }
@@ -54,8 +63,6 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 	if !ok {
 		return "", nil
 	}
-	vPkg := naming.DerivePackageName(versionedPath)
-
 	namespace := ctx.Namespace
 	pkg := naming.DerivePackageName(ctx.OutputPath)
 	imp := imports.NewManager()
@@ -84,13 +91,17 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		ctx:        rctx,
 	}
 
+	emitPkg := pkg
+	if g.pkg != "" {
+		emitPkg = g.pkg
+	}
 	ad := &aliasData{
-		Package: pkg,
+		Package: emitPkg,
 		Import:  resolveGoImportPath(versionedPath, ctx.RepoRoot),
 	}
 
-	addType := func(name string, tparams []resolution.TypeParam) {
-		lhs, rhs := name, vPkg+"."+name
+	addType := func(name, docStr string, tparams []resolution.TypeParam) {
+		lhs, rhs := name, "latest."+name
 		params := resolution.NonDefaultedTypeParams(tparams)
 		if len(params) > 0 {
 			lhs += "["
@@ -107,7 +118,7 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 			lhs += "]"
 			rhs += "]"
 		}
-		ad.Types = append(ad.Types, aliasDecl{LHS: lhs, RHS: rhs})
+		ad.Types = append(ad.Types, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
 	}
 
 	for _, td := range ctx.TypeDefs {
@@ -116,11 +127,11 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		}
 		switch form := td.Form.(type) {
 		case resolution.DistinctForm:
-			addType(naming.GetGoName(td), form.TypeParams)
+			addType(naming.GetGoName(td), doc.Get(td.Domains), form.TypeParams)
 		case resolution.AliasForm:
-			addType(naming.GetGoName(td), form.TypeParams)
+			addType(naming.GetGoName(td), doc.Get(td.Domains), form.TypeParams)
 		default:
-			addType(naming.GetGoName(td), nil)
+			addType(naming.GetGoName(td), doc.Get(td.Domains), nil)
 		}
 	}
 
@@ -129,11 +140,11 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 			continue
 		}
 		name := naming.GetGoName(e)
-		addType(name, nil)
+		addType(name, doc.Get(e.Domains), nil)
 		form := e.Form.(resolution.EnumForm)
 		for _, v := range form.Values {
 			member := name + naming.ToPascalCase(v.Name)
-			ad.Consts = append(ad.Consts, aliasConst{Name: member, Target: vPkg + "." + member})
+			ad.Consts = append(ad.Consts, aliasConst{Name: member, Target: "latest." + member})
 		}
 	}
 
@@ -145,7 +156,7 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		if !ok {
 			continue
 		}
-		addType(naming.GetGoName(s), form.TypeParams)
+		addType(naming.GetGoName(s), doc.Get(s.Domains), form.TypeParams)
 	}
 
 	for _, u := range ctx.Unions {
@@ -157,14 +168,14 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 			continue
 		}
 		name := naming.GetGoName(u)
-		addType(name, nil)
-		addType(name+"Variant", nil)
+		addType(name, doc.Get(u.Domains), nil)
+		addType(name+"Variant", "", nil)
 		discType := name + "Type"
-		addType(discType, nil)
+		addType(discType, "", nil)
 		for _, v := range form.Variants {
-			addType(casing.VariantTypeName(name, v.Name), nil)
+			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
 			constName := discType + casing.PascalAcronym(v.Name)
-			ad.Consts = append(ad.Consts, aliasConst{Name: constName, Target: vPkg + "." + constName})
+			ad.Consts = append(ad.Consts, aliasConst{Name: constName, Target: "latest." + constName})
 		}
 	}
 
@@ -175,15 +186,19 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 	return buf.String(), nil
 }
 
-var aliasTemplate = template.Must(template.New("go-alias").Parse(
-	`// Code generated by oracle. DO NOT EDIT.
+var aliasTemplate = template.Must(template.New("go-alias").
+	Funcs(template.FuncMap{"formatDoc": doc.FormatGo}).
+	Parse(`// Code generated by oracle. DO NOT EDIT.
 
 package {{.Package}}
 
 import (
-	"{{.Import}}"
+	latest "{{.Import}}"
 )
 {{range .Types}}
+{{- if .Doc}}
+{{formatDoc .Name .Doc}}
+{{- end}}
 type {{.LHS}} = {{.RHS}}
 {{- end}}
 {{- if .Consts}}

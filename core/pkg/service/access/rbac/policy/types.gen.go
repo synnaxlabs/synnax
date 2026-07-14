@@ -12,8 +12,13 @@
 package policy
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v1"
+	latest "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v1"
 )
 
-type Key = v1.Key
-type Policy = v1.Policy
+// Key is a unique identifier for a policy, represented as a UUID.
+type Key = latest.Key
+
+// Policy is an access control policy that defines which actions are permitted on which
+// resources. Policies are attached to roles, and roles are assigned to users via
+// ontology relationships.
+type Policy = latest.Policy

@@ -12,8 +12,12 @@
 package view
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/view/types/v0"
+	latest "github.com/synnaxlabs/synnax/pkg/service/view/types/v0"
 )
 
-type Key = v0.Key
-type View = v0.View
+// Key is a unique identifier for a saved view configuration.
+type Key = latest.Key
+
+// View is a persisted view configuration storing visualization settings and query
+// parameters for line plots, tables, schematics, and other view types.
+type View = latest.View

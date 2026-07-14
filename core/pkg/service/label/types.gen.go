@@ -12,8 +12,12 @@
 package label
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	latest "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 )
 
-type Key = v0.Key
-type Label = v0.Label
+// Key is a unique identifier for a label, represented as a UUID.
+type Key = latest.Key
+
+// Label is a tagging and categorization entity with a name and associated color. Labels
+// can be attached to resources like ranges for organization and filtering.
+type Label = latest.Label

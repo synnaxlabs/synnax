@@ -19,7 +19,7 @@ import (
 // Key is a unique identifier for a workspace, represented as a UUID.
 type Key = uuid.UUID
 
-// Workspace is the v56 snapshot of the type that became Project. It is retained so the
+// Workspace is the frozen shape of the type that became Project. It is retained so the
 // workspace-to-project migration can decode records persisted under the legacy
 // "Workspace" gorp prefix before lifting them into the current Project type.
 type Workspace struct {

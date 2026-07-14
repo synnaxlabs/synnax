@@ -39,8 +39,8 @@ type FileGenerator interface {
 type ExtraEnumsFunc func(structs []resolution.Type, table *resolution.Table, outputPath string) []resolution.Type
 
 type Generator struct {
-	FileGenerator   FileGenerator
-	ExtraEnumsFunc  ExtraEnumsFunc
+	FileGenerator  FileGenerator
+	ExtraEnumsFunc ExtraEnumsFunc
 	// PathFilter, when non-nil, restricts generation to output paths for
 	// which it returns true. Types at filtered-out paths are still collected
 	// (so grouping and enum merging stay identical) but produce no file.
