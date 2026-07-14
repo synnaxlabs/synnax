@@ -412,6 +412,7 @@ describe("schematic import", () => {
         store,
         client,
         projectKey: project.key,
+        fileName: "test.json",
       });
       expect(placeLayout).toHaveBeenCalledTimes(1);
       const creator = placeLayout.mock.calls[0][0] as Layout.Creator;
@@ -438,6 +439,7 @@ describe("schematic import", () => {
           store,
           client: null,
           projectKey: "project-1",
+          fileName: "test.json",
         }),
       ).rejects.toThrow("You do not have permission to import schematics");
     });

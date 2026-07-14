@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -96,7 +97,7 @@ var _ = Describe("ImEx", func() {
 		)
 
 		importAndRetrieve := func(ctx SpecContext, path string) (ontology.ID, log.Log) {
-			id := MustSucceed(imexSvc.Import(ctx, db, loadEnvelope(path)))
+			id := MustSucceed(imexSvc.Import(ctx, db, loadEnvelope(path), imex.ImportOptions{}))
 			Expect(id.Type).To(Equal(ontology.ResourceTypeLog))
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res log.Log
@@ -154,14 +155,51 @@ var _ = Describe("ImEx", func() {
 			Expect(resource.ID).To(Equal(id))
 		})
 
+		It("Should create the imported log under the project from the options", func(ctx SpecContext) {
+			id := MustSucceed(imexSvc.Import(
+				ctx, db, loadEnvelope(v2Fixture),
+				imex.ImportOptions{Project: proj.Key},
+			))
+			Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
+				From: project.OntologyID(proj.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   id,
+			})).To(BeTrue())
+		})
+
+		It("Should reject a project that does not exist", func(ctx SpecContext) {
+			Expect(imexSvc.Import(
+				ctx, db, loadEnvelope(v2Fixture),
+				imex.ImportOptions{Project: uuid.New()},
+			)).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should name the imported log from the file name when the body has no name", func(ctx SpecContext) {
+			raw := MustSucceed(os.ReadFile(v2Fixture))
+			var body map[string]any
+			Expect(json.Unmarshal(raw, &body)).To(Succeed())
+			delete(body, "name")
+			var env imex.Envelope
+			Expect(json.Unmarshal(MustSucceed(json.Marshal(body)), &env)).To(Succeed())
+			id := MustSucceed(imexSvc.Import(
+				ctx, db, env, imex.ImportOptions{FileName: "From File.json"},
+			))
+			key := MustSucceed(uuid.Parse(id.Key))
+			var res log.Log
+			Expect(svc.NewRetrieve().Where(log.MatchKeys(key)).Entry(&res).Exec(ctx, db)).
+				To(Succeed())
+			Expect(res.Name).To(Equal("From File"))
+		})
+
 		It("Should generate a fresh key, discarding the key on the wire", func(ctx SpecContext) {
-			id := MustSucceed(imexSvc.Import(ctx, db, loadEnvelope(v2Fixture)))
+			id := MustSucceed(imexSvc.Import(ctx, db, loadEnvelope(v2Fixture), imex.ImportOptions{}))
 			Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
 		})
 
 		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
 				loadEnvelope("types/testdata/import_bad_version.json"),
+				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("log version 99")),
 				MatchError(ContainSubstring("newer than this Core supports")),
@@ -171,6 +209,7 @@ var _ = Describe("ImEx", func() {
 		It("Should return an error when a current-version body cannot be decoded", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
 				loadEnvelope("types/testdata/import_bad_v2.json"),
+				imex.ImportOptions{},
 			)).Error().To(MatchError(ContainSubstring("decode")))
 		})
 	})
@@ -187,7 +226,7 @@ var _ = Describe("ImEx", func() {
 				HideReceiptTimestamp: true,
 			})
 			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(original.Key)))
-			id := MustSucceed(imexSvc.Import(ctx, db, wireRoundTrip(env)))
+			id := MustSucceed(imexSvc.Import(ctx, db, wireRoundTrip(env), imex.ImportOptions{}))
 
 			key := MustSucceed(uuid.Parse(id.Key))
 			var res log.Log
