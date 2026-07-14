@@ -247,9 +247,6 @@ func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 // FreeIndexResolver interface without exposing resolution on the Service itself.
 type freeIndexResolver struct{ svc *Service }
 
-// ResolveFreeIndexes implements writer.FreeIndexResolver, returning the index channel
-// key for each free channel in keys that has an index. It returns query.ErrNotFound
-// if any key has no channel record.
 func (r freeIndexResolver) ResolveFreeIndexes(
 	ctx context.Context,
 	keys Keys,

@@ -274,10 +274,10 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // interface and is registered via Service.SetFreeIndexResolver.
 type FreeIndexResolver interface {
 	// ResolveFreeIndexes returns the index channel key for each free channel in keys
-	// that has an index. Free frames are stamped with per-index alignments derived
-	// from this map. Any error is propagated to the caller opening the writer.
+	// that has an index. Free frames are stamped with per-index alignments derived from
+	// this map. Any error is propagated to the caller opening the writer.
 	ResolveFreeIndexes(
-		ctx context.Context, keys channel.Keys,
+		context.Context, channel.Keys,
 	) (map[channel.Key]channel.Key, error)
 }
 
