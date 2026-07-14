@@ -37,8 +37,10 @@ stage counting {
 
     local + 1 -> local // always becomes 1
     state + 1 -> state // increments on re-entry
+
 }
-```
+
+````
 </Fragment>
 
 <Fragment slot="Function">
@@ -50,7 +52,8 @@ func example() {
     local = local + 1 // always becomes 1
     state = state + 1 // increments: 1, 2, 3, ...
 }
-```
+````
+
 </Fragment>
 
 </ArcContext.Tabs>
@@ -210,8 +213,10 @@ stage toggle {
         true: 1 -> state,
         false: 0 -> state
     }
+
 }
-```
+
+````
 </Fragment>
 
 <Fragment slot="Function">
@@ -227,7 +232,8 @@ func toggle(trigger u8) u8 {
     }
     return state
 }
-```
+````
+
 </Fragment>
 
 </ArcContext.Tabs>
