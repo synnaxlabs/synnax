@@ -14,7 +14,9 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <string>
 #include <thread>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -48,6 +50,60 @@ public:
     virtual void stop(bool will_reconfigure) = 0;
 
     virtual ~Task() = default;
+};
+
+/// @brief thread-safe per-task deploy state shared between the manager and the
+/// context: the config hash the live instance was built from, and the key of the
+/// start command that triggered an in-flight deploy. The context stamps both
+/// into outgoing statuses.
+class DeployState {
+    struct State {
+        std::string hash;
+        std::string pending_cmd;
+    };
+    std::mutex mu;
+    std::unordered_map<synnax::task::Key, State> states;
+
+public:
+    void set_hash(const synnax::task::Key &key, const std::string &hash) {
+        std::lock_guard lock{this->mu};
+        this->states[key].hash = hash;
+    }
+
+    /// @brief returns the deployed config hash for key, or an empty string when
+    /// no live instance exists.
+    std::string hash(const synnax::task::Key &key) {
+        std::lock_guard lock{this->mu};
+        const auto it = this->states.find(key);
+        return it == this->states.end() ? "" : it->second.hash;
+    }
+
+    void set_pending_cmd(const synnax::task::Key &key, const std::string &cmd) {
+        std::lock_guard lock{this->mu};
+        this->states[key].pending_cmd = cmd;
+    }
+
+    void clear_pending_cmd(const synnax::task::Key &key) {
+        std::lock_guard lock{this->mu};
+        const auto it = this->states.find(key);
+        if (it != this->states.end()) it->second.pending_cmd.clear();
+    }
+
+    std::string pending_cmd(const synnax::task::Key &key) {
+        std::lock_guard lock{this->mu};
+        const auto it = this->states.find(key);
+        return it == this->states.end() ? "" : it->second.pending_cmd;
+    }
+
+    void remove(const synnax::task::Key &key) {
+        std::lock_guard lock{this->mu};
+        this->states.erase(key);
+    }
+
+    void clear() {
+        std::lock_guard lock{this->mu};
+        this->states.clear();
+    }
 };
 
 /// @brief an interface for a standard context that is provided to every task in the
@@ -100,18 +156,21 @@ class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bus_;
     std::shared_ptr<control::States> control_states_;
     synnax::rack::Key rack_key_;
+    std::shared_ptr<DeployState> deploys_;
 
 public:
     explicit SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
-        const synnax::rack::Key rack_key = 0
+        const synnax::rack::Key rack_key = 0,
+        const std::shared_ptr<DeployState> &deploys = nullptr
     ):
         Context(client),
         bus_(bus),
         control_states_(control_states),
-        rack_key_(rack_key) {}
+        rack_key_(rack_key),
+        deploys_(deploys) {}
 
     std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
 
@@ -123,6 +182,15 @@ public:
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
+        status.details.rack = this->rack_key_;
+        if (this->deploys_ != nullptr) {
+            status.details.config_hash = this->deploys_->hash(status.details.task);
+            // A config error during a start-triggered deploy must ack the start
+            // command so sync waiters resolve with the detailed failure.
+            if (status.details.cmd.empty() &&
+                status.variant == synnax::status::VARIANT_ERROR)
+                status.details.cmd = this->deploys_->pending_cmd(status.details.task);
+        }
         if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
                 status
             );
@@ -253,11 +321,13 @@ public:
     ):
         rack(std::move(rack)),
         control_states_(std::make_shared<control::States>()),
+        deploys_(std::make_shared<DeployState>()),
         ctx(std::make_shared<SynnaxContext>(
             client,
             std::make_shared<bypass::Bus>(),
             this->control_states_,
-            this->rack.key
+            this->rack.key,
+            this->deploys_
         )),
         factory(std::move(factory)),
         op_timeout(cfg.op_timeout),
@@ -277,6 +347,8 @@ private:
     synnax::rack::Rack rack;
     /// @brief shared control authority states, fed by the manager's streamer.
     std::shared_ptr<control::States> control_states_;
+    /// @brief deploy state of live task instances, shared with the context.
+    std::shared_ptr<DeployState> deploys_;
     /// @brief shared context passed to all tasks.
     std::shared_ptr<Context> ctx;
     /// @brief creates device-specific tasks.
@@ -336,24 +408,23 @@ private:
 
     /// @brief channels used to receive task events.
     struct {
-        synnax::channel::Channel task_set;
         synnax::channel::Channel task_delete;
         synnax::channel::Channel task_cmd;
         synnax::channel::Channel control_state;
     } channels;
 
-    /// @brief opens the streamer for task set/delete/cmd channels.
+    /// @brief opens the streamer for task delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief loads and queues all existing tasks from the cluster.
     x::errors::Error configure_initial_tasks();
     /// @brief stops all running tasks.
     void stop_all_tasks();
-    /// @brief handles task create/update events.
-    void process_task_set(const x::telem::Series &series);
     /// @brief handles task deletion events.
     void process_task_delete(const x::telem::Series &series);
     /// @brief handles task command events.
     void process_task_cmd(const x::telem::Series &series);
+    /// @brief deploys the stored task row and runs the start command.
+    void process_start(const synnax::task::Command &cmd);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
     /// @brief stops workers and waits for them to finish.

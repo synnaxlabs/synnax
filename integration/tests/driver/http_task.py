@@ -66,7 +66,6 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase):
         task: sy.Task,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
-        started: bool = False,
     ) -> None:
         """Assert sample count using task.config.rate instead of sample_rate.
 
@@ -85,12 +84,8 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase):
             sy.sleep(duration.seconds * 1.25)
             return start
 
-        if started:
+        with task.run():
             start_time = collect()
-            task.stop()
-        else:
-            with task.run():
-                start_time = collect()
 
         end_time = sy.TimeStamp.now()
         expected_samples = int(task.config.rate * duration.seconds)
@@ -105,16 +100,13 @@ class HTTPReadTaskCase(SimulatorCase, ReadTaskCase):
             )
 
     def test_reconfigure_rate(self) -> None:
-        """Halve the polling rate with auto_start enabled."""
+        """Halve the polling rate and verify the next start deploys the new config."""
         assert self.tsk is not None
-        self.log("Testing: Reconfigure task rate with auto_start")
+        self.log("Testing: Reconfigure task rate")
         new_rate = self.tsk.config.rate / 2
         self.tsk.config.rate = new_rate
-        self.tsk.config.auto_start = True
         self.client.tasks.configure(self.tsk)
-        self.assert_sample_count(
-            task=self.tsk, duration=self.TASK_DURATION, started=True
-        )
+        self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
 
 class HTTPWriteTaskCase(SimulatorCase, WriteTaskCase):

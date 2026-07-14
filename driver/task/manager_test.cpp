@@ -236,6 +236,31 @@ public:
     }
 };
 
+void send_cmd(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const synnax::task::Command &cmd
+) {
+    auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve(synnax::task::CMD_CHANNEL));
+    auto writer = ASSERT_NIL_P(client->telem.open_writer(
+        {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
+    ));
+    ASSERT_NIL(
+        writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
+    );
+    ASSERT_NIL(writer.close());
+}
+
+void send_start(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const synnax::task::Task &task,
+    const std::string &cmd_key = "start-cmd"
+) {
+    send_cmd(
+        client,
+        {.task = task.key, .type = synnax::task::START_CMD_TYPE, .key = cmd_key}
+    );
+}
+
 synnax::task::Status wait_for_task_status(
     synnax::framer::Streamer &streamer,
     const synnax::task::Task &task,
@@ -324,7 +349,7 @@ protected:
     }
 };
 
-TEST_F(TaskManagerTest, Configure) {
+TEST_F(TaskManagerTest, DeployOnStart) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
         .rack = rack.key,
@@ -332,11 +357,41 @@ TEST_F(TaskManagerTest, Configure) {
         .type = "echo",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.variant == synnax::status::VARIANT_SUCCESS &&
                s.message == "configured";
     });
     ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(s.details.config_hash, synnax::task::hash_config(task.config));
+    ASSERT_EQ(s.details.rack, rack.key);
+}
+
+TEST_F(TaskManagerTest, NoConfigureOnCreate) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = "echo",
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+
+    std::atomic<bool> received = false;
+    std::thread reader([&] {
+        auto [frame, err] = streamer.read();
+        if (err) return;
+        for (const auto &j: frame.series->at(0).json_values()) {
+            auto parser = x::json::Parser(j);
+            auto s = synnax::task::Status::parse(parser);
+            if (s.variant != synnax::status::VARIANT_WARNING &&
+                s.details.task == task.key)
+                received = true;
+        }
+    });
+    std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
+    streamer.close_send();
+    reader.join();
+    ASSERT_FALSE(received);
 }
 
 TEST_F(TaskManagerTest, Delete) {
@@ -347,6 +402,7 @@ TEST_F(TaskManagerTest, Delete) {
         .type = "echo",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
@@ -359,30 +415,24 @@ TEST_F(TaskManagerTest, Delete) {
 
 TEST_F(TaskManagerTest, Command) {
     start_manager(std::make_unique<EchoTaskFactory>());
-    auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
-    auto writer = ASSERT_NIL_P(client->telem.open_writer(
-        {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
-    ));
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
         .type = "echo",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
 
-    auto cmd = synnax::task::Command{
-        .task = task.key,
-        .type = "test",
-        .key = "cmd1",
-        .args = x::json::json{{"msg", "hi"}}
-    };
-    ASSERT_NIL(
-        writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = "test",
+         .key = "cmd1",
+         .args = x::json::json{{"msg", "hi"}}}
     );
-    ASSERT_NIL(writer.close());
 
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "cmd1";
@@ -399,6 +449,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
         .type = "echo",
     };
     ASSERT_NIL(other.tasks.create(task));
+    send_start(client, task);
 
     std::atomic<bool> received = false;
     std::thread reader([&] {
@@ -409,6 +460,7 @@ TEST_F(TaskManagerTest, IgnoresForeignRack) {
             if (s.variant != synnax::status::VARIANT_WARNING) received = true;
         }
     });
+    std::this_thread::sleep_for((300 * x::telem::MILLISECOND).chrono());
     streamer.close_send();
     reader.join();
     ASSERT_FALSE(received);
@@ -422,6 +474,7 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
         .type = "echo",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
@@ -442,6 +495,7 @@ TEST_F(TaskManagerTest, IgnoresSnapshot) {
     };
     task.snapshot = true;
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
 
     std::atomic<bool> received = false;
     std::thread reader([&] {
@@ -472,6 +526,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
         .type = "blocking",
     };
     ASSERT_NIL(rack.tasks.create(blocking));
+    send_start(client, blocking, "start-b");
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
 
     auto echo = synnax::task::Task{
@@ -480,6 +535,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
         .type = "echo",
     };
     ASSERT_NIL(rack.tasks.create(echo));
+    send_start(client, echo, "start-e");
     auto s = WAIT_FOR_TASK_STATUS(streamer, echo, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
@@ -493,17 +549,9 @@ TEST_F(TaskManagerTest, ParallelConfig) {
 
 TEST_F(TaskManagerTest, CommandForUnconfigured) {
     start_manager(std::make_unique<EchoTaskFactory>());
-    auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
-    auto writer = ASSERT_NIL_P(client->telem.open_writer(
-        {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
-    ));
 
     auto fake_key = x::uuid::create();
-    auto cmd = synnax::task::Command{.task = fake_key, .type = "test"};
-    ASSERT_NIL(
-        writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
-    );
-    ASSERT_NIL(writer.close());
+    send_cmd(client, {.task = fake_key, .type = "test"});
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
     auto task = synnax::task::Task{
@@ -512,6 +560,7 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
         .type = "echo",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
@@ -525,6 +574,7 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
         .type = "echo",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "start-0");
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
@@ -532,21 +582,62 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     for (int i = 0; i < 5; i++) {
         task.config = x::json::json{{"v", i}};
         ASSERT_NIL(rack.tasks.create(task));
+        send_start(client, task, "start-" + std::to_string(i + 1));
     }
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
 
-    auto cmd_ch = ASSERT_NIL_P(client->channels.retrieve("sy_task_cmd"));
-    auto writer = ASSERT_NIL_P(client->telem.open_writer(
-        {.channels = {cmd_ch.key}, .start = x::telem::TimeStamp::now()}
-    ));
-    auto cmd = synnax::task::Command{.task = task.key, .type = "test", .key = "final"};
-    ASSERT_NIL(
-        writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
-    );
-    ASSERT_NIL(writer.close());
+    send_cmd(client, {.task = task.key, .type = "test", .key = "final"});
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "final";
     });
+}
+
+TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = "tracking",
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    auto state = f->task_states[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+
+    // Same stored config: the second start runs the live instance as-is.
+    send_start(client, task, "s2");
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 2);
+    {
+        std::lock_guard lock(f->mu);
+        ASSERT_EQ(f->task_states.size(), 1);
+    }
+    ASSERT_FALSE(state->stopped.load());
+
+    // Changed config: the third start rebuilds the task first.
+    task.config = x::json::json{{"rate", 100}};
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s3");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 2;
+        },
+        [] { return "task not redeployed"; }
+    );
+    ASSERT_EVENTUALLY_TRUE(state->stopped.load());
+    ASSERT_TRUE(state->stop_will_reconfigure.load());
+    ASSERT_EVENTUALLY_EQ(f->task_states[1]->exec_count.load(), 1);
 }
 
 TEST_F(TaskManagerTest, Timeout) {
@@ -565,6 +656,7 @@ TEST_F(TaskManagerTest, Timeout) {
         .type = "timeout",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
 
     auto s = WAIT_FOR_TASK_STATUS(
         streamer,
@@ -596,6 +688,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
         .type = "tracking",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "c0");
     EVENTUALLY(
         [&] {
             std::lock_guard lock(f->mu);
@@ -604,8 +697,7 @@ TEST_F(TaskManagerTest, CommandFIFO) {
         [] { return "task not created"; }
     );
 
-    std::vector<std::string> expected = {"c1", "c2", "c3", "c4", "c5"};
-    for (const auto &k: expected) {
+    for (const auto &k: {"c1", "c2", "c3", "c4", "c5"}) {
         auto cmd = synnax::task::Command{.task = task.key, .type = "test", .key = k};
         ASSERT_NIL(
             writer.write(x::telem::Frame(cmd_ch.key, x::telem::Series(cmd.to_json())))
@@ -613,8 +705,9 @@ TEST_F(TaskManagerTest, CommandFIFO) {
     }
     ASSERT_NIL(writer.close());
 
+    const std::vector<std::string> expected = {"c0", "c1", "c2", "c3", "c4", "c5"};
     auto state = f->task_states[0];
-    ASSERT_EVENTUALLY_GE(state->exec_count.load(), 5);
+    ASSERT_EVENTUALLY_GE(state->exec_count.load(), 6);
     std::lock_guard lock(state->cmd_order_mu);
     ASSERT_EQ(state->cmd_order, expected);
 }
@@ -630,6 +723,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
         .type = "tracking",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
 
     std::shared_ptr<TrackingTaskState> first_state;
     EVENTUALLY(
@@ -644,6 +738,7 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
 
     task.config = x::json::json{{"v", 2}};
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s2");
 
     ASSERT_EVENTUALLY_TRUE(first_state->stopped.load());
     ASSERT_TRUE(first_state->stop_will_reconfigure.load());
@@ -718,6 +813,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
         .type = "destructor_tracking",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
 
     WAIT_FOR_TASK_STATUS(streamer, task, [](auto &s) {
         return s.message == "configured";
@@ -728,6 +824,7 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
 
     task.config = {{"v", 2}};
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s2");
 
     ASSERT_EVENTUALLY_GE(f->configure_count.load(), 2);
 
@@ -762,6 +859,7 @@ TEST_F(ShutdownTest, DuringConfiguration) {
         .type = "blocking",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
     EVENTUALLY([&] { return f->started.load(); }, [] { return "not started"; });
 
     manager->stop();
@@ -790,6 +888,7 @@ TEST_F(ShutdownTest, WithPendingOps) {
             .type = "blocking",
         };
         ASSERT_NIL(rack.tasks.create(task));
+        send_start(client, task, "s" + std::to_string(i));
     }
     std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
 
@@ -879,6 +978,7 @@ TEST_F(ShutdownTest, TimeoutDetachesStuckWorkers) {
         .type = "blocking_stop",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
     std::this_thread::sleep_for((100 * x::telem::MILLISECOND).chrono());
 
     manager->stop();
@@ -957,6 +1057,7 @@ TEST_F(ShutdownTest, ParallelTaskStop) {
             .type = "slow_stop",
         };
         ASSERT_NIL(rack.tasks.create(task));
+        send_start(client, task, "s" + std::to_string(i));
     }
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
@@ -1029,6 +1130,7 @@ TEST_F(ShutdownTest, StuckWorkerDetach) {
         .type = "stuck_worker",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
 
     EVENTUALLY(
         [&] { return f->configure_started.load(); },
@@ -1072,6 +1174,7 @@ TEST_F(TaskManagerTest, ControlStateUpdatesPropagate) {
         .type = "capture",
     };
     ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
     WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.variant == synnax::status::VARIANT_SUCCESS &&
                s.message == "configured";

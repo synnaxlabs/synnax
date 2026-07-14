@@ -362,7 +362,7 @@ func (t *impl) setStatus(ctx context.Context, variant status.Variant, running bo
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.task.Key, Running: running},
+		Details: task.NewStatusDetails(t.task, running),
 	}
 	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
@@ -385,7 +385,7 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
 		Description: err.Error(),
 		Time:        telem.Now(),
-		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
+		Details:     task.NewStatusDetails(t.task, true),
 	}
 	if setErr := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))

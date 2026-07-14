@@ -160,6 +160,75 @@ def send_and_verify_commands(
     )
 
 
+def cleanup_task(client: sy.Synnax, task: sy.Task) -> None:
+    """Delete the task if it was assigned a key during save."""
+    if task.key is not None:
+        try:
+            client.tasks.delete(task.key)
+        except sy.NotFoundError:
+            pass
+
+
+def run_and_expect_rejection(
+    client: sy.Synnax,
+    task: sy.Task,
+    *,
+    timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
+) -> str | None:
+    """Start a saved task and return the driver's rejection message, if any.
+
+    Deploy failures acknowledge the start command with an error status; runtime
+    failures surface after a successful ack, so statuses are watched for the full
+    timeout window. Returns None when no rejection arrives. The task is stopped
+    before returning. Accepts both sugared tasks and plain ``sy.task.Task``.
+    """
+    internal = getattr(task, "_internal", task)
+    with client.open_streamer(["sy_status_set"]) as streamer:
+        internal.execute_command("start")
+        try:
+            timer = sy.Timer()
+            while timer.elapsed() < timeout:
+                frame = streamer.read(timeout=timeout)
+                if frame is None:
+                    break
+                if "sy_status_set" not in frame:
+                    continue
+                for raw in frame["sy_status_set"]:
+                    try:
+                        status = sy.task.Status.model_validate(raw)
+                    except ValidationError:
+                        continue
+                    if status.details is None or status.details.task != task.key:
+                        continue
+                    if status.variant in ("warning", "error"):
+                        return status.message
+        finally:
+            internal.execute_command("stop")
+    return None
+
+
+def assert_start_rejected(
+    client: sy.Synnax,
+    task: sy.Task,
+    label: str,
+    *,
+    timeout: sy.TimeSpan = 10 * sy.TimeSpan.SECOND,
+) -> str:
+    """Save a task, start it, and assert the driver rejects it with an error or
+    warning status. Returns the rejection message. The task is deleted before
+    returning."""
+    client.tasks.configure(task)
+    try:
+        message = run_and_expect_rejection(client, task, timeout=timeout)
+        if message is None:
+            raise AssertionError(
+                f"Driver did not reject {label} — task started successfully"
+            )
+        return message
+    finally:
+        cleanup_task(client, task)
+
+
 def _assert_no_task_errors(
     client: sy.Synnax,
     task_key: sy.task.Key,
@@ -449,20 +518,13 @@ class ReadTaskCase(TaskCase):
         self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
     def test_reconfigure_rate(self) -> None:
-        """Halve the sample rate with auto_start enabled.
-
-        Enables auto_start before configuring so the task starts automatically
-        after reconfiguration, removing the need for an explicit run() call.
-        """
+        """Halve the sample rate and verify the next start deploys the new config."""
         assert self.tsk is not None
-        self.log("Testing: Reconfigure task rate with auto_start")
+        self.log("Testing: Reconfigure task rate")
         new_rate = int(self.SAMPLE_RATE / 2)
         self.tsk.config.sample_rate = new_rate
-        self.tsk.config.auto_start = True
         self.client.tasks.configure(self.tsk)
-        self.assert_sample_count(
-            task=self.tsk, duration=self.TASK_DURATION, started=True
-        )
+        self.assert_sample_count(task=self.tsk, duration=self.TASK_DURATION)
 
     def test_survives_channel_deletion(self) -> None:
         """Attempt to delete a channel while the task is running."""
@@ -495,15 +557,8 @@ class ReadTaskCase(TaskCase):
         task: sy.Task,
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
-        started: bool = False,
     ) -> None:
-        """Assert that the task collects the expected number of samples.
-
-        Args:
-            started: If True, the task is already running (e.g. via auto_start)
-                and will be stopped after collection. If False, the task will be
-                started and stopped via task.run().
-        """
+        """Assert that the task collects the expected number of samples."""
         sample_rate = task.config.sample_rate
         channel_keys = self._channel_keys(task)
 
@@ -517,12 +572,8 @@ class ReadTaskCase(TaskCase):
             sy.sleep(duration.seconds * 1.25)
             return start
 
-        if started:
+        with task.run():
             start_time = collect()
-            task.stop()
-        else:
-            with task.run():
-                start_time = collect()
 
         end_time = sy.TimeStamp.now()
         expected_samples = int(sample_rate * duration.seconds)

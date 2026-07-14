@@ -108,7 +108,7 @@ func (f *factory) setConfigStatus(
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.Key, Running: false},
+		Details: task.NewStatusDetails(t, false),
 	}
 	if err := status.NewWriter[task.StatusDetails](f.cfg.Status, nil).
 		Set(ctx, &stat); err != nil {

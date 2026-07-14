@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 import synnax as sy
 from framework.utils import create_virtual_channel
 from tests.arc.arc import ArcCase
+from tests.driver.task import run_and_expect_rejection
 
 # ── Main arc source: channel propagation edge cases (valid, runs at runtime) ──
 
@@ -549,21 +550,23 @@ class EdgeCases(ArcCase):
         substr: str,
         expect: Sequence[str] = (),
     ) -> None:
-        """Deploy an Arc expected to be rejected and verify the error message."""
-        try:
-            self.load_arc(source, name_prefix, start=False)
-        except sy.ConfigurationError as e:
-            message = str(e)
-            assert substr in message, (
-                f"[{name_prefix}] expected '{substr}' in error, got: {message}"
-            )
-            for name in expect:
-                assert name in message, (
-                    f"[{name_prefix}] expected '{name}' in error, got: {message}"
-                )
-            self.log(f"[{name_prefix}] Got expected error: {message}")
+        """Start an Arc expected to be rejected on deploy and verify the error."""
+        name = self.load_arc(source, name_prefix, start=False)
+        handle = next(h for h in self._arcs if h.name == name)
+        message = run_and_expect_rejection(
+            self.client, handle.task, timeout=30 * sy.TimeSpan.SECOND
+        )
+        if message is None:
+            self.fail(f"[{name_prefix}] deploy unexpectedly succeeded")
             return
-        self.fail(f"[{name_prefix}] configuration unexpectedly succeeded")
+        assert substr in message, (
+            f"[{name_prefix}] expected '{substr}' in error, got: {message}"
+        )
+        for expected in expect:
+            assert expected in message, (
+                f"[{name_prefix}] expected '{expected}' in error, got: {message}"
+            )
+        self.log(f"[{name_prefix}] Got expected error: {message}")
 
     def _verify_circular_cases(self) -> None:
         self.log("=== Circular dependency detection ===")
@@ -575,10 +578,10 @@ class EdgeCases(ArcCase):
 
     def _assert_guarded_configures(self, case: GuardedCase) -> None:
         self.log(f"[Guarded {case.label}] Testing guarded recursion")
-        self.load_arc(case.source, f"Guard{case.label}", start=False)
+        self.load_arc(case.source, f"Guard{case.label}")
 
     def _verify_guarded_cases(self) -> None:
-        self.log("=== Guarded recursion (should configure successfully) ===")
+        self.log("=== Guarded recursion (should deploy successfully) ===")
         for case in GUARDED_CASES:
             self._assert_guarded_configures(case)
 

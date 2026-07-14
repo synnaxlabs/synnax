@@ -93,4 +93,46 @@ describe("json", () => {
       expect(json.primitiveTypeZ.safeParse("object").success).toBe(false);
     });
   });
+  describe("canonicalString", () => {
+    it("should sort object keys recursively", () => {
+      expect(json.canonicalString({ b: 2.5, a: 1, g: { z: 1, a: "x" } })).toEqual(
+        '{"a":1,"b":2.5,"g":{"a":"x","z":1}}',
+      );
+    });
+
+    it("should preserve array order", () => {
+      expect(json.canonicalString({ f: [3, 1, 2] })).toEqual('{"f":[3,1,2]}');
+    });
+
+    it("should match the Go canonical form for a nested config", () => {
+      expect(
+        json.canonicalString({
+          rate: 50,
+          port: 8080,
+          host: "localhost",
+          enabled: false,
+          channels: [{ key: 12, name: 'ch"1"', scale: 0.001 }],
+        }),
+      ).toEqual(
+        '{"channels":[{"key":12,"name":"ch\\"1\\"","scale":0.001}],' +
+          '"enabled":false,"host":"localhost","port":8080,"rate":50}',
+      );
+    });
+
+    it("should format float extremes like the Go canonical form", () => {
+      expect(
+        json.canonicalString({
+          huge: 1e21,
+          list: [],
+          neg: -42.75,
+          sample_rate: 1e-7,
+          tiny: 5e-324,
+          zero: 0,
+        }),
+      ).toEqual(
+        '{"huge":1e+21,"list":[],"neg":-42.75,"sample_rate":1e-7,' +
+          '"tiny":5e-324,"zero":0}',
+      );
+    });
+  });
 });

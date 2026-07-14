@@ -30,3 +30,23 @@ export const ZERO_PRIMITIVES = {
   boolean: false,
   null: null,
 } as const satisfies Record<PrimitiveType, Primitive>;
+
+const sortKeysDeep = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(sortKeysDeep);
+  if (value !== null && typeof value === "object") {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value).sort())
+      sorted[key] = sortKeysDeep((value as Record<string, unknown>)[key]);
+    return sorted;
+  }
+  return value;
+};
+
+/**
+ * Serializes value as canonical JSON: object keys sorted lexicographically and
+ * compact separators. Matches the Go (x/go `json.Canonical`) and C++
+ * (`x::json::canonical`) implementations, so the output hashes identically
+ * across languages.
+ */
+export const canonicalString = (value: unknown): string =>
+  JSON.stringify(sortKeysDeep(value));

@@ -22,12 +22,10 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
-from synnax.exceptions import ConfigurationError
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
-from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
 from synnax.task.types_gen import Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from x.lists import check_for_none, normalize, override
@@ -442,40 +440,20 @@ class Client:
         return pld
 
     def configure(self, task: Protocol, timeout: float = 5) -> Protocol:
+        """Saves the task's configuration to the cluster. The config is deployed
+        to the driver on the next start command.
+
+        :param task: The task to save.
+        :param timeout: Unused. Retained for backwards compatibility.
+        :returns: The saved task with its key and rack populated.
+        """
         # Call task-specific device property update (e.g., for Modbus, OPC UA, LabJack)
         if self._device_client is not None:
             task.update_device_properties(self._device_client)
-
-        with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as streamer:
-            pld = self.maybe_assign_def_rack(task.to_payload())
-            req = _CreateRequest(tasks=[pld])
-            tasks = self._exec_create(req)
-            task.set_internal(self.sugar(tasks)[0])
-            while True:
-                frame = streamer.read(timeout)
-                if frame is None:
-                    raise TimeoutError(
-                        "task - timeout waiting for driver to acknowledge configuration"
-                    )
-                elif (
-                    _TASK_STATE_CHANNEL not in frame
-                    or len(frame[_TASK_STATE_CHANNEL]) == 0
-                ):
-                    warnings.warn("task - unexpected missing state in frame")
-                    continue
-                try:
-                    status = Status.model_validate(frame[_TASK_STATE_CHANNEL][0])
-                except ValidationError:
-                    # The status channel carries statuses for all tasks and
-                    # racks. Rack statuses have a different schema, so
-                    # validation failures are expected and should be skipped.
-                    continue
-                if status.details is None or status.details.task != task.key:
-                    continue
-                if status.variant == VARIANT_SUCCESS:
-                    break
-                if status.variant == VARIANT_ERROR:
-                    raise ConfigurationError(status.message)
+        pld = self.maybe_assign_def_rack(task.to_payload())
+        req = _CreateRequest(tasks=[pld])
+        tasks = self._exec_create(req)
+        task.set_internal(self.sugar(tasks)[0])
         return task
 
     def delete(self, keys: Key | str | list[Key | str]) -> None:

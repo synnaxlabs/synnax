@@ -21,6 +21,8 @@
 #include "client/cpp/task/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/hash/xxhash.h"
+#include "x/cpp/json/canonical.h"
 #include "x/cpp/json/json.h"
 
 #include "core/pkg/service/task/pb/task.pb.h"
@@ -31,6 +33,19 @@ namespace synnax { namespace task {
 const std::string SET_CHANNEL = "sy_task_set";
 const std::string DELETE_CHANNEL = "sy_task_delete";
 const std::string CMD_CHANNEL = "sy_task_cmd";
+
+/// @brief The command type that deploys a task's stored config and runs it.
+const std::string START_CMD_TYPE = "start";
+
+/// @brief Hashes a task config into the shared cross-language form: xxhash64 of
+/// the canonical JSON string as 16 lowercase hex characters.
+/// @param config The task config to hash.
+/// @returns The hash, or an empty string when the config cannot be canonicalized.
+inline std::string hash_config(const x::json::json::object_t &config) {
+    auto [canon, err] = x::json::canonical(config);
+    if (err) return "";
+    return x::hash::xxhash64_hex(canon);
+}
 
 /// @brief Type alias for the transport used to create a task.
 using CreateClient = freighter::

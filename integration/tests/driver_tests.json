@@ -20,6 +20,7 @@
         { "case": "driver/http_read" },
         { "case": "driver/http_write" },
         { "case": "driver/http_invalid" },
+        { "case": "driver/http_deploy" },
         { "case": "driver/grand_finale" }
       ]
     },

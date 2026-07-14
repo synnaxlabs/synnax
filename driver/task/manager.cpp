@@ -27,23 +27,20 @@ x::errors::Error Manager::open_streamer() {
     const auto control_ch_name = "sy_node_" + std::to_string(node_key) + "_control";
 
     std::vector chan_names{
-        synnax::task::SET_CHANNEL,
         synnax::task::DELETE_CHANNEL,
         synnax::task::CMD_CHANNEL,
         control_ch_name,
     };
 
-    auto [channels, task_set_err] = this->ctx->client->channels.retrieve(chan_names);
-    if (task_set_err) return task_set_err;
+    auto [channels, retrieve_err] = this->ctx->client->channels.retrieve(chan_names);
+    if (retrieve_err) return retrieve_err;
     if (channels.size() != chan_names.size())
         return x::errors::Error(
             "expected " + std::to_string(chan_names.size()) + " channels, got " +
             std::to_string(channels.size())
         );
     for (const auto &channel: channels)
-        if (channel.name == synnax::task::SET_CHANNEL)
-            this->channels.task_set = channel;
-        else if (channel.name == synnax::task::DELETE_CHANNEL)
+        if (channel.name == synnax::task::DELETE_CHANNEL)
             this->channels.task_delete = channel;
         else if (channel.name == synnax::task::CMD_CHANNEL)
             this->channels.task_cmd = channel;
@@ -55,7 +52,6 @@ x::errors::Error Manager::open_streamer() {
     auto [s, open_err] = this->ctx->client->telem.open_streamer(
         synnax::framer::StreamerConfig{
             .channels = {
-                this->channels.task_set.key,
                 this->channels.task_delete.key,
                 this->channels.task_cmd.key,
                 this->channels.control_state.key
@@ -100,6 +96,10 @@ x::errors::Error Manager::configure_initial_tasks() {
                 auto &entry = this->entries[sy_task.key];
                 if (!entry) entry = std::make_shared<Entry>();
                 entry->task = std::move(driver_task);
+                this->deploys_->set_hash(
+                    sy_task.key,
+                    synnax::task::hash_config(sy_task.config)
+                );
             }
         }
     }
@@ -143,9 +143,7 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = frame.channels->at(i);
             const auto &series = frame.series->at(i);
-            if (key == this->channels.task_set.key)
-                this->process_task_set(series);
-            else if (key == this->channels.task_delete.key)
+            if (key == this->channels.task_delete.key)
                 this->process_task_delete(series);
             else if (key == this->channels.task_cmd.key)
                 this->process_task_cmd(series);
@@ -161,38 +159,6 @@ x::errors::Error Manager::run(std::function<void()> on_started) {
     return c_err;
 }
 
-void Manager::process_task_set(const x::telem::Series &series) {
-    for (const auto &meta_str: series.strings()) {
-        auto parser = x::json::Parser(meta_str);
-        const auto task_key = parser.field<synnax::task::Key>("key");
-        const auto rack_key = parser.field<synnax::rack::Key>("rack", 0);
-        if (!parser.ok()) {
-            LOG(WARNING) << "failed to parse task metadata: "
-                         << parser.error_json().dump();
-            continue;
-        }
-        if (rack_key != this->rack.key) {
-            VLOG(1) << "received task for foreign rack: " << task_key << ", skipping";
-            continue;
-        }
-        auto [tsk, err] = this->rack.tasks.retrieve(task_key);
-        if (err) {
-            LOG(WARNING) << "failed to retrieve task: " << err;
-            continue;
-        }
-        if (tsk.snapshot) {
-            VLOG(1) << "ignoring snapshot task " << tsk;
-            continue;
-        }
-        VLOG(1) << "queuing configure for task " << tsk;
-        std::lock_guard<std::mutex> lock(this->mu);
-        if (!this->entries[task_key])
-            this->entries[task_key] = std::make_shared<Entry>();
-        this->op_queue.push_back(Op{Op::Type::CONFIGURE, tsk.key, tsk, {}});
-        this->cv.notify_one();
-    }
-}
-
 void Manager::process_task_cmd(const x::telem::Series &series) {
     const auto commands = series.strings();
     for (const auto &cmd_str: commands) {
@@ -202,6 +168,12 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
             LOG(WARNING) << "failed to parse command: " << parser.error_json().dump();
             continue;
         }
+        if (cmd.type == synnax::task::START_CMD_TYPE) {
+            this->process_start(cmd);
+            continue;
+        }
+        // Non-start commands go to whichever driver holds the live instance,
+        // even when the stored row has moved to another rack.
         {
             std::lock_guard<std::mutex> lock(this->mu);
             if (this->entries.find(cmd.task) != this->entries.end()) {
@@ -217,6 +189,29 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
         if (err || tsk.rack != this->rack.key) continue;
         LOG(WARNING) << "received command for unconfigured task " << tsk;
     }
+}
+
+void Manager::process_start(const synnax::task::Command &cmd) {
+    auto [tsk, err] = this->rack.tasks.retrieve(cmd.task);
+    if (err) {
+        LOG(WARNING) << "failed to retrieve task for start: " << err;
+        return;
+    }
+    if (tsk.rack != this->rack.key || tsk.snapshot) {
+        VLOG(1) << "ignoring start for task " << tsk;
+        return;
+    }
+    const auto hash = synnax::task::hash_config(tsk.config);
+    std::lock_guard<std::mutex> lock(this->mu);
+    if (!this->entries[cmd.task]) this->entries[cmd.task] = std::make_shared<Entry>();
+    if (this->deploys_->hash(cmd.task) == hash) {
+        VLOG(1) << "queuing start for live task " << tsk;
+        this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
+    } else {
+        VLOG(1) << "queuing deploy and start for task " << tsk;
+        this->op_queue.push_back(Op{Op::Type::CONFIGURE, tsk.key, tsk, cmd});
+    }
+    this->cv.notify_one();
 }
 
 void Manager::stop_all_tasks() {
@@ -247,6 +242,7 @@ void Manager::stop_all_tasks() {
         std::this_thread::sleep_for((50 * x::telem::MILLISECOND).chrono());
     }
     this->entries.clear();
+    this->deploys_->clear();
 }
 
 void Manager::process_task_delete(const x::telem::Series &series) {
@@ -369,16 +365,44 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) cons
                 entry->task = nullptr;
             }
             LOG(INFO) << "configuring task " << op.task;
+            // Set before configuring so statuses emitted during construction
+            // already carry the deployed hash and ack the pending start.
+            this->deploys_->set_hash(
+                op.task_key,
+                synnax::task::hash_config(op.task.config)
+            );
+            if (!op.cmd.key.empty())
+                this->deploys_->set_pending_cmd(op.task_key, op.cmd.key);
             auto [driver_task, handled] = this->factory->configure_task(
                 this->ctx,
                 op.task
             );
-            if (!handled)
-                LOG(WARNING) << "failed to find integration to handle task" << op.task;
-            if (driver_task != nullptr)
+            if (driver_task != nullptr) {
                 entry->task = std::move(driver_task);
-            else
+                if (!op.cmd.type.empty()) {
+                    auto cmd = op.cmd;
+                    LOG(INFO) << "executing command " << cmd << " on task "
+                              << entry->task->name();
+                    entry->task->exec(cmd);
+                }
+            } else {
+                if (!handled) {
+                    LOG(WARNING)
+                        << "failed to find integration to handle task" << op.task;
+                    synnax::task::Status status;
+                    status.key = synnax::task::status_key(op.task);
+                    status.name = op.task.name;
+                    status.variant = synnax::status::VARIANT_ERROR;
+                    status.message = "no driver integration handles task type '" +
+                                     op.task.type + "'";
+                    status.details.task = op.task_key;
+                    status.details.running = false;
+                    this->ctx->set_status(status);
+                }
+                this->deploys_->remove(op.task_key);
                 VLOG(1) << "failed to configure task: " << op.task;
+            }
+            this->deploys_->clear_pending_cmd(op.task_key);
             break;
         }
         case Op::Type::COMMAND: {
@@ -399,6 +423,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) cons
             break;
         }
         case Op::Type::REMOVE: {
+            this->deploys_->remove(op.task_key);
             if (entry->task == nullptr) return;
             LOG(INFO) << "deleting task " << entry->task->name();
             entry->task->stop(false);

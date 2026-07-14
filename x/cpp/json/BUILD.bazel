@@ -14,6 +14,7 @@ cc_library(
     name = "json",
     hdrs = [
         "any.h",
+        "canonical.h",
         "json.h",
         "struct.h",
         "value.h",
@@ -48,6 +49,7 @@ cc_test(
     name = "json_test",
     srcs = [
         "any_test.cpp",
+        "canonical_test.cpp",
         "convert_test.cpp",
         "json_test.cpp",
         "struct_test.cpp",
@@ -55,6 +57,7 @@ cc_test(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//x/cpp/hash",
         "//x/cpp/json",
         "//x/cpp/json:convert",
         "//x/cpp/telem",

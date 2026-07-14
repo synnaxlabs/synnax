@@ -247,7 +247,7 @@ func (t *alertTask) updateStatus(
 		Variant: variant,
 		Message: message,
 		Time:    telem.Now(),
-		Details: task.StatusDetails{Task: t.task.Key, Running: running},
+		Details: task.NewStatusDetails(t.task, running),
 	}
 	if err := status.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).
 		Set(ctx, &stat); err != nil {
