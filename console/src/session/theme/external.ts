@@ -9,4 +9,3 @@
 
 export * from "@/session/theme/selectors";
 export * from "@/session/theme/slice";
-export * from "@/session/theme/useOSTheme";
