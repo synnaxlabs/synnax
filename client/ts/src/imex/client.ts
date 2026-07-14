@@ -28,8 +28,8 @@ export interface Options {
   encoding: Encoding;
 }
 
-/** The wire shape of the per-import request params. */
-const importParamsZ = z.object({ fileName: z.string(), project: project.keyZ });
+/** The wire shape of the per-import request params. Both fields are required. */
+const importParamsZ = z.object({ fileName: z.string().min(1), project: project.keyZ });
 
 /** Options for a single import call. */
 export interface ImportOptions extends Options {

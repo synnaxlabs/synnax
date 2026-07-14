@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, uuid } from "@synnaxlabs/x";
+import { id, uuid, zod } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { project } from "@/project";
@@ -94,7 +94,7 @@ describe("Imex", () => {
       expect(parsed.name).toEqual(name);
     });
 
-    it("should throw an error when the envelope has no name and the file name is empty", async () => {
+    it("should reject an empty file name before the request is sent", async () => {
       const { name: _, ...nameless } = logEnvelope("unused");
       await expect(
         client.imex.import(toBlob(nameless), {
@@ -102,7 +102,7 @@ describe("Imex", () => {
           fileName: "",
           project: projectKey,
         }),
-      ).rejects.toThrow("name");
+      ).rejects.toSatisfy(zod.ParseError.matches);
     });
 
     it("should parent the imported resource under the given parent", async () => {

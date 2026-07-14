@@ -70,14 +70,12 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	if opts.Project != uuid.Nil {
-		if err = enforcer.Enforce(ctx, access.Request{
-			Subject: auth.GetSubject(ctx),
-			Action:  access.ActionUpdate,
-			Objects: []ontology.ID{project.OntologyID(opts.Project)},
-		}); err != nil {
-			return ImportResponse{}, err
-		}
+	if err = enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{project.OntologyID(opts.Project)},
+	}); err != nil {
+		return ImportResponse{}, err
 	}
 	id, err := s.internal.Import(ctx, tx, req, opts)
 	if err != nil {
@@ -87,6 +85,7 @@ func (s *Service) Import(
 }
 
 // importParams mirrors the JSON object clients send on the "params" request param.
+// Both fields are required.
 type importParams struct {
 	// FileName is the name of the file the envelope was read from.
 	FileName string `json:"file_name"`
@@ -94,19 +93,14 @@ type importParams struct {
 	Project string `json:"project"`
 }
 
-// parseImportOptions decodes the optional "params" request param — a JSON object
-// carrying the out-of-band import options. An absent or empty param yields zero
-// options; malformed JSON or an invalid project key returns a validation error scoped
-// to the offending field.
+// parseImportOptions decodes the required "params" request param — a JSON object
+// carrying the out-of-band import options. A missing param, malformed JSON, or a
+// missing or invalid field returns a validation error scoped to the offending field.
 func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
-	var opts imex.ImportOptions
 	v, ok := freighter.MDFromContext(ctx).Params.Get("params")
-	if !ok {
-		return opts, nil
-	}
-	s, ok := v.(string)
-	if !ok || s == "" {
-		return opts, nil
+	s, isStr := v.(string)
+	if !ok || !isStr || s == "" {
+		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "params")
 	}
 	var params importParams
 	if err := json.Unmarshal([]byte(s), &params); err != nil {
@@ -115,20 +109,30 @@ func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
 			"params",
 		)
 	}
-	opts.FileName = params.FileName
-	if params.Project != "" {
-		key, err := uuid.Parse(params.Project)
-		if err != nil {
-			return imex.ImportOptions{}, validate.PathedError(
-				errors.Wrapf(
-					validate.ErrValidation, "invalid project key %q", params.Project,
-				),
-				"project",
-			)
-		}
-		opts.Project = key
+	if params.FileName == "" {
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired, "file_name",
+		)
 	}
-	return opts, nil
+	if params.Project == "" {
+		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "project")
+	}
+	key, err := uuid.Parse(params.Project)
+	if err != nil {
+		return imex.ImportOptions{}, validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation, "invalid project key %q", params.Project,
+			),
+			"project",
+		)
+	}
+	if key == uuid.Nil {
+		return imex.ImportOptions{}, validate.PathedError(
+			errors.Wrap(validate.ErrValidation, "must be non-zero"),
+			"project",
+		)
+	}
+	return imex.ImportOptions{FileName: params.FileName, Project: key}, nil
 }
 
 type (

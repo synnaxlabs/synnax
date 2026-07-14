@@ -41,6 +41,11 @@ def _log_envelope_json(name: str) -> str:
     )
 
 
+@pytest.fixture
+def project_key(client: sy.Synnax) -> sy.project.Key:
+    return client.projects.create(name=f"imex-proj-{uuid.uuid4()}").key
+
+
 @pytest.mark.imex
 class TestImex:
     """Round-trip imex against a live Synnax Core.
@@ -48,42 +53,50 @@ class TestImex:
     Uses the ``log`` resource type.
     """
 
-    def test_import_valid(self, client: sy.Synnax, tmp_path: Path) -> None:
+    def test_import_valid(
+        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+    ) -> None:
         """Path source → streamed upload."""
         name = f"imex-path-{uuid.uuid4()}"
         path = tmp_path / "in.json"
         path.write_text(_log_envelope_json(name))
-        id = client.imex.import_(path)
+        id = client.imex.import_(path, project=project_key)
         assert id.type == "log"
         assert uuid.UUID(id.key)
 
-    def test_import_invalid(self, client: sy.Synnax, tmp_path: Path) -> None:
+    def test_import_invalid(
+        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+    ) -> None:
         """An envelope with an unrecognized type is rejected."""
         path = tmp_path / "in.json"
         path.write_text(
             json.dumps({"version": 1, "type": "not_a_real_type", "name": "bad"})
         )
         with pytest.raises(sy.ValidationError):
-            client.imex.import_(path)
+            client.imex.import_(path, project=project_key)
 
-    def test_import_names_from_file(self, client: sy.Synnax, tmp_path: Path) -> None:
+    def test_import_names_from_file(
+        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+    ) -> None:
         """A nameless envelope is named after the file, extension stripped."""
         name = f"imex-file-{uuid.uuid4()}"
         envelope = json.loads(_log_envelope_json("unused"))
         del envelope["name"]
         path = tmp_path / f"{name}.json"
         path.write_text(json.dumps(envelope))
-        id = client.imex.import_(path)
+        id = client.imex.import_(path, project=project_key)
         out = tmp_path / "out.json"
         client.imex.export(id, out)
         assert json.loads(out.read_bytes())["name"] == name
 
-    def test_import_body_name_wins(self, client: sy.Synnax, tmp_path: Path) -> None:
+    def test_import_body_name_wins(
+        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+    ) -> None:
         """A name in the envelope body takes precedence over the file name."""
         name = f"imex-body-{uuid.uuid4()}"
         path = tmp_path / "Some Other Name.json"
         path.write_text(_log_envelope_json(name))
-        id = client.imex.import_(path)
+        id = client.imex.import_(path, project=project_key)
         out = tmp_path / "out.json"
         client.imex.export(id, out)
         assert json.loads(out.read_bytes())["name"] == name
@@ -106,12 +119,14 @@ class TestImex:
         with pytest.raises(sy.NotFoundError):
             client.imex.import_(path, project=uuid.uuid4())
 
-    def test_export(self, client: sy.Synnax, tmp_path: Path) -> None:
+    def test_export(
+        self, client: sy.Synnax, tmp_path: Path, project_key: sy.project.Key
+    ) -> None:
         """Path dest → streamed download; on-disk content parses back."""
         name = f"imex-export-path-{uuid.uuid4()}"
         src = tmp_path / "in.json"
         src.write_text(_log_envelope_json(name))
-        id = client.imex.import_(src)
+        id = client.imex.import_(src, project=project_key)
         out = tmp_path / "log.json"
         client.imex.export(id, out)
         parsed = json.loads(out.read_bytes())

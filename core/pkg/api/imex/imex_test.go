@@ -62,28 +62,59 @@ var _ = Describe("Import", func() {
 		Expect(importer.opts.Project).To(Equal(key))
 	})
 
-	It("Should import with zero options when no params are set", func(ctx SpecContext) {
-		MustSucceed(apiSvc.Import(rootCtx(ctx), db, testEnvelope("no-options")))
-		Expect(importer.opts).To(Equal(imex.ImportOptions{}))
+	It("Should reject a request with no params", func(ctx SpecContext) {
+		Expect(apiSvc.Import(rootCtx(ctx), db, testEnvelope("no-params"))).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("params")),
+				MatchError(ContainSubstring("required")),
+			))
 	})
 
-	It("Should treat an empty params param as zero options", func(ctx SpecContext) {
+	It("Should reject empty params", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
 		fctx.Set("params", "")
-		MustSucceed(apiSvc.Import(fctx, db, testEnvelope("empty-params")))
-		Expect(importer.opts).To(Equal(imex.ImportOptions{}))
+		Expect(apiSvc.Import(fctx, db, testEnvelope("empty-params"))).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("params")),
+				MatchError(ContainSubstring("required")),
+			))
 	})
 
-	It("Should treat an empty project param as no project", func(ctx SpecContext) {
+	It("Should reject params without a file_name", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
-		fctx.Set("params", `{"project":""}`)
-		MustSucceed(apiSvc.Import(fctx, db, testEnvelope("empty-project")))
-		Expect(importer.opts.Project).To(Equal(uuid.Nil))
+		fctx.Set("params", fmt.Sprintf(`{"project":%q}`, uuid.New()))
+		Expect(apiSvc.Import(fctx, db, testEnvelope("no-file-name"))).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("file_name")),
+				MatchError(ContainSubstring("required")),
+			))
+	})
+
+	It("Should reject params without a project", func(ctx SpecContext) {
+		fctx := rootCtx(ctx)
+		fctx.Set("params", `{"file_name":"Metrics Log.json"}`)
+		Expect(apiSvc.Import(fctx, db, testEnvelope("no-project"))).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("project")),
+				MatchError(ContainSubstring("required")),
+			))
+	})
+
+	It("Should reject a zero project key", func(ctx SpecContext) {
+		fctx := rootCtx(ctx)
+		fctx.Set("params", fmt.Sprintf(
+			`{"file_name":"Metrics Log.json","project":%q}`, uuid.Nil,
+		))
+		Expect(apiSvc.Import(fctx, db, testEnvelope("zero-project"))).Error().
+			To(SatisfyAll(
+				MatchError(ContainSubstring("project")),
+				MatchError(ContainSubstring("must be non-zero")),
+			))
 	})
 
 	It("Should reject a project param that is not a valid UUID", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
-		fctx.Set("params", `{"project":"not-a-uuid"}`)
+		fctx.Set("params", `{"file_name":"Metrics Log.json","project":"not-a-uuid"}`)
 		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-key"))).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("invalid project key")),
 			MatchError(ContainSubstring("validation error")),
