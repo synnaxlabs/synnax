@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { Analytics } from "@/components/analytics";
+export { ArcContext } from "@/components/arc-context";
 export { Article } from "@/components/article";
 export { Client } from "@/components/client";
 export { Code } from "@/components/code";
