@@ -105,6 +105,17 @@ describe("Imex", () => {
       ).rejects.toSatisfy(zod.ParseError.matches);
     });
 
+    it("should reject a non-UUID project key before the request is sent", async () => {
+      const name = `imex-${id.create()}`;
+      await expect(
+        client.imex.import(toBlob(logEnvelope(name)), {
+          encoding: "JSON",
+          fileName: `${name}.json`,
+          project: "not-a-uuid",
+        }),
+      ).rejects.toSatisfy(zod.ParseError.matches);
+    });
+
     it("should parent the imported resource under the given parent", async () => {
       const proj = await client.projects.create({
         name: `imex-proj-${id.create()}`,
