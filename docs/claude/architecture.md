@@ -88,7 +88,9 @@ Domain-specific programming language for control systems:
 
 - **Reactive execution model** with event-driven stages
 - **Channel-based communication** between tasks (unbounded FIFO queues)
-- **Stateful variables** that persist across reactive executions
+- **Value variables** in three kinds fixed at declaration: _literal_ (stateful cell;
+  `:=` resets on scope entry, `$=` persists), _channel read_ (read-only stream over
+  channels), and _channel read/write_ (aliases a channel it reads/writes, rebindable)
 - **WebAssembly compilation target** for sandboxed execution
 - **Type system**: Primitives, series (arrays), channels, timestamps/timespans
 - **Parser → Analyzer → Compiler** pipeline with LSP support

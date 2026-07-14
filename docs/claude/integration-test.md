@@ -76,6 +76,10 @@ These are the behaviors that make Arc integration tests fail in non-obvious ways
 - **First truthy transition wins.** When several `=>` transitions in a stage can be
   truthy in the same cycle, the first in line order fires. Keep transitions mutually
   exclusive, or split them across stages so each assertion is unambiguous.
+- **Variable kinds.** _literal_ (`:=` / `$=`, a stateful value cell), _channel read_
+  (read-only stream over channels), and _channel read/write_ (aliases a channel it reads
+  and writes). A `:=` literal re-seeds to its declared value on every scope entry; `$=`
+  persists.
 
 ## No Timing Hacks
 
@@ -93,5 +97,5 @@ These are the behaviors that make Arc integration tests fail in non-obvious ways
   from assumptions about how the runtime should behave.
 - Give each vector its own input (but prefer the shared start trigger where possible)
   and output so a failure points at exactly one line rather than a shared channel.
-- Cover the axes that matter for the feature: scope, source kind, sink kind, and data
-  type.
+- Cover the axes that matter for the feature: scope, variable kind, source kind, sink
+  kind, and data type.
