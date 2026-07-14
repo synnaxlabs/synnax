@@ -14,6 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/tailscale"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -21,9 +23,9 @@ import (
 
 var factoryCfg = cert.FactoryConfig{LoaderConfig: cert.DefaultLoaderConfig}
 
-func validateSecure(listeners []listenerSpec) error {
+func runValidate(listeners []listenerSpec) error {
 	v := validate.New("test")
-	validateListeners(v, listeners, false)
+	validateListeners(v, listeners)
 	return v.Error()
 }
 
@@ -47,7 +49,7 @@ var _ = Describe("Listener", func() {
 			Expect(specs).To(HaveLen(1))
 			Expect(specs[0].address).To(Equal(address.Address("localhost:9091")))
 			Expect(specs[0].advertise).To(BeTrue())
-			Expect(specs[0].cert.source).To(Equal(cert.SourceTypeFile))
+			Expect(specs[0].cert.source).To(Equal(file.SourceType))
 			Expect(specs[0].cert.cert).To(Equal(factoryCfg.AbsoluteNodeCertPath()))
 			Expect(specs[0].cert.key).To(Equal(factoryCfg.AbsoluteNodeKeyPath()))
 		})
@@ -66,62 +68,48 @@ var _ = Describe("Listener", func() {
 			Expect(specs[0].address).To(Equal(address.Address("core01:9090")))
 			Expect(specs[0].cert.cert).To(Equal("d.crt"))
 			Expect(specs[0].advertise).To(BeTrue())
-			Expect(specs[1].cert.source).To(Equal(cert.SourceTypeTailscale))
+			Expect(specs[1].cert.source).To(Equal(tailscale.SourceType))
 			Expect(specs[1].advertise).To(BeFalse())
 		})
 
 		It("Should reject a list combined with --auto-cert", func() {
 			viper.Set(FlagAutoCert, true)
 			viper.Set(FlagListen, []any{listenerObj("core01:9090", "auto")})
-			_, err := parseListeners(factoryCfg)
-			Expect(err).To(MatchError(ContainSubstring("cannot be combined with a listen list")))
+			Expect(parseListeners(factoryCfg)).
+				Error().To(MatchError(ContainSubstring("cannot be combined with a listen list")))
 		})
 	})
 
 	Describe("validateListeners", func() {
-		It("Should accept a valid secure configuration", func() {
-			Expect(validateSecure([]listenerSpec{
-				{address: "a:9090", cert: certSpec{source: cert.SourceTypeAuto}},
-				{address: "b:9091", cert: certSpec{source: cert.SourceTypeFile, cert: "c", key: "k"}},
+		It("Should accept a valid configuration", func() {
+			Expect(runValidate([]listenerSpec{
+				{address: "a:9090"},
+				{address: "b:9091"},
 			})).To(Succeed())
 		})
 
+		It("Should require at least one listener", func() {
+			Expect(runValidate(nil)).
+				To(MatchError(ContainSubstring("at least one listener is required")))
+		})
+
+		It("Should reject an empty address", func() {
+			Expect(runValidate([]listenerSpec{{address: ""}})).
+				To(MatchError(ContainSubstring("address")))
+		})
+
 		It("Should reject more than one advertised listener", func() {
-			Expect(validateSecure([]listenerSpec{
-				{address: "a:9090", cert: certSpec{source: cert.SourceTypeAuto}, advertise: true},
-				{address: "b:9091", cert: certSpec{source: cert.SourceTypeAuto}, advertise: true},
+			Expect(runValidate([]listenerSpec{
+				{address: "a:9090", advertise: true},
+				{address: "b:9091", advertise: true},
 			})).To(MatchError(ContainSubstring("at most one listener may advertise")))
 		})
 
 		It("Should reject duplicate addresses", func() {
-			Expect(validateSecure([]listenerSpec{
-				{address: "a:9090", cert: certSpec{source: cert.SourceTypeAuto}},
-				{address: "a:9090", cert: certSpec{source: cert.SourceTypeAuto}},
-			})).To(MatchError(ContainSubstring("duplicate listener address")))
-		})
-
-		It("Should require both cert and key for a file source", func() {
-			Expect(validateSecure([]listenerSpec{
-				{address: "a:9090", cert: certSpec{source: cert.SourceTypeFile, cert: "c"}},
-			})).To(MatchError(ContainSubstring("file source requires both cert and key")))
-		})
-
-		It("Should reject cert or key on an auto source", func() {
-			Expect(validateSecure([]listenerSpec{
-				{address: "a:9090", cert: certSpec{source: cert.SourceTypeAuto, cert: "c"}},
-			})).To(MatchError(ContainSubstring("must not set cert or key")))
-		})
-
-		It("Should require a source in secure mode", func() {
-			Expect(validateSecure([]listenerSpec{
+			Expect(runValidate([]listenerSpec{
 				{address: "a:9090"},
-			})).To(MatchError(ContainSubstring("certificate source is required")))
-		})
-
-		It("Should skip source checks in insecure mode", func() {
-			v := validate.New("test")
-			validateListeners(v, []listenerSpec{{address: "a:9090"}}, true)
-			Expect(v.Error()).To(Succeed())
+				{address: "a:9090"},
+			})).To(MatchError(ContainSubstring("duplicate listener address")))
 		})
 	})
 

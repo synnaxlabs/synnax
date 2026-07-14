@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/address"
@@ -38,11 +39,11 @@ var _ = Describe("MultiListener", func() {
 		portB := MustSucceed(net.FindOpenPort())
 		addrA := address.Newf("localhost:%d", portA)
 		addrB := address.Newf("localhost:%d", portB)
-		srcA := MustSucceed(cert.NewSource(cert.SourceConfig{
-			Type: cert.SourceTypeAuto, FS: fs, Address: "hostA:1", KeySize: mock.SmallKeySize,
+		srcA := MustSucceed(auto.Factory{}.NewSource(cert.SourceConfig{
+			FS: fs, Address: "hostA:1", KeySize: mock.SmallKeySize,
 		}))
-		srcB := MustSucceed(cert.NewSource(cert.SourceConfig{
-			Type: cert.SourceTypeAuto, FS: fs, Address: "hostB:1", KeySize: mock.SmallKeySize,
+		srcB := MustSucceed(auto.Factory{}.NewSource(cert.SourceConfig{
+			FS: fs, Address: "hostB:1", KeySize: mock.SmallKeySize,
 		}))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{

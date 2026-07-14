@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,8 +34,7 @@ var _ = Describe("OtelProvider", func() {
 					KeySize:      mock.SmallKeySize,
 					Insecure:     new(false),
 				}))
-				src := MustSucceed(cert.NewSource(cert.SourceConfig{
-					Type: cert.SourceTypeFile,
+				src := MustSucceed(file.Factory{}.NewSource(cert.SourceConfig{
 					FS:   fs,
 					Cert: "/usr/local/synnax/certs/node.crt",
 					Key:  "/usr/local/synnax/certs/node.key",

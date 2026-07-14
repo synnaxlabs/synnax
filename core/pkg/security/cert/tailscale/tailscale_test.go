@@ -1,0 +1,29 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package tailscale_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/tailscale"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("Tailscale", func() {
+	It("Should build a source when no cert or key is set", func() {
+		Expect(MustSucceed(tailscale.Factory{}.NewSource(cert.SourceConfig{}))).ToNot(BeNil())
+	})
+
+	It("Should reject a cert or key", func() {
+		Expect(tailscale.Factory{}.NewSource(cert.SourceConfig{Cert: "node.crt"})).
+			Error().To(MatchError(ContainSubstring("must not set cert or key")))
+	})
+})

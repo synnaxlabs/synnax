@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
-	_ "github.com/synnaxlabs/synnax/pkg/security/cert/tailscale"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"

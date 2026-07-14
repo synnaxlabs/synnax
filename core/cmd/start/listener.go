@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -71,7 +72,7 @@ func scalarListener(addr string, fc cert.FactoryConfig) listenerSpec {
 	return listenerSpec{
 		address: address.Address(addr),
 		cert: certSpec{
-			source: cert.SourceTypeFile,
+			source: file.SourceType,
 			cert:   fc.AbsoluteNodeCertPath(),
 			key:    fc.AbsoluteNodeKeyPath(),
 		},
@@ -128,8 +129,9 @@ func rejectGlobalCertFlags() error {
 	)
 }
 
-// validateListeners applies the multi-listener validation rules.
-func validateListeners(v *validate.Validator, listeners []listenerSpec, insecure bool) {
+// validateListeners applies the multi-listener validation rules. Per-source certificate
+// rules are enforced when the source is built, not here.
+func validateListeners(v *validate.Validator, listeners []listenerSpec) {
 	if len(listeners) == 0 {
 		v.Ternary("listeners", true, "at least one listener is required")
 		return
@@ -144,24 +146,8 @@ func validateListeners(v *validate.Validator, listeners []listenerSpec, insecure
 		if l.advertise {
 			advertised++
 		}
-		if !insecure {
-			validateSource(v, field, l.cert)
-		}
 	}
 	v.Ternary("advertise", advertised > 1, "at most one listener may advertise")
-}
-
-func validateSource(v *validate.Validator, field string, c certSpec) {
-	switch c.source {
-	case cert.SourceTypeFile:
-		v.Ternary(field+".cert", c.cert == "" || c.key == "", "file source requires both cert and key")
-	case cert.SourceTypeAuto, cert.SourceTypeTailscale:
-		v.Ternary(field+".cert", c.cert != "" || c.key != "", "auto and tailscale sources must not set cert or key")
-	case "":
-		v.Ternary(field+".source", true, "certificate source is required in secure mode")
-	default:
-		v.Ternaryf(field+".source", true, "unknown certificate source %q", c.source)
-	}
 }
 
 func asString(m map[string]any, key string) string {
