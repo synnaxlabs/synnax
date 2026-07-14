@@ -212,7 +212,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		HostResolver:    l.Cluster,
-		KVReadWriter:    l.DB,
+		KV:              l.DB,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.Transport.Channel(),
 	}); !ok(err, nil) {

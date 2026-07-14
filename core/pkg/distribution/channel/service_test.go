@@ -27,7 +27,7 @@ func validServiceConfig(ctx context.Context) channel.ServiceConfig {
 	node := mock.NewNode(ctx)
 	return channel.ServiceConfig{
 		HostResolver: node.Cluster,
-		KVReadWriter: node.DB,
+		KV:           node.DB,
 		TS:           node.Storage.TS,
 		Transport:    tmock.NewNetwork().New("mock"),
 	}
