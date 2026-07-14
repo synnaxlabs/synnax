@@ -340,10 +340,7 @@ func openWorkDir() (string, io.Closer, error) {
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
 }
 
-func runStartupSearchIndexing(
-	ctx context.Context,
-	svc *service.Layer,
-) io.Closer {
+func runStartupSearchIndexing(ctx context.Context, svc *service.Layer) io.Closer {
 	// Run indexing inside an isolated signal context, so that if we receive an early
 	// cancellation signal, we can ensure that we exit indexing before we close any
 	// resources that it depends on (notably storage KV).

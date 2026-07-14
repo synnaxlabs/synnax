@@ -12,8 +12,8 @@ telemetry, optimized for real-time performance and distributed reliability.
   - **Distribution** — turns per-node storage into one cluster-transparent data plane:
     node membership via Aspen, channels with node-aware keys, framer (reads/writes
     routed to the nodes that lease the data).
-  - **Service** — business logic on distributed primitives: the ontology resource
-    graph and its search index, groups, auth, access control, users, ranges, hardware
+  - **Service** — business logic on distributed primitives: the ontology resource graph
+    and its search index, groups, auth, access control, users, ranges, hardware
     (task/rack/device), arc automations, workspace items (schematic, lineplot, log,
     table).
   - **API** — transport-agnostic client interface: request/response types, validation,

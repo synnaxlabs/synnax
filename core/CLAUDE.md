@@ -7,7 +7,7 @@ clustered telemetry engine, exposed over Freighter transports.
 
 ## Layered Architecture (`core/pkg/`)
 
-Four strictly-ordered layers, each with a `layer.go` composition root. Dependencies flow
+Five strictly-ordered layers, each with a `layer.go` composition root. Dependencies flow
 downward only — a layer never imports one above it:
 
 1. **`storage/`** (lowest) — engine management: Cesium (`ts/`) for telemetry frames +
