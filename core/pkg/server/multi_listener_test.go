@@ -11,6 +11,7 @@ package server_test
 
 import (
 	"crypto/tls"
+	stdnet "net"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,6 +59,30 @@ var _ = Describe("MultiListener", func() {
 		Expect(presentedSANs(addrA)).To(ContainElement("hostA"))
 		Expect(presentedSANs(addrB)).To(ContainElement("hostB"))
 		Expect(s.Close()).To(Succeed())
+	})
+
+	It("Should close earlier listeners when a later listener fails to bind", func() {
+		portA := MustSucceed(net.FindOpenPort())
+		portB := MustSucceed(net.FindOpenPort())
+		addrA := address.Newf("localhost:%d", portA)
+		addrB := address.Newf("localhost:%d", portB)
+		occupied := MustSucceed(stdnet.Listen("tcp", addrB.PortString()))
+		defer func() { Expect(occupied.Close()).To(Succeed()) }()
+		// Serve returns a non-nil *Server even on error, so the two-value form is
+		// required here; the inline Expect(...).Error() idiom rejects the non-nil value.
+		_, err := server.Serve(server.Config{
+			Debug:     new(false),
+			Security:  server.SecurityConfig{Insecure: new(true)},
+			Listeners: []server.Listener{{Address: addrA}, {Address: addrB}},
+		})
+		Expect(err).To(HaveOccurred())
+		Eventually(func() error {
+			conn, err := stdnet.DialTimeout("tcp", addrA.String(), 100*time.Millisecond)
+			if err == nil {
+				Expect(conn.Close()).To(Succeed())
+			}
+			return err
+		}).Should(HaveOccurred())
 	})
 })
 

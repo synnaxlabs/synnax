@@ -137,11 +137,19 @@ func (s *Server) start() (err error) {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation))
 	s.shutdown = signal.NewGracefulShutdown(sCtx, cancel)
 	s.initBranches()
+	opened := make([]net.Listener, 0, len(s.Listeners))
 	for _, l := range s.Listeners {
 		lis, err := net.Listen("tcp", l.Address.PortString())
 		if err != nil {
+			// Closing the opened listeners unblocks their serve goroutines; cancel then
+			// tears down the signal context so a partial bind leaves nothing running.
+			for _, o := range opened {
+				_ = o.Close()
+			}
+			cancel()
 			return err
 		}
+		opened = append(opened, lis)
 		sCtx.Go(func(ctx context.Context) error {
 			mux := cmux.New(lis)
 			if *s.Security.Insecure {

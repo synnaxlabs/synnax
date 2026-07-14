@@ -16,6 +16,7 @@ import (
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/tailscale"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -148,6 +149,28 @@ func validateListeners(v *validate.Validator, listeners []listenerSpec) {
 		}
 	}
 	v.Ternary("advertise", advertised > 1, "at most one listener may advertise")
+}
+
+// validateAdvertiseSource rejects a tailscale source on the advertised listener. Peers
+// dial the advertised address and verify the certificate against the cluster CA, which a
+// public-CA tailscale certificate cannot satisfy. The advertised listener is the one
+// marked advertise, or the first when none is marked.
+func validateAdvertiseSource(v *validate.Validator, listeners []listenerSpec) {
+	if len(listeners) == 0 {
+		return
+	}
+	advertised := listeners[0]
+	for _, l := range listeners {
+		if l.advertise {
+			advertised = l
+			break
+		}
+	}
+	v.Ternary(
+		"advertise",
+		advertised.cert.source == tailscale.SourceType,
+		"advertised listener cannot use the tailscale source; peers verify certificates against the cluster CA",
+	)
 }
 
 func asString(m map[string]any, key string) string {

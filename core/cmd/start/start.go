@@ -86,6 +86,9 @@ func (c CoreConfig) Validate() error {
 	validate.NotNil(v, "auto_cert", c.autoCert)
 	validate.NotNil(v, "mem_backed", c.memBacked)
 	validateListeners(v, c.listeners)
+	if c.insecure != nil && !*c.insecure {
+		validateAdvertiseSource(v, c.listeners)
+	}
 	validate.NotEmptyString(v, "data_path", c.dataPath)
 	validate.NonZero(v, "slow_consumer_timeout", c.slowConsumerTimeout)
 	validate.NotNil(v, "no_driver", c.noDriver)

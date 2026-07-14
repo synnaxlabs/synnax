@@ -37,14 +37,29 @@ func (Factory) NewSource(cfg cert.SourceConfig) (cert.Source, error) {
 	if cfg.Cert != "" || cfg.Key != "" {
 		return nil, errors.Wrap(validate.ErrValidation, "[cert] - tailscale source must not set cert or key")
 	}
-	return &source{}, nil
+	return &source{client: &local.Client{}, host: cfg.Address.Host()}, nil
 }
+
+// daemon is the subset of the tailscaled client the source needs.
+type daemon interface {
+	GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error)
+}
+
+var _ daemon = (*local.Client)(nil)
 
 // source serves certificates from the local tailscaled daemon. The daemon fetches and
 // caches them, so GetCertificate defers entirely to it.
-type source struct{ client local.Client }
+type source struct {
+	client daemon
+	host   string
+}
 
-// GetCertificate implements cert.Source.
+// GetCertificate implements cert.Source. tailscaled selects the certificate by the
+// handshake SNI; when a client omits it, fall back to the listener's configured host so
+// the daemon still serves the right name.
 func (s *source) GetCertificate(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	if hi.ServerName == "" {
+		hi.ServerName = s.host
+	}
 	return s.client.GetCertificate(hi)
 }

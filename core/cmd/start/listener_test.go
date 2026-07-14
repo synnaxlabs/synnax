@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/tailscale"
 	"github.com/synnaxlabs/x/address"
@@ -110,6 +111,35 @@ var _ = Describe("Listener", func() {
 				{address: "a:9090"},
 				{address: "a:9090"},
 			})).To(MatchError(ContainSubstring("duplicate listener address")))
+		})
+	})
+
+	Describe("validateAdvertiseSource", func() {
+		advertiseError := func(listeners []listenerSpec) error {
+			v := validate.New("test")
+			validateAdvertiseSource(v, listeners)
+			return v.Error()
+		}
+
+		It("Should reject a tailscale source on the advertised listener", func() {
+			Expect(advertiseError([]listenerSpec{
+				{address: "a:9090", cert: certSpec{source: tailscale.SourceType}, advertise: true},
+				{address: "b:9091", cert: certSpec{source: auto.SourceType}},
+			})).To(MatchError(ContainSubstring("advertised listener cannot use the tailscale source")))
+		})
+
+		It("Should reject a tailscale source on the implicit first listener", func() {
+			Expect(advertiseError([]listenerSpec{
+				{address: "a:9090", cert: certSpec{source: tailscale.SourceType}},
+				{address: "b:9091", cert: certSpec{source: auto.SourceType}},
+			})).To(MatchError(ContainSubstring("advertised listener cannot use the tailscale source")))
+		})
+
+		It("Should accept a tailscale source on a non-advertised listener", func() {
+			Expect(advertiseError([]listenerSpec{
+				{address: "a:9090", cert: certSpec{source: auto.SourceType}, advertise: true},
+				{address: "b:9091", cert: certSpec{source: tailscale.SourceType}},
+			})).To(Succeed())
 		})
 	})
 
