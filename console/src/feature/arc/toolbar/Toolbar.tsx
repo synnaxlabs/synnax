@@ -170,7 +170,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
         <Flex.Box x align="center" gap="small">
           <Status.Indicator
             variant={status.variant}
-            style={{ fontSize: "2rem", minWidth: "2rem" }}
+            className={CSS.BE("arc-list-item", "status")}
           />
           <Text.MaybeEditable
             id={`text-${itemKey}`}

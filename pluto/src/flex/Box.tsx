@@ -10,7 +10,7 @@
 import "@/flex/Box.css";
 
 import { type color, direction } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 import z from "zod";
 
 import { type Component } from "@/component";
@@ -225,37 +225,42 @@ export const Box = <E extends Generic.ElementType = "div">({
     sharp === true && CSS.M("sharp"),
     size != null && CSS.M("height", size),
     square === true && CSS.M("square"),
+    typeof color === "number" && CSS.M("color", color.toString()),
+    typeof background === "number" && CSS.M("bg", background.toString()),
+    typeof borderColor === "number" && CSS.M("border-color", borderColor.toString()),
+    rounded === true && CSS.M("rounded"),
+    typeof gap !== "number" && gap != null && CSS.M("gap", gap),
+    grow === true && CSS.M("grow"),
+    shrink === true && CSS.M("shrink"),
   ];
-  style = { borderWidth, ...style };
 
-  if (typeof color === "number") classNames.push(CSS.M("color", color.toString()));
-  else if (color != null && color !== false) style.color = CSS.colorVar(color);
+  const computedStyle = useMemo(() => {
+    const s: CSSProperties = { borderWidth, ...style };
 
-  if (typeof background === "number")
-    classNames.push(CSS.M("bg", background.toString()));
-  else if (background != null && background !== false)
-    style.backgroundColor = CSS.colorVar(background);
+    if (typeof color !== "number" && color != null && color !== false)
+      s.color = CSS.colorVar(color);
 
-  if (typeof borderColor === "number")
-    classNames.push(CSS.M("border-color", borderColor.toString()));
-  else if (borderColor != null) style.borderColor = CSS.colorVar(borderColor);
+    if (typeof background !== "number" && background != null && background !== false)
+      s.backgroundColor = CSS.colorVar(background);
 
-  if (rounded === true) classNames.push(CSS.M("rounded"));
-  else if (typeof rounded === "number") style.borderRadius = `${rounded}rem`;
+    if (typeof borderColor !== "number" && borderColor != null)
+      s.borderColor = CSS.colorVar(borderColor);
 
-  if (typeof gap === "number") style.gap = `${gap}rem`;
-  else if (gap != null) classNames.push(CSS.M("gap", gap));
+    if (typeof rounded === "number") s.borderRadius = `${rounded}rem`;
 
-  if (typeof grow === "number") style.flexGrow = grow;
-  else if (grow === true) classNames.push(CSS.M("grow"));
+    if (typeof gap === "number") s.gap = `${gap}rem`;
 
-  if (typeof shrink === "number") style.flexShrink = shrink;
-  else if (shrink === true) classNames.push(CSS.M("shrink"));
+    if (typeof grow === "number") s.flexGrow = grow;
+
+    if (typeof shrink === "number") s.flexShrink = shrink;
+
+    return s;
+  }, [borderWidth, style, color, background, borderColor, rounded, gap, grow, shrink]);
 
   return (
     <Generic.Element<E>
       className={CSS(...classNames)}
-      style={style}
+      style={computedStyle}
       {...(rest as Generic.ElementProps<E>)}
       el={rest.el ?? "div"}
     />

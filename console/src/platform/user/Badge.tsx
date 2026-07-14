@@ -12,6 +12,7 @@ import "@/platform/user/Badge.css";
 import { Button, Dialog, Icon, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 export const Badge = (): ReactElement | null => {
@@ -27,7 +28,11 @@ export const Badge = (): ReactElement | null => {
         <Icon.User />
         {displayName}
       </Dialog.Trigger>
-      <Dialog.Dialog bordered borderColor={6} style={{ padding: "1rem", width: 200 }}>
+      <Dialog.Dialog
+        bordered
+        borderColor={6}
+        className={CSS.BE("user-badge", "dialog")}
+      >
         <Button.Button onClick={handleLogout} variant="text" full="x">
           <Icon.Logout />
           Log out

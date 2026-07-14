@@ -10,7 +10,7 @@
 import "@/viewport/Mask.css";
 
 import { box } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement } from "react";
+import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { type Mode, type UseReturn } from "@/viewport/use";
@@ -41,22 +41,26 @@ export const Mask = ({
   children,
   style,
   ...rest
-}: MaskProps): ReactElement | null => (
-  <div
-    className={CSS(CSS.noSelect, CSS.BE("viewport-mask", "container"), className)}
-    style={{
-      cursor: MODE_CURSORS[mode],
-      ...style,
-    }}
-    {...rest}
-  >
+}: MaskProps): ReactElement | null => {
+  const containerStyle = useMemo<CSSProperties>(
+    () => ({ cursor: MODE_CURSORS[mode], ...style }),
+    [mode, style],
+  );
+  const selectionStyle = useMemo<CSSProperties>(
+    () => ({
+      ...box.css(maskBox),
+      display: box.areaIsZero(maskBox) ? "none" : "block",
+    }),
+    [maskBox],
+  );
+  return (
     <div
-      style={{
-        ...box.css(maskBox),
-        display: box.areaIsZero(maskBox) ? "none" : "block",
-      }}
-      className={CSS.BE("viewport-mask", "selection")}
-    />
-    {children}
-  </div>
-);
+      className={CSS(CSS.noSelect, CSS.BE("viewport-mask", "container"), className)}
+      style={containerStyle}
+      {...rest}
+    >
+      <div style={selectionStyle} className={CSS.BE("viewport-mask", "selection")} />
+      {children}
+    </div>
+  );
+};

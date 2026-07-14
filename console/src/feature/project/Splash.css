@@ -40,3 +40,7 @@
     width: 400px;
     flex-shrink: 0;
 }
+
+.console-project-splash-list-header {
+    height: 6rem;
+}

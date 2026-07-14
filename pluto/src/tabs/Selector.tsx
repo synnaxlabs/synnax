@@ -351,10 +351,13 @@ export const Selector = ({
     }
   }, [dragging]);
 
-  const indicatorStyle: CSSProperties | undefined =
-    indicatorOffset == null
-      ? undefined
-      : { [horizontal ? "left" : "top"]: indicatorOffset };
+  const indicatorStyle = useMemo<CSSProperties | undefined>(
+    () =>
+      indicatorOffset == null
+        ? undefined
+        : { [horizontal ? "left" : "top"]: indicatorOffset },
+    [indicatorOffset, horizontal],
+  );
 
   const ctx = useMemo<ContextValue>(() => ({ size, variant }), [size, variant]);
   // A passive strip registers no drop zone, so it still forwards the consumer's

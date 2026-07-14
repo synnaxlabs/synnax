@@ -267,7 +267,7 @@ const TaskListItem = ({ onStopStart, onRename, ...rest }: TaskListItemProps) => 
         <Flex.Box x align="center" gap="small">
           <Status.Indicator
             variant={variant}
-            style={{ fontSize: "2rem", minWidth: "2rem" }}
+            className={CSS.BE("task", "status-indicator")}
           />
           <Flex.Box x className={CSS.BE("task", "title")} align="center">
             {icon}

@@ -43,8 +43,6 @@ const listItem = Component.renderProp(
   },
 );
 
-const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
-
 export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
   const dispatch = Session.useDispatch();
@@ -86,7 +84,11 @@ export const Selector = (): ReactElement | null => {
           <Icon.Project key="project" />
           {active?.name}
         </Dialog.Trigger>
-        <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
+        <Dialog.Dialog
+          className={CSS.B("project-selector-dialog")}
+          bordered={client == null}
+          borderColor={6}
+        >
           <Flex.Box pack rounded>
             <Input.Text
               size="large"
@@ -104,7 +106,7 @@ export const Selector = (): ReactElement | null => {
                 retrieve((p) => ({ ...p, search: v }));
               }}
               full="x"
-              style={{ borderBottomLeftRadius: 0 }}
+              className={CSS.B("project-selector-search")}
               borderColor={6}
             />
             {hasCreatePermission && (

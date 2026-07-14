@@ -10,7 +10,7 @@
 import "@/lineplot/rule/Rule.css";
 
 import { box, color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useRef } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
@@ -122,16 +122,29 @@ export const Rule = ({
 
   const ref = useRef<HTMLDivElement>(null);
 
+  const topStyle = useMemo(
+    () => ({ top: `calc(${pixelPosition}px - 0.5rem)` }),
+    [pixelPosition],
+  );
+
+  const colorStyles = useMemo(() => {
+    const borderColor = color.cssString(colorVal);
+    return {
+      tag: {
+        borderColor,
+        backgroundColor: color.hex(color.setAlpha(colorVal, 0.7)),
+        ...style,
+      },
+      divider: { borderColor },
+    };
+  }, [colorVal, style]);
+
   if (propsPosition == null || pixelPosition == null) return null;
 
   const textColor = color.pickByContrast(colorVal, color.BLACK, color.WHITE);
 
   const content = (
-    <div
-      ref={ref}
-      className={CSS.B("rule")}
-      style={{ top: `calc(${pixelPosition}px - 0.5rem)` }}
-    >
+    <div ref={ref} className={CSS.B("rule")} style={topStyle}>
       <div
         className={CSS(CSS.BE("rule", "drag-handle"), Cursor.DRAG_CLASS)}
         onPointerDown={handleDragStart}
@@ -144,11 +157,7 @@ export const Rule = ({
         onClick={onSelect}
         empty
         rounded
-        style={{
-          borderColor: color.cssString(colorVal),
-          backgroundColor: color.hex(color.setAlpha(colorVal, 0.7)),
-          ...style,
-        }}
+        style={colorStyles.tag}
         {...rest}
       >
         <Text.Editable
@@ -158,7 +167,7 @@ export const Rule = ({
           onChange={setInternalLabel}
           color={textColor}
         />
-        <Divider.Divider y style={{ borderColor: color.cssString(colorVal) }} />
+        <Divider.Divider y style={colorStyles.divider} />
         <Flex.Box x align="center" className={CSS.BE("rule", "value")}>
           <Text.Editable
             value={propsPosition.toFixed(2)}

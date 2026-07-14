@@ -10,6 +10,8 @@
  */
 
 .port-line-input {
+    max-width: 50rem;
+
     & *:first-child {
         width: 40px;
 

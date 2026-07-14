@@ -12,3 +12,7 @@
 .console-cluster-list-item__name {
     max-width: 250px;
 }
+
+.console-cluster-list__header {
+    padding: 0.666rem;
+}

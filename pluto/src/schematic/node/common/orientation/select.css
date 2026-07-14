@@ -55,5 +55,12 @@
         &.pluto--direction-y {
             transform: rotate(90deg);
         }
+
+        &.pluto--hidden-inner {
+            opacity: 0;
+            user-select: none;
+            width: 1.5rem;
+            height: 1.5rem;
+        }
     }
 }

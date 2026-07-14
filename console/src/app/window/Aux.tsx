@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/app/window/Aux.css";
+
 import { Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Mosaic } from "@/app/mosaic";
 import { Auth } from "@/feature/auth";
 import { Project } from "@/feature/project";
+import { CSS } from "@/platform/css";
 
 /**
  * Aux is the shell for every non-main window: a pure panel viewport with the
@@ -21,7 +24,7 @@ import { Project } from "@/feature/project";
 export const Aux = (): ReactElement => (
   <Auth.Guard>
     <Project.Guard>
-      <Flex.Box x gap="tiny" grow style={{ padding: "0 1rem 1rem 1rem" }}>
+      <Flex.Box x gap="tiny" grow className={CSS.B("aux")}>
         <Mosaic.Mosaic />
       </Flex.Box>
     </Project.Guard>

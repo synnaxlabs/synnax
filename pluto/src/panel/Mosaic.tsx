@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/panel/Mosaic.css";
+
 import { panel } from "@synnaxlabs/client";
-import {
-  type CSSProperties,
-  type DragEventHandler,
-  memo,
-  type ReactElement,
-  useCallback,
-} from "react";
+import { type DragEventHandler, memo, type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { type Component } from "@/component";
+import { CSS } from "@/css";
 import { Errors } from "@/errors";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
@@ -34,14 +31,6 @@ import { TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
-
-// Portaled tab content fills its hosting Out, which anchors the absolutely
-// positioned internals of visualizations rendered inside it.
-const PORTAL_OUT_STYLE: CSSProperties = {
-  width: "100%",
-  height: "100%",
-  position: "relative",
-};
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
@@ -105,7 +94,10 @@ const Leaf = memo(({ nodeKey, onAdd, ...rest }: NodeProps): ReactElement => {
         </Tabs.Selector>
         <Tabs.Content grow>
           {selected != null && (
-            <Portal.Out itemKey={selected} style={PORTAL_OUT_STYLE} />
+            <Portal.Out
+              itemKey={selected}
+              className={CSS.BE("panel-mosaic", "portal-out")}
+            />
           )}
           <Base.Shield />
         </Tabs.Content>

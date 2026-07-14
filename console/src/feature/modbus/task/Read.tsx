@@ -59,7 +59,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   return (
     <Select.ListItem
       {...props}
-      style={{ width: "100%" }}
+      className={CSS.BE("modbus", "channel-item")}
       justify="between"
       align="center"
       x

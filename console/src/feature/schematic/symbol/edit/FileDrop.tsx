@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/edit/Edit.css";
+
 import { type status } from "@synnaxlabs/client";
 import { Flex, Haul, Icon, Status, Text } from "@synnaxlabs/pluto";
 import { caseconv } from "@synnaxlabs/x";
@@ -92,6 +94,7 @@ export const FileDrop = ({
       bordered
       className={CSS(
         CSS.B("file-drop"),
+        CSS.B("schematic-file-drop"),
         draggingOver && CSS.M("dragging-over"),
         enabled && CSS.M("enabled"),
       )}
@@ -101,10 +104,14 @@ export const FileDrop = ({
       {...dropProps}
       borderColor={5}
       {...rest}
-      style={{ boxShadow: "var(--pluto-shadow-v2)" }}
     >
       {enabled && (
-        <Flex.Box y align="center" center style={{ position: "absolute" }}>
+        <Flex.Box
+          y
+          align="center"
+          center
+          className={CSS.B("schematic-file-drop-overlay")}
+        >
           <Text.Text level="h1" color={7}>
             <Icon.Import />
           </Text.Text>

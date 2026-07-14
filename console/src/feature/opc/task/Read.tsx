@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/opc/task/Task.css";
+
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
@@ -24,6 +26,7 @@ import {
   type ReadSchemas,
   ZERO_READ_PAYLOAD,
 } from "@/feature/opc/task/types";
+import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -84,7 +87,7 @@ const Properties = (): ReactElement => {
           <PForm.NumericField
             label="Array Size"
             path="config.arraySize"
-            style={{ width: 100 }}
+            className={CSS.B("opc-array-size-field")}
           />
         ) : (
           <Task.Fields.StreamRate />

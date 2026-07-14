@@ -35,13 +35,7 @@ const ListItem = <C extends DigitalChannel>({ name, ...rest }: ListItemProps<C>)
   return (
     <Select.ListItem {...rest} align="center" justify="between" full="x">
       <Flex.Box align="center" x justify="evenly">
-        <Flex.Box
-          pack
-          align="center"
-          className="port-line-input"
-          x
-          style={{ maxWidth: "50rem" }}
-        >
+        <Flex.Box pack align="center" className="port-line-input" x>
           <Form.NumericField
             inputProps={{ showDragHandle: false }}
             hideIfNull

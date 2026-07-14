@@ -157,12 +157,12 @@ describe("Orientation.Select", () => {
       );
     });
 
-    it("should hide inner buttons visually via opacity 0", () => {
+    it("should hide inner buttons visually via the hidden-inner modifier class", () => {
       const { container } = render(
         <Orientation.Select value={ZERO_VALUE} onChange={() => {}} hideInner />,
       );
       const innerLeft = buttons(container)[3];
-      expect(innerLeft.style.opacity).toBe("0");
+      expect(innerLeft.className).toContain("pluto--hidden-inner");
     });
 
     it("should not fire onChange for clicks on disabled inner buttons", () => {

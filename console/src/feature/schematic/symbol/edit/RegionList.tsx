@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/edit/Edit.css";
+
 import { type schematic } from "@synnaxlabs/client";
 import {
   Button,
@@ -22,6 +24,8 @@ import {
   Tooltip,
 } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
+
+import { CSS } from "@/platform/css";
 
 export interface RegionListProps extends Input.Control<string | undefined> {
   selectedState: string;
@@ -41,7 +45,11 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
   );
   if (region == null) return null;
   return (
-    <Select.ListItem {...props} justify="between" style={{ paddingRight: "0.5rem" }}>
+    <Select.ListItem
+      {...props}
+      justify="between"
+      className={CSS.B("schematic-region-list-item")}
+    >
       <Flex.Box x align="center" gap={1}>
         <Form.Field<string> path={`${path}.name`} showLabel={false}>
           {({ onChange, value }) => (
@@ -49,7 +57,7 @@ export const RegionListItem = ({ selectedState, ...props }: RegionListItemProps)
               level="small"
               value={value}
               onChange={onChange}
-              style={{ minWidth: 80 }}
+              className={CSS.B("schematic-region-name")}
             />
           )}
         </Form.Field>
@@ -99,7 +107,7 @@ export const RegionList = ({
     `data.states.${selectedState}.regions`,
   );
   return (
-    <Flex.Box y gap={1} style={{ maxHeight: 200 }}>
+    <Flex.Box y gap={1} className={CSS.B("schematic-region-list")}>
       <Header.Header level="p" padded bordered={false}>
         <Header.Title level="p" weight={500}>
           Colors

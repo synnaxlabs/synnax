@@ -104,12 +104,7 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
         </Text.Text>
       )}
       {labels != null && labels.length > 0 && (
-        <Flex.Box
-          x
-          gap="small"
-          wrap
-          style={{ overflowX: "auto", height: "fit-content" }}
-        >
+        <Flex.Box x gap="small" wrap className={CSS.B("status-list-item-labels")}>
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="tiny" color={l.color}>
               {l.name}

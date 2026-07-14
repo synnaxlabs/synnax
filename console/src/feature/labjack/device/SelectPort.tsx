@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/labjack/device/SelectPort.css";
+
 import { Component, Dialog, Flex, List, Select, Text } from "@synnaxlabs/pluto";
 import { type ReactNode } from "react";
 
@@ -16,6 +18,7 @@ import {
   PORTS,
   type PortType,
 } from "@/feature/labjack/device/types";
+import { CSS } from "@/platform/css";
 
 export interface SelectPortProps
   extends
@@ -35,7 +38,9 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
   const { alias, key } = port;
   return (
     <Select.ListItem {...props} align="center">
-      <Text.Text style={{ width: 50 }}>{alias ?? key}</Text.Text>
+      <Text.Text className={CSS.BE("labjack-port-item", "label")}>
+        {alias ?? key}
+      </Text.Text>
       {alias != null && (
         <Text.Text level="small" color={10}>
           {key}

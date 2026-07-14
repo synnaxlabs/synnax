@@ -457,6 +457,10 @@ export const Table = ({
   const colSizes = useMemo(() => columns.map((c) => c.size), [columns]);
   const totalCol = colSizes.reduce((a, s) => a + s, 0);
   const totalRow = rows.reduce((a, r) => a + r.size, 0);
+  const tableStyle = useMemo(
+    () => ({ width: totalCol, height: totalRow }),
+    [totalCol, totalRow],
+  );
 
   let rowYCursor = showIndicators ? 4.5 * 6 : 0;
   return (
@@ -471,7 +475,7 @@ export const Table = ({
           <table
             ref={tableElRef}
             className={CSS(CSS.B("table"), menuProps.className)}
-            style={{ width: totalCol, height: totalRow }}
+            style={tableStyle}
             onCopy={onCopy}
             onPaste={editable ? onPaste : undefined}
             onKeyDown={handleKeyDown}

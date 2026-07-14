@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/range/overview/Details.css";
+
 import { ranger } from "@synnaxlabs/client";
 import {
   Button,
@@ -51,7 +53,7 @@ const ParentRangeButton = ({
         variant="text"
         weight={400}
         gap="small"
-        style={{ padding: "1rem" }}
+        className={CSS.BE("range-overview", "parent-button")}
         onClick={() =>
           openTab({ variant: "resource", resource: ranger.ontologyID(parent.key) })
         }
@@ -136,7 +138,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             />
             <ParentRangeButton rangeKey={rangeKey} />
           </Flex.Box>
-          <Flex.Box x style={{ height: "fit-content" }} gap="small">
+          <Flex.Box x className={CSS.BE("range-overview", "actions")} gap="small">
             <Button.Copy
               text={getPythonCode}
               tooltip={`Copy Python code to retrieve ${name}`}
@@ -195,7 +197,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
-          <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
+          <Icon.Arrow.Right
+            className={CSS.BE("range-overview", "arrow-icon")}
+            color={9}
+          />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
@@ -218,7 +223,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Label.SelectMultiple
                 zIndex={100}
                 variant="floating"
-                style={{ width: "fit-content" }}
+                className={CSS.BE("range-overview", "labels-select")}
                 {...p}
               />
             )}

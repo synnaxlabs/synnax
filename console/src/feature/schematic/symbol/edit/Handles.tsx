@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/schematic/symbol/edit/Edit.css";
+
 import { type schematic } from "@synnaxlabs/client";
 import { Cursor, Icon } from "@synnaxlabs/pluto";
 import { box, location, scale, xy } from "@synnaxlabs/x";
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 
@@ -64,20 +66,22 @@ const Handle = ({ handle, selectedHandle, svgBox, onSelect, onDrag }: HandleProp
 
   const orientation = handle.orientation || "left";
 
+  const style = useMemo(
+    () => ({ left: `${pos.x}%`, top: `${pos.y}%` }),
+    [pos.x, pos.y],
+  );
+
   return (
     <div
       key={handle.key}
       onPointerDown={onPointerDown}
       className={CSS(
         CSS.BE("schematic", "handle", "preview"),
+        CSS.B("schematic-handle"),
         isSelected && CSS.M("selected"),
         Cursor.DRAG_CLASS,
       )}
-      style={{
-        position: "absolute",
-        left: `${pos.x}%`,
-        top: `${pos.y}%`,
-      }}
+      style={style}
       data-orientation={orientation}
       onMouseDown={(e) => {
         e.stopPropagation();

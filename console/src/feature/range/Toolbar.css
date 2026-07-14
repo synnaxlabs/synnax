@@ -28,3 +28,8 @@
         color: var(--pluto-gray-l8);
     }
 }
+
+.console-range-list-item-labels {
+    overflow-x: auto;
+    height: fit-content;
+}

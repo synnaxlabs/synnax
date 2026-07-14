@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/channel/tree.css";
+
 import {
   channel,
   isCalculated,
@@ -38,6 +40,7 @@ import { useCallback, useMemo } from "react";
 import { Channel } from "@/platform/channel";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
@@ -320,7 +323,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         allowDoubleClick={false}
         value={name}
         overflow="ellipsis"
-        style={{ width: 0 }}
+        className={CSS.BE("channel-tree-item", "name")}
         grow
         disabled={!allowRename(resource)}
         onChange

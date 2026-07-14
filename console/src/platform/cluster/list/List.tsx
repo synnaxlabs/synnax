@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/cluster/list/List.css";
+
 import { checkConnection } from "@synnaxlabs/client";
 import {
   Button,
@@ -24,6 +26,7 @@ import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { Item } from "@/platform/cluster/list/Item";
 import { useConnectModal } from "@/platform/cluster/useConnectModal";
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
@@ -152,7 +155,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
     <Select.Frame data={keys} value={value} onChange={onChange} itemHeight={54}>
       <Flex.Box y bordered grow empty {...rest}>
         <Menu.ContextMenu menu={contextMenu} {...menuProps} />
-        <Header.Header gap="small" x style={{ padding: "0.666rem" }}>
+        <Header.Header gap="small" x className={CSS.BE("cluster-list", "header")}>
           <Header.Title level="h4" color={11}>
             <Icon.Cluster />
             Cores
