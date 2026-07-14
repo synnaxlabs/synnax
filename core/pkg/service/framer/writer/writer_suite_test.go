@@ -15,10 +15,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,27 +40,35 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	mockNode = mock.NewNode(ctx)
-	searchIdx := MustOpen(search.Open())
+	searchIdx := MustOpen(search.OpenIndex())
+
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{
+		DB: mockNode.DB,
+	}))
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       mockNode.DB,
+		Ontology: otg,
+	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       mockNode.DB,
-		Ontology: mockNode.Ontology,
-		Group:    mockNode.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       mockNode.DB,
 		Label:    labelSvc,
-		Ontology: mockNode.Ontology,
-		Group:    mockNode.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      mockNode.Channel,
 		DB:           mockNode.DB,
 		HostResolver: mockNode.Cluster,
-		Ontology:     mockNode.Ontology,
-		Group:        mockNode.Group,
-		Search:       mockNode.Search,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	channelWriter = channelSvc.NewWriter(nil)

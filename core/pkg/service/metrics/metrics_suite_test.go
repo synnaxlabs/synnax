@@ -15,16 +15,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
 	dist       mock.Node
+	otg        *ontology.Ontology
+	searchIdx  *search.Index
+	groupSvc   *group.Service
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
 )
@@ -39,27 +44,33 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	dist = mock.NewNode(ctx)
-	searchIdx := MustOpen(search.Open())
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
+	searchIdx = MustOpen(search.OpenIndex())
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       dist.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      dist.Channel,
 		DB:           dist.DB,
 		HostResolver: dist.Cluster,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		Search:       dist.Search,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{

@@ -20,7 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -38,26 +41,45 @@ type benchEnv struct {
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
 	node := mock.OpenNode(b.Context())
+	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
+	if err != nil {
+		b.Fatalf("failed to open ontology: %v", err)
+	}
+
+	searchIdx, err := search.OpenIndex()
+	if err != nil {
+		b.Fatalf("failed to open search index: %v", err)
+	}
+
+	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	})
+	if err != nil {
+		b.Fatalf("failed to open group service: %v", err)
+	}
+
 	labelSvc := MustSucceed(label.OpenService(b.Context(), label.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
-		Search:   node.Search,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
 	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   node.Search,
+		Search:   searchIdx,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostResolver: node.Cluster,
-		Ontology:     node.Ontology,
-		Group:        node.Group,
-		Search:       node.Search,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	return &benchEnv{
@@ -65,7 +87,9 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		node:          node,
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
-		closer:        io.MultiCloser{node, channelSvc, statusSvc, labelSvc},
+		closer: io.MultiCloser{
+			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+		},
 	}
 }
 

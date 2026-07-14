@@ -16,10 +16,7 @@ import (
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -131,14 +128,6 @@ type Layer struct {
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
-	// Ontology manages relationships between arbitrary data structures in a directed
-	// acyclic graph. It is the main method for defining relationships between resources
-	// in Synnax.
-	Ontology *ontology.Ontology
-	// Search is the full-text search index for ontology resources.
-	Search *search.Index
-	// Group is for grouping related resources in the cluster.
-	Group  *group.Service
 	closer io.MultiCloser
 }
 
@@ -183,31 +172,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		gorp.WithCodec(cfg.GorpCodec),
 		gorp.WithIndexObservable(aspenDB.NewObservable(aspen.IgnoreHostLeaseholder)),
 	)
-
-	if l.Ontology, err = ontology.Open(
-		ctx,
-		ontology.Config{Instrumentation: cfg.Child("ontology"), DB: l.DB},
-	); !ok(err, l.Ontology) {
-		return nil, err
-	}
-
-	if l.Search, err = search.Open(
-		search.Config{Instrumentation: cfg.Child("search")},
-	); err != nil {
-		return nil, err
-	}
-
-	if l.Group, err = group.OpenService(
-		ctx,
-		group.ServiceConfig{
-			Instrumentation: cfg.Child("group"),
-			DB:              l.DB,
-			Ontology:        l.Ontology,
-			Search:          l.Search,
-		},
-	); !ok(err, l.Group) {
-		return nil, err
-	}
 
 	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),

@@ -16,8 +16,8 @@ import (
 	"iter"
 	"testing"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 )
@@ -50,7 +50,7 @@ func makeResources(n int) []ontology.Resource {
 
 func newBenchIndex(b *testing.B) *search.Index {
 	b.Helper()
-	idx, err := search.Open()
+	idx, err := search.OpenIndex()
 	if err != nil {
 		b.Fatal(err)
 	}

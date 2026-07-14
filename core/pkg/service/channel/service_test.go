@@ -37,7 +37,7 @@ var _ = Describe("Service", func() {
 			Expect(svc.ShouldValidateNames()).To(BeTrue())
 		})
 		It("Should report false when name validation is disabled", func(ctx SpecContext) {
-			noValidateSvc := openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
+			noValidateSvc, _ := openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
 				ValidateNames: new(false),
 			})
 			Expect(noValidateSvc.ShouldValidateNames()).To(BeFalse())

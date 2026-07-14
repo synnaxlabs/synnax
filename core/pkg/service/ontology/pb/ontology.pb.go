@@ -13,7 +13,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        (unknown)
-// source: core/pkg/distribution/ontology/pb/ontology.proto
+// source: core/pkg/service/ontology/pb/ontology.proto
 
 package pb
 
@@ -129,11 +129,11 @@ func (x ResourceType) String() string {
 }
 
 func (ResourceType) Descriptor() protoreflect.EnumDescriptor {
-	return file_core_pkg_distribution_ontology_pb_ontology_proto_enumTypes[0].Descriptor()
+	return file_core_pkg_service_ontology_pb_ontology_proto_enumTypes[0].Descriptor()
 }
 
 func (ResourceType) Type() protoreflect.EnumType {
-	return &file_core_pkg_distribution_ontology_pb_ontology_proto_enumTypes[0]
+	return &file_core_pkg_service_ontology_pb_ontology_proto_enumTypes[0]
 }
 
 func (x ResourceType) Number() protoreflect.EnumNumber {
@@ -142,7 +142,7 @@ func (x ResourceType) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ResourceType.Descriptor instead.
 func (ResourceType) EnumDescriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_ontology_pb_ontology_proto_rawDescGZIP(), []int{0}
 }
 
 // ID ID is a unique identifier for a Resource. An example:
@@ -157,7 +157,7 @@ type ID struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// type defines the type of resource the key refers to. For example, a channel is a
 	// resource of type "channel". A user is a resource of type "user".
-	Type ResourceType `protobuf:"varint,1,opt,name=type,proto3,enum=distribution.ontology.pb.ResourceType" json:"type,omitempty"`
+	Type ResourceType `protobuf:"varint,1,opt,name=type,proto3,enum=service.ontology.pb.ResourceType" json:"type,omitempty"`
 	// key is the unique key identifying the resource within its type.
 	Key           string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -166,7 +166,7 @@ type ID struct {
 
 func (x *ID) Reset() {
 	*x = ID{}
-	mi := &file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes[0]
+	mi := &file_core_pkg_service_ontology_pb_ontology_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -178,7 +178,7 @@ func (x *ID) String() string {
 func (*ID) ProtoMessage() {}
 
 func (x *ID) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes[0]
+	mi := &file_core_pkg_service_ontology_pb_ontology_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -191,7 +191,7 @@ func (x *ID) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ID.ProtoReflect.Descriptor instead.
 func (*ID) Descriptor() ([]byte, []int) {
-	return file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_ontology_pb_ontology_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *ID) GetType() ResourceType {
@@ -208,13 +208,13 @@ func (x *ID) GetKey() string {
 	return ""
 }
 
-var File_core_pkg_distribution_ontology_pb_ontology_proto protoreflect.FileDescriptor
+var File_core_pkg_service_ontology_pb_ontology_proto protoreflect.FileDescriptor
 
-const file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc = "" +
+const file_core_pkg_service_ontology_pb_ontology_proto_rawDesc = "" +
 	"\n" +
-	"0core/pkg/distribution/ontology/pb/ontology.proto\x12\x18distribution.ontology.pb\"R\n" +
-	"\x02ID\x12:\n" +
-	"\x04type\x18\x01 \x01(\x0e2&.distribution.ontology.pb.ResourceTypeR\x04type\x12\x10\n" +
+	"+core/pkg/service/ontology/pb/ontology.proto\x12\x13service.ontology.pb\"M\n" +
+	"\x02ID\x125\n" +
+	"\x04type\x18\x01 \x01(\x0e2!.service.ontology.pb.ResourceTypeR\x04type\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key*\xfe\x04\n" +
 	"\fResourceType\x12\x15\n" +
 	"\x11RESOURCE_TYPE_ARC\x10\x00\x12\x19\n" +
@@ -241,29 +241,29 @@ const file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc = "" +
 	"\x13RESOURCE_TYPE_TABLE\x10\x14\x12\x16\n" +
 	"\x12RESOURCE_TYPE_TASK\x10\x15\x12\x16\n" +
 	"\x12RESOURCE_TYPE_USER\x10\x16\x12\x16\n" +
-	"\x12RESOURCE_TYPE_VIEW\x10\x17B\xea\x01\n" +
-	"\x1ccom.distribution.ontology.pbB\rOntologyProtoP\x01Z9github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb\xa2\x02\x03DOP\xaa\x02\x18Distribution.Ontology.Pb\xca\x02\x18Distribution\\Ontology\\Pb\xe2\x02$Distribution\\Ontology\\Pb\\GPBMetadata\xea\x02\x1aDistribution::Ontology::Pbb\x06proto3"
+	"\x12RESOURCE_TYPE_VIEW\x10\x17B\xcc\x01\n" +
+	"\x17com.service.ontology.pbB\rOntologyProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/ontology/pb\xa2\x02\x03SOP\xaa\x02\x13Service.Ontology.Pb\xca\x02\x13Service\\Ontology\\Pb\xe2\x02\x1fService\\Ontology\\Pb\\GPBMetadata\xea\x02\x15Service::Ontology::Pbb\x06proto3"
 
 var (
-	file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescOnce sync.Once
-	file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescData []byte
+	file_core_pkg_service_ontology_pb_ontology_proto_rawDescOnce sync.Once
+	file_core_pkg_service_ontology_pb_ontology_proto_rawDescData []byte
 )
 
-func file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescGZIP() []byte {
-	file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescOnce.Do(func() {
-		file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc), len(file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc)))
+func file_core_pkg_service_ontology_pb_ontology_proto_rawDescGZIP() []byte {
+	file_core_pkg_service_ontology_pb_ontology_proto_rawDescOnce.Do(func() {
+		file_core_pkg_service_ontology_pb_ontology_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_core_pkg_service_ontology_pb_ontology_proto_rawDesc), len(file_core_pkg_service_ontology_pb_ontology_proto_rawDesc)))
 	})
-	return file_core_pkg_distribution_ontology_pb_ontology_proto_rawDescData
+	return file_core_pkg_service_ontology_pb_ontology_proto_rawDescData
 }
 
-var file_core_pkg_distribution_ontology_pb_ontology_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_core_pkg_distribution_ontology_pb_ontology_proto_goTypes = []any{
-	(ResourceType)(0), // 0: distribution.ontology.pb.ResourceType
-	(*ID)(nil),        // 1: distribution.ontology.pb.ID
+var file_core_pkg_service_ontology_pb_ontology_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_service_ontology_pb_ontology_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_service_ontology_pb_ontology_proto_goTypes = []any{
+	(ResourceType)(0), // 0: service.ontology.pb.ResourceType
+	(*ID)(nil),        // 1: service.ontology.pb.ID
 }
-var file_core_pkg_distribution_ontology_pb_ontology_proto_depIdxs = []int32{
-	0, // 0: distribution.ontology.pb.ID.type:type_name -> distribution.ontology.pb.ResourceType
+var file_core_pkg_service_ontology_pb_ontology_proto_depIdxs = []int32{
+	0, // 0: service.ontology.pb.ID.type:type_name -> service.ontology.pb.ResourceType
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -271,27 +271,27 @@ var file_core_pkg_distribution_ontology_pb_ontology_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_core_pkg_distribution_ontology_pb_ontology_proto_init() }
-func file_core_pkg_distribution_ontology_pb_ontology_proto_init() {
-	if File_core_pkg_distribution_ontology_pb_ontology_proto != nil {
+func init() { file_core_pkg_service_ontology_pb_ontology_proto_init() }
+func file_core_pkg_service_ontology_pb_ontology_proto_init() {
+	if File_core_pkg_service_ontology_pb_ontology_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc), len(file_core_pkg_distribution_ontology_pb_ontology_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_ontology_pb_ontology_proto_rawDesc), len(file_core_pkg_service_ontology_pb_ontology_proto_rawDesc)),
 			NumEnums:      1,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
-		GoTypes:           file_core_pkg_distribution_ontology_pb_ontology_proto_goTypes,
-		DependencyIndexes: file_core_pkg_distribution_ontology_pb_ontology_proto_depIdxs,
-		EnumInfos:         file_core_pkg_distribution_ontology_pb_ontology_proto_enumTypes,
-		MessageInfos:      file_core_pkg_distribution_ontology_pb_ontology_proto_msgTypes,
+		GoTypes:           file_core_pkg_service_ontology_pb_ontology_proto_goTypes,
+		DependencyIndexes: file_core_pkg_service_ontology_pb_ontology_proto_depIdxs,
+		EnumInfos:         file_core_pkg_service_ontology_pb_ontology_proto_enumTypes,
+		MessageInfos:      file_core_pkg_service_ontology_pb_ontology_proto_msgTypes,
 	}.Build()
-	File_core_pkg_distribution_ontology_pb_ontology_proto = out.File
-	file_core_pkg_distribution_ontology_pb_ontology_proto_goTypes = nil
-	file_core_pkg_distribution_ontology_pb_ontology_proto_depIdxs = nil
+	File_core_pkg_service_ontology_pb_ontology_proto = out.File
+	file_core_pkg_service_ontology_pb_ontology_proto_goTypes = nil
+	file_core_pkg_service_ontology_pb_ontology_proto_depIdxs = nil
 }

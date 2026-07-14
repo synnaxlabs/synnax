@@ -280,7 +280,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	// details on this issue.
 	if stopSearchIndexing := runStartupSearchIndexing(
 		ctx,
-		distributionLayer,
+		serviceLayer,
 	); !ok(nil, stopSearchIndexing) {
 		return nil
 	}
@@ -340,16 +340,13 @@ func openWorkDir() (string, io.Closer, error) {
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
 }
 
-func runStartupSearchIndexing(
-	ctx context.Context,
-	dist *distribution.Layer,
-) io.Closer {
+func runStartupSearchIndexing(ctx context.Context, svc *service.Layer) io.Closer {
 	// Run indexing inside an isolated signal context, so that if we receive an early
 	// cancellation signal, we can ensure that we exit indexing before we close any
 	// resources that it depends on (notably storage KV).
 	searchIndexCtx, cancelIndexing := signal.WithCancel(ctx)
 	searchIndexCtx.Go(
-		dist.Search.Initialize,
+		svc.Search.Initialize,
 		signal.WithKey("startup_search_indexing"),
 	)
 	return signal.NewHardShutdown(searchIndexCtx, cancelIndexing)

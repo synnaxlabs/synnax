@@ -17,9 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -51,7 +51,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			overflowSvc = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
+			overflowSvc, _ = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
 				IntOverflowCheck: fixedOverflowChecker(2),
 			})
 			overflowWriter = overflowSvc.NewWriter(nil)
@@ -95,7 +95,7 @@ var _ = Describe("Writer", func() {
 				Error().To(MatchError(ContainSubstring("channel limit exceeded")))
 		})
 		It("Should remove overwritten channels from the external overflow set", func(ctx SpecContext) {
-			cleanupSvc := openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
+			cleanupSvc, _ := openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
 				IntOverflowCheck: fixedOverflowChecker(3),
 			})
 			idx := channel.Channel{
@@ -164,13 +164,14 @@ var _ = Describe("Writer", func() {
 	Describe("Create", Ordered, func() {
 		var (
 			dist          mock.Node
+			otg           *ontology.Ontology
 			svc           *channel.Service
 			channelWriter channel.Writer
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
 			dist = mock.NewNode(ctx)
-			svc = openService(ctx, dist)
+			svc, otg = openService(ctx, dist)
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single channel", func() {
@@ -186,7 +187,7 @@ var _ = Describe("Writer", func() {
 				ch.Name = UniqueChannelName()
 				Expect(channelWriter.Create(ctx, &ch, channel.CreateWithoutGroupRelationship())).To(Succeed())
 				entries := []ontology.Resource{}
-				Expect(dist.Ontology.
+				Expect(otg.
 					NewRetrieve().
 					WhereIDs(ch.OntologyID()).
 					TraverseTo(ontology.ParentsTraverser).
@@ -359,8 +360,7 @@ var _ = Describe("Writer", func() {
 					}
 					Expect(channelWriter.Create(ctx, &ch)).To(Succeed())
 					originalKey := ch.Key()
-					Expect(dist.
-						Ontology.
+					Expect(otg.
 						NewRetrieve().
 						WhereIDs(channel.OntologyID(originalKey)).
 						Exists(ctx, nil),
@@ -375,11 +375,11 @@ var _ = Describe("Writer", func() {
 					Expect(channelWriter.Create(ctx, &newCh, channel.OverwriteIfNameExistsAndDifferentProperties())).To(Succeed())
 					Expect(newCh.Key()).ToNot(Equal(originalKey))
 
-					Expect(dist.Ontology.NewRetrieve().
+					Expect(otg.NewRetrieve().
 						WhereIDs(channel.OntologyID(originalKey)).
 						Exists(ctx, nil),
 					).To(BeFalse())
-					Expect(dist.Ontology.NewRetrieve().
+					Expect(otg.NewRetrieve().
 						WhereIDs(channel.OntologyID(newCh.Key())).
 						Exists(ctx, nil),
 					).To(BeTrue())
@@ -815,7 +815,7 @@ var _ = Describe("Writer", func() {
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				svc = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{ValidateNames: new(false)})
+				svc, _ = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{ValidateNames: new(false)})
 				channelWriter = svc.NewWriter(nil)
 			})
 			It("Should create a channel with spaces in the name", func(ctx SpecContext) {
@@ -904,7 +904,7 @@ var _ = Describe("Writer", func() {
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
 			dist = mock.NewNode(ctx)
-			svc = openService(ctx, dist)
+			svc, _ = openService(ctx, dist)
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single Channel", func() {
@@ -1014,7 +1014,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc = openService(ctx, mock.NewNode(ctx))
+			svc, _ = openService(ctx, mock.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single channel", func() {
@@ -1103,7 +1103,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeEach(func(ctx SpecContext) {
 			dist = mock.NewNode(ctx)
-			limitSvc = openService(ctx, dist, channel.ServiceConfig{IntOverflowCheck: fixedOverflowChecker(limit)})
+			limitSvc, _ = openService(ctx, dist, channel.ServiceConfig{IntOverflowCheck: fixedOverflowChecker(limit)})
 			limitWriter = limitSvc.NewWriter(nil)
 		})
 		It("Should not allow creating channels over the limit", func(ctx SpecContext) {
@@ -1285,7 +1285,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc = openService(ctx, mock.NewNode(ctx))
+			svc, _ = openService(ctx, mock.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		It("Should change the data type of a calculated channel", func(ctx SpecContext) {

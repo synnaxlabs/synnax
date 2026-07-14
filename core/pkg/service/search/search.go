@@ -22,7 +22,7 @@ import (
 	"github.com/blevesearch/bleve/v2/search/query"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -75,9 +75,9 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Open opens a new search index using the provided configuration. The index must
+// OpenIndex opens a new search index using the provided configuration. The index must
 // be closed after use.
-func Open(configs ...Config) (*Index, error) {
+func OpenIndex(configs ...Config) (*Index, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err

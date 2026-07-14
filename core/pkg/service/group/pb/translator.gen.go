@@ -13,7 +13,7 @@ package pb
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
 
 // GroupToPB converts Group to Group.

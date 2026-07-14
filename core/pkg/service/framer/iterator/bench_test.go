@@ -20,7 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -39,11 +42,30 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
 	node := mock.OpenNode(b.Context())
 
+	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
+	if err != nil {
+		b.Fatalf("failed to open ontology: %v", err)
+	}
+
+	searchIdx, err := search.OpenIndex()
+	if err != nil {
+		b.Fatalf("failed to open search index: %v", err)
+	}
+
+	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	})
+	if err != nil {
+		b.Fatalf("failed to open group service: %v", err)
+	}
+
 	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
-		Search:   node.Search,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
@@ -51,10 +73,10 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 
 	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   node.Search,
+		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -64,9 +86,9 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		Channel:      node.Channel,
 		DB:           node.DB,
 		HostResolver: node.Cluster,
-		Ontology:     node.Ontology,
-		Group:        node.Group,
-		Search:       node.Search,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
 		Status:       statusSvc,
 	})
 	if err != nil {
@@ -82,9 +104,11 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	}
 
 	return &benchIterEnv{
-		ctx:           b.Context(),
-		node:          node,
-		closer:        io.MultiCloser{node, channelSvc, statusSvc, labelSvc},
+		ctx:  b.Context(),
+		node: node,
+		closer: io.MultiCloser{
+			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
 		iteratorSvc:   iteratorSvc,

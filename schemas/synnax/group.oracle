@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @ts output "client/ts/src/group"
-@go output "core/pkg/distribution/group"
+@go output "core/pkg/service/group"
 @py output "client/py/synnax/group"
 @pb
 
