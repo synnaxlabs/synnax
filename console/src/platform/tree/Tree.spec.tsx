@@ -15,10 +15,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
-import {
-  expandTreeRow as expandRow,
-  getTreeRow as rowOf,
-} from "@/platform/tree/menuTestutil";
+import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -54,7 +51,7 @@ describe("Tree.Tree", () => {
     });
     await renderTree(ontology.ROOT_ID);
     await screen.findByText(groupName);
-    expandRow(groupName);
+    expandTreeRow(groupName);
     await waitFor(() => expect(screen.getByText(childName)).toBeTruthy());
     await client.groups.delete(child.key);
   });
@@ -90,7 +87,7 @@ describe("Tree.Tree", () => {
       };
       await renderTree(parentID, items);
       await screen.findByText(childName);
-      fireEvent.contextMenu(rowOf(childName));
+      fireEvent.contextMenu(getTreeRow(childName));
       await waitFor(() => expect(screen.getByText("group service menu")).toBeTruthy());
       const [props] = menuSpy.mock.calls[0] as [Tree.ContextMenuProps];
       expect(props.selection.ids).toHaveLength(1);
@@ -145,10 +142,10 @@ describe("Tree.Tree", () => {
     };
     await renderTree(containerID, items);
     await screen.findByText(source.name);
-    expandRow(source.name);
+    expandTreeRow(source.name);
     await screen.findByText(moved.name);
-    fireEvent.dragStart(rowOf(moved.name));
-    fireEvent.drop(rowOf(destination.name));
+    fireEvent.dragStart(getTreeRow(moved.name));
+    fireEvent.drop(getTreeRow(destination.name));
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(
         group.ontologyID(destination.key),

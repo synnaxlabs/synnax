@@ -1,0 +1,221 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package group
+
+import (
+	"context"
+	"io"
+
+	"github.com/google/uuid"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
+)
+
+type ServiceConfig struct {
+	alamos.Instrumentation
+	DB       *gorp.DB
+	Ontology *ontology.Ontology
+	Search   *search.Index
+}
+
+var (
+	_                    config.Config[ServiceConfig] = ServiceConfig{}
+	DefaultServiceConfig                              = ServiceConfig{}
+)
+
+// Override implements ServiceConfig.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Search = override.Nil(c.Search, other.Search)
+	return c
+}
+
+// Validate implements ServiceConfig.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("group")
+	validate.NotNil(v, "db", c.DB)
+	validate.NotNil(v, "ontology", c.Ontology)
+	validate.NotNil(v, "search", c.Search)
+	return v.Error()
+}
+
+type Service struct {
+	cfg     ServiceConfig
+	signals io.Closer
+	table   *gorp.Table[Key, Group]
+}
+
+func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	table, err := gorp.OpenTable[Key, Group](ctx, gorp.TableConfig[Key, Group]{
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Group]("msgpack_to_orc")},
+		Instrumentation: cfg.Instrumentation,
+	})
+	if err != nil {
+		return nil, err
+	}
+	s := &Service{cfg: cfg, table: table}
+	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
+	return s, nil
+}
+
+func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (Group, error) {
+	var g Group
+	err := s.NewRetrieve().Entry(&g).Where(MatchNames(groupName)).Exec(ctx, nil)
+	if errors.Skip(err, query.ErrNotFound) != nil {
+		return Group{}, err
+	}
+	w := s.NewWriter(nil)
+	if errors.Is(err, query.ErrNotFound) {
+		return w.Create(ctx, groupName, parent)
+	}
+	return w.CreateWithKey(ctx, g.Key, groupName, parent)
+}
+
+// Observe returns an observable that notifies callers of changes to group entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
+	return s.table.Observe()
+}
+
+func (s *Service) NewWriter(tx gorp.Tx) Writer {
+	return Writer{
+		tx:        gorp.OverrideTx(s.cfg.DB, tx),
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
+		table:     s.table,
+	}
+}
+
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve()}
+}
+
+func (s *Service) Close() error {
+	if s.signals != nil {
+		return errors.Combine(s.signals.Close(), s.table.Close())
+	}
+	return s.table.Close()
+}
+
+type Writer struct {
+	tx        gorp.Tx
+	otgWriter ontology.Writer
+	otg       *ontology.Ontology
+	table     *gorp.Table[Key, Group]
+}
+
+// Create creates a new Group with the given name and parent.
+func (w Writer) Create(
+	ctx context.Context,
+	name string,
+	parent ontology.ID,
+) (Group, error) {
+	g := Group{Key: uuid.New(), Name: name}
+	id := OntologyID(g.Key)
+	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
+		return Group{}, err
+	}
+	if err := w.otgWriter.DefineResources(ctx, id); err != nil {
+		return Group{}, err
+	}
+	if err := w.otgWriter.DefineRelationships(
+		ctx,
+		parent,
+		ontology.RelationshipTypeParentOf,
+		id,
+	); err != nil {
+		return Group{}, err
+	}
+	return g, nil
+}
+
+func (w Writer) CreateWithKey(
+	ctx context.Context,
+	key Key,
+	name string,
+	parent ontology.ID,
+) (Group, error) {
+	g := Group{Key: key, Name: name}
+	if g.Key == uuid.Nil {
+		g.Key = uuid.New()
+	}
+	id := OntologyID(g.Key)
+	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
+		return Group{}, err
+	}
+	if err := w.otgWriter.DefineResources(ctx, id); err != nil {
+		return Group{}, err
+	}
+	if err := w.otgWriter.DefineRelationships(
+		ctx,
+		parent,
+		ontology.RelationshipTypeParentOf,
+		id,
+	); err != nil {
+		return Group{}, err
+	}
+	return g, nil
+}
+
+// Delete deletes the Groups with the given keys.
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	keyStrings := lo.Map(keys, func(item Key, _ int) string {
+		return item.String()
+	})
+	for _, key := range keys {
+		var children []ontology.Resource
+		if err := w.otg.NewRetrieve().
+			WhereIDs(OntologyID(key)).
+			TraverseTo(ontology.ChildrenTraverser).
+			ExcludeFieldData(true).
+			Entries(&children).
+			Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		children = lo.Filter(children, func(item ontology.Resource, index int) bool {
+			return !lo.Contains(keyStrings, item.ID.Key)
+		})
+		if len(children) > 0 {
+			return errors.Wrap(validate.ErrValidation, "cannot delete a group with children")
+		}
+		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+			return err
+		}
+	}
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Group](keys...)).Exec(ctx, w.tx)
+}
+
+// Rename renames the Group with the given key.
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	return w.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Group](key)).
+		Change(func(_ gorp.Context, g Group) Group {
+			g.Name = name
+			return g
+		}).
+		Exec(ctx, w.tx)
+}

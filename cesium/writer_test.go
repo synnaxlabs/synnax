@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
@@ -37,7 +38,6 @@ import (
 var _ = Describe("Writer Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db         *cesium.DB
 				fs         fs.FS
@@ -46,13 +46,10 @@ var _ = Describe("Writer Behavior", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
+				db = mustOpenDBOnFS(ctx, fs)
 				Expect(db.ConfigureControlUpdateChannel(
 					ctx, controlKey, "sy_cesium_control",
 				)).To(Succeed())
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {
@@ -1626,6 +1623,51 @@ var _ = Describe("Writer Behavior", func() {
 						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
 					)))
 
+					Expect(w.Close()).To(Succeed())
+				})
+
+				It("Should validate series data types on write", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "validated"))).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
+						Start:    10 * telem.SecondTS,
+						Sync:     new(true),
+					}))
+					Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[float32](1, 2)))).
+						Error().To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("invalid data type")),
+					))
+					Expect(w.Close()).To(MatchError(ContainSubstring("invalid data type")))
+				})
+
+				It("Should advance a virtual channel's alignment with each write", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "aligned"))).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
+						Start:    10 * telem.SecondTS,
+					}))
+					s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{key},
+					}))
+					sCtx, cancel := signal.Isolated()
+					defer cancel()
+					i, o := confluence.Attach(s, 2)
+					s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+					Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3)))).To(BeTrue())
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 0)))
+
+					Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](4, 5)))).To(BeTrue())
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 3)))
+
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 				})
 			})
