@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useAsyncEffect } from "@synnaxlabs/pluto";
+import { Theming, useAsyncEffect } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useState } from "react";
 
 import { Runtime } from "@/session/runtime";
 
-const LIGHT = "synnaxLight";
-const DARK = "synnaxDark";
-
-const keyFor = (dark: boolean): string => (dark ? DARK : LIGHT);
+const keyFor = (dark: boolean): string =>
+  dark ? Theming.SYNNAX_DARK.key : Theming.SYNNAX_LIGHT.key;
 
 const prefersDark = (): boolean =>
   typeof window?.matchMedia !== "undefined" &&

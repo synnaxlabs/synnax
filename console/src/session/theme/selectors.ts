@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Theming } from "@synnaxlabs/pluto";
+import { Theming } from "@synnaxlabs/pluto";
 import { useMemo } from "react";
 
 import { Select } from "@/session/select";
@@ -28,8 +28,8 @@ const selectMode = (state: StoreState): Mode =>
 export const useSelectMode = (): Mode => Select.useMemo(selectMode, []);
 
 const FIXED_KEYS: Record<Exclude<Mode, "system">, string> = {
-  light: "synnaxLight",
-  dark: "synnaxDark",
+  light: Theming.SYNNAX_LIGHT.key,
+  dark: Theming.SYNNAX_DARK.key,
 };
 
 export const useProviderProps = (): Theming.ProviderProps => {
