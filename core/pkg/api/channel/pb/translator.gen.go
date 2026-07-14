@@ -13,9 +13,9 @@ package pb
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelpb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
