@@ -9,8 +9,7 @@
 
 
 from freighter import FileTransport
-from synnax import ontology
-from synnax.project import Key as ProjectKey
+from synnax import ontology, project
 from x.fs import FilePath
 
 
@@ -27,7 +26,7 @@ class Client:
     def __init__(self, file_transport: FileTransport) -> None:
         self._file_transport = file_transport
 
-    def import_(self, source: FilePath, *, project: ProjectKey) -> ontology.ID:
+    def import_(self, source: FilePath, *, project: project.Key) -> ontology.ID:
         """Imports the resource at source and returns its new ontology ID.
 
         The source file's name travels with the request: when the file's contents carry
