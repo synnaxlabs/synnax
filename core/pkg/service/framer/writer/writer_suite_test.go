@@ -48,6 +48,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       mockNode.DB,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       mockNode.DB,
