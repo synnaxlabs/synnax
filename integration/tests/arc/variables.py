@@ -494,7 +494,9 @@ class Variables(ArcCase):
         self.wait_for_eq("stage_scoped_out", "stage")
 
     def _verify_kind_inheritance(self) -> None:
-        self.log("=== channel-read/write & channel-read inherited into a nested stage ===")
+        self.log(
+            "=== channel-read/write & channel-read inherited into a nested stage ==="
+        )
         self.writer.write("inherit_channel_read_write_src", "A")
         self.writer.write("inherit_channel_read_src", "R")
         self.wait_for_eq("inherit_channel_read_write_direct", "A")
