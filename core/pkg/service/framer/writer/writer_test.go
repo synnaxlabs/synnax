@@ -83,6 +83,19 @@ var _ = Describe("Writer", func() {
 				Start: telem.SecondTS,
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
+		It("Should return an error when opening with a nonexistent free channel", func(ctx SpecContext) {
+			Expect(writerSvc.Open(ctx, writer.Config{
+				Keys:  channel.Keys{channel.NewKey(node.KeyFree, 9999)},
+				Start: telem.SecondTS,
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should return an error when a nonexistent free channel is mixed with valid keys", func(ctx SpecContext) {
+			ch := createVirtual(ctx)
+			Expect(writerSvc.NewStream(ctx, writer.Config{
+				Keys:  channel.Keys{ch.Key(), channel.NewKey(node.KeyFree, 9999)},
+				Start: telem.SecondTS,
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
 	})
 
 	Describe("Frame Errors", func() {

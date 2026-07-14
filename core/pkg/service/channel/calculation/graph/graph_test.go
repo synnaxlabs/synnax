@@ -988,13 +988,16 @@ var _ = Describe("Graph", func() {
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
+					// Writers are not safe for concurrent use, so each goroutine gets
+					// its own.
+					w := channelSvc.NewWriter(nil)
 					calcs[i] = channel.Channel{
 						Name:       fmt.Sprintf("cc_calc_%d", i),
 						DataType:   telem.Int64T,
 						Virtual:    true,
 						Expression: fmt.Sprintf("return cc_base_%d + 1", i),
 					}
-					Expect(channelWriter.Create(ctx, &calcs[i])).To(Succeed())
+					Expect(w.Create(ctx, &calcs[i])).To(Succeed())
 				}()
 			}
 			wg.Wait()
@@ -1021,7 +1024,7 @@ var _ = Describe("Graph", func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
 			}()
 			go func() {
 				defer GinkgoRecover()
@@ -1032,7 +1035,7 @@ var _ = Describe("Graph", func() {
 					Name: "cc_race_calc2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return cc_race_stable * 2",
 				}
-				Expect(channelWriter.Create(ctx, &newCalc)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Create(ctx, &newCalc)).To(Succeed())
 			}()
 			wg.Wait()
 		})

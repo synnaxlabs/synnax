@@ -34,7 +34,8 @@ const calculatedIndexNameSuffix = "_time"
 // Writer creates, deletes, and renames channels within a single transaction. It infers
 // DataTypes for calculated channels before persisting, orchestrating key/storage
 // allocation through the distribution-layer allocator and writing channel metadata to
-// the service table. Obtain one from Service.NewWriter.
+// the service table. Obtain one from Service.NewWriter. A Writer is not safe for
+// concurrent use.
 type Writer struct {
 	svc      *Service
 	tx       gorp.Tx
