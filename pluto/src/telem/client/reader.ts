@@ -64,11 +64,11 @@ export interface ReaderParams {
  * in the README for more.
  */
 export class Reader implements ReadClient {
-  /** Parsed and validated arguments passed to the constructor. */
-  private readonly args: Required<ReaderParams>;
+  /** Parsed and validated parameters passed to the constructor. */
+  private readonly params: Required<ReaderParams>;
   /**
    * A function that debounced reads to the cluster by the debounce interval
-   * specified in args.batchDebounce.
+   * specified in params.batchDebounce.
    */
   private readonly debouncedRead: () => void;
   /** A mutex for serializing access to requests. */
@@ -77,19 +77,22 @@ export class Reader implements ReadClient {
     closed: false,
   });
 
-  constructor(args: ReaderParams) {
-    this.args = {
-      ...args,
-      instrumentation: args.instrumentation ?? alamos.NOOP,
-      batchDebounce: args.batchDebounce ?? TimeSpan.milliseconds(50),
-      overlapThreshold: args.overlapThreshold ?? TimeSpan.milliseconds(5),
+  constructor(params: ReaderParams) {
+    this.params = {
+      ...params,
+      instrumentation: params.instrumentation ?? alamos.NOOP,
+      batchDebounce: params.batchDebounce ?? TimeSpan.milliseconds(50),
+      overlapThreshold: params.overlapThreshold ?? TimeSpan.milliseconds(5),
     };
-    this.debouncedRead = debounce(() => void this.batchRead(), this.args.batchDebounce);
+    this.debouncedRead = debounce(
+      () => void this.batchRead(),
+      this.params.batchDebounce,
+    );
   }
 
   /** Implements ReadClient. */
   async read(tr: TimeRange, channel: channel.Key): Promise<MultiSeries> {
-    const { cache } = this.args;
+    const { cache } = this.params;
     await cache.populateMissing([channel]);
     const unary = cache.get(channel);
     const { series, gaps } = unary.read(tr);
@@ -106,7 +109,7 @@ export class Reader implements ReadClient {
   }
 
   private async batchRead(): Promise<void> {
-    const { readRemote, cache, overlapThreshold } = this.args;
+    const { readRemote, cache, overlapThreshold } = this.params;
     const { mu } = this;
     await mu.runExclusive(async () => {
       const finish = (err?: unknown) =>

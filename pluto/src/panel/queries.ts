@@ -330,19 +330,19 @@ const [useSelectSelectionBase, useGetSelectionBase] = Flux.createSelector<
  * scope; when neither is present, or the panel is not cached, the list is returned
  * unresolved.
  */
-export const useSelectSelection = (args: SelectSelectionParams): panel.TabKey[] => {
-  const key = Scope.useOptional(args.key);
-  return useSelectSelectionBase({ ...args, key });
+export const useSelectSelection = (params: SelectSelectionParams): panel.TabKey[] => {
+  const key = Scope.useOptional(params.key);
+  return useSelectSelectionBase({ ...params, key });
 };
 
 /** useGetSelection returns a getter reading {@link useSelectSelection} on demand. */
 export const useGetSelection = (): ((
-  args: SelectSelectionParams,
+  params: SelectSelectionParams,
 ) => panel.TabKey[]) => {
   const scoped = Scope.useOptional();
   const get = useGetSelectionBase();
   return useCallback(
-    (args: SelectSelectionParams) => get({ ...args, key: args.key ?? scoped }),
+    (params: SelectSelectionParams) => get({ ...params, key: params.key ?? scoped }),
     [get, scoped],
   );
 };
@@ -350,7 +350,7 @@ export const useGetSelection = (): ((
 export const [useSelectTab, useGetTab] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.Tab>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, args) => selectRequiredTab(store, args),
+    select: (store, params) => selectRequiredTab(store, params),
   }),
 );
 
@@ -370,7 +370,7 @@ const selectRequiredTabLeaf = (
 export const [useSelectTabLeaf, useGetTabLeaf] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.NodeLeaf>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, args) => selectRequiredTabLeaf(store, args),
+    select: (store, params) => selectRequiredTabLeaf(store, params),
   }),
 );
 
@@ -380,7 +380,7 @@ export const [useSelectTabLeaf, useGetTabLeaf] = bindTabSelector(
 export const [useSelectTabVariant, useGetTabVariant] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.TabType>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, args) => selectRequiredTab(store, args).variant,
+    select: (store, params) => selectRequiredTab(store, params).variant,
   }),
 );
 
@@ -390,8 +390,8 @@ export const [useSelectTabVariant, useGetTabVariant] = bindTabSelector(
 export const [useSelectTabType, useGetTabType] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentParams, string>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, args) => {
-      const tab = selectRequiredTab(store, args);
+    select: (store, params) => {
+      const tab = selectRequiredTab(store, params);
       return tab.variant === "resource" ? tab.resource.type : tab.type;
     },
   }),
@@ -409,8 +409,8 @@ export interface SelectMaybeTabTypeParams {
 export const [useSelectTabResource, useGetTabResource] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentParams, ontology.ID>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, args) => {
-      const tab = selectRequiredTab(store, args);
+    select: (store, params) => {
+      const tab = selectRequiredTab(store, params);
       if (tab.variant !== "resource")
         throw new UnexpectedError(
           `attempted to select resource on view tab ${tab.key}`,
@@ -427,8 +427,8 @@ export const [useSelectTabResource, useGetTabResource] = bindTabSelector(
 export const [useSelectTabArgs, useGetTabArgs] = bindTabSelector(
   Flux.createSelector<FluxSubStore, SelectTabContentParams, record.Unknown>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, args) => {
-      const tab = selectRequiredTab(store, args);
+    select: (store, params) => {
+      const tab = selectRequiredTab(store, params);
       if (tab.variant !== "view")
         throw new UnexpectedError(
           `attempted to select args on resource tab ${tab.key}`,

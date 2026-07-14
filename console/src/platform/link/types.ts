@@ -26,7 +26,7 @@ export interface HandlerParams {
 }
 
 export interface Handler {
-  (args: HandlerParams): Promise<void>;
+  (params: HandlerParams): Promise<void>;
 }
 
 // UseHandler is a hook that returns a Handler for a single resource type. Feature

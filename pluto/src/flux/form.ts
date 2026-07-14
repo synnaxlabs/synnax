@@ -60,10 +60,10 @@ export interface CreateFormParams<
   name: string;
   schema: Schema;
   initialValues: z.infer<Schema>;
-  update: (args: FormUpdateParams<Schema, Store>) => Promise<void>;
-  retrieve: (args: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
+  update: (params: FormUpdateParams<Schema, Store>) => Promise<void>;
+  retrieve: (params: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
   mountListeners?: (
-    args: FormMountListenersParams<Query, Schema, Store>,
+    params: FormMountListenersParams<Query, Schema, Store>,
   ) => destructor.Destructor | destructor.Destructor[];
 }
 
@@ -111,9 +111,11 @@ export interface UseFormParams<
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
   query: Query;
-  beforeValidate?: (args: BeforeValidateParams<Query, Schema, Store>) => boolean | void;
-  beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
-  afterSave?: (args: AfterSaveParams<Query, Schema, Store>) => void;
+  beforeValidate?: (
+    params: BeforeValidateParams<Query, Schema, Store>,
+  ) => boolean | void;
+  beforeSave?: (params: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
+  afterSave?: (params: AfterSaveParams<Query, Schema, Store>) => void;
   scope?: string;
 }
 
@@ -122,7 +124,7 @@ export interface UseForm<
   Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 > {
-  (args: UseFormParams<Query, Schema, Store>): UseFormReturn<Schema>;
+  (params: UseFormParams<Query, Schema, Store>): UseFormReturn<Schema>;
 }
 
 const DEFAULT_SET_OPTIONS: Form.SetOptions = {
@@ -188,11 +190,11 @@ export const createForm =
             return setResult(nullClientResult<undefined>(`retrieve ${name}`));
           setResult((p) => loadingResult(`retrieving ${name}`, p.data));
           if (signal?.aborted) return;
-          const args = { client, query, store, ...form, set: noNotifySet };
-          await retrieve(args);
+          const params = { client, query, store, ...form, set: noNotifySet };
+          await retrieve(params);
           if (signal?.aborted) return;
           listeners.cleanup();
-          listeners.set(mountListeners?.(args));
+          listeners.set(mountListeners?.(params));
           setResult(successResult<undefined>(`retrieved ${name}`));
         } catch (error) {
           if (signal?.aborted) return;
@@ -218,11 +220,11 @@ export const createForm =
             setResult(nullClientResult<undefined>(`update ${name}`));
             return false;
           }
-          const args = { client, query, store, rollbacks, ...form, set: noNotifySet };
-          if (beforeValidate?.(args) === false) return false;
+          const params = { client, query, store, rollbacks, ...form, set: noNotifySet };
+          if (beforeValidate?.(params) === false) return false;
           if (!(await form.validateAsync())) return false;
           setResult(loadingResult(`updating ${name}`, undefined));
-          if ((await beforeSave?.(args)) === false) {
+          if ((await beforeSave?.(params)) === false) {
             setResult(successResult(`updated ${name}`, undefined));
             return false;
           }
@@ -237,9 +239,9 @@ export const createForm =
               } as Result<undefined>;
             });
 
-          await update({ ...args, setStatus });
+          await update({ ...params, setStatus });
           setResult(successResult(`updated ${name}`, undefined));
-          if (afterSave != null) afterSave(args);
+          if (afterSave != null) afterSave(params);
           return true;
         } catch (error) {
           try {

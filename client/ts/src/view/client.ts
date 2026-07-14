@@ -48,19 +48,19 @@ export class Client {
     this.client = client;
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<View>;
-  async retrieve(args: RetrieveMultipleParams): Promise<View[]>;
+  async retrieve(params: RetrieveSingleParams): Promise<View>;
+  async retrieve(params: RetrieveMultipleParams): Promise<View[]>;
   async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<View | View[]> {
-    const isSingle = "key" in args;
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/view/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResponseZ,
     );
-    checkForMultipleOrNoResults("View", args, res.views, isSingle);
+    checkForMultipleOrNoResults("View", params, res.views, isSingle);
     return isSingle ? res.views[0] : res.views;
   }
 

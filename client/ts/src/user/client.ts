@@ -100,14 +100,14 @@ export class Client {
     );
   }
 
-  async retrieve(args: KeyRetrieveRequest): Promise<User>;
-  async retrieve(args: UsernameRetrieveRequest): Promise<User>;
-  async retrieve(args: RetrieveParams): Promise<User[]>;
-  async retrieve(args: RetrieveParams): Promise<User | User[]> {
-    const isSingle = "key" in args || "username" in args;
+  async retrieve(params: KeyRetrieveRequest): Promise<User>;
+  async retrieve(params: UsernameRetrieveRequest): Promise<User>;
+  async retrieve(params: RetrieveParams): Promise<User[]>;
+  async retrieve(params: RetrieveParams): Promise<User | User[]> {
+    const isSingle = "key" in params || "username" in params;
     const res = await this.client.send(
       "/user/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResZ,
     );
@@ -116,12 +116,12 @@ export class Client {
 
     if (res.users.length === 0) {
       const identifier =
-        "key" in args ? `key ${args.key}` : `username ${args.username}`;
+        "key" in params ? `key ${params.key}` : `username ${params.username}`;
       throw new NotFoundError(`No user with ${identifier} found`);
     }
     if (res.users.length > 1) {
       const identifier =
-        "key" in args ? `key ${args.key}` : `username ${args.username}`;
+        "key" in params ? `key ${params.key}` : `username ${params.username}`;
       throw new MultipleFoundError(`Multiple users found with ${identifier}`);
     }
     return res.users[0];

@@ -47,8 +47,8 @@ export interface UnreachableParams {
 export class Unreachable extends FreighterError.sub("unreachable") {
   url: url.URL;
 
-  constructor(args: UnreachableParams = {}) {
-    const { message = "Unreachable", url: endpoint = url.URL.UNKNOWN, cause } = args;
+  constructor(params: UnreachableParams = {}) {
+    const { message = "Unreachable", url: endpoint = url.URL.UNKNOWN, cause } = params;
     super(message, cause !== undefined ? { cause } : undefined);
     this.url = endpoint;
   }

@@ -303,27 +303,27 @@ export class Client {
   }
 
   async retrieve<S extends Schemas = Schemas>(
-    args: RetrieveSingleParams & RetrieveSchemas<S>,
+    params: RetrieveSingleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
-  async retrieve(args: RetrieveSingleParams): Promise<Task>;
+  async retrieve(params: RetrieveSingleParams): Promise<Task>;
   async retrieve<S extends Schemas = Schemas>(
-    args: RetrieveMultipleParams & RetrieveSchemas<S>,
+    params: RetrieveMultipleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>[]>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Task[]>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>({
     schemas,
-    ...args
+    ...params
   }: RetrieveParams & RetrieveSchemas<S>): Promise<Task<S> | Task<S>[]> {
-    const isSingle = singleRetrieveParamsZ.safeParse(args).success;
+    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/task/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResZ(schemas),
     );
     const tasks = res.tasks as Payload<S>[];
     const sugared = this.sugar(tasks, schemas);
-    checkForMultipleOrNoResults("Task", args, sugared, isSingle);
+    checkForMultipleOrNoResults("Task", params, sugared, isSingle);
     return isSingle ? sugared[0] : sugared;
   }
 

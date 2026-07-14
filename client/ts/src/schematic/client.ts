@@ -97,19 +97,19 @@ export class Client {
     );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Schematic>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Schematic[]>;
+  async retrieve(params: RetrieveSingleParams): Promise<Schematic>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Schematic[]>;
   async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
-    const isSingle = singleRetrieveParamsZ.safeParse(args).success;
+    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/schematic/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Schematic", args, res.schematics, isSingle);
+    checkForMultipleOrNoResults("Schematic", params, res.schematics, isSingle);
     return isSingle ? res.schematics[0] : res.schematics;
   }
 
@@ -122,8 +122,8 @@ export class Client {
     );
   }
 
-  async copy(args: CopyParams): Promise<Schematic> {
-    const res = await this.client.send("/schematic/copy", args, copyReqZ, copyResZ);
+  async copy(params: CopyParams): Promise<Schematic> {
+    const res = await this.client.send("/schematic/copy", params, copyReqZ, copyResZ);
     return res.schematic;
   }
 }

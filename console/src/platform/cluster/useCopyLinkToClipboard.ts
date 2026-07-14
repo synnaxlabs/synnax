@@ -20,7 +20,7 @@ export interface CopyLinkToClipboardParams {
 }
 
 export interface CopyLinkToClipboard {
-  (args: CopyLinkToClipboardParams): void;
+  (params: CopyLinkToClipboardParams): void;
 }
 
 export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {
@@ -28,16 +28,16 @@ export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {
   const clusterKey = Session.Cluster.useSelectSelectedKey();
   const addStatus = Status.useAdder();
   return useCallback(
-    (args) => {
+    (params) => {
       if (clusterKey == null) {
         addStatus({
           variant: "error",
-          message: `Failed to copy link to ${args.name}`,
+          message: `Failed to copy link to ${params.name}`,
           description: "No active cluster is found",
         });
         return;
       }
-      return copyLink({ ...args, clusterKey });
+      return copyLink({ ...params, clusterKey });
     },
     [copyLink, clusterKey, addStatus],
   );

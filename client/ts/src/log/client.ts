@@ -70,19 +70,19 @@ export class Client {
     );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Log>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Log[]>;
+  async retrieve(params: RetrieveSingleParams): Promise<Log>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Log[]>;
   async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Log | Log[]> {
-    const isSingle = singleRetrieveParamsZ.safeParse(args).success;
+    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/log/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Log", args, res.logs, isSingle);
+    checkForMultipleOrNoResults("Log", params, res.logs, isSingle);
     return isSingle ? res.logs[0] : res.logs;
   }
 

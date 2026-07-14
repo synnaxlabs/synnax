@@ -70,19 +70,19 @@ export class Client {
     );
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Table>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Table[]>;
+  async retrieve(params: RetrieveSingleParams): Promise<Table>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Table[]>;
   async retrieve(
-    args: RetrieveSingleParams | RetrieveMultipleParams,
+    params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Table | Table[]> {
-    const isSingle = singleRetrieveParamsZ.safeParse(args).success;
+    const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     const res = await this.client.send(
       "/table/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Table", args, res.tables, isSingle);
+    checkForMultipleOrNoResults("Table", params, res.tables, isSingle);
     return isSingle ? res.tables[0] : res.tables;
   }
 

@@ -206,19 +206,21 @@ const [useSelectRawLines] = Flux.createSelector<
 // identity and its render color resolved from the active palette (a line with
 // no stored color is assigned one by its position). Lines are materialized
 // eagerly by the reducer, so this is the complete set of plotted lines.
-export const useSelectLines = Scope.bindHook((args: SelectKeyParams): DerivedLine[] => {
-  const lines = useSelectRawLines(args);
-  const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () =>
-      lines.map(({ color, ...line }, i) => ({
-        ...line,
-        color: resolvePaletteColor(color, i, palette),
-        isDefaultLabel: line.label == null,
-      })),
-    [lines, palette],
-  );
-});
+export const useSelectLines = Scope.bindHook(
+  (params: SelectKeyParams): DerivedLine[] => {
+    const lines = useSelectRawLines(params);
+    const palette = Theming.use().colors.visualization.palettes.default;
+    return useMemo(
+      () =>
+        lines.map(({ color, ...line }, i) => ({
+          ...line,
+          color: resolvePaletteColor(color, i, palette),
+          isDefaultLabel: line.label == null,
+        })),
+      [lines, palette],
+    );
+  },
+);
 
 export const [useSelectLineKeys, useGetLineKeys] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyParams, string[]>({
@@ -308,10 +310,10 @@ const [useSelectXAxisBase] = Flux.createSelector<
 // → time, otherwise linear), defaulting to time while the channel loads. A
 // non-null stored type is an explicit user override.
 export const useSelectXAxis = Scope.bindHook(
-  (args: SelectXAxisParams): lineplot.Axis => {
+  (params: SelectXAxisParams): lineplot.Axis => {
     const { axis, channel } = useSelectXAxisBase({
-      key: args.key,
-      axisKey: args.axisKey,
+      key: params.key,
+      axisKey: params.axisKey,
     });
     const { data: chan } = Channel.useRetrieve(
       { key: channel },
@@ -381,8 +383,8 @@ const [useSelectRawLine] = Flux.createSelector<FluxSubStore, SelectLineParams, R
 // resolved by position the same way as useSelectLines, subscribing narrowly so
 // it re-renders only when that line, its position, or the palette changes.
 export const useSelectLine = Scope.bindHook(
-  (args: SelectLineParams): require.Require<DerivedLine, "label"> => {
-    const raw = useSelectRawLine(args);
+  (params: SelectLineParams): require.Require<DerivedLine, "label"> => {
+    const raw = useSelectRawLine(params);
     const palette = Theming.use().colors.visualization.palettes.default;
     const { yChannel } = lineplot.parseLineKey(raw.line.key);
     const { data: chan } = Channel.useRetrieve({ key: yChannel });
@@ -417,18 +419,20 @@ const [useSelectRawRules] = Flux.createSelector<
 // useSelectRules returns the plot's rules, each with its render color resolved
 // from the active palette (a rule with no stored color is assigned one by its
 // position, the same way lines are).
-export const useSelectRules = Scope.bindHook((args: SelectKeyParams): DerivedRule[] => {
-  const rules = useSelectRawRules(args);
-  const palette = Theming.use().colors.visualization.palettes.default;
-  return useMemo(
-    () =>
-      rules.map(({ color, ...rule }, i) => ({
-        ...rule,
-        color: resolvePaletteColor(color, i, palette),
-      })),
-    [rules, palette],
-  );
-});
+export const useSelectRules = Scope.bindHook(
+  (params: SelectKeyParams): DerivedRule[] => {
+    const rules = useSelectRawRules(params);
+    const palette = Theming.use().colors.visualization.palettes.default;
+    return useMemo(
+      () =>
+        rules.map(({ color, ...rule }, i) => ({
+          ...rule,
+          color: resolvePaletteColor(color, i, palette),
+        })),
+      [rules, palette],
+    );
+  },
+);
 
 export interface SelectRuleParams {
   key: lineplot.Key;
@@ -456,8 +460,8 @@ const [useSelectRawRule] = Flux.createSelector<FluxSubStore, SelectRuleParams, R
 // useSelectRule returns a single rule with its color resolved by position the
 // same way as useSelectRules. It throws NotFoundError when no rule with ruleKey
 // exists, so callers must only request rules they know are present.
-export const useSelectRule = Scope.bindHook((args: SelectRuleParams): DerivedRule => {
-  const raw = useSelectRawRule(args);
+export const useSelectRule = Scope.bindHook((params: SelectRuleParams): DerivedRule => {
+  const raw = useSelectRawRule(params);
   const palette = Theming.use().colors.visualization.palettes.default;
   return useMemo(
     () => ({

@@ -38,10 +38,10 @@ export class Client {
     this.client = client;
   }
 
-  async create(args: CreateParams): Promise<Group> {
+  async create(params: CreateParams): Promise<Group> {
     const res = await this.client.send(
       "/ontology/create-group",
-      args,
+      params,
       createReqZ,
       resZ,
     );

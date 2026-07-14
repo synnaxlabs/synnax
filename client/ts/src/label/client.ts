@@ -62,17 +62,17 @@ export class Client {
     this.client = client;
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Label>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Label[]>;
-  async retrieve(args: RetrieveParams): Promise<Label | Label[]> {
-    const isSingle = "key" in args;
+  async retrieve(params: RetrieveSingleParams): Promise<Label>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Label[]>;
+  async retrieve(params: RetrieveParams): Promise<Label | Label[]> {
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/label/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResponseZ,
     );
-    checkForMultipleOrNoResults("Label", args, res.labels, isSingle);
+    checkForMultipleOrNoResults("Label", params, res.labels, isSingle);
     return isSingle ? res.labels[0] : res.labels;
   }
 

@@ -59,7 +59,7 @@ export interface getInitialValuesParams {
 }
 
 export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
-  (args: getInitialValuesParams): PTask.InitialValues<S>;
+  (params: getInitialValuesParams): PTask.InitialValues<S>;
 }
 
 export interface FormProps<

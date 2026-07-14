@@ -20,7 +20,7 @@ export interface CopyToClipboardParams {
 }
 
 export interface CopyToClipboard {
-  (args: CopyToClipboardParams): void;
+  (params: CopyToClipboardParams): void;
 }
 
 export const useCopyToClipboard = (): CopyToClipboard => {

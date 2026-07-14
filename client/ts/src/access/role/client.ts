@@ -87,28 +87,28 @@ export class Client {
     return isMany ? res.roles : res.roles[0];
   }
 
-  async retrieve(args: RetrieveSingleParams): Promise<Role>;
-  async retrieve(args: RetrieveMultipleParams): Promise<Role[]>;
-  async retrieve(args: RetrieveParams): Promise<Role | Role[]> {
-    const isSingle = "key" in args;
+  async retrieve(params: RetrieveSingleParams): Promise<Role>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Role[]>;
+  async retrieve(params: RetrieveParams): Promise<Role | Role[]> {
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/access/role/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResZ,
     );
     return isSingle ? res.roles[0] : res.roles;
   }
 
-  async delete(args: DeleteParams): Promise<void> {
-    await this.client.send("/access/role/delete", args, deleteParamsZ, deleteResZ);
+  async delete(params: DeleteParams): Promise<void> {
+    await this.client.send("/access/role/delete", params, deleteParamsZ, deleteResZ);
   }
 
-  async assign(args: AssignParams): Promise<void> {
-    await this.client.send("/access/role/assign", args, assignReqZ, assignResZ);
+  async assign(params: AssignParams): Promise<void> {
+    await this.client.send("/access/role/assign", params, assignReqZ, assignResZ);
   }
 
-  async unassign(args: UnassignParams): Promise<void> {
-    await this.client.send("/access/role/unassign", args, unassignReqZ, unassignResZ);
+  async unassign(params: UnassignParams): Promise<void> {
+    await this.client.send("/access/role/unassign", params, unassignReqZ, unassignResZ);
   }
 }

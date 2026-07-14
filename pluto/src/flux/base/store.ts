@@ -322,7 +322,9 @@ export interface ChannelListener<
   /** Zod schema for parsing and validating channel data */
   schema: Z;
   /** Callback function invoked when the channel data changes */
-  onChange: (args: ChannelListenerParams<ScopedStore, Z>) => Promise<unknown> | unknown;
+  onChange: (
+    params: ChannelListenerParams<ScopedStore, Z>,
+  ) => Promise<unknown> | unknown;
 }
 
 /**

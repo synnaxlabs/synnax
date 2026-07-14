@@ -108,25 +108,25 @@ export class Client {
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    args: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: RetrieveSingleParams & RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Device<Properties, Make, Model>>;
 
-  async retrieve(args: RetrieveSingleParams): Promise<Device>;
+  async retrieve(params: RetrieveSingleParams): Promise<Device>;
 
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
     Model extends z.ZodType<string>,
   >(
-    args: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
+    params: RetrieveMultipleParams & RetrieveSchemas<Properties, Make, Model>,
   ): Promise<Array<Device<Properties, Make, Model>>>;
 
-  async retrieve(args: RetrieveMultipleParams): Promise<Array<Device>>;
+  async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
 
   async retrieve(
-    args: RetrieveParams & { schemas?: DeviceSchemas },
+    params: RetrieveParams & { schemas?: DeviceSchemas },
   ): Promise<Device | Array<Device>> {
-    const { schemas, ...rest } = args;
+    const { schemas, ...rest } = params;
     const isSingle = typeof rest === "object" && "key" in rest;
     const res = await this.client.send(
       "/device/retrieve",

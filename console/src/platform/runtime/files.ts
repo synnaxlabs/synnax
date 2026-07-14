@@ -134,8 +134,10 @@ const pickFilesBrowser = ({
  * filesystem plugin; in the browser it uses an <input type="file"> and reads
  * via File.text(). Returns null if the user cancels or selects nothing.
  */
-export const pickFiles = (args: PickFilesParams): Promise<PickedFile[] | null> =>
-  Session.Runtime.ENGINE === "tauri" ? pickFilesTauri(args) : pickFilesBrowser(args);
+export const pickFiles = (params: PickFilesParams): Promise<PickedFile[] | null> =>
+  Session.Runtime.ENGINE === "tauri"
+    ? pickFilesTauri(params)
+    : pickFilesBrowser(params);
 
 export interface SaveFileParams {
   title?: string;
@@ -242,10 +244,10 @@ const pickDirectoryBrowser = (): Promise<PickedDirectory | null> =>
  * Returns null if the user cancels.
  */
 export const pickDirectory = (
-  args: PickDirectoryParams = {},
+  params: PickDirectoryParams = {},
 ): Promise<PickedDirectory | null> =>
   Session.Runtime.ENGINE === "tauri"
-    ? pickDirectoryTauri(args)
+    ? pickDirectoryTauri(params)
     : pickDirectoryBrowser();
 
 export interface WritableDirectory {
@@ -347,8 +349,8 @@ const pickWritableDirectoryBrowser = async ({
  * null if the user cancels.
  */
 export const pickWritableDirectory = (
-  args: PickWritableDirectoryParams,
+  params: PickWritableDirectoryParams,
 ): Promise<WritableDirectory | null> =>
   Session.Runtime.ENGINE === "tauri"
-    ? pickWritableDirectoryTauri(args)
-    : pickWritableDirectoryBrowser(args);
+    ? pickWritableDirectoryTauri(params)
+    : pickWritableDirectoryBrowser(params);

@@ -27,7 +27,7 @@ export interface DownloadAsCSVParams {
   name: string;
 }
 
-export const useDownloadAsCSV = (): ((args: DownloadAsCSVParams) => void) => {
+export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = CSV.useDownloadModal();
   const handleError = Status.useErrorHandler();
   return useCallback(

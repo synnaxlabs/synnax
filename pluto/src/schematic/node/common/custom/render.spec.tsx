@@ -17,11 +17,11 @@ import { Form } from "@/form";
 import { Custom } from "@/schematic/node/common/custom";
 
 const renderAttached = (
-  args: Custom.UseRenderParams,
+  params: Custom.UseRenderParams,
   container: HTMLElement | null,
 ) => {
   const utils = renderHook((props: Custom.UseRenderParams) => Custom.useRender(props), {
-    initialProps: args,
+    initialProps: params,
   });
   if (container != null) utils.result.current(container);
   return utils;

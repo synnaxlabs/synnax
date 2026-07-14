@@ -13,14 +13,14 @@ import { Panel } from "@/platform/panel";
 import { type FormViewParams } from "@/platform/task/Form";
 
 // createOpenTab builds the hook that opens a task form tab of the given type. The
-// returned callback takes optional args (an existing task key, a device key, or an
+// returned callback takes optional params (an existing task key, a device key, or an
 // imported config) and is safe to hand to a trigger surface, which invokes it with no
 // arguments to open a blank form.
 export const createOpenTab =
-  (type: string) => (): ((args?: FormViewParams) => void) => {
+  (type: string) => (): ((params?: FormViewParams) => void) => {
     const openTab = Panel.useOpenTab();
     return useCallback(
-      (args: FormViewParams = {}) => openTab({ variant: "view", type, args }),
+      (params: FormViewParams = {}) => openTab({ variant: "view", type, args: params }),
       [openTab],
     );
   };

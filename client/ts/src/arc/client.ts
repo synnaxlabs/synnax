@@ -89,17 +89,17 @@ export class Client {
     return isMany ? res.arcs : res.arcs[0];
   }
 
-  async retrieve(args: SingleRetrieveParams): Promise<Arc>;
-  async retrieve(args: RetrieveParams): Promise<Arc[]>;
-  async retrieve(args: RetrieveParams): Promise<Arc | Arc[]> {
-    const isSingle = "key" in args || "name" in args;
+  async retrieve(params: SingleRetrieveParams): Promise<Arc>;
+  async retrieve(params: RetrieveParams): Promise<Arc[]>;
+  async retrieve(params: RetrieveParams): Promise<Arc | Arc[]> {
+    const isSingle = "key" in params || "name" in params;
     const res = await this.client.send(
       "/arc/retrieve",
-      args,
+      params,
       retrieveParamsZ,
       retrieveResZ,
     );
-    checkForMultipleOrNoResults("Arc", args, res.arcs, isSingle);
+    checkForMultipleOrNoResults("Arc", params, res.arcs, isSingle);
     return isSingle ? res.arcs[0] : res.arcs;
   }
 

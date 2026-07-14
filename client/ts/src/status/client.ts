@@ -72,21 +72,21 @@ export class Client {
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
-    args: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
+    params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
-  async retrieve(args: SingleRetrieveParams): Promise<Status>;
-  async retrieve(args: MultiRetrieveParams): Promise<Status[]>;
+  async retrieve(params: SingleRetrieveParams): Promise<Status>;
+  async retrieve(params: MultiRetrieveParams): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    args: RetrieveParams & { detailsSchema?: DetailsSchema },
+    params: RetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
-    const isSingle = "key" in args;
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/status/retrieve",
-      args,
+      params,
       retrieveParamsZ,
-      retrieveResponseZ<DetailsSchema>(args.detailsSchema),
+      retrieveResponseZ<DetailsSchema>(params.detailsSchema),
     );
-    checkForMultipleOrNoResults("Status", args, res.statuses, isSingle);
+    checkForMultipleOrNoResults("Status", params, res.statuses, isSingle);
     const statuses = res.statuses as Status<DetailsSchema>[];
     return isSingle ? statuses[0] : statuses;
   }
