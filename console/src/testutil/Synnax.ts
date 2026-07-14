@@ -12,7 +12,7 @@ import { Flux, Pluto } from "@synnaxlabs/pluto";
 import {
   createAsyncSynnaxWrapper as pCreateAsyncSynnaxWrapper,
   createSynnaxWrapper as pCreateSynnaxWrapper,
-  type CreateSynnaxWrapperArgs as PCreateSynnaxWrapperArgs,
+  type CreateSynnaxWrapperParams as PCreateSynnaxWrapperArgs,
 } from "@synnaxlabs/pluto/testutil";
 import { type errors, narrow } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren } from "react";
@@ -118,13 +118,13 @@ const createAsyncErrorHandler =
     await handleFunc(func, add, message, skip);
   };
 
-export type CreateSynnaxWrapperArgs = Omit<
+export type CreateSynnaxWrapperParams = Omit<
   PCreateSynnaxWrapperArgs,
   "handleError" | "handleAsyncError"
 >;
 
 const withConsoleErrorHandlers = (
-  args: CreateSynnaxWrapperArgs,
+  args: CreateSynnaxWrapperParams,
 ): PCreateSynnaxWrapperArgs => ({
   ...args,
   handleError: createErrorHandler(console.error),
@@ -138,7 +138,7 @@ const withConsoleErrorHandlers = (
  * test, or null to exercise flux against preloaded state.
  */
 export const createSynnaxWrapper = (
-  args: CreateSynnaxWrapperArgs,
+  args: CreateSynnaxWrapperParams,
 ): FC<PropsWithChildren> => pCreateSynnaxWrapper(withConsoleErrorHandlers(args));
 
 /**
@@ -146,7 +146,7 @@ export const createSynnaxWrapper = (
  * listeners are live. Use for tests that read live data immediately after mount.
  */
 export const createAsyncSynnaxWrapper = async (
-  args: CreateSynnaxWrapperArgs,
+  args: CreateSynnaxWrapperParams,
 ): Promise<FC<PropsWithChildren>> =>
   await pCreateAsyncSynnaxWrapper(withConsoleErrorHandlers(args));
 

@@ -56,13 +56,16 @@ const nameRetrieveRequestZ = z
   })
   .transform(({ name, includeStatus }) => ({ names: [name], includeStatus }));
 
-export const singleRetrieveArgsZ = z.union([keyRetrieveRequestZ, nameRetrieveRequestZ]);
+export const singleRetrieveParamsZ = z.union([
+  keyRetrieveRequestZ,
+  nameRetrieveRequestZ,
+]);
 
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
+export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 export class Client {
   private readonly client: UnaryClient;
@@ -86,14 +89,14 @@ export class Client {
     return isMany ? res.arcs : res.arcs[0];
   }
 
-  async retrieve(args: SingleRetrieveArgs): Promise<Arc>;
-  async retrieve(args: RetrieveArgs): Promise<Arc[]>;
-  async retrieve(args: RetrieveArgs): Promise<Arc | Arc[]> {
+  async retrieve(args: SingleRetrieveParams): Promise<Arc>;
+  async retrieve(args: RetrieveParams): Promise<Arc[]>;
+  async retrieve(args: RetrieveParams): Promise<Arc | Arc[]> {
     const isSingle = "key" in args || "name" in args;
     const res = await this.client.send(
       "/arc/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Arc", args, res.arcs, isSingle);

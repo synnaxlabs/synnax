@@ -210,7 +210,7 @@ const retrieveReqZ = z.object({
   limit: z.int().optional(),
 });
 
-const singleRetrieveArgsZ = z.union([
+const singleRetrieveParamsZ = z.union([
   z
     .object({ key: keyZ, includeStatus: z.boolean().optional() })
     .transform(({ key, includeStatus }) => ({ keys: [key], includeStatus })),
@@ -221,13 +221,13 @@ const singleRetrieveArgsZ = z.union([
     .object({ type: z.string(), rack: rackKeyZ.optional() })
     .transform(({ type, rack }) => ({ types: [type], rack })),
 ]);
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
-const multiRetrieveArgsZ = retrieveReqZ;
-export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
+const multiRetrieveParamsZ = retrieveReqZ;
+export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 interface RetrieveSchemas<S extends Schemas = Schemas> {
   schemas?: S;
@@ -313,12 +313,12 @@ export class Client {
   async retrieve<S extends Schemas = Schemas>({
     schemas,
     ...args
-  }: RetrieveArgs & RetrieveSchemas<S>): Promise<Task<S> | Task<S>[]> {
-    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
+  }: RetrieveParams & RetrieveSchemas<S>): Promise<Task<S> | Task<S>[]> {
+    const isSingle = singleRetrieveParamsZ.safeParse(args).success;
     const res = await this.client.send(
       "/task/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ(schemas),
     );
     const tasks = res.tasks as Payload<S>[];

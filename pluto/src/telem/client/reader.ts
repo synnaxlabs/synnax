@@ -31,7 +31,7 @@ interface BatchFetch {
   channels: Set<channel.Key>;
 }
 
-export interface ReaderArgs {
+export interface ReaderParams {
   /**
    * Function used to read remote data from the server. Used instead of
    * passing in a Synnax client directly to make testing easier.
@@ -65,7 +65,7 @@ export interface ReaderArgs {
  */
 export class Reader implements ReadClient {
   /** Parsed and validated arguments passed to the constructor. */
-  private readonly args: Required<ReaderArgs>;
+  private readonly args: Required<ReaderParams>;
   /**
    * A function that debounced reads to the cluster by the debounce interval
    * specified in args.batchDebounce.
@@ -77,7 +77,7 @@ export class Reader implements ReadClient {
     closed: false,
   });
 
-  constructor(args: ReaderArgs) {
+  constructor(args: ReaderParams) {
     this.args = {
       ...args,
       instrumentation: args.instrumentation ?? alamos.NOOP,

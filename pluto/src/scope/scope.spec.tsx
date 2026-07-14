@@ -13,12 +13,12 @@ import { describe, expect, it } from "vitest";
 
 import { Scope } from "@/scope";
 
-interface SelectArgs {
+interface SelectParams {
   key: string;
   suffix?: string;
 }
 
-const select = ({ key, suffix = "" }: SelectArgs): string => `${key}${suffix}`;
+const select = ({ key, suffix = "" }: SelectParams): string => `${key}${suffix}`;
 
 describe("Scope", () => {
   describe("use", () => {

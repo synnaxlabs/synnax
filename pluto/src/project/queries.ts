@@ -181,7 +181,7 @@ export const useForm = Flux.createForm<
   },
 });
 
-export interface SaveLayoutParams extends project.SetLayoutArgs {}
+export interface SaveLayoutParams extends project.SetLayoutParams {}
 
 const LAYOUT_RESOURCE_NAME = "project layout";
 

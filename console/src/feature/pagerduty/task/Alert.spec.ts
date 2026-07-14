@@ -22,7 +22,7 @@ import {
 import { uniqueName } from "@/testutil";
 
 const renderAlert = async (
-  options: { client?: Synnax | null; args?: Task.FormViewArgs } = {},
+  options: { client?: Synnax | null; args?: Task.FormViewParams } = {},
 ) => await renderTaskFormTab(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";

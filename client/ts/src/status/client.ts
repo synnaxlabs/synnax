@@ -40,15 +40,15 @@ const retrieveRequestZ = z.object({
   variants: z.string().array().optional(),
 });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ, includeLabels: z.boolean().optional() })
   .transform(({ key, includeLabels }) => ({ keys: [key], includeLabels }));
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
-export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
+export type MultiRetrieveParams = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -72,18 +72,18 @@ export class Client {
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
-    args: SingleRetrieveArgs & { detailsSchema?: DetailsSchema },
+    args: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
-  async retrieve(args: SingleRetrieveArgs): Promise<Status>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Status[]>;
+  async retrieve(args: SingleRetrieveParams): Promise<Status>;
+  async retrieve(args: MultiRetrieveParams): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    args: RetrieveArgs & { detailsSchema?: DetailsSchema },
+    args: RetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
     const isSingle = "key" in args;
     const res = await this.client.send(
       "/status/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResponseZ<DetailsSchema>(args.detailsSchema),
     );
     checkForMultipleOrNoResults("Status", args, res.statuses, isSingle);

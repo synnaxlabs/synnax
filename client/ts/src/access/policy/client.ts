@@ -35,7 +35,7 @@ const keyRetrieveRequestZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const listRetrieveArgsZ = z.union([
+const listRetrieveParamsZ = z.union([
   z
     .object({ for: ontology.idZ })
     .transform(({ for: forId }) => ({ subjects: [forId] })),
@@ -46,23 +46,23 @@ const listRetrieveArgsZ = z.union([
 ]);
 
 export type RetrieveSingleParams = z.input<typeof keyRetrieveRequestZ>;
-export type RetrieveMultipleParams = z.input<typeof listRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof listRetrieveParamsZ>;
 
-const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
+const retrieveParamsZ = z.union([keyRetrieveRequestZ, listRetrieveParamsZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 const retrieveResZ = z.object({ policies: policyZ.array().default(() => []) });
 
-const singleCreateArgsZ = policyZ.transform((p) => ({ policies: [p] }));
-export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
+const singleCreateParamsZ = policyZ.transform((p) => ({ policies: [p] }));
+export type SingleCreateParams = z.input<typeof singleCreateParamsZ>;
 
-export const multipleCreateArgsZ = policyZ
+export const multipleCreateParamsZ = policyZ
   .array()
   .transform((policies) => ({ policies }));
 
-export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
-export type CreateArgs = z.input<typeof createArgsZ>;
+export const createParamsZ = z.union([singleCreateParamsZ, multipleCreateParamsZ]);
+export type CreateParams = z.input<typeof createParamsZ>;
 
 const createResZ = z.object({ policies: policyZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
@@ -77,12 +77,12 @@ export class Client {
 
   async create(policy: New): Promise<Policy>;
   async create(policies: New[]): Promise<Policy[]>;
-  async create(policies: CreateArgs): Promise<Policy | Policy[]> {
+  async create(policies: CreateParams): Promise<Policy | Policy[]> {
     const isMany = Array.isArray(policies);
     const res = await this.client.send(
       "/access/policy/create",
       policies,
-      createArgsZ,
+      createParamsZ,
       createResZ,
     );
     return isMany ? res.policies : res.policies[0];
@@ -90,12 +90,12 @@ export class Client {
 
   async retrieve(args: RetrieveSingleParams): Promise<Policy>;
   async retrieve(args: RetrieveMultipleParams): Promise<Policy[]>;
-  async retrieve(args: RetrieveArgs): Promise<Policy | Policy[]> {
+  async retrieve(args: RetrieveParams): Promise<Policy | Policy[]> {
     const isSingle = "key" in args;
     const res = await this.client.send(
       "/access/policy/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ,
     );
     return isSingle ? res.policies[0] : res.policies;

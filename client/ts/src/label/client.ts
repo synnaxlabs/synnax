@@ -42,14 +42,14 @@ const retrieveRequestZ = z.object({
   limit: z.int().optional(),
 });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
@@ -64,12 +64,12 @@ export class Client {
 
   async retrieve(args: RetrieveSingleParams): Promise<Label>;
   async retrieve(args: RetrieveMultipleParams): Promise<Label[]>;
-  async retrieve(args: RetrieveArgs): Promise<Label | Label[]> {
+  async retrieve(args: RetrieveParams): Promise<Label | Label[]> {
     const isSingle = "key" in args;
     const res = await this.client.send(
       "/label/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResponseZ,
     );
     checkForMultipleOrNoResults("Label", args, res.labels, isSingle);

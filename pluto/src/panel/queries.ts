@@ -96,7 +96,7 @@ export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
     ],
   });
 
-export interface SelectKeyArgs {
+export interface SelectKeyParams {
   key: panel.Key;
 }
 
@@ -106,14 +106,14 @@ const requirePanel = (store: FluxSubStore, key: panel.Key): panel.Panel => {
   return p;
 };
 
-export interface SelectTabContentArgs {
+export interface SelectTabContentParams {
   key: panel.Key;
   tabKey: panel.TabKey;
 }
 
 const selectRequiredTab = (
   store: FluxSubStore,
-  { key, tabKey }: SelectTabContentArgs,
+  { key, tabKey }: SelectTabContentParams,
 ): panel.Tab => {
   const tab = panel.findTab(requirePanel(store, key).root, tabKey);
   if (tab == null)
@@ -124,13 +124,13 @@ const selectRequiredTab = (
 // bindTabHook lifts a hook needing both a panel key and a tab key into one whose keys are
 // sourced from the surrounding Panel and Tab scopes; either may be overridden explicitly.
 // The two-level analogue of scope.bindHook.
-type BoundTabHook<Args extends SelectTabContentArgs, R> = optional.Arg<
+type BoundTabHook<Args extends SelectTabContentParams, R> = optional.Arg<
   optional.Optional<Args, "key" | "tabKey">,
   R
 >;
 
 const bindTabHook =
-  <Args extends SelectTabContentArgs, R>(
+  <Args extends SelectTabContentParams, R>(
     hook: (args: Args) => R,
   ): BoundTabHook<Args, R> =>
   (args?: optional.Optional<Args, "key" | "tabKey">): R => {
@@ -142,7 +142,7 @@ const bindTabHook =
 // bindTabSelector is the two-level analogue of scope.bindSelector: it binds a
 // createSelector pair to the Panel and Tab scopes. The reactive hook resolves both keys
 // from scope; the getter it returns injects both (overridable per call) into each read.
-const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
+const bindTabSelector = <Args extends SelectTabContentParams, Selected>([
   useSelect,
   useGet,
 ]: Flux.Selector<Args, Selected>): [
@@ -166,7 +166,7 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
   return [boundUseSelect, boundUseGet];
 };
 
-export interface SelectNodeArgs extends SelectKeyArgs {
+export interface SelectNodeParams extends SelectKeyParams {
   nodeKey: number;
 }
 
@@ -174,7 +174,7 @@ export interface SelectNodeArgs extends SelectKeyArgs {
 // component that branches on split-vs-leaf does not re-render on structure changes
 // within the same variant.
 export const [useSelectNodeVariant, useGetNodeVariant] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodeArgs, panel.Node["variant"]>({
+  Flux.createSelector<FluxSubStore, SelectNodeParams, panel.Node["variant"]>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, { key, nodeKey }) => {
       const node = panel.findNode(requirePanel(store, key).root, nodeKey);
@@ -188,7 +188,7 @@ export const [useSelectNodeVariant, useGetNodeVariant] = Scope.bindSelector(
 export const [useSelectLeafNode, useGetLeafNode] = Scope.bindSelector(
   Flux.createSelector<
     FluxSubStore,
-    SelectNodeArgs,
+    SelectNodeParams,
     Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] },
     panel.Node
   >({
@@ -209,7 +209,7 @@ export const [useSelectLeafNode, useGetLeafNode] = Scope.bindSelector(
 // useSelectSplitNode selects the split node at the given path, including its direction
 // and size.
 export const [useSelectSplitNode, useGetSplitNode] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodeArgs, panel.NodeSplit, panel.Node>({
+  Flux.createSelector<FluxSubStore, SelectNodeParams, panel.NodeSplit, panel.Node>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, { key, nodeKey }) => {
       const node = panel.findNode(requirePanel(store, key).root, nodeKey);
@@ -242,7 +242,7 @@ const tabKeys = (store: FluxSubStore, key: panel.Key): string[] => {
 // useSelectLeafTabGroups selects each leaf's tab keys, deep-equal compared so the mosaic
 // root re-renders only when tab membership changes — not on a resize or a content change.
 export const [useSelectTabKeys, useGetTabKeys] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, string[]>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, string[]>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, { key }) => tabKeys(store, key),
     equal: compare.arraysEqual,
@@ -251,7 +251,7 @@ export const [useSelectTabKeys, useGetTabKeys] = Scope.bindSelector(
 
 // useSelectRoot selects the panel's raw stored tree root.
 export const [useSelectRoot, useGetRoot] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, panel.Node>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, panel.Node>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, { key }) => requirePanel(store, key).root,
   }),
@@ -259,7 +259,7 @@ export const [useSelectRoot, useGetRoot] = Scope.bindSelector(
 
 // useSelectRoot selects the panel's raw stored tree root.
 export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, { key }) => requirePanel(store, key).name,
   }),
@@ -285,7 +285,7 @@ const leafTabGroups = (
   return groups;
 };
 
-export interface SelectSelectionArgs {
+export interface SelectSelectionParams {
   key?: panel.Key;
   selected: panel.TabKey[];
 }
@@ -294,7 +294,7 @@ const NOOP = () => {};
 
 const [useSelectSelectionBase, useGetSelectionBase] = Flux.createSelector<
   FluxSubStore,
-  SelectSelectionArgs,
+  SelectSelectionParams,
   panel.TabKey[],
   panel.TabKey[][] | null
 >({
@@ -330,23 +330,25 @@ const [useSelectSelectionBase, useGetSelectionBase] = Flux.createSelector<
  * scope; when neither is present, or the panel is not cached, the list is returned
  * unresolved.
  */
-export const useSelectSelection = (args: SelectSelectionArgs): panel.TabKey[] => {
+export const useSelectSelection = (args: SelectSelectionParams): panel.TabKey[] => {
   const key = Scope.useOptional(args.key);
   return useSelectSelectionBase({ ...args, key });
 };
 
 /** useGetSelection returns a getter reading {@link useSelectSelection} on demand. */
-export const useGetSelection = (): ((args: SelectSelectionArgs) => panel.TabKey[]) => {
+export const useGetSelection = (): ((
+  args: SelectSelectionParams,
+) => panel.TabKey[]) => {
   const scoped = Scope.useOptional();
   const get = useGetSelectionBase();
   return useCallback(
-    (args: SelectSelectionArgs) => get({ ...args, key: args.key ?? scoped }),
+    (args: SelectSelectionParams) => get({ ...args, key: args.key ?? scoped }),
     [get, scoped],
   );
 };
 
 export const [useSelectTab, useGetTab] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentArgs, panel.Tab>({
+  Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.Tab>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, args) => selectRequiredTab(store, args),
   }),
@@ -354,7 +356,7 @@ export const [useSelectTab, useGetTab] = bindTabSelector(
 
 const selectRequiredTabLeaf = (
   store: FluxSubStore,
-  { key, tabKey }: SelectTabContentArgs,
+  { key, tabKey }: SelectTabContentParams,
 ): panel.NodeLeaf => {
   const leaf = panel.findTabLeaf(requirePanel(store, key).root, tabKey);
   if (leaf == null)
@@ -366,7 +368,7 @@ const selectRequiredTabLeaf = (
 // reference into the stored tree, so immer's structural sharing gives it stable
 // identity across dispatches that don't touch it.
 export const [useSelectTabLeaf, useGetTabLeaf] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentArgs, panel.NodeLeaf>({
+  Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.NodeLeaf>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, args) => selectRequiredTabLeaf(store, args),
   }),
@@ -376,7 +378,7 @@ export const [useSelectTabLeaf, useGetTabLeaf] = bindTabSelector(
 // component that branches on resource-vs-view does not re-render on content edits
 // within the same variant.
 export const [useSelectTabVariant, useGetTabVariant] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentArgs, panel.TabType>({
+  Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.TabType>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, args) => selectRequiredTab(store, args).variant,
   }),
@@ -386,7 +388,7 @@ export const [useSelectTabVariant, useGetTabVariant] = bindTabSelector(
 // ontology type for resource tabs, the view type for view tabs. Components that
 // render by type do not re-render when a view's args change.
 export const [useSelectTabType, useGetTabType] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentArgs, string>({
+  Flux.createSelector<FluxSubStore, SelectTabContentParams, string>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, args) => {
       const tab = selectRequiredTab(store, args);
@@ -395,7 +397,7 @@ export const [useSelectTabType, useGetTabType] = bindTabSelector(
   }),
 );
 
-export interface SelectMaybeTabTypeArgs {
+export interface SelectMaybeTabTypeParams {
   key?: panel.Key | null;
   tabKey?: panel.TabKey | null;
 }
@@ -405,7 +407,7 @@ export interface SelectMaybeTabTypeArgs {
 // UnexpectedError when the active tab is not a resource tab: only renderers mounted
 // for a resource tab may call this, so a wrong-variant read is a programmer bug.
 export const [useSelectTabResource, useGetTabResource] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentArgs, ontology.ID>({
+  Flux.createSelector<FluxSubStore, SelectTabContentParams, ontology.ID>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, args) => {
       const tab = selectRequiredTab(store, args);
@@ -423,7 +425,7 @@ export const [useSelectTabResource, useGetTabResource] = bindTabSelector(
 // compared so it re-renders only when the args contents actually change. Throws
 // UnexpectedError when the active tab is not a view tab (see useSelectTabResource).
 export const [useSelectTabArgs, useGetTabArgs] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentArgs, record.Unknown>({
+  Flux.createSelector<FluxSubStore, SelectTabContentParams, record.Unknown>({
     subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
     select: (store, args) => {
       const tab = selectRequiredTab(store, args);

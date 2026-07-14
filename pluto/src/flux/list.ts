@@ -468,7 +468,7 @@ export const createList =
     };
   };
 
-export interface UseListItemArgs<
+export interface UseListItemParams<
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends Pick<UseListReturn<base.Query, K, E>, "subscribe" | "getItem"> {
@@ -479,7 +479,7 @@ export const useListItem = <K extends record.Key, E extends record.Keyed<K>>({
   key,
   subscribe,
   getItem,
-}: UseListItemArgs<K, E>) =>
+}: UseListItemParams<K, E>) =>
   useSyncExternalStore(
     useCallback((callback) => subscribe(callback, key), [subscribe, key]),
     useCallback(() => getItem(key), [getItem, key]),

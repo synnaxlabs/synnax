@@ -20,13 +20,13 @@ export interface ClusterConnect {
   (key: string): Promise<Synnax>;
 }
 
-export interface HandlerArgs {
+export interface HandlerParams {
   client: Synnax;
   key: string;
 }
 
 export interface Handler {
-  (args: HandlerArgs): Promise<void>;
+  (args: HandlerParams): Promise<void>;
 }
 
 // UseHandler is a hook that returns a Handler for a single resource type. Feature

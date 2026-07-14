@@ -16,8 +16,11 @@ import { describe, expect, it, vi } from "vitest";
 import { Form } from "@/form";
 import { Custom } from "@/schematic/node/common/custom";
 
-const renderAttached = (args: Custom.UseRenderArgs, container: HTMLElement | null) => {
-  const utils = renderHook((props: Custom.UseRenderArgs) => Custom.useRender(props), {
+const renderAttached = (
+  args: Custom.UseRenderParams,
+  container: HTMLElement | null,
+) => {
+  const utils = renderHook((props: Custom.UseRenderParams) => Custom.useRender(props), {
     initialProps: args,
   });
   if (container != null) utils.result.current(container);
@@ -200,7 +203,7 @@ describe("Custom.useRender", () => {
     it("should mount SVG when ref attaches after the resolving render", () => {
       const container = document.createElement("div");
       const { result, rerender } = renderHook(
-        (props: Custom.UseRenderArgs) => Custom.useRender(props),
+        (props: Custom.UseRenderParams) => Custom.useRender(props),
         {
           initialProps: {
             orientation: "top",

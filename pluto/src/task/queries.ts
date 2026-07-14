@@ -365,11 +365,11 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<
   },
 });
 
-export interface UseRenameArgs extends Pick<task.Payload, "key" | "name"> {}
+export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 
 export const rename = async (
-  params: Flux.UpdateParams<UseRenameArgs, FluxSubStore>,
-): Promise<UseRenameArgs> => {
+  params: Flux.UpdateParams<UseRenameParams, FluxSubStore>,
+): Promise<UseRenameParams> => {
   const {
     client,
     data,
@@ -391,7 +391,10 @@ export const rename = async (
   return data;
 };
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<
+  UseRenameParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
   update: rename,

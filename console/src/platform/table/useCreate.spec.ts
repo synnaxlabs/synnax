@@ -19,11 +19,11 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
-interface BuildHarnessArgs {
+interface BuildHarnessParams {
   activeProject?: project.Project;
 }
 
-const buildHarness = async ({ activeProject }: BuildHarnessArgs = {}) =>
+const buildHarness = async ({ activeProject }: BuildHarnessParams = {}) =>
   await createConsoleWrapper({
     client,
     preloadedState: {

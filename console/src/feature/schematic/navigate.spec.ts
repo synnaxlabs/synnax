@@ -28,7 +28,7 @@ import {
   uniqueName,
 } from "@/testutil";
 
-interface RenderNavigateArgs {
+interface RenderNavigateParams {
   configs?: Record<string, Record<string, unknown>>;
   editable?: boolean;
 }
@@ -36,7 +36,7 @@ interface RenderNavigateArgs {
 const renderNavigateHook = async ({
   configs = {},
   editable = false,
-}: RenderNavigateArgs) => {
+}: RenderNavigateParams) => {
   const source = await createSchematic({
     nodes: Object.keys(configs).map((key) => ({ key, position: { x: 0, y: 0 } })),
     configs,

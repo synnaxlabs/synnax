@@ -19,7 +19,7 @@ export interface Tick {
 }
 
 export interface TickFactory {
-  create: (ctx: TickFactoryRenderArgs) => Tick[];
+  create: (ctx: TickFactoryRenderParams) => Tick[];
 }
 
 export const tickType = z.enum(["linear", "time"]);
@@ -34,7 +34,7 @@ export const tickFactoryProps = z.object({
 export type TickFactoryProps = z.input<typeof tickFactoryProps>;
 type ParsedTickFactoryProps = z.infer<typeof tickFactoryProps>;
 
-export interface TickFactoryRenderArgs {
+export interface TickFactoryRenderParams {
   /**
    * Scale takes a value in decimal space and returns the corresponding data value.
    */
@@ -69,7 +69,7 @@ class TimeTickFactory implements TickFactory {
     this.currTicks = [];
   }
 
-  create({ decimalToDataScale: scale, size }: TickFactoryRenderArgs): Tick[] {
+  create({ decimalToDataScale: scale, size }: TickFactoryRenderParams): Tick[] {
     const domain = new TimeRange(
       new TimeStamp(scale.pos(0)),
       new TimeStamp(scale.pos(1)),
@@ -136,7 +136,7 @@ class LinearTickFactory implements TickFactory {
     this.d3Scale = scaleLinear();
   }
 
-  create({ decimalToDataScale: scale, size }: TickFactoryRenderArgs): Tick[] {
+  create({ decimalToDataScale: scale, size }: TickFactoryRenderParams): Tick[] {
     const domain = { lower: scale.pos(0), upper: scale.pos(1) };
     if (bounds.equals(this.prevDomain, domain) && this.prevScaleSize === size)
       return this.currTicks;

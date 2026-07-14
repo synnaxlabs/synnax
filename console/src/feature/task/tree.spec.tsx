@@ -71,7 +71,7 @@ const renderTaskTree = async (t: task.Task) => {
   });
 };
 
-interface CreateMenuPropsArgs {
+interface CreateMenuPropsParams {
   tasks: task.Task[];
   overrides?: Partial<Tree.BaseProps>;
   snapshot?: boolean;
@@ -81,7 +81,7 @@ const createMenuProps = async ({
   tasks,
   overrides,
   snapshot = false,
-}: CreateMenuPropsArgs): Promise<Tree.ContextMenuProps> => {
+}: CreateMenuPropsParams): Promise<Tree.ContextMenuProps> => {
   const ids = tasks.map((t) => t.ontologyID);
   const store = await createTestStore();
   return {

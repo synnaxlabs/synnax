@@ -427,7 +427,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   },
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "http" };
+const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "http" };
 
 const selectRackRenderProp = Component.renderProp(
   (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (

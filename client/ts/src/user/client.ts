@@ -42,14 +42,14 @@ export type KeyRetrieveRequest = z.input<typeof keyRetrieveRequestZ>;
 export type UsernameRetrieveRequest = z.input<typeof usernameRetrieveRequestZ>;
 export type UsernamesRetrieveRequest = z.input<typeof usernamesRetrieveRequestZ>;
 
-const retrieveArgsZ = z.union([
+const retrieveParamsZ = z.union([
   keyRetrieveRequestZ,
   usernameRetrieveRequestZ,
   usernamesRetrieveRequestZ,
   retrieveRequestZ,
 ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
@@ -102,13 +102,13 @@ export class Client {
 
   async retrieve(args: KeyRetrieveRequest): Promise<User>;
   async retrieve(args: UsernameRetrieveRequest): Promise<User>;
-  async retrieve(args: RetrieveArgs): Promise<User[]>;
-  async retrieve(args: RetrieveArgs): Promise<User | User[]> {
+  async retrieve(args: RetrieveParams): Promise<User[]>;
+  async retrieve(args: RetrieveParams): Promise<User | User[]> {
     const isSingle = "key" in args || "username" in args;
     const res = await this.client.send(
       "/user/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ,
     );
 

@@ -322,7 +322,7 @@ export interface ChannelListener<
   /** Zod schema for parsing and validating channel data */
   schema: Z;
   /** Callback function invoked when the channel data changes */
-  onChange: (args: ChannelListenerArgs<ScopedStore, Z>) => Promise<unknown> | unknown;
+  onChange: (args: ChannelListenerParams<ScopedStore, Z>) => Promise<unknown> | unknown;
 }
 
 /**
@@ -331,7 +331,7 @@ export interface ChannelListener<
  * @template ScopedStore - The type of the store available to the listener
  * @template Z - Zod schema type for validating channel data
  */
-export type ChannelListenerArgs<
+export type ChannelListenerParams<
   ScopedStore extends Store = {},
   Z extends z.ZodType = z.ZodType,
 > = {

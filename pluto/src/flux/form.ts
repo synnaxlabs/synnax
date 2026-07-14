@@ -97,21 +97,21 @@ export interface AfterSaveParams<
   Store extends base.Store,
 > extends FormBeforeSaveParams<Query, Schema, Store> {}
 
-export interface BeforeValidateArgs<
+export interface BeforeValidateParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 > extends FormBeforeSaveParams<Query, Schema, Store> {}
 
-export interface UseFormArgs<
+export interface UseFormParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
-> extends Pick<Form.UseArgs<Schema>, "sync" | "onHasTouched" | "mode"> {
+> extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
   query: Query;
-  beforeValidate?: (args: BeforeValidateArgs<Query, Schema, Store>) => boolean | void;
+  beforeValidate?: (args: BeforeValidateParams<Query, Schema, Store>) => boolean | void;
   beforeSave?: (args: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
   afterSave?: (args: AfterSaveParams<Query, Schema, Store>) => void;
   scope?: string;
@@ -122,7 +122,7 @@ export interface UseForm<
   Schema extends z.ZodType<base.Data>,
   Store extends base.Store,
 > {
-  (args: UseFormArgs<Query, Schema, Store>): UseFormReturn<Schema>;
+  (args: UseFormParams<Query, Schema, Store>): UseFormReturn<Schema>;
 }
 
 const DEFAULT_SET_OPTIONS: Form.SetOptions = {

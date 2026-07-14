@@ -29,7 +29,7 @@ const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
 
-export interface CreateArgs extends z.infer<typeof createReqZ> {}
+export interface CreateParams extends z.infer<typeof createReqZ> {}
 
 export class Client {
   client: UnaryClient;
@@ -38,7 +38,7 @@ export class Client {
     this.client = client;
   }
 
-  async create(args: CreateArgs): Promise<Group> {
+  async create(args: CreateParams): Promise<Group> {
     const res = await this.client.send(
       "/ontology/create-group",
       args,

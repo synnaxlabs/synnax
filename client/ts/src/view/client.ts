@@ -30,13 +30,13 @@ const retrieveRequestZ = z.object({
   limit: z.number().optional(),
 });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export interface RetrieveSingleParams extends z.input<typeof singleRetrieveArgsZ> {}
+export interface RetrieveSingleParams extends z.input<typeof singleRetrieveParamsZ> {}
 export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
 
 const retrieveResponseZ = z.object({ views: viewZ.array().default(() => []) });
@@ -57,7 +57,7 @@ export class Client {
     const res = await this.client.send(
       "/view/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResponseZ,
     );
     checkForMultipleOrNoResults("View", args, res.views, isSingle);

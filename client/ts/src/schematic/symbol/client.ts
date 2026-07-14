@@ -31,14 +31,14 @@ const retrieveRequestZ = z.object({
   searchTerm: z.string().optional(),
 });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
 const retrieveResZ = z.object({ symbols: symbolZ.array().default(() => []) });
@@ -50,11 +50,11 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
 
-export interface CreateArgs extends New {
+export interface CreateParams extends New {
   parent: ontology.ID;
 }
 
-export interface CreateMultipleArgs {
+export interface CreateMultipleParams {
   symbols: New[];
   parent: ontology.ID;
 }
@@ -66,9 +66,11 @@ export class Client {
     this.client = client;
   }
 
-  async create(options: CreateArgs): Promise<Symbol>;
-  async create(options: CreateMultipleArgs): Promise<Symbol[]>;
-  async create(options: CreateArgs | CreateMultipleArgs): Promise<Symbol | Symbol[]> {
+  async create(options: CreateParams): Promise<Symbol>;
+  async create(options: CreateMultipleParams): Promise<Symbol[]>;
+  async create(
+    options: CreateParams | CreateMultipleParams,
+  ): Promise<Symbol | Symbol[]> {
     const isMany = "symbols" in options;
     const symbols = isMany ? options.symbols : [options];
     const res = await this.client.send(
@@ -91,12 +93,12 @@ export class Client {
 
   async retrieve(args: RetrieveSingleParams): Promise<Symbol>;
   async retrieve(args: RetrieveMultipleParams): Promise<Symbol[]>;
-  async retrieve(args: RetrieveArgs): Promise<Symbol | Symbol[]> {
+  async retrieve(args: RetrieveParams): Promise<Symbol | Symbol[]> {
     const isSingle = "key" in args;
     const res = await this.client.send(
       "/schematic/symbol/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Schematic Symbol", args, res.symbols, isSingle);

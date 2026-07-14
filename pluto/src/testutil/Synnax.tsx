@@ -71,7 +71,7 @@ const newWrapper = (
   return Wrapper;
 };
 
-export interface CreateSynnaxWrapperArgs {
+export interface CreateSynnaxWrapperParams {
   client: Client | null;
   excludeFluxStores?: string[];
   /** Overrides the flux error handler. Defaults to logging via console.error. */
@@ -88,7 +88,7 @@ export interface CreateSynnaxWrapperArgs {
   renderContext?: canvasTest.Recorder;
 }
 
-const createFluxClient = (args: CreateSynnaxWrapperArgs): Flux.Client => {
+const createFluxClient = (args: CreateSynnaxWrapperParams): Flux.Client => {
   const { client, excludeFluxStores, handleError, handleAsyncError } = args;
   const storeConfig = { ...Pluto.FLUX_STORE_CONFIG };
   if (excludeFluxStores)
@@ -102,7 +102,7 @@ const createFluxClient = (args: CreateSynnaxWrapperArgs): Flux.Client => {
 };
 
 export const createSynnaxWrapper = (
-  args: CreateSynnaxWrapperArgs,
+  args: CreateSynnaxWrapperParams,
 ): FC<PropsWithChildren> =>
   newWrapper(
     args.client,
@@ -112,7 +112,7 @@ export const createSynnaxWrapper = (
   );
 
 export const createAsyncSynnaxWrapper = async (
-  args: CreateSynnaxWrapperArgs,
+  args: CreateSynnaxWrapperParams,
 ): Promise<FC<PropsWithChildren>> => {
   const fluxClient = createFluxClient(args);
   await fluxClient.awaitInitialized();

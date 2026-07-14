@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { Dialog } from "@/dialog";
 
 interface Spec {
-  args: Dialog.PositionArgs;
+  args: Dialog.PositionParams;
   name?: string;
   expected: Dialog.PositionReturn;
 }

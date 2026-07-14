@@ -73,7 +73,7 @@ const applyState = (
   });
 };
 
-export interface UseRenderArgs {
+export interface UseRenderParams {
   orientation: location.Outer;
   activeState: string;
   externalScale: number;
@@ -182,7 +182,11 @@ const applyScaleStroke = (state: RenderState, scaleStroke: boolean) => {
   else pathElements.forEach((el) => el.removeAttribute("vector-effect"));
 };
 
-const runRender = (container: HTMLElement, args: UseRenderArgs, state: RenderState) => {
+const runRender = (
+  container: HTMLElement,
+  args: UseRenderParams,
+  state: RenderState,
+) => {
   const { orientation, activeState, externalScale, spec, onMount, stateOverrides } =
     args;
   if (spec == null || spec.svg.length === 0) return;
@@ -247,7 +251,7 @@ const runRender = (container: HTMLElement, args: UseRenderArgs, state: RenderSta
 /// the SVG cleanly (including after a Missing→Resolved→Missing→Resolved cycle and
 /// under StrictMode's simulated remount). Subsequent args changes against an
 /// already-attached container are picked up via a render-phase pass.
-export const useRender = (args: UseRenderArgs): RefCallback<HTMLElement> => {
+export const useRender = (args: UseRenderParams): RefCallback<HTMLElement> => {
   const containerRef = useRef<HTMLElement | null>(null);
   const argsRef = useSyncedRef(args);
   const stateRef = useInitializerRef<RenderState>(createRenderState);

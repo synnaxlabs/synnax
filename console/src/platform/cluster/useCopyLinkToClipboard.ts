@@ -14,13 +14,13 @@ import { useCallback } from "react";
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
 
-export interface CopyLinkToClipboardArgs {
+export interface CopyLinkToClipboardParams {
   name: string;
   ontologyID: ontology.ID;
 }
 
 export interface CopyLinkToClipboard {
-  (args: CopyLinkToClipboardArgs): void;
+  (args: CopyLinkToClipboardParams): void;
 }
 
 export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {

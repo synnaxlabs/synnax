@@ -73,7 +73,7 @@ const retrieveResZ = <
       .default(() => []),
   });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({
     key: keyZ,
     includeStatus: z.boolean().optional(),
@@ -83,12 +83,12 @@ const singleRetrieveArgsZ = z
     includeStatus,
   }));
 
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 type RetrieveSchemas<
   Properties extends z.ZodType<record.Unknown>,
@@ -124,14 +124,14 @@ export class Client {
   async retrieve(args: RetrieveMultipleParams): Promise<Array<Device>>;
 
   async retrieve(
-    args: RetrieveArgs & { schemas?: DeviceSchemas },
+    args: RetrieveParams & { schemas?: DeviceSchemas },
   ): Promise<Device | Array<Device>> {
     const { schemas, ...rest } = args;
     const isSingle = typeof rest === "object" && "key" in rest;
     const res = await this.client.send(
       "/device/retrieve",
       rest,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ(schemas),
     );
     checkForMultipleOrNoResults("Device", rest, res.devices, isSingle);

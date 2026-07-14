@@ -23,7 +23,7 @@ import {
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
 const renderRead = async (
-  options: { client?: Synnax | null; args?: Task.FormViewArgs } = {},
+  options: { client?: Synnax | null; args?: Task.FormViewParams } = {},
 ) => await renderTaskFormTab(HTTP.Task.Read, HTTP.Task.READ_TYPE, options);
 
 const addEndpoint = async (): Promise<void> => {

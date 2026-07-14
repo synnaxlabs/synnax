@@ -31,13 +31,13 @@ export const SET_CHANNEL_NAME = "sy_lineplot_set";
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveReqZ = z.object({ keys: keyZ.array() });
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ })
   .transform(({ key }) => ({ keys: [key] }));
 
-export const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveReqZ]);
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
 const retrieveResZ = z.object({ linePlots: linePlotZ.array().default(() => []) });
@@ -88,11 +88,11 @@ export class Client {
   async retrieve(
     args: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<LinePlot | LinePlot[]> {
-    const isSingle = singleRetrieveArgsZ.safeParse(args).success;
+    const isSingle = singleRetrieveParamsZ.safeParse(args).success;
     const res = await this.client.send(
       "/lineplot/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ,
     );
     checkForMultipleOrNoResults("LinePlot", args, res.linePlots, isSingle);

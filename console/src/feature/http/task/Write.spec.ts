@@ -33,7 +33,7 @@ import {
 stubGeometry();
 
 const renderWrite = async (
-  options: { client?: Synnax | null; args?: Task.FormViewArgs } = {},
+  options: { client?: Synnax | null; args?: Task.FormViewParams } = {},
 ) => await renderTaskFormTab(HTTP.Task.Write, HTTP.Task.WRITE_TYPE, options);
 
 const addEndpoint = async (): Promise<void> => {

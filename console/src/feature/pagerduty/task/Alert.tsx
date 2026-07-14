@@ -77,7 +77,7 @@ const selectRackRenderProp = Component.renderProp(
   ),
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "pagerduty" };
+const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "pagerduty" };
 
 interface AlertDetailsProps {
   itemKey: string;

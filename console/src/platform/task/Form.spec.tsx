@@ -42,7 +42,7 @@ const RackKeyProbe: FC<Task.FormProps<typeof schemas>> = () => (
 );
 RackKeyProbe.displayName = "RackKeyProbe";
 
-interface MakeRendererArgs {
+interface MakeRendererParams {
   showControls?: boolean;
   onConfigure?: Task.OnConfigure<(typeof schemas)["config"]>;
   Form?: FC<Task.FormProps<typeof schemas>>;
@@ -52,7 +52,7 @@ const createRenderer = ({
   showControls = true,
   onConfigure = async (_client, config) => [config, 0],
   Form = ChildForm,
-}: MakeRendererArgs = {}) =>
+}: MakeRendererParams = {}) =>
   Task.wrapForm<typeof schemas>({
     Form,
     schemas,
@@ -96,7 +96,7 @@ describe("wrapForm", () => {
   });
 
   describe("initial rackKey", () => {
-    const renderProbe = async (args: Task.FormViewArgs = {}) => {
+    const renderProbe = async (args: Task.FormViewParams = {}) => {
       const Renderer = createRenderer({ Form: RackKeyProbe });
       await renderTaskFormTab(Renderer, "test_task", { args });
     };

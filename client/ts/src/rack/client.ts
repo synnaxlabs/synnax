@@ -42,7 +42,7 @@ const retrieveReqZ = z.object({
 const retrieveResZ = z.object({ racks: payloadZ.array().default(() => []) });
 export const rackZ = payloadZ;
 
-const singleRetrieveArgsZ = z.union([
+const singleRetrieveParamsZ = z.union([
   z
     .object({
       key: keyZ,
@@ -56,15 +56,15 @@ const singleRetrieveArgsZ = z.union([
     })
     .transform(({ name, includeStatus }) => ({ names: [name], includeStatus })),
 ]);
-export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
+export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
 
-const multiRetrieveArgsZ = retrieveReqZ;
+const multiRetrieveParamsZ = retrieveReqZ;
 
-export type RetrieveMultipleParams = z.input<typeof multiRetrieveArgsZ>;
+export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, multiRetrieveArgsZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
 const createReqZ = z.object({ racks: newZ.array() });
 const createResZ = z.object({ racks: payloadZ.array() });
@@ -106,12 +106,12 @@ export class Client {
 
   async retrieve(args: RetrieveSingleParams): Promise<Rack>;
   async retrieve(args: RetrieveMultipleParams): Promise<Rack[]>;
-  async retrieve(args: RetrieveArgs): Promise<Rack | Rack[]> {
+  async retrieve(args: RetrieveParams): Promise<Rack | Rack[]> {
     const isSingle = "key" in args || "name" in args;
     const res = await this.client.send(
       "/rack/retrieve",
       args,
-      retrieveArgsZ,
+      retrieveParamsZ,
       retrieveResZ,
     );
     const sugared = this.sugar(res.racks);

@@ -82,7 +82,7 @@ const Content = () => {
 
   const { update: rename } = Task.useRename({
     beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<Task.UseRenameArgs>) => {
+      async ({ data }: Flux.BeforeUpdateParams<Task.UseRenameParams>) => {
         const { key, name } = data;
         const tsk = getItem(key);
         if (tsk == null) throw new UnexpectedError(`Task with key ${key} not found`);

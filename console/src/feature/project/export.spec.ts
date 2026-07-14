@@ -26,7 +26,7 @@ import {
 
 const client: Synnax = createTestClient();
 
-interface CreateExportContextArgs {
+interface CreateExportContextParams {
   store: TestStore;
   confirmResult?: boolean;
   extractors?: Record<
@@ -39,7 +39,7 @@ const createExportContext = ({
   store,
   confirmResult = true,
   extractors = {},
-}: CreateExportContextArgs): {
+}: CreateExportContextParams): {
   ctx: Project.ExportContext;
   statuses: status.Crude[];
   confirm: ReturnType<typeof vi.fn>;

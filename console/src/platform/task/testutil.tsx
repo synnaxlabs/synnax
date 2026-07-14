@@ -29,7 +29,7 @@ import { act, type FC, type PropsWithChildren, type ReactElement } from "react";
 import { type z } from "zod";
 
 import { type Panel } from "@/platform/panel";
-import { type FormViewArgs } from "@/platform/task/Form";
+import { type FormViewParams } from "@/platform/task/Form";
 import { Session } from "@/session";
 import {
   CaptureStatuses,
@@ -258,7 +258,7 @@ export interface RenderTaskFormViewOptions {
   /** Client backing the console wrapper; null (default) for cluster-free specs. */
   client?: Client | null;
   /** View args the wrapped form reads (deviceKey, taskKey, rackKey, config). */
-  args?: FormViewArgs;
+  args?: FormViewParams;
   /**
    * When provided, a CaptureStatuses probe is mounted alongside the renderer and this
    * callback receives the notification list on every change.

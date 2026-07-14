@@ -78,7 +78,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     values: initialValues,
     sync: true,
     onChange: useCallback(
-      ({ values }: Form.OnChangeArgs<typeof Schematic.elementConfigZ>) =>
+      ({ values }: Form.OnChangeParams<typeof Schematic.elementConfigZ>) =>
         dispatch(schematic.setConfig({ key: elKey, config: deep.copy(values) })),
       [dispatch, elKey],
     ),
