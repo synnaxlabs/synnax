@@ -14,8 +14,8 @@ import { Component, Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useEffect } from "react";
 
 import { Notifications } from "@/app/notifications";
-import { Aux } from "@/app/window/Aux";
-import { Main } from "@/app/window/Main";
+import { Primary } from "@/app/window/Primary";
+import { Secondary } from "@/app/window/Secondary";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
@@ -66,7 +66,7 @@ export const Window = memo((): ReactElement | null => {
       <Modals.Stack />
       <Notifications.Feed />
       <Menu.ContextMenu menu={menu} {...menuProps}>
-        {isMain ? <Main /> : <Aux />}
+        {isMain ? <Primary /> : <Secondary />}
       </Menu.ContextMenu>
     </Flex.Box>
   );
