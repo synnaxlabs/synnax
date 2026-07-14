@@ -10,11 +10,7 @@
 package rack
 
 import (
-	"strconv"
-
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Key is a unique identifier for a rack. Each rack is leased to a particular
@@ -36,29 +32,6 @@ import (
 func NewKey(node node.Key, localKey uint16) Key {
 	return Key(uint32(node)<<16 | uint32(localKey))
 }
-
-// Node returns the node that the rack is leased to.
-func (k Key) Node() node.Key { return node.Key(k >> 16) }
-
-// LocalKey returns unique key for the rack on its leaseholder node.
-func (k Key) LocalKey() uint16 { return uint16(uint32(k) & 0xFFFF) }
-
-// OntologyID returns the unique ontology identifier for the rack.
-func (k Key) OntologyID() ontology.ID { return OntologyID(k) }
-
-// IsZero returns true if the key is invalid i.e. it's Node or LocalKey is zero.
-func (k Key) IsZero() bool { return k == 0 }
-
-// String implements fmt.Stringer.
-func (k Key) String() string { return strconv.Itoa(int(k)) }
-
-var _ gorp.Entry[Key] = Rack{}
-
-// GorpKey implements gorp.Entry.
-func (r Rack) GorpKey() Key { return r.Key }
-
-// SetOptions implements gorp.Entry.
-func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
 
 func StatusKey(k Key) string {
 	return OntologyID(k).String()

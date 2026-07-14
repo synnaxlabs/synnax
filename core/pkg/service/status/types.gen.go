@@ -12,52 +12,17 @@
 package status
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 )
 
-// Variant is the severity or type of a status message.
-type Variant string
+type Variant = v2.Variant
+type Status[Details any] = v2.Status[Details]
 
 const (
-	VariantSuccess  Variant = "success"
-	VariantInfo     Variant = "info"
-	VariantWarning  Variant = "warning"
-	VariantError    Variant = "error"
-	VariantLoading  Variant = "loading"
-	VariantDisabled Variant = "disabled"
+	VariantSuccess  = v2.VariantSuccess
+	VariantInfo     = v2.VariantInfo
+	VariantWarning  = v2.VariantWarning
+	VariantError    = v2.VariantError
+	VariantLoading  = v2.VariantLoading
+	VariantDisabled = v2.VariantDisabled
 )
-
-// IsValid reports whether v is one of the defined Variant values.
-func (v Variant) IsValid() bool {
-	switch v {
-	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
-		return true
-	default:
-		return false
-	}
-}
-
-// Status is a standardized message used to communicate state across the Synnax
-// platform. Statuses support different severity variants and can carry
-// component-specific details. A status is uniquely identified by a key and may carry a
-// human-readable name and labels for categorization and filtering.
-type Status[Details any] struct {
-	// Key is a unique identifier for this status, auto-generated if not provided.
-	Key string `json:"key" msgpack:"key"`
-	// Name is an optional human-readable name for the status.
-	Name string `json:"name" msgpack:"name"`
-	// Variant indicates the severity of the status. One of success, info, warning, error,
-	// loading, or disabled.
-	Variant Variant `json:"variant" msgpack:"variant"`
-	// Message is the main message text describing the status.
-	Message string `json:"message" msgpack:"message"`
-	// Description is an optional detailed description providing additional context.
-	Description string `json:"description" msgpack:"description"`
-	// Time is the timestamp when the status was created.
-	Time telem.TimeStamp `json:"time" msgpack:"time"`
-	// Details contains optional component-specific custom details for the status.
-	Details Details `json:"details" msgpack:"details"`
-	// Labels contains optional labels for categorization and filtering.
-	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
-}

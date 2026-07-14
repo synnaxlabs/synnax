@@ -12,31 +12,8 @@
 package user
 
 import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/synnax/pkg/service/user/types/v0"
 )
 
-// Key is a unique identifier for a user, represented as a UUID.
-type Key = uuid.UUID
-
-// User is an account entity representing a person accessing the Synnax system. Users
-// can have roles assigned for permission management.
-type User struct {
-	// Key is the unique identifier for this user.
-	Key Key `json:"key" msgpack:"key"`
-	// Username is the unique login name for the user.
-	Username string `json:"username" msgpack:"username"`
-	// FirstName is the user's first name.
-	FirstName string `json:"first_name" msgpack:"first_name"`
-	// LastName is the user's last name.
-	LastName string `json:"last_name" msgpack:"last_name"`
-	// RootUser is true if this is a root/admin user with full system access. Root users
-	// cannot be deleted.
-	RootUser bool `json:"root_user" msgpack:"root_user"`
-}
-
-func (u User) Validate() error {
-	v := validate.New("User")
-	validate.NotEmptyString(v, "username", u.Username)
-	return v.Error()
-}
+type Key = v0.Key
+type User = v0.User

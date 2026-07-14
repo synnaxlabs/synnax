@@ -78,21 +78,6 @@ func validateNode(n Node, seen set.Set[uuid.UUID]) error {
 	}
 }
 
-// Key returns the stable identifier of the tab regardless of its content variant.
-// Returns uuid.Nil for a Tab with no variant set.
-func (t Tab) Key() uuid.UUID {
-	switch v := t.Variant.(type) {
-	case TabResource:
-		return v.Key
-	case TabView:
-		return v.Key
-	case TabEmpty:
-		return v.Key
-	default:
-		return uuid.Nil
-	}
-}
-
 // pathDirections returns the sequence of child selections (false=first, true=last)
 // needed to walk from the root to the node at pathKey. Returns nil for the root.
 func pathDirections(pathKey int32) []bool {

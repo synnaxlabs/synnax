@@ -13,6 +13,7 @@ import "schemas/arc/ir"
 @ts output  "client/ts/src/arc/graph"
 @py output  "client/py/synnax/arc/graph"
 @go output  "arc/go/graph"
+@go version 1
 @cpp output "arc/cpp/graph"
 @pb
 

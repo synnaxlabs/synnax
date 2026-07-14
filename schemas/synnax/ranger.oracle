@@ -15,6 +15,7 @@ import "schemas/x/color"
 @py output  "client/py/synnax/ranger"
 @cpp output "client/cpp/ranger"
 @go output  "core/pkg/service/ranger"
+@go version 1
 @pb
 
 Key = uuid {

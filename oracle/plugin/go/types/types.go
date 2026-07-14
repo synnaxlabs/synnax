@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	goprimitives "github.com/synnaxlabs/oracle/plugin/go/primitives"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/internal/casing"
@@ -67,7 +68,13 @@ func (p *Plugin) Requires() []string { return nil }
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
+// Version-laid-out packages (@go version + a keyed struct) emit their types into the
+// current types/vN sub-package, with a root alias file re-exporting the surface.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	rewritten, pathMap, err := versioning.RewriteCurrent(req.Resolutions)
+	if err != nil {
+		return nil, err
+	}
 	gen := &framework.Generator{
 		Domain:          "go",
 		FilePattern:     p.Options.FileNamePattern,
@@ -77,7 +84,31 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		CollectEnums:    true,
 		CollectUnions:   true,
 	}
-	return gen.Generate(req)
+	versionedReq := *req
+	versionedReq.Resolutions = rewritten
+	resp, err := gen.Generate(&versionedReq)
+	if err != nil {
+		return nil, err
+	}
+	if len(pathMap) == 0 {
+		return resp, nil
+	}
+	aliasGen := &framework.Generator{
+		Domain:          "go",
+		FilePattern:     p.Options.FileNamePattern,
+		FileGenerator:   &aliasFileGenerator{pathMap: pathMap},
+		PathFilter:      func(outputPath string) bool { _, ok := pathMap[outputPath]; return ok },
+		MergeByName:     false,
+		CollectTypeDefs: true,
+		CollectEnums:    true,
+		CollectUnions:   true,
+	}
+	aliasResp, err := aliasGen.Generate(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, aliasResp.Files...)
+	return resp, nil
 }
 
 // goFileGenerator implements framework.FileGenerator for Go code generation.

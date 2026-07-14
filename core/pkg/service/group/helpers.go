@@ -10,9 +10,6 @@
 package group
 
 import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -20,17 +17,3 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"key":  zyn.UUID(),
 	"name": zyn.String(),
 })
-
-var _ gorp.Entry[Key] = Group{}
-
-// GorpKey implements gorp.Entry.
-func (g Group) GorpKey() Key { return g.Key }
-
-// SetOptions implements gorp.Entry.
-func (g Group) SetOptions() []any { return nil }
-
-// OntologyID returns the ontology.ID for the group.
-func (g Group) OntologyID() ontology.ID { return OntologyID(g.Key) }
-
-// IsZero implements ZeroAble.
-func (g Group) IsZero() bool { return g.Key == uuid.Nil && len(g.Name) == 0 }

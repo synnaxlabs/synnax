@@ -12,27 +12,8 @@
 package label
 
 import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 )
 
-// Key is a unique identifier for a label, represented as a UUID.
-type Key = uuid.UUID
-
-// Label is a tagging and categorization entity with a name and associated color. Labels
-// can be attached to resources like ranges for organization and filtering.
-type Label struct {
-	// Key is the unique identifier for this label.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the label.
-	Name string `json:"name" msgpack:"name"`
-	// Color is the display color for visual identification of the label.
-	Color color.Color `json:"color" msgpack:"color"`
-}
-
-func (l Label) Validate() error {
-	v := validate.New("Label")
-	validate.NotEmptyString(v, "name", l.Name)
-	return v.Error()
-}
+type Key = v0.Key
+type Label = v0.Label

@@ -12,6 +12,7 @@ import "schemas/x/color"
 @ts output  "client/ts/src/label"
 @py output  "client/py/synnax/label"
 @go output  "core/pkg/service/label"
+@go version 0
 @cpp output "client/cpp/label"
 @pb
 

@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
+	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"

@@ -12,29 +12,8 @@
 package project
 
 import (
-	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 )
 
-// Key is a unique identifier for a project, represented as a UUID.
-type Key = uuid.UUID
-
-// Project is a named, persistable container that stores the layout and organization of
-// the Console application. Projects allow users to save and restore custom arrangements
-// of visualizations, tabs, and window configurations.
-type Project struct {
-	// Key is the unique identifier for this project.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the project.
-	Name string `json:"name" msgpack:"name"`
-	// Layout is the mosaic tree structure that defines how visualizations are arranged.
-	// Contains tab layout, split configurations, and window positions.
-	Layout msgpack.EncodedJSON `json:"layout,omitzero" msgpack:"layout,omitzero"`
-}
-
-func (p Project) Validate() error {
-	v := validate.New("Project")
-	validate.NotEmptyString(v, "name", p.Name)
-	return v.Error()
-}
+type Key = v1.Key
+type Project = v1.Project

@@ -152,6 +152,7 @@ Channel struct {
     @go output     "core/pkg/service/channel"
     @go marshal
     @go migrate
+    @go version    0
     @retrieve
     @retrieve key  "Key"
     @search

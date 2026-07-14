@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -54,6 +55,17 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
+
+	// Version-laid-out packages emit their codecs alongside the current
+	// types in types/vN; the rewrite shifts every affected path at once so
+	// cross-package codec references stay version-pinned.
+	rewritten, _, err := versioning.RewriteCurrent(req.Resolutions)
+	if err != nil {
+		return nil, err
+	}
+	versionedReq := *req
+	versionedReq.Resolutions = rewritten
+	req = &versionedReq
 
 	// Collect all entry types and their adapter status.
 	type entryInfo struct {

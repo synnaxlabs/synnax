@@ -19,6 +19,7 @@ import "schemas/arc/program"
 @ts output  "client/ts/src/arc"
 @py output  "client/py/synnax/arc"
 @go output  "core/pkg/service/arc"
+@go version 2
 @cpp output "client/cpp/arc"
 @pb
 

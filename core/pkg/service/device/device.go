@@ -10,19 +10,3 @@
 // Package device implements types and services for managing physical pieces of hardware
 // in Synnax. This includes creating, retrieving, and updating devices.
 package device
-
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
-)
-
-var _ gorp.Entry[Key] = Device{}
-
-// GorpKey gives a unique key for the device for use in gorp.
-func (d Device) GorpKey() Key { return d.Key }
-
-// SetOptions returns nil.
-func (d Device) SetOptions() []any { return nil }
-
-// OntologyID returns the unique ID for the device within the ontology.
-func (d Device) OntologyID() ontology.ID { return OntologyID(d.Key) }

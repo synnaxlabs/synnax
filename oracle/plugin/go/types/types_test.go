@@ -1881,6 +1881,199 @@ var _ = Describe("Go Types Plugin", func() {
 					ToContain("~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64")
 			})
 		})
+
+		Context("version-laid-out packages", func() {
+			It("Should emit types into types/vN with a root alias file", func(ctx SpecContext) {
+				source := `
+					@go output "out"
+					@go version 3
+
+					Entry struct {
+						key uuid @key
+						@go marshal
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+				Expect(resp.Files).To(HaveLen(2))
+				ExpectContent(resp, "out/types/v3/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"package v3",
+						"type Entry struct {",
+					)
+				ExpectContent(resp, "out/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"package out",
+						`"github.com/synnaxlabs/synnax/out/types/v3"`,
+						"type Entry = v3.Entry",
+					)
+			})
+
+			It("Should re-export enum members as consts", func(ctx SpecContext) {
+				source := `
+					@go output "out"
+					@go version 1
+
+					Color enum {
+						red = "red"
+						blue = "blue"
+					}
+
+					Entry struct {
+						key uuid @key
+						@go marshal
+						color Color
+					}
+				`
+				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+				ExpectContent(resp, "out/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"type Color = v1.Color",
+						"ColorRed = v1.ColorRed",
+						"ColorBlue = v1.ColorBlue",
+					)
+			})
+
+			It("Should re-declare type params on generic aliases", func(ctx SpecContext) {
+				source := `
+					@go output "out"
+					@go version 0
+
+					Status struct<D extends record> {
+						details D
+					}
+
+					Entry struct {
+						key uuid @key
+						@go marshal
+						status Status<record>
+					}
+				`
+				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+				ExpectContent(resp, "out/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"type Status[D any] = v0.Status[D]",
+						"type Entry = v0.Entry",
+					)
+			})
+
+			It("Should re-export union variants and discriminators", func(ctx SpecContext) {
+				source := `
+					@go output "out"
+					@go version 2
+
+					LinearScale struct {
+						slope float64
+					}
+
+					Scale union on type {
+						linear LinearScale
+					}
+
+					Entry struct {
+						key uuid @key
+						@go marshal
+						scale Scale
+					}
+				`
+				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+				ExpectContent(resp, "out/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"type Scale = v2.Scale",
+						"type ScaleVariant = v2.ScaleVariant",
+						"type ScaleType = v2.ScaleType",
+						"type ScaleLinear = v2.ScaleLinear",
+						"ScaleTypeLinear = v2.ScaleTypeLinear",
+					)
+			})
+
+			It("Should pin cross-references between laid-out packages", func(ctx SpecContext) {
+				loader.Add("schemas/b.oracle", `
+					@go output "b"
+					@go version 5
+
+					Item struct {
+						key uuid @key
+						@go marshal
+						name string
+					}
+				`)
+				source := `
+					import "schemas/b"
+
+					@go output "a"
+					@go version 2
+
+					Entry struct {
+						key uuid @key
+						@go marshal
+						item b.Item
+					}
+				`
+				resp := MustGenerate(ctx, source, "a", loader, goPlugin)
+				ExpectContent(resp, "a/types/v2/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(`"github.com/synnaxlabs/synnax/b/types/v5"`).
+					ToNotContain(`"github.com/synnaxlabs/synnax/b"`)
+				ExpectContent(resp, "b/types/v5/types.gen.go").
+					ToContain("package v5", "type Item struct {")
+			})
+
+			It("Should import non-laid-out packages at their root", func(ctx SpecContext) {
+				loader.Add("schemas/c.oracle", `
+					@go output "c"
+
+					Detail struct {
+						note string
+					}
+				`)
+				source := `
+					import "schemas/c"
+
+					@go output "a"
+					@go version 2
+
+					Entry struct {
+						key uuid @key
+						@go marshal
+						detail c.Detail
+					}
+				`
+				resp := MustGenerate(ctx, source, "a", loader, goPlugin)
+				ExpectContent(resp, "a/types/v2/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						`"github.com/synnaxlabs/synnax/c"`,
+						"Detail c.Detail",
+					)
+				ExpectContent(resp, "c/types.gen.go").
+					ToContain("package c", "type Detail struct {")
+			})
+
+			It("Should leave non-versioned packages at the package root", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/user"
+
+					User struct {
+						key uuid @key
+						@go marshal
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "user", loader, goPlugin)
+				Expect(resp.Files).To(HaveLen(1))
+				Expect(resp.Files[0].Path).To(
+					Equal("core/pkg/service/user/types.gen.go"))
+				ExpectContent(resp, "types.gen.go").
+					ToContain("package user", "type User struct {").
+					ToNotContain("types/v")
+			})
+		})
 	})
 })
 

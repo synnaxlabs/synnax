@@ -20,7 +20,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/table/migrations/v55"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/table/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -71,8 +72,8 @@ var _ = Describe("MigrateTable", func() {
 		DescribeTable("Should produce the canonical typed Table",
 			func(ctx SpecContext, fixture string) {
 				blob := loadFixture(fixture)
-				snap := v55.Table{Key: fixedKey, Name: fixture, Data: blob}
-				out := MustSucceed(table.MigrateTable(ctx, snap))
+				snap := v0.Table{Key: fixedKey, Name: fixture, Data: blob}
+				out := MustSucceed(v1.MigrateTable(ctx, snap))
 				assertMigrated(fixture, out)
 			},
 			Entry("v0 empty", "v0_empty.json"),
@@ -82,7 +83,7 @@ var _ = Describe("MigrateTable", func() {
 
 	Describe("v0 reshape semantics", func() {
 		migrate := func(ctx SpecContext, body string) table.Table {
-			return MustSucceed(table.MigrateTable(ctx, v55.Table{
+			return MustSucceed(v1.MigrateTable(ctx, v0.Table{
 				Key: uuid.New(), Data: jsonMap(body),
 			}))
 		}
@@ -140,7 +141,7 @@ var _ = Describe("MigrateTable", func() {
 
 		It("Should pass through the gorp-entry fields (Key, Name)", func(ctx SpecContext) {
 			key := uuid.New()
-			out := MustSucceed(table.MigrateTable(ctx, v55.Table{
+			out := MustSucceed(v1.MigrateTable(ctx, v0.Table{
 				Key: key, Name: "trip-table", Data: jsonMap(`{"version": "0.0.0"}`),
 			}))
 			Expect(out.Key).To(Equal(key))
@@ -149,7 +150,7 @@ var _ = Describe("MigrateTable", func() {
 
 		DescribeTable("Should produce empty (not nil) collections for empty inputs",
 			func(ctx SpecContext, data msgpack.EncodedJSON) {
-				out := MustSucceed(table.MigrateTable(ctx, v55.Table{
+				out := MustSucceed(v1.MigrateTable(ctx, v0.Table{
 					Key: uuid.New(), Name: "empty", Data: data,
 				}))
 				Expect(out.Rows).NotTo(BeNil())
@@ -215,34 +216,34 @@ var _ = Describe("MigrateTable", func() {
 
 	Describe("malformed input", func() {
 		It("Should return an error for an invalid Data shape", func(ctx SpecContext) {
-			Expect(table.MigrateTable(ctx, v55.Table{
+			Expect(v1.MigrateTable(ctx, v0.Table{
 				Key: uuid.New(), Data: msgpack.EncodedJSON{"layout": "not-an-object"},
 			})).Error().To(MatchError(ContainSubstring("table data")))
 		})
 	})
 
 	// Drives MigrateTable through the real gorp migration pipeline so the
-	// on-disk v55 → typed Table path is exercised end-to-end.
+	// on-disk v0 → typed Table path is exercised end-to-end.
 	Describe("storage integration", func() {
 		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, table.Table] {
 			return MustOpen(gorp.OpenTable[uuid.UUID, table.Table](
 				ctx, gorp.TableConfig[uuid.UUID, table.Table]{
 					DB: db,
 					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Table, table.Table](
+						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v0.Table, table.Table](
 							"v55_lift_typed_table",
-							table.MigrateTable,
+							v1.MigrateTable,
 						),
 					},
 				},
 			))
 		}
 
-		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v55.Table {
-			t := MustOpen(gorp.OpenTable[uuid.UUID, v55.Table](
-				ctx, gorp.TableConfig[uuid.UUID, v55.Table]{DB: db},
+		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v0.Table {
+			t := MustOpen(gorp.OpenTable[uuid.UUID, v0.Table](
+				ctx, gorp.TableConfig[uuid.UUID, v0.Table]{DB: db},
 			))
-			seed := v55.Table{Key: uuid.New(), Name: name, Data: jsonMap(body)}
+			seed := v0.Table{Key: uuid.New(), Name: name, Data: jsonMap(body)}
 			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 			return seed
 		}

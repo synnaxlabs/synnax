@@ -14,8 +14,9 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
-	v54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -119,11 +120,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[Key, v54.Device]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[Key, v1.Device]("msgpack_to_orc", v0Mig.Key()),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v54.Device, Device](
+				gorp.NewEntryMigration[Key, Key, v1.Device, Device](
 					"v54_drop_status_parent",
-					MigrateDevice,
+					v2.MigrateDevice,
 				),
 				"msgpack_to_orc",
 			),

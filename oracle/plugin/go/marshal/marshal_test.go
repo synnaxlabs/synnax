@@ -1072,6 +1072,62 @@ var _ = Describe("Recursive Codecs", func() {
 	})
 })
 
+var _ = Describe("Version-Laid-Out Packages", func() {
+	var (
+		ctx           context.Context
+		loader        *MockFileLoader
+		marshalPlugin *marshal.Plugin
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+		loader = NewMockFileLoader()
+		marshalPlugin = marshal.New(marshal.DefaultOptions())
+	})
+
+	It("Should emit the codec and its test into types/vN", func() {
+		source := `
+			@go output "out"
+			@go version 3
+			@pb
+
+			Entry struct {
+				key uuid @key
+				name string
+				@go marshal
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		ExpectContent(resp, "out/types/v3/codec.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				"package v3",
+				"func (e Entry) EncodeOrc(w *orc.Writer",
+			)
+		ExpectContent(resp, "out/types/v3/codec_gen_test.go").
+			ToBeValidGoSource().
+			ToContain("package v3_test")
+	})
+
+	It("Should leave non-versioned packages at the package root", func() {
+		source := `
+			@go output "core/pkg/test"
+			@go marshal
+			@pb
+
+			Test struct {
+				key uuid @key
+				name string
+			}
+		`
+		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+		Expect(resp.Files[0].Path).To(Equal("core/pkg/test/codec.gen.go"))
+		ExpectContent(resp, "core/pkg/test/codec.gen.go").
+			ToContain("package test").
+			ToNotContain("types/v")
+	})
+})
+
 // The rt* fixtures mirror the exact shape the generator emits for a
 // discriminated union wrapper codec (binary discriminator tag followed by the
 // variant's base and payload codecs), locking the runtime semantics the

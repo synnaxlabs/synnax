@@ -25,9 +25,7 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeProject, Key: k.String()}
-}
+func OntologyID(k Key) ontology.ID { return Project{Key: k}.OntologyID() }
 
 func OntologyIDs(keys []Key) []ontology.ID {
 	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })

@@ -344,7 +344,7 @@ var _ = Describe("snapshot command", Ordered, func() {
 		cmd := NewRootCmd()
 		MustSucceed(executeCommand(cmd, "snapshot"))
 
-		snapshotFile := filepath.Join(repoDir, "schemas", ".snapshots", "v53", "user.oracle")
+		snapshotFile := filepath.Join(repoDir, "schemas", "snapshots", "v53", "user.oracle")
 		Expect(snapshotFile).To(BeAnExistingFile())
 
 		content := string(MustSucceed(os.ReadFile(snapshotFile)))

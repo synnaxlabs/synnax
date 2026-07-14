@@ -17,8 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -102,11 +103,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.table, err = gorp.OpenTable[Key, Schematic](ctx, gorp.TableConfig[Key, Schematic]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, v55.Schematic]("msgpack_to_orc"),
+			gorp.CodecMigration[Key, v0.Schematic]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v55.Schematic, Schematic](
+				gorp.NewEntryMigration[Key, Key, v0.Schematic, Schematic](
 					"v55_lift_typed_schematic",
-					MigrateSchematic,
+					v1.MigrateSchematic,
 				),
 				"msgpack_to_orc",
 			),

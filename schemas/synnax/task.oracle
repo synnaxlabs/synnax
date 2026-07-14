@@ -12,6 +12,7 @@ import "schemas/synnax/status"
 @ts output  "client/ts/src/task"
 @py output  "client/py/synnax/task"
 @go output  "core/pkg/service/task"
+@go version 2
 @cpp output "client/cpp/task"
 @pb
 

@@ -21,7 +21,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	v55 "github.com/synnaxlabs/synnax/pkg/service/lineplot/migrations/v55"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -73,8 +74,8 @@ var _ = Describe("MigrateLinePlot", func() {
 		DescribeTable("Should produce the canonical typed LinePlot",
 			func(ctx SpecContext, fixture string) {
 				blob := loadFixture(fixture)
-				snap := v55.LinePlot{Key: fixedKey, Name: fixture, Data: blob}
-				out := MustSucceed(lineplot.MigrateLinePlot(ctx, snap))
+				snap := v0.LinePlot{Key: fixedKey, Name: fixture, Data: blob}
+				out := MustSucceed(v1.MigrateLinePlot(ctx, snap))
 				assertMigrated(fixture, out)
 			},
 			Entry("v0 minimal", "v0_minimal.json"),
@@ -84,27 +85,27 @@ var _ = Describe("MigrateLinePlot", func() {
 	})
 
 	// Drives MigrateLinePlot through the real gorp migration pipeline so the
-	// on-disk v55 -> typed LinePlot path is exercised end-to-end.
+	// on-disk v0 -> typed LinePlot path is exercised end-to-end.
 	Describe("storage integration", func() {
 		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, lineplot.LinePlot] {
 			return MustOpen(gorp.OpenTable[uuid.UUID, lineplot.LinePlot](
 				ctx, gorp.TableConfig[uuid.UUID, lineplot.LinePlot]{
 					DB: db,
 					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.LinePlot, lineplot.LinePlot](
+						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v0.LinePlot, lineplot.LinePlot](
 							"v55_lift_typed_lineplot",
-							lineplot.MigrateLinePlot,
+							v1.MigrateLinePlot,
 						),
 					},
 				},
 			))
 		}
 
-		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v55.LinePlot {
-			t := MustOpen(gorp.OpenTable[uuid.UUID, v55.LinePlot](
-				ctx, gorp.TableConfig[uuid.UUID, v55.LinePlot]{DB: db},
+		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v0.LinePlot {
+			t := MustOpen(gorp.OpenTable[uuid.UUID, v0.LinePlot](
+				ctx, gorp.TableConfig[uuid.UUID, v0.LinePlot]{DB: db},
 			))
-			seed := v55.LinePlot{Key: uuid.New(), Name: name, Data: jsonMap(body)}
+			seed := v0.LinePlot{Key: uuid.New(), Name: name, Data: jsonMap(body)}
 			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 			return seed
 		}
@@ -203,7 +204,7 @@ var _ = Describe("MigrateLinePlot", func() {
 	// failures localize.
 	Describe("lift semantics", func() {
 		migrateV4 := func(ctx SpecContext, body string) lineplot.LinePlot {
-			return MustSucceed(lineplot.MigrateLinePlot(ctx, v55.LinePlot{
+			return MustSucceed(v1.MigrateLinePlot(ctx, v0.LinePlot{
 				Key:  uuid.New(),
 				Data: jsonMap(`{"version": "4.0.0", ` + body + `}`),
 			}))
@@ -308,7 +309,7 @@ var _ = Describe("MigrateLinePlot", func() {
 
 		It("Should pass through the gorp-entry fields (key, name)", func(ctx SpecContext) {
 			key := uuid.New()
-			out := MustSucceed(lineplot.MigrateLinePlot(ctx, v55.LinePlot{
+			out := MustSucceed(v1.MigrateLinePlot(ctx, v0.LinePlot{
 				Key: key, Name: "tank-1",
 				Data: jsonMap(`{"version": "4.0.0"}`),
 			}))
@@ -317,7 +318,7 @@ var _ = Describe("MigrateLinePlot", func() {
 		})
 
 		It("Should handle a nil data blob without erroring", func(ctx SpecContext) {
-			out := MustSucceed(lineplot.MigrateLinePlot(ctx, v55.LinePlot{
+			out := MustSucceed(v1.MigrateLinePlot(ctx, v0.LinePlot{
 				Key: uuid.New(), Name: "empty", Data: nil,
 			}))
 			Expect(out.Lines).To(BeEmpty())

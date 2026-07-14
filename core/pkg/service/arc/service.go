@@ -20,10 +20,11 @@ import (
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
-	arcv56 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v56"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	arcv0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
+	arcv1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
+	arcv2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -218,17 +219,17 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),
+			gorp.CodecMigration[Key, arcv0.Arc]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_program_status", arcv56.MigrateArc),
+				gorp.NewEntryMigration("v54_drop_program_status", arcv1.MigrateArc),
 				"msgpack_to_orc",
 			),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v55_rename_set_status", arcv56.RenameSetStatus),
+				gorp.NewEntryMigration("v55_rename_set_status", arcv1.RenameSetStatus),
 				"v54_drop_program_status",
 			),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v56_to_live", MigrateArc),
+				gorp.NewEntryMigration("v56_to_live", arcv2.MigrateArc),
 				"v55_rename_set_status",
 			),
 		},

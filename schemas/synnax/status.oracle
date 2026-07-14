@@ -13,6 +13,7 @@ import "schemas/synnax/label"
 @ts output  "client/ts/src/status"
 @py output  "client/py/synnax/status"
 @go output  "core/pkg/service/status"
+@go version 2
 @cpp output "client/cpp/status"
 @pb
 
@@ -66,6 +67,7 @@ Status struct<Details?, V extends Variant = Variant> {
         component-specific details. A status is uniquely identified by a key and may
         carry a human-readable name and labels for categorization and filtering.
     """
+    @go marshal
     @ts concrete_types
     @create
 }

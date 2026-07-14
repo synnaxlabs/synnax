@@ -12,8 +12,9 @@ import "schemas/x/color"
 import "schemas/x/notation"
 import "schemas/x/telem"
 
-@ts output "client/ts/src/log"
-@go output "core/pkg/service/log"
+@ts output  "client/ts/src/log"
+@go output  "core/pkg/service/log"
+@go version 1
 
 Key = uuid {
     @doc value "is a unique identifier for a log, represented as a UUID."

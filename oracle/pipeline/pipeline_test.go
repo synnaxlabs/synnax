@@ -237,7 +237,7 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 		}))
 	})
 
-	It("excludes the .snapshots directory", func() {
+	It("excludes the snapshots directory", func() {
 		repoRoot := MustSucceed(os.MkdirTemp("", "discover"))
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(repoRoot)).To(Succeed())
@@ -248,8 +248,8 @@ var _ = Describe("pipeline.DiscoverSchemas", func() {
 			Expect(os.WriteFile(abs, []byte(""), 0644)).To(Succeed())
 		}
 		write("schemas/synnax/channel.oracle")
-		write("schemas/.snapshots/v56/channel.oracle")
-		write("schemas/.snapshots/v56/arc/ir.oracle")
+		write("schemas/snapshots/v56/channel.oracle")
+		write("schemas/snapshots/v56/arc/ir.oracle")
 		Expect(pipeline.DiscoverSchemas(repoRoot)).
 			To(Equal([]string{"schemas/synnax/channel.oracle"}))
 	})

@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package ranger implements a service for managing ranges in a Synnax cluster. A range
+// is a user defined region of time in a Synnax cluster. They act as a method for
+// labeling and categorizing data.
 package ranger
 
 import (
@@ -18,7 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -121,8 +125,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[Key, v0.Range](codecMigrationKey, v0Mig.Key()),
-			colorNullableMigration(),
+			gorp.CodecMigration[Key, v0.Range](v1.CodecMigrationKey, v0Mig.Key()),
+			v1.ColorNullableMigration(),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

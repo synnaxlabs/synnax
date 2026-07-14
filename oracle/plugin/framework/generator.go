@@ -41,12 +41,21 @@ type ExtraEnumsFunc func(structs []resolution.Type, table *resolution.Table, out
 type Generator struct {
 	FileGenerator   FileGenerator
 	ExtraEnumsFunc  ExtraEnumsFunc
+	// PathFilter, when non-nil, restricts generation to output paths for
+	// which it returns true. Types at filtered-out paths are still collected
+	// (so grouping and enum merging stay identical) but produce no file.
+	PathFilter      func(outputPath string) bool
 	Domain          string
 	FilePattern     string
 	MergeByName     bool
 	CollectTypeDefs bool
 	CollectEnums    bool
 	CollectUnions   bool
+}
+
+// allows reports whether outputPath passes the generator's PathFilter.
+func (g *Generator) allows(outputPath string) bool {
+	return g.PathFilter == nil || g.PathFilter(outputPath)
 }
 
 func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -117,6 +126,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if unionCollector != nil && unionCollector.Has(outputPath) {
 			unions = unionCollector.Remove(outputPath)
 		}
+		if !g.allows(outputPath) {
+			return nil
+		}
 
 		ctx := &GenerateContext{
 			Namespace:  structs[0].Namespace,
@@ -165,6 +177,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 			if typeDefCollector != nil && typeDefCollector.Has(outputPath) {
 				typeDefs = typeDefCollector.Remove(outputPath)
 			}
+			if !g.allows(outputPath) {
+				return nil
+			}
 
 			ctx := &GenerateContext{
 				Namespace:  namespace,
@@ -196,6 +211,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 			if typeDefCollector != nil && typeDefCollector.Has(outputPath) {
 				typeDefs = typeDefCollector.Remove(outputPath)
 			}
+			if !g.allows(outputPath) {
+				return nil
+			}
 
 			ctx := &GenerateContext{
 				Namespace:  enums[0].Namespace,
@@ -223,6 +241,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	if typeDefCollector != nil {
 		err = typeDefCollector.ForEach(func(outputPath string, typeDefs []resolution.Type) error {
+			if !g.allows(outputPath) {
+				return nil
+			}
 			ctx := &GenerateContext{
 				Namespace:  typeDefs[0].Namespace,
 				OutputPath: outputPath,

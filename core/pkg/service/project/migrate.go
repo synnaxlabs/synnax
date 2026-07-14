@@ -16,7 +16,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
+	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -125,8 +126,8 @@ func renameWorkspaceGroup(ctx context.Context, tx gorp.Tx) error {
 func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	stale, err := collectEntries(
 		ctx,
-		gorp.WrapReader[Key, projectv56.Workspace](tx),
-		func(projectv56.Workspace) bool { return true },
+		gorp.WrapReader[Key, projectv0.Workspace](tx),
+		func(projectv0.Workspace) bool { return true },
 	)
 	if err != nil || len(stale) == 0 {
 		return err
@@ -134,7 +135,7 @@ func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	projects := make([]Project, len(stale))
 	keys := make([]Key, len(stale))
 	for i, ws := range stale {
-		if projects[i], err = AutoMigrateProject(ctx, ws); err != nil {
+		if projects[i], err = v1.AutoMigrateProject(ctx, ws); err != nil {
 			return err
 		}
 		keys[i] = ws.Key
@@ -142,7 +143,7 @@ func liftWorkspaces(ctx context.Context, tx gorp.Tx) error {
 	if err := gorp.WrapWriter[Key, Project](tx).Set(ctx, projects...); err != nil {
 		return err
 	}
-	return gorp.WrapWriter[Key, projectv56.Workspace](tx).Delete(ctx, keys...)
+	return gorp.WrapWriter[Key, projectv0.Workspace](tx).Delete(ctx, keys...)
 }
 
 // rewriteWorkspaceResources re-keys every ontology resource node of type workspace

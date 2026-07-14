@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
+	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -31,7 +31,7 @@ import (
 
 var _ = Describe("Workspace to project migration", func() {
 	migrations := []migrate.Migration{
-		gorp.CodecMigration[project.Key, projectv56.Workspace]("msgpack_to_orc"),
+		gorp.CodecMigration[project.Key, projectv0.Workspace]("msgpack_to_orc"),
 		migrate.WithAddedDeps(
 			gorp.NewMigration(
 				"v56_migrate_workspace_to_project",
@@ -60,16 +60,16 @@ var _ = Describe("Workspace to project migration", func() {
 
 		// Seed two legacy workspace records under the "Workspace" gorp prefix.
 		wsA, wsB := uuid.New(), uuid.New()
-		wsTable := MustOpen(gorp.OpenTable[projectv56.Key, projectv56.Workspace](
-			ctx, gorp.TableConfig[projectv56.Key, projectv56.Workspace]{DB: db},
+		wsTable := MustOpen(gorp.OpenTable[projectv0.Key, projectv0.Workspace](
+			ctx, gorp.TableConfig[projectv0.Key, projectv0.Workspace]{DB: db},
 		))
-		seedA := projectv56.Workspace{
+		seedA := projectv0.Workspace{
 			Key:    wsA,
 			Name:   "Ops",
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}
 		Expect(wsTable.NewCreate().Entry(&seedA).Exec(ctx, db)).To(Succeed())
-		seedB := projectv56.Workspace{Key: wsB, Name: "Analysis"}
+		seedB := projectv0.Workspace{Key: wsB, Name: "Analysis"}
 		Expect(wsTable.NewCreate().Entry(&seedB).Exec(ctx, db)).To(Succeed())
 
 		// Seed the root "Workspaces" group and the ontology nodes.
@@ -119,8 +119,8 @@ var _ = Describe("Workspace to project migration", func() {
 			Exists(ctx, db)).To(BeTrue())
 
 		By("Removing the legacy workspace records")
-		Expect(wsTable.NewRetrieve().Where(gorp.MatchKeys[projectv56.Key, projectv56.Workspace](wsA, wsB)).
-			Entries(&[]projectv56.Workspace{}).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		Expect(wsTable.NewRetrieve().Where(gorp.MatchKeys[projectv0.Key, projectv0.Workspace](wsA, wsB)).
+			Entries(&[]projectv0.Workspace{}).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 
 		By("Re-keying the workspace resource nodes to project")
 		projectAID := ontology.ID{Type: ontology.ResourceTypeProject, Key: wsA.String()}

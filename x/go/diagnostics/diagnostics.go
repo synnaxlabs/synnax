@@ -261,6 +261,9 @@ func (d Diagnostics) String() string {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
+		if diag.File != "" {
+			_, _ = fmt.Fprintf(&sb, "%s ", diag.File)
+		}
 		if diag.Code != "" {
 			_, _ = fmt.Fprintf(&sb,
 				"%d:%d %s [%s]: %s",

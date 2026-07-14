@@ -97,6 +97,28 @@ func typesEqual(
 	case resolution.DistinctForm:
 		newForm, ok := new.Form.(resolution.DistinctForm)
 		return ok && refsEqual(oldForm.Base, newForm.Base, oldTable, newTable, visiting)
+	case resolution.UnionForm:
+		newForm, ok := new.Form.(resolution.UnionForm)
+		if !ok || oldForm.Discriminator != newForm.Discriminator ||
+			len(oldForm.Variants) != len(newForm.Variants) ||
+			len(oldForm.Extends) != len(newForm.Extends) {
+			return false
+		}
+		for i := range oldForm.Variants {
+			ov, nv := oldForm.Variants[i], newForm.Variants[i]
+			if ov.Name != nv.Name || ov.Inline != nv.Inline {
+				return false
+			}
+			if !refsEqual(ov.Type, nv.Type, oldTable, newTable, visiting) {
+				return false
+			}
+		}
+		for i := range oldForm.Extends {
+			if !refsEqual(oldForm.Extends[i], newForm.Extends[i], oldTable, newTable, visiting) {
+				return false
+			}
+		}
+		return true
 	case resolution.PrimitiveForm:
 		newForm, ok := new.Form.(resolution.PrimitiveForm)
 		return ok && oldForm.Name == newForm.Name

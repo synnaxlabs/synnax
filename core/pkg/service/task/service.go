@@ -19,8 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
-	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -123,9 +124,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[v54.Key, v54.Task]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[v1.Key, v1.Task]("msgpack_to_orc", v0Mig.Key()),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_status", MigrateTask),
+				gorp.NewEntryMigration("v54_drop_status", v2.MigrateTask),
 				"msgpack_to_orc",
 			),
 		},

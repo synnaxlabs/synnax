@@ -10,8 +10,9 @@
 import "schemas/x/spatial"
 import "schemas/synnax/ontology"
 
-@ts output "client/ts/src/panel"
-@go output "core/pkg/service/panel"
+@ts output  "client/ts/src/panel"
+@go output  "core/pkg/service/panel"
+@go version 0
 @pb
 
 TabBase struct {

@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
+	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"

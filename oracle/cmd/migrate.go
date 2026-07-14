@@ -68,7 +68,7 @@ func runMigrate(cmd *cobra.Command) error {
 
 	// Load old snapshot if one exists.
 	schemasDir := filepath.Join(repoRoot, "schemas")
-	snapshotsDir := filepath.Join(schemasDir, ".snapshots")
+	snapshotsDir := filepath.Join(schemasDir, "snapshots")
 	latestVersion, err := snapshot.LatestVersion(snapshotsDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to read snapshot version")
@@ -107,6 +107,7 @@ func runMigrate(cmd *cobra.Command) error {
 		}
 		t, diag := analyzer.Analyze(ctx, normalized, snapshotLoader)
 		if diag != nil && !diag.Ok() {
+			printDiagnostics(diag.String())
 			return nil, errors.Newf("failed to analyze snapshot v%d", version)
 		}
 		return t, nil
@@ -154,7 +155,7 @@ func runMigrate(cmd *cobra.Command) error {
 		if err := writeFileIfChanged(fullPath, canonical); err != nil {
 			return errors.Wrapf(err, "failed to write %s", f.Path)
 		}
-		if strings.HasSuffix(f.Path, "/migrate.go") && !strings.Contains(f.Path, "/migrations/") {
+		if strings.HasSuffix(f.Path, "/migrate.go") {
 			templates = append(templates, f.Path)
 		}
 		if verbose {
