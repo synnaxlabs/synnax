@@ -43,7 +43,14 @@ describe("createIngester", () => {
     expect(() =>
       ingest(
         { device: "dev-1" },
-        { layout: {}, placeLayout, store, client, projectKey: "" },
+        {
+          layout: {},
+          placeLayout,
+          store,
+          client,
+          projectKey: "",
+          fileName: "test.json",
+        },
       ),
     ).toThrow();
     expect(placeLayout).not.toHaveBeenCalled();
@@ -60,6 +67,7 @@ describe("createIngester", () => {
       store,
       client,
       projectKey: "",
+      fileName: "test.json",
     });
     expect(placeLayout).toHaveBeenCalledTimes(1);
     const placed = placeLayout.mock.calls[0][0];
