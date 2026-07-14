@@ -1142,10 +1142,13 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   resource with a keyed struct emits its current version into `types/v<N>/` with a
   root alias file; historical `migrations/vN/` directories renumbered onto dense
   per-resource integers and renamed `types/vN/`; version discipline (structural diff
-  vs. latest snapshot, bump-by-exactly-one) enforced by `oracle migrate`. Descoped
-  from this phase: `types/types.go` selectors and generated `types/decode.go`
-  dispatch (deferred to Phase 3, which has their only consumer), byte-divergence
-  detection (dropped — see §5.6), the immutability-by-CI rule on snapshot folders
+  vs. latest snapshot, bump-by-exactly-one) enforced by `oracle migrate`. Generated
+  `types/types.gen.go` selectors re-export the current version (as does the package
+  root), importing it as `latest` so a bump touches one line, with schema docs
+  transposed onto every re-export surface. Descoped from this phase: generated
+  `types/decode.go` dispatch (deferred to Phase 3, which has its only consumer),
+  byte-divergence detection (dropped — see §5.6), the immutability-by-CI rule on
+  snapshot folders
   (open parameter, along with making the advisory oracle CI check required), and
   stored-but-keyless packages with hand-computed composite gorp keys
   (`ranger/alias`, `ranger/kv`), which keep root emission.
