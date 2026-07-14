@@ -27,7 +27,7 @@ class Client:
     def __init__(self, file_transport: FileTransport) -> None:
         self._file_transport = file_transport
 
-    def import_(self, source: FilePath, project: ProjectKey) -> ontology.ID:
+    def import_(self, source: FilePath, *, project: ProjectKey) -> ontology.ID:
         """Imports the resource at source and returns its new ontology ID.
 
         The source file's name travels with the request: when the file's contents carry
@@ -40,8 +40,9 @@ class Client:
             transaction, so a parenting failure rolls the import back.
         :returns: the new resource's ontology ID.
         """
-        params = {"project": str(project)}
-        return self._file_transport.upload("/imex/import", source, ontology.ID, params)
+        return self._file_transport.upload(
+            "/imex/import", source, ontology.ID, {"project": str(project)}
+        )
 
     def export(self, id: ontology.ID, dest: FilePath) -> None:
         """Exports the resource identified by id, streaming it into dest.
