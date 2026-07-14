@@ -22,20 +22,23 @@ Key = uuid {
 }
 
 TextCellConfig struct {
-    value            string?             {
+    value            string = "" {
         @doc value "is the text content of the cell."
     }
-    level            text.Level??        {
+    level            text.Level = text.LevelH5 {
         @doc value "is the typography level of the cell text."
     }
-    weight           float64??           {
+    weight           float64 = 400 {
         @doc value "is the font weight of the cell text."
     }
-    align            spatial.Alignment?? {
+    align            spatial.Alignment = spatial.AlignmentCenter {
         @doc value "is the alignment of the cell text along the row axis."
     }
-    background_color color.Color??       {
-        @doc value "is the background color of the cell."
+    background_color color.Color??     {
+        @doc value """
+            is the background color of the cell. When absent the cell renders
+            with a transparent background.
+        """
     }
 
     @doc value "is the configuration for static text cells."
@@ -53,35 +56,41 @@ Redline struct {
 }
 
 ValueCellConfig struct {
-    channel           channel.Key??       {
+    channel           channel.Key = 0 {
         @doc value "is the channel whose value the cell displays."
     }
-    rolling_average   int32??             {
+    rolling_average   int32 = 1 {
         @doc value "is the sample window for rolling-average smoothing."
     }
-    precision         float64??           {
+    precision         float64 = 2 {
         @doc value "is the number of decimal places shown."
     }
-    notation          notation.Notation?? {
+    notation          notation.Notation = notation.NotationStandard {
         @doc value "is the numeric notation used to format the value."
     }
-    redline           Redline??           {
+    redline           Redline = { bounds = { lower = 0, upper = 1 }, gradient = [] } {
         @doc value "is the bounds-to-gradient mapping applied to the background."
     }
-    level             text.Level??        {
+    level             text.Level = text.LevelH5 {
         @doc value "is the typography level of the displayed value."
     }
-    color             color.Color??       {
-        @doc value "is the color of the displayed text."
+    color             color.Color??     {
+        @doc value """
+            is the color of the displayed text. When absent the value renders
+            with a theme-derived legible color.
+        """
     }
-    units             string?             {
+    units             string = "" {
         @doc value "is the unit suffix displayed after the value."
     }
-    staleness_timeout float64??           {
+    staleness_timeout float64 = 5 {
         @doc value "is the duration in seconds after which the value is considered stale."
     }
-    staleness_color   color.Color??       {
-        @doc value "is the color applied when the value is stale."
+    staleness_color   color.Color??     {
+        @doc value """
+            is the color applied when the value is stale. When absent the value
+            renders with the theme warning color.
+        """
     }
 
     @doc value "is the configuration for live telemetry value cells."

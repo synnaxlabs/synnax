@@ -15,7 +15,6 @@ import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { Cell } from "@/table/cells";
-import { Theming } from "@/theming";
 
 const BASE_ROW_SIZE = 36;
 const BASE_COL_SIZE = 72;
@@ -168,11 +167,9 @@ export interface CreateParams extends table.New {
   project?: project.Key;
 }
 
-const createDefaultLayout = (
-  theme: ReturnType<typeof Theming.use>,
-): Pick<table.Table, "rows" | "columns" | "cells"> => {
+const createDefaultLayout = (): Pick<table.Table, "rows" | "columns" | "cells"> => {
   const cellKeys = [id.create(), id.create(), id.create(), id.create()];
-  const config = Cell.REGISTRY.text.defaultConfig(theme);
+  const config = Cell.defaultConfig("text");
   return {
     rows: [
       { size: BASE_ROW_SIZE, cells: [cellKeys[0], cellKeys[1]] },
@@ -206,11 +203,10 @@ const { useUpdate: useCreateBase } = Flux.createUpdate<
 export const useCreate: typeof useCreateBase = (args) => {
   const base = useCreateBase(args);
   const baseRef = useSyncedRef(base);
-  const themeRef = useSyncedRef(Theming.use());
   const withDefaultLayout = useCallback(
     (data: CreateParams): CreateParams =>
       (data.rows?.length ?? 0) === 0 && (data.columns?.length ?? 0) === 0
-        ? { ...data, ...createDefaultLayout(themeRef.current) }
+        ? { ...data, ...createDefaultLayout() }
         : data,
     [],
   );

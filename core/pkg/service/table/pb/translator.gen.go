@@ -24,25 +24,19 @@ import (
 
 // TextCellConfigToPB converts TextCellConfig to TextCellConfig.
 func TextCellConfigToPB(r table.TextCellConfig) (*TextCellConfig, error) {
+	levelVal, err := textpb.LevelToPB(r.Level)
+	if err != nil {
+		return nil, err
+	}
+	alignVal, err := spatialpb.AlignmentToPB(r.Align)
+	if err != nil {
+		return nil, err
+	}
 	pb := &TextCellConfig{
-		Value: r.Value,
-	}
-	if r.Level != nil {
-		val, err := textpb.LevelToPB(*r.Level)
-		if err != nil {
-			return nil, err
-		}
-		pb.Level = &val
-	}
-	if r.Weight != nil {
-		pb.Weight = r.Weight
-	}
-	if r.Align != nil {
-		val, err := spatialpb.AlignmentToPB(*r.Align)
-		if err != nil {
-			return nil, err
-		}
-		pb.Align = &val
+		Value:  r.Value,
+		Weight: r.Weight,
+		Level:  levelVal,
+		Align:  alignVal,
 	}
 	if r.BackgroundColor != nil {
 		var err error
@@ -60,24 +54,17 @@ func TextCellConfigFromPB(pb *TextCellConfig) (table.TextCellConfig, error) {
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	r.Level, err = textpb.LevelFromPB(pb.Level)
+	if err != nil {
+		return table.TextCellConfig{}, err
+	}
+	r.Align, err = spatialpb.AlignmentFromPB(pb.Align)
+	if err != nil {
+		return table.TextCellConfig{}, err
+	}
 	r.Value = pb.Value
-	if pb.Level != nil {
-		val, err := textpb.LevelFromPB(*pb.Level)
-		if err != nil {
-			return table.TextCellConfig{}, err
-		}
-		r.Level = &val
-	}
-	if pb.Weight != nil {
-		r.Weight = pb.Weight
-	}
-	if pb.Align != nil {
-		val, err := spatialpb.AlignmentFromPB(*pb.Align)
-		if err != nil {
-			return table.TextCellConfig{}, err
-		}
-		r.Align = &val
-	}
+	r.Weight = pb.Weight
 	if pb.BackgroundColor != nil {
 		val, err := colorpb.ColorFromPB(pb.BackgroundColor)
 		if err != nil {
@@ -177,39 +164,27 @@ func RedlinesFromPB(pbs []*Redline) ([]table.Redline, error) {
 
 // ValueCellConfigToPB converts ValueCellConfig to ValueCellConfig.
 func ValueCellConfigToPB(r table.ValueCellConfig) (*ValueCellConfig, error) {
+	notationVal, err := notationpb.NotationToPB(r.Notation)
+	if err != nil {
+		return nil, err
+	}
+	redlineVal, err := RedlineToPB(r.Redline)
+	if err != nil {
+		return nil, err
+	}
+	levelVal, err := textpb.LevelToPB(r.Level)
+	if err != nil {
+		return nil, err
+	}
 	pb := &ValueCellConfig{
-		Units: r.Units,
-	}
-	if r.Channel != nil {
-		v := uint32(*r.Channel)
-		pb.Channel = &v
-	}
-	if r.RollingAverage != nil {
-		pb.RollingAverage = r.RollingAverage
-	}
-	if r.Precision != nil {
-		pb.Precision = r.Precision
-	}
-	if r.Notation != nil {
-		val, err := notationpb.NotationToPB(*r.Notation)
-		if err != nil {
-			return nil, err
-		}
-		pb.Notation = &val
-	}
-	if r.Redline != nil {
-		var err error
-		pb.Redline, err = RedlineToPB(*r.Redline)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Level != nil {
-		val, err := textpb.LevelToPB(*r.Level)
-		if err != nil {
-			return nil, err
-		}
-		pb.Level = &val
+		Channel:          uint32(r.Channel),
+		RollingAverage:   r.RollingAverage,
+		Precision:        r.Precision,
+		Units:            r.Units,
+		StalenessTimeout: r.StalenessTimeout,
+		Notation:         notationVal,
+		Redline:          redlineVal,
+		Level:            levelVal,
 	}
 	if r.Color != nil {
 		var err error
@@ -217,9 +192,6 @@ func ValueCellConfigToPB(r table.ValueCellConfig) (*ValueCellConfig, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
-	if r.StalenessTimeout != nil {
-		pb.StalenessTimeout = r.StalenessTimeout
 	}
 	if r.StalenessColor != nil {
 		var err error
@@ -237,47 +209,30 @@ func ValueCellConfigFromPB(pb *ValueCellConfig) (table.ValueCellConfig, error) {
 	if pb == nil {
 		return r, nil
 	}
+	var err error
+	r.Notation, err = notationpb.NotationFromPB(pb.Notation)
+	if err != nil {
+		return table.ValueCellConfig{}, err
+	}
+	r.Redline, err = RedlineFromPB(pb.Redline)
+	if err != nil {
+		return table.ValueCellConfig{}, err
+	}
+	r.Level, err = textpb.LevelFromPB(pb.Level)
+	if err != nil {
+		return table.ValueCellConfig{}, err
+	}
+	r.Channel = channel.Key(pb.Channel)
+	r.RollingAverage = pb.RollingAverage
+	r.Precision = pb.Precision
 	r.Units = pb.Units
-	if pb.Channel != nil {
-		v := channel.Key(*pb.Channel)
-		r.Channel = &v
-	}
-	if pb.RollingAverage != nil {
-		r.RollingAverage = pb.RollingAverage
-	}
-	if pb.Precision != nil {
-		r.Precision = pb.Precision
-	}
-	if pb.Notation != nil {
-		val, err := notationpb.NotationFromPB(*pb.Notation)
-		if err != nil {
-			return table.ValueCellConfig{}, err
-		}
-		r.Notation = &val
-	}
-	if pb.Redline != nil {
-		val, err := RedlineFromPB(pb.Redline)
-		if err != nil {
-			return table.ValueCellConfig{}, err
-		}
-		r.Redline = &val
-	}
-	if pb.Level != nil {
-		val, err := textpb.LevelFromPB(*pb.Level)
-		if err != nil {
-			return table.ValueCellConfig{}, err
-		}
-		r.Level = &val
-	}
+	r.StalenessTimeout = pb.StalenessTimeout
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return table.ValueCellConfig{}, err
 		}
 		r.Color = &val
-	}
-	if pb.StalenessTimeout != nil {
-		r.StalenessTimeout = pb.StalenessTimeout
 	}
 	if pb.StalenessColor != nil {
 		val, err := colorpb.ColorFromPB(pb.StalenessColor)

@@ -19,6 +19,15 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
+const mkText = (value?: string): table.CellConfig =>
+  table.cellConfigZ.parse(
+    value == null ? { variant: "text" } : { variant: "text", value },
+  );
+const mkValue = (units?: string): table.CellConfig =>
+  table.cellConfigZ.parse(
+    units == null ? { variant: "value" } : { variant: "value", units },
+  );
+
 describe("table queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -366,7 +375,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: { variant: "value", units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         });
@@ -400,7 +409,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: { variant: "value", units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         });
@@ -438,7 +447,7 @@ describe("table queries", () => {
             key: created.key,
             actions: [
               table.setCell({
-                cell: { key: "a", config: { variant: "text", value } },
+                cell: { key: "a", config: mkText(value) },
               }),
             ],
           });
@@ -468,7 +477,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: { variant: "text", value: "A1" } },
+              cell: { key: "a", config: mkText("A1") },
             }),
           ],
         });
@@ -478,7 +487,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "b", config: { variant: "text", value: "B1" } },
+              cell: { key: "b", config: mkText("B1") },
             }),
           ],
         });
@@ -629,8 +638,8 @@ describe("table queries", () => {
               index: 2,
               size: 50,
               cells: [
-                { key: "e", config: { variant: "text", value: "E" } },
-                { key: "f", config: { variant: "text", value: "F" } },
+                { key: "e", config: mkText("E") },
+                { key: "f", config: mkText("F") },
               ],
             }),
           ],
@@ -673,7 +682,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: { variant: "value", units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         });
@@ -735,7 +744,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "c", config: { variant: "value", units: "psi" } },
+              cell: { key: "c", config: mkValue("psi") },
             }),
           ],
         });
@@ -755,7 +764,7 @@ describe("table queries", () => {
           key: created.key,
           actions: [
             table.setCell({
-              cell: { key: "a", config: { variant: "value", units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         });
@@ -793,8 +802,8 @@ describe("table queries", () => {
               index: 0,
               size: 30,
               cells: [
-                { key: "x", config: { variant: "text" } },
-                { key: "y", config: { variant: "text" } },
+                { key: "x", config: mkText() },
+                { key: "y", config: mkText() },
               ],
             }),
           ],

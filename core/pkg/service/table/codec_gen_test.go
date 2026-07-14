@@ -31,9 +31,9 @@ import (
 var (
 	fullyPopulatedTextCellConfig = table.TextCellConfig{
 		Value:  "test_1",
-		Level:  new(text.Level("h1")),
-		Weight: new(float64(3.5)),
-		Align:  new(spatial.Alignment("start")),
+		Level:  text.Level("h1"),
+		Weight: 3.5,
+		Align:  spatial.Alignment("start"),
 		BackgroundColor: new(color.Color{
 			R: 7,
 			G: 8,
@@ -42,11 +42,11 @@ var (
 		}),
 	}
 	fullyPopulatedValueCellConfig = table.ValueCellConfig{
-		Channel:        new(channel.Key(2)),
-		RollingAverage: new(int32(3)),
-		Precision:      new(float64(3.5)),
-		Notation:       new(notation.Notation("standard")),
-		Redline: new(table.Redline{
+		Channel:        channel.Key(2),
+		RollingAverage: 3,
+		Precision:      3.5,
+		Notation:       notation.Notation("standard"),
+		Redline: table.Redline{
 			Bounds: spatial.Bounds{},
 			Gradient: []color.Stop{
 				{
@@ -56,8 +56,8 @@ var (
 					Switched: true,
 				},
 			},
-		}),
-		Level: new(text.Level("h1")),
+		},
+		Level: text.Level("h1"),
 		Color: new(color.Color{
 			R: 15,
 			G: 16,
@@ -65,7 +65,7 @@ var (
 			A: 17.5,
 		}),
 		Units:            "test_18",
-		StalenessTimeout: new(float64(19.5)),
+		StalenessTimeout: 19.5,
 		StalenessColor: new(color.Color{
 			R: 22,
 			G: 23,
@@ -201,9 +201,9 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", fullyPopulatedTextCellConfig),
 			Entry("zero values", table.TextCellConfig{
 				Value:           "",
-				Level:           nil,
-				Weight:          nil,
-				Align:           nil,
+				Level:           text.Level(""),
+				Weight:          0,
+				Align:           spatial.Alignment(""),
 				BackgroundColor: nil,
 			}),
 		)
@@ -221,15 +221,15 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedValueCellConfig),
 			Entry("zero values", table.ValueCellConfig{
-				Channel:          nil,
-				RollingAverage:   nil,
-				Precision:        nil,
-				Notation:         nil,
-				Redline:          nil,
-				Level:            nil,
+				Channel:          channel.Key(0),
+				RollingAverage:   0,
+				Precision:        0,
+				Notation:         notation.Notation(""),
+				Redline:          table.Redline{Bounds: spatial.Bounds{}, Gradient: nil},
+				Level:            text.Level(""),
 				Color:            nil,
 				Units:            "",
-				StalenessTimeout: nil,
+				StalenessTimeout: 0,
 				StalenessColor:   nil,
 			}),
 		)
@@ -675,9 +675,9 @@ func FuzzDecodeTextCellConfig(f *testing.F) {
 	{
 		seed := table.TextCellConfig{
 			Value:           "",
-			Level:           nil,
-			Weight:          nil,
-			Align:           nil,
+			Level:           text.Level(""),
+			Weight:          0,
+			Align:           spatial.Alignment(""),
 			BackgroundColor: nil,
 		}
 		w := orc.NewWriter(0)
@@ -726,15 +726,15 @@ func FuzzDecodeValueCellConfig(f *testing.F) {
 	}
 	{
 		seed := table.ValueCellConfig{
-			Channel:          nil,
-			RollingAverage:   nil,
-			Precision:        nil,
-			Notation:         nil,
-			Redline:          nil,
-			Level:            nil,
+			Channel:          channel.Key(0),
+			RollingAverage:   0,
+			Precision:        0,
+			Notation:         notation.Notation(""),
+			Redline:          table.Redline{Bounds: spatial.Bounds{}, Gradient: nil},
+			Level:            text.Level(""),
 			Color:            nil,
 			Units:            "",
-			StalenessTimeout: nil,
+			StalenessTimeout: 0,
 			StalenessColor:   nil,
 		}
 		w := orc.NewWriter(0)

@@ -4,11 +4,17 @@
   "rows": [
     {
       "size": 36,
-      "cells": ["cell1", "cell2"]
+      "cells": [
+        "cell1",
+        "cell2"
+      ]
     },
     {
       "size": 50,
-      "cells": ["cell3", "cell4"]
+      "cells": [
+        "cell3",
+        "cell4"
+      ]
     }
   ],
   "columns": [
@@ -21,6 +27,7 @@
   ],
   "cells": {
     "cell1": {
+      "align": "",
       "level": "p",
       "value": "Hello",
       "variant": "text",
@@ -34,6 +41,7 @@
         "b": 0,
         "a": 1
       },
+      "level": "",
       "notation": "scientific",
       "precision": 3,
       "redline": {
@@ -87,11 +95,15 @@
       },
       "level": "h3",
       "value": "Row 2",
-      "variant": "text"
+      "variant": "text",
+      "weight": 0
     },
     "cell4": {
+      "align": "",
+      "level": "",
       "value": "World",
-      "variant": "text"
+      "variant": "text",
+      "weight": 0
     }
   }
 }

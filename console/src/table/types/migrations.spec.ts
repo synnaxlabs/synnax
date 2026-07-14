@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { table } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -68,7 +69,9 @@ describe("table migrations", () => {
       expect(upload.rows[1].cells).toEqual(["c", "d"]);
       expect(upload.columns).toEqual([{ size: 72 }, { size: 72 }]);
       expect(Object.keys(upload.cells).sort()).toEqual(["a", "b", "c", "d"]);
-      expect(upload.cells.a).toEqual({ variant: "text", value: "A" });
+      expect(upload.cells.a).toEqual(
+        table.cellConfigZ.parse({ variant: "text", value: "A" }),
+      );
     });
 
     it("should extract value cell telem args from the stored pipeline spec", () => {
@@ -112,7 +115,7 @@ describe("table migrations", () => {
       expect(upload.cells.a).not.toHaveProperty("telem");
     });
 
-    it("should not emit a channel arg for the zero channel sentinel", () => {
+    it("should leave the channel at the zero sentinel for a legacy zero channel", () => {
       const upload = migrateState(
         populatedV0State({
           remoteCreated: false,
@@ -131,7 +134,7 @@ describe("table migrations", () => {
         }),
       ).pendingUpload;
       if (upload == null) throw new Error("expected pendingUpload to be defined");
-      expect(upload.cells.a).not.toHaveProperty("channel");
+      expect(upload.cells.a).toMatchObject({ variant: "value", channel: 0 });
     });
 
     it("should map legacy x-location alignments and named weights", () => {
@@ -171,7 +174,7 @@ describe("table migrations", () => {
         }),
       ).pendingUpload;
       if (upload == null) throw new Error("expected pendingUpload to be defined");
-      expect(upload.cells.a).toEqual({ variant: "text" });
+      expect(upload.cells.a).toEqual(table.cellConfigZ.parse({ variant: "text" }));
     });
 
     it("should drop the per-cell selected flag from pendingUpload", () => {

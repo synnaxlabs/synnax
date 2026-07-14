@@ -238,7 +238,7 @@ var _ = Describe("MigrateTable", func() {
 			Expect(fields).NotTo(HaveKey("telem"))
 		})
 
-		It("Should not emit a channel arg for the zero channel sentinel", func(ctx SpecContext) {
+		It("Should leave the channel at the zero sentinel for a legacy zero channel", func(ctx SpecContext) {
 			fields := cfgFields(migrateCell(ctx, `{
 				"key": "a", "variant": "value", "selected": false,
 				"props": {
@@ -247,7 +247,7 @@ var _ = Describe("MigrateTable", func() {
 					}
 				}
 			}`))
-			Expect(fields).NotTo(HaveKey("channel"))
+			Expect(fields).To(HaveKeyWithValue("channel", 0.0))
 		})
 
 		DescribeTable("Should map legacy x-location alignments onto flex alignments",

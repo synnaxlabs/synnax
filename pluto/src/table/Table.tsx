@@ -45,7 +45,6 @@ import {
   useUndo,
 } from "@/table/queries";
 import { Row } from "@/table/Row";
-import { Theming } from "@/theming";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
@@ -74,9 +73,9 @@ const NAV_KEYS = new Set<Triggers.Key>([
 const BASE_ROW_SIZE = 36;
 const BASE_COL_SIZE = 72;
 
-const newDefaultCell = (theme: ReturnType<typeof Theming.use>): table.Cell => ({
+const newDefaultCell = (): table.Cell => ({
   key: id.create(),
-  config: Cell.REGISTRY.text.defaultConfig(theme),
+  config: Cell.defaultConfig("text"),
 });
 
 export interface TableProps
@@ -138,7 +137,6 @@ export const Table = ({
   const rows = useSelectRows({ key });
   const columns = useSelectColumns({ key });
   const { dispatch } = useDispatch();
-  const theme = Theming.use();
 
   const addRow = useCallback(
     (atIndex?: number, count: number = 1) => {
@@ -150,12 +148,12 @@ export const Table = ({
             index: atIndex ?? math.MAX_UINT32,
             size: BASE_ROW_SIZE,
             cells: [],
-            cellTemplate: newDefaultCell(theme),
+            cellTemplate: newDefaultCell(),
           }),
         );
       dispatch({ key, actions });
     },
-    [dispatch, key, theme],
+    [dispatch, key],
   );
   const addCol = useCallback(
     (atIndex?: number, count: number = 1) => {
@@ -167,12 +165,12 @@ export const Table = ({
             index: atIndex ?? math.MAX_UINT32,
             size: BASE_COL_SIZE,
             cells: [],
-            cellTemplate: newDefaultCell(theme),
+            cellTemplate: newDefaultCell(),
           }),
         );
       dispatch({ key, actions });
     },
-    [dispatch, key, theme],
+    [dispatch, key],
   );
   const removeRow = useCallback(
     (indices: number[]) => {
@@ -205,12 +203,12 @@ export const Table = ({
         actions: [
           table.eraseCells({
             cells: selected,
-            template: Cell.REGISTRY.text.defaultConfig(theme),
+            template: Cell.defaultConfig("text"),
           }),
         ],
       });
     },
-    [dispatch, key, theme],
+    [dispatch, key],
   );
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });

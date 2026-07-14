@@ -124,7 +124,9 @@ const extractLegacyArgs = (cfg: record.Unknown): void => {
   }
 };
 
-const EMPTY_TEXT_CONFIG: table.CellConfig = { variant: "text" };
+const EMPTY_TEXT_CONFIG: table.CellConfig = table.cellConfigZ.parse({
+  variant: "text",
+});
 
 // migrateCell converts a legacy cell (variant string plus camelCase props
 // written verbatim) into the typed cell config. Cells that conform to no

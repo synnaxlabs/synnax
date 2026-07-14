@@ -15,7 +15,6 @@ import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks";
 import { Cell } from "@/table/cells";
 import { findCellPosition, type FluxSubStore, useDispatch } from "@/table/queries";
-import { Theming } from "@/theming";
 
 // The "web " prefix is required: Chrome silently drops custom MIME types from
 // the clipboard without it.
@@ -62,7 +61,6 @@ export const useClipboard = ({
   const { dispatch } = useDispatch();
   const store = Flux.useStore<FluxSubStore>();
   const selectedRef = useSyncedRef(selected ?? []);
-  const theme = Theming.use();
 
   const handleCopy = useCallback<ClipboardEventHandler>(
     (e) => {
@@ -134,7 +132,7 @@ export const useClipboard = ({
       const targetCols = maxCol + 1;
 
       const actions: table.Action[] = [];
-      const defaultConfig = Cell.REGISTRY.text.defaultConfig(theme);
+      const defaultConfig = Cell.defaultConfig("text");
       // keyAt maps a final-state grid position to the cell key at that
       // position. Existing positions use the current store keys; newly-added
       // positions get fresh UUIDs that are baked into the addCol/addRow
@@ -195,7 +193,7 @@ export const useClipboard = ({
       dispatch({ key, actions });
       if (actions.length > 0) onPaste?.(overwritten);
     },
-    [key, store, theme, dispatch, onPaste],
+    [key, store, dispatch, onPaste],
   );
 
   return { onCopy: handleCopy, onPaste: handlePaste };

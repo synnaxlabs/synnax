@@ -27,14 +27,17 @@ import { ontology } from "@/ontology";
 /** TextCellConfig is the configuration for static text cells. */
 export const textCellConfigZ = z.object({
   /** value is the text content of the cell. */
-  value: z.string().optional(),
+  value: z.string().default(""),
   /** level is the typography level of the cell text. */
-  level: text.levelZ.optional(),
+  level: text.levelZ.default("h5"),
   /** weight is the font weight of the cell text. */
-  weight: z.number().optional(),
+  weight: z.number().default(400),
   /** align is the alignment of the cell text along the row axis. */
-  align: spatial.alignmentZ.optional(),
-  /** backgroundColor is the background color of the cell. */
+  align: spatial.alignmentZ.default("center"),
+  /**
+   * backgroundColor is the background color of the cell. When absent the cell renders
+   * with a transparent background.
+   */
   backgroundColor: color.colorZ.optional(),
 });
 export interface TextCellConfig extends z.infer<typeof textCellConfigZ> {}
@@ -73,24 +76,30 @@ export type Key = z.infer<typeof keyZ>;
 /** ValueCellConfig is the configuration for live telemetry value cells. */
 export const valueCellConfigZ = z.object({
   /** channel is the channel whose value the cell displays. */
-  channel: channel.keyZ.optional(),
+  channel: channel.keyZ.default(0),
   /** rollingAverage is the sample window for rolling-average smoothing. */
-  rollingAverage: z.int32().optional(),
+  rollingAverage: z.int32().default(1),
   /** precision is the number of decimal places shown. */
-  precision: z.number().optional(),
+  precision: z.number().default(2),
   /** notation is the numeric notation used to format the value. */
-  notation: notation.notationZ.optional(),
+  notation: notation.notationZ.default("standard"),
   /** redline is the bounds-to-gradient mapping applied to the background. */
-  redline: redlineZ.optional(),
+  redline: redlineZ.prefault({ bounds: { lower: 0, upper: 1 }, gradient: [] }),
   /** level is the typography level of the displayed value. */
-  level: text.levelZ.optional(),
-  /** color is the color of the displayed text. */
+  level: text.levelZ.default("h5"),
+  /**
+   * color is the color of the displayed text. When absent the value renders
+   * with a theme-derived legible color.
+   */
   color: color.colorZ.optional(),
   /** units is the unit suffix displayed after the value. */
-  units: z.string().optional(),
+  units: z.string().default(""),
   /** stalenessTimeout is the duration in seconds after which the value is considered stale. */
-  stalenessTimeout: z.number().optional(),
-  /** stalenessColor is the color applied when the value is stale. */
+  stalenessTimeout: z.number().default(5),
+  /**
+   * stalenessColor is the color applied when the value is stale. When absent the value
+   * renders with the theme warning color.
+   */
   stalenessColor: color.colorZ.optional(),
 });
 export interface ValueCellConfig extends z.infer<typeof valueCellConfigZ> {}

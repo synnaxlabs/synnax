@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, table } from "@synnaxlabs/client";
-import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { type z } from "zod";
 
 import { type CellProps, Text, Value } from "@/table/cells/Cells";
 import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
-import { type Theming } from "@/theming";
 
 export const variantZ = table.cellConfigTypeZ;
 export type Variant = table.CellConfigType;
@@ -29,7 +27,6 @@ export interface Spec<V extends Variant = Variant> {
   Form: FC<FormProps>;
   Cell: FC<CellProps<ConfigOf<V>>>;
   schema: z.ZodType<ConfigOf<V>>;
-  defaultConfig: (t: Theming.Theme) => ConfigOf<V>;
 }
 
 const value: Spec<"value"> = {
@@ -37,19 +34,6 @@ const value: Spec<"value"> = {
   name: "Value",
   Form: ValueForm,
   Cell: Value,
-  defaultConfig: (t) => ({
-    variant: "value",
-    channel: 0,
-    rollingAverage: 1,
-    precision: 2,
-    notation: "standard",
-    redline: { bounds: { lower: 0, upper: 1 }, gradient: [] },
-    color: color.construct(t.colors.gray.l10),
-    level: "h5",
-    units: "",
-    stalenessTimeout: 5,
-    stalenessColor: t.colors.warning.m1,
-  }),
   schema: table.CELL_CONFIG_SCHEMAS.value,
 };
 
@@ -58,14 +42,6 @@ const text: Spec<"text"> = {
   name: "Text",
   Form: TextForm,
   Cell: Text,
-  defaultConfig: () => ({
-    variant: "text",
-    value: "",
-    level: "h5",
-    weight: 400,
-    align: "center",
-    backgroundColor: color.construct("#00000000"),
-  }),
   schema: table.CELL_CONFIG_SCHEMAS.text,
 };
 
@@ -79,3 +55,12 @@ export const resolveSpec = (variant: string): Spec => {
     throw new NotFoundError(`Table cell with variant ${variant} not found`);
   return spec as Spec;
 };
+
+/**
+ * defaultConfig returns the default configuration for a cell variant, derived
+ * by parsing the variant's schema with its declared field defaults. Fields
+ * left absent by the schema (the theme-resolved text and staleness colors) are
+ * filled in by the renderer at draw time.
+ */
+export const defaultConfig = <V extends Variant>(variant: V): ConfigOf<V> =>
+  REGISTRY[variant].schema.parse({ variant }) as ConfigOf<V>;

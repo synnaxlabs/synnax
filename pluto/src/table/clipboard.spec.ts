@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type table } from "@synnaxlabs/client";
+import { createTestClient, table } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import {
@@ -50,8 +50,10 @@ const makeClipboardEvent = (
 
 const MIME = "web application/synnax-table+json";
 
-const valueCfg = (units: string): table.CellConfig => ({ variant: "value", units });
-const textCfg = (value: string): table.CellConfig => ({ variant: "text", value });
+const valueCfg = (units: string): table.CellConfig =>
+  table.cellConfigZ.parse({ variant: "value", units });
+const textCfg = (value: string): table.CellConfig =>
+  table.cellConfigZ.parse({ variant: "text", value });
 
 describe("table clipboard", () => {
   let wrapper: React.FC<PropsWithChildren>;

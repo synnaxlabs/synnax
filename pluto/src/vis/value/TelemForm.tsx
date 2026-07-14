@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { color, type notation, primitive } from "@synnaxlabs/x";
+import { type color, type notation, primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
@@ -17,6 +17,7 @@ import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
+import { Theming } from "@/theming";
 
 interface ValueTelemFormT {
   channel?: channel.Key;
@@ -32,6 +33,7 @@ export interface TelemFormProps {
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
+  const theme = Theming.use();
 
   const { retrieve } = Channel.useRetrieveObservable({
     onChange: useCallback(
@@ -82,14 +84,14 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
           />
         </Input.Item>
         <Form.Field<color.Crude>
-          hideIfNull
+          hideIfNull={false}
           label="Stale color"
           align="start"
           path="stalenessColor"
         >
           {({ value, onChange }) => (
             <Color.Swatch
-              value={value ?? color.setAlpha(color.ZERO, 1)}
+              value={value ?? theme.colors.warning.m1}
               onChange={onChange}
               bordered
             />

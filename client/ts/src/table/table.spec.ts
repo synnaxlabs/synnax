@@ -16,6 +16,18 @@ import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
 
+// mkText and mkValue build fully-populated cell configs by running the variant
+// through its schema, filling the declared field defaults. Tests use them so
+// fixtures and round-trip assertions agree on the post-default shape.
+const mkText = (value?: string): table.CellConfig =>
+  table.cellConfigZ.parse(
+    value == null ? { variant: "text" } : { variant: "text", value },
+  );
+const mkValue = (units?: string): table.CellConfig =>
+  table.cellConfigZ.parse(
+    units == null ? { variant: "value" } : { variant: "value", units },
+  );
+
 describe("Table", () => {
   describe("create", () => {
     test("create one", async () => {
@@ -130,15 +142,15 @@ describe("Table", () => {
           index: 1,
           size: 40,
           cells: [
-            { key: "c", config: { variant: "text", value: "C" } },
-            { key: "d", config: { variant: "text", value: "D" } },
+            { key: "c", config: mkText("C") },
+            { key: "d", config: mkText("D") },
           ],
         }),
       ]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.rows).toHaveLength(2);
       expect(res.rows[1].cells).toEqual(["c", "d"]);
-      expect(res.cells.c).toEqual({ variant: "text", value: "C" });
+      expect(res.cells.c).toEqual(mkText("C"));
     });
 
     test("removeRow drops the row and its cells", async () => {
@@ -155,7 +167,7 @@ describe("Table", () => {
         table.addCol({
           index: 1,
           size: 90,
-          cells: [{ key: "mid-1", config: { variant: "text", value: "M1" } }],
+          cells: [{ key: "mid-1", config: mkText("M1") }],
         }),
       ]);
       const res = await client.tables.retrieve({ key: t.key });
@@ -187,17 +199,17 @@ describe("Table", () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [
         table.setCell({
-          cell: { key: "a", config: { variant: "value", units: "psi" } },
+          cell: { key: "a", config: mkValue("psi") },
         }),
       ]);
       const res = await client.tables.retrieve({ key: t.key });
-      expect(res.cells.a).toEqual({ variant: "value", units: "psi" });
+      expect(res.cells.a).toEqual(mkValue("psi"));
     });
 
     test("setCell is a no-op for an unknown key", async () => {
       const t = await createTable();
       await client.tables.dispatch(t.key, "dk-1", [
-        table.setCell({ cell: { key: "ghost", config: { variant: "text" } } }),
+        table.setCell({ cell: { key: "ghost", config: mkText() } }),
       ]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.cells.ghost).toBeUndefined();
@@ -212,18 +224,18 @@ describe("Table", () => {
           index: 1,
           size: 40,
           cells: [
-            { key: "c", config: { variant: "text" } },
-            { key: "d", config: { variant: "text" } },
+            { key: "c", config: mkText() },
+            { key: "d", config: mkText() },
           ],
         }),
         table.setCell({
-          cell: { key: "c", config: { variant: "value", units: "psi" } },
+          cell: { key: "c", config: mkValue("psi") },
         }),
       ]);
       const res = await client.tables.retrieve({ key: t.key });
       expect(res.name).toEqual("multi");
       expect(res.rows).toHaveLength(2);
-      expect(res.cells.c).toEqual({ variant: "value", units: "psi" });
+      expect(res.cells.c).toEqual(mkValue("psi"));
     });
   });
 
@@ -232,7 +244,7 @@ describe("Table", () => {
     const TEMPLATE_KEY = "11111111-2222-4333-8444-555555555555";
     const DERIVED_KEY_0 = "11111111-2222-4333-8444-555555550000";
     const DERIVED_KEY_1 = "11111111-2222-4333-8444-555555550001";
-    const textTemplate: table.CellConfig = { variant: "text" };
+    const textTemplate: table.CellConfig = mkText();
 
     const emptyState = (name = "t"): table.Table => ({
       key: KEY,
@@ -251,10 +263,10 @@ describe("Table", () => {
       ],
       columns: [{ size: 80 }, { size: 100 }],
       cells: {
-        a: { variant: "text", value: "A" },
-        b: { variant: "text", value: "B" },
-        c: { variant: "text", value: "C" },
-        d: { variant: "text", value: "D" },
+        a: mkText("A"),
+        b: mkText("B"),
+        c: mkText("C"),
+        d: mkText("D"),
       },
     });
 
@@ -269,9 +281,7 @@ describe("Table", () => {
           { size: 36, cells: ["g", "h", "i"] },
         ],
         columns: [{ size: 80 }, { size: 80 }, { size: 80 }],
-        cells: Object.fromEntries(
-          keys.map((k) => [k, { variant: "value", units: "psi" }]),
-        ),
+        cells: Object.fromEntries(keys.map((k) => [k, mkValue("psi")])),
       };
     };
 
@@ -293,7 +303,7 @@ describe("Table", () => {
           table.addRow({
             index: 0,
             size: 30,
-            cells: [{ key: "x", config: { variant: "text" } }],
+            cells: [{ key: "x", config: mkText() }],
           }),
         ]);
         expect(inverse).toHaveLength(1);
@@ -306,11 +316,11 @@ describe("Table", () => {
             ...emptyState(),
             rows: [{ size: 30, cells: ["a"] }],
             columns: [{ size: 80 }],
-            cells: { a: { variant: "text", value: "1" } },
+            cells: { a: mkText("1") },
           },
           [
             table.setCell({
-              cell: { key: "a", config: { variant: "value", units: "psi" } },
+              cell: { key: "a", config: mkValue("psi") },
             }),
           ],
         );
@@ -320,13 +330,13 @@ describe("Table", () => {
         if (inverse[0].type === "set_cell")
           expect(inverse[0].setCell.cell).toEqual({
             key: "a",
-            config: { variant: "text", value: "1" },
+            config: mkText("1"),
           });
       });
 
       test("setCell on an unknown key returns no inverse", () => {
         const { inverse } = table.reduceAll(emptyState(), [
-          table.setCell({ cell: { key: "ghost", config: { variant: "text" } } }),
+          table.setCell({ cell: { key: "ghost", config: mkText() } }),
         ]);
         expect(inverse).toEqual([]);
       });
@@ -339,8 +349,8 @@ describe("Table", () => {
             index: 0,
             size: 36,
             cells: [
-              { key: "a", config: { variant: "text" } },
-              { key: "b", config: { variant: "text" } },
+              { key: "a", config: mkText() },
+              { key: "b", config: mkText() },
             ],
           }),
         ]);
@@ -356,8 +366,8 @@ describe("Table", () => {
             index: 0,
             size: 72,
             cells: [
-              { key: "a", config: { variant: "text" } },
-              { key: "b", config: { variant: "text" } },
+              { key: "a", config: mkText() },
+              { key: "b", config: mkText() },
             ],
           }),
         ]);
@@ -372,7 +382,7 @@ describe("Table", () => {
     describe("cellTemplate", () => {
       const template: table.Cell = {
         key: TEMPLATE_KEY,
-        config: { variant: "text", value: "t" },
+        config: mkText("t"),
       };
 
       test("addRow replicates the template across existing columns", () => {
@@ -382,14 +392,14 @@ describe("Table", () => {
             rows: [{ size: 36, cells: ["a", "b"] }],
             columns: [{ size: 80 }, { size: 80 }],
             cells: {
-              a: { variant: "text" },
-              b: { variant: "text" },
+              a: mkText(),
+              b: mkText(),
             },
           },
           [table.addRow({ index: 1, size: 36, cells: [], cellTemplate: template })],
         );
         expect(next.rows[1].cells).toEqual([DERIVED_KEY_0, DERIVED_KEY_1]);
-        expect(next.cells[DERIVED_KEY_0]).toEqual({ variant: "text", value: "t" });
+        expect(next.cells[DERIVED_KEY_0]).toEqual(mkText("t"));
       });
 
       test("addCol replicates the template across existing rows", () => {
@@ -402,8 +412,8 @@ describe("Table", () => {
             ],
             columns: [{ size: 80 }],
             cells: {
-              a: { variant: "text" },
-              b: { variant: "text" },
+              a: mkText(),
+              b: mkText(),
             },
           },
           [table.addCol({ index: 1, size: 80, cells: [], cellTemplate: template })],
@@ -451,7 +461,7 @@ describe("Table", () => {
         ...emptyState(),
         rows: [{ size: 60, cells: ["a"] }],
         columns: [{ size: 80 }],
-        cells: { a: { variant: "text" } },
+        cells: { a: mkText() },
       };
       test.for<{
         name: string;
@@ -465,7 +475,7 @@ describe("Table", () => {
           action: table.addRow({
             index: 0,
             size: 5,
-            cells: [{ key: "a", config: { variant: "text" } }],
+            cells: [{ key: "a", config: mkText() }],
           }),
           get: (t) => t.rows[0].size,
         },
@@ -475,7 +485,7 @@ describe("Table", () => {
           action: table.addCol({
             index: 1,
             size: 10,
-            cells: [{ key: "b", config: { variant: "text" } }],
+            cells: [{ key: "b", config: mkText() }],
           }),
           get: (t) => t.columns[1].size,
         },
@@ -605,8 +615,8 @@ describe("Table", () => {
             index: 1,
             size: 40,
             cells: [
-              { key: "e", config: { variant: "text", value: "E" } },
-              { key: "f", config: { variant: "text", value: "F" } },
+              { key: "e", config: mkText("E") },
+              { key: "f", config: mkText("F") },
             ],
           }),
         },
@@ -617,8 +627,8 @@ describe("Table", () => {
             index: 1,
             size: 60,
             cells: [
-              { key: "m1", config: { variant: "text", value: "M1" } },
-              { key: "m2", config: { variant: "value", units: "psi" } },
+              { key: "m1", config: mkText("M1") },
+              { key: "m2", config: mkValue("psi") },
             ],
           }),
         },
@@ -628,7 +638,7 @@ describe("Table", () => {
         {
           name: "setCell",
           action: table.setCell({
-            cell: { key: "a", config: { variant: "value", units: "psi" } },
+            cell: { key: "a", config: mkValue("psi") },
           }),
         },
       ])("$name round-trips", ({ action }) => roundTrip(action));

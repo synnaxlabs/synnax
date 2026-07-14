@@ -30,12 +30,13 @@ type TextCellConfig struct {
 	// Value is the text content of the cell.
 	Value string `json:"value" msgpack:"value"`
 	// Level is the typography level of the cell text.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
+	Level text.Level `json:"level" msgpack:"level"`
 	// Weight is the font weight of the cell text.
-	Weight *float64 `json:"weight,omitempty" msgpack:"weight,omitempty"`
+	Weight float64 `json:"weight" msgpack:"weight"`
 	// Align is the alignment of the cell text along the row axis.
-	Align *spatial.Alignment `json:"align,omitempty" msgpack:"align,omitempty"`
-	// BackgroundColor is the background color of the cell.
+	Align spatial.Alignment `json:"align" msgpack:"align"`
+	// BackgroundColor is the background color of the cell. When absent the cell renders
+	// with a transparent background.
 	BackgroundColor *color.Color `json:"background_color,omitempty" msgpack:"background_color,omitempty"`
 }
 
@@ -50,25 +51,27 @@ type Redline struct {
 // ValueCellConfig is the configuration for live telemetry value cells.
 type ValueCellConfig struct {
 	// Channel is the channel whose value the cell displays.
-	Channel *channel.Key `json:"channel,omitempty" msgpack:"channel,omitempty"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// RollingAverage is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `json:"rolling_average,omitempty" msgpack:"rolling_average,omitempty"`
+	RollingAverage int32 `json:"rolling_average" msgpack:"rolling_average"`
 	// Precision is the number of decimal places shown.
-	Precision *float64 `json:"precision,omitempty" msgpack:"precision,omitempty"`
+	Precision float64 `json:"precision" msgpack:"precision"`
 	// Notation is the numeric notation used to format the value.
-	Notation *notation.Notation `json:"notation,omitempty" msgpack:"notation,omitempty"`
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Redline is the bounds-to-gradient mapping applied to the background.
-	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
+	Redline Redline `json:"redline" msgpack:"redline"`
 	// Level is the typography level of the displayed value.
-	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
-	// Color is the color of the displayed text.
+	Level text.Level `json:"level" msgpack:"level"`
+	// Color is the color of the displayed text. When absent the value renders with a
+	// theme-derived legible color.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Units is the unit suffix displayed after the value.
 	Units string `json:"units" msgpack:"units"`
 	// StalenessTimeout is the duration in seconds after which the value is considered
 	// stale.
-	StalenessTimeout *float64 `json:"staleness_timeout,omitempty" msgpack:"staleness_timeout,omitempty"`
-	// StalenessColor is the color applied when the value is stale.
+	StalenessTimeout float64 `json:"staleness_timeout" msgpack:"staleness_timeout"`
+	// StalenessColor is the color applied when the value is stale. When absent the value
+	// renders with the theme warning color.
 	StalenessColor *color.Color `json:"staleness_color,omitempty" msgpack:"staleness_color,omitempty"`
 }
 

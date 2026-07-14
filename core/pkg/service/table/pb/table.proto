@@ -25,12 +25,13 @@ message TextCellConfig {
   // value is the text content of the cell.
   string value = 1;
   // level is the typography level of the cell text.
-  optional .x.text.pb.Level level = 2;
+  .x.text.pb.Level level = 2;
   // weight is the font weight of the cell text.
-  optional double weight = 3;
+  double weight = 3;
   // align is the alignment of the cell text along the row axis.
-  optional .x.spatial.pb.Alignment align = 4;
-  // background_color is the background color of the cell.
+  .x.spatial.pb.Alignment align = 4;
+  // background_color is the background color of the cell. When absent the cell renders
+  // with a transparent background.
   optional .x.color.pb.Color background_color = 5;
 }
 
@@ -45,25 +46,27 @@ message Redline {
 // ValueCellConfig is the configuration for live telemetry value cells.
 message ValueCellConfig {
   // channel is the channel whose value the cell displays.
-  optional uint32 channel = 1;
+  uint32 channel = 1;
   // rolling_average is the sample window for rolling-average smoothing.
-  optional int32 rolling_average = 2;
+  int32 rolling_average = 2;
   // precision is the number of decimal places shown.
-  optional double precision = 3;
+  double precision = 3;
   // notation is the numeric notation used to format the value.
-  optional .x.notation.pb.Notation notation = 4;
+  .x.notation.pb.Notation notation = 4;
   // redline is the bounds-to-gradient mapping applied to the background.
-  optional Redline redline = 5;
+  Redline redline = 5;
   // level is the typography level of the displayed value.
-  optional .x.text.pb.Level level = 6;
-  // color is the color of the displayed text.
+  .x.text.pb.Level level = 6;
+  // color is the color of the displayed text. When absent the value renders with a
+  // theme-derived legible color.
   optional .x.color.pb.Color color = 7;
   // units is the unit suffix displayed after the value.
   string units = 8;
   // staleness_timeout is the duration in seconds after which the value is considered
   // stale.
-  optional double staleness_timeout = 9;
-  // staleness_color is the color applied when the value is stale.
+  double staleness_timeout = 9;
+  // staleness_color is the color applied when the value is stale. When absent the value
+  // renders with the theme warning color.
   optional .x.color.pb.Color staleness_color = 10;
 }
 

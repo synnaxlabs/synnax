@@ -21,7 +21,6 @@ import {
   Select,
   Table as Base,
   Text,
-  Theming,
 } from "@synnaxlabs/pluto";
 import { color, deep, type record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
@@ -120,7 +119,6 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
 const buildVariantSwapActions = (
   cells: Iterable<[string, Base.Cell.Config]>,
   variant: Base.Cell.Variant,
-  theme: Theming.Theme,
 ): table.Action[] => {
   const spec = Base.Cell.REGISTRY[variant];
   const actions: table.Action[] = [];
@@ -128,7 +126,7 @@ const buildVariantSwapActions = (
     if (cell.variant === variant) continue;
     const config = deep.overrideValidItems(
       cell,
-      spec.defaultConfig(theme),
+      Base.Cell.defaultConfig(variant),
       spec.schema as z.ZodType<Base.Cell.Config>,
     );
     actions.push(table.setCell({ cell: { key, config } }));
@@ -144,17 +142,16 @@ interface CellFormProps {
 const CellForm = ({ tableKey, cellKey }: CellFormProps): ReactElement | null => {
   const cell = Base.useSelectCell({ key: tableKey, cellKey });
   const { dispatch } = Base.useDispatch();
-  const theme = Theming.use();
 
   const handleVariantChange = useCallback(
     (variant: Base.Cell.Variant) => {
       if (cell != null)
         dispatch({
           key: tableKey,
-          actions: buildVariantSwapActions([[cellKey, cell]], variant, theme),
+          actions: buildVariantSwapActions([[cellKey, cell]], variant),
         });
     },
-    [cell, cellKey, dispatch, tableKey, theme],
+    [cell, cellKey, dispatch, tableKey],
   );
 
   const handleChange = useCallback(
@@ -162,14 +159,18 @@ const CellForm = ({ tableKey, cellKey }: CellFormProps): ReactElement | null => 
       if (cell == null) return;
       dispatch({
         key: tableKey,
-        actions: [table.setCell({ cell: { key: cellKey, config: deep.copy(values) } })],
+        actions: [
+          table.setCell({
+            cell: { key: cellKey, config: Base.Cell.configZ.parse(values) },
+          }),
+        ],
       });
     },
     [cell, cellKey, dispatch, tableKey],
   );
 
   const methods = Form.use<typeof Base.Cell.configZ>({
-    values: cell != null ? deep.copy(cell) : { variant: "text" },
+    values: cell != null ? deep.copy(cell) : Base.Cell.defaultConfig("text"),
     schema: Base.Cell.configZ,
     onChange: handleChange,
     sync: true,
@@ -240,7 +241,6 @@ interface MultiCellFormProps {
 const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement => {
   const cellsByKey = Base.useSelectCells({ key: tableKey, cellKeys });
   const { dispatch } = Base.useDispatch();
-  const theme = Theming.use();
 
   // Cells absent from the store are skipped (selection may include keys from
   // a removed row). One dispatch per call so undo collapses to one step.
@@ -278,10 +278,10 @@ const MultiCellForm = ({ tableKey, cellKeys }: MultiCellFormProps): ReactElement
     (variant: Base.Cell.Variant) => {
       dispatch({
         key: tableKey,
-        actions: buildVariantSwapActions(cellsByKey, variant, theme),
+        actions: buildVariantSwapActions(cellsByKey, variant),
       });
     },
-    [cellsByKey, dispatch, tableKey, theme],
+    [cellsByKey, dispatch, tableKey],
   );
 
   const colorGroups = useMemo(() => {

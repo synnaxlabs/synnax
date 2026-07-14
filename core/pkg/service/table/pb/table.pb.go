@@ -42,12 +42,13 @@ type TextCellConfig struct {
 	// value is the text content of the cell.
 	Value string `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	// level is the typography level of the cell text.
-	Level *pb.Level `protobuf:"varint,2,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
+	Level pb.Level `protobuf:"varint,2,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
 	// weight is the font weight of the cell text.
-	Weight *float64 `protobuf:"fixed64,3,opt,name=weight,proto3,oneof" json:"weight,omitempty"`
+	Weight float64 `protobuf:"fixed64,3,opt,name=weight,proto3" json:"weight,omitempty"`
 	// align is the alignment of the cell text along the row axis.
-	Align *pb1.Alignment `protobuf:"varint,4,opt,name=align,proto3,enum=x.spatial.pb.Alignment,oneof" json:"align,omitempty"`
-	// background_color is the background color of the cell.
+	Align pb1.Alignment `protobuf:"varint,4,opt,name=align,proto3,enum=x.spatial.pb.Alignment" json:"align,omitempty"`
+	// background_color is the background color of the cell. When absent the cell renders
+	// with a transparent background.
 	BackgroundColor *pb2.Color `protobuf:"bytes,5,opt,name=background_color,json=backgroundColor,proto3,oneof" json:"background_color,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
@@ -91,22 +92,22 @@ func (x *TextCellConfig) GetValue() string {
 }
 
 func (x *TextCellConfig) GetLevel() pb.Level {
-	if x != nil && x.Level != nil {
-		return *x.Level
+	if x != nil {
+		return x.Level
 	}
 	return pb.Level(0)
 }
 
 func (x *TextCellConfig) GetWeight() float64 {
-	if x != nil && x.Weight != nil {
-		return *x.Weight
+	if x != nil {
+		return x.Weight
 	}
 	return 0
 }
 
 func (x *TextCellConfig) GetAlign() pb1.Alignment {
-	if x != nil && x.Align != nil {
-		return *x.Align
+	if x != nil {
+		return x.Align
 	}
 	return pb1.Alignment(0)
 }
@@ -177,25 +178,27 @@ func (x *Redline) GetGradient() []*pb2.Stop {
 type ValueCellConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// channel is the channel whose value the cell displays.
-	Channel *uint32 `protobuf:"varint,1,opt,name=channel,proto3,oneof" json:"channel,omitempty"`
+	Channel uint32 `protobuf:"varint,1,opt,name=channel,proto3" json:"channel,omitempty"`
 	// rolling_average is the sample window for rolling-average smoothing.
-	RollingAverage *int32 `protobuf:"varint,2,opt,name=rolling_average,json=rollingAverage,proto3,oneof" json:"rolling_average,omitempty"`
+	RollingAverage int32 `protobuf:"varint,2,opt,name=rolling_average,json=rollingAverage,proto3" json:"rolling_average,omitempty"`
 	// precision is the number of decimal places shown.
-	Precision *float64 `protobuf:"fixed64,3,opt,name=precision,proto3,oneof" json:"precision,omitempty"`
+	Precision float64 `protobuf:"fixed64,3,opt,name=precision,proto3" json:"precision,omitempty"`
 	// notation is the numeric notation used to format the value.
-	Notation *pb3.Notation `protobuf:"varint,4,opt,name=notation,proto3,enum=x.notation.pb.Notation,oneof" json:"notation,omitempty"`
+	Notation pb3.Notation `protobuf:"varint,4,opt,name=notation,proto3,enum=x.notation.pb.Notation" json:"notation,omitempty"`
 	// redline is the bounds-to-gradient mapping applied to the background.
-	Redline *Redline `protobuf:"bytes,5,opt,name=redline,proto3,oneof" json:"redline,omitempty"`
+	Redline *Redline `protobuf:"bytes,5,opt,name=redline,proto3" json:"redline,omitempty"`
 	// level is the typography level of the displayed value.
-	Level *pb.Level `protobuf:"varint,6,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
-	// color is the color of the displayed text.
+	Level pb.Level `protobuf:"varint,6,opt,name=level,proto3,enum=x.text.pb.Level" json:"level,omitempty"`
+	// color is the color of the displayed text. When absent the value renders with a
+	// theme-derived legible color.
 	Color *pb2.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// units is the unit suffix displayed after the value.
 	Units string `protobuf:"bytes,8,opt,name=units,proto3" json:"units,omitempty"`
 	// staleness_timeout is the duration in seconds after which the value is considered
 	// stale.
-	StalenessTimeout *float64 `protobuf:"fixed64,9,opt,name=staleness_timeout,json=stalenessTimeout,proto3,oneof" json:"staleness_timeout,omitempty"`
-	// staleness_color is the color applied when the value is stale.
+	StalenessTimeout float64 `protobuf:"fixed64,9,opt,name=staleness_timeout,json=stalenessTimeout,proto3" json:"staleness_timeout,omitempty"`
+	// staleness_color is the color applied when the value is stale. When absent the value
+	// renders with the theme warning color.
 	StalenessColor *pb2.Color `protobuf:"bytes,10,opt,name=staleness_color,json=stalenessColor,proto3,oneof" json:"staleness_color,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -232,29 +235,29 @@ func (*ValueCellConfig) Descriptor() ([]byte, []int) {
 }
 
 func (x *ValueCellConfig) GetChannel() uint32 {
-	if x != nil && x.Channel != nil {
-		return *x.Channel
+	if x != nil {
+		return x.Channel
 	}
 	return 0
 }
 
 func (x *ValueCellConfig) GetRollingAverage() int32 {
-	if x != nil && x.RollingAverage != nil {
-		return *x.RollingAverage
+	if x != nil {
+		return x.RollingAverage
 	}
 	return 0
 }
 
 func (x *ValueCellConfig) GetPrecision() float64 {
-	if x != nil && x.Precision != nil {
-		return *x.Precision
+	if x != nil {
+		return x.Precision
 	}
 	return 0
 }
 
 func (x *ValueCellConfig) GetNotation() pb3.Notation {
-	if x != nil && x.Notation != nil {
-		return *x.Notation
+	if x != nil {
+		return x.Notation
 	}
 	return pb3.Notation(0)
 }
@@ -267,8 +270,8 @@ func (x *ValueCellConfig) GetRedline() *Redline {
 }
 
 func (x *ValueCellConfig) GetLevel() pb.Level {
-	if x != nil && x.Level != nil {
-		return *x.Level
+	if x != nil {
+		return x.Level
 	}
 	return pb.Level(0)
 }
@@ -288,8 +291,8 @@ func (x *ValueCellConfig) GetUnits() string {
 }
 
 func (x *ValueCellConfig) GetStalenessTimeout() float64 {
-	if x != nil && x.StalenessTimeout != nil {
-		return *x.StalenessTimeout
+	if x != nil {
+		return x.StalenessTimeout
 	}
 	return 0
 }
@@ -634,43 +637,30 @@ var File_core_pkg_service_table_pb_table_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_table_pb_table_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/service/table/pb/table.proto\x12\x10service.table.pb\x1a\x19x/go/color/pb/color.proto\x1a\x1fx/go/notation/pb/notation.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"\x9b\x02\n" +
+	"%core/pkg/service/table/pb/table.proto\x12\x10service.table.pb\x1a\x19x/go/color/pb/color.proto\x1a\x1fx/go/notation/pb/notation.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"\xed\x01\n" +
 	"\x0eTextCellConfig\x12\x14\n" +
-	"\x05value\x18\x01 \x01(\tR\x05value\x12+\n" +
-	"\x05level\x18\x02 \x01(\x0e2\x10.x.text.pb.LevelH\x00R\x05level\x88\x01\x01\x12\x1b\n" +
-	"\x06weight\x18\x03 \x01(\x01H\x01R\x06weight\x88\x01\x01\x122\n" +
-	"\x05align\x18\x04 \x01(\x0e2\x17.x.spatial.pb.AlignmentH\x02R\x05align\x88\x01\x01\x12A\n" +
-	"\x10background_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x03R\x0fbackgroundColor\x88\x01\x01B\b\n" +
-	"\x06_levelB\t\n" +
-	"\a_weightB\b\n" +
-	"\x06_alignB\x13\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\x12&\n" +
+	"\x05level\x18\x02 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12\x16\n" +
+	"\x06weight\x18\x03 \x01(\x01R\x06weight\x12-\n" +
+	"\x05align\x18\x04 \x01(\x0e2\x17.x.spatial.pb.AlignmentR\x05align\x12A\n" +
+	"\x10background_color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x00R\x0fbackgroundColor\x88\x01\x01B\x13\n" +
 	"\x11_background_color\"e\n" +
 	"\aRedline\x12,\n" +
 	"\x06bounds\x18\x01 \x01(\v2\x14.x.spatial.pb.BoundsR\x06bounds\x12,\n" +
-	"\bgradient\x18\x02 \x03(\v2\x10.x.color.pb.StopR\bgradient\"\xde\x04\n" +
-	"\x0fValueCellConfig\x12\x1d\n" +
-	"\achannel\x18\x01 \x01(\rH\x00R\achannel\x88\x01\x01\x12,\n" +
-	"\x0frolling_average\x18\x02 \x01(\x05H\x01R\x0erollingAverage\x88\x01\x01\x12!\n" +
-	"\tprecision\x18\x03 \x01(\x01H\x02R\tprecision\x88\x01\x01\x128\n" +
-	"\bnotation\x18\x04 \x01(\x0e2\x17.x.notation.pb.NotationH\x03R\bnotation\x88\x01\x01\x128\n" +
-	"\aredline\x18\x05 \x01(\v2\x19.service.table.pb.RedlineH\x04R\aredline\x88\x01\x01\x12+\n" +
-	"\x05level\x18\x06 \x01(\x0e2\x10.x.text.pb.LevelH\x05R\x05level\x88\x01\x01\x12,\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12\x14\n" +
-	"\x05units\x18\b \x01(\tR\x05units\x120\n" +
-	"\x11staleness_timeout\x18\t \x01(\x01H\aR\x10stalenessTimeout\x88\x01\x01\x12?\n" +
+	"\bgradient\x18\x02 \x03(\v2\x10.x.color.pb.StopR\bgradient\"\xd4\x03\n" +
+	"\x0fValueCellConfig\x12\x18\n" +
+	"\achannel\x18\x01 \x01(\rR\achannel\x12'\n" +
+	"\x0frolling_average\x18\x02 \x01(\x05R\x0erollingAverage\x12\x1c\n" +
+	"\tprecision\x18\x03 \x01(\x01R\tprecision\x123\n" +
+	"\bnotation\x18\x04 \x01(\x0e2\x17.x.notation.pb.NotationR\bnotation\x123\n" +
+	"\aredline\x18\x05 \x01(\v2\x19.service.table.pb.RedlineR\aredline\x12&\n" +
+	"\x05level\x18\x06 \x01(\x0e2\x10.x.text.pb.LevelR\x05level\x12,\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x12\x14\n" +
+	"\x05units\x18\b \x01(\tR\x05units\x12+\n" +
+	"\x11staleness_timeout\x18\t \x01(\x01R\x10stalenessTimeout\x12?\n" +
 	"\x0fstaleness_color\x18\n" +
-	" \x01(\v2\x11.x.color.pb.ColorH\bR\x0estalenessColor\x88\x01\x01B\n" +
-	"\n" +
-	"\b_channelB\x12\n" +
-	"\x10_rolling_averageB\f\n" +
-	"\n" +
-	"_precisionB\v\n" +
-	"\t_notationB\n" +
-	"\n" +
-	"\b_redlineB\b\n" +
-	"\x06_levelB\b\n" +
-	"\x06_colorB\x14\n" +
-	"\x12_staleness_timeoutB\x12\n" +
+	" \x01(\v2\x11.x.color.pb.ColorH\x01R\x0estalenessColor\x88\x01\x01B\b\n" +
+	"\x06_colorB\x12\n" +
 	"\x10_staleness_color\"N\n" +
 	"\x04Cell\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +

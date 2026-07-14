@@ -21,6 +21,7 @@ import { Input } from "@/input";
 import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
 import { Tabs } from "@/tabs";
+import { Theming } from "@/theming";
 import { Value } from "@/vis/value";
 
 export interface FormProps {
@@ -40,58 +41,62 @@ const valueTabs = [
 ];
 
 export const ValueForm = ({ onVariantChange }: FormProps) => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telem":
-        return (
-          <ValueFormWrapper>
-            <Value.TelemForm path="" />
-          </ValueFormWrapper>
-        );
-      case "redline":
-        return (
-          <ValueFormWrapper>
-            <Value.RedlineForm path="redline" />
-          </ValueFormWrapper>
-        );
-      default:
-        return (
-          <ValueFormWrapper>
-            <Flex.Box x>
-              <Input.Item label="Variant" padHelpText={false}>
-                <SelectVariant onChange={onVariantChange} value="value" />
-              </Input.Item>
-              <Form.Field<color.Crude>
-                hideIfNull
-                label="Color"
-                align="start"
-                padHelpText={false}
-                path="color"
-              >
-                {({ value, onChange, variant: _, ...rest }) => (
-                  <Color.Swatch
-                    value={value ?? color.setAlpha(color.ZERO, 1)}
-                    onChange={onChange}
-                    {...rest}
-                    bordered
-                  />
-                )}
-              </Form.Field>
-              <Form.Field<text.Level>
-                path="level"
-                label="Size"
-                hideIfNull
-                padHelpText={false}
-              >
-                {({ value, onChange, variant: _, ...rest }) => (
-                  <Select.Text.Level value={value} onChange={onChange} {...rest} />
-                )}
-              </Form.Field>
-            </Flex.Box>
-          </ValueFormWrapper>
-        );
-    }
-  }, []);
+  const theme = Theming.use();
+  const content: Tabs.RenderProp = useCallback(
+    ({ tabKey }) => {
+      switch (tabKey) {
+        case "telem":
+          return (
+            <ValueFormWrapper>
+              <Value.TelemForm path="" />
+            </ValueFormWrapper>
+          );
+        case "redline":
+          return (
+            <ValueFormWrapper>
+              <Value.RedlineForm path="redline" />
+            </ValueFormWrapper>
+          );
+        default:
+          return (
+            <ValueFormWrapper>
+              <Flex.Box x>
+                <Input.Item label="Variant" padHelpText={false}>
+                  <SelectVariant onChange={onVariantChange} value="value" />
+                </Input.Item>
+                <Form.Field<color.Crude>
+                  hideIfNull={false}
+                  label="Color"
+                  align="start"
+                  padHelpText={false}
+                  path="color"
+                >
+                  {({ value, onChange, variant: _, ...rest }) => (
+                    <Color.Swatch
+                      value={value ?? theme.colors.gray.l11}
+                      onChange={onChange}
+                      {...rest}
+                      bordered
+                    />
+                  )}
+                </Form.Field>
+                <Form.Field<text.Level>
+                  path="level"
+                  label="Size"
+                  hideIfNull
+                  padHelpText={false}
+                >
+                  {({ value, onChange, variant: _, ...rest }) => (
+                    <Select.Text.Level value={value} onChange={onChange} {...rest} />
+                  )}
+                </Form.Field>
+              </Flex.Box>
+            </ValueFormWrapper>
+          );
+      }
+    },
+    [onVariantChange, theme],
+  );
   const tabsProps = Tabs.useStatic({ tabs: valueTabs, content });
   return <Tabs.Tabs {...tabsProps} />;
 };
@@ -120,12 +125,15 @@ export const TextForm = ({ onVariantChange }: FormProps) => (
       )}
     </Form.Field>
     <Form.Field<color.Crude>
+      hideIfNull={false}
       path="backgroundColor"
       label="Background"
       align="start"
       padHelpText={false}
     >
-      {({ value, onChange }) => <Color.Swatch value={value} onChange={onChange} />}
+      {({ value, onChange }) => (
+        <Color.Swatch value={value ?? color.ZERO} onChange={onChange} />
+      )}
     </Form.Field>
   </Flex.Box>
 );

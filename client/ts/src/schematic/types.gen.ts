@@ -1107,10 +1107,10 @@ export const nodeConfigTankZ = labeledConfigZ.extend({
 });
 export interface NodeConfigTank extends z.infer<typeof nodeConfigTankZ> {}
 
-export const nodeConfigTjunctionZ = staticSymbolConfigZ.extend({
+export const nodeConfigTJunctionZ = staticSymbolConfigZ.extend({
   variant: z.literal("t_junction"),
 });
-export interface NodeConfigTJunction extends z.infer<typeof nodeConfigTjunctionZ> {}
+export interface NodeConfigTJunction extends z.infer<typeof nodeConfigTJunctionZ> {}
 
 /** NodeConfigCustomActuator is the configuration for user-defined actuator symbols. */
 export const nodeConfigCustomActuatorZ = toggleConfigZ.extend({
@@ -1358,7 +1358,7 @@ export const nodeConfigZ = z.discriminatedUnion("variant", [
   nodeConfigCrossJunctionZ,
   nodeConfigCylinderZ,
   nodeConfigTankZ,
-  nodeConfigTjunctionZ,
+  nodeConfigTJunctionZ,
   nodeConfigCustomActuatorZ,
   nodeConfigCustomStaticZ,
 ]);
@@ -1564,7 +1564,7 @@ export const NODE_CONFIG_SCHEMAS: {
   cross_junction: nodeConfigCrossJunctionZ,
   cylinder: nodeConfigCylinderZ,
   tank: nodeConfigTankZ,
-  t_junction: nodeConfigTjunctionZ,
+  t_junction: nodeConfigTJunctionZ,
   custom_actuator: nodeConfigCustomActuatorZ,
   custom_static: nodeConfigCustomStaticZ,
 };
@@ -2427,11 +2427,11 @@ export const elementConfigTankZ = labeledConfigZ.extend({
 });
 export interface ElementConfigTank extends z.infer<typeof elementConfigTankZ> {}
 
-export const elementConfigTjunctionZ = staticSymbolConfigZ.extend({
+export const elementConfigTJunctionZ = staticSymbolConfigZ.extend({
   variant: z.literal("t_junction"),
 });
 export interface ElementConfigTJunction extends z.infer<
-  typeof elementConfigTjunctionZ
+  typeof elementConfigTJunctionZ
 > {}
 
 /** ElementConfigCustomActuator is the configuration for user-defined actuator symbols. */
@@ -2727,7 +2727,7 @@ export const elementConfigZ = z.discriminatedUnion("variant", [
   elementConfigCrossJunctionZ,
   elementConfigCylinderZ,
   elementConfigTankZ,
-  elementConfigTjunctionZ,
+  elementConfigTJunctionZ,
   elementConfigCustomActuatorZ,
   elementConfigCustomStaticZ,
   elementConfigPipeZ,
@@ -2947,7 +2947,7 @@ export const ELEMENT_CONFIG_SCHEMAS: {
   cross_junction: elementConfigCrossJunctionZ,
   cylinder: elementConfigCylinderZ,
   tank: elementConfigTankZ,
-  t_junction: elementConfigTjunctionZ,
+  t_junction: elementConfigTJunctionZ,
   custom_actuator: elementConfigCustomActuatorZ,
   custom_static: elementConfigCustomStaticZ,
   pipe: elementConfigPipeZ,
