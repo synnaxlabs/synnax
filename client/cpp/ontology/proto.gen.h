@@ -22,43 +22,36 @@
 
 namespace synnax::ontology {
 
-inline std::pair<::distribution::ontology::pb::ResourceType, x::errors::Error>
+inline std::pair<::service::ontology::pb::ResourceType, x::errors::Error>
 resource_type_to_pb(const std::string &cpp) {
-    static const std::unordered_map<
-        std::string,
-        ::distribution::ontology::pb::ResourceType>
+    static const std::unordered_map<std::string, ::service::ontology::pb::ResourceType>
         kMap = {
-            {RESOURCE_TYPE_ARC, ::distribution::ontology::pb::RESOURCE_TYPE_ARC},
-            {RESOURCE_TYPE_BUILTIN,
-             ::distribution::ontology::pb::RESOURCE_TYPE_BUILTIN},
-            {RESOURCE_TYPE_CHANNEL,
-             ::distribution::ontology::pb::RESOURCE_TYPE_CHANNEL},
-            {RESOURCE_TYPE_DEVICE, ::distribution::ontology::pb::RESOURCE_TYPE_DEVICE},
-            {RESOURCE_TYPE_FRAMER, ::distribution::ontology::pb::RESOURCE_TYPE_FRAMER},
-            {RESOURCE_TYPE_GROUP, ::distribution::ontology::pb::RESOURCE_TYPE_GROUP},
-            {RESOURCE_TYPE_LABEL, ::distribution::ontology::pb::RESOURCE_TYPE_LABEL},
-            {RESOURCE_TYPE_LINEPLOT,
-             ::distribution::ontology::pb::RESOURCE_TYPE_LINEPLOT},
-            {RESOURCE_TYPE_LOG, ::distribution::ontology::pb::RESOURCE_TYPE_LOG},
-            {RESOURCE_TYPE_NODE, ::distribution::ontology::pb::RESOURCE_TYPE_NODE},
-            {RESOURCE_TYPE_PANEL, ::distribution::ontology::pb::RESOURCE_TYPE_PANEL},
-            {RESOURCE_TYPE_POLICY, ::distribution::ontology::pb::RESOURCE_TYPE_POLICY},
-            {RESOURCE_TYPE_PROJECT,
-             ::distribution::ontology::pb::RESOURCE_TYPE_PROJECT},
-            {RESOURCE_TYPE_RACK, ::distribution::ontology::pb::RESOURCE_TYPE_RACK},
-            {RESOURCE_TYPE_RANGE, ::distribution::ontology::pb::RESOURCE_TYPE_RANGE},
+            {RESOURCE_TYPE_ARC, ::service::ontology::pb::RESOURCE_TYPE_ARC},
+            {RESOURCE_TYPE_BUILTIN, ::service::ontology::pb::RESOURCE_TYPE_BUILTIN},
+            {RESOURCE_TYPE_CHANNEL, ::service::ontology::pb::RESOURCE_TYPE_CHANNEL},
+            {RESOURCE_TYPE_DEVICE, ::service::ontology::pb::RESOURCE_TYPE_DEVICE},
+            {RESOURCE_TYPE_FRAMER, ::service::ontology::pb::RESOURCE_TYPE_FRAMER},
+            {RESOURCE_TYPE_GROUP, ::service::ontology::pb::RESOURCE_TYPE_GROUP},
+            {RESOURCE_TYPE_LABEL, ::service::ontology::pb::RESOURCE_TYPE_LABEL},
+            {RESOURCE_TYPE_LINEPLOT, ::service::ontology::pb::RESOURCE_TYPE_LINEPLOT},
+            {RESOURCE_TYPE_LOG, ::service::ontology::pb::RESOURCE_TYPE_LOG},
+            {RESOURCE_TYPE_NODE, ::service::ontology::pb::RESOURCE_TYPE_NODE},
+            {RESOURCE_TYPE_PANEL, ::service::ontology::pb::RESOURCE_TYPE_PANEL},
+            {RESOURCE_TYPE_POLICY, ::service::ontology::pb::RESOURCE_TYPE_POLICY},
+            {RESOURCE_TYPE_PROJECT, ::service::ontology::pb::RESOURCE_TYPE_PROJECT},
+            {RESOURCE_TYPE_RACK, ::service::ontology::pb::RESOURCE_TYPE_RACK},
+            {RESOURCE_TYPE_RANGE, ::service::ontology::pb::RESOURCE_TYPE_RANGE},
             {RESOURCE_TYPE_RANGE_ALIAS,
-             ::distribution::ontology::pb::RESOURCE_TYPE_RANGE_ALIAS},
-            {RESOURCE_TYPE_ROLE, ::distribution::ontology::pb::RESOURCE_TYPE_ROLE},
-            {RESOURCE_TYPE_SCHEMATIC,
-             ::distribution::ontology::pb::RESOURCE_TYPE_SCHEMATIC},
+             ::service::ontology::pb::RESOURCE_TYPE_RANGE_ALIAS},
+            {RESOURCE_TYPE_ROLE, ::service::ontology::pb::RESOURCE_TYPE_ROLE},
+            {RESOURCE_TYPE_SCHEMATIC, ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC},
             {RESOURCE_TYPE_SCHEMATIC_SYMBOL,
-             ::distribution::ontology::pb::RESOURCE_TYPE_SCHEMATIC_SYMBOL},
-            {RESOURCE_TYPE_STATUS, ::distribution::ontology::pb::RESOURCE_TYPE_STATUS},
-            {RESOURCE_TYPE_TABLE, ::distribution::ontology::pb::RESOURCE_TYPE_TABLE},
-            {RESOURCE_TYPE_TASK, ::distribution::ontology::pb::RESOURCE_TYPE_TASK},
-            {RESOURCE_TYPE_USER, ::distribution::ontology::pb::RESOURCE_TYPE_USER},
-            {RESOURCE_TYPE_VIEW, ::distribution::ontology::pb::RESOURCE_TYPE_VIEW},
+             ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC_SYMBOL},
+            {RESOURCE_TYPE_STATUS, ::service::ontology::pb::RESOURCE_TYPE_STATUS},
+            {RESOURCE_TYPE_TABLE, ::service::ontology::pb::RESOURCE_TYPE_TABLE},
+            {RESOURCE_TYPE_TASK, ::service::ontology::pb::RESOURCE_TYPE_TASK},
+            {RESOURCE_TYPE_USER, ::service::ontology::pb::RESOURCE_TYPE_USER},
+            {RESOURCE_TYPE_VIEW, ::service::ontology::pb::RESOURCE_TYPE_VIEW},
         };
     auto it = kMap.find(cpp);
     if (it == kMap.end())
@@ -67,55 +60,55 @@ resource_type_to_pb(const std::string &cpp) {
 }
 
 inline std::pair<std::string, x::errors::Error>
-resource_type_from_pb(::distribution::ontology::pb::ResourceType pb) {
+resource_type_from_pb(::service::ontology::pb::ResourceType pb) {
     switch (pb) {
-        case ::distribution::ontology::pb::RESOURCE_TYPE_ARC:
+        case ::service::ontology::pb::RESOURCE_TYPE_ARC:
             return {RESOURCE_TYPE_ARC, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_BUILTIN:
+        case ::service::ontology::pb::RESOURCE_TYPE_BUILTIN:
             return {RESOURCE_TYPE_BUILTIN, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_CHANNEL:
+        case ::service::ontology::pb::RESOURCE_TYPE_CHANNEL:
             return {RESOURCE_TYPE_CHANNEL, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_DEVICE:
+        case ::service::ontology::pb::RESOURCE_TYPE_DEVICE:
             return {RESOURCE_TYPE_DEVICE, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_FRAMER:
+        case ::service::ontology::pb::RESOURCE_TYPE_FRAMER:
             return {RESOURCE_TYPE_FRAMER, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_GROUP:
+        case ::service::ontology::pb::RESOURCE_TYPE_GROUP:
             return {RESOURCE_TYPE_GROUP, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_LABEL:
+        case ::service::ontology::pb::RESOURCE_TYPE_LABEL:
             return {RESOURCE_TYPE_LABEL, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_LINEPLOT:
+        case ::service::ontology::pb::RESOURCE_TYPE_LINEPLOT:
             return {RESOURCE_TYPE_LINEPLOT, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_LOG:
+        case ::service::ontology::pb::RESOURCE_TYPE_LOG:
             return {RESOURCE_TYPE_LOG, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_NODE:
+        case ::service::ontology::pb::RESOURCE_TYPE_NODE:
             return {RESOURCE_TYPE_NODE, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_PANEL:
+        case ::service::ontology::pb::RESOURCE_TYPE_PANEL:
             return {RESOURCE_TYPE_PANEL, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_POLICY:
+        case ::service::ontology::pb::RESOURCE_TYPE_POLICY:
             return {RESOURCE_TYPE_POLICY, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_PROJECT:
+        case ::service::ontology::pb::RESOURCE_TYPE_PROJECT:
             return {RESOURCE_TYPE_PROJECT, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_RACK:
+        case ::service::ontology::pb::RESOURCE_TYPE_RACK:
             return {RESOURCE_TYPE_RACK, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_RANGE:
+        case ::service::ontology::pb::RESOURCE_TYPE_RANGE:
             return {RESOURCE_TYPE_RANGE, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_RANGE_ALIAS:
+        case ::service::ontology::pb::RESOURCE_TYPE_RANGE_ALIAS:
             return {RESOURCE_TYPE_RANGE_ALIAS, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_ROLE:
+        case ::service::ontology::pb::RESOURCE_TYPE_ROLE:
             return {RESOURCE_TYPE_ROLE, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_SCHEMATIC:
+        case ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC:
             return {RESOURCE_TYPE_SCHEMATIC, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_SCHEMATIC_SYMBOL:
+        case ::service::ontology::pb::RESOURCE_TYPE_SCHEMATIC_SYMBOL:
             return {RESOURCE_TYPE_SCHEMATIC_SYMBOL, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_STATUS:
+        case ::service::ontology::pb::RESOURCE_TYPE_STATUS:
             return {RESOURCE_TYPE_STATUS, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_TABLE:
+        case ::service::ontology::pb::RESOURCE_TYPE_TABLE:
             return {RESOURCE_TYPE_TABLE, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_TASK:
+        case ::service::ontology::pb::RESOURCE_TYPE_TASK:
             return {RESOURCE_TYPE_TASK, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_USER:
+        case ::service::ontology::pb::RESOURCE_TYPE_USER:
             return {RESOURCE_TYPE_USER, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_VIEW:
+        case ::service::ontology::pb::RESOURCE_TYPE_VIEW:
             return {RESOURCE_TYPE_VIEW, x::errors::NIL};
         default:
             return {"", x::errors::Error("unrecognized ResourceType protobuf value")};
