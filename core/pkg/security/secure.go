@@ -79,7 +79,7 @@ func (p *secureProvider) NodeClientConfig() *tls.Config {
 }
 
 // VerifyClusterCert implements TLSProvider.
-func (p *secureProvider) VerifyClusterCert(src cert.Source) error {
+func (p *secureProvider) VerifyClusterCert(src cert.Source, host string) error {
 	c, err := src.GetCertificate(&tls.ClientHelloInfo{})
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (p *secureProvider) VerifyClusterCert(src cert.Source) error {
 			return err
 		}
 	}
-	_, err = leaf.Verify(x509.VerifyOptions{Roots: p.certPool})
+	_, err = leaf.Verify(x509.VerifyOptions{Roots: p.certPool, DNSName: host})
 	return err
 }
 

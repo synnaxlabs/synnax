@@ -150,8 +150,8 @@ func (cs Configs) Resolve(
 				return nil, err
 			}
 			if c.Address == advertised {
-				if err = p.VerifyClusterCert(src); err != nil {
-					return nil, errors.Wrapf(err, "[listener] - advertised listener %q must serve a certificate signed by the cluster CA; peers cannot verify it otherwise", c.Address)
+				if err = p.VerifyClusterCert(src, advertised.Host()); err != nil {
+					return nil, errors.Wrapf(err, "[listener] - advertised listener %q must serve a certificate the cluster CA signs for that host; peers cannot verify it otherwise", c.Address)
 				}
 			}
 			l.TLS = p.TLSConfigFor(src)
