@@ -33,7 +33,13 @@ var _ = Describe("OtelProvider", func() {
 					KeySize:      mock.SmallKeySize,
 					Insecure:     new(false),
 				}))
-				config := prov.TLS()
+				src := MustSucceed(cert.NewSource(cert.SourceConfig{
+					Type: cert.SourceTypeFile,
+					FS:   fs,
+					Cert: "/usr/local/synnax/certs/node.crt",
+					Key:  "/usr/local/synnax/certs/node.key",
+				}))
+				config := prov.TLSConfigFor(src)
 				Expect(config).ToNot(BeNil())
 				Expect(config.GetCertificate).ToNot(BeNil())
 				c := MustSucceed(config.GetCertificate(&tls.ClientHelloInfo{}))
@@ -77,7 +83,7 @@ var _ = Describe("OtelProvider", func() {
 					Insecure: new(true),
 					KeySize:  mock.SmallKeySize,
 				}))
-				Expect(prov.TLS()).To(BeNil())
+				Expect(prov.TLSConfigFor(nil)).To(BeNil())
 			})
 		})
 		Describe("Node Private", func() {

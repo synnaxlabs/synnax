@@ -355,7 +355,10 @@ func (s *synnaxService) Execute(
 
 	onServerStarted := make(chan struct{}, 1)
 	sCtx.Go(func(ctx context.Context) error {
-		cfg := cmdstart.GetCoreConfigFromViper(s.ins)
+		cfg, err := cmdstart.GetCoreConfigFromViper(s.ins)
+		if err != nil {
+			return err
+		}
 		return cmdstart.BootupCore(ctx, onServerStarted, cfg)
 	}, signal.CancelOnFail())
 

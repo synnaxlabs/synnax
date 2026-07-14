@@ -13,6 +13,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"net"
@@ -161,20 +162,14 @@ func (c *Factory) CreateNodePairIfMissing() error {
 
 // CreateNodePair creates a new node certificate and its private key.
 func (c *Factory) CreateNodePair() error {
-	ca, caPrivate, err := c.Loader.LoadCAPair()
-	if err != nil {
-		return err
-	}
-
-	if len(c.Hosts) == 0 {
-		return errors.Wrap(validate.ErrValidation, "[cert] - no hosts provided")
-	}
-
 	nodeKey, err := rsa.GenerateKey(nil, c.KeySize)
 	if err != nil {
 		return err
 	}
-
+	b, err := c.signNodeCert(nodeKey)
+	if err != nil {
+		return err
+	}
 	keyP, err := xpem.FromPrivateKey(nodeKey)
 	if err != nil {
 		return err
@@ -182,13 +177,37 @@ func (c *Factory) CreateNodePair() error {
 	if err = c.writePEM(c.NodeKeyPath, keyP, false); err != nil {
 		return err
 	}
+	return c.writePEM(c.NodeCertPath, xpem.FromCertBytes(b) /* multi */, false)
+}
 
+// CreateNodeTLS signs an in-memory node certificate for the factory's hosts without
+// touching the filesystem. Used by the auto certificate source to give a listener a
+// self-signed identity derived from its own address.
+func (c *Factory) CreateNodeTLS() (*tls.Certificate, error) {
+	nodeKey, err := rsa.GenerateKey(nil, c.KeySize)
+	if err != nil {
+		return nil, err
+	}
+	b, err := c.signNodeCert(nodeKey)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Certificate{Certificate: [][]byte{b}, PrivateKey: nodeKey}, nil
+}
+
+func (c *Factory) signNodeCert(nodeKey *rsa.PrivateKey) ([]byte, error) {
+	ca, caPrivate, err := c.Loader.LoadCAPair()
+	if err != nil {
+		return nil, err
+	}
+	if len(c.Hosts) == 0 {
+		return nil, errors.Wrap(validate.ErrValidation, "[cert] - no hosts provided")
+	}
 	base, err := newBasex509()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	base.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
-
 	for _, h := range c.Hosts {
 		if ip := net.ParseIP(h.Host()); ip != nil {
 			base.IPAddresses = append(base.IPAddresses, ip)
@@ -196,13 +215,7 @@ func (c *Factory) CreateNodePair() error {
 			base.DNSNames = append(base.DNSNames, h.Host())
 		}
 	}
-
-	b, err := x509.CreateCertificate(rand.Reader, base, ca, nodeKey.Public(), caPrivate)
-	if err != nil {
-		return err
-	}
-
-	return c.writePEM(c.NodeCertPath, xpem.FromCertBytes(b) /* multi */, false)
+	return x509.CreateCertificate(rand.Reader, base, ca, nodeKey.Public(), caPrivate)
 }
 
 func (c *Factory) readPEM(p string) (b *pem.Block, err error) {

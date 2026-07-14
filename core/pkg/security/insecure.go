@@ -13,6 +13,8 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"crypto/tls"
+
+	"github.com/synnaxlabs/synnax/pkg/security/cert"
 )
 
 // insecureProvider is an implementation of Provider for use in insecure clusters.
@@ -25,8 +27,11 @@ func newInsecureProvider(cfg ProviderConfig) (Provider, error) {
 	return &insecureProvider{nodeSecret: key}, err
 }
 
-// TLS implements TLSProvider.
-func (p *insecureProvider) TLS() *tls.Config { return nil }
+// TLSConfigFor implements TLSProvider.
+func (p *insecureProvider) TLSConfigFor(cert.Source) *tls.Config { return nil }
+
+// NodeClientConfig implements TLSProvider.
+func (p *insecureProvider) NodeClientConfig() *tls.Config { return nil }
 
 // NodePrivate implements KeyProvider.
 func (p *insecureProvider) NodePrivate() crypto.PrivateKey { return p.nodeSecret }

@@ -58,7 +58,7 @@ type CoreConfig struct {
 	dataPath             string
 	verifier             string
 	rootCredentials      auth.Credentials
-	listenAddress        address.Address
+	listeners            []listenerSpec
 	peers                []address.Address
 	disabledIntegrations []string
 	enabledIntegrations  []string
@@ -82,7 +82,7 @@ func (c CoreConfig) Validate() error {
 	validate.NotNil(v, "debug", c.debug)
 	validate.NotNil(v, "auto_cert", c.autoCert)
 	validate.NotNil(v, "mem_backed", c.memBacked)
-	validate.NotEmptyString(v, "listen_address", c.listenAddress)
+	validateListeners(v, c.listeners, c.insecure != nil && *c.insecure)
 	validate.NotEmptyString(v, "data_path", c.dataPath)
 	validate.NonZero(v, "slow_consumer_timeout", c.slowConsumerTimeout)
 	validate.NotNil(v, "no_driver", c.noDriver)
@@ -104,7 +104,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		autoCert:             override.Nil(c.autoCert, other.autoCert),
 		verifier:             override.String(c.verifier, other.verifier),
 		memBacked:            override.Nil(c.memBacked, other.memBacked),
-		listenAddress:        override.String(c.listenAddress, other.listenAddress),
+		listeners:            override.Slice(c.listeners, other.listeners),
 		peers:                override.Slice(c.peers, other.peers),
 		dataPath:             override.String(c.dataPath, other.dataPath),
 		slowConsumerTimeout:  override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
@@ -119,6 +119,35 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		disabledIntegrations: override.Slice(c.disabledIntegrations, other.disabledIntegrations),
 		validateChannelNames: override.Nil(c.validateChannelNames, other.validateChannelNames),
 	}
+}
+
+// advertiseAddress returns the address peers use to reach this node. It is the sole
+// listener marked advertise, or the first listener when none is marked.
+func (c CoreConfig) advertiseAddress() address.Address {
+	for _, l := range c.listeners {
+		if l.advertise {
+			return l.address
+		}
+	}
+	return c.listeners[0].address
+}
+
+// buildServerListeners resolves each listener spec into a server.Listener, backing every
+// secure listener with a TLS config from its certificate source.
+func (c CoreConfig) buildServerListeners(p security.Provider) ([]server.Listener, error) {
+	out := make([]server.Listener, len(c.listeners))
+	for i, spec := range c.listeners {
+		l := server.Listener{Address: spec.address}
+		if !*c.insecure {
+			src, err := cert.NewSource(spec.sourceConfig(c.certFactoryConfig))
+			if err != nil {
+				return nil, err
+			}
+			l.TLS = p.TLSConfigFor(src)
+		}
+		out[i] = l
+	}
+	return out, nil
 }
 
 // BootupCore contains the most important Core startup logic. It does and should not
@@ -202,7 +231,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 
 	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:      cfg.Child("distribution"),
-		AdvertiseAddress:     cfg.listenAddress,
+		AdvertiseAddress:     cfg.advertiseAddress(),
 		PeerAddresses:        cfg.peers,
 		AspenTransport:       aspenTransport,
 		Transport:            distTransport,
@@ -254,6 +283,11 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
+	serverListeners, err := cfg.buildServerListeners(securityProvider)
+	if !ok(err, nil) {
+		return err
+	}
+
 	if rootServer, err = server.Serve(
 		server.Config{
 			Branches: []server.Branch{
@@ -268,12 +302,9 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 				server.NewHTTPRedirectBranch(),
 			},
 			Debug:           cfg.debug,
-			ListenAddress:   cfg.listenAddress,
+			Listeners:       serverListeners,
 			Instrumentation: cfg.Child("server"),
-			Security: server.SecurityConfig{
-				TLS:      securityProvider.TLS(),
-				Insecure: cfg.insecure,
-			},
+			Security:        server.SecurityConfig{Insecure: cfg.insecure},
 		},
 	); !ok(err, rootServer) {
 		return err
@@ -299,7 +330,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 			Insecure:            cfg.insecure,
 			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
 			Instrumentation:     cfg.Child("driver"),
-			Address:             cfg.listenAddress,
+			Address:             cfg.advertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			ClusterKey:          distributionLayer.Cluster.Key(),
 			Credentials:         cfg.rootCredentials,
@@ -319,7 +350,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 
 	cfg.L.Infof(
 		"\033[32mSynnax is running and available at %v \033[0m",
-		cfg.listenAddress,
+		cfg.advertiseAddress(),
 	)
 
 	if onServerStarted != nil {

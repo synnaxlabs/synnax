@@ -19,7 +19,6 @@ import (
 
 // SimpleHTTPBranch is a single handler Branch that serves HTTP requests.
 type SimpleHTTPBranch struct {
-	stopErr chan error
 	server  *http.Server
 	handler http.Handler
 	policy  RoutingPolicy
@@ -31,7 +30,6 @@ func NewSimpleHTTPBranch(
 ) *SimpleHTTPBranch {
 	return &SimpleHTTPBranch{
 		policy:  policy,
-		stopErr: make(chan error, 1),
 		handler: handler,
 	}
 }
@@ -55,19 +53,17 @@ func (h *SimpleHTTPBranch) Init(BranchContext) {
 
 // Serve implements Branch.
 func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
-	err := h.server.Serve(ctx.Lis)
-	if !errors.Is(err, http.ErrServerClosed) {
+	if err := h.server.Serve(ctx.Lis); !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
-	return <-h.stopErr
+	return nil
 }
 
 // Stop implements Branch.
 func (h *SimpleHTTPBranch) Stop() {
-	if h.server == nil {
-		return
+	if h.server != nil {
+		_ = h.server.Shutdown(context.TODO())
 	}
-	h.stopErr <- h.server.Shutdown(context.TODO())
 }
 
 func secureHTTPRedirect(w http.ResponseWriter, r *http.Request) {
