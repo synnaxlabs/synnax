@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, url } from "@synnaxlabs/x";
+import { binary, url, zod } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -27,6 +27,8 @@ const messageZ = z.object({
   id: z.number().optional(),
   message: z.string().optional(),
 });
+
+const paramsZ = z.object({ fileName: z.string(), project: z.string() });
 
 describe("http", () => {
   test("echo", async () => {
@@ -131,27 +133,46 @@ describe("http", () => {
       ).rejects.toThrow("Not Found");
     });
 
-    test("params reach the server as request params", async () => {
+    test("params reach the server as a single JSON request param", async () => {
       const response = await client.upload(
         "/paramEcho",
-        JSON.stringify({ message: "file_name,project" }),
+        JSON.stringify({ message: "params" }),
         {
           encoding: "JSON",
-          params: { file_name: "My Log.json", project: "project:abc" },
+          params: { fileName: "My Log.json", project: "project:abc" },
+          paramsSchema: paramsZ,
         },
         messageZ,
       );
-      expect(response.message).toEqual("My Log.json|project:abc");
+      expect(JSON.parse(response.message ?? "")).toEqual({
+        file_name: "My Log.json",
+        project: "project:abc",
+      });
     });
 
     test("the server sees no request params when params are omitted", async () => {
       const response = await client.upload(
         "/paramEcho",
-        JSON.stringify({ message: "file_name,project" }),
+        JSON.stringify({ message: "params" }),
         { encoding: "JSON" },
         messageZ,
       );
-      expect(response.message).toEqual("|");
+      expect(response.message).toEqual("");
+    });
+
+    test("params failing their schema reject before the request is sent", async () => {
+      await expect(
+        client.upload(
+          "/paramEcho",
+          JSON.stringify({ message: "params" }),
+          {
+            encoding: "JSON",
+            params: { fileName: "My Log.json", project: 42 as unknown as string },
+            paramsSchema: paramsZ,
+          },
+          messageZ,
+        ),
+      ).rejects.toThrow(zod.ParseError);
     });
 
     test("unreachable", async () => {
@@ -183,29 +204,33 @@ describe("http", () => {
       expect(decoded).toEqual({ id: 2, message: "hello" });
     });
 
-    test("params reach the server as request params", async () => {
+    test("params reach the server as a single JSON request param", async () => {
       const stream = await client.download(
         "/paramEcho",
-        { message: "file_name,project" },
+        { message: "params" },
         messageZ,
         {
           encoding: "JSON",
-          params: { file_name: "My Log.json", project: "project:abc" },
+          params: { fileName: "My Log.json", project: "project:abc" },
+          paramsSchema: paramsZ,
         },
       );
       const decoded = await new Response(stream).json();
-      expect(decoded.message).toEqual("My Log.json|project:abc");
+      expect(JSON.parse(decoded.message)).toEqual({
+        file_name: "My Log.json",
+        project: "project:abc",
+      });
     });
 
     test("the server sees no request params when params are omitted", async () => {
       const stream = await client.download(
         "/paramEcho",
-        { message: "file_name,project" },
+        { message: "params" },
         messageZ,
         { encoding: "JSON" },
       );
       const decoded = await new Response(stream).json();
-      expect(decoded.message).toEqual("|");
+      expect(decoded.message).toEqual("");
     });
 
     test("not found", async () => {

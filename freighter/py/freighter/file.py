@@ -36,7 +36,7 @@ class FileTransport(Transport, Protocol):
 
         The contents of req are streamed from disk as the request body and the wire
         format is inferred from the path's extension. The file's base name accompanies
-        the request as the file_name request param.
+        the request as the file_name key of the request params.
 
         :param target: the target address of the server.
         :param req: a file path streamed from disk as the request body.

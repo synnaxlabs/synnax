@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import os
 import pathlib
 from collections.abc import Iterable
@@ -108,9 +109,10 @@ class HTTPClient(MiddlewareCollector):
         object is handed to urllib3 as the request body and read in fixed-size blocks,
         so the full body never has to fit in memory. The Content-Type is derived from
         the file path's extension, while the typed response is decoded via the codec —
-        the two need not agree. Params carry per-transfer metadata out-of-band as
-        freighterctx-prefixed query parameters, since the body is the raw file bytes;
-        the file's base name is always sent as the file_name param.
+        the two need not agree. Params carry per-transfer metadata out-of-band,
+        JSON-encoded onto a single freighterctx-prefixed query parameter, since the
+        body is the raw file bytes; the file's base name always travels as the
+        file_name key.
 
         Retries are disabled for uploads because an upload mutates server state and is
         not assumed to be idempotent: a transient failure that occurs after the server
@@ -130,7 +132,7 @@ class HTTPClient(MiddlewareCollector):
                 content_type=_file_content_type(req),
                 res_t=res_t,
                 retries=False,
-                params=all_params,
+                params={"params": json.dumps(all_params)},
             )
 
     def download(self, target: str, req: RQ, dest: FilePath) -> None:

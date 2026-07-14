@@ -29,7 +29,7 @@ export type FileEncoding = "JSON";
  * encoding of the transferred bytes and is the extension point for any future
  * per-transfer settings.
  */
-export interface FileOptions {
+export interface FileOptions<P extends z.ZodType = z.ZodType> {
   /**
    * The wire encoding of the transferred bytes.
    *
@@ -38,12 +38,13 @@ export interface FileOptions {
    */
   encoding: FileEncoding;
   /**
-   * Request params appended to the URL as freighterctx-prefixed query parameters. The
-   * body is the raw file bytes, so per-transfer metadata (e.g. the source file's name)
-   * travels out-of-band here. Keys are the bare param names — the transport adds the
-   * prefix.
+   * Request params carrying per-transfer metadata (e.g. the source file's name)
+   * out-of-band, since the body is the raw file bytes. They are validated against
+   * paramsSchema and JSON-encoded onto a single freighterctx-prefixed query parameter.
    */
-  params?: Record<string, string>;
+  params?: z.input<P>;
+  /** The schema to validate and encode params with. */
+  paramsSchema?: P;
 }
 
 /**
@@ -67,10 +68,10 @@ export interface FileTransport extends Transport {
    * @throws Unreachable: if the target cannot be reached.
    * @throws Error: if the server returns an error.
    */
-  upload: <RS extends z.ZodType>(
+  upload: <RS extends z.ZodType, P extends z.ZodType = z.ZodType>(
     target: string,
     body: UploadBody,
-    options: FileOptions,
+    options: FileOptions<P>,
     resSchema: RS,
   ) => Promise<z.infer<RS>>;
 
@@ -87,10 +88,10 @@ export interface FileTransport extends Transport {
    * @throws Unreachable: if the target cannot be reached.
    * @throws Error: if the server returns an error.
    */
-  download: <RQ extends z.ZodType>(
+  download: <RQ extends z.ZodType, P extends z.ZodType = z.ZodType>(
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
-    options: FileOptions,
+    options: FileOptions<P>,
   ) => Promise<ReadableStream<Uint8Array>>;
 }

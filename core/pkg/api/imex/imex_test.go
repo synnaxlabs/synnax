@@ -53,8 +53,9 @@ var _ = Describe("Import", func() {
 	It("Should hand the file_name and project params to the importer", func(ctx SpecContext) {
 		key := uuid.New()
 		fctx := rootCtx(ctx)
-		fctx.Set("file_name", "Metrics Log.json")
-		fctx.Set("project", key.String())
+		fctx.Set("params", fmt.Sprintf(
+			`{"file_name":"Metrics Log.json","project":%q}`, key,
+		))
 		id := MustSucceed(apiSvc.Import(fctx, db, testEnvelope("with-options")))
 		Expect(id.Key).To(Equal("with-options"))
 		Expect(importer.opts.FileName).To(Equal("Metrics Log.json"))
@@ -66,18 +67,34 @@ var _ = Describe("Import", func() {
 		Expect(importer.opts).To(Equal(imex.ImportOptions{}))
 	})
 
+	It("Should treat an empty params param as zero options", func(ctx SpecContext) {
+		fctx := rootCtx(ctx)
+		fctx.Set("params", "")
+		MustSucceed(apiSvc.Import(fctx, db, testEnvelope("empty-params")))
+		Expect(importer.opts).To(Equal(imex.ImportOptions{}))
+	})
+
 	It("Should treat an empty project param as no project", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
-		fctx.Set("project", "")
+		fctx.Set("params", `{"project":""}`)
 		MustSucceed(apiSvc.Import(fctx, db, testEnvelope("empty-project")))
 		Expect(importer.opts.Project).To(Equal(uuid.Nil))
 	})
 
 	It("Should reject a project param that is not a valid UUID", func(ctx SpecContext) {
 		fctx := rootCtx(ctx)
-		fctx.Set("project", "not-a-uuid")
+		fctx.Set("params", `{"project":"not-a-uuid"}`)
 		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-key"))).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("invalid project key")),
+			MatchError(ContainSubstring("validation error")),
+		))
+	})
+
+	It("Should reject params that are not valid JSON", func(ctx SpecContext) {
+		fctx := rootCtx(ctx)
+		fctx.Set("params", "not-json")
+		Expect(apiSvc.Import(fctx, db, testEnvelope("bad-params"))).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("params must be a valid JSON object")),
 			MatchError(ContainSubstring("validation error")),
 		))
 	})

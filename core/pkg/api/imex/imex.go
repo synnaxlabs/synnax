@@ -11,6 +11,7 @@ package imex
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/freighter"
@@ -85,31 +86,47 @@ func (s *Service) Import(
 	return id, nil
 }
 
-// parseImportOptions extracts the optional file_name and project query parameters from
-// the request's freighter params. An empty or absent project yields a zero Project; a
-// project that is not a valid UUID returns a validation error scoped to the "project"
-// field.
+// importParams mirrors the JSON object clients send on the "params" request param.
+type importParams struct {
+	// FileName is the name of the file the envelope was read from.
+	FileName string `json:"file_name"`
+	// Project is the key of the project to create the imported resource under.
+	Project string `json:"project"`
+}
+
+// parseImportOptions decodes the optional "params" request param — a JSON object
+// carrying the out-of-band import options. An absent or empty param yields zero
+// options; malformed JSON or an invalid project key returns a validation error scoped
+// to the offending field.
 func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
-	var (
-		opts   imex.ImportOptions
-		params = freighter.MDFromContext(ctx).Params
-	)
-	if v, ok := params.Get("file_name"); ok {
-		if s, ok := v.(string); ok {
-			opts.FileName = s
-		}
+	var opts imex.ImportOptions
+	v, ok := freighter.MDFromContext(ctx).Params.Get("params")
+	if !ok {
+		return opts, nil
 	}
-	if v, ok := params.Get("project"); ok {
-		if s, ok := v.(string); ok && s != "" {
-			key, err := uuid.Parse(s)
-			if err != nil {
-				return imex.ImportOptions{}, validate.PathedError(
-					errors.Wrapf(validate.ErrValidation, "invalid project key %q", s),
-					"project",
-				)
-			}
-			opts.Project = key
+	s, ok := v.(string)
+	if !ok || s == "" {
+		return opts, nil
+	}
+	var params importParams
+	if err := json.Unmarshal([]byte(s), &params); err != nil {
+		return imex.ImportOptions{}, validate.PathedError(
+			errors.Wrap(validate.ErrValidation, "params must be a valid JSON object"),
+			"params",
+		)
+	}
+	opts.FileName = params.FileName
+	if params.Project != "" {
+		key, err := uuid.Parse(params.Project)
+		if err != nil {
+			return imex.ImportOptions{}, validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation, "invalid project key %q", params.Project,
+				),
+				"project",
+			)
 		}
+		opts.Project = key
 	}
 	return opts, nil
 }
