@@ -69,8 +69,7 @@ type tapper struct {
 	// UnarySink is where we receive demands from, using them to update the set of
 	// relay's we tap into.
 	confluence.UnarySink[demand]
-	// AbstractUnarySource is where we send our responses to, which are the frames we
-	// receive from the tapController relays.
+	// AbstractUnarySource is where we send the frames received from open taps.
 	confluence.AbstractUnarySource[Response]
 	// freeWrites is where we receive writes from free channels in the distribution
 	// write pipeline.

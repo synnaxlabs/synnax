@@ -83,6 +83,19 @@ var _ = Describe("Writer", func() {
 				Start: telem.SecondTS,
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
+		It("Should return an error when opening with a nonexistent free channel", func(ctx SpecContext) {
+			Expect(writerSvc.Open(ctx, writer.Config{
+				Keys:  channel.Keys{channel.NewKey(node.KeyFree, 9999)},
+				Start: telem.SecondTS,
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should return an error when a nonexistent free channel is mixed with valid keys", func(ctx SpecContext) {
+			ch := createVirtual(ctx)
+			Expect(writerSvc.NewStream(ctx, writer.Config{
+				Keys:  channel.Keys{ch.Key(), channel.NewKey(node.KeyFree, 9999)},
+				Start: telem.SecondTS,
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
 	})
 
 	Describe("Frame Errors", func() {
@@ -168,7 +181,7 @@ var _ = Describe("Writer", func() {
 
 		It("Should treat int64 and timestamp series as equivalent", func(ctx SpecContext) {
 			idxCh, dataCh := createIndexed(ctx, telem.Int64T)
-			w := MustSucceed(writerSvc.Open(ctx, writer.Config{
+			w := MustOpen(writerSvc.Open(ctx, writer.Config{
 				Keys:  channel.Keys{idxCh.Key(), dataCh.Key()},
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
@@ -183,7 +196,6 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesSecondsTSV(1, 2),
 				},
 			))).To(BeTrue())
-			Expect(w.Close()).To(Succeed())
 		})
 	})
 
@@ -225,7 +237,7 @@ var _ = Describe("Writer", func() {
 			}))
 			data := telem.NewSeriesV[float32](1, 2)
 			idx := telem.NewSeriesSecondsTSV(10, 11)
-			MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{idx, data})))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{idx, data}))).To(BeTrue())
 			Eventually(out.Outlet()).Should(Receive(&res))
 			writtenData := res.Frame.Get(dataCh.Key()).Series[0]
 			Expect(writtenData).To(telem.MatchSeriesData(data))
@@ -239,7 +251,7 @@ var _ = Describe("Writer", func() {
 
 			data = telem.NewSeriesV[float32](3, 4)
 			idx = telem.NewSeriesSecondsTSV(12, 13)
-			MustSucceed(w.Write(frame.NewMulti(keys, []telem.Series{idx, data})))
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{idx, data}))).To(BeTrue())
 			Eventually(out.Outlet()).Should(Receive(&res))
 			writtenData = res.Frame.Get(dataCh.Key()).Series[0]
 			Expect(writtenData).To(telem.MatchSeriesData(data))

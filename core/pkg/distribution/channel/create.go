@@ -127,7 +127,7 @@ func (s *Service) allocateRemote(
 	}
 	if len(res.Channels) != len(channels) {
 		return errors.Newf(
-			"[channel.Service] - allocator received %d channels from %v, expected %d",
+			"allocator received %d channels from %v, expected %d",
 			len(res.Channels), target, len(channels),
 		)
 	}

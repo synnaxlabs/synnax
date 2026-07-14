@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -116,13 +117,6 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to false.
 	AutoIndex *bool
-	// FreeIndexes maps each free channel in Keys that has an index to the key of that
-	// index channel. Free frames are stamped with per-index alignments derived from
-	// this map. It is host-local plumbing supplied by the service layer and is never
-	// sent to peers, as free frames are split off before peer routing.
-	//
-	// [OPTIONAL]
-	FreeIndexes map[channel.Key]channel.Key
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -223,7 +217,6 @@ func (c Config) Override(other Config) Config {
 	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	c.Sync = override.Nil(c.Sync, other.Sync)
 	c.AutoIndex = override.Nil(c.AutoIndex, other.AutoIndex)
-	c.FreeIndexes = override.Nil(c.FreeIndexes, other.FreeIndexes)
 	return c
 }
 
@@ -276,6 +269,18 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	return cfg
 }
 
+// FreeIndexResolver resolves the index channels of free channels, whose records live
+// above the distribution layer. The service-layer channel service implements this
+// interface and is registered via Service.SetFreeIndexResolver.
+type FreeIndexResolver interface {
+	// ResolveFreeIndexes returns the index channel key for each free channel in keys
+	// that has an index. Free frames are stamped with per-index alignments derived from
+	// this map. Any error is propagated to the caller opening the writer.
+	ResolveFreeIndexes(
+		context.Context, channel.Keys,
+	) (map[channel.Key]channel.Key, error)
+}
+
 // Service is the central service for the writer package, allowing the caller to open
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
@@ -284,8 +289,16 @@ type Service struct {
 	// opened on this service, so concurrent free writers stamp distinct alignment
 	// domains.
 	freeWriteAlignments *freeWriteAlignments
-	cfg                 ServiceConfig
+	// resolver looks up free channel indexes at open time. Set once at startup via
+	// SetFreeIndexResolver; opening a writer on free channels fails until it is set.
+	resolver atomic.Pointer[FreeIndexResolver]
+	cfg      ServiceConfig
 }
+
+// SetFreeIndexResolver injects the resolver used to look up free channel indexes when
+// a writer is opened. It must be called before opening writers on free channels; the
+// service layer registers its channel service here at startup.
+func (s *Service) SetFreeIndexResolver(r FreeIndexResolver) { s.resolver.Store(&r) }
 
 // NewService opens the writer service using the given configuration. Also binds a
 // server to the given transport for receiving writes from other nodes in the cluster.
@@ -363,6 +376,24 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		hasFree           = len(batch.Free) > 0
 	)
 
+	// Resolve free channel indexes before any pipeline resources are opened, so a
+	// resolution failure requires no cleanup.
+	var freeIndexes map[channel.Key]channel.Key
+	if hasFree {
+		rp := s.resolver.Load()
+		if rp == nil || *rp == nil {
+			return nil, errors.New(
+				"cannot open a writer on free channels: no free index resolver configured",
+			)
+		}
+		freeKeys := lo.Map(batch.Free, func(ka keyAuthority, _ int) channel.Key {
+			return ka.key
+		})
+		if freeIndexes, err = (*rp).ResolveFreeIndexes(ctx, freeKeys); err != nil {
+			return nil, err
+		}
+	}
+
 	plumber.SetSegment(pipe, sequencerAddr, &sequencer{})
 	plumber.SetSegment(
 		pipe,
@@ -410,7 +441,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasFree {
 		routeSequencerTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(cfg.Mode, *cfg.Sync, cfg.FreeIndexes, cfg.ControlSubject.Group)
+		w := s.newFree(cfg.Mode, *cfg.Sync, freeIndexes, cfg.ControlSubject.Group)
 		plumber.SetSegment(pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}

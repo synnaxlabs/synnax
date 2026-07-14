@@ -158,9 +158,7 @@ func createDep(ctx context.Context, depName string) channel.Channel {
 // deleteDep deletes the base channel with the given name.
 func deleteDep(ctx context.Context, depName string) {
 	GinkgoHelper()
-	Expect(channelWriter.DeleteManyByNames(
-		ctx, []string{depName}, false,
-	)).To(Succeed())
+	Expect(channelWriter.DeleteManyByNames(ctx, []string{depName}, false)).To(Succeed())
 }
 
 // makeStale overwrites the stored DataType of an existing channel with a wrong value,
@@ -216,9 +214,7 @@ var _ = Describe("Graph", func() {
 				Expression: "return hy_unresolvable_base * 2",
 			}
 			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-			Expect(channelWriter.Delete(
-				ctx, base.Key(), false,
-			)).To(Succeed())
+			Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 			openGraph(ctx)
 			expectStatus(ctx, calc.Key())
 		})
@@ -389,9 +385,7 @@ var _ = Describe("Graph", func() {
 					Expression: "return hy_ooo_c1 + 1",
 				}
 				Expect(channelWriter.Create(ctx, &calc2)).To(Succeed())
-				Expect(
-					channelWriter.Delete(ctx, calc1.Key(), false),
-				).To(Succeed())
+				Expect(channelWriter.Delete(ctx, calc1.Key(), false)).To(Succeed())
 				calc1 = channel.Channel{
 					Name:       "hy_ooo_c1",
 					DataType:   telem.Int64T,
@@ -916,12 +910,11 @@ var _ = Describe("Graph", func() {
 
 	Describe("Lifecycle", func() {
 		It("Should open and close without error", func(ctx SpecContext) {
-			g := MustSucceed(graph.Open(ctx, graph.Config{
+			Expect(MustOpen(graph.Open(ctx, graph.Config{
 				DB:      db,
 				Channel: channelSvc,
 				Status:  statusSvc,
-			}))
-			Expect(g.Close()).To(Succeed())
+			}))).ToNot(BeNil())
 		})
 
 		It("Should disconnect observer on Close", func(ctx SpecContext) {
@@ -948,18 +941,15 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should fail to open with missing config", func(ctx SpecContext) {
-			_, err := graph.Open(ctx)
-			Expect(err).To(HaveOccurred())
+			Expect(graph.Open(ctx)).Error().To(HaveOccurred())
 		})
 
 		It("Should fail to open with nil Channel", func(ctx SpecContext) {
-			_, err := graph.Open(ctx, graph.Config{Status: statusSvc})
-			Expect(err).To(HaveOccurred())
+			Expect(graph.Open(ctx, graph.Config{Status: statusSvc})).Error().To(HaveOccurred())
 		})
 
 		It("Should fail to open with nil Status", func(ctx SpecContext) {
-			_, err := graph.Open(ctx, graph.Config{Channel: channelSvc})
-			Expect(err).To(HaveOccurred())
+			Expect(graph.Open(ctx, graph.Config{Channel: channelSvc})).Error().To(HaveOccurred())
 		})
 
 		It("Should fail to open with nil DB", func(ctx SpecContext) {
@@ -970,12 +960,11 @@ var _ = Describe("Graph", func() {
 		})
 
 		It("Should handle Close being called twice", func(ctx SpecContext) {
-			g := MustSucceed(graph.Open(ctx, graph.Config{
+			g := MustOpen(graph.Open(ctx, graph.Config{
 				DB:      db,
 				Channel: channelSvc,
 				Status:  statusSvc,
 			}))
-			Expect(g.Close()).To(Succeed())
 			Expect(g.Close()).To(Succeed())
 		})
 	})
@@ -1004,7 +993,7 @@ var _ = Describe("Graph", func() {
 						Virtual:    true,
 						Expression: fmt.Sprintf("return cc_base_%d + 1", i),
 					}
-					Expect(channelWriter.Create(ctx, &calcs[i])).To(Succeed())
+					Expect(channelSvc.NewWriter(nil).Create(ctx, &calcs[i])).To(Succeed())
 				}()
 			}
 			wg.Wait()
@@ -1031,7 +1020,7 @@ var _ = Describe("Graph", func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Delete(ctx, base.Key(), false)).To(Succeed())
 			}()
 			go func() {
 				defer GinkgoRecover()
@@ -1042,7 +1031,7 @@ var _ = Describe("Graph", func() {
 					Name: "cc_race_calc2", DataType: telem.Int64T, Virtual: true,
 					Expression: "return cc_race_stable * 2",
 				}
-				Expect(channelWriter.Create(ctx, &newCalc)).To(Succeed())
+				Expect(channelSvc.NewWriter(nil).Create(ctx, &newCalc)).To(Succeed())
 			}()
 			wg.Wait()
 		})

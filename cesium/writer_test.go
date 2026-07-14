@@ -1625,6 +1625,51 @@ var _ = Describe("Writer Behavior", func() {
 
 					Expect(w.Close()).To(Succeed())
 				})
+
+				It("Should validate series data types on write", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "validated"))).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
+						Start:    10 * telem.SecondTS,
+						Sync:     new(true),
+					}))
+					Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[float32](1, 2)))).
+						Error().To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("invalid data type")),
+					))
+					Expect(w.Close()).To(MatchError(ContainSubstring("invalid data type")))
+				})
+
+				It("Should advance a virtual channel's alignment with each write", func(ctx SpecContext) {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, virtualChannel(key, "aligned"))).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: []cesium.ChannelKey{key},
+						Start:    10 * telem.SecondTS,
+					}))
+					s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						Channels: []cesium.ChannelKey{key},
+					}))
+					sCtx, cancel := signal.Isolated()
+					defer cancel()
+					i, o := confluence.Attach(s, 2)
+					s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+
+					Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3)))).To(BeTrue())
+					var res cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 0)))
+
+					Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](4, 5)))).To(BeTrue())
+					Eventually(o.Outlet()).Should(Receive(&res))
+					Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 3)))
+
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+				})
 			})
 
 			Describe("Regressions", func() {
@@ -1833,65 +1878,4 @@ var _ = Describe("Writer Behavior", func() {
 		})
 
 	}
-})
-
-var _ = Describe("Virtual Channel Writes", func() {
-	for fsName, openFS := range FileSystems {
-		Context("FS: "+fsName, Ordered, func() {
-			var db *cesium.DB
-			BeforeAll(func(ctx SpecContext) {
-				ShouldNotLeakGoroutines()
-				db = mustOpenDBOnFS(ctx, openFS())
-			})
-
-			It("Should validate series data types on write", func(ctx SpecContext) {
-				key := GenerateChannelKey()
-				Expect(db.CreateChannel(ctx, virtualChannel(key, "validated"))).To(Succeed())
-				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels: []cesium.ChannelKey{key},
-					Start:    10 * telem.SecondTS,
-					Sync:     new(true),
-				}))
-				Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[float32](1, 2)))).
-					Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("invalid data type")),
-				))
-				Expect(w.Close()).To(MatchError(ContainSubstring("invalid data type")))
-			})
-		})
-	}
-})
-
-var _ = Describe("Virtual Channel Write Alignment", func() {
-	It("Should advance a virtual channel's alignment with each write", func(ctx SpecContext) {
-		db := openDBOnFS(ctx, fs.NewMem())
-		key := GenerateChannelKey()
-		Expect(db.CreateChannel(ctx, virtualChannel(key, "aligned"))).To(Succeed())
-		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-			Channels: []cesium.ChannelKey{key},
-			Start:    10 * telem.SecondTS,
-		}))
-		s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-			Channels: []cesium.ChannelKey{key},
-		}))
-		sCtx, cancel := signal.Isolated()
-		defer cancel()
-		i, o := confluence.Attach(s, 2)
-		s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-
-		MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3))))
-		var res cesium.StreamerResponse
-		Eventually(o.Outlet()).Should(Receive(&res))
-		Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 0)))
-
-		MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](4, 5))))
-		Eventually(o.Outlet()).Should(Receive(&res))
-		Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 3)))
-
-		i.Close()
-		Expect(sCtx.Wait()).To(Succeed())
-		Expect(w.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
-	})
 })

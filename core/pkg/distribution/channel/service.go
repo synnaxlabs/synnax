@@ -32,10 +32,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	HostResolver node.HostResolver
-	// KVReadWriter is the key-value store used to back the local-key counters.
+	// KV is the key-value store used to back the local-key counters.
 	//
 	// [REQUIRED]
-	KVReadWriter kv.ReadWriter
+	KV kv.ReadWriter
 	// TS is the storage-layer time-series database where channel storage is created.
 	//
 	// [REQUIRED]
@@ -51,7 +51,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.channel")
 	validate.NotNil(v, "host_resolver", c.HostResolver)
-	validate.NotNil(v, "kv_read_writer", c.KVReadWriter)
+	validate.NotNil(v, "kv", c.KV)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "transport", c.Transport)
 	return v.Error()
@@ -60,7 +60,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
-	c.KVReadWriter = override.Nil(c.KVReadWriter, other.KVReadWriter)
+	c.KV = override.Nil(c.KV, other.KV)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	return c
@@ -93,18 +93,14 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	leasedCounterKey := []byte(
 		cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter",
 	)
-	if s.leasedCounter, err = newCounter(
-		ctx, cfg.KVReadWriter, leasedCounterKey,
-	); err != nil {
+	if s.leasedCounter, err = newCounter(ctx, cfg.KV, leasedCounterKey); err != nil {
 		return nil, err
 	}
 	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
 		freeCounterKey := []byte(
 			cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free",
 		)
-		if s.freeCounter, err = newCounter(
-			ctx, cfg.KVReadWriter, freeCounterKey,
-		); err != nil {
+		if s.freeCounter, err = newCounter(ctx, cfg.KV, freeCounterKey); err != nil {
 			return nil, err
 		}
 	}

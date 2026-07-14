@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"sync"
 
 	"github.com/synnaxlabs/arc"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -38,12 +37,9 @@ type resolver struct {
 
 // CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
 // previously analyzed channels so that later expressions can reference them by name
-// without hitting the backing symbol resolver. CalculationAnalyzer is safe for
+// without hitting the backing symbol resolver. CalculationAnalyzer is not safe for
 // concurrent use.
 type CalculationAnalyzer struct {
-	// mu serializes Analyze calls, which mutate the resolver's unresolved set and
-	// symbol caches.
-	mu       sync.Mutex
 	resolver *resolver
 	cfg      parser.Config
 }
@@ -100,8 +96,6 @@ func (a *CalculationAnalyzer) Analyze(
 	ctx context.Context,
 	ch Channel,
 ) (CalculationAnalysisResult, error) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
 	a.resolver.unresolved = make(set.Set[string])
 	t, err := parser.ParseBlock(fmt.Sprintf("{%s}", ch.Expression), a.cfg)
 	if err != nil {

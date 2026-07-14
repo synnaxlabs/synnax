@@ -27,7 +27,7 @@ func validServiceConfig(ctx context.Context) channel.ServiceConfig {
 	node := mock.NewNode(ctx)
 	return channel.ServiceConfig{
 		HostResolver: node.Cluster,
-		KVReadWriter: node.DB,
+		KV:           node.DB,
 		TS:           node.Storage.TS,
 		Transport:    tmock.NewNetwork().New("mock"),
 	}
@@ -51,7 +51,7 @@ var _ = Describe("ServiceConfig", Ordered, func() {
 				)
 			},
 			Entry("host resolver", "host_resolver: must be non-nil"),
-			Entry("kv read writer", "kv_read_writer: must be non-nil"),
+			Entry("kv", "kv: must be non-nil"),
 			Entry("time-series database", "ts: must be non-nil"),
 			Entry("transport", "transport: must be non-nil"),
 		)
@@ -78,7 +78,7 @@ var _ = Describe("Service", Ordered, func() {
 		Expect(channel.NewService(ctx, channel.ServiceConfig{})).Error().To(
 			MatchError(SatisfyAll(
 				ContainSubstring("host_resolver: must be non-nil"),
-				ContainSubstring("kv_read_writer: must be non-nil"),
+				ContainSubstring("kv: must be non-nil"),
 				ContainSubstring("ts: must be non-nil"),
 				ContainSubstring("transport: must be non-nil"),
 			)),
