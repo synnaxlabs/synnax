@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
@@ -82,7 +81,7 @@ describe("DigitalRead", () => {
         schemas: NI.Task.DIGITAL_READ_SCHEMAS,
       });
       expect(created.type).toBe(NI.Task.DIGITAL_READ_TYPE);
-      expect(task.rackKey(created.key)).toBe(dev.rack);
+      expect(created.rack).toBe(dev.rack);
       const [c0, c1] = created.config.channels;
       expect(c0.channel).not.toBe(0);
       expect(c1.channel).not.toBe(0);

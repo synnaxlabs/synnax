@@ -272,6 +272,7 @@ export interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const ZERO_READ_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "LabJack Read Task",
   config: ZERO_READ_CONFIG,
   type: "labjack_read",
@@ -321,6 +322,7 @@ export interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "LabJack Write Task",
   config: ZERO_WRITE_CONFIG,
   type: "labjack_write",

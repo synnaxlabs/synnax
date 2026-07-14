@@ -17,7 +17,7 @@
 #include <utility>
 
 #include "client/cpp/ontology/id.h"
-#include "client/cpp/rack/types.gen.h"
+#include "client/cpp/rack/key.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"

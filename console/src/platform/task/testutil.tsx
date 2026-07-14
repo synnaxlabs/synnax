@@ -396,7 +396,14 @@ export const createTaskStatus = (
     description: "",
     time: TimeStamp.now(),
     ...rest,
-    details: { task: "0", running: false, cmd: "", ...details },
+    details: {
+      task: "0",
+      running: false,
+      cmd: "",
+      configHash: "",
+      rack: 0,
+      ...details,
+    },
   };
 };
 

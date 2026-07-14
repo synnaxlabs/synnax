@@ -54,8 +54,8 @@ class TaskStatus:
         self._stop = threading.Event()
         self._ready = threading.Event()
         self._cond = threading.Condition()
-        self._latest: dict[int, sy.task.Status] = {}
-        self._messages: dict[int, list[str]] = {}
+        self._latest: dict[sy.task.Key, sy.task.Status] = {}
+        self._messages: dict[sy.task.Key, list[str]] = {}
         self._thread: threading.Thread | None = None
         self._error: Exception | None = None
 
@@ -86,7 +86,7 @@ class TaskStatus:
             self._thread.join(timeout=CLOSE_TIMEOUT)
 
     def wait_for(
-        self, task_key: int, text: str, timeout: float = DEFAULT_WAIT_TIMEOUT
+        self, task_key: sy.task.Key, text: str, timeout: float = DEFAULT_WAIT_TIMEOUT
     ) -> bool:
         """Return True if a status for task_key contains text within timeout.
 
@@ -103,12 +103,12 @@ class TaskStatus:
                     return False
                 self._cond.wait(remaining)
 
-    def latest(self, task_key: int) -> sy.task.Status | None:
+    def latest(self, task_key: sy.task.Key) -> sy.task.Status | None:
         """Return the most recent recorded status for task_key, or None."""
         with self._cond:
             return self._latest.get(task_key)
 
-    def is_running(self, task_key: int) -> bool:
+    def is_running(self, task_key: sy.task.Key) -> bool:
         """Return True if the most recent status reports the task as running."""
         status = self.latest(task_key)
         return (

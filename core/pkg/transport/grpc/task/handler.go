@@ -13,12 +13,13 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task/pb"
-	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -119,7 +120,7 @@ func (retrieveRequestTranslator) Forward(
 ) (*RetrieveRequest, error) {
 	return &RetrieveRequest{
 		Rack:          uint32(req.Rack),
-		Keys:          unsafe.ReinterpretSlice[task.Key, uint64](req.Keys),
+		Keys:          lo.Map(req.Keys, func(k task.Key, _ int) string { return k.String() }),
 		Names:         req.Names,
 		Types:         req.Types,
 		IncludeStatus: req.IncludeStatus,
@@ -130,9 +131,15 @@ func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	req *RetrieveRequest,
 ) (task.RetrieveRequest, error) {
+	keys, err := lo.MapErr(req.Keys, func(k string, _ int) (task.Key, error) {
+		return uuid.Parse(k)
+	})
+	if err != nil {
+		return task.RetrieveRequest{}, err
+	}
 	return task.RetrieveRequest{
 		Rack:          rack.Key(req.Rack),
-		Keys:          unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
+		Keys:          keys,
 		Names:         req.Names,
 		Types:         req.Types,
 		IncludeStatus: req.IncludeStatus,
@@ -166,7 +173,7 @@ func (deleteRequestTranslator) Forward(
 	req task.DeleteRequest,
 ) (*DeleteRequest, error) {
 	return &DeleteRequest{
-		Keys: unsafe.ReinterpretSlice[task.Key, uint64](req.Keys),
+		Keys: lo.Map(req.Keys, func(k task.Key, _ int) string { return k.String() }),
 	}, nil
 }
 
@@ -174,9 +181,13 @@ func (deleteRequestTranslator) Backward(
 	_ context.Context,
 	req *DeleteRequest,
 ) (task.DeleteRequest, error) {
-	return task.DeleteRequest{
-		Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
-	}, nil
+	keys, err := lo.MapErr(req.Keys, func(k string, _ int) (task.Key, error) {
+		return uuid.Parse(k)
+	})
+	if err != nil {
+		return task.DeleteRequest{}, err
+	}
+	return task.DeleteRequest{Keys: keys}, nil
 }
 
 func (copyRequestTranslator) Forward(
@@ -184,7 +195,7 @@ func (copyRequestTranslator) Forward(
 	req task.CopyRequest,
 ) (*CopyRequest, error) {
 	return &CopyRequest{
-		Key:      uint64(req.Key),
+		Key:      req.Key.String(),
 		Name:     req.Name,
 		Snapshot: req.Snapshot,
 	}, nil
@@ -194,8 +205,12 @@ func (copyRequestTranslator) Backward(
 	_ context.Context,
 	req *CopyRequest,
 ) (task.CopyRequest, error) {
+	key, err := uuid.Parse(req.Key)
+	if err != nil {
+		return task.CopyRequest{}, err
+	}
 	return task.CopyRequest{
-		Key:      task.Key(req.Key),
+		Key:      key,
 		Name:     req.Name,
 		Snapshot: req.Snapshot,
 	}, nil

@@ -11,6 +11,7 @@ package pagerduty_test
 
 import (
 	"context"
+	"github.com/google/uuid"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -108,7 +109,7 @@ var _ = Describe("Factory", func() {
 		Describe("ConfigureTask", func() {
 			It("Should return ErrTaskNotHandled for non-pagerduty types",
 				func(ctx context.Context) {
-					t := task.Task{Key: 1, Name: "test", Type: "modbus_read"}
+					t := task.Task{Key: uuid.New(), Name: "test", Type: "modbus_read"}
 					Expect(factory.ConfigureTask(ctx, t)).Error().
 						To(MatchError(driver.ErrTaskNotHandled))
 				},
@@ -117,7 +118,7 @@ var _ = Describe("Factory", func() {
 			It("Should return an error for invalid config JSON",
 				func(ctx context.Context) {
 					t := task.Task{
-						Key:    1,
+						Key:    uuid.New(),
 						Name:   "test",
 						Type:   pd.AlertTaskType,
 						Config: msgpack.EncodedJSON{"invalid": func() {}},
@@ -135,7 +136,7 @@ var _ = Describe("Factory", func() {
 						},
 					}.MsgpackEncodedJSON())
 					t := task.Task{
-						Key: 1, Name: "test", Type: pd.AlertTaskType,
+						Key: uuid.New(), Name: "test", Type: pd.AlertTaskType,
 						Config: cfg,
 					}
 					Expect(factory.ConfigureTask(ctx, t)).Error().
@@ -152,7 +153,7 @@ var _ = Describe("Factory", func() {
 						},
 					}.MsgpackEncodedJSON())
 					t := task.Task{
-						Key: 1, Name: "PagerDuty Test",
+						Key: uuid.New(), Name: "PagerDuty Test",
 						Type: pd.AlertTaskType, Config: cfg,
 					}
 					tsk := MustSucceed(factory.ConfigureTask(ctx, t))
@@ -177,7 +178,7 @@ var _ = Describe("Factory", func() {
 					},
 				}.MsgpackEncodedJSON())
 				t := task.Task{
-					Key: 1, Name: "PagerDuty Test",
+					Key: uuid.New(), Name: "PagerDuty Test",
 					Type: pd.AlertTaskType, Config: cfg,
 				}
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t))

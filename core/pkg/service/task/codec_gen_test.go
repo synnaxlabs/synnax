@@ -12,6 +12,7 @@
 package task_test
 
 import (
+	"github.com/google/uuid"
 	"reflect"
 	"testing"
 
@@ -19,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
 
@@ -35,14 +37,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", task.StatusDetails{
-				Task:    task.Key(2),
-				Running: false,
-				Cmd:     "test_3",
+				Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Running:    false,
+				Cmd:        "test_3",
+				ConfigHash: "test_4",
+				Rack:       rack.Key(6),
 			}),
 			Entry("zero values", task.StatusDetails{
-				Task:    task.Key(0),
-				Running: false,
-				Cmd:     "",
+				Task:       uuid.Nil,
+				Running:    false,
+				Cmd:        "",
+				ConfigHash: "",
+				Rack:       rack.Key(0),
 			}),
 		)
 	})
@@ -58,13 +64,15 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", task.Task{
-				Key:      task.Key(2),
-				Name:     "test_2",
-				Internal: true,
-				Snapshot: false,
+				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:     rack.Key(3),
+				Name:     "test_3",
+				Internal: false,
+				Snapshot: true,
 			}),
 			Entry("zero values", task.Task{
-				Key:      task.Key(0),
+				Key:      uuid.Nil,
+				Rack:     rack.Key(0),
 				Name:     "",
 				Internal: false,
 				Snapshot: false,
@@ -75,9 +83,11 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 	sd := task.StatusDetails{
-		Task:    task.Key(2),
-		Running: false,
-		Cmd:     "test_3",
+		Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Running:    false,
+		Cmd:        "test_3",
+		ConfigHash: "test_4",
+		Rack:       rack.Key(6),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -96,10 +106,11 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 
 func BenchmarkEncodeDecodeTask(b *testing.B) {
 	t := task.Task{
-		Key:      task.Key(2),
-		Name:     "test_2",
-		Internal: true,
-		Snapshot: false,
+		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Rack:     rack.Key(3),
+		Name:     "test_3",
+		Internal: false,
+		Snapshot: true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -119,9 +130,11 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 func FuzzDecodeStatusDetails(f *testing.F) {
 	{
 		seed := task.StatusDetails{
-			Task:    task.Key(2),
-			Running: false,
-			Cmd:     "test_3",
+			Task:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Running:    false,
+			Cmd:        "test_3",
+			ConfigHash: "test_4",
+			Rack:       rack.Key(6),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -131,9 +144,11 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 	}
 	{
 		seed := task.StatusDetails{
-			Task:    task.Key(0),
-			Running: false,
-			Cmd:     "",
+			Task:       uuid.Nil,
+			Running:    false,
+			Cmd:        "",
+			ConfigHash: "",
+			Rack:       rack.Key(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -173,10 +188,11 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 func FuzzDecodeTask(f *testing.F) {
 	{
 		seed := task.Task{
-			Key:      task.Key(2),
-			Name:     "test_2",
-			Internal: true,
-			Snapshot: false,
+			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:     rack.Key(3),
+			Name:     "test_3",
+			Internal: false,
+			Snapshot: true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -186,7 +202,8 @@ func FuzzDecodeTask(f *testing.F) {
 	}
 	{
 		seed := task.Task{
-			Key:      task.Key(0),
+			Key:      uuid.Nil,
+			Rack:     rack.Key(0),
 			Name:     "",
 			Internal: false,
 			Snapshot: false,

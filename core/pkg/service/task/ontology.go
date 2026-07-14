@@ -13,8 +13,8 @@ import (
 	"context"
 	"io"
 	"iter"
-	"strconv"
 
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -41,16 +41,12 @@ func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
 
 func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
 	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
-		k, err := strconv.ParseUint(id.Key, 10, 64)
-		if err != nil {
-			return 0, err
-		}
-		return Key(k), nil
+		return uuid.Parse(id.Key)
 	})
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.Uint64().Coerce(),
+	"key":      zyn.UUID(),
 	"name":     zyn.String(),
 	"type":     zyn.String(),
 	"snapshot": zyn.Bool(),
@@ -75,12 +71,12 @@ func (s *Service) SearchableFields() []string { return []string{"type"} }
 
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
-	k, err := strconv.Atoi(key)
+	k, err := uuid.Parse(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}
 	var t Task
-	if err = s.NewRetrieve().Where(MatchKeys(Key(k))).Entry(&t).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&t).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(t), nil

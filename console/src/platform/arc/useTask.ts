@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc, status, type task } from "@synnaxlabs/client";
+import { type arc, type rack, status, type task } from "@synnaxlabs/client";
 import { Arc, Task } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 export interface UseTaskReturn {
   running: boolean;
   taskKey: task.Key;
+  taskRack: rack.Key;
   onStartStop: () => void;
   taskStatus: status.Status;
 }
@@ -33,6 +34,7 @@ export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
     return {
       running: isRunning,
       taskKey: "",
+      taskRack: 0,
       onStartStop: handleStartStop,
       taskStatus: tsk.status,
     };
@@ -40,12 +42,14 @@ export const useTask = (key: arc.Key, name: string): UseTaskReturn => {
     return {
       running: false,
       taskKey: "",
+      taskRack: 0,
       onStartStop: () => {},
       taskStatus: notDeployedYet(name),
     };
   return {
     running: isRunning,
     taskKey: tsk.data.key,
+    taskRack: tsk.data.rack,
     onStartStop: handleStartStop,
     taskStatus: tsk.data.status ?? notDeployedYet(name),
   };

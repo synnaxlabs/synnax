@@ -174,10 +174,7 @@ export class Rack {
     task: task.New<Schemas>,
     schemas?: Schemas,
   ): Promise<task.Task<Schemas>> {
-    task.key = (
-      (BigInt(this.key) << 32n) +
-      (BigInt(task.key ?? 0) & 0xffffffffn)
-    ).toString();
+    task.rack = this.key;
     return await this.tasks.create(task, schemas as Required<Schemas>);
   }
 

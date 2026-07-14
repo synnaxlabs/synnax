@@ -15,7 +15,7 @@ import {
   status,
   task,
 } from "@synnaxlabs/client";
-import { compare, errors, id, primitive, type record, xy } from "@synnaxlabs/x";
+import { compare, errors, id, primitive, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -323,13 +323,23 @@ const TASK_TYPE = "arc";
 
 const taskStatusDataZ = z.null().optional();
 
-const configuringStatus = (taskKey: task.Key): task.Status<typeof taskStatusDataZ> =>
+const configuringStatus = (
+  taskKey: task.Key,
+  rackKey: rack.Key,
+): task.Status<typeof taskStatusDataZ> =>
   status.create<ReturnType<typeof task.statusDetailsZ<typeof taskStatusDataZ>>>({
     key: task.statusKey(taskKey),
     name: "Configuring task",
     variant: "loading",
     message: "Configuring task...",
-    details: { task: taskKey, running: false, cmd: "", data: undefined },
+    details: {
+      task: taskKey,
+      running: false,
+      cmd: "",
+      configHash: "",
+      rack: rackKey,
+      data: undefined,
+    },
   });
 
 const TASK_SCHEMAS = {
@@ -350,41 +360,28 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     const optimistic: arc.Arc = arc.arcZ.parse(data);
     let taskKey: task.Key | undefined;
     // If the caller selected a rack to deploy the arc on, we need to create a task
-    // for it.
+    // for it. Reuse the existing task's key when one exists; the rack field on the
+    // created task moves it between racks.
     if (rack != null) {
-      taskKey = task.newKey(rack, 0);
+      taskKey = uuid.create();
       if (data.key != null) {
         const tsk = await retrieveTask({ client, store, query: { arcKey: data.key } });
-        if (tsk != null)
-          if (task.rackKey(tsk.key) != rack) {
-            // This means a previous task was created for a different rack, and we need
-            // to delete it.
-            rollbacks.push(store.tasks.delete(tsk.key));
-            rollbacks.push(
-              store.relationships.delete(
-                ontology.relationshipToString({
-                  from: arc.ontologyID(data.key),
-                  type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-                  to: task.ontologyID(tsk.key),
-                }),
-              ),
-            );
-            await client.tasks.delete([tsk.key]);
-          } else taskKey = tsk.key;
+        if (tsk != null) taskKey = tsk.key;
       }
     }
     rollbacks.push(store.arcs.set(optimistic));
     await onOptimisticComplete(optimistic);
     const prog = await client.arcs.create(optimistic);
-    if (taskKey == null) return prog;
+    if (taskKey == null || rack == null) return prog;
     const { key, name } = prog;
     const newTsk = await client.tasks.create(
       {
         key: taskKey,
+        rack,
         name,
         type: TASK_TYPE,
         config: { arcKey: key },
-        status: configuringStatus(taskKey),
+        status: configuringStatus(taskKey, rack),
       },
       TASK_SCHEMAS,
     );

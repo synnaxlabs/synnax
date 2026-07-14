@@ -258,7 +258,7 @@ class ScanTask final : public task::Task, public pipeline::Base {
     /// @brief Signal thread run loop - processes device set/delete events.
     void signal_thread_run() {
         x::thread::set_name((this->task.name + ":sig").c_str());
-        const auto rack_key = synnax::task::rack_key_from_task_key(this->key);
+        const auto rack_key = this->task.rack;
         const auto make = this->scanner->config().make;
 
         do {
@@ -348,7 +348,7 @@ public:
     /// This is called automatically by run(), but can be called separately for testing.
     x::errors::Error init() {
         auto [remote_devs_vec, ret_err] = this->client->retrieve_devices(
-            synnax::task::rack_key(this->task),
+            this->task.rack,
             this->scanner->config().make
         );
         if (ret_err) return ret_err;

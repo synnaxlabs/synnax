@@ -9,7 +9,6 @@
 
 #pragma once
 
-#include <cstdint>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -27,11 +26,7 @@
 #include "core/pkg/service/task/pb/task.pb.h"
 #include "core/pkg/transport/grpc/task/task.pb.h"
 
-namespace synnax {
-namespace rack {
-using Key = std::uint32_t;
-}
-namespace task {
+namespace synnax { namespace task {
 
 const std::string SET_CHANNEL = "sy_task_set";
 const std::string DELETE_CHANNEL = "sy_task_delete";
@@ -48,35 +43,6 @@ using RetrieveClient = freighter::
 /// @brief Type alias for the transport used to delete a task.
 using DeleteClient = freighter::
     UnaryClient<grpc::task::DeleteRequest, google::protobuf::Empty>;
-
-/// @brief Creates a task key from a rack key and a local task key.
-/// @param rack The rack key.
-/// @param task The local task key.
-/// @returns A combined task key.
-inline Key create_key(const rack::Key rack, const Key task) {
-    return static_cast<Key>(rack) << 32 | task;
-}
-
-/// @brief Extracts the rack key from a task key.
-/// @param key The task key.
-/// @returns The rack key portion of the task key.
-inline rack::Key rack_key_from_task_key(const Key key) {
-    return key >> 32;
-}
-
-/// @brief Extracts the local task key from a task key.
-/// @param key The task key.
-/// @returns The local task key portion of the task key.
-inline std::uint32_t local_key(const Key key) {
-    return key & 0xFFFFFFFF;
-}
-
-/// @brief Returns the rack key for a task.
-/// @param task The task.
-/// @returns The rack key portion of the task's key.
-inline rack::Key rack_key(const Task &task) {
-    return rack_key_from_task_key(task.key);
-}
 
 /// @brief Returns a unique status key for a task.
 /// @param task The task.
@@ -241,5 +207,4 @@ private:
     /// @brief Task deletion transport.
     std::shared_ptr<DeleteClient> task_delete_client;
 };
-}
-}
+}}

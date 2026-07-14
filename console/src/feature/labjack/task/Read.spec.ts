@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -146,7 +145,7 @@ describe("LabJack Read", () => {
         schemas: LabJack.Task.READ_SCHEMAS,
       });
       expect(created.type).toBe(LabJack.Task.READ_TYPE);
-      expect(task.rackKey(created.key)).toBe(dev.rack);
+      expect(created.rack).toBe(dev.rack);
       const [ai, di] = created.config.channels;
       expect(ai.channel).not.toBe(0);
       expect(di.channel).not.toBe(0);

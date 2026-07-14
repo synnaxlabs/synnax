@@ -10,6 +10,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/write_task.h"
 #include "driver/pipeline/mock/pipeline.h"
@@ -85,7 +86,7 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     );
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
     WriteTask write_task(
@@ -153,7 +154,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     );
 
     synnax::task::Task task;
-    task.key = 12345;
+    task.key = x::uuid::create();
 
     auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
 

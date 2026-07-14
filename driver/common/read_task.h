@@ -160,7 +160,7 @@ class ReadTask final : public driver::task::Task {
         [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
             auto cfg = this->internal->writer_config();
             if (cfg.subject.key.empty())
-                cfg.subject.key = std::to_string(this->p.state.task.key);
+                cfg.subject.key = this->p.state.task.key.to_string();
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
             return cfg;
         }

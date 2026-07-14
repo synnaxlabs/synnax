@@ -66,6 +66,7 @@ export interface AlertPayload extends task.Payload<AlertSchemas> {}
 
 export const ZERO_ALERT_PAYLOAD: AlertPayload = {
   key: "",
+  rack: 0,
   type: ALERT_TYPE,
   name: "PagerDuty Alert Task",
   config: ZERO_ALERT_TASK_CONFIG,

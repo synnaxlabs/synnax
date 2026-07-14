@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
+import { DisconnectedError, task as clientTask } from "@synnaxlabs/client";
 
 import { Export } from "@/platform/export";
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
   try {
-    BigInt(key);
+    clientTask.keyZ.parse(key);
   } catch (cause) {
     throw new Error(
       `Cannot export task with key ${key}. You should configure the task before exporting it.`,

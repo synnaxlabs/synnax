@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v56"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -125,8 +126,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			v0Mig,
 			gorp.CodecMigration[v54.Key, v54.Task]("msgpack_to_orc", v0Mig.Key()),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_status", MigrateTask),
+				gorp.NewEntryMigration("v54_drop_status", v56.MigrateTask),
 				"msgpack_to_orc",
+			),
+			migrate.WithAddedDeps(
+				gorp.NewMigration("v56_task_uuid_key", MigrateKeysToUUID),
+				"v54_drop_status",
 			),
 		},
 		Instrumentation: cfg.Instrumentation,
@@ -188,7 +193,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        tx,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		otg:       s.cfg.Ontology,
-		rack:      s.cfg.Rack.NewWriter(tx),
 		group:     s.group,
 		status:    status.NewWriter[StatusDetails](s.cfg.Status, tx),
 		table:     s.table,

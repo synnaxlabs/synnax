@@ -82,7 +82,7 @@ protected:
         ASSERT_NIL(client->devices.create(dev));
 
         task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "my_task",
             .type = "ni_analog_write",
         };

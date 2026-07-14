@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, type rack, status, task } from "@synnaxlabs/client";
-import { array, type optional } from "@synnaxlabs/x";
+import { array, type optional, primitive } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -39,10 +39,10 @@ export interface FluxSubStore extends Ontology.FluxSubStore, Label.FluxSubStore 
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
-const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
+const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.setSignalZ> = {
   channel: task.SET_CHANNEL_NAME,
-  schema: task.keyZ,
-  onChange: async ({ store, changed: key, client }) =>
+  schema: task.setSignalZ,
+  onChange: async ({ store, changed: { key }, client }) =>
     store.tasks.set(key, await client.tasks.retrieve({ key, includeStatus: true })),
 };
 
@@ -63,7 +63,14 @@ const SET_COMMAND_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.comma
         name: "Task Status",
         variant: "loading",
         message: `Running ${changed.type} command...`,
-        details: { task: changed.task, running: true, cmd: "", data: {} },
+        details: {
+          task: changed.task,
+          running: true,
+          cmd: "",
+          configHash: "",
+          rack: 0,
+          data: {},
+        },
       });
     });
   },
@@ -116,23 +123,19 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
           if ("key" in query && query.key != null && task.key === query.key)
             onChange(task as unknown as task.Task<S>);
         }, query.key.toString()),
-        store.statuses.onSet(
-          (status) => {
-            const parsed = task
-              .statusZ(schemas?.statusData ?? z.unknown())
-              .parse(status);
-            onChange((prev) => {
-              if (prev == null) return null;
-              return client.tasks.sugar({ ...prev.payload, status: parsed });
-            });
-          },
-          task.statusKey(query.key as task.Key),
-        ),
+        store.statuses.onSet((status) => {
+          const parsed = task.statusZ(schemas?.statusData ?? z.unknown()).parse(status);
+          onChange((prev) => {
+            if (prev == null) return null;
+            return client.tasks.sugar({ ...prev.payload, status: parsed });
+          });
+        }, task.statusKey(query.key)),
       ];
     },
   });
 
-export const { useRetrieve, useRetrieveObservable } = createRetrieve();
+export const { useRetrieve, useRetrieveEffect, useRetrieveObservable } =
+  createRetrieve();
 
 export const useRetrieveObservableName = ({
   onChange,
@@ -225,10 +228,10 @@ export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
 
 export interface InitialValues<
   S extends task.Schemas = task.Schemas,
-> extends optional.Optional<task.Payload<S>, "key" | "internal" | "snapshot"> {
+> extends optional.Optional<task.Payload<S>, "key" | "rack" | "internal" | "snapshot"> {
   key?: task.Key;
-  /** Rack to pre-select when creating a new task. Ignored when key is set, as the
-   * rack is already encoded in the task key. */
+  /** Rack to pre-select when creating a new task. The payload rack takes
+   * precedence when set. */
   rackKey?: rack.Key;
 }
 
@@ -241,7 +244,7 @@ const taskToFormValues = <S extends task.Schemas = task.Schemas>(
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
-  rackKey: t.key == null ? (t.rackKey ?? 0) : task.rackKey(t.key),
+  rackKey: primitive.isNonZero(t.rack) ? t.rack : (t.rackKey ?? 0),
   type: t.type,
   config: t.config,
   status: t.status,

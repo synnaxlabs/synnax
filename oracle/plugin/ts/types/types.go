@@ -2068,6 +2068,9 @@ func (p *Plugin) typeRefToZodSchemaType(typeRef *resolution.TypeRef, table *reso
 	case resolution.DistinctForm:
 		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
 
+	case resolution.AliasForm:
+		return fmt.Sprintf("typeof %s%sZ", prefix, camelCase(tsName))
+
 	case resolution.UnionForm:
 		// A union schema's inferred type depends on every variant schema, so a
 		// `typeof xZ` annotation in a getter would re-enter the inference cycle the

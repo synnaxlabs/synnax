@@ -12,7 +12,6 @@ package rack
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -124,7 +123,6 @@ func (c ServiceConfig) Validate() error {
 
 type Service struct {
 	closer          xio.MultiCloser
-	keyMu           *sync.Mutex
 	localKeyCounter *kv.AtomicInt64Counter
 	group           group.Group
 	monitor         *monitor
@@ -138,7 +136,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg, keyMu: &sync.Mutex{}}
+	s = &Service{ServiceConfig: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	v0Mig := v0.Migration(v0.MigrationConfig{
@@ -222,29 +220,18 @@ func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[St
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:         tx,
-		otg:        s.Ontology.NewWriter(tx),
-		newKey:     s.newKey,
-		newTaskKey: s.newTaskKey,
-		group:      s.group,
-		status:     status.NewWriter[StatusDetails](s.Status, tx),
-		table:      s.table,
+		tx:     tx,
+		otg:    s.Ontology.NewWriter(tx),
+		newKey: s.newKey,
+		group:  s.group,
+		status: status.NewWriter[StatusDetails](s.Status, tx),
+		table:  s.table,
 	}
 }
 
 func (s *Service) newKey(ctx context.Context) (Key, error) {
 	n, err := s.localKeyCounter.Add(ctx, 1)
 	return NewKey(s.HostProvider.HostKey(), uint16(n)), err
-}
-
-func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err error) {
-	s.keyMu.Lock()
-	defer s.keyMu.Unlock()
-	return next, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Rack](rackKey)).Change(func(_ gorp.Context, r Rack) Rack {
-		r.TaskCounter += 1
-		next = r.TaskCounter
-		return r
-	}).Exec(ctx, s.DB)
 }
 
 func (s *Service) NewRetrieve() Retrieve {

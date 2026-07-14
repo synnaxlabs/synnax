@@ -186,7 +186,7 @@ class ArcCase(SimDaqCase, TestCase):
         """
         try:
             for handle in reversed(self._arcs):
-                if handle.task.key != 0:
+                if handle.task.key is not None:
                     with self._try_to(f"delete task {handle.name}"):
                         self.client.tasks.delete(handle.task.key)
                 with self._try_to(f"delete arc {handle.name}"):

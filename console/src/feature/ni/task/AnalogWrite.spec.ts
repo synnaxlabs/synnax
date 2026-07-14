@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -120,7 +119,7 @@ describe("AnalogWrite", () => {
         schemas: NI.Task.ANALOG_WRITE_SCHEMAS,
       });
       expect(created.type).toBe(NI.Task.ANALOG_WRITE_TYPE);
-      expect(task.rackKey(created.key)).toBe(dev.rack);
+      expect(created.rack).toBe(dev.rack);
       const [c0] = created.config.channels;
       expect(c0.cmdChannel).not.toBe(0);
       expect(c0.stateChannel).not.toBe(0);

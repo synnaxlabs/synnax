@@ -13,9 +13,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
@@ -25,7 +25,6 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	rack      rack.Writer
 	group     group.Group
 	status    status.Writer[StatusDetails]
 	table     *gorp.Table[Key, Task]
@@ -67,12 +66,8 @@ func (w Writer) healStatus(
 // Create creates or updates a task. If a status is provided on the task,
 // it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, t *Task) error {
-	if !t.Key.IsValid() {
-		localKey, err := w.rack.NewTaskKey(ctx, t.Rack())
-		if err != nil {
-			return err
-		}
-		t.Key = NewKey(t.Rack(), localKey)
+	if t.Key == uuid.Nil {
+		t.Key = uuid.New()
 	}
 	providedStatus := (*status.Status[StatusDetails])(t.Status) // Preserve before clearing for gorp
 	t.Status = nil                                              // Status stored separately, not in gorp
@@ -145,13 +140,9 @@ func (w Writer) Copy(
 	name string,
 	snapshot bool,
 ) (Task, error) {
-	localKey, err := w.rack.NewTaskKey(ctx, key.Rack())
-	if err != nil {
-		return Task{}, err
-	}
-	newKey := NewKey(key.Rack(), localKey)
+	newKey := uuid.New()
 	var res Task
-	if err = w.table.NewUpdate().Where(gorp.MatchKeys[Key, Task](key)).Change(func(_ gorp.Context, t Task) Task {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Task](key)).Change(func(_ gorp.Context, t Task) Task {
 		t.Key = newKey
 		t.Name = name
 		t.Snapshot = snapshot
@@ -160,10 +151,10 @@ func (w Writer) Copy(
 	}).Exec(ctx, w.tx); err != nil {
 		return Task{}, err
 	}
-	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
+	if err := w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
 	}
-	if err = w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
+	if err := w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
 	return res, nil

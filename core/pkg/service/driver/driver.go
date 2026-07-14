@@ -168,17 +168,20 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 				d.cfg.L.Error("failed to unmarshal command", zap.Error(err))
 				continue
 			}
-			if cmd.Task.Rack() != d.rack.Key {
-				continue
-			}
 			d.mu.RLock()
 			t, ok := d.mu.tasks[cmd.Task]
 			d.mu.RUnlock()
 			if !ok {
-				d.cfg.L.Warn(
-					"received command for unknown task",
-					zap.Stringer("task", cmd.Task),
-				)
+				var tsk task.Task
+				if err := d.cfg.Task.NewRetrieve().
+					Where(task.MatchKeys(cmd.Task)).
+					Entry(&tsk).
+					Exec(ctx, nil); err == nil && tsk.Rack == d.rack.Key {
+					d.cfg.L.Warn(
+						"received command for unknown task",
+						zap.Stringer("task", cmd.Task),
+					)
+				}
 				continue
 			}
 			sCtx, cancel := signal.WithTimeout(
@@ -215,12 +218,10 @@ func (d *Driver) handleTaskChange(
 	reader gorp.TxReader[task.Key, task.Task],
 ) {
 	for ch := range reader {
-		if ch.Key.Rack() == d.rack.Key {
-			if ch.Variant == change.VariantSet {
-				d.configure(ctx, ch.Value)
-			} else {
-				d.delete(ch.Key)
-			}
+		if ch.Variant == change.VariantSet && ch.Value.Rack == d.rack.Key {
+			d.configure(ctx, ch.Value)
+		} else {
+			d.delete(ch.Key)
 		}
 	}
 }

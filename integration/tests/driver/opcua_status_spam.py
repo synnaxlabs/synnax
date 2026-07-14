@@ -19,7 +19,7 @@ RATE_LIMIT = RATE_LIMIT_SECONDS * sy.TimeSpan.SECOND
 
 
 def _warnings_for_task(
-    frame: sy.Frame, task_key: int
+    frame: sy.Frame, task_key: sy.task.Key
 ) -> Generator[sy.task.Status, None, None]:
     if "sy_status_set" not in frame:
         return

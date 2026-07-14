@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -50,7 +49,7 @@ describe("Modbus.Write", () => {
     const taskKey = await awaitTaskKey(rendered);
 
     const tsk = await client.tasks.retrieve({ key: taskKey });
-    expect(task.rackKey(tsk.key)).toBe(dev.rack);
+    expect(tsk.rack).toBe(dev.rack);
     const config = Modbus.Task.WRITE_SCHEMAS.config.parse(tsk.config);
     expect(config.channels).toHaveLength(2);
     const [coil, holding] = config.channels;

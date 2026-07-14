@@ -547,7 +547,10 @@ func (p *Plugin) aliasTargetToCpp(typeRef resolution.TypeRef, data *templateData
 				name = fmt.Sprintf("::%s::%s", resolved.Namespace, name)
 			}
 		} else {
-			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			includePath := cppInclude
+			if includePath == "" {
+				includePath = fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
@@ -1085,13 +1088,31 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, form resolution.EnumF
 	return name
 }
 
+// explicitInclude returns the header declared via `@cpp include` on the type,
+// letting a type override the default <output>/types.gen.h include (e.g. to break
+// a header cycle with a small hand-written header).
+func explicitInclude(resolved resolution.Type) string {
+	cppDomain, ok := resolved.Domains["cpp"]
+	if !ok {
+		return ""
+	}
+	expr, found := cppDomain.Expressions.Find("include")
+	if !found || len(expr.Values) == 0 {
+		return ""
+	}
+	return expr.Values[0].StringValue
+}
+
 func (p *Plugin) resolveDistinctType(resolved resolution.Type, data *templateData) string {
 	name := domain.GetName(resolved, "cpp")
 
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			includePath := explicitInclude(resolved)
+			if includePath == "" {
+				includePath = fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			}
 			data.includes.addInternal(includePath)
 		}
 		ns := deriveNamespace(targetOutputPath)
@@ -1105,7 +1126,10 @@ func (p *Plugin) resolveAliasType(resolved resolution.Type, typeArgs []resolutio
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			includePath := explicitInclude(resolved)
+			if includePath == "" {
+				includePath = fmt.Sprintf("%s/%s", targetOutputPath, "types.gen.h")
+			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)

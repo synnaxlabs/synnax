@@ -191,7 +191,7 @@ TEST(ArcTests, testCalcDoubling) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_calc_test",
         .type = "arc_runtime",
     };
@@ -302,7 +302,7 @@ TEST(ArcTests, testBasicSequence) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_sequence_test",
         .type = "arc_runtime",
     };
@@ -425,7 +425,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_truthiness_test",
         .type = "arc_runtime",
     };
@@ -603,7 +603,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_two_stage_test",
         .type = "arc_runtime",
     };
@@ -782,7 +782,7 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_trap_test",
         .type = "arc_runtime",
     };
@@ -887,7 +887,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_restart_trap_test",
         .type = "arc_runtime",
     };
@@ -1019,7 +1019,7 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_multi_cycle_test",
         .type = "arc_runtime",
     };
@@ -1131,7 +1131,7 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_status_verify_test",
         .type = "arc_runtime",
     };
@@ -1247,7 +1247,7 @@ TEST(ArcEdgeCases, RapidStartStop) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_rapid_test",
         .type = "arc_runtime",
     };
@@ -1342,7 +1342,7 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_nostart_test",
         .type = "arc_runtime",
     };
@@ -1456,7 +1456,7 @@ TEST(ArcTests, testChannelConfigParam) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_cfg_ch_test",
         .type = "arc_runtime",
     };
@@ -1614,7 +1614,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_crw_test",
         .type = "arc_runtime",
     };
@@ -1737,7 +1737,7 @@ TEST(ArcEdgeCases, DoubleStart) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_double_start_test",
         .type = "arc_runtime",
     };
@@ -1838,7 +1838,7 @@ TEST(ArcTests, testRestartResetsState) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_restart_test",
         .type = "arc_runtime",
     };
@@ -1964,7 +1964,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_auth_test",
         .type = "arc_runtime",
     };
@@ -2085,7 +2085,7 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_pca_test",
         .type = "arc_runtime",
     };
@@ -2202,7 +2202,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_dyn_auth_test",
         .type = "arc_runtime",
     };
@@ -2309,7 +2309,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_dpc_auth_test",
         .type = "arc_runtime",
     };
@@ -2411,7 +2411,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_auth_calc_test",
         .type = "arc_runtime",
     };
@@ -2523,7 +2523,7 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_eou_test",
         .type = "arc_runtime",
     };
@@ -2616,7 +2616,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_writer_fail_test",
         .type = "arc_runtime",
     };
@@ -2724,7 +2724,7 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_eager_open_test",
         .type = "arc_runtime",
     };
@@ -2818,7 +2818,7 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_read_only_test",
         .type = "arc_runtime",
     };
@@ -2901,7 +2901,7 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     );
 
     synnax::task::Task task_meta{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = "arc_write_only_test",
         .type = "arc_runtime",
     };

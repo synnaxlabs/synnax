@@ -68,7 +68,7 @@ bool Scanner::exec(
 }
 
 x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
-    const auto rack_key = synnax::task::rack_key_from_task_key(this->task.key);
+    const auto rack_key = this->task.rack;
     const auto parser = x::json::Parser(dev.properties);
     const auto props = device::Properties(parser);
     if (parser.error()) {

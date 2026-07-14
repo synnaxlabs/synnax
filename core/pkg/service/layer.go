@@ -375,15 +375,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Log) {
 		return nil, err
 	}
-	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
-		Instrumentation: cfg.Child("panel"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        cfg.Distribution.Ontology,
-		Search:          cfg.Distribution.Search,
-		Signals:         l.Signals,
-	}); !ok(err, l.Panel) {
-		return nil, err
-	}
 	if l.Table, err = table.OpenService(ctx, table.ServiceConfig{
 		Instrumentation: cfg.Child("table"),
 		DB:              cfg.Distribution.DB,
@@ -438,8 +429,31 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if closer, err := signals.PublishFromGorp(
 		ctx,
 		l.Signals,
-		signals.GorpPublisherConfigPureNumeric(l.Task.Observe(), telem.Uint64T),
+		signals.GorpPublisherConfig[task.Key, task.Task]{
+			Observable:     l.Task.Observe(),
+			SetDataType:    telem.JSONT,
+			DeleteDataType: telem.UUIDT,
+			MarshalDelete:  func(k task.Key) ([]byte, error) { return k[:], nil },
+			// Set events carry task metadata only; configs stay out of the
+			// signal channel and are fetched on demand.
+			MarshalSet: func(t task.Task) ([]byte, error) {
+				t.Config = nil
+				t.Status = nil
+				return signals.MarshalJSON[task.Key, task.Task](t)
+			},
+		},
 	); !ok(err, closer) {
+		return nil, err
+	}
+	// Panel opens after task so the panel migrations can consume the task re-key
+	// staging map.
+	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
+		Instrumentation: cfg.Child("panel"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        cfg.Distribution.Ontology,
+		Search:          cfg.Distribution.Search,
+		Signals:         l.Signals,
+	}); !ok(err, l.Panel) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(

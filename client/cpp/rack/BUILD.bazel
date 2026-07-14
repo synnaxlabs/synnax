@@ -10,6 +10,12 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
 cc_library(
+    name = "key",
+    hdrs = ["key.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "rack",
     srcs = ["rack.cpp"],
     hdrs = [

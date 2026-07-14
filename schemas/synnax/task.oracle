@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/rack"
 import "schemas/synnax/status"
 
 @ts output  "client/ts/src/task"
@@ -15,27 +16,30 @@ import "schemas/synnax/status"
 @cpp output "client/cpp/task"
 @pb
 
-Key uint64 {
-    @doc value    """
-        is a composite identifier for a task. The high 32 bits contain the rack
-        key, and the low 32 bits contain the local task key within that rack.
-    """
-    @ts type      string
-    @ts to_string
-    @go marshal   flex
+Key = uuid {
+    @doc value "is a unique identifier for a task."
 }
 
 StatusDetails struct<Data? = record> {
-    task    Key = 0 {
+    task        Key      {
         @doc value "is the key of the task this status pertains to."
     }
-    running bool   {
+    running     bool     {
         @doc value "is true if the task is currently executing."
     }
-    cmd     string = "" {
+    cmd         string = "" {
         @doc value "is the last command executed on this task."
     }
-    data    Data?  {
+    config_hash string = "" {
+        @doc value """
+            is the hash of the config the running task instance was built from.
+            Empty when no instance exists.
+        """
+    }
+    rack        rack.Key = 0 {
+        @doc value "is the key of the rack running the task instance."
+    }
+    data        Data?    {
         @doc value "contains task-specific status data."
     }
 
@@ -54,9 +58,16 @@ Task struct<
     Config extends record = record,
     StatusData? = record
 > {
-    key      Key = 0 {
-        @doc value "is the composite identifier for this task."
+    key      Key = create {
+        @doc value "is the unique identifier for this task."
         @key
+    }
+    rack     rack.Key = 0 {
+        @doc value """
+            is the key of the rack this task deploys to. Zero for a draft that
+            has not been assigned a rack; required to start.
+        """
+        @filter
     }
     name     string              {
         @doc value "is a human-readable name for the task."

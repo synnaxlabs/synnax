@@ -123,7 +123,7 @@ func (x *CreateResponse) GetTasks() []*pb.Task {
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Rack          uint32                 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
-	Keys          []uint64               `protobuf:"varint,2,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	Keys          []string               `protobuf:"bytes,2,rep,name=keys,proto3" json:"keys,omitempty"`
 	Names         []string               `protobuf:"bytes,3,rep,name=names,proto3" json:"names,omitempty"`
 	Types         []string               `protobuf:"bytes,4,rep,name=types,proto3" json:"types,omitempty"`
 	IncludeStatus bool                   `protobuf:"varint,5,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
@@ -168,7 +168,7 @@ func (x *RetrieveRequest) GetRack() uint32 {
 	return 0
 }
 
-func (x *RetrieveRequest) GetKeys() []uint64 {
+func (x *RetrieveRequest) GetKeys() []string {
 	if x != nil {
 		return x.Keys
 	}
@@ -242,7 +242,7 @@ func (x *RetrieveResponse) GetTasks() []*pb.Task {
 
 type DeleteRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []uint64               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
+	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -277,7 +277,7 @@ func (*DeleteRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *DeleteRequest) GetKeys() []uint64 {
+func (x *DeleteRequest) GetKeys() []string {
 	if x != nil {
 		return x.Keys
 	}
@@ -286,7 +286,7 @@ func (x *DeleteRequest) GetKeys() []uint64 {
 
 type CopyRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           uint64                 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	Snapshot      bool                   `protobuf:"varint,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -323,11 +323,11 @@ func (*CopyRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_task_task_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *CopyRequest) GetKey() uint64 {
+func (x *CopyRequest) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
-	return 0
+	return ""
 }
 
 func (x *CopyRequest) GetName() string {
@@ -399,16 +399,16 @@ const file_core_pkg_transport_grpc_task_task_proto_rawDesc = "" +
 	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"\x8c\x01\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x12\n" +
-	"\x04keys\x18\x02 \x03(\x04R\x04keys\x12\x14\n" +
+	"\x04keys\x18\x02 \x03(\tR\x04keys\x12\x14\n" +
 	"\x05names\x18\x03 \x03(\tR\x05names\x12\x14\n" +
 	"\x05types\x18\x04 \x03(\tR\x05types\x12%\n" +
 	"\x0einclude_status\x18\x05 \x01(\bR\rincludeStatus\"?\n" +
 	"\x10RetrieveResponse\x12+\n" +
 	"\x05tasks\x18\x01 \x03(\v2\x15.service.task.pb.TaskR\x05tasks\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\x04R\x04keys\"O\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"O\n" +
 	"\vCopyRequest\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\x04R\x03key\x12\x12\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
 	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\"9\n" +
 	"\fCopyResponse\x12)\n" +

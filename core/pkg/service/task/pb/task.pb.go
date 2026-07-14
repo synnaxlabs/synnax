@@ -38,13 +38,18 @@ const (
 type StatusDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// task is the key of the task this status pertains to.
-	Task uint64 `protobuf:"varint,1,opt,name=task,proto3" json:"task,omitempty"`
+	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	// running is true if the task is currently executing.
 	Running bool `protobuf:"varint,2,opt,name=running,proto3" json:"running,omitempty"`
 	// cmd is the last command executed on this task.
 	Cmd string `protobuf:"bytes,3,opt,name=cmd,proto3" json:"cmd,omitempty"`
+	// config_hash is the hash of the config the running task instance was built from. Empty
+	// when no instance exists.
+	ConfigHash string `protobuf:"bytes,4,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
+	// rack is the key of the rack running the task instance.
+	Rack uint32 `protobuf:"varint,5,opt,name=rack,proto3" json:"rack,omitempty"`
 	// data contains task-specific status data.
-	Data          *structpb.Struct `protobuf:"bytes,4,opt,name=data,proto3,oneof" json:"data,omitempty"`
+	Data          *structpb.Struct `protobuf:"bytes,6,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -79,11 +84,11 @@ func (*StatusDetails) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *StatusDetails) GetTask() uint64 {
+func (x *StatusDetails) GetTask() string {
 	if x != nil {
 		return x.Task
 	}
-	return 0
+	return ""
 }
 
 func (x *StatusDetails) GetRunning() bool {
@@ -100,6 +105,20 @@ func (x *StatusDetails) GetCmd() string {
 	return ""
 }
 
+func (x *StatusDetails) GetConfigHash() string {
+	if x != nil {
+		return x.ConfigHash
+	}
+	return ""
+}
+
+func (x *StatusDetails) GetRack() uint32 {
+	if x != nil {
+		return x.Rack
+	}
+	return 0
+}
+
 func (x *StatusDetails) GetData() *structpb.Struct {
 	if x != nil {
 		return x.Data
@@ -112,21 +131,24 @@ func (x *StatusDetails) GetData() *structpb.Struct {
 // for devices.
 type Task struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the composite identifier for this task.
-	Key uint64 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
+	// key is the unique identifier for this task.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// rack is the key of the rack this task deploys to. Zero for a draft that has not been
+	// assigned a rack; required to start.
+	Rack uint32 `protobuf:"varint,2,opt,name=rack,proto3" json:"rack,omitempty"`
 	// name is a human-readable name for the task.
-	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
 	// which hardware integration handles the task.
-	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	Type string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
 	// config is task-specific configuration stored as JSON. Structure varies by task type.
-	Config *structpb.Struct `protobuf:"bytes,4,opt,name=config,proto3" json:"config,omitempty"`
+	Config *structpb.Struct `protobuf:"bytes,5,opt,name=config,proto3" json:"config,omitempty"`
 	// internal is true if this is an internal system task.
-	Internal bool `protobuf:"varint,5,opt,name=internal,proto3" json:"internal,omitempty"`
+	Internal bool `protobuf:"varint,6,opt,name=internal,proto3" json:"internal,omitempty"`
 	// snapshot indicates whether to persist this task's configuration.
-	Snapshot bool `protobuf:"varint,6,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	Snapshot bool `protobuf:"varint,7,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	// status is the current execution status of the task.
-	Status        *pb.Status `protobuf:"bytes,7,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status        *pb.Status `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -161,9 +183,16 @@ func (*Task) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *Task) GetKey() uint64 {
+func (x *Task) GetKey() string {
 	if x != nil {
 		return x.Key
+	}
+	return ""
+}
+
+func (x *Task) GetRack() uint32 {
+	if x != nil {
+		return x.Rack
 	}
 	return 0
 }
@@ -214,7 +243,7 @@ func (x *Task) GetStatus() *pb.Status {
 type Command struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// task is the key of the target task.
-	Task uint64 `protobuf:"varint,1,opt,name=task,proto3" json:"task,omitempty"`
+	Task string `protobuf:"bytes,1,opt,name=task,proto3" json:"task,omitempty"`
 	// type is the command type (e.g., 'start', 'stop', 'configure').
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// key is a unique identifier for this command instance.
@@ -255,11 +284,11 @@ func (*Command) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Command) GetTask() uint64 {
+func (x *Command) GetTask() string {
 	if x != nil {
 		return x.Task
 	}
-	return 0
+	return ""
 }
 
 func (x *Command) GetType() string {
@@ -287,24 +316,28 @@ var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\"\x8a\x01\n" +
+	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xbf\x01\n" +
 	"\rStatusDetails\x12\x12\n" +
-	"\x04task\x18\x01 \x01(\x04R\x04task\x12\x18\n" +
+	"\x04task\x18\x01 \x01(\tR\x04task\x12\x18\n" +
 	"\arunning\x18\x02 \x01(\bR\arunning\x12\x10\n" +
-	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x120\n" +
-	"\x04data\x18\x04 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\xec\x01\n" +
+	"\x03cmd\x18\x03 \x01(\tR\x03cmd\x12\x1f\n" +
+	"\vconfig_hash\x18\x04 \x01(\tR\n" +
+	"configHash\x12\x12\n" +
+	"\x04rack\x18\x05 \x01(\rR\x04rack\x120\n" +
+	"\x04data\x18\x06 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x05_data\"\x80\x02\n" +
 	"\x04Task\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\x04R\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
-	"\x04type\x18\x03 \x01(\tR\x04type\x12/\n" +
-	"\x06config\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x06config\x12\x1a\n" +
-	"\binternal\x18\x05 \x01(\bR\binternal\x12\x1a\n" +
-	"\bsnapshot\x18\x06 \x01(\bR\bsnapshot\x126\n" +
-	"\x06status\x18\a \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
+	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
+	"\x04type\x18\x04 \x01(\tR\x04type\x12/\n" +
+	"\x06config\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x06config\x12\x1a\n" +
+	"\binternal\x18\x06 \x01(\bR\binternal\x12\x1a\n" +
+	"\bsnapshot\x18\a \x01(\bR\bsnapshot\x126\n" +
+	"\x06status\x18\b \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_status\"p\n" +
 	"\aCommand\x12\x12\n" +
-	"\x04task\x18\x01 \x01(\x04R\x04task\x12\x12\n" +
+	"\x04task\x18\x01 \x01(\tR\x04task\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
 	"\x03key\x18\x03 \x01(\tR\x03key\x12+\n" +
 	"\x04args\x18\x04 \x01(\v2\x17.google.protobuf.StructR\x04argsB\xb0\x01\n" +

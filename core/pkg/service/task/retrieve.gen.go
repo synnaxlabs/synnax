@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -70,6 +71,15 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 func MatchKeys(keys ...Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Task] {
 		return gorp.MatchKeys[Key, Task](keys...)
+	}
+}
+
+// MatchRacks returns a filter for tasks whose Rack matches any of the provided values.
+func MatchRacks(vals ...rack.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return gorp.Match(func(_ gorp.Context, e *Task) (bool, error) {
+			return lo.Contains(vals, e.Rack), nil
+		})
 	}
 }
 

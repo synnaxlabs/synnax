@@ -9,7 +9,13 @@
 
 import "@/platform/task/Form.css";
 
-import { type device, panel, type rack, type Synnax, task } from "@synnaxlabs/client";
+import {
+  type device,
+  panel,
+  type rack,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import {
   Device,
   Flex,
@@ -21,7 +27,7 @@ import {
   Task as PTask,
   Text,
 } from "@synnaxlabs/pluto";
-import { id, primitive, TimeStamp } from "@synnaxlabs/x";
+import { id, primitive, TimeStamp, uuid } from "@synnaxlabs/x";
 import { type FC, useCallback, useEffect, useState } from "react";
 import { z } from "zod";
 
@@ -123,32 +129,36 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const initialValues = {
       ...getInitialValues({ deviceKey, config }),
       key: taskKey,
-      rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
+      rackKey: rackKey ?? 0,
     };
     const confirm = Modals.useConfirm();
     const { form, status, save } = PTask.createForm({ schemas, initialValues })({
       query: { key: taskKey },
       beforeSave: async ({ client, ...form }) => {
-        const { name, config } = form.value();
-        const [newConfig, rackKey] = await onConfigure(client, config, name);
-        const nonZeroRackKey = primitive.isNonZero(rackKey);
+        const { name, config, rackKey: currentRackKey } = form.value();
+        const [newConfig, newRackKey] = await onConfigure(client, config, name);
+        const nonZeroRackKey = primitive.isNonZero(newRackKey);
         if (
           nonZeroRackKey &&
           primitive.isNonZero(taskKey) &&
-          rackKey != task.rackKey(taskKey)
+          newRackKey != currentRackKey
         ) {
           const confirmed = await confirm({
             message: "Device has been moved to different driver.",
             description:
-              "This means that the task will need to be deleted and recreated on the new driver. Do you want to continue?",
+              "This means that the task will be moved to the new driver. Do you want to continue?",
             confirm: { label: "Confirm", variant: "error" },
             cancel: { label: "Cancel" },
           });
           if (!confirmed) return false;
-          await client.tasks.delete(taskKey);
         }
-        if (nonZeroRackKey) form.set("rackKey", rackKey);
+        if (nonZeroRackKey) form.set("rackKey", newRackKey);
         form.set("config", newConfig);
+        let key = form.value().key;
+        if (key == null) {
+          key = uuid.create();
+          form.set("key", key);
+        }
         const status: task.New<S>["status"] = {
           key: id.create(),
           name,
@@ -156,7 +166,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           time: TimeStamp.now(),
           variant: "loading",
           message: "Configuring task",
-          details: { running: true, cmd: "", data: null },
+          details: { task: key, running: true, cmd: "", data: null },
         };
         form.set("status", status);
         return true;

@@ -219,7 +219,7 @@ public:
                     .authorities = std::move(initial_authorities),
                     .subject =
                         x::control::Subject{
-                            .key = std::to_string(task_meta.key),
+                            .key = task_meta.key.to_string(),
                             .name = task_meta.name,
                         },
                     .mode = common::data_saving_writer_mode(cfg.data_saving),

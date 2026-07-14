@@ -62,7 +62,7 @@ class NIDigitalWrite(NIDigitalWriteTaskCase):
 
 def _assert_driver_rejects_value(
     client: sy.Synnax,
-    task_key: int,
+    task_key: sy.task.Key,
     *,
     cmd_keys: list[int],
     value: float,

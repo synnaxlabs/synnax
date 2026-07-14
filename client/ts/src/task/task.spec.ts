@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeStamp } from "@synnaxlabs/x";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -27,8 +27,7 @@ describe("Task", async () => {
         type: "ni",
       });
       expect(m.key).not.toHaveLength(0);
-      const rackKey = BigInt(m.key) >> 32n;
-      expect(Number(rackKey)).toBe(testRack.key);
+      expect(m.rack).toBe(testRack.key);
     });
     it("should create a task with a config", async () => {
       const config = {
@@ -47,14 +46,16 @@ describe("Task", async () => {
       expect(m.config).toStrictEqual(config);
     });
     it("should create a task with a custom status", async () => {
+      const key = uuid.create();
       const customStatus: task.New["status"] = {
         name: "Status",
         variant: "success",
         message: "Custom task status",
         description: "Task is running",
-        details: { running: true, data: { customData: true } },
+        details: { task: key, running: true, data: { customData: true } },
       };
       const m = await testRack.createTask({
+        key,
         name: "task-with-status",
         config: { test: true },
         type: "ni",
@@ -137,7 +138,14 @@ describe("Task", async () => {
           key: ontology.idToString(task.ontologyID(t.key)),
           name: "test",
           variant: "success",
-          details: { task: t.key, running: false, cmd: "", data: undefined },
+          details: {
+            task: t.key,
+            running: false,
+            cmd: "",
+            configHash: "",
+            rack: testRack.key,
+            data: undefined,
+          },
           message: "test",
           description: "",
           time: TimeStamp.now(),
@@ -185,7 +193,7 @@ describe("Task", async () => {
           rack: testRack.key,
         });
         expect(result.length).toBeGreaterThanOrEqual(3);
-        expect(result.every((t) => task.rackKey(t.key) === testRack.key)).toBe(true);
+        expect(result.every((t) => t.rack === testRack.key)).toBe(true);
       });
 
       it("should retrieve tasks by multiple keys", async () => {
@@ -369,7 +377,7 @@ describe("Task", async () => {
       });
       const tasks = await client.tasks.list(testRack.key);
       expect(tasks.some((t) => t.key === task1.key)).toBe(true);
-      expect(tasks.every((t) => task.rackKey(t.key) === testRack.key)).toBe(true);
+      expect(tasks.every((t) => t.rack === testRack.key)).toBe(true);
     });
 
     it("should exclude internal tasks by default", async () => {

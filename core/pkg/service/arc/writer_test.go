@@ -131,7 +131,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			t := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
+				Rack: testRack.Key,
 				Name: "child-task",
 				Type: "arc",
 			}
@@ -165,12 +165,12 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
 			t1 := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
+				Rack: testRack.Key,
 				Name: "child-task-1",
 				Type: "arc",
 			}
 			t2 := &task.Task{
-				Key:  task.NewKey(testRack.Key, 0),
+				Rack: testRack.Key,
 				Name: "child-task-2",
 				Type: "arc",
 			}

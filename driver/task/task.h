@@ -34,7 +34,7 @@ namespace driver::task {
 class Task {
 public:
     /// @brief the key of the task
-    synnax::task::Key key = 0;
+    synnax::task::Key key;
 
     [[nodiscard]] virtual std::string name() const { return ""; }
 
@@ -342,8 +342,6 @@ private:
         synnax::channel::Channel control_state;
     } channels;
 
-    /// @brief returns true if the task belongs to a different rack.
-    [[nodiscard]] bool skip_foreign_rack(const synnax::task::Key &task_key) const;
     /// @brief opens the streamer for task set/delete/cmd channels.
     x::errors::Error open_streamer();
     /// @brief loads and queues all existing tasks from the cluster.

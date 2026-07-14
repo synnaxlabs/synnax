@@ -196,7 +196,7 @@ protected:
         };
 
         task = synnax::task::Task{
-            .key = synnax::task::create_key(rack.key, 0),
+            .rack = rack.key,
             .name = "opc_ua_write_task_test",
             .type = "opc_write",
         };

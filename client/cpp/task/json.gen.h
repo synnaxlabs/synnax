@@ -13,6 +13,7 @@
 
 #include <string>
 
+#include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
@@ -21,25 +22,30 @@ namespace synnax::task {
 
 inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
-        .task = parser.field<Key>("task", 0),
+        .task = parser.field<Key>("task"),
         .running = parser.field<bool>("running"),
         .cmd = parser.field<std::string>("cmd", ""),
+        .config_hash = parser.field<std::string>("config_hash", ""),
+        .rack = parser.field<::synnax::rack::Key>("rack", 0),
         .data = parser.field<std::optional<x::json::json::object_t>>("data"),
     };
 }
 
 inline x::json::json StatusDetails::to_json() const {
     x::json::json j;
-    j["task"] = this->task;
+    j["task"] = this->task.to_json();
     j["running"] = this->running;
     j["cmd"] = this->cmd;
+    j["config_hash"] = this->config_hash;
+    j["rack"] = this->rack;
     j["data"] = this->data;
     return j;
 }
 
 inline Task Task::parse(x::json::Parser parser) {
     return Task{
-        .key = parser.field<Key>("key", 0),
+        .key = parser.field<Key>("key"),
+        .rack = parser.field<::synnax::rack::Key>("rack", 0),
         .name = parser.field<std::string>("name"),
         .type = parser.field<std::string>("type"),
         .config = parser.field<x::json::json::object_t>("config"),
@@ -51,7 +57,8 @@ inline Task Task::parse(x::json::Parser parser) {
 
 inline x::json::json Task::to_json() const {
     x::json::json j;
-    j["key"] = this->key;
+    j["key"] = this->key.to_json();
+    j["rack"] = this->rack;
     j["name"] = this->name;
     j["type"] = this->type;
     j["config"] = this->config;
@@ -73,7 +80,7 @@ inline Command Command::parse(x::json::Parser parser) {
 
 inline x::json::json Command::to_json() const {
     x::json::json j;
-    j["task"] = this->task;
+    j["task"] = this->task.to_json();
     j["type"] = this->type;
     j["key"] = this->key;
     j["args"] = this->args;

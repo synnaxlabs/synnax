@@ -9,7 +9,7 @@
 
 import "@/feature/arc/editor/TaskControls.css";
 
-import { type rack, task } from "@synnaxlabs/client";
+import { type rack } from "@synnaxlabs/client";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
@@ -23,14 +23,17 @@ const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 export const TaskControls = () => {
   const key = Arc.useKey();
   const name = Arc.useSelectName();
-  const { running, onStartStop, taskStatus, taskKey } = PlatformArc.useTask(key, name);
+  const { running, onStartStop, taskStatus, taskKey, taskRack } = PlatformArc.useTask(
+    key,
+    name,
+  );
   const taskKeyDefined = primitive.isNonZero(taskKey);
   const [selectedRack, setSelectedRack] = useState<rack.Key | undefined>();
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (taskKeyDefined) setSelectedRack(task.rackKey(taskKey));
-  }, [taskKey, taskKeyDefined]);
+    if (taskKeyDefined && primitive.isNonZero(taskRack)) setSelectedRack(taskRack);
+  }, [taskKeyDefined, taskRack]);
   const { update } = Arc.useCreate();
   const { data: remote } = Arc.useRetrieve({ key }, { addStatusOnFailure: false });
 

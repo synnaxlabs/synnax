@@ -195,6 +195,7 @@ interface ReadPayload extends task.Payload<ReadSchemas> {}
 
 export const ZERO_READ_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "Modbus Read Task",
   config: ZERO_READ_CONFIG,
   type: READ_TYPE,
@@ -236,6 +237,7 @@ interface WritePayload extends task.Payload<WriteSchemas> {}
 
 export const ZERO_WRITE_PAYLOAD = {
   key: "",
+  rack: 0,
   name: "Modbus Write Task",
   config: ZERO_WRITE_CONFIG,
   type: WRITE_TYPE,

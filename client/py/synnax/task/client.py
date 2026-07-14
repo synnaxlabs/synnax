@@ -14,7 +14,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Annotated, Any, overload
 from typing import Protocol as BaseProtocol
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
@@ -28,7 +28,7 @@ from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.status import VARIANT_ERROR, VARIANT_SUCCESS
-from synnax.task.types_gen import Payload, Status, ontology_id
+from synnax.task.types_gen import Key, Payload, Status, ontology_id
 from synnax.telem import TimeSpan, TimeStamp
 from x.lists import check_for_none, normalize, override
 
@@ -41,11 +41,11 @@ _CreateResponse = _CreateRequest
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[int]
+    keys: list[Key]
 
 
 class _CopyRequest(BaseModel):
-    key: int
+    key: Key
     name: str
     snapshot: bool
 
@@ -56,7 +56,7 @@ class _CopyResponse(BaseModel):
 
 class _RetrieveRequest(BaseModel):
     rack: int | None = None
-    keys: list[int] | None = None
+    keys: list[Key] | None = None
     names: list[str] | None = None
     types: list[str] | None = None
     include_status: bool = False
@@ -133,7 +133,8 @@ class BaseWriteConfig(BaseConfig):
 
 
 class Task:
-    key: int = 0
+    key: Key
+    rack: int = 0
     name: str = ""
     type: str = ""
     config: dict[str, Any] = {}
@@ -144,7 +145,7 @@ class Task:
     def __init__(
         self,
         *,
-        key: int = 0,
+        key: Key | str | None = None,
         rack: int = 0,
         name: str = "",
         type: str = "",
@@ -154,9 +155,12 @@ class Task:
         internal: bool = False,
         _frame_client: FrameClient | None = None,
     ):
-        if key == 0:
-            key = (rack << 32) + 0
+        if key is None:
+            key = uuid4()
+        elif isinstance(key, str):
+            key = UUID(key)
         self.key = key
+        self.rack = rack
         self.name = name
         self.type = type
         self.config = config if config is not None else {}
@@ -176,6 +180,7 @@ class Task:
     def to_payload(self) -> Payload:
         return Payload(
             key=self.key,
+            rack=self.rack,
             name=self.name,
             type=self.type,
             config=self.config,
@@ -183,6 +188,7 @@ class Task:
 
     def set_internal(self, task: Task) -> None:
         self.key = task.key
+        self.rack = task.rack
         self.name = task.name
         self.type = task.type
         self.config = task.config
@@ -217,7 +223,7 @@ class Task:
         key = str(uuid4())
         w.write(
             _TASK_CMD_CHANNEL,
-            [{"task": self.key, "type": type_, "key": key, "args": args}],
+            [{"task": str(self.key), "type": type_, "key": key, "args": args}],
         )
         w.close()
         return str(key)
@@ -264,7 +270,7 @@ class Task:
 
 class Protocol(BaseProtocol):
     @property
-    def key(self) -> int: ...
+    def key(self) -> Key: ...
 
     def to_payload(self) -> Payload: ...
 
@@ -331,7 +337,7 @@ class JSONConfigMixin(Protocol):
         return self._internal.name
 
     @property
-    def key(self) -> int:
+    def key(self) -> Key:
         """Implements TaskProtocol protocol"""
         return self._internal.key
 
@@ -373,7 +379,7 @@ class Client:
     def create(
         self,
         *,
-        key: int = 0,
+        key: Key | str | None = None,
         name: str = "",
         type: str = "",
         config: dict[str, Any] | BaseModel | None = None,
@@ -390,7 +396,7 @@ class Client:
         self,
         tasks: Task | list[Task] | None = None,
         *,
-        key: int = 0,
+        key: Key | str | None = None,
         name: str = "",
         type: str = "",
         config: dict[str, Any] | BaseModel | None = None,
@@ -402,7 +408,13 @@ class Client:
         elif isinstance(config, BaseModel):
             config = config.model_dump()
         if tasks is None:
-            payloads = [Payload(key=key, name=name, type=type, config=config or {})]
+            if key is None:
+                key = uuid4()
+            elif isinstance(key, str):
+                key = UUID(key)
+            payloads = [
+                Payload(key=key, rack=rack, name=name, type=type, config=config or {})
+            ]
         elif isinstance(tasks, Task):
             payloads = [tasks.to_payload()]
         else:
@@ -420,14 +432,13 @@ class Client:
         return res.tasks
 
     def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Payload:
-        if self._default_rack is None:
-            # Hardcoded as this value for now. Will be changed once we have multi-rack
-            # systems
-            self._default_rack = self._racks.retrieve_embedded_rack()
-        if pld is not None and pld.key == 0:
-            if rack == 0:
-                rack = self._default_rack.key
-            pld.key = (rack << 32) + 0
+        if pld is None or pld.rack != 0:
+            return pld
+        if rack == 0:
+            if self._default_rack is None:
+                self._default_rack = self._racks.retrieve_embedded_rack()
+            rack = self._default_rack.key
+        pld.rack = rack
         return pld
 
     def configure(self, task: Protocol, timeout: float = 5) -> Protocol:
@@ -467,14 +478,14 @@ class Client:
                     raise ConfigurationError(status.message)
         return task
 
-    def delete(self, keys: int | list[int]) -> None:
+    def delete(self, keys: Key | str | list[Key | str]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
         self._client.send("/task/delete", req, Empty)
 
     @overload
     def retrieve(
         self,
-        key: int | None = None,
+        key: Key | str | None = None,
         name: str | None = None,
         type: str | None = None,
     ) -> Task: ...
@@ -486,17 +497,17 @@ class Client:
         name: None = None,
         type: None = None,
         names: list[str] | None = None,
-        keys: list[int] | None = None,
+        keys: list[Key | str] | None = None,
         types: list[str] | None = None,
     ) -> list[Task]: ...
 
     def retrieve(
         self,
-        key: int | None = None,
+        key: Key | str | None = None,
         name: str | None = None,
         type: str | None = None,
         names: list[str] | None = None,
-        keys: list[int] | None = None,
+        keys: list[Key | str] | None = None,
         types: list[str] | None = None,
     ) -> list[Task] | Task:
         is_single = check_for_none(names, keys, types)
@@ -547,7 +558,7 @@ class Client:
 
     def copy(
         self,
-        key: int,
+        key: Key | str,
         name: str,
     ) -> Task:
         """Copies an existing task with a new name.

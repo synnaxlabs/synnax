@@ -11,16 +11,17 @@
 
 #pragma once
 
-#include <cstdint>
 #include <optional>
 #include <string>
 #include <type_traits>
 #include <utility>
 
 #include "client/cpp/ontology/id.h"
+#include "client/cpp/rack/key.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/service/task/pb/task.pb.h"
 
@@ -28,17 +29,22 @@ namespace synnax::task {
 
 struct Command;
 
-using Key = std::uint64_t;
+using Key = x::uuid::UUID;
 
 /// @brief StatusDetails contains task-specific status details including execution
 /// state.
 struct StatusDetails {
     /// @brief task is the key of the task this status pertains to.
-    Key task = 0;
+    Key task;
     /// @brief running is true if the task is currently executing.
     bool running = false;
     /// @brief cmd is the last command executed on this task.
     std::string cmd = "";
+    /// @brief config_hash is the hash of the config the running task instance was built
+    /// from. Empty when no instance exists.
+    std::string config_hash = "";
+    /// @brief rack is the key of the rack running the task instance.
+    ::synnax::rack::Key rack = 0;
     /// @brief data contains task-specific status data.
     std::optional<x::json::json::object_t> data;
 
@@ -55,7 +61,7 @@ struct StatusDetails {
 /// @brief Command is a command to execute on a task in the Driver system.
 struct Command {
     /// @brief task is the key of the target task.
-    Key task = 0;
+    Key task;
     /// @brief type is the command type (e.g., 'start', 'stop', 'configure').
     std::string type;
     /// @brief key is a unique identifier for this command instance.
@@ -79,8 +85,12 @@ using Status = ::synnax::status::Status<StatusDetails>;
 /// specific hardware operations such as reading sensor data, writing control signals,
 /// or scanning for devices.
 struct Task {
-    /// @brief key is the composite identifier for this task.
-    Key key = 0;
+    /// @brief key is the unique identifier for this task.
+    Key key;
+    /// @brief rack is the key of the rack this task deploys to. Zero for a draft that
+    /// has
+    /// not been assigned a rack; required to start.
+    ::synnax::rack::Key rack = 0;
     /// @brief name is a human-readable name for the task.
     std::string name;
     /// @brief type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
@@ -109,6 +119,6 @@ struct Task {
 const synnax::ontology::ID ONTOLOGY_TYPE("task", "");
 
 inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("task", std::to_string(key));
+    return synnax::ontology::ID("task", key.to_string());
 }
 }

@@ -43,10 +43,16 @@ export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
-export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
-
-export const newKey = (rackKey: RackKey, taskKey: number = 0): Key =>
-  ((BigInt(rackKey) << 32n) + BigInt(taskKey)).toString();
+/** Payload written to sy_task_set: task metadata without config or status. */
+export const setSignalZ = z.object({
+  key: keyZ,
+  rack: rackKeyZ,
+  name: z.string(),
+  type: z.string(),
+  internal: z.boolean().default(false),
+  snapshot: z.boolean().default(false),
+});
+export interface SetSignal extends z.infer<typeof setSignalZ> {}
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.retrieveParents(ontologyID(taskKey));
@@ -83,6 +89,7 @@ export interface ExecuteCommandSyncParams<StatusData extends z.ZodType> extends 
 
 export class Task<S extends Schemas = Schemas> {
   readonly key: Key;
+  readonly rack: RackKey;
   name: string;
   internal: boolean;
   type: z.infer<S["type"]>;
@@ -111,13 +118,23 @@ export class Task<S extends Schemas = Schemas> {
   }
 
   constructor(
-    { key, type, name, config, internal = false, snapshot = false, status }: Payload<S>,
+    {
+      key,
+      rack,
+      type,
+      name,
+      config,
+      internal = false,
+      snapshot = false,
+      status,
+    }: Payload<S>,
     schemas?: S,
     frameClient?: framer.Client,
     ontologyClient?: ontology.Client,
     rangeClient?: ranger.Client,
   ) {
     this.key = key;
+    this.rack = rack;
     this.name = name;
     this.type = type;
     this.config = config;
@@ -139,6 +156,7 @@ export class Task<S extends Schemas = Schemas> {
   get payload(): Payload<S> {
     return {
       key: this.key,
+      rack: this.rack,
       name: this.name,
       type: this.type,
       config: this.config,
@@ -359,10 +377,11 @@ export class Client {
   ): Task<S>[] | Task<S> {
     const isSingle = !Array.isArray(payloads);
     const res = array.toArray(payloads).map(
-      ({ key, name, type, config, status, internal, snapshot }) =>
+      ({ key, rack, name, type, config, status, internal, snapshot }) =>
         new Task(
           {
             key,
+            rack,
             name,
             type,
             config,

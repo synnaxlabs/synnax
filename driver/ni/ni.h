@@ -118,7 +118,7 @@ public:
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
         TaskHandle handle;
-        const std::string dmx_task_name = task.name + " (" + std::to_string(task.key) +
+        const std::string dmx_task_name = task.name + " (" + task.key.to_string() +
                                           ")";
         if (const auto err = this->dmx->CreateTask(dmx_task_name.c_str(), &handle))
             return {std::move(result), err};

@@ -12,6 +12,7 @@ package pagerduty_test
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"strings"
 	"time"
 
@@ -111,7 +112,7 @@ var _ = Describe("AlertTask", func() {
 		cfg pd.AlertTaskConfig,
 	) driver.Task {
 		t := task.Task{
-			Key:    task.NewKey(1, 1),
+			Key:    uuid.New(),
 			Name:   "PagerDuty Test",
 			Type:   pd.AlertTaskType,
 			Config: MustSucceed(cfg.MsgpackEncodedJSON()),
@@ -155,7 +156,7 @@ var _ = Describe("AlertTask", func() {
 			func(ctx context.Context) {
 				cfg := validConfig(pd.AlertConfig{Status: "s1", Enabled: true})
 				t := task.Task{
-					Key:    task.NewKey(1, 1),
+					Key:    uuid.New(),
 					Name:   "test",
 					Type:   pd.AlertTaskType,
 					Config: MustSucceed(cfg.MsgpackEncodedJSON()),

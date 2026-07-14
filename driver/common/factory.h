@@ -65,7 +65,7 @@ configure_initial_factory_tasks(
 ) {
     std::vector<std::pair<synnax::task::Task, std::unique_ptr<task::Task>>> tasks;
     auto sy_task = synnax::task::Task{
-        .key = synnax::task::create_key(rack.key, 0),
+        .rack = rack.key,
         .name = task_name,
         .type = task_type,
         .config = x::json::json::object(),

@@ -31,8 +31,6 @@ type Writer struct {
 	group group.Group
 	// newKey returns a new key for a rack.
 	newKey func(context.Context) (Key, error)
-	// newTaskKey returns a new key for a task within the rack.
-	newTaskKey func(context.Context, Key) (uint32, error)
 	// status is used to write status updates.
 	status status.Writer[StatusDetails]
 	// table is the gorp table for rack entries.
@@ -131,9 +129,4 @@ func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[K
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())
-}
-
-// NewTaskKey returns a new, unique key for the task on the provided rack.
-func (w Writer) NewTaskKey(ctx context.Context, key Key) (next uint32, err error) {
-	return w.newTaskKey(ctx, key)
 }

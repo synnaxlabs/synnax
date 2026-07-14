@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
 	statusv54 "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v54"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v56"
 	colorv54 "github.com/synnaxlabs/x/color/migrations/v54"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -27,8 +27,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("v54 -> current Task migration", func() {
-	It("rewrites v54-encoded entries through the new codec", func(ctx SpecContext) {
+var _ = Describe("v54 -> v56 Task migration", func() {
+	It("rewrites v54-encoded entries through the v56 codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Task](
@@ -44,28 +44,27 @@ var _ = Describe("v54 -> current Task migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[task.Key, task.Task](
-			ctx, gorp.TableConfig[task.Key, task.Task]{
+		currentTable := MustOpen(gorp.OpenTable[v56.Key, v56.Task](
+			ctx, gorp.TableConfig[v56.Key, v56.Task]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[v54.Key, task.Key, v54.Task, task.Task](
+					gorp.NewEntryMigration[v54.Key, v56.Key, v54.Task, v56.Task](
 						"v54_drop_status",
-						task.MigrateTask,
+						v56.MigrateTask,
 					),
 				},
 			},
 		))
 
-		var got task.Task
+		var got v56.Task
 		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[task.Key, task.Task](task.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
-		Expect(got.Key).To(Equal(task.Key(seed.Key)))
+			Where(gorp.MatchKeys[v56.Key, v56.Task](v56.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Key).To(Equal(v56.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
 		Expect(got.Config).To(Equal(msgpack.EncodedJSON(seed.Config)))
 		Expect(got.Internal).To(Equal(seed.Internal))
 		Expect(got.Snapshot).To(Equal(seed.Snapshot))
-		Expect(got.Status).To(BeNil())
 	})
 
 	It("drops Status and preserves core wire fields when v54 entries carry a populated Status", func(ctx SpecContext) {
@@ -99,24 +98,23 @@ var _ = Describe("v54 -> current Task migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[task.Key, task.Task](
-			ctx, gorp.TableConfig[task.Key, task.Task]{
+		currentTable := MustOpen(gorp.OpenTable[v56.Key, v56.Task](
+			ctx, gorp.TableConfig[v56.Key, v56.Task]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[v54.Key, task.Key, v54.Task, task.Task](
+					gorp.NewEntryMigration[v54.Key, v56.Key, v54.Task, v56.Task](
 						"v54_drop_status",
-						task.MigrateTask,
+						v56.MigrateTask,
 					),
 				},
 			},
 		))
 
-		var got task.Task
+		var got v56.Task
 		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[task.Key, task.Task](task.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
-		Expect(got.Key).To(Equal(task.Key(seed.Key)))
+			Where(gorp.MatchKeys[v56.Key, v56.Task](v56.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Key).To(Equal(v56.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
-		Expect(got.Status).To(BeNil())
 	})
 })

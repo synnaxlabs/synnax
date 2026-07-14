@@ -435,11 +435,19 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			var includePath string
-			if p.isFixedSizeUint8ArrayType(resolved) {
-				headerName := lo.SnakeCase(resolved.Name)
-				includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
-			} else {
-				includePath = fmt.Sprintf("%s/json.gen.h", targetOutputPath)
+			if cppDomain, ok := resolved.Domains["cpp"]; ok {
+				if expr, found := cppDomain.Expressions.Find("include"); found &&
+					len(expr.Values) > 0 {
+					includePath = expr.Values[0].StringValue
+				}
+			}
+			if includePath == "" {
+				if p.isFixedSizeUint8ArrayType(resolved) {
+					headerName := lo.SnakeCase(resolved.Name)
+					includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
+				} else {
+					includePath = fmt.Sprintf("%s/json.gen.h", targetOutputPath)
+				}
 			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)

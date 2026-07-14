@@ -113,7 +113,7 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) {
-        auto rack_key = synnax::task::rack_key_from_task_key(task.key);
+        auto rack_key = task.rack;
         auto [rack, rack_err] = ctx->client->racks.retrieve(rack_key);
         if (rack_err) {
             synnax::task::Status stat{

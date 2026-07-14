@@ -14,16 +14,16 @@ package task
 import (
 	"encoding/json"
 
-	xjson "github.com/synnaxlabs/x/encoding/json"
-	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	msgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
-	w.Uint64(uint64(sd.Task))
+	w.Write(sd.Task[:])
 	w.Bool(sd.Running)
 	w.String(sd.Cmd)
+	w.String(sd.ConfigHash)
+	w.Uint32(uint32(sd.Rack))
 	if sd.Data != nil {
 		w.Bool(true)
 		{
@@ -41,18 +41,24 @@ func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
 
 func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	var err error
-	{
-		v, err := r.Uint64()
-		if err != nil {
-			return err
-		}
-		sd.Task = Key(v)
+	if _, err := r.Read(sd.Task[:]); err != nil {
+		return err
 	}
 	if sd.Running, err = r.Bool(); err != nil {
 		return err
 	}
 	if sd.Cmd, err = r.String(); err != nil {
 		return err
+	}
+	if sd.ConfigHash, err = r.String(); err != nil {
+		return err
+	}
+	{
+		v, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		sd.Rack = rack.Key(v)
 	}
 	{
 		present, err := r.Bool()
@@ -75,7 +81,8 @@ func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 }
 
 func (t Task) EncodeOrc(w *orc.Writer) error {
-	w.Uint64(uint64(t.Key))
+	w.Write(t.Key[:])
+	w.Uint32(uint32(t.Rack))
 	w.String(t.Name)
 	w.String(t.Type)
 	{
@@ -92,12 +99,15 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 
 func (t *Task) DecodeOrc(r *orc.Reader) error {
 	var err error
+	if _, err := r.Read(t.Key[:]); err != nil {
+		return err
+	}
 	{
-		v, err := r.Uint64()
+		v, err := r.Uint32()
 		if err != nil {
 			return err
 		}
-		t.Key = Key(v)
+		t.Rack = rack.Key(v)
 	}
 	if t.Name, err = r.String(); err != nil {
 		return err
@@ -120,23 +130,5 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 	if t.Snapshot, err = r.Bool(); err != nil {
 		return err
 	}
-	return nil
-}
-
-func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
-	n, err := xmsgpack.UnmarshalUint64(dec)
-	if err != nil {
-		return err
-	}
-	*kv = Key(n)
-	return nil
-}
-
-func (kv *Key) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringUint64(b)
-	if err != nil {
-		return err
-	}
-	*kv = Key(n)
 	return nil
 }

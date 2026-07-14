@@ -12,13 +12,15 @@
 from __future__ import annotations
 
 from typing import Any, TypeAlias
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+from synnax import rack as rack_
 from synnax import status as status_
 from synnax.ontology.payload import ID
 
-Key: TypeAlias = int
+Key: TypeAlias = UUID
 
 
 class StatusDetails(BaseModel):
@@ -28,12 +30,17 @@ class StatusDetails(BaseModel):
         task: Is the key of the task this status pertains to.
         running: Is true if the task is currently executing.
         cmd: Is the last command executed on this task.
+        config_hash: Is the hash of the config the running task instance was built from.
+            Empty when no instance exists.
+        rack: Is the key of the rack running the task instance.
         data: Contains task-specific status data.
     """
 
-    task: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
+    task: Key
     running: bool
     cmd: str = ""
+    config_hash: str = ""
+    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
     data: dict[str, Any] | None = None
 
 
@@ -47,7 +54,7 @@ class Command(BaseModel):
         args: Contains optional arguments for the command.
     """
 
-    task: Key = Field(ge=0, le=18446744073709551615)
+    task: Key
     type: str
     key: str
     args: dict[str, Any] = Field(default_factory=dict)
@@ -62,7 +69,9 @@ class Payload(BaseModel):
     control signals, or scanning for devices.
 
     Attributes:
-        key: Is the composite identifier for this task.
+        key: Is the unique identifier for this task.
+        rack: Is the key of the rack this task deploys to. Zero for a draft that
+            has not been assigned a rack; required to start.
         name: Is a human-readable name for the task.
         type: Is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
@@ -73,7 +82,8 @@ class Payload(BaseModel):
         status: Is the current execution status of the task.
     """
 
-    key: Key = Field(default=Key(0), ge=0, le=18446744073709551615)
+    key: Key = Field(default_factory=uuid4)
+    rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
     name: str
     type: str
     config: dict[str, Any] = Field(default_factory=dict)

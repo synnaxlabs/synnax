@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/pluto";
 import { screen, waitFor } from "@testing-library/react";
@@ -106,10 +105,22 @@ describe("wrapForm", () => {
       await waitFor(() => expect(screen.getByText("rack-key:5")).toBeTruthy());
     });
 
-    it("should derive it from the task key when no rackKey arg is given", async () => {
-      const taskKey = ((7n << 32n) | 1n).toString();
-      await renderProbe({ taskKey });
-      await waitFor(() => expect(screen.getByText("rack-key:7")).toBeTruthy());
+    it("should load it from the retrieved task when no rackKey arg is given", async () => {
+      const client = createTestClient();
+      const rack = await client.racks.create({ name: uniqueName("rack") });
+      const tsk = await rack.createTask({
+        name: uniqueName("tsk"),
+        type: "test_task",
+        config: { device: "", channels: [] },
+      });
+      const Renderer = createRenderer({ Form: RackKeyProbe });
+      await renderTaskFormTab(Renderer, "test_task", {
+        client,
+        args: { taskKey: tsk.key },
+      });
+      await waitFor(() =>
+        expect(screen.getByText(`rack-key:${rack.key}`)).toBeTruthy(),
+      );
     });
 
     it("should default to zero when neither rackKey nor taskKey is given", async () => {
@@ -131,7 +142,7 @@ describe("wrapForm", () => {
       const created = await client.tasks.retrieve({ key: taskKey });
       expect(created.name).toBe("New Test Task");
       expect(created.type).toBe("test_task");
-      expect(task.rackKey(created.key)).toBe(rack.key);
+      expect(created.rack).toBe(rack.key);
       expect(selectViewArgs(result)).toEqual({ taskKey });
     });
   });

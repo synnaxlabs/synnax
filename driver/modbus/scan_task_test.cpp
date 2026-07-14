@@ -104,7 +104,7 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     dev.key = "health-test-device";
     dev.name = "Health Test Device";
     dev.make = "modbus";
-    dev.rack = synnax::task::rack_key_from_task_key(t.key);
+    dev.rack = t.rack;
     dev.properties = x::json::json{
         {"connection",
          {{"host", "127.0.0.1"},
@@ -138,7 +138,7 @@ TEST(ScanTask, testScanReportsDisconnectedDevice) {
     dev.key = "disconnected-device";
     dev.name = "Disconnected Device";
     dev.make = "modbus";
-    dev.rack = synnax::task::rack_key_from_task_key(t.key);
+    dev.rack = t.rack;
     dev.properties = x::json::json{
         {"connection",
          {{"host", "127.0.0.1"},

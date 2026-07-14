@@ -87,6 +87,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 				),
 				"msgpack_to_orc",
 			),
+			migrate.WithAddedDeps(
+				gorp.NewMigration("v56_task_tab_uuid_keys", MigrateTaskTabKeys),
+				"v56_migrate_project_layouts_to_panels",
+			),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
