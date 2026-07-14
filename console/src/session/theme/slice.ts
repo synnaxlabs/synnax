@@ -12,11 +12,13 @@ import z from "zod";
 
 export const SLICE_NAME = "theme";
 
+export const modeZ = z.enum(["light", "dark", "system"]);
+export type Mode = z.infer<typeof modeZ>;
+
 const sliceStateZ = z
   .object({
     version: z.literal(0).default(0),
-    selected: z.string().default("synnaxLight"),
-    syncWithSystem: z.boolean().default(true),
+    mode: modeZ.default("system"),
   })
   .prefault({});
 
@@ -32,19 +34,13 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    select: (state, action: PayloadAction<string>) => {
-      state.selected = action.payload;
-    },
-    toggle: (state) => {
-      state.selected = state.selected === "synnaxLight" ? "synnaxDark" : "synnaxLight";
-    },
-    toggleSyncWithSystem: (state) => {
-      state.syncWithSystem = !state.syncWithSystem;
+    set: (state, { payload }: PayloadAction<Mode>) => {
+      state.mode = payload;
     },
   },
 });
 
-export const { select, toggle, toggleSyncWithSystem } = actions;
+export const { set } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

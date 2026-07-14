@@ -7,45 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Status, Theming } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
+import { Icon } from "@synnaxlabs/pluto";
 
+import { useModal } from "@/feature/theme/Modal";
 import { Command } from "@/platform/command";
-import { Session } from "@/session";
 
-export const ToggleCommand = Command.create({
-  key: "toggle_theme",
-  name: "Toggle color theme",
-  useOnSelect: () => {
-    const { toggleTheme } = Theming.useContext();
-    return toggleTheme;
-  },
+export const SelectCommand = Command.create({
+  key: "select_color_theme",
+  name: "Change color theme",
+  useOnSelect: () => useModal(),
   icon: <Icon.DarkMode />,
   sortOrder: 0,
 });
-
-const base = " theme sync with system";
-
-export const ToggleSyncWithSystemCommand: Command.Command = (listProps) => {
-  const enabled = Session.Theme.useSelectSyncWithSystem();
-  const toggle = Session.Theme.useToggleSyncWithSystem();
-  const addStatus = Status.useAdder();
-  const onSelect = useCallback(() => {
-    toggle();
-    addStatus({
-      variant: "success",
-      message: enabled ? `Disabled${base}` : `Enabled${base}`,
-    });
-  }, [toggle, addStatus, enabled]);
-  return (
-    <Command.ListItem
-      {...listProps}
-      name={enabled ? `Disable${base}` : `Enable${base}`}
-      icon={<Icon.Sync />}
-      onSelect={onSelect}
-    />
-  );
-};
-ToggleSyncWithSystemCommand.key = "enable_disable_theme_sync_with_system";
-ToggleSyncWithSystemCommand.commandName = `Enable Disable${base}`;
-ToggleSyncWithSystemCommand.sortOrder = 1;

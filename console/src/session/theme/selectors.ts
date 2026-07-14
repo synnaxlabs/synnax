@@ -7,47 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
 import { type Theming } from "@synnaxlabs/pluto";
-import { useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { useMemo } from "react";
 
 import { Select } from "@/session/select";
 import {
-  type Action,
-  select,
+  type Mode,
+  modeZ,
   SLICE_NAME,
   type SliceState,
   type StoreState,
-  toggle,
-  toggleSyncWithSystem,
 } from "@/session/theme/slice";
+import { useOSTheme } from "@/session/theme/useOSTheme";
 
 const selectSlice = (state: StoreState): SliceState => state[SLICE_NAME];
 
-const selectSelected = (state: StoreState) => selectSlice(state).selected;
+const selectMode = (state: StoreState): Mode =>
+  modeZ.catch("system").parse(selectSlice(state).mode);
 
-const selectSyncWithSystem = (state: StoreState) => selectSlice(state).syncWithSystem;
+export const useSelectMode = (): Mode => Select.useMemo(selectMode, []);
 
-export const useSelectSelected = (): string => Select.useMemo(selectSelected, []);
-
-export const useSelectSyncWithSystem = (): boolean =>
-  Select.useMemo(selectSyncWithSystem, []);
-
-export const useToggleSyncWithSystem = (): (() => void) => {
-  const dispatch = useDispatch<Dispatch<Action>>();
-  return useCallback(() => dispatch(toggleSyncWithSystem()), [dispatch]);
+const FIXED_KEYS: Record<Exclude<Mode, "system">, string> = {
+  light: "synnaxLight",
+  dark: "synnaxDark",
 };
 
 export const useProviderProps = (): Theming.ProviderProps => {
-  const key = useSelectSelected();
-  const dispatch = useDispatch<Dispatch<Action>>();
-  return useMemo<Theming.ProviderProps>(
-    () => ({
-      theme: { key },
-      setTheme: (key: string) => dispatch(select(key)),
-      toggleTheme: () => dispatch(toggle()),
-    }),
-    [key],
-  );
+  const mode = useSelectMode();
+  const osKey = useOSTheme(mode === "system");
+  const key = mode === "system" ? osKey : FIXED_KEYS[mode];
+  return useMemo<Theming.ProviderProps>(() => ({ theme: { key } }), [key]);
 };

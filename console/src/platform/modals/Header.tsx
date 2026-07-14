@@ -20,6 +20,7 @@ export interface HeaderProps extends Omit<
 > {
   children: string;
   icon?: Icon.ReactElement;
+  hideClose?: boolean;
 }
 
 /**
@@ -32,6 +33,7 @@ export const Header = ({
   icon,
   children,
   className,
+  hideClose = false,
   ...rest
 }: HeaderProps): ReactElement => {
   const { close } = Dialog.useContext();
@@ -53,11 +55,13 @@ export const Header = ({
           ))}
         </Breadcrumb.Breadcrumb>
       </Nav.Bar.Start>
-      <Nav.Bar.End>
-        <Button.Button onClick={close} size="small" variant="text" textColor={9}>
-          <Icon.Close />
-        </Button.Button>
-      </Nav.Bar.End>
+      {!hideClose && (
+        <Nav.Bar.End>
+          <Button.Button onClick={close} size="small" variant="text" textColor={9}>
+            <Icon.Close />
+          </Button.Button>
+        </Nav.Bar.End>
+      )}
     </Nav.Bar>
   );
 };

@@ -8,22 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore, type EnhancedStore } from "@reduxjs/toolkit";
-import { act, renderHook } from "@testing-library/react";
+import { renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Theme } from "@/session/theme";
 
-const storeWith = (
-  selected: string = Theme.ZERO_SLICE_STATE.selected,
-  syncWithSystem: boolean = Theme.ZERO_SLICE_STATE.syncWithSystem,
-): EnhancedStore =>
+const storeWith = (mode: Theme.Mode = Theme.ZERO_SLICE_STATE.mode): EnhancedStore =>
   configureStore({
     reducer: { [Theme.SLICE_NAME]: Theme.reducer },
-    preloadedState: {
-      [Theme.SLICE_NAME]: { ...Theme.ZERO_SLICE_STATE, selected, syncWithSystem },
-    },
+    preloadedState: { [Theme.SLICE_NAME]: { ...Theme.ZERO_SLICE_STATE, mode } },
   });
 
 const wrapperFor = (store: EnhancedStore) => {
@@ -33,82 +28,70 @@ const wrapperFor = (store: EnhancedStore) => {
   return Wrapper;
 };
 
-const selectedOf = (store: EnhancedStore): string =>
-  store.getState()[Theme.SLICE_NAME].selected;
+const stubMatchMedia = (matches: boolean): void => {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockReturnValue({
+      matches,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }),
+  );
+};
 
 describe("session theme selectors", () => {
-  describe("useSelectSelected", () => {
-    it("returns the default selected theme", () => {
-      const { result } = renderHook(() => Theme.useSelectSelected(), {
+  afterEach(() => vi.unstubAllGlobals());
+
+  describe("useSelectMode", () => {
+    it("returns the default system mode", () => {
+      const { result } = renderHook(() => Theme.useSelectMode(), {
         wrapper: wrapperFor(storeWith()),
       });
-      expect(result.current).toBe("synnaxLight");
+      expect(result.current).toBe("system");
     });
 
-    it("returns the selected theme from state", () => {
-      const { result } = renderHook(() => Theme.useSelectSelected(), {
-        wrapper: wrapperFor(storeWith("synnaxDark")),
+    it("returns the mode from state", () => {
+      const { result } = renderHook(() => Theme.useSelectMode(), {
+        wrapper: wrapperFor(storeWith("dark")),
       });
-      expect(result.current).toBe("synnaxDark");
+      expect(result.current).toBe("dark");
+    });
+
+    it("falls back to system for legacy state without a mode", () => {
+      const store = configureStore({
+        reducer: { [Theme.SLICE_NAME]: Theme.reducer },
+        preloadedState: {
+          [Theme.SLICE_NAME]: { version: 0 } as Theme.SliceState,
+        },
+      });
+      const { result } = renderHook(() => Theme.useSelectMode(), {
+        wrapper: wrapperFor(store),
+      });
+      expect(result.current).toBe("system");
     });
   });
 
   describe("useProviderProps", () => {
-    it("exposes the selected theme key", () => {
+    it("maps the light mode to the light theme key", () => {
       const { result } = renderHook(() => Theme.useProviderProps(), {
-        wrapper: wrapperFor(storeWith("synnaxDark")),
+        wrapper: wrapperFor(storeWith("light")),
+      });
+      expect(result.current.theme).toEqual({ key: "synnaxLight" });
+    });
+
+    it("maps the dark mode to the dark theme key", () => {
+      const { result } = renderHook(() => Theme.useProviderProps(), {
+        wrapper: wrapperFor(storeWith("dark")),
       });
       expect(result.current.theme).toEqual({ key: "synnaxDark" });
     });
 
-    it("dispatches select when setTheme is called", () => {
-      const store = storeWith();
+    it("follows the OS scheme in system mode", async () => {
+      stubMatchMedia(true);
       const { result } = renderHook(() => Theme.useProviderProps(), {
-        wrapper: wrapperFor(store),
+        wrapper: wrapperFor(storeWith("system")),
       });
-      act(() => result.current.setTheme?.("synnaxDark"));
-      expect(selectedOf(store)).toBe("synnaxDark");
-    });
-
-    it("dispatches toggle when toggleTheme is called", () => {
-      const store = storeWith();
-      const { result } = renderHook(() => Theme.useProviderProps(), {
-        wrapper: wrapperFor(store),
-      });
-      expect(selectedOf(store)).toBe("synnaxLight");
-      act(() => result.current.toggleTheme?.());
-      expect(selectedOf(store)).toBe("synnaxDark");
-      act(() => result.current.toggleTheme?.());
-      expect(selectedOf(store)).toBe("synnaxLight");
-    });
-  });
-
-  describe("useSelectSyncWithSystem", () => {
-    it("returns the default syncWithSystem value", () => {
-      const { result } = renderHook(() => Theme.useSelectSyncWithSystem(), {
-        wrapper: wrapperFor(storeWith()),
-      });
-      expect(result.current).toBe(true);
-    });
-
-    it("returns syncWithSystem from state", () => {
-      const { result } = renderHook(() => Theme.useSelectSyncWithSystem(), {
-        wrapper: wrapperFor(storeWith(Theme.ZERO_SLICE_STATE.selected, false)),
-      });
-      expect(result.current).toBe(false);
-    });
-  });
-
-  describe("useToggleSyncWithSystem", () => {
-    it("dispatches toggleSyncWithSystem when called", () => {
-      const store = storeWith();
-      const { result } = renderHook(() => Theme.useToggleSyncWithSystem(), {
-        wrapper: wrapperFor(store),
-      });
-      act(() => result.current());
-      expect(store.getState()[Theme.SLICE_NAME].syncWithSystem).toBe(false);
-      act(() => result.current());
-      expect(store.getState()[Theme.SLICE_NAME].syncWithSystem).toBe(true);
+      await waitFor(() => expect(result.current.theme).toEqual({ key: "synnaxDark" }));
     });
   });
 });
