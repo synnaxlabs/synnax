@@ -141,12 +141,18 @@ func (cs Configs) Resolve(
 	insecure bool,
 ) ([]server.Listener, error) {
 	out := make([]server.Listener, len(cs))
+	advertised := cs.advertised().Address
 	for i, c := range cs {
 		l := server.Listener{Address: c.Address}
 		if !insecure {
 			src, err := cert.Resolve(sourceFactories, c.sourceConfig(fc))
 			if err != nil {
 				return nil, err
+			}
+			if c.Address == advertised {
+				if err = p.VerifyClusterCert(src); err != nil {
+					return nil, errors.Wrapf(err, "[listener] - advertised listener %q must serve a certificate signed by the cluster CA; peers cannot verify it otherwise", c.Address)
+				}
 			}
 			l.TLS = p.TLSConfigFor(src)
 		}

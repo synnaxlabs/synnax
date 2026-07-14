@@ -78,6 +78,22 @@ func (p *secureProvider) NodeClientConfig() *tls.Config {
 	return p.baseTLSConfig(p.getNodeCert)
 }
 
+// VerifyClusterCert implements TLSProvider.
+func (p *secureProvider) VerifyClusterCert(src cert.Source) error {
+	c, err := src.GetCertificate(&tls.ClientHelloInfo{})
+	if err != nil {
+		return err
+	}
+	leaf := c.Leaf
+	if leaf == nil {
+		if leaf, err = x509.ParseCertificate(c.Certificate[0]); err != nil {
+			return err
+		}
+	}
+	_, err = leaf.Verify(x509.VerifyOptions{Roots: p.certPool})
+	return err
+}
+
 func (p *secureProvider) baseTLSConfig(
 	getCert func(*tls.ClientHelloInfo) (*tls.Certificate, error),
 ) *tls.Config {

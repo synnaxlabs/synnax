@@ -37,7 +37,11 @@ func (Factory) NewSource(cfg cert.SourceConfig) (cert.Source, error) {
 	if cfg.Cert != "" || cfg.Key != "" {
 		return nil, errors.Wrap(validate.ErrValidation, "[cert] - tailscale source must not set cert or key")
 	}
-	return &source{client: &local.Client{}, host: cfg.Address.Host()}, nil
+	host := cfg.Address.Host()
+	if host == "" {
+		return nil, errors.Wrap(validate.ErrValidation, "[cert] - tailscale source requires a listener host; tailscaled resolves certificates by FQDN")
+	}
+	return &source{client: &local.Client{}, host: host}, nil
 }
 
 // daemon is the subset of the tailscaled client the source needs.
