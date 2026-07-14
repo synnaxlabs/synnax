@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { hash, json } from "@synnaxlabs/x";
+import { caseconv, hash, json } from "@synnaxlabs/x";
 
 import { type Payload } from "@/task/types.gen";
 
 /**
  * Hashes a task config into the shared cross-language form: xxhash64 of the
  * canonical JSON string, as 16 lowercase hex characters. Matches the hashes the
- * server and drivers stamp into status details.
+ * server and drivers stamp into status details. Keys are snake-cased first,
+ * since that is how the wire codec stores the config.
  * @param config - The task config to hash.
  * @returns The 16-character hex hash.
  */
 export const hashConfig = (config: unknown): string =>
-  hash.xxHash64(json.canonicalString(config));
+  hash.xxHash64(json.canonicalString(caseconv.camelToSnake(config)));
 
 /**
  * Reports whether a task's live instance has drifted from its stored row: the

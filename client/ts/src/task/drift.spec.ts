@@ -20,6 +20,12 @@ describe("hashConfig", () => {
       "2de66015b3bdded8",
     );
   });
+
+  it("should hash camelCase keys as their snake_case wire form", () => {
+    expect(hashConfig({ dataSaving: true, sampleRate: 5.5 })).toEqual(
+      hashConfig({ data_saving: true, sample_rate: 5.5 }),
+    );
+  });
 });
 
 describe("drifted", () => {

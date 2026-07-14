@@ -201,7 +201,7 @@ def run_and_expect_rejection(
                     if status.details is None or status.details.task != task.key:
                         continue
                     if status.variant in ("warning", "error"):
-                        return status.message
+                        return str(status.message)
         finally:
             internal.execute_command("stop")
     return None
