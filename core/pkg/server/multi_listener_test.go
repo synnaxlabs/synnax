@@ -68,14 +68,11 @@ var _ = Describe("MultiListener", func() {
 		addrB := address.Newf("localhost:%d", portB)
 		occupied := MustSucceed(stdnet.Listen("tcp", addrB.PortString()))
 		defer func() { Expect(occupied.Close()).To(Succeed()) }()
-		// Serve returns a non-nil *Server even on error, so the two-value form is
-		// required here; the inline Expect(...).Error() idiom rejects the non-nil value.
-		_, err := server.Serve(server.Config{
+		Expect(server.Serve(server.Config{
 			Debug:     new(false),
 			Security:  server.SecurityConfig{Insecure: new(true)},
 			Listeners: []server.Listener{{Address: addrA}, {Address: addrB}},
-		})
-		Expect(err).To(HaveOccurred())
+		})).Error().To(HaveOccurred())
 		Eventually(func() error {
 			conn, err := stdnet.DialTimeout("tcp", addrA.String(), 100*time.Millisecond)
 			if err == nil {

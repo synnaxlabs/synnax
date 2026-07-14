@@ -128,7 +128,10 @@ func Serve(cfgs ...Config) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{Config: cfg}
-	return s, s.start()
+	if err := s.start(); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func (s *Server) start() (err error) {
