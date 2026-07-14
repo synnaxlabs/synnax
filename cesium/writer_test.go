@@ -1657,12 +1657,12 @@ var _ = Describe("Writer Behavior", func() {
 					i, o := confluence.Attach(s, 2)
 					s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
-					MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3))))
+					Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](1, 2, 3)))).To(BeTrue())
 					var res cesium.StreamerResponse
 					Eventually(o.Outlet()).Should(Receive(&res))
 					Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 0)))
 
-					MustSucceed(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](4, 5))))
+					Expect(w.Write(telem.UnaryFrame(key, telem.NewSeriesV[int64](4, 5)))).To(BeTrue())
 					Eventually(o.Outlet()).Should(Receive(&res))
 					Expect(res.Frame.SeriesAt(0).Alignment).To(Equal(alignment.Leading(1, 3)))
 
