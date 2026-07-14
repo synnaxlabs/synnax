@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/app/window/Main.css";
+import "@/app/window/Primary.css";
 
 import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -40,7 +40,7 @@ const SideEffect = (): null => {
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigable as possible.
  */
-export const Main = (): ReactElement => (
+export const Primary = (): ReactElement => (
   <>
     <SideEffect />
     <Auth.Guard>
