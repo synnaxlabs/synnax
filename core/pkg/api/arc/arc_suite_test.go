@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -71,7 +71,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	statSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -83,7 +83,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:            otg,
 		Group:               groupSvc,
 		HostProvider:        mock.NewStaticHostProvider(1),
-		Status:              statSvc,
+		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
 		Search:              searchIdx,
 	}))
@@ -92,12 +92,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Group:    groupSvc,
 		Rack:     rackSvc,
-		Status:   statSvc,
+		Status:   statusSvc,
 		Search:   searchIdx,
 	}))
-	channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		Status:  statSvc,
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Status:       statusSvc,
+		Search:       node.Search,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
@@ -122,7 +127,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	apiSvc = &Service{internal: arcSvc, access: rbacSvc, status: statSvc}
+	apiSvc = &Service{internal: arcSvc, access: rbacSvc, status: statusSvc}
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
 })
 

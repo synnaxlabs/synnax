@@ -37,6 +37,7 @@ var (
 	db         *gorp.DB
 	otg        *ontology.Ontology
 	svc        *panel.Service
+	writer     panel.Writer
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
 	parentID   ontology.ID
@@ -61,14 +62,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   node.Search,
 	}))
-	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		Status:  statusSvc,
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
+		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  node.Framer,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		Status:       statusSvc,
+		HostResolver: node.Cluster,
 	}))
 	sigs := MustSucceed(signals.New(signals.Config{
 		Channel: channelSvc,
@@ -80,6 +87,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   node.Search,
 		Signals:  sigs,
 	}))
+	writer = svc.NewWriter(nil)
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,

@@ -24,20 +24,28 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-// OntologyID returns the ontology.ID for the specified channel.
-func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
-
 // OntologyID returns a unique identifier for a Channel for use within a resource
 // ontology.
 func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: k.String()}
 }
 
-// OntologyIDs returns the ontology.ID for each key.
-func (k Keys) OntologyIDs() []ontology.ID {
-	return lo.Map(k, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+// OntologyIDsFromKeys returns the ontology.ID for each key.
+func OntologyIDsFromKeys(keys Keys) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
+// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.IDs.
+func KeysFromOntologyIDs(ids []ontology.ID) (Keys, error) {
+	return lo.MapErr(ids, func(id ontology.ID, _ int) (Key, error) {
+		return ParseKey(id.Key)
+	})
+}
+
+// OntologyID returns the ontology.ID for the channel.
+func (c Channel) OntologyID() ontology.ID { return OntologyID(c.Key()) }
+
+// OntologyIDsFromChannels returns the ontology.ID for each channel.
 func OntologyIDsFromChannels(chs []Channel) []ontology.ID {
 	return lo.Map(chs, func(item Channel, _ int) ontology.ID {
 		return OntologyID(item.Key())
@@ -88,10 +96,13 @@ var (
 
 type change = xchange.Change[Key, Channel]
 
+// Type implements ontology.Service.
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
 // RetrieveResource implements ontology.Service.
-func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
+func (s *Service) RetrieveResource(
+	ctx context.Context, key string, tx gorp.Tx,
+) (ontology.Resource, error) {
 	k, err := ParseKey(key)
 	if err != nil {
 		return ontology.Resource{}, err
@@ -112,7 +123,9 @@ func translateChange(ch change) ontology.Change {
 }
 
 // OnChange implements ontology.Service.
-func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
+func (s *Service) OnChange(
+	f func(context.Context, iter.Seq[ontology.Change]),
+) observe.Disconnect {
 	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Channel]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
@@ -120,7 +133,9 @@ func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) o
 }
 
 // OpenNexter implements ontology.Service.
-func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
+func (s *Service) OpenNexter(
+	ctx context.Context,
+) (iter.Seq[ontology.Resource], io.Closer, error) {
 	n, closer, err := s.table.OpenNexter(ctx)
 	if err != nil {
 		return nil, nil, err

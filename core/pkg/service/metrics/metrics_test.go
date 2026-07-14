@@ -151,7 +151,7 @@ var _ = Describe("Metrics", func() {
 			Expect(ch.DataType).To(Equal(telem.Float32T))
 			Expect(ch.IsCalculated()).To(BeTrue())
 		})
-		It("Should create ts (cesium) size metric channel", func(ctx SpecContext) {
+		It("Should create ts size metric channel", func(ctx SpecContext) {
 			expectedName := names[4]
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().
@@ -187,8 +187,7 @@ var _ = Describe("Metrics", func() {
 				CollectionInterval: 100 * time.Millisecond,
 			}))
 			var channels []channel.Channel
-			Expect(dist.
-				Channel.
+			Expect(channelSvc.
 				NewRetrieve().
 				Where(channel.MatchNames(names...)).
 				Entries(&channels).
@@ -356,19 +355,23 @@ var _ = Describe("Metrics", func() {
 		// shared vars used by It blocks, so the context must outlive BeforeEach.
 		BeforeEach(func() {
 			ctx := context.Background()
-			// Write some data to cesium so disk size metrics are non-zero
+			// Write some data to time-series database so disk size metrics are non-zero
 			indexCh := &channel.Channel{
 				Name:     "metrics_test_index",
 				DataType: telem.TimeStampT,
 				IsIndex:  true,
 			}
-			Expect(channelSvc.Create(ctx, indexCh, channel.RetrieveIfNameExists())).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(
+				ctx, indexCh, channel.RetrieveIfNameExists(),
+			)).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "metrics_test_data",
 				DataType:   telem.Float32T,
 				LocalIndex: indexCh.LocalKey,
 			}
-			Expect(channelSvc.Create(ctx, dataCh, channel.RetrieveIfNameExists())).To(Succeed())
+			Expect(channelSvc.NewWriter(nil).Create(
+				ctx, dataCh, channel.RetrieveIfNameExists(),
+			)).To(Succeed())
 			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{indexCh.Key(), dataCh.Key()},

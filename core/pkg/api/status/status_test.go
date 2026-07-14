@@ -29,7 +29,7 @@ import (
 // cover any input via the ontology.ID IsType matching rule.
 var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
 
-var _ = Describe("api/status SetByKeyOrName", func() {
+var _ = Describe("Service.SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
 		It("Should create a UUID-keyed row named after the input when nothing matches", func(ctx SpecContext) {
 			name := "api_set_fresh_" + uuid.New().String()

@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/service/channel/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -77,6 +78,16 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL]
 	RootCredentials auth.Credentials
+	// Verifier is for verifying. Magic.
+	//
+	// [OPTIONAL] - Defaults to "".
+	Verifier string
+	// ValidateChannelNames enables channel name validation during creation and
+	// renaming. When false, channels may have names with spaces, special characters,
+	// etc.
+	//
+	// [OPTIONAL] - Defaults to true (validation enabled)
+	ValidateChannelNames *bool
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -98,6 +109,10 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Security = override.Nil(c.Security, other.Security)
 	c.Storage = override.Nil(c.Storage, other.Storage)
 	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
+	c.Verifier = override.String(c.Verifier, other.Verifier)
+	c.ValidateChannelNames = override.Nil(
+		c.ValidateChannelNames, other.ValidateChannelNames,
+	)
 	return c
 }
 
@@ -151,6 +166,8 @@ type Layer struct {
 	Framer *framer.Service
 	// Channel is the highest-level channel service and owns calculated channel behavior.
 	Channel *channel.Service
+	// Verification verifies that the universe remains as it is.
+	Verification *verification.Service
 	// Arc is used for validating, saving, and executing arc automations.
 	Arc *arc.Service
 	// Metrics is used for collecting host machine metrics and publishing them over channels
@@ -226,11 +243,33 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, l.Status) {
 		return nil, err
 	}
-	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
-		Instrumentation: cfg.Child("channel"),
-		Channel:         cfg.Distribution.Channel,
+	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
+		Instrumentation: cfg.Child("verification"),
+		DB:              cfg.Distribution.DB.KV(),
+		Verifier:        cfg.Verifier,
+	}); !ok(err, l.Verification) {
+		return nil, err
+	}
+	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
+		Instrumentation:  cfg.Child("channel"),
+		Channel:          cfg.Distribution.Channel,
+		DB:               cfg.Distribution.DB,
+		HostResolver:     cfg.Distribution.Cluster,
+		Ontology:         cfg.Distribution.Ontology,
+		Group:            cfg.Distribution.Group,
+		Search:           cfg.Distribution.Search,
+		IntOverflowCheck: l.Verification.IsOverflowed,
+		ValidateNames:    cfg.ValidateChannelNames,
+		Status:           l.Status,
+	}); !ok(err, l.Channel) {
+		return nil, err
+	}
+	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
+		Instrumentation: cfg.Child("channel.calculation.graph"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 		Status:          l.Status,
-	}); !ok(err, nil) {
+	}); !ok(err, closer) {
 		return nil, err
 	}
 	if l.Framer, err = framer.OpenService(
@@ -240,6 +279,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Status:          l.Status,
+			HostResolver:    cfg.Distribution.Cluster,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
@@ -454,13 +494,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Signals:         l.Signals,
 		},
 	); !ok(err, l.Arc) {
-		return nil, err
-	}
-	if closer, err := calcgraph.Open(ctx, calcgraph.Config{
-		Instrumentation: cfg.Child("channel.calculation.graph"),
-		Channel:         l.Channel,
-		Status:          l.Status,
-	}); !ok(err, closer) {
 		return nil, err
 	}
 	if l.Alias, err = alias.OpenService(ctx, alias.ServiceConfig{

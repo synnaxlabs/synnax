@@ -16,7 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/x/encoding/base64"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -44,6 +44,15 @@ func (d *db) Get(ctx context.Context, key []byte, opts ...any) ([]byte, io.Close
 }
 
 var _ = Describe("Verification", func() {
+	Describe("DefaultOverflowCheck", func() {
+		It("should return an error if the count is greater than the free count", func() {
+			Expect(verification.DefaultOverflowCheck(verification.FreeCount + 1)).
+				To(MatchError(verification.ErrFree))
+		})
+		It("should return nil if the count is less than the free count", func() {
+			Expect(verification.DefaultOverflowCheck(verification.FreeCount)).To(Succeed())
+		})
+	})
 	Describe("ConfigValues", func() {
 		Describe("Validate", func() {
 			It("should return an error if the DB is nil", func() {

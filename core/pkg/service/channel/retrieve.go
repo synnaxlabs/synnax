@@ -27,32 +27,21 @@ func MatchVirtual(virtual bool) Filter {
 	})
 }
 
-// MatchCalculated returns a filter for channels that have a non-empty Expression
-// field.
+// MatchCalculated returns a filter for channels that have a non-empty Expression field.
 func MatchCalculated() Filter {
 	return Match(func(_ gorp.Context, _ Retrieve, ch *Channel) (bool, error) {
 		return ch.IsCalculated(), nil
 	})
 }
 
-// literalNamePattern matches the character set enforced by ValidateName. A
-// channel's stored Name is always accepted by this regex, so any input that
-// passes this check is a literal exact-match target and can be routed through
-// the in-memory name index instead of a scan. Any input that fails the check
-// contains regex metacharacters (., *, ?, brackets, anchors) and must fall
-// back to the regex matcher to preserve the historical contract.
-var literalNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
-
-// MatchNames returns a filter for channels whose Name matches any of the
-// provided patterns. Each pattern may be a literal channel name or a Go
-// regular expression; unanchored patterns are wrapped in ^...$ before
-// compilation.
+// MatchNames returns a filter for channels whose Name matches any of the provided
+// patterns. Each pattern may be a literal channel name or a Go regular expression;
+// unanchored patterns are wrapped in ^...$ before compilation.
 //
-// When every input is a literal channel name, MatchNames routes through the
-// per-Service name index (r.indexes.name) for an O(1) candidate-key lookup
-// instead of a full scan. If any input contains regex metacharacters,
-// MatchNames compiles each pattern and falls back to a scan that tests every
-// decoded channel.
+// When every input is a literal channel name, MatchNames routes through the per-Service
+// name index (r.indexes.name) for an O(1) candidate-key lookup instead of a full scan.
+// If any input contains regex metacharacters, MatchNames compiles each pattern and
+// falls back to a scan that tests every decoded channel.
 func MatchNames(names ...string) Filter {
 	if len(names) > 0 && allLiteralNames(names) {
 		return func(r Retrieve) gorp.Filter[Key, Channel] {
@@ -70,9 +59,14 @@ func MatchNames(names ...string) Filter {
 	})
 }
 
+// allLiteralNames reports whether every input is accepted by validNamePattern, the
+// character set enforced during channel creation and renaming. A channel's stored Name
+// always matches it, so such inputs are literal exact-match targets routable through
+// the in-memory name index; anything else contains regex metacharacters and must fall
+// back to the regex matcher to preserve the historical contract.
 func allLiteralNames(names []string) bool {
 	for _, n := range names {
-		if !literalNamePattern.MatchString(n) {
+		if !validNamePattern.MatchString(n) {
 			return false
 		}
 	}
@@ -80,10 +74,11 @@ func allLiteralNames(names []string) bool {
 }
 
 func formatNameMatcher(name string) func(name string) bool {
-	if !strings.HasPrefix(name, "^") && !strings.HasSuffix(name, "$") {
-		name = "^" + name + "$"
+	pattern := name
+	if !strings.HasPrefix(pattern, "^") && !strings.HasSuffix(pattern, "$") {
+		pattern = "^" + pattern + "$"
 	}
-	rx, err := regexp.Compile(name)
+	rx, err := regexp.Compile(pattern)
 	if err != nil {
 		return func(s string) bool { return s == name }
 	}

@@ -27,6 +27,7 @@ import (
 var (
 	db        *gorp.DB
 	svc       *user.Service
+	writer    user.Writer
 	otg       *ontology.Ontology
 	groupSvc  *group.Service
 	searchIdx *search.Index
@@ -59,5 +60,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:            authSvc,
 		RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 	}))
+	writer = svc.NewWriter(nil)
 	Expect(searchIdx.Initialize(ctx)).To(Succeed())
 })

@@ -12,8 +12,9 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,13 +23,14 @@ import (
 const internalChannelCount = 1
 
 var _ = Describe("Retrieve", Ordered, func() {
-	var cluster *mock.Cluster
+	var (
+		svc    *channel.Service
+		writer channel.Writer
+	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		cluster = mock.NewCluster(ctx, 2)
-		for _, n := range cluster.Nodes {
-			Expect(n.Search.Initialize(ctx)).To(Succeed())
-		}
+		svc = openService(ctx, mock.NewNode(ctx))
+		writer = svc.NewWriter(nil)
 	})
 	Describe("Retrieve", func() {
 		It("Should correctly retrieve a set of channels", func(ctx SpecContext) {
@@ -36,53 +38,41 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 				}}
-			Expect(cluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 
 			var resChannels []channel.Channel
 
-			Expect(cluster.Nodes[1].Channel.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchLeaseholders(1)).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(len(created) + internalChannelCount))
-
-			Eventually(func(g Gomega) {
-				var resChannelsTwo []channel.Channel
-
-				g.Expect(cluster.Nodes[2].Channel.
-					NewRetrieve().
-					Where(channel.MatchLeaseholders(1)).
-					Entries(&resChannelsTwo).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(resChannelsTwo).To(HaveLen(len(created) + internalChannelCount))
-			}).Should(Succeed())
-
 		})
 		It("Should correctly retrieve a channel by its key", func(ctx SpecContext) {
 			created := []channel.Channel{
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 				},
 			}
-			Expect(cluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(cluster.Nodes[1].Channel.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
 				Entries(&resChannels).
@@ -91,7 +81,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			Expect(resChannels[0].Key()).To(Equal(created[0].Key()))
 		})
 		It("Should correctly retrieve a channel by its name", func(ctx SpecContext) {
-			n := channel.NewRandomName()
+			n := UniqueChannelName()
 			created := []channel.Channel{
 				{
 					Virtual:  true,
@@ -99,10 +89,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     n,
 				},
 			}
-			Expect(cluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(cluster.Nodes[1].Channel.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchNames(n)).
 				Entries(&resChannels).
@@ -123,10 +113,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "SG223",
 				},
 			}
-			Expect(cluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 			var resChannels []channel.Channel
 
-			Expect(cluster.Nodes[1].Channel.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchNames("SG22.*")).
 				Entries(&resChannels).
@@ -135,7 +125,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		})
 		It("Should return a well formatted error if a channel cannot be found by its key", func(ctx SpecContext) {
 			var resChannels []channel.Channel
-			Expect(cluster.Nodes[1].Channel.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(435)).
 				Entries(&resChannels).
@@ -154,10 +144,10 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Name:     "catalina",
 				},
 			}
-			Expect(cluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 			Eventually(func(g Gomega) {
 				var resChannels []channel.Channel
-				g.Expect(cluster.Nodes[1].Channel.
+				g.Expect(svc.
 					NewRetrieve().
 					Search("catalina").
 					Entries(&resChannels).
@@ -169,7 +159,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 		It("Should return an error when retrieving a channel with a key of 0", func(ctx SpecContext) {
 			var resChannels []channel.Channel
-			Expect(cluster.Nodes[1].Channel.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(0)).
 				Entries(&resChannels).
@@ -190,11 +180,11 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Name:       "wc_calc",
 				Expression: "return wc_base * 2",
 			}
-			channels := []channel.Channel{base, calc}
-			Expect(cluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+			Expect(writer.Create(ctx, &base)).To(Succeed())
+			Expect(writer.Create(ctx, &calc)).To(Succeed())
 
 			var results []channel.Channel
-			Expect(cluster.Nodes[1].Channel.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchCalculated()).
 				Entries(&results).
@@ -207,17 +197,18 @@ var _ = Describe("Retrieve", Ordered, func() {
 			))
 		})
 
-		It("Should return empty when no calculated channels exist in a fresh cluster", func(ctx SpecContext) {
-			freshNode := mock.NewNode(ctx)
+		It("Should return empty when no calculated channels exist on a fresh node", func(ctx SpecContext) {
+			freshSvc := openService(ctx, mock.NewNode(ctx))
 			base := channel.Channel{
 				Virtual:  true,
 				DataType: telem.Float32T,
 				Name:     "wc_only_base",
 			}
-			Expect(freshNode.Channel.NewWriter(nil).CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
+			Expect(freshSvc.NewWriter(nil).
+				CreateMany(ctx, &[]channel.Channel{base})).To(Succeed())
 
 			var results []channel.Channel
-			Expect(freshNode.Channel.
+			Expect(freshSvc.
 				NewRetrieve().
 				Where(channel.MatchCalculated()).
 				Entries(&results).
@@ -232,21 +223,21 @@ var _ = Describe("Retrieve", Ordered, func() {
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 				},
 				{
 					Virtual:  true,
 					DataType: telem.Float32T,
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 				},
 			}
-			Expect(cluster.Nodes[1].Channel.NewWriter(nil).CreateMany(ctx, &created)).To(Succeed())
+			Expect(writer.CreateMany(ctx, &created)).To(Succeed())
 
-			exists := MustSucceed(cluster.Nodes[1].Channel.
+			Expect(svc.
 				NewRetrieve().
 				Where(channel.MatchKeys(created[0].Key())).
-				Exists(ctx, nil))
-			Expect(exists).To(BeTrue())
+				Exists(ctx, nil),
+			).To(BeTrue())
 		})
 	})
 })

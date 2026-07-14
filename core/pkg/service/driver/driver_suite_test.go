@@ -33,6 +33,7 @@ var (
 	db           *gorp.DB
 	rackService  *rack.Service
 	taskService  *task.Service
+	taskWriter   task.Writer
 	channelSvc   *channel.Service
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
@@ -72,14 +73,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		Search:       searchIdx,
 	}))
-	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		Status:  statusSvc,
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       searchIdx,
+		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  node.Framer,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		Status:       statusSvc,
+		HostResolver: node.Cluster,
 	}))
 	taskService = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       node.DB,
@@ -90,6 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:  channelSvc,
 		Search:   searchIdx,
 	}))
+	taskWriter = taskService.NewWriter(nil)
 })
 
 // mockFactory is a test implementation of driver.Factory.

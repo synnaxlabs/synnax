@@ -86,8 +86,10 @@ var _ = Describe("Ontology", func() {
 				changes = append(changes, slices.Collect(seq)...)
 			}))
 			p := panel.Panel{Name: "observed", Parent: &parentID}
-			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) { Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed()) })
+			Expect(writer.Create(ctx, &p)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			})
 			Eventually(func(g Gomega) {
 				mu.Lock()
 				defer mu.Unlock()
@@ -101,8 +103,10 @@ var _ = Describe("Ontology", func() {
 
 		It("Should iterate existing panels via OpenNexter", func(ctx SpecContext) {
 			p := panel.Panel{Name: "nexted", Parent: &parentID}
-			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) { Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed()) })
+			Expect(writer.Create(ctx, &p)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			})
 			next, closer := MustSucceed2(svc.OpenNexter(ctx))
 			defer func() { Expect(closer.Close()).To(Succeed()) }()
 			var ids []ontology.ID

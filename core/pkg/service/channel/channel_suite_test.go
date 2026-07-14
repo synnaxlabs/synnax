@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,12 +20,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	node mock.Node
-	svc  *channel.Service
+	svc           *channel.Service
+	channelWriter channel.Writer
 )
 
 func TestChannel(t *testing.T) {
@@ -33,9 +36,10 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func(ctx SpecContext) {
-	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+// serviceConfig builds a channel ServiceConfig for the node, opening the label and
+// status services the channel service depends on.
+func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
+	GinkgoHelper()
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
 		Ontology: node.Ontology,
@@ -49,8 +53,51 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Label:    labelSvc,
 		Search:   node.Search,
 	}))
-	svc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		Status:  statusSvc,
-	}))
+	return channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
+		Status:       statusSvc,
+	}
+}
+
+// openService opens a channel service for the node and creates the node's internal
+// control channel, mirroring what the service layer's OpenLayer does in production.
+// Tests rely on the control channel for their local-key and channel-count expectations.
+// Extra configs override the derived distribution-layer fields.
+func openService(
+	ctx context.Context,
+	node mock.Node,
+	cfgs ...channel.ServiceConfig,
+) *channel.Service {
+	GinkgoHelper()
+	channelSvc := MustOpen(channel.OpenService(
+		ctx,
+		append([]channel.ServiceConfig{serviceConfig(ctx, node)}, cfgs...)...,
+	))
+	controlCh := channel.Channel{
+		Name:        fmt.Sprintf("sy_node_%v_control", node.Cluster.HostKey()),
+		Leaseholder: node.Cluster.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+		Internal:    true,
+	}
+	Expect(channelSvc.NewWriter(nil).Create(
+		ctx, &controlCh, channel.RetrieveIfNameExists(),
+	)).To(Succeed())
+	Expect(node.Framer.ConfigureControlUpdateChannel(
+		ctx, controlCh.Key(), controlCh.Name,
+	)).To(Succeed())
+	Expect(node.Search.Initialize(ctx)).To(Succeed())
+	return channelSvc
+}
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := mock.NewNode(ctx)
+	svc = openService(ctx, node)
+	channelWriter = svc.NewWriter(nil)
 })

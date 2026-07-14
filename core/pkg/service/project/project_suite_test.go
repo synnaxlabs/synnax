@@ -31,9 +31,10 @@ func TestProject(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db  *gorp.DB
-	svc *project.Service
-	tx  gorp.Tx
+	db     *gorp.DB
+	svc    *project.Service
+	writer project.Writer
+	tx     gorp.Tx
 )
 
 var (
@@ -55,6 +56,7 @@ var (
 			Group:    g,
 			Search:   searchIdx,
 		}))
+		writer = svc.NewWriter(nil)
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

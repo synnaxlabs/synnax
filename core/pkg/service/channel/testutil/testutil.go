@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package verification_test
+// Package testutil provides test helpers for working with channels.
+package testutil
 
 import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/x/testutil"
+	"fmt"
+	"math/rand"
 )
 
-func TestVerification(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Distribution Channel Verification Suite")
+// UniqueChannelName generates a random channel name that should be unique. Channel name
+// uniqueness itself is enforced by the channel service during creation.
+func UniqueChannelName() string {
+	return fmt.Sprintf("test_ch_%09d", rand.Intn(999999999))
 }
-
-var _ = ShouldNotLeakGoroutinesPerSpec()

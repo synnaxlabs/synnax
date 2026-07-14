@@ -10,18 +10,17 @@
 package mock_test
 
 import (
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Cluster", func() {
-	Describe("Name", func() {
+	Describe("Provision", func() {
 		It("Should open a three node memory backed distribution layer", func(ctx SpecContext) {
 			cluster := mock.NewCluster(ctx, 3)
 			nodeOne := cluster.Nodes[node.Key(1)]
@@ -39,19 +38,14 @@ var _ = Describe("Cluster", func() {
 				Leaseholder: 1,
 			}
 
-			Expect(nodeOne.Channel.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
-			Expect(ch.Key().Leaseholder()).To(Equal(node.Key(1)))
+			ch = MustSucceed(nodeOne.Channel.Create(ctx, []channel.Channel{ch}))[0]
+			Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 
-			Eventually(func(g Gomega) {
-				var resCh channel.Channel
-				g.Expect(nodeThree.Channel.NewRetrieve().
-					Where(channel.MatchKeys(ch.Key())).
-					Entry(&resCh).
-					Exec(ctx, nil)).To(Succeed())
-
-				g.Expect(resCh.Key()).To(Equal(ch.Key()))
-			}, time.Millisecond*200).Should(Succeed())
+			chs := MustSucceed(nodeOne.Storage.TS.RetrieveChannels(
+				ctx, ch.Key().StorageKey(),
+			))
+			Expect(chs).To(HaveLen(1))
+			Expect(chs[0].Key).To(Equal(ch.Key().StorageKey()))
 		})
 	})
-
 })

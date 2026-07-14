@@ -146,7 +146,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			Virtual:  true,
 			Internal: true,
 		}
-		if err = cfg.Channel.Create(
+		if err = cfg.Channel.NewWriter(nil).Create(
 			ctx,
 			&cmdCh,
 			channel.RetrieveIfNameExists(),

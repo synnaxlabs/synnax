@@ -22,40 +22,56 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type benchEnv struct {
-	ctx        context.Context
-	node       mock.Node
-	channelSvc *channel.Service
+	ctx           context.Context
+	node          mock.Node
+	closer        io.MultiCloser
+	channelSvc    *channel.Service
+	channelWriter channel.Writer
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
-	ctx := context.Background()
-	node := mock.OpenNode(ctx)
-	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{DB: node.DB, Ontology: node.Ontology, Group: node.Group, Search: node.Search})
-	if err != nil {
-		b.Fatalf("failed to open label service: %v", err)
+	node := mock.OpenNode(b.Context())
+	labelSvc := MustSucceed(label.OpenService(b.Context(), label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Search:   node.Search,
+	}))
+	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: node.Ontology,
+		Group:    node.Group,
+		Label:    labelSvc,
+		Search:   node.Search,
+	}))
+	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     node.Ontology,
+		Group:        node.Group,
+		Search:       node.Search,
+		Status:       statusSvc,
+	}))
+	return &benchEnv{
+		ctx:           b.Context(),
+		node:          node,
+		channelSvc:    channelSvc,
+		channelWriter: channelSvc.NewWriter(nil),
+		closer:        io.MultiCloser{node, channelSvc, statusSvc, labelSvc},
 	}
-	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{DB: node.DB, Ontology: node.Ontology, Group: node.Group, Label: labelSvc, Search: node.Search})
-	if err != nil {
-		b.Fatalf("failed to open status service: %v", err)
-	}
-	channelSvc, err := channel.NewService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		Status:  statusSvc,
-	})
-	if err != nil {
-		b.Fatalf("failed to open channel service: %v", err)
-	}
-	return &benchEnv{ctx: ctx, node: node, channelSvc: channelSvc}
 }
 
 func (e *benchEnv) close(b *testing.B) {
-	if err := e.node.Close(); err != nil {
-		b.Errorf("failed to close distribution: %v", err)
+	if err := e.closer.Close(); err != nil {
+		b.Errorf("failed to close env: %v", err)
 	}
 }
 
@@ -65,7 +81,7 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.channelSvc.CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.channelWriter.CreateMany(e.ctx, &indexes); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -81,11 +97,11 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.channelSvc.CreateMany(e.ctx, &bases); err != nil {
+		if err := e.channelWriter.CreateMany(e.ctx, &bases); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.channelSvc.Create(e.ctx, calc); err != nil {
+	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{

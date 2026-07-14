@@ -22,8 +22,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -35,10 +37,11 @@ import (
 
 var _ = Describe("Calculation", Ordered, func() {
 	var (
-		c          *calculation.Service
-		dist       mock.Node
-		statusSvc  *status.Service
-		channelSvc *channel.Service
+		c             *calculation.Service
+		dist          mock.Node
+		statusSvc     *status.Service
+		channelSvc    *channel.Service
+		channelWriter channel.Writer
 	)
 	open := func(
 		ctx context.Context,
@@ -48,7 +51,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		streamKeys func([]channel.Channel) channel.Keys,
 	) (*framer.Writer, confluence.Outlet[streamer.Response], context.CancelFunc) {
 		if indexChannels != nil {
-			Expect(channelSvc.CreateMany(ctx, indexChannels)).To(Succeed())
+			Expect(channelWriter.CreateMany(ctx, indexChannels)).To(Succeed())
 		}
 		for i, channel := range *baseChannels {
 			if channel.Virtual {
@@ -61,8 +64,8 @@ var _ = Describe("Calculation", Ordered, func() {
 			channel.LocalIndex = (*indexChannels)[toGet].LocalKey
 			(*baseChannels)[i] = channel
 		}
-		Expect(channelSvc.CreateMany(ctx, baseChannels)).To(Succeed())
-		Expect(channelSvc.CreateMany(ctx, calculations)).To(Succeed())
+		Expect(channelWriter.CreateMany(ctx, baseChannels)).To(Succeed())
+		Expect(channelWriter.CreateMany(ctx, calculations)).To(Succeed())
 		rm := c.OpenRequestManager()
 		Expect(rm.Set(ctx, channel.KeysFromChannels(*calculations))).To(Succeed())
 		writerKeys := channel.KeysFromChannels(*baseChannels)
@@ -82,7 +85,6 @@ var _ = Describe("Calculation", Ordered, func() {
 		})
 		streamer := MustSucceed(
 			dist.Framer.NewStreamer(
-				ctx,
 				framer.StreamerConfig{Keys: streamKeys(filtered), SendOpenAck: new(true)},
 			),
 		)
@@ -112,12 +114,23 @@ var _ = Describe("Calculation", Ordered, func() {
 			Label:    labelSvc,
 			Search:   dist.Search,
 		}))
-		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			Channel: dist.Channel,
-			Status:  statusSvc,
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      dist.Channel,
+			DB:           dist.DB,
+			HostResolver: dist.Cluster,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			Search:       dist.Search,
+			Status:       statusSvc,
+		}))
+		channelWriter = channelSvc.NewWriter(nil)
+		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
+			Framer:  dist.Framer,
+			Channel: channelSvc,
 		}))
 		c = MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
 			Framer:  dist.Framer,
+			Writer:  writerSvc,
 			Channel: channelSvc,
 			Status:  statusSvc,
 		}))
@@ -127,12 +140,12 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Specify("Single Virtual Channel as Base", func(ctx SpecContext) {
 			bases := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        channel.NewRandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
@@ -158,18 +171,18 @@ var _ = Describe("Calculation", Ordered, func() {
 			BeforeEach(func(ctx SpecContext) {
 				bases = []channel.Channel{
 					{
-						Name:     channel.NewRandomName(),
+						Name:     UniqueChannelName(),
 						DataType: telem.Int64T,
 						Virtual:  true,
 					},
 					{
-						Name:     channel.NewRandomName(),
+						Name:     UniqueChannelName(),
 						DataType: telem.Int64T,
 						Virtual:  true,
 					},
 				}
 				calcs = []channel.Channel{{
-					Name:        channel.NewRandomName(),
+					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
@@ -212,16 +225,16 @@ var _ = Describe("Calculation", Ordered, func() {
 		Specify("Single Data Channel as Base", func(ctx SpecContext) {
 			var (
 				indexes = []channel.Channel{{
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.TimeStampT,
 					IsIndex:  true,
 				}}
 				bases = []channel.Channel{{
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 				}}
 				calcs = []channel.Channel{{
-					Name:        channel.NewRandomName(),
+					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
@@ -251,22 +264,22 @@ var _ = Describe("Calculation", Ordered, func() {
 			Specify("Shared Index", func(ctx SpecContext) {
 				var (
 					indexes = []channel.Channel{{
-						Name:     channel.NewRandomName(),
+						Name:     UniqueChannelName(),
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
 					}}
 					bases = []channel.Channel{
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        channel.NewRandomName(),
+						Name:        UniqueChannelName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
@@ -296,28 +309,28 @@ var _ = Describe("Calculation", Ordered, func() {
 				var (
 					indexes = []channel.Channel{
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 					}
 					bases = []channel.Channel{
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        channel.NewRandomName(),
+						Name:        UniqueChannelName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
@@ -351,28 +364,28 @@ var _ = Describe("Calculation", Ordered, func() {
 				var (
 					indexes = []channel.Channel{
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
 					}
 					bases = []channel.Channel{
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 						{
-							Name:     channel.NewRandomName(),
+							Name:     UniqueChannelName(),
 							DataType: telem.Float32T,
 						},
 					}
 					calcs = []channel.Channel{{
-						Name:        channel.NewRandomName(),
+						Name:        UniqueChannelName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
 						Leaseholder: node.KeyFree,
@@ -414,9 +427,9 @@ var _ = Describe("Calculation", Ordered, func() {
 				calcs []channel.Channel
 			)
 			BeforeEach(func(ctx SpecContext) {
-				calc1Name := channel.NewRandomName()
+				calc1Name := UniqueChannelName()
 				bases = []channel.Channel{{
-					Name:     channel.NewRandomName(),
+					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
@@ -427,7 +440,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}, {
-					Name:        channel.NewRandomName(),
+					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
 					Leaseholder: node.KeyFree,
@@ -468,18 +481,28 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	Describe("Calculation Status", func() {
 		Specify("Should persist error status on invalid expression request", func(ctx SpecContext) {
-			calcs := []channel.Channel{{
-				Name:        channel.NewRandomName(),
+			base := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true}
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+			calc := channel.Channel{
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
-				Expression:  "invalid expression without return",
-			}}
-			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+				Expression:  fmt.Sprintf("return %s * 2", base.Name),
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Delete(
+				ctx, base.Key(), false),
+			).To(Succeed())
 			rm := c.OpenRequestManager()
-			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			Expect(
+				rm.Set(ctx, channel.KeysFromChannels([]channel.Channel{calc})),
+			).To(Succeed())
 			var st calculation.Status
-			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			statusKey := calc.OntologyID().String()
 			Expect(status.NewRetrieve[types.Nil](statusSvc).
 				Where(status.MatchKeys[types.Nil](statusKey)).
 				Entry(&st).
@@ -488,50 +511,64 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 		Specify("Should persist error status on calculation update failure", func(ctx SpecContext) {
-			bases := []channel.Channel{{
-				Name:     channel.NewRandomName(),
-				DataType: telem.Int64T,
+			base := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Float64T,
 				Virtual:  true,
-			}}
-			calcs := []channel.Channel{{
-				Name:        channel.NewRandomName(),
-				DataType:    telem.Int64T,
+			}
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+			calc := channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Float64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
-				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
-			}}
-			Expect(channelSvc.CreateMany(ctx, &bases)).To(Succeed())
-			Expect(channelSvc.CreateMany(ctx, &calcs)).To(Succeed())
+				Expression:  fmt.Sprintf("return %s + 1", base.Name),
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 			rm := c.OpenRequestManager()
-			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
-			calcs[0].Expression = "invalid expression without return"
-			Expect(dist.Channel.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+			// Delete the dependency, then rename the calc to force a write of its
+			// record. The runtime reacts to writes of the calc channel by recompiling
+			// it, which now fails because the dependency no longer resolves. Rename
+			// (unlike Create) persists the record without re-analyzing the expression,
+			// so the failure surfaces asynchronously as an error status rather than
+			// synchronously.
+			Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
+			Expect(channelWriter.Rename(
+				ctx, calc.Key(), UniqueChannelName(), false),
+			).To(Succeed())
 			var st calculation.Status
-			statusKey := channel.OntologyID(calcs[0].Key()).String()
+			statusKey := calc.OntologyID().String()
 			Eventually(func(g Gomega) {
-				err := status.NewRetrieve[types.Nil](statusSvc).
+				g.Expect(status.NewRetrieve[types.Nil](statusSvc).
 					Where(status.MatchKeys[types.Nil](statusKey)).
 					Entry(&st).
-					Exec(ctx, nil)
-				g.Expect(err).To(Succeed())
+					Exec(ctx, nil)).To(Succeed())
 				g.Expect(st.Variant).To(Equal(status.VariantError))
 			}).Should(Succeed())
 			Expect(rm.Close(ctx)).To(Succeed())
 		})
 
 		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {
-			calcs := []channel.Channel{{
-				Name:        channel.NewRandomName(),
+			base := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}
+			Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+			calc := channel.Channel{
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
-				Expression:  "invalid expression",
-			}}
-			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
+				Expression:  fmt.Sprintf("return %s * 2", base.Name),
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(channelWriter.Delete(ctx, base.Key(), false)).To(Succeed())
 			rm := c.OpenRequestManager()
-			Expect(rm.Set(ctx, channel.KeysFromChannels(calcs))).To(Succeed())
+			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
 			var st calculation.Status
-			expectedKey := channel.OntologyID(calcs[0].Key()).String()
+			expectedKey := calc.OntologyID().String()
 			Expect(status.NewRetrieve[types.Nil](statusSvc).
 				Where(status.MatchKeys[types.Nil](expectedKey)).
 				Entry(&st).
@@ -544,12 +581,12 @@ var _ = Describe("Calculation", Ordered, func() {
 	Describe("Calculation Updates", func() {
 		Specify("Modified Expression, No New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        channel.NewRandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
@@ -566,7 +603,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
-			Expect(channelSvc.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))))
@@ -580,16 +617,16 @@ var _ = Describe("Calculation", Ordered, func() {
 
 		Specify("Modified Expression, New Dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{
-				Name:     channel.NewRandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}, {
-				Name:     channel.NewRandomName(),
+				Name:     UniqueChannelName(),
 				DataType: telem.Int64T,
 				Virtual:  true,
 			}}
 			calcs := []channel.Channel{{
-				Name:        channel.NewRandomName(),
+				Name:        UniqueChannelName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
 				Leaseholder: node.KeyFree,
@@ -607,7 +644,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Expect(res.Frame.Get(calcCh.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](2, 4))
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
-			Expect(channelSvc.Create(ctx, &calcs[0])).To(Succeed())
+			Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				MustSucceed(w.Write(frame.NewUnary(baseCh2.Key(), telem.NewSeriesV[int64](1, 2))))

@@ -41,6 +41,7 @@ var (
 	db      *gorp.DB
 	authSvc *auth.Service
 	userSvc *user.Service
+	writer  user.Writer
 	apiSvc  *apiuser.Service
 	root    user.User
 )
@@ -62,6 +63,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Auth:            authSvc,
 		RootCredentials: auth.Credentials{Username: "api-user-suite-root", Password: "p"},
 	}))
+	writer = userSvc.NewWriter(nil)
 	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,

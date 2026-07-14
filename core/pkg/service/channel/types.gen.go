@@ -15,19 +15,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
-
-// Key is a unique identifier for a channel in the Synnax database. Composed of a
-// cluster node key (first 12 bits) and a local key (last 20 bits), enabling distributed
-// assignment while maintaining global uniqueness.
-type Key uint32
-
-// LocalKey is a 20-bit unsigned integer representing the locally-unique portion of a
-// channel key within a node. Combined with a NodeKey to form the global channel Key.
-type LocalKey types.Uint20
 
 // Name is a human-readable name for a channel. Must start with a letter or underscore
 // and contain only letters, digits, and underscores. Names are not guaranteed to be
@@ -76,8 +66,8 @@ func (o Operation) Validate() error {
 }
 
 // Channel is an internal representation of a channel containing all storage and
-// distribution metadata. This type is used internally by the server; clients should use
-// APIChannel instead.
+// cluster-routing metadata. This type is used internally by the server; clients should
+// use APIChannel instead.
 type Channel struct {
 	// Name is the human-readable channel name.
 	Name Name `json:"name" msgpack:"name"`
