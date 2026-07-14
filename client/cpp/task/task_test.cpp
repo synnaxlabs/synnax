@@ -112,10 +112,10 @@ TEST(TaskTests, testDeleteTask) {
 
 /// @brief it should convert a task key to an ontology ID
 TEST(TaskTests, testTaskOntologyId) {
-    constexpr Key key = 12345678901234;
+    const auto key = x::uuid::create();
     const auto id = ontology_id(key);
     ASSERT_EQ(id.type, "task");
-    ASSERT_EQ(id.key, "12345678901234");
+    ASSERT_EQ(id.key, key.to_string());
 }
 
 /// @brief it should correctly create and retrieve a task with a status.
