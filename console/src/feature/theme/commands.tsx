@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Theming } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/pluto";
 
+import { useModal } from "@/feature/theme/Modal";
 import { Command } from "@/platform/command";
 
-export const ToggleCommand = Command.create({
-  key: "toggle_theme",
-  name: "Toggle color theme",
-  useOnSelect: () => {
-    const { toggleTheme } = Theming.useContext();
-    return toggleTheme;
-  },
+export const SelectCommand = Command.create({
+  key: "select_color_theme",
+  name: "Change color theme",
+  useOnSelect: () => useModal(),
   icon: <Icon.DarkMode />,
+  sortOrder: 0,
 });
