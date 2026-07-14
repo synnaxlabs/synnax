@@ -208,58 +208,48 @@ export const Box = <E extends Generic.ElementType = "div">({
   ...rest
 }: BoxProps<E>): ReactElement => {
   const parsedDirection = parseDirection(crudeDirection, x, y, pack);
-  const classNames = [
-    className,
-    CSS.B("flex"),
-    parsedDirection != null && CSS.M("direction", parsedDirection),
-    shouldReverse(crudeDirection, reverse) && CSS.M("reverse"),
-    parseFull(full),
-    pack && CSS.M("pack"),
-    justify != null && CSS.M("justify", justify),
-    align != null && CSS.M("align", align),
-    alignSelf != null && CSS.M("align-self", alignSelf),
-    wrap === true && CSS.M("wrap"),
-    empty === true && CSS.M("empty"),
-    center === true && CSS.M("center"),
-    bordered === true && CSS.M("bordered"),
-    sharp === true && CSS.M("sharp"),
-    size != null && CSS.M("height", size),
-    square === true && CSS.M("square"),
-    typeof color === "number" && CSS.M("color", color.toString()),
-    typeof background === "number" && CSS.M("bg", background.toString()),
-    typeof borderColor === "number" && CSS.M("border-color", borderColor.toString()),
-    rounded === true && CSS.M("rounded"),
-    typeof gap !== "number" && gap != null && CSS.M("gap", gap),
-    grow === true && CSS.M("grow"),
-    shrink === true && CSS.M("shrink"),
-  ];
-
   const computedStyle = useMemo(() => {
     const s: CSSProperties = { borderWidth, ...style };
-
     if (typeof color !== "number" && color != null && color !== false)
       s.color = CSS.colorVar(color);
-
     if (typeof background !== "number" && background != null && background !== false)
       s.backgroundColor = CSS.colorVar(background);
-
     if (typeof borderColor !== "number" && borderColor != null)
       s.borderColor = CSS.colorVar(borderColor);
-
     if (typeof rounded === "number") s.borderRadius = `${rounded}rem`;
-
     if (typeof gap === "number") s.gap = `${gap}rem`;
-
     if (typeof grow === "number") s.flexGrow = grow;
-
     if (typeof shrink === "number") s.flexShrink = shrink;
-
     return s;
   }, [borderWidth, style, color, background, borderColor, rounded, gap, grow, shrink]);
-
   return (
     <Generic.Element<E>
-      className={CSS(...classNames)}
+      className={CSS(
+        className,
+        CSS.B("flex"),
+        parsedDirection != null && CSS.M("direction", parsedDirection),
+        shouldReverse(crudeDirection, reverse) && CSS.M("reverse"),
+        parseFull(full),
+        pack && CSS.M("pack"),
+        justify != null && CSS.M("justify", justify),
+        align != null && CSS.M("align", align),
+        alignSelf != null && CSS.M("align-self", alignSelf),
+        wrap === true && CSS.M("wrap"),
+        empty === true && CSS.M("empty"),
+        center === true && CSS.M("center"),
+        bordered === true && CSS.M("bordered"),
+        sharp === true && CSS.M("sharp"),
+        size != null && CSS.M("height", size),
+        square === true && CSS.M("square"),
+        typeof color === "number" && CSS.M("color", color.toString()),
+        typeof background === "number" && CSS.M("bg", background.toString()),
+        typeof borderColor === "number" &&
+          CSS.M("border-color", borderColor.toString()),
+        rounded === true && CSS.M("rounded"),
+        typeof gap !== "number" && gap != null && CSS.M("gap", gap),
+        grow === true && CSS.M("grow"),
+        shrink === true && CSS.M("shrink"),
+      )}
       style={computedStyle}
       {...(rest as Generic.ElementProps<E>)}
       el={rest.el ?? "div"}
