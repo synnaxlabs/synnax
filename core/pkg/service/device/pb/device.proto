@@ -13,7 +13,7 @@ syntax = "proto3";
 
 package service.device.pb;
 
-import "core/pkg/distribution/ontology/pb/ontology.proto";
+import "core/pkg/service/ontology/pb/ontology.proto";
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
 
@@ -54,5 +54,5 @@ message Device {
   optional .service.status.pb.Status status = 9;
   // parent is an optional parent resource ID for hierarchical device organization (e.g.,
   // NI chassis containing modules).
-  optional .distribution.ontology.pb.ID parent = 10;
+  optional .service.ontology.pb.ID parent = 10;
 }

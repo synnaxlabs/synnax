@@ -22,8 +22,6 @@ type CreateMessage struct {
 	// Channels are the channels to create on the request, and the created channels with
 	// their assigned keys on the response.
 	Channels []Channel
-	// Opts controls create behavior when a channel with the same name already exists.
-	Opts CreateOptions
 }
 
 type (
@@ -47,14 +45,10 @@ type (
 	DeleteServer = freighter.UnaryServer[DeleteRequest, types.Nil]
 )
 
-// RenameRequest is the payload for a channel rename operation. Keys and Names are
-// positional: the channel at Keys[i] is renamed to Names[i], so both slices must have
-// the same length.
+// RenameRequest is the payload for a channel rename operation.
 type RenameRequest struct {
-	// Keys identifies the channels to rename.
-	Keys Keys
-	// Names holds the new name for each channel in Keys, by position.
-	Names []string
+	// Renames maps each channel to rename to its new name.
+	Renames map[Key]string
 }
 
 type (

@@ -18,9 +18,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -203,7 +203,7 @@ var _ = Describe("Signals", func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		}()
 
-		w := node.Ontology.NewWriter(nil)
+		w := otg.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
 		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
@@ -241,7 +241,7 @@ var _ = Describe("Signals", func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		}()
 
-		w := node.Ontology.NewWriter(nil)
+		w := otg.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
 		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())

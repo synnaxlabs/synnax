@@ -16,9 +16,9 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/query"
@@ -315,10 +315,10 @@ var _ = Describe("Writer", func() {
 
 		It("Should materialize dispatched insertions into the arc's text", func(ctx SpecContext) {
 			a := &arc.Arc{Name: "collab-empty", Mode: arc.ModeText}
-			Expect(svc.NewWriter(nil).Create(ctx, a)).To(Succeed())
+			Expect(writer.Create(ctx, a)).To(Succeed())
 
 			client := crdt.New(2)
-			Expect(svc.NewWriter(nil).Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "hello")))).
+			Expect(writer.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "hello")))).
 				To(Succeed())
 
 			Expect(fetch(ctx, a.Key).Text.Materialize().Raw).To(Equal("hello"))
@@ -327,14 +327,14 @@ var _ = Describe("Writer", func() {
 		It("Should seed the document from raw on create and materialize a bootstrapped edit", func(ctx SpecContext) {
 			a := &arc.Arc{Name: "collab-seeded", Mode: arc.ModeText}
 			a.Text.Raw = "base"
-			Expect(svc.NewWriter(nil).Create(ctx, a)).To(Succeed())
+			Expect(writer.Create(ctx, a)).To(Succeed())
 
 			seeded := fetch(ctx, a.Key)
 			client := crdt.New(2)
 			client.Load(seeded.Text.Doc.Inserts, seeded.Text.Doc.Deletes)
 			Expect(client.String()).To(Equal("base"))
 
-			Expect(svc.NewWriter(nil).Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "X")))).
+			Expect(writer.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "X")))).
 				To(Succeed())
 
 			Expect(fetch(ctx, a.Key).Text.Materialize().Raw).To(Equal("Xbase"))
@@ -361,23 +361,23 @@ var _ = Describe("Writer", func() {
 
 			a := &arc.Arc{Name: "collab-sweep", Mode: arc.ModeText}
 			a.Text.Raw = "hello world"
-			Expect(svc.NewWriter(nil).Create(ctx, a)).To(Succeed())
+			Expect(writer.Create(ctx, a)).To(Succeed())
 			client := crdt.New(2)
 			seeded := fetch(ctx, a.Key)
 			client.Load(seeded.Text.Doc.Inserts, seeded.Text.Doc.Deletes)
 
-			Expect(svc.NewWriter(nil).Dispatch(ctx, a.Key, "dk", toDeleteActions(client.Delete(6, 5)))).
+			Expect(writer.Dispatch(ctx, a.Key, "dk", toDeleteActions(client.Delete(6, 5)))).
 				To(Succeed())
 			Expect(fetch(ctx, a.Key).Text.Doc.Deletes).To(HaveLen(5))
 
 			base = base.Add(2 * telem.Second)
-			Expect(svc.NewWriter(nil).Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "X")))).
+			Expect(writer.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "X")))).
 				To(Succeed())
 			Expect(fetch(ctx, a.Key).Text.Doc.Deletes).To(HaveLen(5))
 			Expect(forgottenCount()).To(Equal(0))
 
 			base = base.Add(10 * telem.Second)
-			Expect(svc.NewWriter(nil).Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "Y")))).
+			Expect(writer.Dispatch(ctx, a.Key, "dk", toInsertActions(client.Insert(0, "Y")))).
 				To(Succeed())
 
 			Expect(forgottenCount()).To(Equal(5))
