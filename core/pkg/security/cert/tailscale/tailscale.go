@@ -56,7 +56,9 @@ type source struct {
 
 // GetCertificate implements cert.Source. tailscaled selects the certificate by the
 // handshake SNI; when a client omits it, fall back to the listener's configured host so
-// the daemon still serves the right name.
+// the daemon still serves the right name. A non-empty SNI is honored as-is: the cert
+// comes from a public CA keyed to the tailnet FQDN, so the client must dial that name
+// for verification to pass; rewriting its SNI server-side cannot change that.
 func (s *source) GetCertificate(hi *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	if hi.ServerName == "" {
 		hi.ServerName = s.host
