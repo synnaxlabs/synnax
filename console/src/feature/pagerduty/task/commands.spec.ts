@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it } from "vitest";
 
@@ -20,7 +21,7 @@ stubGeometry();
 const client = createTestClient();
 
 describe("PagerDuty Task Commands", () => {
-  it("should open the alert task view from the create alert task command", async () => {
+  it("should create an alert draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
       layout: {},
@@ -33,7 +34,9 @@ describe("PagerDuty Task Commands", () => {
     await openCommandPalette("Create a PagerDuty");
     await selectCommand("Create a PagerDuty Alert Task");
     const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "view") throw new Error("expected a view tab");
-    expect(tab.type).toBe(PagerDuty.Task.ALERT_TYPE);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(PagerDuty.Task.ALERT_TYPE);
   });
 });

@@ -10,7 +10,7 @@
 import "@/feature/arc/editor/TaskControls.css";
 
 import { type rack } from "@synnaxlabs/client";
-import { Arc, Rack } from "@synnaxlabs/pluto";
+import { Arc, Button, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useState } from "react";
 
@@ -66,10 +66,15 @@ export const TaskControls = () => {
           location="top"
           initialQuery={INITIAL_RACK_QUERY}
         />
-        <Task.Controls.ConfigureButton
+        <Button.Button
           onClick={handleConfigure}
           disabled={selectedRack === undefined}
-        />
+          size="medium"
+          variant="outlined"
+          tooltip="Deploy the arc to the selected rack"
+        >
+          Deploy
+        </Button.Button>
         <Task.Controls.StartStopButton
           running={running}
           onClick={onStartStop}

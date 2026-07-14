@@ -33,7 +33,7 @@ describe("useStatus", () => {
   it("should fall back to a default disabled status when absent", async () => {
     const { result } = await renderTaskFormHook({}, (ctx) => Task.useStatus(ctx));
     expect(result.current.value.variant).toBe("disabled");
-    expect(result.current.value.message).toBe("Task has not been configured");
+    expect(result.current.value.message).toBe("Task has not been deployed");
     expect(result.current.value.details.running).toBe(false);
   });
 });

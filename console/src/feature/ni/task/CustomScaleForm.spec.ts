@@ -33,6 +33,8 @@ vi.mock("@tauri-apps/plugin-fs", async () => {
   };
 });
 
+import { type task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -42,6 +44,11 @@ import { findDialogTriggerByText, selectFromDropdown } from "@/platform/task/tes
 import { stubGeometry } from "@/testutil";
 
 const openMock = vi.mocked(open);
+
+const client = createTestClient();
+
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_ANALOG_READ_PAYLOAD;
 
 stubGeometry();
 
@@ -69,16 +76,20 @@ const createChannel = (customScale: NI.Task.Scale): VoltageChannel => ({
   customScale,
 });
 
-const renderWithScale = async (customScale: NI.Task.Scale) =>
-  await renderNITaskForm(NI.Task.AnalogRead, NI.Task.ANALOG_READ_TYPE, {
-    client: null,
-    args: {
-      config: {
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-        channels: [createChannel(customScale)],
-      },
-    },
+const renderWithScale = async (customScale: NI.Task.Scale) => {
+  const config: task.Payload<NI.Task.AnalogReadSchemas>["config"] = {
+    ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+    channels: [createChannel(customScale)],
+  };
+  const draft = await client.tasks.create(
+    { ...ZERO_DRAFT, config },
+    NI.Task.ANALOG_READ_SCHEMAS,
+  );
+  return await renderNITaskForm(NI.Task.AnalogRead, {
+    client,
+    taskKey: draft.key,
   });
+};
 
 describe("CustomScaleForm", () => {
   it("should swap the scale fields when a different scale type is selected", async () => {

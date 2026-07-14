@@ -24,12 +24,12 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: Device.TaskContextMenuItemConfig[] = [
   {
     itemKey: "ethercat.readTask",
     label: "Create read task",
-    type: Task.READ_TYPE,
+    useCreate: Task.useCreateRead,
   },
   {
     itemKey: "ethercat.writeTask",
     label: "Create write task",
-    type: Task.WRITE_TYPE,
+    useCreate: Task.useCreateWrite,
   },
 ];
 

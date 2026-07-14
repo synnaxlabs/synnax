@@ -33,13 +33,6 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const AnalogReadSelectable = Selector.createSelectable({
-  type: ANALOG_READ_TYPE,
-  title: "NI Analog Read Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(ANALOG_READ_TYPE),
-});
-
 const Properties = () => (
   <>
     <Task.Fields.SampleRate />
@@ -223,4 +216,19 @@ export const AnalogRead = Task.wrapForm({
   type: "ni_analog_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateAnalogRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const analogReadIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const AnalogReadSelectable = Selector.createSelectable({
+  type: ANALOG_READ_TYPE,
+  title: "NI Analog Read Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateAnalogRead,
 });

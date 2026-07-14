@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/task/controls/Actions";
-export * from "@/platform/task/controls/ConfigureButton";
 export * from "@/platform/task/controls/Controls";
 export * from "@/platform/task/controls/Frame";
+export * from "@/platform/task/controls/RedeployButton";
 export * from "@/platform/task/controls/StartStopButton";
 export * from "@/platform/task/controls/Status";

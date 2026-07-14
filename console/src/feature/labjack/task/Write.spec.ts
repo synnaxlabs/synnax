@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -18,10 +19,11 @@ import {
   createLabJackDevice,
 } from "@/feature/labjack/testutil";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  awaitCommand,
+  clickDeploy,
   findDialogTriggerByText,
   renderTaskFormTab,
+  type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { getIconButton, stubGeometry, uniqueName } from "@/testutil";
 
@@ -29,23 +31,52 @@ const client = createTestClient();
 
 stubGeometry();
 
-const renderWrite = async (args = {}) =>
-  await renderTaskFormTab(LabJack.Task.Write, LabJack.Task.WRITE_TYPE, {
-    client,
-    args,
-  });
+const renderWrite = async (options: RenderTaskFormTabOptions = {}) =>
+  await renderTaskFormTab(LabJack.Task.Write, options);
 
 const createConfig = (
   device: string,
   channels: LabJack.Task.OutputChannel[],
-): unknown => ({ ...LabJack.Task.ZERO_WRITE_PAYLOAD.config, device, channels });
+): LabJack.Task.WritePayload["config"] => ({
+  ...LabJack.Task.ZERO_WRITE_PAYLOAD.config,
+  device,
+  channels,
+});
+
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = LabJack.Task.ZERO_WRITE_PAYLOAD;
+
+const createDraft = async (
+  client: Synnax,
+  config: LabJack.Task.WritePayload["config"],
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.WRITE_SCHEMAS);
+
+const deployAndAwaitTask = async (
+  client: Synnax,
+  container: ParentNode,
+  key: task.Key,
+) => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await clickDeploy(container);
+    await awaitCommand(streamer, key);
+  } finally {
+    streamer.close();
+  }
+  return await client.tasks.retrieve({
+    key,
+    schemas: LabJack.Task.WRITE_SCHEMAS,
+  });
+};
 
 describe("LabJack Write", () => {
   it("should render output channels with port selectors and type buttons", async () => {
     const dev = await createLabJackDevice(client);
-    await renderWrite({
-      config: createConfig(dev.key, [createDOChannel("DIO4"), createAOChannel("DAC0")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDOChannel("DIO4"), createAOChannel("DAC0")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
     expect(screen.getByText("DAC0")).toBeTruthy();
     expect(screen.getAllByText("Analog")).toHaveLength(2);
@@ -54,9 +85,11 @@ describe("LabJack Write", () => {
 
   it("should swap the channel to the analog port space when Analog is clicked", async () => {
     const dev = await createLabJackDevice(client);
-    await renderWrite({
-      config: createConfig(dev.key, [createDOChannel("DIO4")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDOChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
     fireEvent.click(screen.getByText("Analog"));
     await waitFor(() => expect(screen.getByText("DAC0")).toBeTruthy());
@@ -65,9 +98,8 @@ describe("LabJack Write", () => {
 
   it("should add a zero channel when the list is empty and Add is pressed", async () => {
     const dev = await createLabJackDevice(client);
-    const { container } = await renderWrite({
-      config: createConfig(dev.key, []),
-    });
+    const draft = await createDraft(client, createConfig(dev.key, []));
+    const { container } = await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("No channels in task.")).toBeTruthy());
     fireEvent.click(getIconButton(container, "add"));
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
@@ -75,9 +107,11 @@ describe("LabJack Write", () => {
 
   it("should add the next open port of the same type when Add is pressed", async () => {
     const dev = await createLabJackDevice(client);
-    const { container } = await renderWrite({
-      config: createConfig(dev.key, [createDOChannel("DIO4")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDOChannel("DIO4")]),
+    );
+    const { container } = await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
     fireEvent.click(getIconButton(container, "add"));
     await waitFor(() => expect(screen.getByText("FIO5")).toBeTruthy());
@@ -85,29 +119,25 @@ describe("LabJack Write", () => {
 
   it("should update the port through the port select dialog", async () => {
     const dev = await createLabJackDevice(client);
-    await renderWrite({
-      config: createConfig(dev.key, [createDOChannel("DIO4")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDOChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
     fireEvent.click(await findDialogTriggerByText("FIO4"));
     fireEvent.click(await screen.findByText("EIO2"));
     await waitFor(() => expect(screen.queryByText("EIO2")).toBeTruthy());
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create command and state channels, update the device, and save the task", async () => {
       const dev = await createLabJackDevice(client);
-      const rendered = await renderWrite({
-        config: createConfig(dev.key, [
-          createDOChannel("DIO4"),
-          createAOChannel("DAC0"),
-        ]),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: LabJack.Task.WRITE_SCHEMAS,
-      });
+      const draft = await createDraft(
+        client,
+        createConfig(dev.key, [createDOChannel("DIO4"), createAOChannel("DAC0")]),
+      );
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(client, container, draft.key);
       expect(created.type).toBe(LabJack.Task.WRITE_TYPE);
       expect(created.rack).toBe(dev.rack);
       const [doCh, aoCh] = created.config.channels;
@@ -151,20 +181,17 @@ describe("LabJack Write", () => {
       const dev = await createLabJackDevice(client);
       const cmdName = uniqueName("lj_cmd");
       const stateName = uniqueName("lj_state");
-      const rendered = await renderWrite({
-        config: createConfig(dev.key, [
+      const draft = await createDraft(
+        client,
+        createConfig(dev.key, [
           createDOChannel("DIO4", {
             cmdChannelName: cmdName,
             stateChannelName: stateName,
           }),
         ]),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: LabJack.Task.WRITE_SCHEMAS,
-      });
+      );
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(client, container, draft.key);
       const [ch] = created.config.channels;
       const cmd = await client.channels.retrieve(ch.cmdChannel);
       expect(cmd.name).toBe(cmdName);
@@ -174,25 +201,25 @@ describe("LabJack Write", () => {
       expect(state.name).toBe(stateName);
     });
 
-    it("should reuse existing command and state channels when reconfigured", async () => {
+    it("should reuse existing command and state channels when redeployed", async () => {
       const dev = await createLabJackDevice(client);
       const config = createConfig(dev.key, [createDOChannel("DIO4")]);
-      const first = await renderWrite({ config });
-      await clickConfigure();
-      const firstKey = await awaitTaskKey(first);
-      const firstTask = await client.tasks.retrieve({
-        key: firstKey,
-        schemas: LabJack.Task.WRITE_SCHEMAS,
-      });
+      const firstDraft = await createDraft(client, config);
+      const first = await renderWrite({ client, taskKey: firstDraft.key });
+      const firstTask = await deployAndAwaitTask(
+        client,
+        first.container,
+        firstDraft.key,
+      );
       first.unmount();
 
-      const second = await renderWrite({ config });
-      await clickConfigure();
-      const secondKey = await awaitTaskKey(second);
-      const secondTask = await client.tasks.retrieve({
-        key: secondKey,
-        schemas: LabJack.Task.WRITE_SCHEMAS,
-      });
+      const secondDraft = await createDraft(client, config);
+      const second = await renderWrite({ client, taskKey: secondDraft.key });
+      const secondTask = await deployAndAwaitTask(
+        client,
+        second.container,
+        secondDraft.key,
+      );
       expect(secondTask.config.channels[0].cmdChannel).toBe(
         firstTask.config.channels[0].cmdChannel,
       );

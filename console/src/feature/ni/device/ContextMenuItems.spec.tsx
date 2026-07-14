@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
@@ -61,25 +62,27 @@ const renderContextMenu = async () => {
 };
 
 describe("device ontology context menu", () => {
-  it("should offer every NI task type and open the clicked one with the device key", async () => {
+  it("should offer every NI task type and create the clicked one bound to the device", async () => {
     const { store, deviceKey } = await renderContextMenu();
     for (const label of TASK_LABELS)
       await waitFor(() => expect(screen.getByText(label)).toBeTruthy());
     fireEvent.click(screen.getByText("Create digital write task"));
-    expect(await resolveFocusedTab(store, client)).toMatchObject({
-      variant: "view",
-      type: NI.Task.DIGITAL_WRITE_TYPE,
-      args: { deviceKey },
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(NI.Task.DIGITAL_WRITE_TYPE);
+    expect(created.config).toMatchObject({ device: deviceKey });
   });
 
-  it("should open the analog read view with the device key when clicked", async () => {
+  it("should create an analog read draft with a channel on the device", async () => {
     const { store, deviceKey } = await renderContextMenu();
     fireEvent.click(await screen.findByText("Create analog read task"));
-    expect(await resolveFocusedTab(store, client)).toMatchObject({
-      variant: "view",
-      type: NI.Task.ANALOG_READ_TYPE,
-      args: { deviceKey },
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
+    expect(created.config).toMatchObject({ channels: [{ device: deviceKey }] });
   });
 });

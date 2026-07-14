@@ -33,13 +33,6 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const DigitalReadSelectable = Selector.createSelectable({
-  type: DIGITAL_READ_TYPE,
-  title: "NI Digital Read Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(DIGITAL_READ_TYPE),
-});
-
 const Properties = () => (
   <>
     <Select />
@@ -166,4 +159,19 @@ export const DigitalRead = Task.wrapForm({
   getInitialValues,
   onConfigure,
   type: "ni_digital_read",
+});
+
+export const useCreateDigitalRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const digitalReadIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const DigitalReadSelectable = Selector.createSelectable({
+  type: DIGITAL_READ_TYPE,
+  title: "NI Digital Read Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateDigitalRead,
 });

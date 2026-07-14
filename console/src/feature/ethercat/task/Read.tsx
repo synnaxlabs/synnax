@@ -34,13 +34,6 @@ import {
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "EtherCAT Read Task",
-  icon: <Icon.Logo.EtherCAT />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
-
 const Properties = () => (
   <Flex.Box x grow>
     <Task.Fields.SampleRate />
@@ -147,4 +140,19 @@ export const Read = Task.wrapForm({
   type: "ethercat_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const readIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "EtherCAT Read Task",
+  icon: <Icon.Logo.EtherCAT />,
+  useOnSelect: useCreateRead,
 });

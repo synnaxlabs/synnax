@@ -10,9 +10,9 @@
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { READ_TYPE, WRITE_TYPE } from "@/feature/labjack/task/types";
+import { useCreateRead } from "@/feature/labjack/task/Read";
+import { useCreateWrite } from "@/feature/labjack/task/Write";
 import { Command } from "@/platform/command";
-import { Task } from "@/platform/task";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
@@ -20,7 +20,7 @@ const CreateReadCommand = Command.create({
   key: "labjack_create_read_task",
   name: "Create a LabJack Read Task",
   icon: <Icon.Logo.LabJack />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
+  useOnSelect: useCreateRead,
   useVisible,
 });
 
@@ -28,7 +28,7 @@ const CreateWriteCommand = Command.create({
   key: "labjack_create_write_task",
   name: "Create a LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
+  useOnSelect: useCreateWrite,
   useVisible,
 });
 

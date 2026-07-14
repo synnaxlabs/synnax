@@ -73,6 +73,8 @@ export type UseFormReturn<Schema extends z.ZodType<base.Data>> = Omit<
 > & {
   form: Form.UseReturn<Schema>;
   save: (opts?: base.FetchOptions) => void;
+  /** Like save, but resolves true once the update has been persisted. */
+  saveAsync: (opts?: base.FetchOptions) => Promise<boolean>;
 };
 
 export interface FormBeforeSaveParams<
@@ -263,5 +265,5 @@ export const createForm =
       [saveAsync],
     );
 
-    return { form, save, ...result };
+    return { form, save, saveAsync, ...result };
   };

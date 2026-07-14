@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type rack, status, task } from "@synnaxlabs/client";
-import { array, type optional, primitive } from "@synnaxlabs/x";
+import { ontology, rack, status, task } from "@synnaxlabs/client";
+import { array, type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
 
@@ -39,11 +39,20 @@ export interface FluxSubStore extends Ontology.FluxSubStore, Label.FluxSubStore 
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
+// The set signal carries metadata only, so a cached task merges it in place.
+// Config changes reach the store solely through this client's own saves.
 const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.setSignalZ> = {
   channel: task.SET_CHANNEL_NAME,
   schema: task.setSignalZ,
-  onChange: async ({ store, changed: { key }, client }) =>
-    store.tasks.set(key, await client.tasks.retrieve({ key, includeStatus: true })),
+  onChange: async ({ store, changed, client }) => {
+    const { key } = changed;
+    const cached = store.tasks.get(key);
+    if (cached != null) {
+      store.tasks.set(key, client.tasks.sugar({ ...cached.payload, ...changed }));
+      return;
+    }
+    store.tasks.set(key, await client.tasks.retrieve({ key, includeStatus: true }));
+  },
 };
 
 const DELETE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
@@ -204,7 +213,7 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
   z.object({
     key: task.keyZ.optional(),
     name: z.string(),
-    rackKey: z.number(),
+    rack: rack.keyZ,
     type: schemas.type,
     snapshot: z.boolean(),
     config: schemas.config,
@@ -214,7 +223,7 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
   key?: task.Key;
   name: string;
-  rackKey: rack.Key;
+  rack: rack.Key;
   type: z.infer<S["type"]>;
   snapshot: boolean;
   config: z.infer<S["config"]>;
@@ -228,12 +237,10 @@ export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
 
 export interface InitialValues<
   S extends task.Schemas = task.Schemas,
-> extends optional.Optional<task.Payload<S>, "key" | "rack" | "internal" | "snapshot"> {
-  key?: task.Key;
-  /** Rack to pre-select when creating a new task. The payload rack takes
-   * precedence when set. */
-  rackKey?: rack.Key;
-}
+> extends optional.Optional<
+  task.Payload<S>,
+  "key" | "rack" | "internal" | "snapshot"
+> {}
 
 export type FormQuery = {
   key?: task.Key;
@@ -244,7 +251,7 @@ const taskToFormValues = <S extends task.Schemas = task.Schemas>(
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
-  rackKey: primitive.isNonZero(t.rack) ? t.rack : (t.rackKey ?? 0),
+  rack: t.rack ?? 0,
   type: t.type,
   config: t.config,
   status: t.status,
@@ -252,19 +259,6 @@ const taskToFormValues = <S extends task.Schemas = task.Schemas>(
 });
 
 const RESET_OPTIONS: Form.SetOptions = { markTouched: false };
-
-const resetFormValues = <S extends task.Schemas = task.Schemas>(
-  set: Form.UseReturn<FormSchema<S>>["set"],
-  payload: task.Payload<S>,
-) => {
-  const values = taskToFormValues(payload);
-  set("key", values.key, RESET_OPTIONS);
-  set("name", values.name, RESET_OPTIONS);
-  set("type", values.type, RESET_OPTIONS);
-  set("rackKey", values.rackKey, RESET_OPTIONS);
-  set("config", values.config, RESET_OPTIONS);
-  set("snapshot", values.snapshot, RESET_OPTIONS);
-};
 
 export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
@@ -287,26 +281,33 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     },
     update: async ({ client, store, ...form }) => {
       const value = form.value();
-      const rack = await client.racks.retrieve({ key: value.rackKey });
-      const task = await rack.createTask(
+      const created = await client.tasks.create(
         {
           key: value.key,
+          rack: value.rack,
           name: value.name,
           type: value.type,
           config: value.config,
-          status: value.status,
+          snapshot: value.snapshot,
+          status: value.status ?? undefined,
         },
         schemas,
       );
-      store.tasks.set(task as unknown as Omit<task.Task, "status">);
-      resetFormValues(form.set, task.payload);
+      store.tasks.set(created as unknown as Omit<task.Task, "status">);
+      // Only the key is reset from the response: resetting other fields would
+      // clobber edits typed while this save was in flight.
+      form.set("key", created.key, RESET_OPTIONS);
       form.setCurrentStateAsInitialValues();
     },
     mountListeners: ({ store, get, set }) => [
       store.tasks.onSet((task) => {
         const prevKey = get<string>("key", { optional: true })?.value;
         if (prevKey == null || prevKey !== task.key) return;
-        resetFormValues(set, task.payload);
+        // Metadata only: config changes come solely from this form's own
+        // saves, and resetting it would clobber in-flight autosave edits.
+        set("name", task.name, RESET_OPTIONS);
+        set("rack", task.rack, RESET_OPTIONS);
+        set("snapshot", task.snapshot, RESET_OPTIONS);
       }),
       store.statuses.onSet((status) => {
         const prevKey = get<string>("key", { optional: true })?.value;

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -19,8 +20,8 @@ import {
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  awaitCommand,
+  clickDeploy,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
@@ -44,11 +45,36 @@ const createChannel = (
     ...overrides,
   }) as NI.Task.CIChannel;
 
-const renderCounterRead = async (args = {}) =>
-  await renderNITaskForm(NI.Task.CounterRead, NI.Task.COUNTER_READ_TYPE, {
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_COUNTER_READ_PAYLOAD;
+
+const createDraft = async (
+  config: task.Payload<NI.Task.CounterReadSchemas>["config"],
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, NI.Task.COUNTER_READ_SCHEMAS);
+
+const renderCounterRead = async (
+  config: task.Payload<NI.Task.CounterReadSchemas>["config"],
+) => {
+  const draft = await createDraft(config);
+  const rendered = await renderNITaskForm(NI.Task.CounterRead, {
     client,
-    args,
+    taskKey: draft.key,
   });
+  return { ...rendered, draft };
+};
+
+const deployAndAwaitStart = async (
+  container: ParentNode,
+  key: task.Key,
+): Promise<void> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await clickDeploy(container);
+    await awaitCommand(streamer, key);
+  } finally {
+    streamer.close();
+  }
+};
 
 const createConfig = (channels: NI.Task.CIChannel[]) => ({
   ...NI.Task.ZERO_COUNTER_READ_PAYLOAD.config,
@@ -70,11 +96,11 @@ describe("CounterRead", () => {
       ["ci_position_angular", "Initial Angle"],
       ["ci_duty_cycle", "Active Edge"],
     ];
-    await renderCounterRead({
-      config: createConfig(
+    await renderCounterRead(
+      createConfig(
         cases.map(([type], i) => createChannel(type, i, { name: `chan_${type}` })),
       ),
-    });
+    );
     for (const [type, distinguishingLabel] of cases) {
       fireEvent.click(await screen.findByText(`chan_${type}`));
       await waitFor(
@@ -89,49 +115,42 @@ describe("CounterRead", () => {
   });
 
   it("should reveal the measurement time field for two-counter high-frequency measurement", async () => {
-    await renderCounterRead({
-      config: createConfig([
-        createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr" }),
-      ]),
-    });
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 0, { measMethod: "HighFreq2Ctr" })]),
+    );
     await waitFor(() => expect(screen.getByText("Measurement Time (s)")).toBeTruthy());
     expect(screen.queryByText("Divisor")).toBeNull();
   });
 
   it("should reveal the divisor field for two-counter large-range measurement", async () => {
-    await renderCounterRead({
-      config: createConfig([
-        createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr" }),
-      ]),
-    });
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr" })]),
+    );
     await waitFor(() => expect(screen.getByText("Divisor")).toBeTruthy());
     expect(screen.queryByText("Measurement Time (s)")).toBeNull();
   });
 
   it("should swap the channel to the newly selected type", async () => {
-    await renderCounterRead({
-      config: createConfig([createChannel("ci_frequency", 0)]),
-    });
+    await renderCounterRead(createConfig([createChannel("ci_frequency", 0)]));
     await screen.findByText("Measurement Method");
     await selectFromDropdown("Frequency", "Edge Count");
     await waitFor(() => expect(screen.getByText("Count Direction")).toBeTruthy());
     expect(screen.queryByText("Measurement Method")).toBeNull();
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create counter channels and update the device", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("ctr_named");
-      const rendered = await renderCounterRead({
-        config: createConfig([
+      const rendered = await renderCounterRead(
+        createConfig([
           createChannel("ci_frequency", 0, { device: dev.key }),
           createChannel("ci_edge_count", 1, { device: dev.key, name: namedChannel }),
         ]),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
+      );
+      await deployAndAwaitStart(rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: rendered.draft.key,
         schemas: NI.Task.COUNTER_READ_SCHEMAS,
       });
       expect(created.type).toBe(NI.Task.COUNTER_READ_TYPE);
@@ -160,10 +179,8 @@ describe("CounterRead", () => {
     });
 
     it("should surface an error when the task has no channels", async () => {
-      const { statuses } = await renderCounterRead({
-        config: createConfig([]),
-      });
-      await clickConfigure();
+      const { statuses, container } = await renderCounterRead(createConfig([]));
+      await clickDeploy(container);
       await awaitStatusDescription(
         statuses,
         /No device selected in task configuration/,
@@ -173,13 +190,13 @@ describe("CounterRead", () => {
     it("should surface an error when channels span devices on different racks", async () => {
       const devA = await createNIDevice(client);
       const devB = await createNIDevice(client);
-      const { statuses } = await renderCounterRead({
-        config: createConfig([
+      const { statuses, container } = await renderCounterRead(
+        createConfig([
           createChannel("ci_frequency", 0, { device: devA.key }),
           createChannel("ci_frequency", 1, { device: devB.key }),
         ]),
-      });
-      await clickConfigure();
+      );
+      await clickDeploy(container);
       await awaitStatusDescription(
         statuses,
         /Cannot create task with channels from multiple racks/,

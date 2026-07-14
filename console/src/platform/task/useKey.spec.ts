@@ -25,10 +25,10 @@ describe("useKey", () => {
     expect(result.current.value).toBeNull();
   });
 
-  it("should return null for the zero key of an unsaved task", async () => {
+  it("should return a zero key verbatim, since draft rows carry real keys", async () => {
     const { result } = await renderTaskFormHook({ key: "0" }, (ctx) =>
       Task.useKey(ctx),
     );
-    expect(result.current.value).toBeNull();
+    expect(result.current.value).toBe("0");
   });
 });

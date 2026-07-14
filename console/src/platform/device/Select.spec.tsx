@@ -20,11 +20,11 @@ import { findDialogTrigger, stubGeometry, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const RackKeyProbe = (): ReactElement => {
-  const value = Form.useFieldValue<number>("rackKey", { optional: true });
-  return <div>{`rack-key:${value ?? "none"}`}</div>;
+const RackProbe = (): ReactElement => {
+  const value = Form.useFieldValue<number>("rack", { optional: true });
+  return <div>{`rack:${value ?? "none"}`}</div>;
 };
-RackKeyProbe.displayName = "RackKeyProbe";
+RackProbe.displayName = "RackProbe";
 
 const renderSelect = async (
   props: Device.SelectProps,
@@ -32,7 +32,7 @@ const renderSelect = async (
   await renderWithDeviceForm(
     <>
       <Device.Select {...props} />
-      <RackKeyProbe />
+      <RackProbe />
     </>,
     { deviceKey: "", client },
   );
@@ -51,7 +51,7 @@ describe("Device.Select", () => {
     const onConfigure = vi.fn();
     await renderSelect({ make, onConfigure });
     await openAndClick(dev.name);
-    await waitFor(() => expect(screen.getByText(`rack-key:${dev.rack}`)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(`rack:${dev.rack}`)).toBeTruthy());
     const trigger = await findDialogTrigger();
     expect(trigger.textContent).toContain(dev.name);
     expect(onConfigure).not.toHaveBeenCalled();

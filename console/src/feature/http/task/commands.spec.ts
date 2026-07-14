@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it } from "vitest";
 
@@ -20,7 +21,7 @@ stubGeometry();
 const client = createTestClient();
 
 describe("HTTP.Task Commands", () => {
-  it("should open the read task view from the create read task command", async () => {
+  it("should create a read draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
       layout: {},
@@ -32,13 +33,14 @@ describe("HTTP.Task Commands", () => {
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Create an HTTP Read");
     await selectCommand("Create an HTTP Read Task");
-    expect(await resolveFocusedTab(store, client)).toMatchObject({
-      variant: "view",
-      type: HTTP.Task.READ_TYPE,
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(HTTP.Task.READ_TYPE);
   });
 
-  it("should open the write task view from the create write task command", async () => {
+  it("should create a write draft and open its resource tab from the command", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),
       layout: {},
@@ -50,9 +52,10 @@ describe("HTTP.Task Commands", () => {
     store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Create an HTTP Write");
     await selectCommand("Create an HTTP Write Task");
-    expect(await resolveFocusedTab(store, client)).toMatchObject({
-      variant: "view",
-      type: HTTP.Task.WRITE_TYPE,
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(HTTP.Task.WRITE_TYPE);
   });
 });

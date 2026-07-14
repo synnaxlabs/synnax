@@ -11,10 +11,8 @@ import { type task } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
-/** Returns null for an unsaved task: an absent key field or the zero key "0". */
+/** Returns null for a task that has not been created yet. */
 export const useKey = <Schema extends z.ZodType>(
   ctx?: Form.ContextValue<Schema>,
-): task.Key | null => {
-  const key = Form.useFieldValue<task.Key>("key", { ctx, optional: true });
-  return key == null || key === "0" ? null : key;
-};
+): task.Key | null =>
+  Form.useFieldValue<task.Key>("key", { ctx, optional: true }) ?? null;

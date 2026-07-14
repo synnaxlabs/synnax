@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -19,10 +20,11 @@ import {
   createTCChannel,
 } from "@/feature/labjack/testutil";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  awaitCommand,
+  clickDeploy,
   findDialogTriggerByText,
   renderTaskFormTab,
+  type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
 
@@ -30,27 +32,56 @@ const client = createTestClient();
 
 stubGeometry();
 
-const renderRead = async (args = {}) =>
-  await renderTaskFormTab(LabJack.Task.Read, LabJack.Task.READ_TYPE, {
-    client,
-    args,
-  });
+const renderRead = async (options: RenderTaskFormTabOptions = {}) =>
+  await renderTaskFormTab(LabJack.Task.Read, options);
 
 const createConfig = (
   device: string,
   channels: LabJack.Task.InputChannel[],
-): unknown => ({ ...LabJack.Task.ZERO_READ_PAYLOAD.config, device, channels });
+): LabJack.Task.ReadPayload["config"] => ({
+  ...LabJack.Task.ZERO_READ_PAYLOAD.config,
+  device,
+  channels,
+});
+
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = LabJack.Task.ZERO_READ_PAYLOAD;
+
+const createDraft = async (
+  client: Synnax,
+  config: LabJack.Task.ReadPayload["config"],
+) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.READ_SCHEMAS);
+
+const deployAndAwaitTask = async (
+  client: Synnax,
+  container: ParentNode,
+  key: task.Key,
+) => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await clickDeploy(container);
+    await awaitCommand(streamer, key);
+  } finally {
+    streamer.close();
+  }
+  return await client.tasks.retrieve({
+    key,
+    schemas: LabJack.Task.READ_SCHEMAS,
+  });
+};
 
 describe("LabJack Read", () => {
   it("should render channel ports using their model aliases when available", async () => {
     const dev = await createLabJackDevice(client);
-    await renderRead({
-      config: createConfig(dev.key, [
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
         createAIChannel("AIN0"),
         createAIChannel("AIN4"),
         createDIChannel("DIO8"),
       ]),
-    });
+    );
+    await renderRead({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("AIN0")).toBeTruthy());
     expect(screen.getByText("FIO4")).toBeTruthy();
     expect(screen.getByText("EIO0")).toBeTruthy();
@@ -58,17 +89,21 @@ describe("LabJack Read", () => {
 
   it("should fall back to the raw port when the model does not list it", async () => {
     const dev = await createLabJackDevice(client);
-    await renderRead({
-      config: createConfig(dev.key, [createAIChannel("AIN999")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAIChannel("AIN999")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("AIN999")).toBeTruthy());
   });
 
   it("should show the AI detail form with its scale editor", async () => {
     const dev = await createLabJackDevice(client);
-    await renderRead({
-      config: createConfig(dev.key, [createAIChannel("AIN0")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAIChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await screen.findByText("AIN0"));
     await waitFor(() => expect(screen.getByText("Max Voltage")).toBeTruthy());
     expect(screen.getByText("Scale")).toBeTruthy();
@@ -77,13 +112,15 @@ describe("LabJack Read", () => {
 
   it("should show slope and offset for a linear-scaled AI channel", async () => {
     const dev = await createLabJackDevice(client);
-    await renderRead({
-      config: createConfig(dev.key, [
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
         createAIChannel("AIN0", {
           scale: { type: "linear", slope: 2, offset: 1 },
         }),
       ]),
-    });
+    );
+    await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await screen.findByText("AIN0"));
     await waitFor(() => expect(screen.getByText("Slope")).toBeTruthy());
     expect(screen.getByText("Offset")).toBeTruthy();
@@ -91,9 +128,11 @@ describe("LabJack Read", () => {
 
   it("should show the thermocouple detail form for a TC channel", async () => {
     const dev = await createLabJackDevice(client);
-    await renderRead({
-      config: createConfig(dev.key, [createTCChannel("AIN0")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createTCChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await screen.findByText("AIN0"));
     await waitFor(() => expect(screen.getByText("Thermocouple Type")).toBeTruthy());
     expect(screen.getByText("Temperature Units")).toBeTruthy();
@@ -106,9 +145,11 @@ describe("LabJack Read", () => {
 
   it("should show no extra detail fields for a DI channel", async () => {
     const dev = await createLabJackDevice(client);
-    await renderRead({
-      config: createConfig(dev.key, [createDIChannel("DIO8")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDIChannel("DIO8")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await screen.findByText("EIO0"));
     await waitFor(() => expect(screen.getByText("Channel Type")).toBeTruthy());
     expect(screen.queryByText("Max Voltage")).toBeNull();
@@ -117,9 +158,11 @@ describe("LabJack Read", () => {
 
   it("should swap the channel type and remap its port to the new port space", async () => {
     const dev = await createLabJackDevice(client);
-    await renderRead({
-      config: createConfig(dev.key, [createAIChannel("AIN0")]),
-    });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAIChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
     fireEvent.click(await screen.findByText("AIN0"));
     await waitFor(() => expect(screen.getByText("Max Voltage")).toBeTruthy());
     fireEvent.click(await findDialogTriggerByText("Analog Input"));
@@ -128,22 +171,19 @@ describe("LabJack Read", () => {
     await waitFor(() => expect(screen.getAllByText("FIO4").length).toBeGreaterThan(0));
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create the index and data channels, update the device, and save the task", async () => {
       const dev = await createLabJackDevice(client);
       const namedChannel = uniqueName("lj_named");
-      const rendered = await renderRead({
-        config: createConfig(dev.key, [
+      const draft = await createDraft(
+        client,
+        createConfig(dev.key, [
           createAIChannel("AIN0"),
           createDIChannel("DIO8", { name: namedChannel }),
         ]),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: LabJack.Task.READ_SCHEMAS,
-      });
+      );
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      const created = await deployAndAwaitTask(client, container, draft.key);
       expect(created.type).toBe(LabJack.Task.READ_TYPE);
       expect(created.rack).toBe(dev.rack);
       const [ai, di] = created.config.channels;
@@ -170,25 +210,25 @@ describe("LabJack Read", () => {
       expect(index.isIndex).toBe(true);
     });
 
-    it("should reuse existing channels when reconfigured", async () => {
+    it("should reuse existing channels when redeployed", async () => {
       const dev = await createLabJackDevice(client);
       const config = createConfig(dev.key, [createAIChannel("AIN0")]);
-      const first = await renderRead({ config });
-      await clickConfigure();
-      const firstKey = await awaitTaskKey(first);
-      const firstTask = await client.tasks.retrieve({
-        key: firstKey,
-        schemas: LabJack.Task.READ_SCHEMAS,
-      });
+      const firstDraft = await createDraft(client, config);
+      const first = await renderRead({ client, taskKey: firstDraft.key });
+      const firstTask = await deployAndAwaitTask(
+        client,
+        first.container,
+        firstDraft.key,
+      );
       first.unmount();
 
-      const second = await renderRead({ config });
-      await clickConfigure();
-      const secondKey = await awaitTaskKey(second);
-      const secondTask = await client.tasks.retrieve({
-        key: secondKey,
-        schemas: LabJack.Task.READ_SCHEMAS,
-      });
+      const secondDraft = await createDraft(client, config);
+      const second = await renderRead({ client, taskKey: secondDraft.key });
+      const secondTask = await deployAndAwaitTask(
+        client,
+        second.container,
+        secondDraft.key,
+      );
       expect(secondTask.config.channels[0].channel).toBe(
         firstTask.config.channels[0].channel,
       );
@@ -198,11 +238,12 @@ describe("LabJack Read", () => {
       const dev = await createLabJackDevice(client, {
         properties: { readIndex: 999999999 },
       });
-      const rendered = await renderRead({
-        config: createConfig(dev.key, [createAIChannel("AIN0")]),
-      });
-      await clickConfigure();
-      await awaitTaskKey(rendered);
+      const draft = await createDraft(
+        client,
+        createConfig(dev.key, [createAIChannel("AIN0")]),
+      );
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      await deployAndAwaitTask(client, container, draft.key);
       const updated = await client.devices.retrieve({
         key: dev.key,
         schemas: LabJack.Device.SCHEMAS,

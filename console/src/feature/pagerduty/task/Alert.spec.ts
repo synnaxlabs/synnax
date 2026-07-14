@@ -7,25 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { PagerDuty } from "@/feature/pagerduty";
-import { type Task } from "@/platform/task";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  awaitCommand,
+  clickDeploy,
   renderTaskFormTab,
+  type RenderTaskFormTabOptions,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
-const renderAlert = async (
-  options: { client?: Synnax | null; args?: Task.FormViewParams } = {},
-) => await renderTaskFormTab(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
+const renderAlert = async (options: RenderTaskFormTabOptions = {}) =>
+  await renderTaskFormTab(PagerDuty.Task.Alert, options);
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
+
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = PagerDuty.Task.ZERO_ALERT_PAYLOAD;
 
 const addAlert = async (): Promise<void> => {
   fireEvent.click(await screen.findByText("Add an alert"));
@@ -81,16 +83,23 @@ describe("PagerDuty Alert form", () => {
     expect(screen.getByText("No alert selected.")).toBeTruthy();
   });
 
-  it("should seed the form from a valid config passed through view args", async () => {
+  it("should seed the form from the task row's config", async () => {
+    const client = createTestClient();
     const config = createAlertConfig();
-    await renderAlert({ args: { config } });
+    const draft = await client.tasks.create(
+      { ...ZERO_DRAFT, config },
+      PagerDuty.Task.ALERT_SCHEMAS,
+    );
+    await renderAlert({ client, taskKey: draft.key });
     await screen.findByDisplayValue("R".repeat(32));
     await screen.findByText("New alert");
   });
 
-  it("should fall back to the zero config when the view args config is invalid", async () => {
+  it("should fall back to the initial values when the row's config is invalid", async () => {
+    const client = createTestClient();
     const config = createAlertConfig({ routingKey: "too_short" });
-    await renderAlert({ args: { config } });
+    const draft = await client.tasks.create({ ...ZERO_DRAFT, config });
+    await renderAlert({ client, taskKey: draft.key });
     const input = await screen.findByPlaceholderText<HTMLInputElement>(
       ROUTING_KEY_PLACEHOLDER,
     );
@@ -98,22 +107,30 @@ describe("PagerDuty Alert form", () => {
     expect(screen.queryByText("New alert")).toBeNull();
   });
 
-  describe("onConfigure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     const client = createTestClient();
 
-    it("should create the alert task on the rack from the view args", async () => {
+    it("should start the alert task on the rack stored on its row", async () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const config = createAlertConfig();
-      const rendered = await renderAlert({
-        client,
-        args: { rackKey: rack.key, config },
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const created = await client.tasks.retrieve({
-        key: taskKey,
-        schemas: PagerDuty.Task.ALERT_SCHEMAS,
-      });
+      const draft = await client.tasks.create(
+        { ...ZERO_DRAFT, config, rack: rack.key },
+        PagerDuty.Task.ALERT_SCHEMAS,
+      );
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      let created: task.Task<PagerDuty.Task.AlertSchemas>;
+      try {
+        const { container } = await renderAlert({ client, taskKey: draft.key });
+        await clickDeploy(container);
+        const cmd = await awaitCommand(streamer, draft.key);
+        expect(cmd.type).toBe("start");
+        created = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: PagerDuty.Task.ALERT_SCHEMAS,
+        });
+      } finally {
+        streamer.close();
+      }
       expect(created.type).toBe(PagerDuty.Task.ALERT_TYPE);
       expect(created.rack).toBe(rack.key);
       expect(created.config.routingKey).toBe(config.routingKey);

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -19,8 +20,8 @@ import {
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  awaitCommand,
+  clickDeploy,
   findDialogTriggerByText,
 } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
@@ -44,16 +45,43 @@ const createChannel = (
     ...overrides,
   }) as NI.Task.AIChannel;
 
-const renderAnalogRead = async (args = {}) =>
-  await renderNITaskForm(NI.Task.AnalogRead, NI.Task.ANALOG_READ_TYPE, {
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_ANALOG_READ_PAYLOAD;
+
+const createDraft = async (config: task.Payload<NI.Task.AnalogReadSchemas>["config"]) =>
+  await client.tasks.create({ ...ZERO_DRAFT, config }, NI.Task.ANALOG_READ_SCHEMAS);
+
+const renderAnalogRead = async (
+  config: task.Payload<NI.Task.AnalogReadSchemas>["config"],
+) => {
+  const draft = await createDraft(config);
+  const rendered = await renderNITaskForm(NI.Task.AnalogRead, {
     client,
-    args,
+    taskKey: draft.key,
   });
+  return { ...rendered, draft };
+};
+
+const deployAndAwaitStart = async (
+  container: ParentNode,
+  key: task.Key,
+): Promise<void> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await clickDeploy(container);
+    await awaitCommand(streamer, key);
+  } finally {
+    streamer.close();
+  }
+};
 
 describe("AnalogRead", () => {
-  it("should seed a voltage channel bound to the device passed through view args", async () => {
+  it("should seed a voltage channel bound to the device on the task row", async () => {
     const dev = await createNIDevice(client);
-    await renderAnalogRead({ deviceKey: dev.key });
+    await renderAnalogRead({
+      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+    });
     await waitFor(() =>
       expect(screen.getByText("Terminal Configuration")).toBeTruthy(),
     );
@@ -82,12 +110,10 @@ describe("AnalogRead", () => {
       ["ai_voltage", "Terminal Configuration"],
     ];
     await renderAnalogRead({
-      config: {
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-        channels: cases.map(([type], i) =>
-          createChannel(type, i, { name: `chan_${type}` }),
-        ),
-      },
+      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      channels: cases.map(([type], i) =>
+        createChannel(type, i, { name: `chan_${type}` }),
+      ),
     });
     for (const [type, distinguishingLabel] of cases) {
       fireEvent.click(await screen.findByText(`chan_${type}`));
@@ -109,13 +135,11 @@ describe("AnalogRead", () => {
       ["table", "Table CSV"],
     ] as const;
     await renderAnalogRead({
-      config: {
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-        channels: cases.map(([scaleType], i) => ({
-          ...createChannel("ai_voltage", i, { name: `chan_${scaleType}` }),
-          customScale: NI.Task.ZERO_SCALES[scaleType],
-        })),
-      },
+      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      channels: cases.map(([scaleType], i) => ({
+        ...createChannel("ai_voltage", i, { name: `chan_${scaleType}` }),
+        customScale: NI.Task.ZERO_SCALES[scaleType],
+      })),
     });
     for (const [scaleType, distinguishingLabel] of cases) {
       fireEvent.click(await screen.findByText(`chan_${scaleType}`));
@@ -132,10 +156,8 @@ describe("AnalogRead", () => {
 
   it("should swap the channel to the newly selected type and keep its port", async () => {
     await renderAnalogRead({
-      config: {
-        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-        channels: [createChannel("ai_voltage", 3)],
-      },
+      ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+      channels: [createChannel("ai_voltage", 3)],
     });
     fireEvent.click(await findDialogTriggerByText("Voltage"));
     fireEvent.click(await screen.findByText("Thermocouple"));
@@ -145,23 +167,20 @@ describe("AnalogRead", () => {
     expect(port).toBeTruthy();
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create index and data channels, update the device, and save the task", async () => {
       const dev = await createNIDevice(client);
       const namedChannel = uniqueName("ai_named");
-      const rendered = await renderAnalogRead({
-        config: {
-          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-          channels: [
-            createChannel("ai_voltage", 0, { device: dev.key }),
-            createChannel("ai_current", 1, { device: dev.key, name: namedChannel }),
-          ],
-        },
+      const { container, draft } = await renderAnalogRead({
+        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        channels: [
+          createChannel("ai_voltage", 0, { device: dev.key }),
+          createChannel("ai_current", 1, { device: dev.key, name: namedChannel }),
+        ],
       });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
+      await deployAndAwaitStart(container, draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: draft.key,
         schemas: NI.Task.ANALOG_READ_SCHEMAS,
       });
       expect(created.type).toBe(NI.Task.ANALOG_READ_TYPE);
@@ -190,58 +209,59 @@ describe("AnalogRead", () => {
       expect(index.isIndex).toBe(true);
     });
 
-    it("should reuse existing channels when reconfigured", async () => {
+    it("should reuse existing channels when redeployed", async () => {
       const dev = await createNIDevice(client);
-      const rendered = await renderAnalogRead({
-        config: {
-          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-          channels: [createChannel("ai_voltage", 0, { device: dev.key })],
-        },
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const first = await client.tasks.retrieve({
-        key: taskKey,
+      const config = {
+        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        channels: [createChannel("ai_voltage", 0, { device: dev.key })],
+      };
+      const first = await renderAnalogRead(config);
+      await deployAndAwaitStart(first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
         schemas: NI.Task.ANALOG_READ_SCHEMAS,
       });
-      await clickConfigure();
+      first.unmount();
+      const second = await renderAnalogRead(config);
+      await deployAndAwaitStart(second.container, second.draft.key);
       await waitFor(async () => {
         const again = await client.tasks.retrieve({
-          key: taskKey,
+          key: second.draft.key,
           schemas: NI.Task.ANALOG_READ_SCHEMAS,
         });
-        expect(again.config.channels[0].channel).toBe(first.config.channels[0].channel);
+        expect(again.config.channels[0].channel).toBe(
+          firstTask.config.channels[0].channel,
+        );
       });
       const dvc = await client.devices.retrieve({
         key: dev.key,
         schemas: NI.Device.SCHEMAS,
       });
       expect(dvc.properties.analogInput.channels["0"]).toBe(
-        first.config.channels[0].channel,
+        firstTask.config.channels[0].channel,
       );
     });
 
     it("should surface an error when channels span devices on different racks", async () => {
       const devA = await createNIDevice(client);
       const devB = await createNIDevice(client);
-      const { statuses } = await renderAnalogRead({
-        config: {
-          ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
-          channels: [
-            createChannel("ai_voltage", 0, { device: devA.key }),
-            createChannel("ai_voltage", 1, { device: devB.key }),
-          ],
-        },
+      const { statuses, container } = await renderAnalogRead({
+        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        channels: [
+          createChannel("ai_voltage", 0, { device: devA.key }),
+          createChannel("ai_voltage", 1, { device: devB.key }),
+        ],
       });
-      await clickConfigure();
+      await clickDeploy(container);
       await awaitStatusDescription(statuses, /are on different racks/);
     });
 
     it("should surface an error when the task has no channels", async () => {
-      const { statuses } = await renderAnalogRead({
-        config: { ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config, channels: [] },
+      const { statuses, container } = await renderAnalogRead({
+        ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
+        channels: [],
       });
-      await clickConfigure();
+      await clickDeploy(container);
       await awaitStatusDescription(
         statuses,
         /No devices selected in task configuration/,

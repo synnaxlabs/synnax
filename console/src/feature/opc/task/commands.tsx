@@ -10,9 +10,9 @@
 import { task } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
 
-import { READ_TYPE, WRITE_TYPE } from "@/feature/opc/task/types";
+import { useCreateRead } from "@/feature/opc/task/Read";
+import { useCreateWrite } from "@/feature/opc/task/Write";
 import { Command } from "@/platform/command";
-import { Task } from "@/platform/task";
 
 const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
 
@@ -20,7 +20,7 @@ const CreateReadCommand = Command.create({
   key: "opc_ua_create_read_task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
+  useOnSelect: useCreateRead,
   useVisible,
 });
 
@@ -28,7 +28,7 @@ const CreateWriteCommand = Command.create({
   key: "opc_ua_create_write_task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
+  useOnSelect: useCreateWrite,
   useVisible,
 });
 

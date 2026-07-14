@@ -33,13 +33,6 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const AnalogWriteSelectable = Selector.createSelectable({
-  type: ANALOG_WRITE_TYPE,
-  title: "NI Analog Write Task",
-  icon: <Icon.Logo.NI />,
-  useOnSelect: Task.createOpenTab(ANALOG_WRITE_TYPE),
-});
-
 const Properties = () => (
   <>
     <Select />
@@ -225,4 +218,19 @@ export const AnalogWrite = Task.wrapForm({
   type: "ni_analog_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateAnalogWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const analogWriteIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const AnalogWriteSelectable = Selector.createSelectable({
+  type: ANALOG_WRITE_TYPE,
+  title: "NI Analog Write Task",
+  icon: <Icon.Logo.NI />,
+  useOnSelect: useCreateAnalogWrite,
 });

@@ -27,13 +27,6 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "OPC UA Write Task",
-  icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
-
 const Properties = () => (
   <>
     <Select />
@@ -170,4 +163,19 @@ export const Write = Task.wrapForm({
   type: "opc_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "OPC UA Write Task",
+  icon: <Icon.Logo.OPC />,
+  useOnSelect: useCreateWrite,
 });

@@ -34,13 +34,6 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "LabJack Write Task",
-  icon: <Icon.Logo.LabJack />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
-
 const Properties = () => (
   <>
     <Select />
@@ -328,4 +321,19 @@ export const Write = Task.wrapForm({
   type: "labjack_write",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "LabJack Write Task",
+  icon: <Icon.Logo.LabJack />,
+  useOnSelect: useCreateWrite,
 });

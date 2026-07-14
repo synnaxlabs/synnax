@@ -10,14 +10,13 @@
 import { type device, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
-import { Panel } from "@/platform/panel";
 import { Task } from "@/platform/task";
 import { type Tree } from "@/platform/tree";
 
 export interface TaskContextMenuItemConfig {
   itemKey: string;
   label: string;
-  type: string;
+  useCreate: Task.UseCreate;
 }
 
 export interface TaskContextMenuItemsProps extends Pick<
@@ -28,13 +27,30 @@ export interface TaskContextMenuItemsProps extends Pick<
   taskContextMenuItemConfigs: TaskContextMenuItemConfig[];
 }
 
+interface ItemProps extends TaskContextMenuItemConfig {
+  deviceKey: device.Key;
+  beforeCreate: () => void;
+}
+
+const Item = ({ itemKey, label, useCreate, deviceKey, beforeCreate }: ItemProps) => {
+  const createTask = useCreate();
+  const handleClick = () => {
+    beforeCreate();
+    createTask({ deviceKey });
+  };
+  return (
+    <Task.CreateMenuItem itemKey={itemKey} onClick={handleClick}>
+      {label}
+    </Task.CreateMenuItem>
+  );
+};
+
 export const TaskContextMenuItems = ({
   onConfigure,
   state: { getResource },
   selection: { ids },
   taskContextMenuItemConfigs,
 }: TaskContextMenuItemsProps) => {
-  const openTab = Panel.useOpenTab();
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const firstID = ids[0];
   const first = getResource(firstID);
@@ -45,17 +61,14 @@ export const TaskContextMenuItems = ({
   if (!hasCreatePermission) return null;
   return (
     <>
-      {taskContextMenuItemConfigs.map(({ itemKey, label, type }) => {
-        const handleClick = () => {
-          maybeConfigure();
-          openTab({ variant: "view", type, args: { deviceKey: key } });
-        };
-        return (
-          <Task.CreateMenuItem key={itemKey} itemKey={itemKey} onClick={handleClick}>
-            {label}
-          </Task.CreateMenuItem>
-        );
-      })}
+      {taskContextMenuItemConfigs.map((config) => (
+        <Item
+          key={config.itemKey}
+          {...config}
+          deviceKey={key}
+          beforeCreate={maybeConfigure}
+        />
+      ))}
     </>
   );
 };

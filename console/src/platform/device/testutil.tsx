@@ -104,7 +104,7 @@ export const renderMenuItem = async (
 
 const deviceFormSchema = z.object({
   config: z.object({ device: z.string() }),
-  rackKey: z.number().optional(),
+  rack: z.number().optional(),
 });
 
 interface DeviceFormFixtureProps extends PropsWithChildren {

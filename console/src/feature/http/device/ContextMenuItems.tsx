@@ -19,12 +19,12 @@ const TASK_CONTEXT_MENU_ITEM_CONFIGS: PlatformDevice.TaskContextMenuItemConfig[]
   {
     itemKey: "http.readTask",
     label: "Create read task",
-    type: Task.READ_TYPE,
+    useCreate: Task.useCreateRead,
   },
   {
     itemKey: "http.writeTask",
     label: "Create write task",
-    type: Task.WRITE_TYPE,
+    useCreate: Task.useCreateWrite,
   },
 ];
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
+import { DisconnectedError, task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/pluto";
 
 import { EtherCAT } from "@/feature/ethercat";
@@ -18,7 +18,7 @@ import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
 import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
-import { retrieveAndOpenTab } from "@/feature/task/tabs";
+import { TAB } from "@/feature/task/tab";
 import { getIcon, parseType } from "@/feature/task/types";
 import { type Command } from "@/platform/command";
 import { type Export } from "@/platform/export";
@@ -31,7 +31,7 @@ export * from "@/feature/task/link";
 export * from "@/feature/task/notifications";
 export * from "@/feature/task/search";
 export * from "@/feature/task/Selector";
-export * from "@/feature/task/tabs";
+export * from "@/feature/task/tab";
 export * from "@/feature/task/Toolbar";
 export * from "@/feature/task/tree";
 export * from "@/feature/task/types";
@@ -71,20 +71,17 @@ export const FILE_INGESTERS: Import.FileIngesters = {
 
 export const TABS: Panel.Tabs = {
   [SELECTOR_TAB_TYPE]: Selector,
-  ...EtherCAT.Task.TABS,
-  ...HTTP.Task.TABS,
-  ...LabJack.Task.TABS,
-  ...Modbus.Task.TABS,
-  ...NI.Task.TABS,
-  ...OPC.Task.TABS,
-  ...PagerDuty.Task.TABS,
+  [task.TYPE_ONTOLOGY_ID.type]: TAB,
 };
 
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   task: {
     icon: <Icon.Task />,
-    onClick: async ({ id: { key } }, { client, openTab }) =>
-      await retrieveAndOpenTab(client, key, openTab),
+    onClick: async ({ id }, { client, openTab }) => {
+      if (client == null) throw new DisconnectedError();
+      await client.tasks.retrieve({ key: id.key });
+      openTab({ variant: "resource", resource: id });
+    },
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
       await client.tasks.delete(key);

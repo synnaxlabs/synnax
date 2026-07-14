@@ -19,8 +19,19 @@ import { createConsoleWrapper } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
-const configSchema = z.object({ device: z.string(), sampleRate: z.number() });
 const TYPE = "myTask";
+
+const schemas = {
+  type: z.literal(TYPE),
+  config: z.object({ device: z.string(), sampleRate: z.number() }),
+  statusData: z.unknown(),
+};
+
+const getInitialValues: Task.GetInitialValues<typeof schemas> = ({ config }) => ({
+  name: "Imported Task",
+  type: TYPE,
+  config: schemas.config.parse(config),
+});
 
 const getGrantedFluxStore = async (): Promise<Pluto.FluxStore> => {
   const { wrapper } = await createConsoleWrapper({ client });
@@ -36,26 +47,32 @@ const getGrantedFluxStore = async (): Promise<Pluto.FluxStore> => {
 };
 
 describe("createIngester", () => {
-  it("should throw on invalid config without opening a tab", async () => {
+  it("should reject an invalid config without opening a tab", async () => {
     const store = await getGrantedFluxStore();
-    const ingest = Task.createIngester(configSchema, TYPE);
+    const ingest = Task.createIngester({ getInitialValues });
     const openTab = vi.fn();
-    expect(() =>
+    await expect(
       ingest({ device: "dev-1" }, { openTab, store, client, projectKey: "" }),
-    ).toThrow();
+    ).rejects.toThrow();
     expect(openTab).not.toHaveBeenCalled();
   });
 
-  it("should open a tab carrying the parsed config when creation is granted", async () => {
+  it("should create a draft task and open its resource tab", async () => {
     const store = await getGrantedFluxStore();
-    const ingest = Task.createIngester(configSchema, TYPE);
+    const ingest = Task.createIngester({ getInitialValues });
     const openTab = vi.fn();
     const data = { device: "dev-1", sampleRate: 100 };
-    void ingest(data, { openTab, store, client, projectKey: "" });
+    await ingest(data, { openTab, store, client, projectKey: "" });
     expect(openTab).toHaveBeenCalledTimes(1);
     const opened = openTab.mock.calls[0][0];
-    expect(opened.variant).toBe("view");
-    expect(opened.type).toBe(TYPE);
-    expect(opened.args).toEqual({ config: data });
+    expect(opened.variant).toBe("resource");
+    expect(opened.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({
+      key: opened.resource.key,
+      schemas,
+    });
+    expect(created.rack).toBe(0);
+    expect(created.config).toEqual(data);
+    expect(created.name).toBe("Imported Task");
   });
 });

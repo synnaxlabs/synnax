@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/pluto";
 import { screen, waitFor } from "@testing-library/react";
@@ -16,11 +17,10 @@ import { z } from "zod";
 
 import { Task } from "@/platform/task";
 import {
-  awaitTaskKey,
-  clickConfigure,
+  awaitCommand,
+  clickDeploy,
   renderTaskFormHook,
   renderTaskFormTab,
-  selectViewArgs,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -36,16 +36,22 @@ const schemas = {
 const ChildForm: FC<Task.FormProps<typeof schemas>> = () => <div>child-form-body</div>;
 ChildForm.displayName = "TestChildForm";
 
-const RackKeyProbe: FC<Task.FormProps<typeof schemas>> = () => (
-  <div>{`rack-key:${PForm.useFieldValue<number>("rackKey")}`}</div>
+const RackProbe: FC<Task.FormProps<typeof schemas>> = () => (
+  <div>{`rack:${PForm.useFieldValue<number>("rack")}`}</div>
 );
-RackKeyProbe.displayName = "RackKeyProbe";
+RackProbe.displayName = "RackProbe";
 
 interface MakeRendererParams {
   showControls?: boolean;
   onConfigure?: Task.OnConfigure<(typeof schemas)["config"]>;
   Form?: FC<Task.FormProps<typeof schemas>>;
 }
+
+const getInitialValues: Task.GetInitialValues<typeof schemas> = () => ({
+  name: "New Test Task",
+  type: "test_task",
+  config: { device: "", channels: [] },
+});
 
 const createRenderer = ({
   showControls = true,
@@ -56,11 +62,7 @@ const createRenderer = ({
     Form,
     schemas,
     type: "test_task",
-    getInitialValues: () => ({
-      name: "New Test Task",
-      type: "test_task",
-      config: { device: "", channels: [] },
-    }),
+    getInitialValues,
     onConfigure,
     showControls,
   });
@@ -76,36 +78,26 @@ const findNameInput = (): HTMLInputElement => {
 describe("wrapForm", () => {
   it("should produce a renderer whose displayName references the child form", () => {
     const Renderer = createRenderer();
-    expect(Renderer.Content.displayName).toContain("TestChildForm");
+    expect(Renderer.displayName).toContain("TestChildForm");
   });
 
   it("should render the header name field, the child form, and the controls", async () => {
     const Renderer = createRenderer();
-    await renderTaskFormTab(Renderer, "test_task");
+    const { container } = await renderTaskFormTab(Renderer);
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
     expect(findNameInput()).toBeTruthy();
-    expect(screen.getByRole("button", { name: /Configure/ })).toBeTruthy();
+    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeTruthy();
   });
 
   it("should omit the controls when showControls is false", async () => {
     const Renderer = createRenderer({ showControls: false });
-    await renderTaskFormTab(Renderer, "test_task");
+    const { container } = await renderTaskFormTab(Renderer);
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
-    expect(screen.queryByRole("button", { name: /Configure/ })).toBeNull();
+    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
   });
 
-  describe("initial rackKey", () => {
-    const renderProbe = async (params: Task.FormViewParams = {}) => {
-      const Renderer = createRenderer({ Form: RackKeyProbe });
-      await renderTaskFormTab(Renderer, "test_task", { args: params });
-    };
-
-    it("should prefill from the rackKey view arg", async () => {
-      await renderProbe({ rackKey: 5 });
-      await waitFor(() => expect(screen.getByText("rack-key:5")).toBeTruthy());
-    });
-
-    it("should load it from the retrieved task when no rackKey arg is given", async () => {
+  describe("rack", () => {
+    it("should load it from the retrieved task", async () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const tsk = await rack.createTask({
@@ -113,37 +105,44 @@ describe("wrapForm", () => {
         type: "test_task",
         config: { device: "", channels: [] },
       });
-      const Renderer = createRenderer({ Form: RackKeyProbe });
-      await renderTaskFormTab(Renderer, "test_task", {
-        client,
-        args: { taskKey: tsk.key },
-      });
-      await waitFor(() =>
-        expect(screen.getByText(`rack-key:${rack.key}`)).toBeTruthy(),
-      );
+      const Renderer = createRenderer({ Form: RackProbe });
+      await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
+      await waitFor(() => expect(screen.getByText(`rack:${rack.key}`)).toBeTruthy());
     });
 
-    it("should default to zero when neither rackKey nor taskKey is given", async () => {
-      await renderProbe();
-      await waitFor(() => expect(screen.getByText("rack-key:0")).toBeTruthy());
+    it("should default to zero for a draft task", async () => {
+      const Renderer = createRenderer({ Form: RackProbe });
+      await renderTaskFormTab(Renderer);
+      await waitFor(() => expect(screen.getByText("rack:0")).toBeTruthy());
     });
   });
 
-  describe("saving against a live cluster", () => {
-    it("should create the task on the configured rack and write it back to the tab", async () => {
+  describe("deploying against a live cluster", () => {
+    it("should persist the configured rack and issue a start command", async () => {
       const client = createTestClient();
       const rack = await client.racks.create({ name: uniqueName("rack") });
+      const draft = await client.tasks.create({
+        ...getInitialValues({}),
+        rack: 0,
+      });
       const Renderer = createRenderer({
         onConfigure: async (_client, config) => [config, rack.key],
       });
-      const result = await renderTaskFormTab(Renderer, "test_task", { client });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(result);
-      const created = await client.tasks.retrieve({ key: taskKey });
-      expect(created.name).toBe("New Test Task");
-      expect(created.type).toBe("test_task");
-      expect(created.rack).toBe(rack.key);
-      expect(selectViewArgs(result)).toEqual({ taskKey });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const { container } = await renderTaskFormTab(Renderer, {
+          client,
+          taskKey: draft.key,
+        });
+        await clickDeploy(container);
+        const cmd = await awaitCommand(streamer, draft.key);
+        expect(cmd.type).toBe("start");
+      } finally {
+        streamer.close();
+      }
+      const updated = await client.tasks.retrieve({ key: draft.key });
+      expect(updated.name).toBe("New Test Task");
+      expect(updated.rack).toBe(rack.key);
     });
   });
 });

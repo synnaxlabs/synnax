@@ -39,7 +39,7 @@ export const Select = ({
       if (client == null || primitive.isZero(key)) return;
       handleError(async () => {
         const { configured, rack } = await client.devices.retrieve({ key });
-        set("rackKey", rack);
+        set("rack", rack);
         if (configured) return;
         onConfigure(key);
       }, "Failed to retrieve device");

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { screen, waitFor } from "@testing-library/react";
@@ -14,11 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import {
-  awaitTaskKey,
-  clickConfigure,
-  commitFieldInput,
-} from "@/platform/task/testutil";
+import { awaitCommand, clickDeploy, commitFieldInput } from "@/platform/task/testutil";
 import { stubGeometry, uniqueName } from "@/testutil";
 
 stubGeometry();
@@ -39,11 +36,37 @@ const createChannel = (
   ...overrides,
 });
 
-const renderDigitalWrite = async (args = {}) =>
-  await renderNITaskForm(NI.Task.DigitalWrite, NI.Task.DIGITAL_WRITE_TYPE, {
+// Draft creates mint their own key; the zero payload's empty key must not be sent.
+const { key: _key, ...ZERO_DRAFT } = NI.Task.ZERO_DIGITAL_WRITE_PAYLOAD;
+
+const createDraft = async (
+  config: task.Payload<NI.Task.DigitalWriteSchemas>["config"],
+) =>
+  await client.tasks.create({ ...ZERO_DRAFT, config }, NI.Task.DIGITAL_WRITE_SCHEMAS);
+
+const renderDigitalWrite = async (
+  config: task.Payload<NI.Task.DigitalWriteSchemas>["config"],
+) => {
+  const draft = await createDraft(config);
+  const rendered = await renderNITaskForm(NI.Task.DigitalWrite, {
     client,
-    args,
+    taskKey: draft.key,
   });
+  return { ...rendered, draft };
+};
+
+const deployAndAwaitStart = async (
+  container: ParentNode,
+  key: task.Key,
+): Promise<void> => {
+  const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  try {
+    await clickDeploy(container);
+    await awaitCommand(streamer, key);
+  } finally {
+    streamer.close();
+  }
+};
 
 const createConfig = (
   channels: NI.Task.DOChannel[],
@@ -52,28 +75,27 @@ const createConfig = (
 
 describe("DigitalWrite", () => {
   it("should write edits to a channel's line number back into the form", async () => {
-    await renderDigitalWrite({
-      config: createConfig([
+    await renderDigitalWrite(
+      createConfig([
         createChannel(0, 0, { cmdChannelName: "cmd_a", stateChannelName: "state_a" }),
         createChannel(0, 1, { cmdChannelName: "cmd_b", stateChannelName: "state_b" }),
       ]),
-    });
+    );
     await waitFor(() => expect(screen.getByText("cmd_b")).toBeTruthy());
     commitFieldInput(screen.getByDisplayValue("1"), "5");
     await waitFor(() => expect(screen.getByDisplayValue("5")).toBeTruthy());
     expect(screen.queryByDisplayValue("1")).toBeNull();
   });
 
-  describe("configure against a live cluster", () => {
+  describe("deploying against a live cluster", () => {
     it("should create per-line command and state channels keyed by port and line", async () => {
       const dev = await createNIDevice(client);
-      const rendered = await renderDigitalWrite({
-        config: createConfig([createChannel(0, 0), createChannel(0, 1)], dev.key),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
+      const rendered = await renderDigitalWrite(
+        createConfig([createChannel(0, 0), createChannel(0, 1)], dev.key),
+      );
+      await deployAndAwaitStart(rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: rendered.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
       });
       expect(created.type).toBe(NI.Task.DIGITAL_WRITE_TYPE);
@@ -111,8 +133,8 @@ describe("DigitalWrite", () => {
       const dev = await createNIDevice(client);
       const cmdName = uniqueName("do_cmd");
       const stateName = uniqueName("do_state");
-      const rendered = await renderDigitalWrite({
-        config: createConfig(
+      const rendered = await renderDigitalWrite(
+        createConfig(
           [
             createChannel(0, 0, {
               cmdChannelName: cmdName,
@@ -121,11 +143,10 @@ describe("DigitalWrite", () => {
           ],
           dev.key,
         ),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
+      );
+      await deployAndAwaitStart(rendered.container, rendered.draft.key);
       const created = await client.tasks.retrieve({
-        key: taskKey,
+        key: rendered.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
       });
       const [c0] = created.config.channels;
@@ -137,25 +158,25 @@ describe("DigitalWrite", () => {
       expect(cmdIndex.name).toBe(`${cmdName}_time`);
     });
 
-    it("should reuse existing channels when reconfigured", async () => {
+    it("should reuse existing channels when redeployed", async () => {
       const dev = await createNIDevice(client);
-      const rendered = await renderDigitalWrite({
-        config: createConfig([createChannel(0, 0)], dev.key),
-      });
-      await clickConfigure();
-      const taskKey = await awaitTaskKey(rendered);
-      const first = await client.tasks.retrieve({
-        key: taskKey,
+      const config = createConfig([createChannel(0, 0)], dev.key);
+      const first = await renderDigitalWrite(config);
+      await deployAndAwaitStart(first.container, first.draft.key);
+      const firstTask = await client.tasks.retrieve({
+        key: first.draft.key,
         schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
       });
-      await clickConfigure();
+      first.unmount();
+      const second = await renderDigitalWrite(config);
+      await deployAndAwaitStart(second.container, second.draft.key);
       await waitFor(async () => {
         const again = await client.tasks.retrieve({
-          key: taskKey,
+          key: second.draft.key,
           schemas: NI.Task.DIGITAL_WRITE_SCHEMAS,
         });
         expect(again.config.channels[0].cmdChannel).toBe(
-          first.config.channels[0].cmdChannel,
+          firstTask.config.channels[0].cmdChannel,
         );
       });
     });

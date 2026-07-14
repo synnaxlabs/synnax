@@ -51,13 +51,6 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WriteSelectable = Selector.createSelectable({
-  type: WRITE_TYPE,
-  title: "HTTP Write Task",
-  icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-});
-
 const Properties = () => (
   <>
     <SelectDevice />
@@ -710,4 +703,19 @@ export const Write = Task.wrapForm({
   type: WRITE_TYPE,
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateWrite = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const writeIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const WriteSelectable = Selector.createSelectable({
+  type: WRITE_TYPE,
+  title: "HTTP Write Task",
+  icon: <Icon.Logo.HTTP />,
+  useOnSelect: useCreateWrite,
 });

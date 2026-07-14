@@ -11,30 +11,27 @@ import "@/platform/task/Form.css";
 
 import {
   type device,
-  panel,
+  DisconnectedError,
   type rack,
   type Synnax,
   type task,
 } from "@synnaxlabs/client";
 import {
-  Device,
   Flex,
   type Flux,
   Form as PForm,
-  Icon,
   Input,
-  Panel as PlutoPanel,
+  Status,
+  Synnax as PSynnax,
   Task as PTask,
-  Text,
 } from "@synnaxlabs/pluto";
-import { id, primitive, TimeStamp, uuid } from "@synnaxlabs/x";
-import { type FC, useCallback, useEffect, useState } from "react";
-import { z } from "zod";
+import { primitive } from "@synnaxlabs/x";
+import { type FC, useCallback } from "react";
+import { type z } from "zod";
 
 import { CSS } from "@/platform/css";
-import { Modals } from "@/platform/modals";
-import { type Panel } from "@/platform/panel";
 import { Controls } from "@/platform/task/controls";
+import { DriftBadge } from "@/platform/task/DriftBadge";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
 import { useStatus } from "@/platform/task/useStatus";
@@ -47,17 +44,6 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
     name: string,
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
-
-export const formParamsZ = z.object({
-  deviceKey: z.string().optional(),
-  taskKey: z.string().optional(),
-  rackKey: z.number().optional(),
-  config: z.unknown().optional(),
-});
-
-export interface FormViewParams extends z.infer<typeof formParamsZ> {}
-
-const useFormArgs = PlutoPanel.createSelectTabArgs(formParamsZ);
 
 export interface getInitialValuesParams {
   deviceKey?: device.Key;
@@ -72,8 +58,13 @@ export interface FormProps<
   S extends task.Schemas = task.Schemas,
 > extends PForm.UseReturn<PTask.FormSchema<S>> {
   status: Flux.Result<undefined>["status"];
-  onConfigure: () => void;
 }
+
+export interface FormTabProps {
+  taskKey: task.Key;
+}
+
+export interface Forms extends Record<string, FC<FormTabProps>> {}
 
 export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
@@ -106,12 +97,17 @@ const Header = ({ isSnapshot }: HeaderProps) => (
       </PForm.Field>
       <Flex.Box align="end" gap="small">
         <UtilityButtons />
-        <Rack />
+        <Flex.Box x align="center" gap="small">
+          <DriftBadge />
+          <Rack />
+        </Flex.Box>
       </Flex.Box>
     </Flex.Box>
     {!isSnapshot && <ParentRangeButton />}
   </>
 );
+
+const SET_OPTIONS: PForm.SetOptions = { notifyOnChange: false };
 
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
@@ -122,65 +118,35 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   onConfigure,
   showHeader = true,
   showControls = true,
-}: WrapFormParams<S>): Panel.Tab => {
-  const Content: Panel.Content = () => {
-    const { deviceKey, taskKey, rackKey, config } = useFormArgs() ?? {};
-    const setView = PlutoPanel.useSetCurrentTabView();
-    const initialValues = {
-      ...getInitialValues({ deviceKey, config }),
-      key: taskKey,
-      rackKey: rackKey ?? 0,
-    };
-    const confirm = Modals.useConfirm();
-    const { form, status, save } = PTask.createForm({ schemas, initialValues })({
-      query: { key: taskKey },
-      beforeSave: async ({ client, ...form }) => {
-        const { name, config, rackKey: currentRackKey } = form.value();
-        const [newConfig, newRackKey] = await onConfigure(client, config, name);
-        const nonZeroRackKey = primitive.isNonZero(newRackKey);
-        if (
-          nonZeroRackKey &&
-          primitive.isNonZero(taskKey) &&
-          newRackKey != currentRackKey
-        ) {
-          const confirmed = await confirm({
-            message: "Device has been moved to different driver.",
-            description:
-              "This means that the task will be moved to the new driver. Do you want to continue?",
-            confirm: { label: "Confirm", variant: "error" },
-            cancel: { label: "Cancel" },
-          });
-          if (!confirmed) return false;
-        }
-        if (nonZeroRackKey) form.set("rackKey", newRackKey);
-        form.set("config", newConfig);
-        let key = form.value().key;
-        if (key == null) {
-          key = uuid.create();
-          form.set("key", key);
-        }
-        const status: task.New<S>["status"] = {
-          key: id.create(),
-          name,
-          description: "",
-          time: TimeStamp.now(),
-          variant: "loading",
-          message: "Configuring task",
-          details: { task: key, running: true, cmd: "", data: null },
-        };
-        form.set("status", status);
-        return true;
-      },
-      afterSave: (props) => {
-        const { key } = props.value();
-        if (key == null) return;
-        setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
-      },
-    });
-    Device.useRetrieveEffect({
-      onChange: (d) => form.set("rackKey", d.data?.rack),
-      query: deviceKey == null ? undefined : { key: deviceKey },
-    });
+}: WrapFormParams<S>): FC<FormTabProps> => {
+  const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
+    const client = PSynnax.use();
+    const handleError = Status.useErrorHandler();
+    const { form, status, saveAsync } = PTask.createForm({
+      schemas,
+      initialValues: getInitialValues({}),
+    })({ query: { key: taskKey }, autoSave: true });
+
+    // Deploy pipeline: resolve channels and rack through onConfigure, persist
+    // the row, then issue the start command so the driver picks it up.
+    const handleDeploy = useCallback(() => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        const { config, name } = form.value();
+        const [newConfig, newRack] = await onConfigure(client, config, name);
+        form.set("config", newConfig, SET_OPTIONS);
+        if (primitive.isNonZero(newRack)) form.set("rack", newRack, SET_OPTIONS);
+        if (!(await saveAsync())) return;
+        await client.tasks.executeCommand({ task: taskKey, type: "start" });
+      }, "Failed to start task");
+    }, [client, form, saveAsync, taskKey, handleError]);
+
+    const handleStop = useCallback(() => {
+      handleError(async () => {
+        if (client == null) throw new DisconnectedError();
+        await client.tasks.executeCommand({ task: taskKey, type: "stop" });
+      }, "Failed to stop task");
+    }, [client, taskKey, handleError]);
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
     return (
@@ -209,43 +175,20 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               grow
               empty
             >
-              <Form status={status} onConfigure={save} {...form} />
+              <Form status={status} {...form} />
             </Flex.Box>
             {showControls && (
-              <Controls.Controls formStatus={status} onConfigure={save} />
+              <Controls.Controls
+                formStatus={status}
+                onDeploy={handleDeploy}
+                onStop={handleStop}
+              />
             )}
           </PForm.Form>
         </Flex.Box>
       </Flex.Box>
     );
   };
-  Content.displayName = `Form(${Form.displayName ?? Form.name})`;
-  const Name: Panel.TabName = () => {
-    const key = useFormArgs()?.taskKey;
-    const isPersisted = key != null;
-    const [name, setName] = useState("Task");
-    const { retrieve } = PTask.useRetrieveObservableName({
-      onChange: setName,
-      addStatusOnFailure: false,
-    });
-    const { update } = PTask.useRename({
-      beforeUpdate: useCallback(() => isPersisted, [isPersisted]),
-    });
-    useEffect(() => {
-      if (key != null) retrieve({ key });
-    }, [key, retrieve]);
-    const handleRename = useCallback(
-      (name: string) => {
-        if (key != null) update({ key, name });
-      },
-      [key, update],
-    );
-    return (
-      <>
-        <Icon.Task />
-        <Text.Editable value={name} onChange={handleRename} />
-      </>
-    );
-  };
-  return { Content, Name };
+  Wrapped.displayName = `Form(${Form.displayName ?? Form.name})`;
+  return Wrapped;
 };

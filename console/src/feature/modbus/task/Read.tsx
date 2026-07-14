@@ -33,13 +33,6 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "Modbus Read Task",
-  icon: <Icon.Logo.Modbus />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
-
 const Properties = () => (
   <>
     <SelectDevice />
@@ -239,4 +232,19 @@ export const Read = Task.wrapForm({
   type: "modbus_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const readIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "Modbus Read Task",
+  icon: <Icon.Logo.Modbus />,
+  useOnSelect: useCreateRead,
 });

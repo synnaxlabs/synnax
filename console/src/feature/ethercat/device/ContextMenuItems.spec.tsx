@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -105,27 +105,24 @@ describe("EtherCAT device ContextMenuItems", () => {
     expect(screen.getByText("Disable")).toBeTruthy();
   });
 
-  it("should open the vendor task views carrying the device key", async () => {
+  it("should create the vendor task drafts and open their resource tabs", async () => {
     const slave = await createSlave(true);
     const { store } = await renderContextMenu([slave]);
     fireEvent.click(await screen.findByText("Create read task"));
-    expect(await resolveFocusedTab(store, client)).toMatchObject({
-      variant: "view",
-      type: EtherCAT.Task.READ_TYPE,
-      args: { deviceKey: slave.key },
-    });
+    const readTab = await resolveFocusedTab(store, client);
+    if (readTab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(readTab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const read = await client.tasks.retrieve({ key: readTab.resource.key });
+    expect(read.type).toBe(EtherCAT.Task.READ_TYPE);
     fireEvent.click(screen.getByText("Create write task"));
-    expect(
-      await resolveFocusedTab(
-        store,
-        client,
-        (t) => t.variant === "view" && t.type === EtherCAT.Task.WRITE_TYPE,
-      ),
-    ).toMatchObject({
-      variant: "view",
-      type: EtherCAT.Task.WRITE_TYPE,
-      args: { deviceKey: slave.key },
-    });
+    const writeTab = await resolveFocusedTab(
+      store,
+      client,
+      (t) => t.variant === "resource" && t.resource.key !== readTab.resource.key,
+    );
+    if (writeTab.variant !== "resource") throw new Error("expected a resource tab");
+    const write = await client.tasks.retrieve({ key: writeTab.resource.key });
+    expect(write.type).toBe(EtherCAT.Task.WRITE_TYPE);
   });
 
   it("should disable every selected slave on the cluster when Disable is clicked", async () => {

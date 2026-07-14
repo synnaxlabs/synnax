@@ -8,42 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { Button, Flex, Text, Triggers } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-const CONFIGURE_TRIGGER: Triggers.Trigger = ["Control", "Enter"];
-
-export interface ConfigureButtonProps extends Omit<Button.ButtonProps, "onClick"> {
+export interface RedeployButtonProps extends Omit<Button.ButtonProps, "onClick"> {
   /** Click handler */
   onClick: () => void;
-  /** Whether to show keyboard trigger hint */
-  showTrigger?: boolean;
   /** Button status variant */
   statusVariant?: status.Variant;
 }
 
-export const ConfigureButton = ({
+export const RedeployButton = ({
   onClick,
-  showTrigger = false,
   statusVariant,
   ...props
-}: ConfigureButtonProps): ReactElement => (
+}: RedeployButtonProps): ReactElement => (
   <Button.Button
     onClick={onClick}
     status={statusVariant}
     size="medium"
-    tooltip={
-      showTrigger ? (
-        <Flex.Box x align="center" gap="small">
-          <Triggers.Text level="small" trigger={CONFIGURE_TRIGGER} />
-          <Text.Text level="small">To Configure</Text.Text>
-        </Flex.Box>
-      ) : undefined
-    }
-    trigger={showTrigger ? CONFIGURE_TRIGGER : undefined}
+    tooltip="Deploy the latest configuration"
     variant="outlined"
     {...props}
   >
-    Configure
+    Redeploy
   </Button.Button>
 );

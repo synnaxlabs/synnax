@@ -43,13 +43,6 @@ import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const AlertSelectable = Selector.createSelectable({
-  type: ALERT_TYPE,
-  title: "PagerDuty Alert",
-  icon: <Icon.Logo.PagerDuty />,
-  useOnSelect: Task.createOpenTab(ALERT_TYPE),
-});
-
 const Properties = () => (
   <Flex.Box x grow>
     <PForm.TextField
@@ -59,7 +52,7 @@ const Properties = () => (
       grow
       className={CSS.B("pagerduty-routing-key")}
     />
-    <PForm.Field<number> path="rackKey" label="Connect from" grow>
+    <PForm.Field<number> path="rack" label="Connect from" grow>
       {selectRackRenderProp}
     </PForm.Field>
     <Task.Fields.AutoStart />
@@ -320,4 +313,19 @@ export const Alert = Task.wrapForm({
   type: ALERT_TYPE,
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateAlert = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const alertIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const AlertSelectable = Selector.createSelectable({
+  type: ALERT_TYPE,
+  title: "PagerDuty Alert",
+  icon: <Icon.Logo.PagerDuty />,
+  useOnSelect: useCreateAlert,
 });

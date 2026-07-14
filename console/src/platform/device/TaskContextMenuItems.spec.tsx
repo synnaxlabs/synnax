@@ -7,29 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, type Synnax } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
 import { createDeviceResource, renderMenuItem } from "@/platform/device/testutil";
-import { type CreatedPanel, createSelectedPanel } from "@/platform/task/testutil";
 import { createSelection, createState } from "@/platform/tree/testutil";
-import { assertDefined } from "@/testutil";
 
 const client = createTestClient();
 
+const readCreate = vi.fn();
+const writeCreate = vi.fn();
+
 const configs: Device.TaskContextMenuItemConfig[] = [
-  { itemKey: "read", label: "Create Read Task", type: "test_read" },
-  { itemKey: "write", label: "Create Write Task", type: "test_write" },
+  { itemKey: "read", label: "Create Read Task", useCreate: () => readCreate },
+  { itemKey: "write", label: "Create Write Task", useCreate: () => writeCreate },
 ];
 
 const setup = async (configured: boolean, itemClient: Synnax | null = client) => {
   const onConfigure = vi.fn();
   const resource = createDeviceResource({ key: id.create(), name: "dev", configured });
-  const { store, wrapper } = await renderMenuItem(
+  await renderMenuItem(
     <Device.TaskContextMenuItems
       onConfigure={onConfigure}
       selection={createSelection({ ids: [resource.id] })}
@@ -38,53 +39,36 @@ const setup = async (configured: boolean, itemClient: Synnax | null = client) =>
     />,
     { client: itemClient },
   );
-  let created: CreatedPanel | null = null;
-  if (itemClient != null)
-    created = await createSelectedPanel(wrapper, store, itemClient);
-  return { onConfigure, key: resource.id.key, store, created };
-};
-
-const findViewTab = (
-  created: CreatedPanel | null,
-  type: string,
-): panel.TabView | undefined => {
-  assertDefined(created, "no panel was created");
-  const doc = created.fluxStore.panels.get(created.panelKey);
-  if (doc?.root.variant !== "leaf") return undefined;
-  return doc.root.tabs.find(
-    (t): t is panel.TabView => t.variant === "view" && t.type === type,
-  );
+  return { onConfigure, key: resource.id.key };
 };
 
 describe("TaskContextMenuItems", () => {
+  beforeEach(() => {
+    readCreate.mockClear();
+    writeCreate.mockClear();
+  });
+
   it("should render nothing without task-create permission", async () => {
     await setup(true, null);
     expect(screen.queryByText("Create Read Task")).toBeNull();
     expect(screen.queryByText("Create Write Task")).toBeNull();
   });
 
-  it("should configure an unconfigured device and open the task view with its key", async () => {
-    const { onConfigure, key, created } = await setup(false);
+  it("should configure an unconfigured device and create the task with its key", async () => {
+    const { onConfigure, key } = await setup(false);
     await waitFor(() => expect(screen.getByText("Create Read Task")).toBeTruthy());
     fireEvent.click(screen.getByText("Create Read Task"));
     expect(onConfigure).toHaveBeenCalledWith(key);
-    await waitFor(() => {
-      const tab = findViewTab(created, "test_read");
-      assertDefined(tab, "read task view tab was not opened");
-      expect(tab.args).toEqual({ deviceKey: key });
-    });
+    expect(readCreate).toHaveBeenCalledWith({ deviceKey: key });
+    expect(writeCreate).not.toHaveBeenCalled();
   });
 
-  it("should open the clicked config's view without configuring an already-configured device", async () => {
-    const { onConfigure, key, created } = await setup(true);
+  it("should create from the clicked config without configuring an already-configured device", async () => {
+    const { onConfigure, key } = await setup(true);
     await waitFor(() => expect(screen.getByText("Create Write Task")).toBeTruthy());
     fireEvent.click(screen.getByText("Create Write Task"));
     expect(onConfigure).not.toHaveBeenCalled();
-    await waitFor(() => {
-      const tab = findViewTab(created, "test_write");
-      assertDefined(tab, "write task view tab was not opened");
-      expect(tab.args).toEqual({ deviceKey: key });
-    });
-    expect(findViewTab(created, "test_read")).toBeUndefined();
+    expect(writeCreate).toHaveBeenCalledWith({ deviceKey: key });
+    expect(readCreate).not.toHaveBeenCalled();
   });
 });

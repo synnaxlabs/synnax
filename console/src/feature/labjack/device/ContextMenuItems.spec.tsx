@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
@@ -53,23 +54,25 @@ const renderItems = async () => {
 };
 
 describe("LabJack device ContextMenuItems", () => {
-  it("should open the read task view bound to the device", async () => {
+  it("should create a read task draft bound to the device", async () => {
     const { store, key } = await renderItems();
     fireEvent.click(await screen.findByText("Create read task"));
-    expect(await resolveFocusedTab(store, client)).toMatchObject({
-      variant: "view",
-      type: LabJack.Task.READ_TYPE,
-      args: { deviceKey: key },
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(LabJack.Task.READ_TYPE);
+    expect(created.config).toMatchObject({ device: key });
   });
 
-  it("should open the write task view bound to the device", async () => {
+  it("should create a write task draft bound to the device", async () => {
     const { store, key } = await renderItems();
     fireEvent.click(await screen.findByText("Create write task"));
-    expect(await resolveFocusedTab(store, client)).toMatchObject({
-      variant: "view",
-      type: LabJack.Task.WRITE_TYPE,
-      args: { deviceKey: key },
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(LabJack.Task.WRITE_TYPE);
+    expect(created.config).toMatchObject({ device: key });
   });
 });

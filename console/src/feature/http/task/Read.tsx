@@ -51,13 +51,6 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ReadSelectable = Selector.createSelectable({
-  type: READ_TYPE,
-  title: "HTTP Read Task",
-  icon: <Icon.Logo.HTTP />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-});
-
 const RATE_INPUT_PROPS = {
   endContent: "Hz",
   className: CSS.B("rate-input"),
@@ -700,4 +693,19 @@ export const Read = Task.wrapForm({
   type: "http_read",
   getInitialValues,
   onConfigure,
+});
+
+export const useCreateRead = Task.createUseCreate({
+  getInitialValues,
+});
+
+export const readIngester = Task.createIngester({
+  getInitialValues,
+});
+
+export const ReadSelectable = Selector.createSelectable({
+  type: READ_TYPE,
+  title: "HTTP Read Task",
+  icon: <Icon.Logo.HTTP />,
+  useOnSelect: useCreateRead,
 });

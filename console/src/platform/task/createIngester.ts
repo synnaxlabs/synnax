@@ -7,17 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { DisconnectedError, task } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { type z } from "zod";
 
 import { type Import } from "@/platform/import";
+import { create, type CreateUseCreateParams } from "@/platform/task/useCreate";
 
 export const createIngester =
-  (configSchema: z.ZodType, type: string): Import.FileIngester =>
-  (data: unknown, { openTab, store, client }) => {
-    const config = configSchema.parse(data);
+  <S extends task.Schemas = task.Schemas>(
+    params: CreateUseCreateParams<S>,
+  ): Import.FileIngester =>
+  async (data, { openTab, store, client }) => {
     if (!Access.createGranted({ id: task.TYPE_ONTOLOGY_ID, store, client }))
       throw new Error("You do not have permission to import tasks");
-    openTab({ variant: "view", type, args: { config } });
+    if (client == null) throw new DisconnectedError();
+    const created = await create({ client, config: data, ...params });
+    openTab({ variant: "resource", resource: task.ontologyID(created.key) });
   };
