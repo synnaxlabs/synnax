@@ -14,7 +14,7 @@ import { Command } from "@/platform/command";
 import { Session } from "@/session";
 
 export const ToggleCommand = Command.create({
-  key: "theme_toggle",
+  key: "toggle_theme",
   name: "Toggle color theme",
   useOnSelect: () => {
     const { toggleTheme } = Theming.useContext();
