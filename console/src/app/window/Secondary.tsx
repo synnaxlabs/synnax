@@ -15,10 +15,10 @@ import { Auth } from "@/feature/auth";
 import { Project } from "@/feature/project";
 
 /**
- * Aux is the shell for every non-main window: a pure panel viewport with the
- * panel selector strip and no navigation chrome.
+ * Secondary is the shell for every non-main window: a pure panel viewport with
+ * the panel selector strip and no navigation chrome.
  */
-export const Aux = (): ReactElement => (
+export const Secondary = (): ReactElement => (
   <Auth.Guard>
     <Project.Guard>
       <Flex.Box x gap="tiny" grow style={{ padding: "0 1rem 1rem 1rem" }}>
