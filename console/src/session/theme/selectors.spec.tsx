@@ -15,11 +15,14 @@ import { describe, expect, it } from "vitest";
 
 import { Theme } from "@/session/theme";
 
-const storeWith = (selected: string = Theme.ZERO_SLICE_STATE.selected): EnhancedStore =>
+const storeWith = (
+  selected: string = Theme.ZERO_SLICE_STATE.selected,
+  syncWithSystem: boolean = Theme.ZERO_SLICE_STATE.syncWithSystem,
+): EnhancedStore =>
   configureStore({
     reducer: { [Theme.SLICE_NAME]: Theme.reducer },
     preloadedState: {
-      [Theme.SLICE_NAME]: { ...Theme.ZERO_SLICE_STATE, selected },
+      [Theme.SLICE_NAME]: { ...Theme.ZERO_SLICE_STATE, selected, syncWithSystem },
     },
   });
 
@@ -77,6 +80,35 @@ describe("session theme selectors", () => {
       expect(selectedOf(store)).toBe("synnaxDark");
       act(() => result.current.toggleTheme?.());
       expect(selectedOf(store)).toBe("synnaxLight");
+    });
+  });
+
+  describe("useSelectSyncWithSystem", () => {
+    it("returns the default syncWithSystem value", () => {
+      const { result } = renderHook(() => Theme.useSelectSyncWithSystem(), {
+        wrapper: wrapperFor(storeWith()),
+      });
+      expect(result.current).toBe(true);
+    });
+
+    it("returns syncWithSystem from state", () => {
+      const { result } = renderHook(() => Theme.useSelectSyncWithSystem(), {
+        wrapper: wrapperFor(storeWith(Theme.ZERO_SLICE_STATE.selected, false)),
+      });
+      expect(result.current).toBe(false);
+    });
+  });
+
+  describe("useToggleSyncWithSystem", () => {
+    it("dispatches toggleSyncWithSystem when called", () => {
+      const store = storeWith();
+      const { result } = renderHook(() => Theme.useToggleSyncWithSystem(), {
+        wrapper: wrapperFor(store),
+      });
+      act(() => result.current());
+      expect(store.getState()[Theme.SLICE_NAME].syncWithSystem).toBe(false);
+      act(() => result.current());
+      expect(store.getState()[Theme.SLICE_NAME].syncWithSystem).toBe(true);
     });
   });
 });

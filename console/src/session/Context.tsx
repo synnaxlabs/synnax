@@ -13,16 +13,25 @@ import { type ReactNode } from "react";
 
 import { Modals } from "@/session/modals";
 import { createStore } from "@/session/store";
+import { Theme } from "@/session/theme";
+
+const SideEffects = (): null => {
+  Theme.useSyncWithSystem();
+  return null;
+};
 
 export interface ContextProps {
   children: ReactNode;
 }
 
-export const Context = (props: ContextProps) => {
+export const Context = ({ children }: ContextProps) => {
   const storeRef = useInitializerRef(() => createStore());
   return (
     <Modals.Context>
-      <Provider store={storeRef.current} {...props} />
+      <Provider store={storeRef.current}>
+        <SideEffects />
+        {children}
+      </Provider>
     </Modals.Context>
   );
 };

@@ -16,6 +16,7 @@ const sliceStateZ = z
   .object({
     version: z.literal(0).default(0),
     selected: z.string().default("synnaxLight"),
+    syncWithSystem: z.boolean().default(true),
   })
   .prefault({});
 
@@ -37,10 +38,13 @@ export const { actions, reducer } = createSlice({
     toggle: (state) => {
       state.selected = state.selected === "synnaxLight" ? "synnaxDark" : "synnaxLight";
     },
+    toggleSyncWithSystem: (state) => {
+      state.syncWithSystem = !state.syncWithSystem;
+    },
   },
 });
 
-export const { select, toggle } = actions;
+export const { select, toggle, toggleSyncWithSystem } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

@@ -14,6 +14,7 @@ import { Theme } from "@/session/theme";
 describe("Theme Slice", () => {
   it("should have the correct initial state", () => {
     expect(Theme.ZERO_SLICE_STATE.selected).toBe("synnaxLight");
+    expect(Theme.ZERO_SLICE_STATE.syncWithSystem).toBe(true);
   });
 
   it("should select a theme", () => {
@@ -27,5 +28,13 @@ describe("Theme Slice", () => {
     expect(state.selected).toBe("synnaxDark");
     state = Theme.reducer(state, Theme.toggle());
     expect(state.selected).toBe("synnaxLight");
+  });
+
+  it("should toggle syncWithSystem", () => {
+    let state = Theme.ZERO_SLICE_STATE;
+    state = Theme.reducer(state, Theme.toggleSyncWithSystem());
+    expect(state.syncWithSystem).toBe(false);
+    state = Theme.reducer(state, Theme.toggleSyncWithSystem());
+    expect(state.syncWithSystem).toBe(true);
   });
 });
