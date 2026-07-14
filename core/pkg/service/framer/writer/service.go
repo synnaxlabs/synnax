@@ -74,12 +74,15 @@ type Service struct{ cfg ServiceConfig }
 
 // NewService creates a new service using the provided configuration(s). Each subsequent
 // configuration overrides the one in the previous configuration. If the configuration
-// is invalid, NewService returns a nil service and a non-nil error.
+// is invalid, NewService returns a nil service and a non-nil error. NewService
+// registers cfg.Channel as the distribution writer's free index resolver, which the
+// distribution layer uses to stamp free frames with per-index alignments.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
+	cfg.Framer.SetFreeIndexResolver(cfg.Channel.FreeIndexResolver())
 	return &Service{cfg: cfg}, nil
 }
 
@@ -101,12 +104,8 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamWriter, erro
 		return nil, err
 	}
 	channelMap := make(map[channel.Key]channel.Channel, len(channels))
-	cfg.FreeIndexes = make(map[channel.Key]channel.Key)
 	for _, ch := range channels {
 		channelMap[ch.Key()] = ch
-		if ch.Free() && ch.Index() != 0 {
-			cfg.FreeIndexes[ch.Key()] = ch.Index()
-		}
 	}
 	dist, err := s.cfg.Framer.NewStreamWriter(ctx, cfg)
 	if err != nil {

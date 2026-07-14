@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -240,6 +241,39 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 // channels. tx scopes channel lookups; nil consults the service DB directly.
 func (s *Service) NewArcSymbolResolver(tx gorp.Tx) arc.SymbolResolver {
 	return &symbolResolver{svc: s, tx: tx}
+}
+
+// freeIndexResolver adapts the Service to the distribution framer writer's
+// FreeIndexResolver interface without exposing resolution on the Service itself.
+type freeIndexResolver struct{ svc *Service }
+
+// ResolveFreeIndexes implements writer.FreeIndexResolver, returning the index channel
+// key for each free channel in keys that has an index. It returns query.ErrNotFound
+// if any key has no channel record.
+func (r freeIndexResolver) ResolveFreeIndexes(
+	ctx context.Context,
+	keys Keys,
+) (map[Key]Key, error) {
+	var channels []Channel
+	if err := r.svc.NewRetrieve().
+		Where(MatchKeys(keys...)).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	indexes := make(map[Key]Key)
+	for _, ch := range channels {
+		if ch.Free() && ch.Index() != 0 {
+			indexes[ch.Key()] = ch.Index()
+		}
+	}
+	return indexes, nil
+}
+
+// FreeIndexResolver returns the resolver the distribution framer writer uses to stamp
+// free frames with per-index alignments.
+func (s *Service) FreeIndexResolver() writer.FreeIndexResolver {
+	return freeIndexResolver{svc: s}
 }
 
 // NewWriter returns a Writer scoped to the provided transaction (nil writes directly to

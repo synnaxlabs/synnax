@@ -439,14 +439,14 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
+			s.dist.Framer.SetFreeIndexResolver(indexResolver{
+				idxCh.Key():  idxCh.Key(),
+				dataCh.Key(): idxCh.Key(),
+			})
 			writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
-				FreeIndexes: map[channel.Key]channel.Key{
-					idxCh.Key():  idxCh.Key(),
-					dataCh.Key(): idxCh.Key(),
-				},
 			}))
 			data := telem.NewSeriesV[float32](1, 2)
 			idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
@@ -480,8 +480,42 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
 			Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
 		})
+
+		It("Should return an error when no channel resolver is configured", func(ctx SpecContext) {
+			s := DeferClose(gatewayOnlyScenario(ctx))
+			ch := channel.Channel{
+				Name:        "free_unresolved",
+				DataType:    telem.Int64T,
+				Leaseholder: node.KeyFree,
+				Virtual:     true,
+			}
+			ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+			s.dist.Framer.SetFreeIndexResolver(nil)
+			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  channel.Keys{ch.Key()},
+				Start: 10 * telem.SecondTS,
+			})).Error().To(MatchError(
+				ContainSubstring("no channel resolver configured"),
+			))
+		})
 	})
 })
+
+// indexResolver resolves free channel indexes from a fixed key-to-index map.
+type indexResolver map[channel.Key]channel.Key
+
+func (r indexResolver) ResolveFreeIndexes(
+	_ context.Context,
+	keys channel.Keys,
+) (map[channel.Key]channel.Key, error) {
+	indexes := make(map[channel.Key]channel.Key, len(keys))
+	for _, k := range keys {
+		if idx, ok := r[k]; ok {
+			indexes[k] = idx
+		}
+	}
+	return indexes, nil
+}
 
 type scenario struct {
 	dist   mock.Node
