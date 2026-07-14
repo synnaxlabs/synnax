@@ -80,7 +80,7 @@ func NewDependencies(
 	// Program-local variable keys live in the leaseholder-0 band; every persisted key
 	// has a nonzero leaseholder. Fail closed so an overlap can't silently mask one.
 	for _, k := range prog.VarChannels {
-		if channel.Key(k).Leaseholder() != 0 {
+		if channel.Key(k).Lease() != 0 {
 			return Dependencies{}, errors.Newf(
 				"arc program-local variable channel key %d overlaps the persisted channel key space",
 				k,
