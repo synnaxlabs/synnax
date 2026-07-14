@@ -495,7 +495,7 @@ var _ = Describe("Writer", func() {
 				Keys:  channel.Keys{ch.Key()},
 				Start: 10 * telem.SecondTS,
 			})).Error().To(MatchError(
-				ContainSubstring("no channel resolver configured"),
+				ContainSubstring("no free index resolver configured"),
 			))
 		})
 	})

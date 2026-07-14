@@ -383,7 +383,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		rp := s.resolver.Load()
 		if rp == nil || *rp == nil {
 			return nil, errors.New(
-				"cannot open a writer on free channels: no channel resolver configured",
+				"cannot open a writer on free channels: no free index resolver configured",
 			)
 		}
 		freeKeys := lo.Map(batch.Free, func(ka keyAuthority, _ int) channel.Key {

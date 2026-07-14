@@ -16,9 +16,9 @@ import (
 )
 
 // nopFreeIndexResolver is registered on every provisioned node so distribution-layer
-// tests can write to free channels without a service layer. It resolves no indexes,
-// so free frames carry zero alignments; tests that assert on alignments register
-// their own resolver.
+// tests can write to free channels without a service layer. It resolves no indexes, so
+// free frames carry zero alignments; tests that assert on alignments register their own
+// resolver.
 type nopFreeIndexResolver struct{}
 
 func (nopFreeIndexResolver) ResolveFreeIndexes(

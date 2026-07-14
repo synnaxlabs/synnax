@@ -190,8 +190,8 @@ func (s *Service) NewStreamWriter(
 // SetFreeIndexResolver injects the resolver the writer service uses to look up free
 // channel indexes at open time. It must be called before opening writers on free
 // channels; the service layer registers its channel service here at startup.
-func (s *Service) SetFreeIndexResolver(r writer.FreeIndexResolver) {
-	s.writer.SetFreeIndexResolver(r)
+func (s *Service) SetFreeIndexResolver(resolver writer.FreeIndexResolver) {
+	s.writer.SetFreeIndexResolver(resolver)
 }
 
 // DeleteTimeRange deletes a time range in the specified channels.
