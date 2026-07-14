@@ -168,7 +168,9 @@ export const Leaf = ({
     >
       {children}
       {mask != null && (
-        <div className={CSS(CSS.BE("mosaic", "mask"), CSS.BEM("mosaic", "mask", mask))} />
+        <div
+          className={CSS(CSS.BE("mosaic", "mask"), CSS.BEM("mosaic", "mask", mask))}
+        />
       )}
     </Flex.Box>
   );
