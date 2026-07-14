@@ -36,8 +36,8 @@ telemetry, optimized for real-time performance and distributed reliability.
   Modbus). See `driver/CLAUDE.md`.
 - **Arc** (`/arc/`, Go) — DSL for control systems: reactive event-driven stages,
   channel-based communication, value variables (literal stateful cell, channel read,
-  channel read/write), compiles to WebAssembly (runtime provides host functions).
-  Parser → Analyzer → Compiler + LSP.
+  channel read/write), compiles to WebAssembly (runtime provides host functions). Parser
+  → Analyzer → Compiler + LSP.
 - **Alamos** (`/alamos/`, multi-language) — instrumentation: OpenTelemetry
   traces/metrics/logs with cross-service context propagation.
 
