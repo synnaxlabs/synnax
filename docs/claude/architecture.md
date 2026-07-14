@@ -35,8 +35,9 @@ telemetry, optimized for real-time performance and distributed reliability.
 - **Driver** (`/driver/`, C++) — task-based hardware integration (LabJack, NI, OPC UA,
   Modbus). See `driver/CLAUDE.md`.
 - **Arc** (`/arc/`, Go) — DSL for control systems: reactive event-driven stages,
-  channel-based communication, stateful variables, compiles to WebAssembly (runtime
-  provides host functions). Parser → Analyzer → Compiler + LSP.
+  channel-based communication, value variables (literal stateful cell, channel read,
+  channel read/write), compiles to WebAssembly (runtime provides host functions).
+  Parser → Analyzer → Compiler + LSP.
 - **Alamos** (`/alamos/`, multi-language) — instrumentation: OpenTelemetry
   traces/metrics/logs with cross-service context propagation.
 

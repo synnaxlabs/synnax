@@ -30,6 +30,7 @@ persist across scope re-entry.
 <ArcContext.Tabs client:load>
 
 <Fragment slot="Flow">
+
 ```arc
 stage counting {
     local := 0 // resets to 0 on re-entry
@@ -39,11 +40,12 @@ stage counting {
     state + 1 -> state // increments on re-entry
 
 }
+```
 
-````
 </Fragment>
 
 <Fragment slot="Function">
+
 ```arc
 func example() {
     local := 0 // resets to 0 on each call
@@ -52,7 +54,7 @@ func example() {
     local = local + 1 // always becomes 1
     state = state + 1 // increments: 1, 2, 3, ...
 }
-````
+```
 
 </Fragment>
 
@@ -204,6 +206,7 @@ Maintain an on/off state.
 <ArcContext.Tabs client:load>
 
 <Fragment slot="Flow">
+
 ```arc
 stage toggle {
     state $= 0
@@ -215,11 +218,12 @@ stage toggle {
     }
 
 }
+```
 
-````
 </Fragment>
 
 <Fragment slot="Function">
+
 ```arc
 func toggle(trigger u8) u8 {
     state $= 0
@@ -232,7 +236,7 @@ func toggle(trigger u8) u8 {
     }
     return state
 }
-````
+```
 
 </Fragment>
 

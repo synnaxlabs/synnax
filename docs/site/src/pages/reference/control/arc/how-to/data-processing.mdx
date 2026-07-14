@@ -118,6 +118,7 @@ stateful variable.
 <ArcContext.Tabs client:load>
 
 <Fragment slot="Flow">
+
 ```arc
 sequence monitor {
     stage s1 {
@@ -130,9 +131,11 @@ sequence monitor {
     }
 }
 ```
+
 </Fragment>
 
 <Fragment slot="Function">
+
 ```arc
 func counter() i64 {
     count $= 0
@@ -141,14 +144,14 @@ func counter() i64 {
 }
 
 trigger -> counter{} -> count_ch
+```
 
-````
 </Fragment>
 
 </ArcContext.Tabs>
 
-The [Stateful Variables](/reference/control/arc/concepts/stateful-variables) concept page
-explains persistence in more depth.
+The [Stateful Variables](/reference/control/arc/concepts/stateful-variables) concept
+page explains persistence in more depth.
 
 <Divider.Divider x />
 
@@ -166,7 +169,7 @@ func delta(value f64) f64 {
 }
 
 pressure -> delta{} -> pressure_change
-````
+```
 
 On the first execution, `prev` is set to `value`, so `d` is 0. On subsequent executions,
 `prev` holds the previous value and `d` is the actual change.
