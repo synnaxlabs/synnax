@@ -84,20 +84,16 @@ func (s *Service) Import(
 	return id, nil
 }
 
-// importParams mirrors the JSON object clients send on the "params" request param.
-// Both fields are required.
 type importParams struct {
-	// FileName is the name of the file the envelope was read from.
 	FileName string `json:"file_name"`
-	// Project is the key of the project to create the imported resource under.
-	Project string `json:"project"`
+	Project  string `json:"project"`
 }
 
 // parseImportOptions decodes the required "params" request param — a JSON object
 // carrying the out-of-band import options. A missing param, malformed JSON, or a
 // missing or invalid field returns a validation error scoped to the offending field.
 func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
-	v, ok := freighter.MDFromContext(ctx).Params.Get("params")
+	v, ok := freighter.MDFromContext(ctx).Get("params")
 	s, isStr := v.(string)
 	if !ok || !isStr || s == "" {
 		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "params")
