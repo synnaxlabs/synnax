@@ -22,7 +22,7 @@ import {
 import { uniqueName } from "@/testutil";
 
 const renderAlert = async (
-  options: { client?: Synnax | null; args?: Task.FormViewParams } = {},
+  options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
 ) => await renderTaskFormTab(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
@@ -83,14 +83,14 @@ describe("PagerDuty Alert form", () => {
 
   it("should seed the form from a valid config passed through view args", async () => {
     const config = createAlertConfig();
-    await renderAlert({ args: { config } });
+    await renderAlert({ params: { config } });
     await screen.findByDisplayValue("R".repeat(32));
     await screen.findByText("New alert");
   });
 
   it("should fall back to the zero config when the view args config is invalid", async () => {
     const config = createAlertConfig({ routingKey: "too_short" });
-    await renderAlert({ args: { config } });
+    await renderAlert({ params: { config } });
     const input = await screen.findByPlaceholderText<HTMLInputElement>(
       ROUTING_KEY_PLACEHOLDER,
     );
@@ -106,7 +106,7 @@ describe("PagerDuty Alert form", () => {
       const config = createAlertConfig();
       const rendered = await renderAlert({
         client,
-        args: { rackKey: rack.key, config },
+        params: { rackKey: rack.key, config },
       });
       await clickConfigure();
       const taskKey = await awaitTaskKey(rendered);

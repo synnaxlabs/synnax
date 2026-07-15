@@ -40,10 +40,10 @@ const createChannel = (
   ...overrides,
 });
 
-const renderDigitalWrite = async (args = {}) =>
+const renderDigitalWrite = async (params = {}) =>
   await renderNITaskForm(NI.Task.DigitalWrite, NI.Task.DIGITAL_WRITE_TYPE, {
     client,
-    args,
+    params,
   });
 
 const createConfig = (

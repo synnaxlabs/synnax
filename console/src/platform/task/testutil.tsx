@@ -257,8 +257,8 @@ export const renderInTaskFormWithClient = async (
 export interface RenderTaskFormViewOptions {
   /** Client backing the console wrapper; null (default) for cluster-free specs. */
   client?: Client | null;
-  /** View args the wrapped form reads (deviceKey, taskKey, rackKey, config). */
-  args?: FormViewParams;
+  /** View params the wrapped form reads (deviceKey, taskKey, rackKey, config). */
+  params?: FormViewParams;
   /**
    * When provided, a CaptureStatuses probe is mounted alongside the renderer and this
    * callback receives the notification list on every change.
@@ -273,7 +273,7 @@ export interface RenderTaskFormViewResult extends RenderResult, CreatedPanel {
 
 /**
  * Renders a Task.wrapForm tab the way the panel mosaic does: seeds a panel doc whose
- * single leaf holds a view tab of the given type carrying `args`, then mounts the tab
+ * single leaf holds a view tab of the given type carrying `params`, then mounts the tab
  * content inside the panel and tab scopes within the full console provider stack.
  */
 export const renderTaskFormTab = async (
@@ -281,14 +281,14 @@ export const renderTaskFormTab = async (
   type: string,
   options: RenderTaskFormViewOptions = {},
 ): Promise<RenderTaskFormViewResult> => {
-  const { client = null, args = {}, onStatuses } = options;
+  const { client = null, params = {}, onStatuses } = options;
   const store = await createTestStore();
   const { wrapper } = await createConsoleWrapper({ client, store });
   const tab: panel.Tab = {
     variant: "view",
     key: uuid.create(),
     type,
-    args,
+    args: params,
   };
   const created = await createSelectedPanel(wrapper, store, client, [tab]);
   const result = render(
