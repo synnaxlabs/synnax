@@ -44,6 +44,18 @@ type Tab = v0.Tab
 type TabVariant = v0.TabVariant
 type TabType = v0.TabType
 
+const (
+	// TabTypeResource is a tab displaying a backing core document.
+	TabTypeResource TabType = v0.TabTypeResource
+	// TabTypeView is a tab displaying an inline, self-describing view. Unlike a resource, a
+	// view has no backing core document: it carries its own type and opaque args. Used for
+	// app-views and tools (docs, explorers, about, the visualization picker).
+	TabTypeView TabType = v0.TabTypeView
+	// TabTypeEmpty is a tab with no content yet. An empty tab renders the visualization
+	// selector at render time; SetTabResource or SetTabView fills it in place.
+	TabTypeEmpty TabType = v0.TabTypeEmpty
+)
+
 // TabResource is a tab displaying a backing core document.
 type TabResource = v0.TabResource
 
@@ -62,19 +74,11 @@ type TabEmpty = v0.TabEmpty
 type Node = v0.Node
 type NodeVariant = v0.NodeVariant
 type NodeType = v0.NodeType
-type NodeLeaf = v0.NodeLeaf
-type NodeSplit = v0.NodeSplit
 
 const (
-	// TabTypeResource is a tab displaying a backing core document.
-	TabTypeResource TabType = v0.TabTypeResource
-	// TabTypeView is a tab displaying an inline, self-describing view. Unlike a resource, a
-	// view has no backing core document: it carries its own type and opaque args. Used for
-	// app-views and tools (docs, explorers, about, the visualization picker).
-	TabTypeView TabType = v0.TabTypeView
-	// TabTypeEmpty is a tab with no content yet. An empty tab renders the visualization
-	// selector at render time; SetTabResource or SetTabView fills it in place.
-	TabTypeEmpty  TabType  = v0.TabTypeEmpty
 	NodeTypeLeaf  NodeType = v0.NodeTypeLeaf
 	NodeTypeSplit NodeType = v0.NodeTypeSplit
 )
+
+type NodeLeaf = v0.NodeLeaf
+type NodeSplit = v0.NodeSplit

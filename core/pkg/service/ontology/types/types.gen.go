@@ -16,16 +16,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 // ResourceType is the type of the resource.
 type ResourceType = v0.ResourceType
 
-// ID ID is a unique identifier for a Resource. An example:
-//
-// userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }
-//
-// The ID has two elements for several reasons. First, by storing the Type we know which
-// service to query for additional info on the Resource. Second, while a Key may be
-// unique for a particular resource (e.g. channel), it might not be unique across all
-// resources. We need something universally unique across the entire Synnax Core.
-type ID = v0.ID
-
 const (
 	ResourceTypeArc             ResourceType = v0.ResourceTypeArc
 	ResourceTypeBuiltin         ResourceType = v0.ResourceTypeBuiltin
@@ -52,3 +42,13 @@ const (
 	ResourceTypeUser            ResourceType = v0.ResourceTypeUser
 	ResourceTypeView            ResourceType = v0.ResourceTypeView
 )
+
+// ID ID is a unique identifier for a Resource. An example:
+//
+// userID := ID{ Key: "748d31e2-5732-4cb5-8bc9-64d4ad51efe8", Type: "user", }
+//
+// The ID has two elements for several reasons. First, by storing the Type we know which
+// service to query for additional info on the Resource. Second, while a Key may be
+// unique for a particular resource (e.g. channel), it might not be unique across all
+// resources. We need something universally unique across the entire Synnax Core.
+type ID = v0.ID

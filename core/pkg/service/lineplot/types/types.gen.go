@@ -19,17 +19,48 @@ type Key = v1.Key
 // AxisKey names one of the six fixed plot axes.
 type AxisKey = v1.AxisKey
 
+const (
+	AxisKeyX1 AxisKey = v1.AxisKeyX1
+	AxisKeyX2 AxisKey = v1.AxisKeyX2
+	AxisKeyY1 AxisKey = v1.AxisKeyY1
+	AxisKeyY2 AxisKey = v1.AxisKeyY2
+	AxisKeyY3 AxisKey = v1.AxisKeyY3
+	AxisKeyY4 AxisKey = v1.AxisKeyY4
+)
+
 // TickType selects how an axis renders its tick labels.
 type TickType = v1.TickType
+
+const (
+	TickTypeLinear TickType = v1.TickTypeLinear
+	TickTypeTime   TickType = v1.TickTypeTime
+)
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
 type DownsampleMode = v1.DownsampleMode
 
+const (
+	DownsampleModeAverage  DownsampleMode = v1.DownsampleModeAverage
+	DownsampleModeDecimate DownsampleMode = v1.DownsampleModeDecimate
+)
+
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = v1.XAxisKey
 
+const (
+	XAxisKeyX1 XAxisKey = v1.XAxisKeyX1
+	XAxisKeyX2 XAxisKey = v1.XAxisKeyX2
+)
+
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
 type YAxisKey = v1.YAxisKey
+
+const (
+	YAxisKeyY1 YAxisKey = v1.YAxisKeyY1
+	YAxisKeyY2 YAxisKey = v1.YAxisKeyY2
+	YAxisKeyY3 YAxisKey = v1.YAxisKeyY3
+	YAxisKeyY4 YAxisKey = v1.YAxisKeyY4
+)
 
 // Title is the plot title configuration.
 type Title = v1.Title
@@ -66,22 +97,3 @@ type Rule = v1.Rule
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
 type LinePlot = v1.LinePlot
-
-const (
-	AxisKeyX1              AxisKey        = v1.AxisKeyX1
-	AxisKeyX2              AxisKey        = v1.AxisKeyX2
-	AxisKeyY1              AxisKey        = v1.AxisKeyY1
-	AxisKeyY2              AxisKey        = v1.AxisKeyY2
-	AxisKeyY3              AxisKey        = v1.AxisKeyY3
-	AxisKeyY4              AxisKey        = v1.AxisKeyY4
-	TickTypeLinear         TickType       = v1.TickTypeLinear
-	TickTypeTime           TickType       = v1.TickTypeTime
-	DownsampleModeAverage  DownsampleMode = v1.DownsampleModeAverage
-	DownsampleModeDecimate DownsampleMode = v1.DownsampleModeDecimate
-	XAxisKeyX1             XAxisKey       = v1.XAxisKeyX1
-	XAxisKeyX2             XAxisKey       = v1.XAxisKeyX2
-	YAxisKeyY1             YAxisKey       = v1.YAxisKeyY1
-	YAxisKeyY2             YAxisKey       = v1.YAxisKeyY2
-	YAxisKeyY3             YAxisKey       = v1.YAxisKeyY3
-	YAxisKeyY4             YAxisKey       = v1.YAxisKeyY4
-)

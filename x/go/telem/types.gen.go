@@ -44,8 +44,23 @@ type Alignment = types.Alignment
 // TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
 type TimestampFormat = types.TimestampFormat
 
+const (
+	TimestampFormatISO         TimestampFormat = types.TimestampFormatISO
+	TimestampFormatISODate     TimestampFormat = types.TimestampFormatISODate
+	TimestampFormatTime        TimestampFormat = types.TimestampFormatTime
+	TimestampFormatPreciseTime TimestampFormat = types.TimestampFormatPreciseTime
+	TimestampFormatDate        TimestampFormat = types.TimestampFormatDate
+	TimestampFormatPreciseDate TimestampFormat = types.TimestampFormatPreciseDate
+	TimestampFormatDateTime    TimestampFormat = types.TimestampFormatDateTime
+)
+
 // TimeZone is the time zone used when rendering timestamps.
 type TimeZone = types.TimeZone
+
+const (
+	TimeZoneLocal TimeZone = types.TimeZoneLocal
+	TimeZoneUTC   TimeZone = types.TimeZoneUTC
+)
 
 // TimeRange is a time interval defined by a start and end timestamp. The range is
 // start-inclusive and end-exclusive, following standard interval conventions for
@@ -57,15 +72,3 @@ type TimeRange = types.TimeRange
 // JSON). Designed for high-performance, memory-efficient storage and streaming of
 // time-series data.
 type Series = types.Series
-
-const (
-	TimestampFormatISO         TimestampFormat = types.TimestampFormatISO
-	TimestampFormatISODate     TimestampFormat = types.TimestampFormatISODate
-	TimestampFormatTime        TimestampFormat = types.TimestampFormatTime
-	TimestampFormatPreciseTime TimestampFormat = types.TimestampFormatPreciseTime
-	TimestampFormatDate        TimestampFormat = types.TimestampFormatDate
-	TimestampFormatPreciseDate TimestampFormat = types.TimestampFormatPreciseDate
-	TimestampFormatDateTime    TimestampFormat = types.TimestampFormatDateTime
-	TimeZoneLocal              TimeZone        = types.TimeZoneLocal
-	TimeZoneUTC                TimeZone        = types.TimeZoneUTC
-)

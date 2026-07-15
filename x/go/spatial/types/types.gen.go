@@ -20,42 +20,107 @@ type Decimal = v0.Decimal
 // XLocation is a horizontal-axis location at the left or right edge.
 type XLocation = v0.XLocation
 
+const (
+	XLocationLeft  XLocation = v0.XLocationLeft
+	XLocationRight XLocation = v0.XLocationRight
+)
+
 // YLocation is a vertical-axis location at the top or bottom edge.
 type YLocation = v0.YLocation
+
+const (
+	YLocationTop    YLocation = v0.YLocationTop
+	YLocationBottom YLocation = v0.YLocationBottom
+)
 
 // StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
 // decimal fraction of the container.
 type StickyUnit = v0.StickyUnit
 
+const (
+	StickyUnitPx      StickyUnit = v0.StickyUnitPx
+	StickyUnitDecimal StickyUnit = v0.StickyUnitDecimal
+)
+
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
 type OuterLocation = v0.OuterLocation
 
+const (
+	OuterLocationTop    OuterLocation = v0.OuterLocationTop
+	OuterLocationRight  OuterLocation = v0.OuterLocationRight
+	OuterLocationBottom OuterLocation = v0.OuterLocationBottom
+	OuterLocationLeft   OuterLocation = v0.OuterLocationLeft
+)
+
 // Direction is a 2D axis direction.
 type Direction = v0.Direction
+
+const (
+	DirectionX Direction = v0.DirectionX
+	DirectionY Direction = v0.DirectionY
+)
 
 // AngularDirection is a rotational direction in 2D space.
 type AngularDirection = v0.AngularDirection
 
+const (
+	AngularDirectionClockwise        AngularDirection = v0.AngularDirectionClockwise
+	AngularDirectionCounterclockwise AngularDirection = v0.AngularDirectionCounterclockwise
+)
+
 // CenterLocation is a location at the center of a container.
 type CenterLocation = v0.CenterLocation
+
+const (
+	CenterLocationCenter CenterLocation = v0.CenterLocationCenter
+)
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
 type Location = v0.Location
 
+const (
+	LocationTop    Location = v0.LocationTop
+	LocationRight  Location = v0.LocationRight
+	LocationBottom Location = v0.LocationBottom
+	LocationLeft   Location = v0.LocationLeft
+	LocationCenter Location = v0.LocationCenter
+)
+
 // Alignment is a positioning indicator for aligning content along an axis within a
 // container.
 type Alignment = v0.Alignment
 
+const (
+	AlignmentStart  Alignment = v0.AlignmentStart
+	AlignmentCenter Alignment = v0.AlignmentCenter
+	AlignmentEnd    Alignment = v0.AlignmentEnd
+)
+
 // Order is a positional ordering indicator for elements in a sequence.
 type Order = v0.Order
+
+const (
+	OrderFirst Order = v0.OrderFirst
+	OrderLast  Order = v0.OrderLast
+)
 
 // Dimension is the name of a 2D size axis.
 type Dimension = v0.Dimension
 
+const (
+	DimensionWidth  Dimension = v0.DimensionWidth
+	DimensionHeight Dimension = v0.DimensionHeight
+)
+
 // SignedDimension is the name of a 2D signed size axis.
 type SignedDimension = v0.SignedDimension
+
+const (
+	SignedDimensionSignedWidth  SignedDimension = v0.SignedDimensionSignedWidth
+	SignedDimensionSignedHeight SignedDimension = v0.SignedDimensionSignedHeight
+)
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
@@ -89,35 +154,3 @@ type ClientXY = v0.ClientXY
 // The TypeScript binding is generic over T so callers can express bounds over either
 // number or bigint values; other languages emit a concrete float64-based type.
 type Bounds = v0.Bounds
-
-const (
-	XLocationLeft                    XLocation        = v0.XLocationLeft
-	XLocationRight                   XLocation        = v0.XLocationRight
-	YLocationTop                     YLocation        = v0.YLocationTop
-	YLocationBottom                  YLocation        = v0.YLocationBottom
-	StickyUnitPx                     StickyUnit       = v0.StickyUnitPx
-	StickyUnitDecimal                StickyUnit       = v0.StickyUnitDecimal
-	OuterLocationTop                 OuterLocation    = v0.OuterLocationTop
-	OuterLocationRight               OuterLocation    = v0.OuterLocationRight
-	OuterLocationBottom              OuterLocation    = v0.OuterLocationBottom
-	OuterLocationLeft                OuterLocation    = v0.OuterLocationLeft
-	DirectionX                       Direction        = v0.DirectionX
-	DirectionY                       Direction        = v0.DirectionY
-	AngularDirectionClockwise        AngularDirection = v0.AngularDirectionClockwise
-	AngularDirectionCounterclockwise AngularDirection = v0.AngularDirectionCounterclockwise
-	CenterLocationCenter             CenterLocation   = v0.CenterLocationCenter
-	LocationTop                      Location         = v0.LocationTop
-	LocationRight                    Location         = v0.LocationRight
-	LocationBottom                   Location         = v0.LocationBottom
-	LocationLeft                     Location         = v0.LocationLeft
-	LocationCenter                   Location         = v0.LocationCenter
-	AlignmentStart                   Alignment        = v0.AlignmentStart
-	AlignmentCenter                  Alignment        = v0.AlignmentCenter
-	AlignmentEnd                     Alignment        = v0.AlignmentEnd
-	OrderFirst                       Order            = v0.OrderFirst
-	OrderLast                        Order            = v0.OrderLast
-	DimensionWidth                   Dimension        = v0.DimensionWidth
-	DimensionHeight                  Dimension        = v0.DimensionHeight
-	SignedDimensionSignedWidth       SignedDimension  = v0.SignedDimensionSignedWidth
-	SignedDimensionSignedHeight      SignedDimension  = v0.SignedDimensionSignedHeight
-)

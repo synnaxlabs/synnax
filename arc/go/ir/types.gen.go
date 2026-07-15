@@ -28,11 +28,29 @@ type Members = types.Members
 // EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind = types.EdgeKind
 
+const (
+	EdgeKindUnspecified EdgeKind = types.EdgeKindUnspecified
+	EdgeKindContinuous  EdgeKind = types.EdgeKindContinuous
+	EdgeKindConditional EdgeKind = types.EdgeKindConditional
+)
+
 // ScopeMode defines the concurrency model of a Scope.
 type ScopeMode = types.ScopeMode
 
+const (
+	ScopeModeUnspecified ScopeMode = types.ScopeModeUnspecified
+	ScopeModeParallel    ScopeMode = types.ScopeModeParallel
+	ScopeModeSequential  ScopeMode = types.ScopeModeSequential
+)
+
 // Liveness defines whether a Scope is continuously active or must be activated.
 type Liveness = types.Liveness
+
+const (
+	LivenessUnspecified Liveness = types.LivenessUnspecified
+	LivenessAlways      Liveness = types.LivenessAlways
+	LivenessGated       Liveness = types.LivenessGated
+)
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
@@ -70,15 +88,3 @@ type Authorities = types.Authorities
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR = types.IR
-
-const (
-	EdgeKindUnspecified  EdgeKind  = types.EdgeKindUnspecified
-	EdgeKindContinuous   EdgeKind  = types.EdgeKindContinuous
-	EdgeKindConditional  EdgeKind  = types.EdgeKindConditional
-	ScopeModeUnspecified ScopeMode = types.ScopeModeUnspecified
-	ScopeModeParallel    ScopeMode = types.ScopeModeParallel
-	ScopeModeSequential  ScopeMode = types.ScopeModeSequential
-	LivenessUnspecified  Liveness  = types.LivenessUnspecified
-	LivenessAlways       Liveness  = types.LivenessAlways
-	LivenessGated        Liveness  = types.LivenessGated
-)

@@ -20,8 +20,39 @@ type Params = types.Params
 // types, and meta-types.
 type Kind = types.Kind
 
+const (
+	KindInvalid                   Kind = types.KindInvalid
+	KindU8                        Kind = types.KindU8
+	KindU16                       Kind = types.KindU16
+	KindU32                       Kind = types.KindU32
+	KindU64                       Kind = types.KindU64
+	KindI8                        Kind = types.KindI8
+	KindI16                       Kind = types.KindI16
+	KindI32                       Kind = types.KindI32
+	KindI64                       Kind = types.KindI64
+	KindF32                       Kind = types.KindF32
+	KindF64                       Kind = types.KindF64
+	KindString                    Kind = types.KindString
+	KindChan                      Kind = types.KindChan
+	KindSeries                    Kind = types.KindSeries
+	KindVariable                  Kind = types.KindVariable
+	KindNumericConstant           Kind = types.KindNumericConstant
+	KindIntegerConstant           Kind = types.KindIntegerConstant
+	KindFloatConstant             Kind = types.KindFloatConstant
+	KindExactIntegerFloatConstant Kind = types.KindExactIntegerFloatConstant
+	KindFunction                  Kind = types.KindFunction
+	KindSequence                  Kind = types.KindSequence
+	KindStage                     Kind = types.KindStage
+)
+
 // ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection = types.ChanDirection
+
+const (
+	ChanDirectionNone  ChanDirection = types.ChanDirectionNone
+	ChanDirectionRead  ChanDirection = types.ChanDirectionRead
+	ChanDirectionWrite ChanDirection = types.ChanDirectionWrite
+)
 
 // FunctionProperties contains common parameter definitions for function-like types.
 type FunctionProperties = types.FunctionProperties
@@ -43,31 +74,3 @@ type Dimensions = types.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
 type Unit = types.Unit
-
-const (
-	KindInvalid                   Kind          = types.KindInvalid
-	KindU8                        Kind          = types.KindU8
-	KindU16                       Kind          = types.KindU16
-	KindU32                       Kind          = types.KindU32
-	KindU64                       Kind          = types.KindU64
-	KindI8                        Kind          = types.KindI8
-	KindI16                       Kind          = types.KindI16
-	KindI32                       Kind          = types.KindI32
-	KindI64                       Kind          = types.KindI64
-	KindF32                       Kind          = types.KindF32
-	KindF64                       Kind          = types.KindF64
-	KindString                    Kind          = types.KindString
-	KindChan                      Kind          = types.KindChan
-	KindSeries                    Kind          = types.KindSeries
-	KindVariable                  Kind          = types.KindVariable
-	KindNumericConstant           Kind          = types.KindNumericConstant
-	KindIntegerConstant           Kind          = types.KindIntegerConstant
-	KindFloatConstant             Kind          = types.KindFloatConstant
-	KindExactIntegerFloatConstant Kind          = types.KindExactIntegerFloatConstant
-	KindFunction                  Kind          = types.KindFunction
-	KindSequence                  Kind          = types.KindSequence
-	KindStage                     Kind          = types.KindStage
-	ChanDirectionNone             ChanDirection = types.ChanDirectionNone
-	ChanDirectionRead             ChanDirection = types.ChanDirectionRead
-	ChanDirectionWrite            ChanDirection = types.ChanDirectionWrite
-)

@@ -22,6 +22,14 @@ type Name = v0.Name
 // time.
 type OperationType = v0.OperationType
 
+const (
+	OperationTypeMin        OperationType = v0.OperationTypeMin
+	OperationTypeMax        OperationType = v0.OperationTypeMax
+	OperationTypeAvg        OperationType = v0.OperationTypeAvg
+	OperationTypeNone       OperationType = v0.OperationTypeNone
+	OperationTypeDerivative OperationType = v0.OperationTypeDerivative
+)
+
 // Operation defines an aggregation operation applied to channel data. Operations
 // calculate min, max, or average values over a time duration or triggered by a reset
 // channel.
@@ -31,11 +39,3 @@ type Operation = v0.Operation
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
 type Channel = v0.Channel
-
-const (
-	OperationTypeMin        OperationType = v0.OperationTypeMin
-	OperationTypeMax        OperationType = v0.OperationTypeMax
-	OperationTypeAvg        OperationType = v0.OperationTypeAvg
-	OperationTypeNone       OperationType = v0.OperationTypeNone
-	OperationTypeDerivative OperationType = v0.OperationTypeDerivative
-)

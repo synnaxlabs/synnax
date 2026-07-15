@@ -19,17 +19,48 @@ type Key = types.Key
 // AxisKey names one of the six fixed plot axes.
 type AxisKey = types.AxisKey
 
+const (
+	AxisKeyX1 AxisKey = types.AxisKeyX1
+	AxisKeyX2 AxisKey = types.AxisKeyX2
+	AxisKeyY1 AxisKey = types.AxisKeyY1
+	AxisKeyY2 AxisKey = types.AxisKeyY2
+	AxisKeyY3 AxisKey = types.AxisKeyY3
+	AxisKeyY4 AxisKey = types.AxisKeyY4
+)
+
 // TickType selects how an axis renders its tick labels.
 type TickType = types.TickType
+
+const (
+	TickTypeLinear TickType = types.TickTypeLinear
+	TickTypeTime   TickType = types.TickTypeTime
+)
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
 type DownsampleMode = types.DownsampleMode
 
+const (
+	DownsampleModeAverage  DownsampleMode = types.DownsampleModeAverage
+	DownsampleModeDecimate DownsampleMode = types.DownsampleModeDecimate
+)
+
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = types.XAxisKey
 
+const (
+	XAxisKeyX1 XAxisKey = types.XAxisKeyX1
+	XAxisKeyX2 XAxisKey = types.XAxisKeyX2
+)
+
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
 type YAxisKey = types.YAxisKey
+
+const (
+	YAxisKeyY1 YAxisKey = types.YAxisKeyY1
+	YAxisKeyY2 YAxisKey = types.YAxisKeyY2
+	YAxisKeyY3 YAxisKey = types.YAxisKeyY3
+	YAxisKeyY4 YAxisKey = types.YAxisKeyY4
+)
 
 // Title is the plot title configuration.
 type Title = types.Title
@@ -66,22 +97,3 @@ type Rule = types.Rule
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
 type LinePlot = types.LinePlot
-
-const (
-	AxisKeyX1              AxisKey        = types.AxisKeyX1
-	AxisKeyX2              AxisKey        = types.AxisKeyX2
-	AxisKeyY1              AxisKey        = types.AxisKeyY1
-	AxisKeyY2              AxisKey        = types.AxisKeyY2
-	AxisKeyY3              AxisKey        = types.AxisKeyY3
-	AxisKeyY4              AxisKey        = types.AxisKeyY4
-	TickTypeLinear         TickType       = types.TickTypeLinear
-	TickTypeTime           TickType       = types.TickTypeTime
-	DownsampleModeAverage  DownsampleMode = types.DownsampleModeAverage
-	DownsampleModeDecimate DownsampleMode = types.DownsampleModeDecimate
-	XAxisKeyX1             XAxisKey       = types.XAxisKeyX1
-	XAxisKeyX2             XAxisKey       = types.XAxisKeyX2
-	YAxisKeyY1             YAxisKey       = types.YAxisKeyY1
-	YAxisKeyY2             YAxisKey       = types.YAxisKeyY2
-	YAxisKeyY3             YAxisKey       = types.YAxisKeyY3
-	YAxisKeyY4             YAxisKey       = types.YAxisKeyY4
-)

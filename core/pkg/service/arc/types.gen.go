@@ -22,14 +22,14 @@ type Key = types.Key
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
 type Mode = types.Mode
 
+const (
+	ModeText  Mode = types.ModeText
+	ModeGraph Mode = types.ModeGraph
+)
+
 // StatusDetails contains Arc-specific status details for execution state.
 type StatusDetails = types.StatusDetails
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc = types.Arc
-
-const (
-	ModeText  Mode = types.ModeText
-	ModeGraph Mode = types.ModeGraph
-)

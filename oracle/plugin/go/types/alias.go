@@ -48,6 +48,9 @@ type aliasDecl struct {
 	RHS string
 	// Doc is the rendered documentation comment, if any.
 	Doc string
+	// Consts are the type's member re-declarations (enum values or union
+	// discriminator values), emitted directly below the alias.
+	Consts []aliasConst
 }
 
 type aliasConst struct{ Name, Type, Target, Doc string }
@@ -56,7 +59,6 @@ type aliasData struct {
 	Package string
 	Import  string
 	Types   []aliasDecl
-	Consts  []aliasConst
 }
 
 func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
@@ -146,9 +148,10 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		name := naming.GetGoName(e)
 		addType(name, doc.Get(e.Domains), nil)
 		form := e.Form.(resolution.EnumForm)
+		decl := &ad.Types[len(ad.Types)-1]
 		for _, v := range form.Values {
 			member := name + naming.ToPascalCase(v.Name)
-			ad.Consts = append(ad.Consts, aliasConst{
+			decl.Consts = append(decl.Consts, aliasConst{
 				Name:   member,
 				Type:   name,
 				Target: prefix + "." + member,
@@ -181,10 +184,11 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		addType(name+"Variant", "", nil)
 		discType := name + "Type"
 		addType(discType, "", nil)
+		discDecl := len(ad.Types) - 1
 		for _, v := range form.Variants {
 			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
 			constName := discType + casing.PascalAcronym(v.Name)
-			ad.Consts = append(ad.Consts, aliasConst{
+			ad.Types[discDecl].Consts = append(ad.Types[discDecl].Consts, aliasConst{
 				Name:   constName,
 				Type:   discType,
 				Target: prefix + "." + constName,
@@ -195,7 +199,7 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 
 	// A path whose types are all @go omit generates no aliases; emitting the
 	// file would leave an unused import.
-	if len(ad.Types) == 0 && len(ad.Consts) == 0 {
+	if len(ad.Types) == 0 {
 		return "", nil
 	}
 	var buf bytes.Buffer
@@ -217,7 +221,6 @@ import "{{.Import}}"
 {{formatDoc .Name .Doc}}
 {{- end}}
 type {{.LHS}} = {{.RHS}}
-{{- end}}
 {{- if .Consts}}
 
 const (
@@ -228,5 +231,6 @@ const (
 	{{.Name}} {{.Type}} = {{.Target}}
 {{- end}}
 )
+{{- end}}
 {{- end}}
 `))

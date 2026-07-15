@@ -22,14 +22,14 @@ type Key = v2.Key
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
 type Mode = v2.Mode
 
+const (
+	ModeText  Mode = v2.ModeText
+	ModeGraph Mode = v2.ModeGraph
+)
+
 // StatusDetails contains Arc-specific status details for execution state.
 type StatusDetails = v2.StatusDetails
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc = v2.Arc
-
-const (
-	ModeText  Mode = v2.ModeText
-	ModeGraph Mode = v2.ModeGraph
-)

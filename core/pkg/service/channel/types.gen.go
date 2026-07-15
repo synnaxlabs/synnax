@@ -22,6 +22,14 @@ type Name = types.Name
 // time.
 type OperationType = types.OperationType
 
+const (
+	OperationTypeMin        OperationType = types.OperationTypeMin
+	OperationTypeMax        OperationType = types.OperationTypeMax
+	OperationTypeAvg        OperationType = types.OperationTypeAvg
+	OperationTypeNone       OperationType = types.OperationTypeNone
+	OperationTypeDerivative OperationType = types.OperationTypeDerivative
+)
+
 // Operation defines an aggregation operation applied to channel data. Operations
 // calculate min, max, or average values over a time duration or triggered by a reset
 // channel.
@@ -31,11 +39,3 @@ type Operation = types.Operation
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
 type Channel = types.Channel
-
-const (
-	OperationTypeMin        OperationType = types.OperationTypeMin
-	OperationTypeMax        OperationType = types.OperationTypeMax
-	OperationTypeAvg        OperationType = types.OperationTypeAvg
-	OperationTypeNone       OperationType = types.OperationTypeNone
-	OperationTypeDerivative OperationType = types.OperationTypeDerivative
-)

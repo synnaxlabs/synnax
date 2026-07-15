@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/color/types/v0"
+	v0 "github.com/synnaxlabs/x/color/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -90,7 +90,7 @@ var _ = Describe("Color", func() {
 		})
 	})
 
-	Describe("Msgpack", func() {
+	Describe("MessagePack", func() {
 		It("Should decode from a string (backwards compat)", func() {
 			encoded := MustSucceed(msgpack.Marshal("#ff0000"))
 			var c v0.Color

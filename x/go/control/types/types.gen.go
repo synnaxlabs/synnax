@@ -22,6 +22,11 @@ type Authority = v0.Authority
 // once.
 type Concurrency = v0.Concurrency
 
+const (
+	ConcurrencyExclusive Concurrency = v0.ConcurrencyExclusive
+	ConcurrencyShared    Concurrency = v0.ConcurrencyShared
+)
+
 // Subject is an entity that can hold control authority over a resource. Typically
 // represents a user, process, or service.
 type Subject = v0.Subject
@@ -44,8 +49,3 @@ type Transfer[R comparable] = v0.Transfer[R]
 
 // Update represents a batch of control transfers that occurred atomically.
 type Update[R comparable] = v0.Update[R]
-
-const (
-	ConcurrencyExclusive Concurrency = v0.ConcurrencyExclusive
-	ConcurrencyShared    Concurrency = v0.ConcurrencyShared
-)

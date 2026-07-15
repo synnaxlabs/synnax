@@ -20,8 +20,39 @@ type Params = v1.Params
 // types, and meta-types.
 type Kind = v1.Kind
 
+const (
+	KindInvalid                   Kind = v1.KindInvalid
+	KindU8                        Kind = v1.KindU8
+	KindU16                       Kind = v1.KindU16
+	KindU32                       Kind = v1.KindU32
+	KindU64                       Kind = v1.KindU64
+	KindI8                        Kind = v1.KindI8
+	KindI16                       Kind = v1.KindI16
+	KindI32                       Kind = v1.KindI32
+	KindI64                       Kind = v1.KindI64
+	KindF32                       Kind = v1.KindF32
+	KindF64                       Kind = v1.KindF64
+	KindString                    Kind = v1.KindString
+	KindChan                      Kind = v1.KindChan
+	KindSeries                    Kind = v1.KindSeries
+	KindVariable                  Kind = v1.KindVariable
+	KindNumericConstant           Kind = v1.KindNumericConstant
+	KindIntegerConstant           Kind = v1.KindIntegerConstant
+	KindFloatConstant             Kind = v1.KindFloatConstant
+	KindExactIntegerFloatConstant Kind = v1.KindExactIntegerFloatConstant
+	KindFunction                  Kind = v1.KindFunction
+	KindSequence                  Kind = v1.KindSequence
+	KindStage                     Kind = v1.KindStage
+)
+
 // ChanDirection indicates read/write direction for channel-typed parameters.
 type ChanDirection = v1.ChanDirection
+
+const (
+	ChanDirectionNone  ChanDirection = v1.ChanDirectionNone
+	ChanDirectionRead  ChanDirection = v1.ChanDirectionRead
+	ChanDirectionWrite ChanDirection = v1.ChanDirectionWrite
+)
 
 // FunctionProperties contains common parameter definitions for function-like types.
 type FunctionProperties = v1.FunctionProperties
@@ -43,31 +74,3 @@ type Dimensions = v1.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
 type Unit = v1.Unit
-
-const (
-	KindInvalid                   Kind          = v1.KindInvalid
-	KindU8                        Kind          = v1.KindU8
-	KindU16                       Kind          = v1.KindU16
-	KindU32                       Kind          = v1.KindU32
-	KindU64                       Kind          = v1.KindU64
-	KindI8                        Kind          = v1.KindI8
-	KindI16                       Kind          = v1.KindI16
-	KindI32                       Kind          = v1.KindI32
-	KindI64                       Kind          = v1.KindI64
-	KindF32                       Kind          = v1.KindF32
-	KindF64                       Kind          = v1.KindF64
-	KindString                    Kind          = v1.KindString
-	KindChan                      Kind          = v1.KindChan
-	KindSeries                    Kind          = v1.KindSeries
-	KindVariable                  Kind          = v1.KindVariable
-	KindNumericConstant           Kind          = v1.KindNumericConstant
-	KindIntegerConstant           Kind          = v1.KindIntegerConstant
-	KindFloatConstant             Kind          = v1.KindFloatConstant
-	KindExactIntegerFloatConstant Kind          = v1.KindExactIntegerFloatConstant
-	KindFunction                  Kind          = v1.KindFunction
-	KindSequence                  Kind          = v1.KindSequence
-	KindStage                     Kind          = v1.KindStage
-	ChanDirectionNone             ChanDirection = v1.ChanDirectionNone
-	ChanDirectionRead             ChanDirection = v1.ChanDirectionRead
-	ChanDirectionWrite            ChanDirection = v1.ChanDirectionWrite
-)

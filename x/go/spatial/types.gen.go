@@ -20,42 +20,107 @@ type Decimal = types.Decimal
 // XLocation is a horizontal-axis location at the left or right edge.
 type XLocation = types.XLocation
 
+const (
+	XLocationLeft  XLocation = types.XLocationLeft
+	XLocationRight XLocation = types.XLocationRight
+)
+
 // YLocation is a vertical-axis location at the top or bottom edge.
 type YLocation = types.YLocation
+
+const (
+	YLocationTop    YLocation = types.YLocationTop
+	YLocationBottom YLocation = types.YLocationBottom
+)
 
 // StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
 // decimal fraction of the container.
 type StickyUnit = types.StickyUnit
 
+const (
+	StickyUnitPx      StickyUnit = types.StickyUnitPx
+	StickyUnitDecimal StickyUnit = types.StickyUnitDecimal
+)
+
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
 type OuterLocation = types.OuterLocation
 
+const (
+	OuterLocationTop    OuterLocation = types.OuterLocationTop
+	OuterLocationRight  OuterLocation = types.OuterLocationRight
+	OuterLocationBottom OuterLocation = types.OuterLocationBottom
+	OuterLocationLeft   OuterLocation = types.OuterLocationLeft
+)
+
 // Direction is a 2D axis direction.
 type Direction = types.Direction
+
+const (
+	DirectionX Direction = types.DirectionX
+	DirectionY Direction = types.DirectionY
+)
 
 // AngularDirection is a rotational direction in 2D space.
 type AngularDirection = types.AngularDirection
 
+const (
+	AngularDirectionClockwise        AngularDirection = types.AngularDirectionClockwise
+	AngularDirectionCounterclockwise AngularDirection = types.AngularDirectionCounterclockwise
+)
+
 // CenterLocation is a location at the center of a container.
 type CenterLocation = types.CenterLocation
+
+const (
+	CenterLocationCenter CenterLocation = types.CenterLocationCenter
+)
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
 type Location = types.Location
 
+const (
+	LocationTop    Location = types.LocationTop
+	LocationRight  Location = types.LocationRight
+	LocationBottom Location = types.LocationBottom
+	LocationLeft   Location = types.LocationLeft
+	LocationCenter Location = types.LocationCenter
+)
+
 // Alignment is a positioning indicator for aligning content along an axis within a
 // container.
 type Alignment = types.Alignment
 
+const (
+	AlignmentStart  Alignment = types.AlignmentStart
+	AlignmentCenter Alignment = types.AlignmentCenter
+	AlignmentEnd    Alignment = types.AlignmentEnd
+)
+
 // Order is a positional ordering indicator for elements in a sequence.
 type Order = types.Order
+
+const (
+	OrderFirst Order = types.OrderFirst
+	OrderLast  Order = types.OrderLast
+)
 
 // Dimension is the name of a 2D size axis.
 type Dimension = types.Dimension
 
+const (
+	DimensionWidth  Dimension = types.DimensionWidth
+	DimensionHeight Dimension = types.DimensionHeight
+)
+
 // SignedDimension is the name of a 2D signed size axis.
 type SignedDimension = types.SignedDimension
+
+const (
+	SignedDimensionSignedWidth  SignedDimension = types.SignedDimensionSignedWidth
+	SignedDimensionSignedHeight SignedDimension = types.SignedDimensionSignedHeight
+)
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
@@ -89,35 +154,3 @@ type ClientXY = types.ClientXY
 // The TypeScript binding is generic over T so callers can express bounds over either
 // number or bigint values; other languages emit a concrete float64-based type.
 type Bounds = types.Bounds
-
-const (
-	XLocationLeft                    XLocation        = types.XLocationLeft
-	XLocationRight                   XLocation        = types.XLocationRight
-	YLocationTop                     YLocation        = types.YLocationTop
-	YLocationBottom                  YLocation        = types.YLocationBottom
-	StickyUnitPx                     StickyUnit       = types.StickyUnitPx
-	StickyUnitDecimal                StickyUnit       = types.StickyUnitDecimal
-	OuterLocationTop                 OuterLocation    = types.OuterLocationTop
-	OuterLocationRight               OuterLocation    = types.OuterLocationRight
-	OuterLocationBottom              OuterLocation    = types.OuterLocationBottom
-	OuterLocationLeft                OuterLocation    = types.OuterLocationLeft
-	DirectionX                       Direction        = types.DirectionX
-	DirectionY                       Direction        = types.DirectionY
-	AngularDirectionClockwise        AngularDirection = types.AngularDirectionClockwise
-	AngularDirectionCounterclockwise AngularDirection = types.AngularDirectionCounterclockwise
-	CenterLocationCenter             CenterLocation   = types.CenterLocationCenter
-	LocationTop                      Location         = types.LocationTop
-	LocationRight                    Location         = types.LocationRight
-	LocationBottom                   Location         = types.LocationBottom
-	LocationLeft                     Location         = types.LocationLeft
-	LocationCenter                   Location         = types.LocationCenter
-	AlignmentStart                   Alignment        = types.AlignmentStart
-	AlignmentCenter                  Alignment        = types.AlignmentCenter
-	AlignmentEnd                     Alignment        = types.AlignmentEnd
-	OrderFirst                       Order            = types.OrderFirst
-	OrderLast                        Order            = types.OrderLast
-	DimensionWidth                   Dimension        = types.DimensionWidth
-	DimensionHeight                  Dimension        = types.DimensionHeight
-	SignedDimensionSignedWidth       SignedDimension  = types.SignedDimensionSignedWidth
-	SignedDimensionSignedHeight      SignedDimension  = types.SignedDimensionSignedHeight
-)
