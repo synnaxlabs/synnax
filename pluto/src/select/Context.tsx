@@ -39,8 +39,15 @@ export interface UseItemStateReturn {
   onSelect: () => void;
 }
 
+// The membership and presence stores are created monomorphically at record.Key; Select
+// layers its own K back on with an assertion at each use. The stores stay honestly
+// typed — the untyped seam lives in these two accessors.
 const Members = Store.createMembership("Selection");
 const Hover = Store.createPresence("Selection.Hover");
+const members = <K extends record.Key>(): Store.Membership<K> =>
+  Members as unknown as Store.Membership<K>;
+const hover = <K extends record.Key>(): Store.Presence<K> =>
+  Hover as unknown as Store.Presence<K>;
 
 /**
  * Context distributes a controlled selection to keyed item consumers. Membership and
@@ -52,27 +59,34 @@ export const Context = <K extends record.Key = record.Key>({
   onSelect,
   setSelected,
   clear,
-  hover,
+  hover: hoverValue,
   children,
-}: ContextProps<K>): ReactElement => (
-  <Members.Context value={value} onItem={onSelect} setValue={setSelected} clear={clear}>
-    <Hover.Context value={hover}>{children}</Hover.Context>
-  </Members.Context>
-);
+}: ContextProps<K>): ReactElement => {
+  const M = members<K>();
+  const H = hover<K>();
+  return (
+    <M.Context value={value} onItem={onSelect} setValue={setSelected} clear={clear}>
+      <H.Context value={hoverValue}>{children}</H.Context>
+    </M.Context>
+  );
+};
 
 /** useContext returns the enclosing selection's imperative handle. */
 export const useContext = <K extends record.Key = record.Key>(): ContextValue<K> => {
-  const members = Members.useContext<K>();
-  const hover = Hover.useContext<K>();
+  const membersCtx = members<K>().useContext();
+  const hoverCtx = hover<K>().useContext();
   return useMemo<ContextValue<K>>(
     () => ({
-      onSelect: members.onItem,
-      setSelected: members.setValue,
-      clear: members.clear,
-      subscribe: members.subscribe,
-      getState: () => ({ value: members.getValue(), hover: hover.getPresent() }),
+      onSelect: membersCtx.onItem,
+      setSelected: membersCtx.setValue,
+      clear: membersCtx.clear,
+      subscribe: membersCtx.subscribe,
+      getState: () => ({
+        value: membersCtx.getValue(),
+        hover: hoverCtx.getPresent(),
+      }),
     }),
-    [members, hover],
+    [membersCtx, hoverCtx],
   );
 };
 
@@ -81,8 +95,8 @@ export const useContext = <K extends record.Key = record.Key>(): ContextValue<K>
  * when that key's selected or hovered state flips.
  */
 export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn => {
-  const { member, onItem } = Members.useItem(key);
-  const hovered = Hover.useIsPresent(key);
+  const { member, onItem } = members<K>().useItem(key);
+  const hovered = hover<K>().useIsPresent(key);
   return useMemo(
     () => ({ selected: member, hovered, onSelect: onItem }),
     [member, hovered, onItem],
@@ -95,10 +109,13 @@ export const useItemState = <K extends record.Key>(key: K): UseItemStateReturn =
  * from changes to the rest of the selection. When more than one of the keys is selected,
  * the earliest in the selection's order wins.
  */
-export const useSelectedAmong = Members.useMemberAmong;
+export const useSelectedAmong = <K extends record.Key = record.Key>(
+  keys: K[],
+): K | undefined => members<K>().useMemberAmong(keys);
 
 /** useSelected returns the currently selected keys. */
-export const useSelected = Members.useMembers;
+export const useSelected = <K extends record.Key = record.Key>(): K[] =>
+  members<K>().useMembers();
 
 /** useClear returns a callback that clears the enclosing selection. */
 export const useClear = (): (() => void) => Members.useContext().clear;
