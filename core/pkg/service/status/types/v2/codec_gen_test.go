@@ -17,9 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/encoding/orc"
-
 	"github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	"github.com/synnaxlabs/x/encoding/orc"
 	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
 

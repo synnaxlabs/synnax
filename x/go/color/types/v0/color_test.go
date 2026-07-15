@@ -14,10 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/vmihailenco/msgpack/v5"
-
 	v0 "github.com/synnaxlabs/x/color/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Color", func() {

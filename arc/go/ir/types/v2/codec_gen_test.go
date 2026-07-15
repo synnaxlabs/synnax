@@ -17,10 +17,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/encoding/orc"
-
 	"github.com/synnaxlabs/arc/ir/types/v2"
 	gov1 "github.com/synnaxlabs/arc/types/types/v1"
+	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Codec", func() {

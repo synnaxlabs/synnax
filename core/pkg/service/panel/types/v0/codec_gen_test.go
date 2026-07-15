@@ -18,11 +18,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/encoding/orc"
-
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 

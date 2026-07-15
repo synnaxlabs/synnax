@@ -18,11 +18,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/encoding/orc"
-
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
 	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	"github.com/synnaxlabs/x/encoding/orc"
 	notationv0 "github.com/synnaxlabs/x/notation/types/v0"
 	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )

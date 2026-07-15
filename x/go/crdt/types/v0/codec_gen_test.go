@@ -17,9 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/encoding/orc"
-
 	"github.com/synnaxlabs/x/crdt/types/v0"
+	"github.com/synnaxlabs/x/encoding/orc"
 	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
