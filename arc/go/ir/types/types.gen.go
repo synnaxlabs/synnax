@@ -72,13 +72,13 @@ type Authorities = v2.Authorities
 type IR = v2.IR
 
 const (
-	EdgeKindUnspecified  = v2.EdgeKindUnspecified
-	EdgeKindContinuous   = v2.EdgeKindContinuous
-	EdgeKindConditional  = v2.EdgeKindConditional
-	ScopeModeUnspecified = v2.ScopeModeUnspecified
-	ScopeModeParallel    = v2.ScopeModeParallel
-	ScopeModeSequential  = v2.ScopeModeSequential
-	LivenessUnspecified  = v2.LivenessUnspecified
-	LivenessAlways       = v2.LivenessAlways
-	LivenessGated        = v2.LivenessGated
+	EdgeKindUnspecified  EdgeKind  = v2.EdgeKindUnspecified
+	EdgeKindContinuous   EdgeKind  = v2.EdgeKindContinuous
+	EdgeKindConditional  EdgeKind  = v2.EdgeKindConditional
+	ScopeModeUnspecified ScopeMode = v2.ScopeModeUnspecified
+	ScopeModeParallel    ScopeMode = v2.ScopeModeParallel
+	ScopeModeSequential  ScopeMode = v2.ScopeModeSequential
+	LivenessUnspecified  Liveness  = v2.LivenessUnspecified
+	LivenessAlways       Liveness  = v2.LivenessAlways
+	LivenessGated        Liveness  = v2.LivenessGated
 )

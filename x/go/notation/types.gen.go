@@ -18,11 +18,11 @@ type Notation = types.Notation
 
 const (
 	// NotationStandard renders samples as plain decimal numbers.
-	NotationStandard = types.NotationStandard
+	NotationStandard Notation = types.NotationStandard
 	// NotationScientific renders samples in scientific notation with a single leading
 	// digit.
-	NotationScientific = types.NotationScientific
+	NotationScientific Notation = types.NotationScientific
 	// NotationEngineering renders samples in engineering notation with exponents in
 	// multiples of three.
-	NotationEngineering = types.NotationEngineering
+	NotationEngineering Notation = types.NotationEngineering
 )

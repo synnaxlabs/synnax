@@ -46,6 +46,6 @@ type Transfer[R comparable] = v0.Transfer[R]
 type Update[R comparable] = v0.Update[R]
 
 const (
-	ConcurrencyExclusive = v0.ConcurrencyExclusive
-	ConcurrencyShared    = v0.ConcurrencyShared
+	ConcurrencyExclusive Concurrency = v0.ConcurrencyExclusive
+	ConcurrencyShared    Concurrency = v0.ConcurrencyShared
 )

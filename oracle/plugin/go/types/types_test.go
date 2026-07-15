@@ -1977,8 +1977,8 @@ var _ = Describe("Go Types Plugin", func() {
 					ToBeValidGoSource().
 					ToContain(
 						"type Color = types.Color",
-						"ColorRed = types.ColorRed",
-						"ColorBlue = types.ColorBlue",
+						"ColorRed Color = types.ColorRed",
+						"ColorBlue Color = types.ColorBlue",
 					)
 			})
 
@@ -2033,7 +2033,7 @@ var _ = Describe("Go Types Plugin", func() {
 						"type ScaleVariant = types.ScaleVariant",
 						"type ScaleType = types.ScaleType",
 						"type ScaleLinear = types.ScaleLinear",
-						"ScaleTypeLinear = types.ScaleTypeLinear",
+						"ScaleTypeLinear ScaleType = types.ScaleTypeLinear",
 					)
 			})
 

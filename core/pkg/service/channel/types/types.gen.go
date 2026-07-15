@@ -33,9 +33,9 @@ type Operation = v0.Operation
 type Channel = v0.Channel
 
 const (
-	OperationTypeMin        = v0.OperationTypeMin
-	OperationTypeMax        = v0.OperationTypeMax
-	OperationTypeAvg        = v0.OperationTypeAvg
-	OperationTypeNone       = v0.OperationTypeNone
-	OperationTypeDerivative = v0.OperationTypeDerivative
+	OperationTypeMin        OperationType = v0.OperationTypeMin
+	OperationTypeMax        OperationType = v0.OperationTypeMax
+	OperationTypeAvg        OperationType = v0.OperationTypeAvg
+	OperationTypeNone       OperationType = v0.OperationTypeNone
+	OperationTypeDerivative OperationType = v0.OperationTypeDerivative
 )

@@ -72,13 +72,13 @@ type Authorities = types.Authorities
 type IR = types.IR
 
 const (
-	EdgeKindUnspecified  = types.EdgeKindUnspecified
-	EdgeKindContinuous   = types.EdgeKindContinuous
-	EdgeKindConditional  = types.EdgeKindConditional
-	ScopeModeUnspecified = types.ScopeModeUnspecified
-	ScopeModeParallel    = types.ScopeModeParallel
-	ScopeModeSequential  = types.ScopeModeSequential
-	LivenessUnspecified  = types.LivenessUnspecified
-	LivenessAlways       = types.LivenessAlways
-	LivenessGated        = types.LivenessGated
+	EdgeKindUnspecified  EdgeKind  = types.EdgeKindUnspecified
+	EdgeKindContinuous   EdgeKind  = types.EdgeKindContinuous
+	EdgeKindConditional  EdgeKind  = types.EdgeKindConditional
+	ScopeModeUnspecified ScopeMode = types.ScopeModeUnspecified
+	ScopeModeParallel    ScopeMode = types.ScopeModeParallel
+	ScopeModeSequential  ScopeMode = types.ScopeModeSequential
+	LivenessUnspecified  Liveness  = types.LivenessUnspecified
+	LivenessAlways       Liveness  = types.LivenessAlways
+	LivenessGated        Liveness  = types.LivenessGated
 )

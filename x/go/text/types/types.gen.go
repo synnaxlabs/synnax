@@ -20,17 +20,17 @@ type Level = v0.Level
 
 const (
 	// LevelH1 is the largest heading level.
-	LevelH1 = v0.LevelH1
+	LevelH1 Level = v0.LevelH1
 	// LevelH2 is the second-largest heading level.
-	LevelH2 = v0.LevelH2
+	LevelH2 Level = v0.LevelH2
 	// LevelH3 is the third-largest heading level.
-	LevelH3 = v0.LevelH3
+	LevelH3 Level = v0.LevelH3
 	// LevelH4 is the fourth-largest heading level.
-	LevelH4 = v0.LevelH4
+	LevelH4 Level = v0.LevelH4
 	// LevelH5 is the smallest heading level.
-	LevelH5 = v0.LevelH5
+	LevelH5 Level = v0.LevelH5
 	// LevelP is the standard paragraph level.
-	LevelP = v0.LevelP
+	LevelP Level = v0.LevelP
 	// LevelSmall is the smallest level, used for captions and annotations.
-	LevelSmall = v0.LevelSmall
+	LevelSmall Level = v0.LevelSmall
 )

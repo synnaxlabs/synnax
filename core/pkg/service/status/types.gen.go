@@ -23,10 +23,10 @@ type Variant = types.Variant
 type Status[Details any] = types.Status[Details]
 
 const (
-	VariantSuccess  = types.VariantSuccess
-	VariantInfo     = types.VariantInfo
-	VariantWarning  = types.VariantWarning
-	VariantError    = types.VariantError
-	VariantLoading  = types.VariantLoading
-	VariantDisabled = types.VariantDisabled
+	VariantSuccess  Variant = types.VariantSuccess
+	VariantInfo     Variant = types.VariantInfo
+	VariantWarning  Variant = types.VariantWarning
+	VariantError    Variant = types.VariantError
+	VariantLoading  Variant = types.VariantLoading
+	VariantDisabled Variant = types.VariantDisabled
 )

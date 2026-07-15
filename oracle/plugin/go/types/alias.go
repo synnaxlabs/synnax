@@ -51,7 +51,7 @@ type aliasDecl struct {
 	Doc string
 }
 
-type aliasConst struct{ Name, Target, Doc string }
+type aliasConst struct{ Name, Type, Target, Doc string }
 
 type aliasData struct {
 	Package string
@@ -152,6 +152,7 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 			member := name + naming.ToPascalCase(v.Name)
 			ad.Consts = append(ad.Consts, aliasConst{
 				Name:   member,
+				Type:   name,
 				Target: prefix + "." + member,
 				Doc:    doc.Get(v.Domains),
 			})
@@ -185,7 +186,12 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		for _, v := range form.Variants {
 			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
 			constName := discType + casing.PascalAcronym(v.Name)
-			ad.Consts = append(ad.Consts, aliasConst{Name: constName, Target: prefix + "." + constName})
+			ad.Consts = append(ad.Consts, aliasConst{
+				Name:   constName,
+				Type:   discType,
+				Target: prefix + "." + constName,
+				Doc:    doc.Get(v.Domains),
+			})
 		}
 	}
 
@@ -221,7 +227,7 @@ const (
 {{- if .Doc}}
 	{{formatDoc .Name .Doc | printf "%s"}}
 {{- end}}
-	{{.Name}} = {{.Target}}
+	{{.Name}} {{.Type}} = {{.Target}}
 {{- end}}
 )
 {{- end}}

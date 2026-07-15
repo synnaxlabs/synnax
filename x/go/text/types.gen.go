@@ -20,17 +20,17 @@ type Level = types.Level
 
 const (
 	// LevelH1 is the largest heading level.
-	LevelH1 = types.LevelH1
+	LevelH1 Level = types.LevelH1
 	// LevelH2 is the second-largest heading level.
-	LevelH2 = types.LevelH2
+	LevelH2 Level = types.LevelH2
 	// LevelH3 is the third-largest heading level.
-	LevelH3 = types.LevelH3
+	LevelH3 Level = types.LevelH3
 	// LevelH4 is the fourth-largest heading level.
-	LevelH4 = types.LevelH4
+	LevelH4 Level = types.LevelH4
 	// LevelH5 is the smallest heading level.
-	LevelH5 = types.LevelH5
+	LevelH5 Level = types.LevelH5
 	// LevelP is the standard paragraph level.
-	LevelP = types.LevelP
+	LevelP Level = types.LevelP
 	// LevelSmall is the smallest level, used for captions and annotations.
-	LevelSmall = types.LevelSmall
+	LevelSmall Level = types.LevelSmall
 )

@@ -68,20 +68,20 @@ type Rule = types.Rule
 type LinePlot = types.LinePlot
 
 const (
-	AxisKeyX1              = types.AxisKeyX1
-	AxisKeyX2              = types.AxisKeyX2
-	AxisKeyY1              = types.AxisKeyY1
-	AxisKeyY2              = types.AxisKeyY2
-	AxisKeyY3              = types.AxisKeyY3
-	AxisKeyY4              = types.AxisKeyY4
-	TickTypeLinear         = types.TickTypeLinear
-	TickTypeTime           = types.TickTypeTime
-	DownsampleModeAverage  = types.DownsampleModeAverage
-	DownsampleModeDecimate = types.DownsampleModeDecimate
-	XAxisKeyX1             = types.XAxisKeyX1
-	XAxisKeyX2             = types.XAxisKeyX2
-	YAxisKeyY1             = types.YAxisKeyY1
-	YAxisKeyY2             = types.YAxisKeyY2
-	YAxisKeyY3             = types.YAxisKeyY3
-	YAxisKeyY4             = types.YAxisKeyY4
+	AxisKeyX1              AxisKey        = types.AxisKeyX1
+	AxisKeyX2              AxisKey        = types.AxisKeyX2
+	AxisKeyY1              AxisKey        = types.AxisKeyY1
+	AxisKeyY2              AxisKey        = types.AxisKeyY2
+	AxisKeyY3              AxisKey        = types.AxisKeyY3
+	AxisKeyY4              AxisKey        = types.AxisKeyY4
+	TickTypeLinear         TickType       = types.TickTypeLinear
+	TickTypeTime           TickType       = types.TickTypeTime
+	DownsampleModeAverage  DownsampleMode = types.DownsampleModeAverage
+	DownsampleModeDecimate DownsampleMode = types.DownsampleModeDecimate
+	XAxisKeyX1             XAxisKey       = types.XAxisKeyX1
+	XAxisKeyX2             XAxisKey       = types.XAxisKeyX2
+	YAxisKeyY1             YAxisKey       = types.YAxisKeyY1
+	YAxisKeyY2             YAxisKey       = types.YAxisKeyY2
+	YAxisKeyY3             YAxisKey       = types.YAxisKeyY3
+	YAxisKeyY4             YAxisKey       = types.YAxisKeyY4
 )

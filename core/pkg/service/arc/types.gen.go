@@ -30,6 +30,6 @@ type StatusDetails = types.StatusDetails
 type Arc = types.Arc
 
 const (
-	ModeText  = types.ModeText
-	ModeGraph = types.ModeGraph
+	ModeText  Mode = types.ModeText
+	ModeGraph Mode = types.ModeGraph
 )

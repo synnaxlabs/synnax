@@ -23,10 +23,10 @@ type Variant = v2.Variant
 type Status[Details any] = v2.Status[Details]
 
 const (
-	VariantSuccess  = v2.VariantSuccess
-	VariantInfo     = v2.VariantInfo
-	VariantWarning  = v2.VariantWarning
-	VariantError    = v2.VariantError
-	VariantLoading  = v2.VariantLoading
-	VariantDisabled = v2.VariantDisabled
+	VariantSuccess  Variant = v2.VariantSuccess
+	VariantInfo     Variant = v2.VariantInfo
+	VariantWarning  Variant = v2.VariantWarning
+	VariantError    Variant = v2.VariantError
+	VariantLoading  Variant = v2.VariantLoading
+	VariantDisabled Variant = v2.VariantDisabled
 )

@@ -59,13 +59,13 @@ type TimeRange = types.TimeRange
 type Series = types.Series
 
 const (
-	TimestampFormatISO         = types.TimestampFormatISO
-	TimestampFormatISODate     = types.TimestampFormatISODate
-	TimestampFormatTime        = types.TimestampFormatTime
-	TimestampFormatPreciseTime = types.TimestampFormatPreciseTime
-	TimestampFormatDate        = types.TimestampFormatDate
-	TimestampFormatPreciseDate = types.TimestampFormatPreciseDate
-	TimestampFormatDateTime    = types.TimestampFormatDateTime
-	TimeZoneLocal              = types.TimeZoneLocal
-	TimeZoneUTC                = types.TimeZoneUTC
+	TimestampFormatISO         TimestampFormat = types.TimestampFormatISO
+	TimestampFormatISODate     TimestampFormat = types.TimestampFormatISODate
+	TimestampFormatTime        TimestampFormat = types.TimestampFormatTime
+	TimestampFormatPreciseTime TimestampFormat = types.TimestampFormatPreciseTime
+	TimestampFormatDate        TimestampFormat = types.TimestampFormatDate
+	TimestampFormatPreciseDate TimestampFormat = types.TimestampFormatPreciseDate
+	TimestampFormatDateTime    TimestampFormat = types.TimestampFormatDateTime
+	TimeZoneLocal              TimeZone        = types.TimeZoneLocal
+	TimeZoneUTC                TimeZone        = types.TimeZoneUTC
 )

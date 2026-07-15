@@ -30,6 +30,6 @@ type StatusDetails = v2.StatusDetails
 type Arc = v2.Arc
 
 const (
-	ModeText  = v2.ModeText
-	ModeGraph = v2.ModeGraph
+	ModeText  Mode = v2.ModeText
+	ModeGraph Mode = v2.ModeGraph
 )

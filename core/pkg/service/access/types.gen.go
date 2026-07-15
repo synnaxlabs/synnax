@@ -18,8 +18,8 @@ import "github.com/synnaxlabs/synnax/pkg/service/access/types"
 type Action = types.Action
 
 const (
-	ActionCreate   = types.ActionCreate
-	ActionDelete   = types.ActionDelete
-	ActionRetrieve = types.ActionRetrieve
-	ActionUpdate   = types.ActionUpdate
+	ActionCreate   Action = types.ActionCreate
+	ActionDelete   Action = types.ActionDelete
+	ActionRetrieve Action = types.ActionRetrieve
+	ActionUpdate   Action = types.ActionUpdate
 )
