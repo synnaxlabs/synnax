@@ -182,7 +182,7 @@ func BenchmarkEncodeDecodeLeaf(b *testing.B) {
 	lv := fullyPopulatedLeaf
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := lv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -199,7 +199,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	nv := v0.Node{Variant: v0.NodeLeaf{Leaf: fullyPopulatedLeaf}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := nv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -220,7 +220,7 @@ func BenchmarkEncodeDecodePanel(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := p.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -237,7 +237,7 @@ func BenchmarkEncodeDecodeSplit(b *testing.B) {
 	s := fullyPopulatedSplit
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := s.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -257,7 +257,7 @@ func BenchmarkEncodeDecodeTab(b *testing.B) {
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -274,7 +274,7 @@ func BenchmarkEncodeDecodeTabBase(b *testing.B) {
 	tb := fullyPopulatedTabBase
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := tb.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -291,7 +291,7 @@ func BenchmarkEncodeDecodeView(b *testing.B) {
 	vv := fullyPopulatedView
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := vv.EncodeOrc(w); err != nil {
 			b.Fatal(err)

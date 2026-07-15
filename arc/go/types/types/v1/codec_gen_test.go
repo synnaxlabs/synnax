@@ -1085,7 +1085,7 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := c.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1111,7 +1111,7 @@ func BenchmarkEncodeDecodeDimensions(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := d.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1241,7 +1241,7 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := fp.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1418,7 +1418,7 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := p.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1881,7 +1881,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1911,7 +1911,7 @@ func BenchmarkEncodeDecodeUnit(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := u.EncodeOrc(w); err != nil {
 			b.Fatal(err)

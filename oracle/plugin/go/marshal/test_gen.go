@@ -1102,7 +1102,7 @@ func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
 	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1162,7 +1162,7 @@ func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
 	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
 			b.Fatal(err)

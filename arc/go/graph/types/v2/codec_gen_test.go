@@ -168,7 +168,7 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := e.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -244,7 +244,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := g.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -261,7 +261,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	nv := v2.Node{Key: "test_1", Position: spatialv0.XY{X: 3.5, Y: 4.5}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := nv.EncodeOrc(w); err != nil {
 			b.Fatal(err)

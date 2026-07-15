@@ -168,7 +168,7 @@ func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := ce.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -209,7 +209,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := lv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -229,7 +229,7 @@ func BenchmarkEncodeDecodeTimestampConfig(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := tc.EncodeOrc(w); err != nil {
 			b.Fatal(err)

@@ -77,7 +77,7 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := d.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -94,7 +94,7 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 	sd := v2.StatusDetails{Rack: rackv2.Key(2), Device: "test_2"}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := sd.EncodeOrc(w); err != nil {
 			b.Fatal(err)

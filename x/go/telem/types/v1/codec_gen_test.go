@@ -43,7 +43,7 @@ func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
 	tr := v1.TimeRange{Start: v1.TimeStamp(2), End: v1.TimeStamp(3)}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := tr.EncodeOrc(w); err != nil {
 			b.Fatal(err)

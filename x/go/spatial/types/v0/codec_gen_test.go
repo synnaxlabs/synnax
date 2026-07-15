@@ -113,7 +113,7 @@ func BenchmarkEncodeDecodeBounds(b *testing.B) {
 	bv := v0.Bounds{}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := bv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -130,7 +130,7 @@ func BenchmarkEncodeDecodeCornerLocation(b *testing.B) {
 	cl := v0.CornerLocation{X: v0.XLocation("left"), Y: v0.YLocation("top")}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := cl.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -147,7 +147,7 @@ func BenchmarkEncodeDecodeStickyUnits(b *testing.B) {
 	su := v0.StickyUnits{X: v0.StickyUnit("px"), Y: v0.StickyUnit("px")}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := su.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -169,7 +169,7 @@ func BenchmarkEncodeDecodeStickyXY(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := sxy.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -186,7 +186,7 @@ func BenchmarkEncodeDecodeXY(b *testing.B) {
 	xy := v0.XY{X: 1.5, Y: 2.5}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := xy.EncodeOrc(w); err != nil {
 			b.Fatal(err)

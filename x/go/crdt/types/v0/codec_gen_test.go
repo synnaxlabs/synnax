@@ -84,7 +84,7 @@ func BenchmarkEncodeDecodeDelete(b *testing.B) {
 	d := v0.Delete{ID: v0.ID{Replica: 3, Counter: 4}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := d.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -101,7 +101,7 @@ func BenchmarkEncodeDecodeID(b *testing.B) {
 	id := v0.ID{Replica: 2, Counter: 3}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := id.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -123,7 +123,7 @@ func BenchmarkEncodeDecodeInsert(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := iv.EncodeOrc(w); err != nil {
 			b.Fatal(err)

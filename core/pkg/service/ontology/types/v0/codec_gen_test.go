@@ -81,7 +81,7 @@ func BenchmarkEncodeDecodeID(b *testing.B) {
 	id := v0.ID{Type: v0.ResourceType("arc"), Key: "test_2"}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := id.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -102,7 +102,7 @@ func BenchmarkEncodeDecodeRelationship(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := rv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -119,7 +119,7 @@ func BenchmarkEncodeDecodeResource(b *testing.B) {
 	rv := v0.Resource{ID: v0.ID{Type: v0.ResourceType("arc"), Key: "test_3"}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := rv.EncodeOrc(w); err != nil {
 			b.Fatal(err)

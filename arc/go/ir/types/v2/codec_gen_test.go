@@ -729,7 +729,7 @@ func BenchmarkEncodeDecodeAuthorities(b *testing.B) {
 	a := v2.Authorities{Default: new(uint8(2)), Channels: map[uint32]uint8{3: 3}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := a.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -746,7 +746,7 @@ func BenchmarkEncodeDecodeBody(b *testing.B) {
 	bv := v2.Body{Raw: "test_1"}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := bv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -767,7 +767,7 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := e.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -903,7 +903,7 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := f.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -920,7 +920,7 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 	h := v2.Handle{Node: "test_1", Param: "test_2"}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := h.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1080,7 +1080,7 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := ir.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1141,7 +1141,7 @@ func BenchmarkEncodeDecodeMember(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := mv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1277,7 +1277,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := nv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1335,7 +1335,7 @@ func BenchmarkEncodeDecodeScope(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := s.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -1355,7 +1355,7 @@ func BenchmarkEncodeDecodeTransition(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)

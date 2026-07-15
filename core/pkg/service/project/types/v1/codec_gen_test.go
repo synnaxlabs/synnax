@@ -57,7 +57,7 @@ func BenchmarkEncodeDecodeProject(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := p.EncodeOrc(w); err != nil {
 			b.Fatal(err)

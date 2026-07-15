@@ -128,7 +128,7 @@ func BenchmarkEncodeDecodeCell(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := c.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -145,7 +145,7 @@ func BenchmarkEncodeDecodeColumn(b *testing.B) {
 	c := v1.Column{Size: 1.5}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := c.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -162,7 +162,7 @@ func BenchmarkEncodeDecodeRow(b *testing.B) {
 	rv := v1.Row{Size: 1.5, Cells: []string{"test_2"}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := rv.EncodeOrc(w); err != nil {
 			b.Fatal(err)
@@ -191,7 +191,7 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w.Reset()
 		if err := t.EncodeOrc(w); err != nil {
 			b.Fatal(err)
