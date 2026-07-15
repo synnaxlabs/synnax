@@ -1,4 +1,4 @@
-# 36 - Boolean Data Type
+# 45 - Boolean Data Type
 
 **Feature Name**: Boolean Data Type <br /> **Status**: Draft <br /> **Start Date**:
 2026-04-16 <br /> **Authors**: Emiliano Bonilla <br />
