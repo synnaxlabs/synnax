@@ -11,9 +11,9 @@ package node
 
 import "github.com/synnaxlabs/synnax/pkg/distribution/node"
 
-// Re-exports of the node domain primitives defined in pkg/distribution/node.
-// Consumers in the service and API layers should reach for these aliases so they only
-// depend on a single node package.
+// Re-exports of the node domain primitives defined in pkg/distribution/node. Consumers
+// in the service and API layers should reach for these aliases so they only depend on a
+// single node package.
 type (
 	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
 	// network address.
@@ -25,9 +25,7 @@ type (
 	Change = node.Change
 )
 
-const (
-	// KeyFree is the reserved Key used for resources that are not leased to any
-	// specific node — most notably free (virtual / non-persisted) channels. It is never
-	// assigned to a real node.
-	KeyFree = node.KeyFree
-)
+// KeyFree is the reserved Key used for resources that are not leased to any specific
+// node — most notably free (virtual / non-persisted) channels. It is never assigned to
+// a real node.
+const KeyFree = node.KeyFree
