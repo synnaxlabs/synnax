@@ -11,9 +11,11 @@ package imex
 
 import (
 	"context"
+	"path/filepath"
+	"strings"
 	"sync"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -90,12 +92,17 @@ func notFoundError[T ~string](typ T, kind string) error {
 }
 
 // Import routes envelope to the [Importer] registered under envelope.Type, persists it
-// on tx, and returns the ontology.ID of the created resource. Returns a validation error
-// scoped to the "type" field if no [Importer] is registered for envelope.Type.
+// on tx, and returns the ontology.ID of the created resource. The opts.FileName name
+// fallback is applied to the envelope before routing; opts is then handed to the
+// importer untouched — the importer owns all ontology writes, including attaching the
+// resource under opts.Project. Returns a validation error scoped to the "type" field if
+// no [Importer] is registered for envelope.Type, and a validation error scoped to the
+// "name" field if the envelope has no name after the opts.FileName fallback is applied.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	envelope Envelope,
+	opts ImportOptions,
 ) (ontology.ID, error) {
 	s.mu.RLock()
 	importer, ok := s.importers[envelope.Type]
@@ -103,7 +110,13 @@ func (s *Service) Import(
 	if !ok {
 		return ontology.ID{}, notFoundError(envelope.Type, "importer")
 	}
-	id, err := importer.Import(ctx, tx, envelope)
+	if envelope.Name == "" {
+		envelope.Name = strings.TrimSuffix(opts.FileName, filepath.Ext(opts.FileName))
+	}
+	if envelope.Name == "" {
+		return ontology.ID{}, newFieldError("name", "name must be a non-empty string")
+	}
+	id, err := importer.Import(ctx, tx, envelope, opts)
 	if err != nil {
 		return ontology.ID{}, errors.Wrap(err, "import envelope")
 	}

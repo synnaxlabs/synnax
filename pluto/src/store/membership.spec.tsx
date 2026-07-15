@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type record } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -17,7 +18,7 @@ const Set = Store.createMembership("test");
 
 const staticWrapper = (
   value: Store.MembershipValue<string>,
-  onItem?: (key: string) => void,
+  onItem?: (key: record.Key) => void,
 ) => {
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Set.Context value={value} onItem={onItem}>

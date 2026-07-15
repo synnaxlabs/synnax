@@ -72,7 +72,7 @@ const createChannel = (customScale: NI.Task.Scale): VoltageChannel => ({
 const renderWithScale = async (customScale: NI.Task.Scale) =>
   await renderNITaskForm(NI.Task.AnalogRead, NI.Task.ANALOG_READ_TYPE, {
     client: null,
-    args: {
+    params: {
       config: {
         ...NI.Task.ZERO_ANALOG_READ_PAYLOAD.config,
         channels: [createChannel(customScale)],

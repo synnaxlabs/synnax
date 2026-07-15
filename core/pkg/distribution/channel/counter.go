@@ -17,22 +17,23 @@ import (
 	"github.com/synnaxlabs/x/math"
 )
 
-type counter struct {
-	wrap *kv.AtomicInt64Counter
-}
+type counter struct{ ctr *kv.AtomicInt64Counter }
 
 func newCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, error) {
-	wrap, err := kv.NewCounter(ctx, db, key)
+	ctr, err := kv.NewCounter(ctx, db, key)
 	if err != nil {
 		return nil, err
 	}
-	return &counter{wrap: wrap}, nil
+	return &counter{ctr: ctr}, nil
 }
 
 func (c *counter) add(ctx context.Context, delta LocalKey) (LocalKey, error) {
-	if c.wrap.Value()+int64(delta) > int64(math.MaxUint20) {
+	if c.ctr.Value()+int64(delta) > int64(math.MaxUint20) {
 		return 0, errors.New("maximum number of channels created")
 	}
-	next, err := c.wrap.Add(ctx, int64(delta))
-	return LocalKey(next), err
+	next, err := c.ctr.Add(ctx, int64(delta))
+	if err != nil {
+		return 0, err
+	}
+	return LocalKey(next), nil
 }

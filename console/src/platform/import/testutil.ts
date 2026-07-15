@@ -29,6 +29,7 @@ export const createFileIngesterContext = (
   store: createTestFluxStore(),
   client: null,
   projectKey: "project-1",
+  fileName: "test.json",
   ...overrides,
 });
 

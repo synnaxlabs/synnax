@@ -61,7 +61,7 @@ describe("OPC.Read", () => {
     const chB = createInputChannel();
     const rendered = await renderTaskFormTab(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
-      args: { deviceKey: dev.key, config: createReadConfig(dev.key, [chA, chB]) },
+      params: { deviceKey: dev.key, config: createReadConfig(dev.key, [chA, chB]) },
     });
     await screen.findByText(new RegExp(chA.nodeName));
     await screen.findByText(new RegExp(chB.nodeName));
@@ -103,7 +103,7 @@ describe("OPC.Read", () => {
     const dataChannel = createInputChannel();
     const first = await renderTaskFormTab(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
-      args: {
+      params: {
         deviceKey: dev.key,
         config: createReadConfig(dev.key, [tsChannel, dataChannel]),
       },
@@ -129,7 +129,7 @@ describe("OPC.Read", () => {
 
     await renderTaskFormTab(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
-      args: { deviceKey: dev.key, taskKey },
+      params: { deviceKey: dev.key, taskKey },
     });
     await screen.findByText(new RegExp(tsChannel.nodeName));
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
@@ -151,7 +151,7 @@ describe("OPC.Read", () => {
     const dev = await createOPCDevice(client);
     await renderTaskFormTab(OPC.Task.Read, OPC.Task.READ_TYPE, {
       client,
-      args: { deviceKey: dev.key },
+      params: { deviceKey: dev.key },
     });
     await screen.findByRole("button", { name: /Configure/ });
     await screen.findByText("Stream Rate");

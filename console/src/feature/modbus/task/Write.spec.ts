@@ -31,7 +31,7 @@ describe("Modbus.Write", () => {
     const rendered = await renderTaskFormTab(
       Modbus.Task.Write,
       Modbus.Task.WRITE_TYPE,
-      { client, args: { deviceKey: dev.key } },
+      { client, params: { deviceKey: dev.key } },
     );
     const { container } = rendered;
     await screen.findByRole("button", { name: /Configure/ });
@@ -82,7 +82,7 @@ describe("Modbus.Write", () => {
     const dev = await createModbusDevice(client);
     const first = await renderTaskFormTab(Modbus.Task.Write, Modbus.Task.WRITE_TYPE, {
       client,
-      args: { deviceKey: dev.key },
+      params: { deviceKey: dev.key },
     });
     await screen.findByRole("button", { name: /Configure/ });
     fireEvent.click(getIconButton(first.container, "add"));
@@ -97,7 +97,7 @@ describe("Modbus.Write", () => {
 
     await renderTaskFormTab(Modbus.Task.Write, Modbus.Task.WRITE_TYPE, {
       client,
-      args: { deviceKey: dev.key, taskKey },
+      params: { deviceKey: dev.key, taskKey },
     });
     await screen.findByText("Coil");
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
@@ -119,7 +119,7 @@ describe("Modbus.Write", () => {
     const { container } = await renderTaskFormTab(
       Modbus.Task.Write,
       Modbus.Task.WRITE_TYPE,
-      { client, args: { deviceKey: dev.key } },
+      { client, params: { deviceKey: dev.key } },
     );
     await screen.findByRole("button", { name: /Configure/ });
     fireEvent.click(getIconButton(container, "add"));

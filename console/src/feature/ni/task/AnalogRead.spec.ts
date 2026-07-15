@@ -44,10 +44,10 @@ const createChannel = (
     ...overrides,
   }) as NI.Task.AIChannel;
 
-const renderAnalogRead = async (args = {}) =>
+const renderAnalogRead = async (params = {}) =>
   await renderNITaskForm(NI.Task.AnalogRead, NI.Task.ANALOG_READ_TYPE, {
     client,
-    args,
+    params,
   });
 
 describe("AnalogRead", () => {

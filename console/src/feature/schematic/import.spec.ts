@@ -406,6 +406,7 @@ describe("schematic import", () => {
         store,
         client,
         projectKey: project.key,
+        fileName: "test.json",
       });
       if (id == null) throw new Error("ingest did not return an ontology id");
       expect(openTab).toHaveBeenCalledTimes(1);
@@ -425,6 +426,7 @@ describe("schematic import", () => {
           store,
           client: null,
           projectKey: "project-1",
+          fileName: "test.json",
         }),
       ).rejects.toThrow("You do not have permission to import schematics");
     });
