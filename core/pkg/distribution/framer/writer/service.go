@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -219,69 +220,90 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// ServiceConfig is the configuration for opening a Writer or StreamWriter.
+// ServiceConfig is the configuration for opening a Writer Service.
 type ServiceConfig struct {
 	// Transport is the network transport for sending and receiving writes from other
 	// nodes in the cluster.
+	//
 	// [REQUIRED]
 	Transport Transport
 	// FreeWrites is the write pipeline where samples from free channels should be
 	// written.
+	//
+	// [REQUIRED]
 	FreeWrites confluence.Inlet[relay.Response]
 	// HostResolver is used to resolve the host address for nodes in the cluster in order
 	// to route writes.
+	//
 	// [REQUIRED]
 	HostResolver node.HostResolver
 	// TS is the local time series store to write to.
-	// [REQUIRED]
-	TS *ts.DB
-	// Channel is used to resolve metadata and routing information for the provided
-	// keys.
 	//
 	// [REQUIRED]
-	Channel *channel.Service
+	TS *ts.DB
+	// Instrumentation is for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening the writer Service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
-	validate.NotNil(v, "ts", cfg.TS)
-	validate.NotNil(v, "channel", cfg.Channel)
-	validate.NotNil(v, "host_provider", cfg.HostResolver)
 	validate.NotNil(v, "transport", cfg.Transport)
+	validate.NotNil(v, "free_writes", cfg.FreeWrites)
+	validate.NotNil(v, "host_resolver", cfg.HostResolver)
+	validate.NotNil(v, "ts", cfg.TS)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	cfg.TS = override.Nil(cfg.TS, other.TS)
-	cfg.Channel = override.Nil(cfg.Channel, other.Channel)
-	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
-	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.FreeWrites = override.Nil(cfg.FreeWrites, other.FreeWrites)
+	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
+	cfg.TS = override.Nil(cfg.TS, other.TS)
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
+}
+
+// FreeIndexResolver resolves the index channels of free channels, whose records live
+// above the distribution layer. The service-layer channel service implements this
+// interface and is registered via Service.SetFreeIndexResolver.
+type FreeIndexResolver interface {
+	// ResolveFreeIndexes returns the index channel key for each free channel in keys
+	// that has an index. Free frames are stamped with per-index alignments derived from
+	// this map. Any error is propagated to the caller opening the writer.
+	ResolveFreeIndexes(
+		context.Context, channel.Keys,
+	) (map[channel.Key]channel.Key, error)
 }
 
 // Service is the central service for the writer package, allowing the caller to open
 // Writers and StreamWriters for writing data to the cluster.
 type Service struct {
-	server              *server
+	server *server
+	// freeWriteAlignments tracks per-index alignment counters shared across all writers
+	// opened on this service, so concurrent free writers stamp distinct alignment
+	// domains.
 	freeWriteAlignments *freeWriteAlignments
-	cfg                 ServiceConfig
+	// resolver looks up free channel indexes at open time. Set once at startup via
+	// SetFreeIndexResolver; opening a writer on free channels fails until it is set.
+	resolver atomic.Pointer[FreeIndexResolver]
+	cfg      ServiceConfig
 }
+
+// SetFreeIndexResolver injects the resolver used to look up free channel indexes when
+// a writer is opened. It must be called before opening writers on free channels; the
+// service layer registers its channel service here at startup.
+func (s *Service) SetFreeIndexResolver(r FreeIndexResolver) { s.resolver.Store(&r) }
 
 // NewService opens the writer service using the given configuration. Also binds a
 // server to the given transport for receiving writes from other nodes in the cluster.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -295,13 +317,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 const (
-	synchronizerAddr       = address.Address("synchronizer")
-	peerSenderAddr         = address.Address("peer_sender")
-	gatewayWriterAddr      = address.Address("gateway_writer")
-	freeWriterAddr         = address.Address("free_writer")
-	peerGatewaySwitchAddr  = address.Address("peer_gateway_free_switch")
-	validatorAddr          = address.Address("validator")
-	validatorResponsesAddr = address.Address("validator_responses")
+	synchronizerAddr      = address.Address("synchronizer")
+	peerSenderAddr        = address.Address("peer_sender")
+	gatewayWriterAddr     = address.Address("gateway_writer")
+	freeWriterAddr        = address.Address("free_writer")
+	peerGatewaySwitchAddr = address.Address("peer_gateway_free_switch")
+	sequencerAddr         = address.Address("sequencer")
 )
 
 // Open a new writer using the given configuration. The provided context is used to
@@ -344,40 +365,51 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
-	channels, err := s.validateChannelKeys(ctx, cfg.Keys)
-	if err != nil {
-		return nil, err
-	}
-
 	var (
 		hostKey           = s.cfg.HostResolver.HostKey()
 		batch             = proxy.BatchFactory[keyAuthority](hostKey).Batch(cfg.keyAuthorities())
 		pipe              = plumber.New()
+		receiverAddresses []address.Address
+		routeSequencerTo  address.Address
 		hasPeer           = len(batch.Peers) > 0
 		hasGateway        = len(batch.Gateway) > 0
 		hasFree           = len(batch.Free) > 0
-		receiverAddresses []address.Address
-		routeValidatorTo  address.Address
 	)
 
-	channelMap := make(map[channel.Key]channel.Channel, len(channels))
-	for _, ch := range channels {
-		channelMap[ch.Key()] = ch
+	// Resolve free channel indexes before any pipeline resources are opened, so a
+	// resolution failure requires no cleanup.
+	var freeIndexes map[channel.Key]channel.Key
+	if hasFree {
+		rp := s.resolver.Load()
+		if rp == nil || *rp == nil {
+			return nil, errors.New(
+				"cannot open a writer on free channels: no free index resolver configured",
+			)
+		}
+		freeKeys := lo.Map(batch.Free, func(ka keyAuthority, _ int) channel.Key {
+			return ka.key
+		})
+		if freeIndexes, err = (*rp).ResolveFreeIndexes(ctx, freeKeys); err != nil {
+			return nil, err
+		}
 	}
-	v := &validator{keys: cfg.Keys, channels: channelMap}
-	plumber.SetSegment(pipe, validatorAddr, v)
-	plumber.SetSource(pipe, validatorResponsesAddr, &v.responses)
+
+	plumber.SetSegment(pipe, sequencerAddr, &sequencer{})
 	plumber.SetSegment(
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.cfg.Instrumentation),
+		newSynchronizer(
+			len(batch.Peers)+lo.Ternary(hasGateway, 1, 0)+lo.Ternary(hasFree, 1, 0),
+			s.cfg.Instrumentation,
+		),
 	)
 
 	switchTargets := make([]address.Address, 0, 3)
+	var peerSenders map[address.Address]freighter.StreamSenderCloser[Request]
 	if hasPeer {
-		routeValidatorTo = peerSenderAddr
+		routeSequencerTo = peerSenderAddr
 		switchTargets = append(switchTargets, peerSenderAddr)
-		sender, receivers, _receiverAddresses, err := s.openManyPeers(
+		sender, receivers, _receiverAddresses, senders, err := s.openManyPeers(
 			ctx,
 			cfg,
 			batch.Peers,
@@ -385,6 +417,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		if err != nil {
 			return nil, err
 		}
+		peerSenders = senders
 		plumber.SetSink(pipe, peerSenderAddr, sender)
 		receiverAddresses = _receiverAddresses
 		for i, receiver := range receivers {
@@ -393,26 +426,28 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}
 
 	if hasGateway {
-		routeValidatorTo = gatewayWriterAddr
+		routeSequencerTo = gatewayWriterAddr
 		switchTargets = append(switchTargets, gatewayWriterAddr)
 		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway))
 		if err != nil {
-			return nil, err
+			// The peer streams already opened remote writers that hold control over
+			// their channels; close them so that control is released.
+			return nil, s.closePeerClients(peerSenders, err)
 		}
 		plumber.SetSegment(pipe, gatewayWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
 	}
 
 	if hasFree {
-		routeValidatorTo = freeWriterAddr
+		routeSequencerTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(cfg.Mode, *cfg.Sync, channels, cfg.ControlSubject.Group)
+		w := s.newFree(cfg.Mode, *cfg.Sync, freeIndexes, cfg.ControlSubject.Group)
 		plumber.SetSegment(pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
 
 	if len(switchTargets) > 1 {
-		routeValidatorTo = peerGatewaySwitchAddr
+		routeSequencerTo = peerGatewaySwitchAddr
 		plumber.SetSegment(
 			pipe,
 			peerGatewaySwitchAddr,
@@ -426,7 +461,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		}.MustRoute(pipe)
 	}
 
-	plumber.MustConnect[Request](pipe, validatorAddr, routeValidatorTo, 30)
+	plumber.MustConnect[Request](pipe, sequencerAddr, routeSequencerTo, 30)
 
 	plumber.MultiRouter[Response]{
 		SourceTargets: receiverAddresses,
@@ -436,27 +471,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}.MustRoute(pipe)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo(validatorAddr))
-	lo.Must0(seg.RouteOutletFrom(validatorResponsesAddr, synchronizerAddr))
+	lo.Must0(seg.RouteInletTo(sequencerAddr))
+	lo.Must0(seg.RouteOutletFrom(synchronizerAddr))
 	return seg, nil
-}
-
-func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([]channel.Channel, error) {
-	v := validate.New("distribution.framer.writer")
-	if validate.NotEmptySlice(v, "keys", keys) {
-		return nil, v.Error()
-	}
-	var channels []channel.Channel
-	if err := s.cfg.Channel.
-		NewRetrieve().
-		Entries(&channels).
-		Where(channel.MatchKeys(keys...)).
-		Exec(ctx, nil); err != nil {
-		return nil, err
-	}
-	if len(channels) != len(keys) {
-		missing, _ := lo.Difference(keys, channel.KeysFromChannels(channels))
-		return nil, errors.Wrapf(validate.ErrValidation, "missing channels: %v", missing)
-	}
-	return channels, nil
 }
