@@ -61,8 +61,8 @@ func (r *Request) ValidateOutputPath(path string) error {
 type Response struct {
 	// Files holds the list of generated files.
 	Files []File
-	// Deletions holds repo-relative paths of files to remove: previously
-	// generated files the plugin no longer produces for the current schema.
+	// Deletions holds repo-relative paths of files to remove: previously generated
+	// files the plugin no longer produces for the current schema.
 	Deletions []string
 }
 
