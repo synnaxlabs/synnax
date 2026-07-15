@@ -25,36 +25,48 @@ import (
 const SourceType = "tailscale"
 
 // Factory builds tailscale sources.
-type Factory struct{}
+type Factory struct {
+	// NewClient creates a new tailscale client for accessing
+	// certificates from the local tailscaled daemon.
+	//
+	// [OPTIONAL] - if nil, a default local.Client is used.
+	NewClient func() cert.Source
+}
 
 var _ cert.SourceFactory = Factory{}
 
 // Type implements cert.SourceFactory.
 func (Factory) Type() string { return SourceType }
 
+func (f Factory) newClient() cert.Source {
+	if f.NewClient != nil {
+		return f.NewClient()
+	}
+	return &local.Client{}
+}
+
 // NewSource implements cert.SourceFactory.
-func (Factory) NewSource(cfg cert.SourceConfig) (cert.Source, error) {
+func (f Factory) NewSource(cfg cert.SourceConfig) (cert.Source, error) {
 	if cfg.Cert != "" || cfg.Key != "" {
-		return nil, errors.Wrap(validate.ErrValidation, "[cert] - tailscale source must not set cert or key")
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"tailscale certificate source must not set cert or key",
+		)
 	}
 	host := cfg.Address.Host()
 	if host == "" {
-		return nil, errors.Wrap(validate.ErrValidation, "[cert] - tailscale source requires a listener host; tailscaled resolves certificates by FQDN")
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"tailscale certificate source requires a listener host; tailscaled resolves certificates by FQDN",
+		)
 	}
-	return &source{client: &local.Client{}, host: host}, nil
+	return &source{client: f.newClient(), host: host}, nil
 }
-
-// daemon is the subset of the tailscaled client the source needs.
-type daemon interface {
-	GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error)
-}
-
-var _ daemon = (*local.Client)(nil)
 
 // source serves certificates from the local tailscaled daemon. The daemon fetches and
 // caches them, so GetCertificate defers entirely to it.
 type source struct {
-	client daemon
+	client cert.Source
 	host   string
 }
 
