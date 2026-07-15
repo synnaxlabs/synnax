@@ -21,3 +21,9 @@
         max-width: 100px;
     }
 }
+
+.console-channel-item__icon {
+    height: var(--pluto-p-size);
+    font-size: var(--pluto-p-size);
+    color: var(--pluto-gray-l8);
+}

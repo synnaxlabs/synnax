@@ -41,12 +41,6 @@ export interface ListAndDetailsChannelItemProps<
   nameDirection?: direction.Direction;
 }
 
-const CLONED_ICON_STYLE: CSSProperties = {
-  height: "var(--pluto-p-size)",
-  fontSize: "var(--pluto-p-size)",
-  color: "var(--pluto-gray-l8)",
-};
-
 const getChannelNameProps = (
   hasIcon: boolean,
 ): Omit<ChannelNameProps, "channel" | "namePath"> => ({
@@ -99,7 +93,9 @@ export const ListAndDetailsChannelItem = <K extends string>({
         {hasIcon && (
           <Tooltip.Dialog>
             {icon.name}
-            {cloneElement(icon.icon, { style: CLONED_ICON_STYLE })}
+            {cloneElement(icon.icon, {
+              className: CSS.BE("channel-item", "icon"),
+            })}
           </Tooltip.Dialog>
         )}
         {hasStateChannel ? (
