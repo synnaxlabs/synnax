@@ -15,13 +15,18 @@ import (
 	"strconv"
 	"strings"
 
-	latest "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/zyn"
 )
 
 // Schema is a zyn schema for parsing a color.
-var Schema = latest.Schema
+var Schema = zyn.Object(map[string]zyn.Schema{
+	"r": zyn.Number().Uint8().Coerce(),
+	"g": zyn.Number().Uint8().Coerce(),
+	"b": zyn.Number().Uint8().Coerce(),
+	"a": zyn.Number().Float64().Coerce(),
+})
 
 // FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
 // strings with or without a leading '#'.

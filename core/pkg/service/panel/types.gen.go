@@ -11,64 +11,64 @@
 
 package panel
 
-import latest "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
+import panel "github.com/synnaxlabs/synnax/pkg/service/panel/types"
 
 // Key is a unique identifier for a panel, represented as a UUID.
-type Key = latest.Key
+type Key = panel.Key
 
 // TabBase carries the identity shared by every tab variant.
-type TabBase = latest.TabBase
+type TabBase = panel.TabBase
 
 // View is an inline, self-describing view: a Console-owned type plus an opaque
 // configuration payload, with no backing core document. Used for app-views and tools
 // (docs, explorers, about, the visualization picker).
-type View = latest.View
+type View = panel.View
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.
-type Leaf = latest.Leaf
+type Leaf = panel.Leaf
 
 // Split is an interior split node dividing its area between two children.
-type Split = latest.Split
+type Split = panel.Split
 
 // Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
 // a project (project panel) or by a user (draft); renaming a draft promotes it to
 // project ownership.
-type Panel = latest.Panel
+type Panel = panel.Panel
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
 // backing core document, e.g. a line plot), a view (an inline, self-describing
 // app-view, e.g. docs), or empty (the visualization selector). Display attributes
 // (name, icon, closability) are resolved at render time from the content. The same
 // content may be referenced by multiple tabs in the same or other panels.
-type Tab = latest.Tab
-type TabVariant = latest.TabVariant
-type TabType = latest.TabType
+type Tab = panel.Tab
+type TabVariant = panel.TabVariant
+type TabType = panel.TabType
 
 // TabResource is a tab displaying a backing core document.
-type TabResource = latest.TabResource
+type TabResource = panel.TabResource
 
 // TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
 // view has no backing core document: it carries its own type and opaque args. Used for
 // app-views and tools (docs, explorers, about, the visualization picker).
-type TabView = latest.TabView
+type TabView = panel.TabView
 
 // TabEmpty is a tab with no content yet. An empty tab renders the visualization
 // selector at render time; SetTabResource or SetTabView fills it in place.
-type TabEmpty = latest.TabEmpty
+type TabEmpty = panel.TabEmpty
 
 // Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
-type Node = latest.Node
-type NodeVariant = latest.NodeVariant
-type NodeType = latest.NodeType
-type NodeLeaf = latest.NodeLeaf
-type NodeSplit = latest.NodeSplit
+type Node = panel.Node
+type NodeVariant = panel.NodeVariant
+type NodeType = panel.NodeType
+type NodeLeaf = panel.NodeLeaf
+type NodeSplit = panel.NodeSplit
 
 const (
-	TabTypeResource = latest.TabTypeResource
-	TabTypeView     = latest.TabTypeView
-	TabTypeEmpty    = latest.TabTypeEmpty
-	NodeTypeLeaf    = latest.NodeTypeLeaf
-	NodeTypeSplit   = latest.NodeTypeSplit
+	TabTypeResource = panel.TabTypeResource
+	TabTypeView     = panel.TabTypeView
+	TabTypeEmpty    = panel.TabTypeEmpty
+	NodeTypeLeaf    = panel.NodeTypeLeaf
+	NodeTypeSplit   = panel.NodeTypeSplit
 )

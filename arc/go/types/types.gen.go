@@ -11,63 +11,63 @@
 
 package types
 
-import latest "github.com/synnaxlabs/arc/types/types/v1"
+import types "github.com/synnaxlabs/arc/types/types"
 
 // Params is a collection of named, typed parameters for function inputs or outputs.
-type Params = latest.Params
+type Params = types.Params
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
-type Kind = latest.Kind
+type Kind = types.Kind
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection = latest.ChanDirection
+type ChanDirection = types.ChanDirection
 
 // FunctionProperties contains common parameter definitions for function-like types.
-type FunctionProperties = latest.FunctionProperties
+type FunctionProperties = types.FunctionProperties
 
 // Type is a type in Arc's type system with optional element type for compounds,
 // physical units, and constraints.
-type Type = latest.Type
+type Type = types.Type
 
 // Param is a named, typed parameter with optional default value.
-type Param = latest.Param
+type Param = types.Param
 
 // Channels contains channel declarations for reading from and writing to Synnax
 // channels.
-type Channels = latest.Channels
+type Channels = types.Channels
 
 // Dimensions contains physical dimension exponents for dimensional analysis (SI base
 // quantities).
-type Dimensions = latest.Dimensions
+type Dimensions = types.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
-type Unit = latest.Unit
+type Unit = types.Unit
 
 const (
-	KindInvalid                   = latest.KindInvalid
-	KindU8                        = latest.KindU8
-	KindU16                       = latest.KindU16
-	KindU32                       = latest.KindU32
-	KindU64                       = latest.KindU64
-	KindI8                        = latest.KindI8
-	KindI16                       = latest.KindI16
-	KindI32                       = latest.KindI32
-	KindI64                       = latest.KindI64
-	KindF32                       = latest.KindF32
-	KindF64                       = latest.KindF64
-	KindString                    = latest.KindString
-	KindChan                      = latest.KindChan
-	KindSeries                    = latest.KindSeries
-	KindVariable                  = latest.KindVariable
-	KindNumericConstant           = latest.KindNumericConstant
-	KindIntegerConstant           = latest.KindIntegerConstant
-	KindFloatConstant             = latest.KindFloatConstant
-	KindExactIntegerFloatConstant = latest.KindExactIntegerFloatConstant
-	KindFunction                  = latest.KindFunction
-	KindSequence                  = latest.KindSequence
-	KindStage                     = latest.KindStage
-	ChanDirectionNone             = latest.ChanDirectionNone
-	ChanDirectionRead             = latest.ChanDirectionRead
-	ChanDirectionWrite            = latest.ChanDirectionWrite
+	KindInvalid                   = types.KindInvalid
+	KindU8                        = types.KindU8
+	KindU16                       = types.KindU16
+	KindU32                       = types.KindU32
+	KindU64                       = types.KindU64
+	KindI8                        = types.KindI8
+	KindI16                       = types.KindI16
+	KindI32                       = types.KindI32
+	KindI64                       = types.KindI64
+	KindF32                       = types.KindF32
+	KindF64                       = types.KindF64
+	KindString                    = types.KindString
+	KindChan                      = types.KindChan
+	KindSeries                    = types.KindSeries
+	KindVariable                  = types.KindVariable
+	KindNumericConstant           = types.KindNumericConstant
+	KindIntegerConstant           = types.KindIntegerConstant
+	KindFloatConstant             = types.KindFloatConstant
+	KindExactIntegerFloatConstant = types.KindExactIntegerFloatConstant
+	KindFunction                  = types.KindFunction
+	KindSequence                  = types.KindSequence
+	KindStage                     = types.KindStage
+	ChanDirectionNone             = types.ChanDirectionNone
+	ChanDirectionRead             = types.ChanDirectionRead
+	ChanDirectionWrite            = types.ChanDirectionWrite
 )

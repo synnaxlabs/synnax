@@ -11,74 +11,74 @@
 
 package ir
 
-import latest "github.com/synnaxlabs/arc/ir/types/v2"
+import ir "github.com/synnaxlabs/arc/ir/types"
 
 // Edges is a collection of dataflow edges in an Arc graph.
-type Edges = latest.Edges
+type Edges = ir.Edges
 
 // Functions is a collection of function definitions in an Arc module.
-type Functions = latest.Functions
+type Functions = ir.Functions
 
 // Nodes is a collection of node instantiations in an Arc module.
-type Nodes = latest.Nodes
+type Nodes = ir.Nodes
 
 // Members is an ordered collection of Scope members, one per position.
-type Members = latest.Members
+type Members = ir.Members
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
-type EdgeKind = latest.EdgeKind
+type EdgeKind = ir.EdgeKind
 
 // ScopeMode defines the concurrency model of a Scope.
-type ScopeMode = latest.ScopeMode
+type ScopeMode = ir.ScopeMode
 
 // Liveness defines whether a Scope is continuously active or must be activated.
-type Liveness = latest.Liveness
+type Liveness = ir.Liveness
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
-type Handle = latest.Handle
+type Handle = ir.Handle
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge = latest.Edge
+type Edge = ir.Edge
 
 // Transition is a declarative state-transition rule on a sequential Scope.
-type Transition = latest.Transition
+type Transition = ir.Transition
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
 // nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
 // transitions) is derived from the set variant via Member.key().
-type Member = latest.Member
+type Member = ir.Member
 
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members
 // into strata; sequential scopes run one step at a time and advance via transitions.
-type Scope = latest.Scope
+type Scope = ir.Scope
 
 // Body is raw function body source code with optional parsed AST.
-type Body = latest.Body
+type Body = ir.Body
 
 // Function is a function template definition with typed parameters, serving as a
 // blueprint for node instantiation.
-type Function = latest.Function
+type Function = ir.Function
 
 // Node is a concrete instantiation of a function with typed parameters and values.
-type Node = latest.Node
+type Node = ir.Node
 
 // Authorities holds the static authority declarations from an Arc program.
-type Authorities = latest.Authorities
+type Authorities = ir.Authorities
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
-type IR = latest.IR
+type IR = ir.IR
 
 const (
-	EdgeKindUnspecified  = latest.EdgeKindUnspecified
-	EdgeKindContinuous   = latest.EdgeKindContinuous
-	EdgeKindConditional  = latest.EdgeKindConditional
-	ScopeModeUnspecified = latest.ScopeModeUnspecified
-	ScopeModeParallel    = latest.ScopeModeParallel
-	ScopeModeSequential  = latest.ScopeModeSequential
-	LivenessUnspecified  = latest.LivenessUnspecified
-	LivenessAlways       = latest.LivenessAlways
-	LivenessGated        = latest.LivenessGated
+	EdgeKindUnspecified  = ir.EdgeKindUnspecified
+	EdgeKindContinuous   = ir.EdgeKindContinuous
+	EdgeKindConditional  = ir.EdgeKindConditional
+	ScopeModeUnspecified = ir.ScopeModeUnspecified
+	ScopeModeParallel    = ir.ScopeModeParallel
+	ScopeModeSequential  = ir.ScopeModeSequential
+	LivenessUnspecified  = ir.LivenessUnspecified
+	LivenessAlways       = ir.LivenessAlways
+	LivenessGated        = ir.LivenessGated
 )

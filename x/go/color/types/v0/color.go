@@ -16,18 +16,9 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/x/zyn"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
-
-// Schema is a zyn schema for parsing a color.
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"r": zyn.Number().Uint8().Coerce(),
-	"g": zyn.Number().Uint8().Coerce(),
-	"b": zyn.Number().Uint8().Coerce(),
-	"a": zyn.Number().Float64().Coerce(),
-})
 
 // IsZero returns true if the color is the zero value for its type.
 func (c Color) IsZero() bool { return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0 }

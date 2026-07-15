@@ -11,26 +11,26 @@
 
 package table
 
-import latest "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
+import table "github.com/synnaxlabs/synnax/pkg/service/table/types"
 
 // Key is a unique identifier for a table, represented as a UUID.
-type Key = latest.Key
+type Key = table.Key
 
 // Cell is a single cell in a table, identified by key and variant.
-type Cell = latest.Cell
+type Cell = table.Cell
 
 // CellTemplate is a variant + props pair describing what a cell should look like,
 // without identifying which cell. Used by actions that overwrite existing cells in
 // place (EraseCells), where the target cell's key is provided separately.
-type CellTemplate = latest.CellTemplate
+type CellTemplate = table.CellTemplate
 
 // Row is a single row in a table, with height and ordered cell keys.
-type Row = latest.Row
+type Row = table.Row
 
 // Column is a single column in a table, with width.
-type Column = latest.Column
+type Column = table.Column
 
 // Table is a tabular data display component for viewing structured telemetry data.
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
-type Table = latest.Table
+type Table = table.Table

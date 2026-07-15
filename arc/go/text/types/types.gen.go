@@ -11,12 +11,12 @@
 
 package types
 
-import latest "github.com/synnaxlabs/arc/text/types/v1"
+import text "github.com/synnaxlabs/arc/text/types/v1"
 
 // Document is the conflict-free replicated representation of the text: the operations
 // that reconstruct it when applied to an empty replica. It is the durable source of
 // truth from which raw is materialized.
-type Document = latest.Document
+type Document = text.Document
 
 // Text is text-based Arc source code with optional parsed AST for compilation.
-type Text = latest.Text
+type Text = text.Text

@@ -27,8 +27,10 @@ import (
 // package: a type alias for every type generated into the current types/vN
 // sub-package, plus const re-declarations for enum members and union
 // discriminator values. Methods travel with the aliased types, so the alias
-// package presents the full generated API. It serves both the package root
-// (package <resource>) and the types/ selector (package types).
+// package presents the full generated API. The types/ selector imports the
+// current version package and the root imports the selector — both under the
+// resource's name — so a version bump touches only the selector's import
+// line and the root never changes.
 type aliasFileGenerator struct {
 	// pathMap maps each version-laid-out root path to its current types/vN
 	// sub-path.
@@ -53,6 +55,7 @@ type aliasConst struct{ Name, Target string }
 
 type aliasData struct {
 	Package string
+	Alias   string
 	Import  string
 	Types   []aliasDecl
 	Consts  []aliasConst
@@ -92,16 +95,19 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 	}
 
 	emitPkg := pkg
+	importPath := ctx.OutputPath + "/types"
 	if g.pkg != "" {
 		emitPkg = g.pkg
+		importPath = versionedPath
 	}
 	ad := &aliasData{
 		Package: emitPkg,
-		Import:  resolveGoImportPath(versionedPath, ctx.RepoRoot),
+		Alias:   pkg,
+		Import:  resolveGoImportPath(importPath, ctx.RepoRoot),
 	}
 
 	addType := func(name, docStr string, tparams []resolution.TypeParam) {
-		lhs, rhs := name, "latest."+name
+		lhs, rhs := name, pkg+"."+name
 		params := resolution.NonDefaultedTypeParams(tparams)
 		if len(params) > 0 {
 			lhs += "["
@@ -144,7 +150,7 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		form := e.Form.(resolution.EnumForm)
 		for _, v := range form.Values {
 			member := name + naming.ToPascalCase(v.Name)
-			ad.Consts = append(ad.Consts, aliasConst{Name: member, Target: "latest." + member})
+			ad.Consts = append(ad.Consts, aliasConst{Name: member, Target: pkg + "." + member})
 		}
 	}
 
@@ -175,12 +181,12 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		for _, v := range form.Variants {
 			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
 			constName := discType + casing.PascalAcronym(v.Name)
-			ad.Consts = append(ad.Consts, aliasConst{Name: constName, Target: "latest." + constName})
+			ad.Consts = append(ad.Consts, aliasConst{Name: constName, Target: pkg + "." + constName})
 		}
 	}
 
 	// A path whose types are all @go omit generates no aliases; emitting the
-	// file would leave an unused latest import.
+	// file would leave an unused import.
 	if len(ad.Types) == 0 && len(ad.Consts) == 0 {
 		return "", nil
 	}
@@ -197,9 +203,7 @@ var aliasTemplate = template.Must(template.New("go-alias").
 
 package {{.Package}}
 
-import (
-	latest "{{.Import}}"
-)
+import {{.Alias}} "{{.Import}}"
 {{range .Types}}
 {{- if .Doc}}
 {{formatDoc .Name .Doc}}
