@@ -47,11 +47,11 @@ const NoVis = (): ReactElement => {
   const handleCreateNewVisualization = () => {
     placeLayout(createSelectorLayout());
   };
-  const createComponentEnabled = useSelectorVisible();
+  const createTabEnabled = useSelectorVisible();
   let message: string = "No visualization selected. Select a visualization";
-  if (!createComponentEnabled) message += ".";
+  if (!createTabEnabled) message += ".";
   else message += " or ";
-  const action = createComponentEnabled ? "create a new one." : undefined;
+  const action = createTabEnabled ? "create a new one." : undefined;
 
   return (
     <Toolbar.Content>
