@@ -907,9 +907,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 });
 
 const requireRange = (store: FluxSubStore, key: ranger.Key): ranger.Range => {
-  const schem = store.ranges.get(key);
-  if (schem == null) throw new NotFoundError(`Range with key ${key} not found`);
-  return schem;
+  const rng = store.ranges.get(key);
+  if (rng == null) throw new NotFoundError(`Range with key ${key} not found`);
+  return rng;
 };
 
 export interface SelectKeyParams {
