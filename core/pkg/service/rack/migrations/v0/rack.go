@@ -12,7 +12,7 @@ package v0
 import (
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v0"
 	"github.com/synnaxlabs/x/gorp"
 )

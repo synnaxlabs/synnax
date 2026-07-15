@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
@@ -29,7 +29,7 @@ import (
 // cover any input via the ontology.ID IsType matching rule.
 var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
 
-var _ = Describe("api/status SetByKeyOrName", func() {
+var _ = Describe("Service.SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
 		It("Should create a UUID-keyed row named after the input when nothing matches", func(ctx SpecContext) {
 			name := "api_set_fresh_" + uuid.New().String()

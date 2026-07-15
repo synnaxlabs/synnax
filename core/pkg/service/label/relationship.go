@@ -9,7 +9,7 @@
 
 package label
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+import "github.com/synnaxlabs/synnax/pkg/service/ontology"
 
 // OntologyRelationshipTypeLabeledBy indicates that a resource is labeled by another
 // resource. When examining a Relationship of type OntologyRelationshipTypeLabeledBy,

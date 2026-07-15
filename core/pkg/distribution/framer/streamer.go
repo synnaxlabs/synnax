@@ -72,8 +72,8 @@ const (
 	requestMultiplierAddr  address.Address = "request_multiplier"
 )
 
-func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
-	rel, err := s.relay.NewStreamer(ctx, cfg)
+func (s *Service) NewStreamer(cfg StreamerConfig) (Streamer, error) {
+	rel, err := s.relay.NewStreamer(cfg)
 	if err != nil {
 		return nil, err
 	}

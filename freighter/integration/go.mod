@@ -12,6 +12,7 @@ require (
 	github.com/gofiber/fiber/v3 v3.3.0
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.0
+	github.com/synnaxlabs/alamos v0.0.0
 	github.com/synnaxlabs/freighter v0.0.0
 	github.com/synnaxlabs/x v0.0.0
 	go.uber.org/zap v1.28.0
@@ -48,7 +49,6 @@ require (
 	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/samber/lo v1.53.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20250924091648-bce9a52d7761 // indirect
-	github.com/synnaxlabs/alamos v0.0.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/uptrace/uptrace-go v1.43.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type binary, errors, type url } from "@synnaxlabs/x";
+import { binary, errors, type url } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -22,6 +22,13 @@ import { type UnaryClient } from "@/unary";
 
 export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 const ACCEPT_HEADER_KEY = "Accept";
+
+/**
+ * The prefix freighter servers require on query-string parameters that should be
+ * exposed to handlers as request params. Unprefixed query parameters are ignored so
+ * arbitrary query strings never leak into the request context.
+ */
+export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
@@ -66,6 +73,28 @@ const shouldCastToUnreachable = (
 };
 
 const HTTP_STATUS_BAD_REQUEST = 400;
+
+/**
+ * The single query parameter file transfer params travel on. The server exposes its
+ * value to the handler as the "params" request param.
+ */
+const PARAMS_QUERY_KEY = `${FREIGHTER_METADATA_PREFIX}params`;
+
+/**
+ * Appends options.params to target as a single percent-encoded query parameter,
+ * validated against options.paramsSchema and JSON-encoded with snake_case keys. Params
+ * are always JSON regardless of the transport's body codec — a query string cannot
+ * carry a binary encoding. Returns target unchanged when params are absent.
+ */
+const appendQueryParams = (
+  target: string,
+  { params, paramsSchema }: FileOptions,
+): string => {
+  if (params == null) return target;
+  const search = new URLSearchParams();
+  search.set(PARAMS_QUERY_KEY, binary.JSON_CODEC.encodeString(params, paramsSchema));
+  return `${target}?${search.toString()}`;
+};
 
 /**
  * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
@@ -129,10 +158,10 @@ export class HTTPClient
     return res;
   }
 
-  async upload<RS extends z.ZodType>(
+  async upload<RS extends z.ZodType, P extends z.ZodType = z.ZodType>(
     target: string,
     body: UploadBody,
-    { encoding }: FileOptions,
+    options: FileOptions<P>,
     resSchema: RS,
   ): Promise<z.infer<RS>> {
     let res: z.infer<RS> | null = null;
@@ -148,12 +177,16 @@ export class HTTPClient
           body,
           headers: {
             ...this.defaultHeaders,
-            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
+            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[options.encoding],
             ...ctx.params,
           },
           duplex: "half",
         };
-        const httpRes = await this.fetch(url, ctx.target, init);
+        const httpRes = await this.fetch(
+          url,
+          appendQueryParams(ctx.target, options),
+          init,
+        );
         const data = await httpRes.arrayBuffer();
         if (httpRes.ok) {
           res = this.encoder.decode<RS>(data, resSchema);
@@ -166,11 +199,11 @@ export class HTTPClient
     return res;
   }
 
-  async download<RQ extends z.ZodType>(
+  async download<RQ extends z.ZodType, P extends z.ZodType = z.ZodType>(
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
-    { encoding }: FileOptions,
+    options: FileOptions<P>,
   ): Promise<ReadableStream<Uint8Array>> {
     let stream: ReadableStream<Uint8Array> | null = null;
     const url = this.endpoint.child(target);
@@ -178,12 +211,12 @@ export class HTTPClient
       this.context(url),
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        const httpRes = await this.fetch(url, ctx.target, {
+        const httpRes = await this.fetch(url, appendQueryParams(ctx.target, options), {
           method: "POST",
           body: this.encoder.encode(req, reqSchema),
           headers: {
             ...this.defaultHeaders,
-            [ACCEPT_HEADER_KEY]: ENCODING_CONTENT_TYPES[encoding],
+            [ACCEPT_HEADER_KEY]: ENCODING_CONTENT_TYPES[options.encoding],
             ...ctx.params,
           },
         });
