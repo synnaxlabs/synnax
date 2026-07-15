@@ -19,9 +19,9 @@ import "schemas/synnax/status"
 
 Key uint32 {
     @doc value    """
-        is a unique identifier for a channel in the Synnax database. Composed
-        of a node key (first 12 bits) and a local key (last 20 bits),
-        enabling distributed assignment while maintaining global uniqueness.
+        is a unique identifier for a channel in the Synnax database. Composed of a node
+        key (first 12 bits) and a local key (last 20 bits), enabling distributed
+        assignment while maintaining global uniqueness.
     """
     @go output    "core/pkg/service/channel"
     @go omit
@@ -30,9 +30,9 @@ Key uint32 {
 
 LocalKey uint20 {
     @doc value """
-        is a 20-bit unsigned integer representing the locally-unique portion
-        of a channel key within a node. Combined with a node.Key to form the
-        global channel Key.
+        is a 20-bit unsigned integer representing the locally-unique portion of a
+        channel key within a node. Combined with a node.Key to form the global channel
+        Key.
     """
     @go output "core/pkg/service/channel"
     @go omit
@@ -92,8 +92,8 @@ Channel struct {
     }
     leaseholder node.Key            {
         @doc value """
-            is the node that holds the lease for this channel and is
-            authorized to accept writes.
+            is the node that holds the lease for this channel and is authorized to
+            accept writes.
         """
         @filter
     }
@@ -180,8 +180,7 @@ APIChannel struct {
     }
     leaseholder node.Key = 0 {
         @doc value """
-            is the node that holds the lease for this channel. Mostly
-            for internal use.
+            is the node that holds the lease for this channel. Mostly for internal use.
         """
     }
     data_type   telem.DataType      {
