@@ -94,12 +94,13 @@ export const dataTransferItem = async (
     const fileData = new TextDecoder().decode(buffer);
     const parsedData = JSON.parse(fileData);
     const projectKey = Session.Project.selectSelected(store.getState());
-    await ingestComponent(parsedData, entry.name, fileIngesters, {
+    await ingestComponent(parsedData, fileIngesters, {
       name,
       openTab,
       store: fluxStore,
       client,
       projectKey,
+      fileName: entry.name,
     });
     return;
   }

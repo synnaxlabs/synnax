@@ -26,7 +26,6 @@ import { Session } from "@/session";
 
 export const ingestComponent = async (
   data: unknown,
-  fileName: string,
   fileIngesters: FileIngesters,
   ctx: FileIngesterContext,
 ): Promise<void> => {
@@ -51,7 +50,7 @@ export const ingestComponent = async (
       if (e instanceof ZodError) continue;
       else throw errors.fromUnknown(e);
     }
-  throw new Error(`${fileName} cannot be imported.`);
+  throw new Error(`${ctx.fileName} cannot be imported.`);
 };
 
 const FILTERS = [{ name: "JSON", extensions: ["json"] }];
@@ -94,12 +93,13 @@ const importComponent = ({
       handleError(async () => {
         const data = await file.read();
         const name = trimFileName(file.name);
-        await ingestComponent(JSON.parse(data), name, fileIngesters, {
+        await ingestComponent(JSON.parse(data), fileIngesters, {
           name,
           openTab,
           store: fluxStore,
           client,
           projectKey: activeProjectKeyAfter,
+          fileName: file.name,
         });
       }, `Failed to import ${file.name}`),
     );
