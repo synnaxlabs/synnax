@@ -9,8 +9,10 @@
 
 export { Close, type CloseProps } from "@/tabs/Close";
 export { Content, type ContentProps } from "@/tabs/Content";
-export { Frame, type FrameProps } from "@/tabs/Frame";
+export { Frame, type FrameProps, KEY_ATTRIBUTE, KEY_SELECTOR } from "@/tabs/Frame";
 export {
+  LIST_ROLE,
+  LIST_SELECTOR,
   Selector,
   type SelectorOnDropParams,
   type SelectorProps,

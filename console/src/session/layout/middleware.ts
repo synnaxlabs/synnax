@@ -15,9 +15,9 @@ import type {
 } from "@reduxjs/toolkit";
 import { type project } from "@synnaxlabs/client";
 import { Drift, MAIN_WINDOW, selectWindowKey } from "@synnaxlabs/drift";
-import { Mosaic } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 
+import * as Mosaic from "@/session/layout/mosaic";
 import { select, selectSliceState } from "@/session/layout/selectors";
 import {
   MOSAIC_WINDOW_TYPE,
