@@ -125,8 +125,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-// pathHasJSONContent reports whether the plugin emits a json.gen.h for a path: at
-// least one non-omitted struct, union, or variable-length array wrapper lives there.
+// pathHasJSONContent reports whether the plugin emits a json.gen.h for a path: at least
+// one non-omitted struct, union, or variable-length array wrapper lives there.
 func pathHasJSONContent(structs, distinctTypes, unions []resolution.Type) bool {
 	for _, s := range structs {
 		if !omit.IsType(s, "cpp") {
