@@ -19,7 +19,7 @@ import (
 
 func TestLabelV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Label V0 Suite")
+	RunSpecs(t, "Label v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

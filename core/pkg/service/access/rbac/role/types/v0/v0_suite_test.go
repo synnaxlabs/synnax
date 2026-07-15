@@ -19,7 +19,7 @@ import (
 
 func TestRoleV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Role V0 Suite")
+	RunSpecs(t, "Role v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -19,7 +19,7 @@ import (
 
 func TestSpatialV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Spatial V0 Suite")
+	RunSpecs(t, "Spatial v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

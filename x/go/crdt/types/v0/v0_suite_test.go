@@ -19,7 +19,7 @@ import (
 
 func TestCrdtV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Crdt V0 Suite")
+	RunSpecs(t, "Crdt v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

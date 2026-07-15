@@ -19,7 +19,7 @@ import (
 
 func TestRackV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Rack V2 Suite")
+	RunSpecs(t, "Rack v2 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

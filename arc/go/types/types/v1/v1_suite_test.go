@@ -19,7 +19,7 @@ import (
 
 func TestGoV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go V1 Suite")
+	RunSpecs(t, "Go v1 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

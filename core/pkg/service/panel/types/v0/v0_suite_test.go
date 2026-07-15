@@ -19,7 +19,7 @@ import (
 
 func TestPanelV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Panel V0 Suite")
+	RunSpecs(t, "Panel v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

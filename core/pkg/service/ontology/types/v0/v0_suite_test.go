@@ -19,7 +19,7 @@ import (
 
 func TestOntologyV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ontology V0 Suite")
+	RunSpecs(t, "Ontology v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

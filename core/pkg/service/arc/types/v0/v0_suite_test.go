@@ -19,7 +19,7 @@ import (
 
 func TestV0Migration(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Arc Types V0 Suite")
+	RunSpecs(t, "Service Arc Types v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
