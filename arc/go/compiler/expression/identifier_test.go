@@ -161,6 +161,16 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI32GtS,
 			))
 		})
+
+		It("Should compile a reactive variable as a channel read", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I32()),
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "r")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).ToNot(BeEmpty())
+		})
 	})
 
 	Context("Function Parameters", func() {

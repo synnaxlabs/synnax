@@ -152,6 +152,84 @@ var _ = Describe("Statement", func() {
 				Expect(sym.Type).To(Equal(types.F32()))
 			})
 		})
+
+		Context("scoped declarations", func() {
+			// sensorChan lets reactive and alias declarations read a channel.
+			sensorChan := []symbol.Symbol{
+				{Kind: symbol.KindChannel, Name: "sensor", Type: types.Chan(types.F64())},
+			}
+			declareIn := func(
+				bCtx SpecContext, root *symbol.Symbol, code string,
+			) context.Context[parser.IVariableDeclarationContext] {
+				stmt := MustSucceed(parser.ParseStatement(code))
+				ctx := context.NewRoot(bCtx, stmt.VariableDeclaration(), root)
+				statement.AnalyzeVariableDeclaration(ctx)
+				return ctx
+			}
+
+			DescribeTable("classify the declared variable",
+				func(bCtx SpecContext, code, name string, classify func(*symbol.Symbol)) {
+					ctx := declareIn(bCtx, NewRoot(nil, sensorChan...), code)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					classify(MustSucceed(ctx.Scope.Resolve(ctx, name)))
+				},
+				Entry("folded literal", "gain := 42.0", "gain", func(s *symbol.Symbol) {
+					Expect(s.IsLiteral()).To(BeTrue())
+					Expect(s.DefaultValue).ToNot(BeNil())
+				}),
+				Entry("computed literal", "scaled := 2 * 3", "scaled", func(s *symbol.Symbol) {
+					Expect(s.IsLiteral()).To(BeTrue())
+				}),
+				Entry("bare-channel alias", "alias := sensor", "alias", func(s *symbol.Symbol) {
+					Expect(s.IsChannelReadWrite()).To(BeTrue())
+					Expect(s.SourceID).ToNot(BeNil())
+				}),
+				Entry("reactive expression", "derived := sensor + 1", "derived", func(s *symbol.Symbol) {
+					Expect(s.IsReactive()).To(BeTrue())
+				}),
+				Entry("stateful literal", "counter $= 0", "counter", func(s *symbol.Symbol) {
+					Expect(s.Kind).To(Equal(symbol.KindStatefulVariable))
+					Expect(s.IsLiteral()).To(BeTrue())
+				}),
+			)
+
+			DescribeTable("reject an invalid stateful initializer",
+				func(bCtx SpecContext, code string) {
+					ctx := declareIn(bCtx, NewRoot(nil, sensorChan...), code)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(
+						ContainSubstring("cannot be assigned to stateful"))
+				},
+				Entry("bare channel", "bad $= sensor"),
+				Entry("channel-read expression", "bad $= sensor + 1"),
+			)
+
+			It("keeps a bare alias to a literal a literal", func(bCtx SpecContext) {
+				root := NewRoot(nil, sensorChan...)
+				declareIn(bCtx, root, "gain := 42.0")
+				ctx := declareIn(bCtx, root, "mirror := gain")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(MustSucceed(ctx.Scope.Resolve(ctx, "mirror")).IsLiteral()).To(BeTrue())
+			})
+
+			It("rejects a stateful bound to a ':=' variable", func(bCtx SpecContext) {
+				root := NewRoot(nil)
+				declareIn(bCtx, root, "s $= 0")
+				ctx := declareIn(bCtx, root, "x := s")
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(
+					ContainSubstring("stateful variables cannot be assigned"))
+			})
+
+			It("rejects a stateful initialized from a non-literal value", func(bCtx SpecContext) {
+				root := NewRoot(nil)
+				declareIn(bCtx, root, "base i64 := 5")
+				ctx := declareIn(bCtx, root, "total i64 $= base")
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(
+					ContainSubstring("must be a literal value"))
+			})
+		})
 	})
 
 	Describe("Assignment", func() {

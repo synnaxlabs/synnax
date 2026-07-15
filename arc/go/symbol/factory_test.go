@@ -166,6 +166,43 @@ var _ = Describe("Factories", func() {
 	})
 })
 
+var _ = Describe("Value variable predicates", func() {
+	// rwChan builds the read+write channel type a bare-channel alias carries.
+	rwChan := func(elem types.Type) types.Type {
+		t := types.Chan(elem)
+		t.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+		return t
+	}
+	src := 7
+	DescribeTable("classify a symbol by kind and data type",
+		func(sym symbol.Symbol, valueVar, readWrite, reactive, literal, backsInternal bool) {
+			Expect(sym.IsValueVariable()).To(Equal(valueVar))
+			Expect(sym.IsChannelReadWrite()).To(Equal(readWrite))
+			Expect(sym.IsReactive()).To(Equal(reactive))
+			Expect(sym.IsLiteral()).To(Equal(literal))
+			Expect(sym.BacksInternalChannel()).To(Equal(backsInternal))
+		},
+		Entry("literal := variable",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: types.I32()},
+			true, false, false, true, true),
+		Entry("stateful $= variable",
+			symbol.Symbol{Kind: symbol.KindStatefulVariable, Type: types.F64()},
+			true, false, false, true, true),
+		Entry("bare-channel read/write alias",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: rwChan(types.F32()), SourceID: &src},
+			true, true, false, false, false),
+		Entry("reactive channel-read variable",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: types.ReadChan(types.F32())},
+			true, false, true, false, true),
+		Entry("channel symbol is not a value variable",
+			symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
+			false, false, false, false, false),
+		Entry("function symbol is not a value variable",
+			symbol.Symbol{Kind: symbol.KindFunction},
+			false, false, false, false, false),
+	)
+})
+
 type recordingResolver struct {
 	resolveCalls int
 	searchCalls  int

@@ -387,6 +387,46 @@ var _ = Describe("Sequence Analyzer", func() {
 				}
 				greeting := "hi"
 			`, "undefined symbol: greeting"),
+			Entry("compound assignment to a scoped variable is unsupported", `
+				sequence main {
+					level f64 := 0
+					level += 1
+					stage s1 {
+					}
+				}
+			`, "compound and indexed assignment"),
+			Entry("reassigning a bare channel with '='", `
+				sequence main {
+					stage s1 {
+						pressure = 1.0
+					}
+				}
+			`, "cannot use '='"),
+			Entry("rebinding a channel read/write to a literal", `
+				sequence main {
+					p := pressure
+					p = 5.0
+					stage s1 {
+					}
+				}
+			`, "the right-hand side must be a channel"),
+			Entry("rebinding a channel read/write to a value variable", `
+				sequence main {
+					p := pressure
+					level f64 := 0
+					p = level
+					stage s1 {
+					}
+				}
+			`, "the right-hand side must be a channel"),
+			Entry("rebinding a channel read/write to an undefined name", `
+				sequence main {
+					p := pressure
+					p = mystery
+					stage s1 {
+					}
+				}
+			`, "the right-hand side must be a channel"),
 		)
 	})
 
@@ -427,6 +467,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`),
+			Entry("rebinding a channel read/write to a same-type channel", `
+				sequence main {
+					p := pressure
+					p = valve_cmd
+					stage s1 {
+					}
+				}
+			`),
 			Entry("value variable read in a transition condition", `
 				sequence main {
 					threshold f64 := 10
@@ -451,6 +499,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "does not match"),
+			Entry("writing a flow into a reactive variable", `
+				sequence main {
+					r := pressure + 1
+					stage s1 {
+						pressure -> r
+					}
+				}
+			`, "read-only"),
 		)
 	})
 

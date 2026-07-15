@@ -167,6 +167,69 @@ var _ = Describe("Text", func() {
 			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
 		})
 
+		DescribeTable("Should lower reactive re-expression and alias rebind",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Nodes).ToNot(BeEmpty())
+			},
+			Entry("reactive variable reassigned to a new expression", `
+				sequence main {
+					r i64 := count_ch + 1
+					stage s1 {
+						r = count_ch + 2
+					}
+				}`),
+			Entry("channel read/write alias rebound to another channel", `
+				sequence main {
+					p := count_ch
+					stage s1 {
+						count_ch > 0 => s2
+					}
+					stage s2 {
+						p = out_ch
+					}
+				}`),
+			Entry("alias drives a flow after rebind", `
+				sequence main {
+					p := count_ch
+					stage s1 {
+						p -> sink_ch
+					}
+				}`),
+			Entry("reactive variable reassigned across two stages", `
+				sequence main {
+					r i64 := count_ch + 1
+					stage s1 {
+						count_ch > 5 => s2
+						r = count_ch + 2
+					}
+					stage s2 {
+						r = count_ch + 3
+					}
+				}`),
+			Entry("alias rebound in two stages", `
+				sequence main {
+					p := count_ch
+					stage s1 {
+						count_ch > 0 => s2
+						p = out_ch
+					}
+					stage s2 {
+						p = sink_ch
+					}
+				}`),
+			Entry("reactive variable feeds a flow and is reassigned", `
+				sequence main {
+					r i64 := count_ch + 1
+					stage s1 {
+						r -> out_ch
+						r = count_ch + 2
+					}
+				}`),
+		)
+
 		DescribeTable("Should seed a value variable's channel with its literal value",
 			func(ctx SpecContext, decl string, expected any) {
 				source := "sequence main {\n" + decl + "\n}"

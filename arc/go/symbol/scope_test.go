@@ -32,6 +32,17 @@ var _ = Describe("Scope", func() {
 			s := symbol.NewRoot(StaticResolver{ch}, nil)
 			Expect(MustSucceed(s.Resolve(bCtx, "ch")).Name).To(Equal("ch"))
 		})
+
+		It("Should resolve lexically through a resolver set after construction", func(bCtx SpecContext) {
+			enc := symbol.NewRoot(nil, nil)
+			MustSucceed(enc.Add(bCtx, symbol.Symbol{
+				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+			}))
+			fn := symbol.NewRoot(nil, nil)
+			fn.SetLexicalResolver(enc)
+			Expect(MustSucceed(fn.Resolve(bCtx, "shared")).Name).To(Equal("shared"))
+			Expect(MustSucceed(fn.Search(bCtx, "shared"))).ToNot(BeEmpty())
+		})
 	})
 
 	Describe("Add", func() {
