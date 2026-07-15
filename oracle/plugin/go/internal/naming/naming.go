@@ -122,11 +122,31 @@ func LowerFirst(s string) string {
 func DerivePackageName(outputPath string) string { return filepath.Base(outputPath) }
 
 // DerivePackageAlias creates a unique alias for an imported package to avoid
-// conflicts. For version packages (e.g., "graph/types/v53"), the grandparent
-// directory name is prepended to distinguish between packages at the same
-// version across different source packages. Otherwise, if the base name
-// conflicts with the current package, it prepends the parent directory.
+// conflicts. Version packages (e.g., "spatial/types/v0") alias to the resource
+// name ("spatial"). Otherwise, if the base name conflicts with the current
+// package, it prepends the parent directory.
 func DerivePackageAlias(outputPath, currentPackage string) string {
+	base := filepath.Base(outputPath)
+	parent := filepath.Base(filepath.Dir(outputPath))
+	if parent == "types" || parent == "migrations" || parent == "legacy" {
+		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
+		// A resource itself named "types" (nested types/types) collides with root
+		// imports of that resource, so it keeps the versioned form.
+		if grandparent == "types" {
+			return DeriveVersionedAlias(outputPath, currentPackage)
+		}
+		return keywords.Escape(grandparent)
+	}
+	if base == currentPackage {
+		return parent + base
+	}
+	return base
+}
+
+// DeriveVersionedAlias is DerivePackageAlias, except version packages keep the
+// version suffix ("spatialv0"). Migration files import two versions of the same
+// resource and need the suffix to disambiguate.
+func DeriveVersionedAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
 	parent := filepath.Base(filepath.Dir(outputPath))
 	if parent == "types" || parent == "migrations" || parent == "legacy" {

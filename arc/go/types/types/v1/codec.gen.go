@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (c Channels) EncodeOrc(w *orc.Writer) error {
 	w.Bool(c.Read != nil)
 	if c.Read != nil {
@@ -37,6 +38,7 @@ func (c Channels) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (c *Channels) DecodeOrc(r *orc.Reader) error {
 	{
 		present, err := r.Bool()
@@ -89,6 +91,7 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (d Dimensions) EncodeOrc(w *orc.Writer) error {
 	w.Int8(int8(d.Length))
 	w.Int8(int8(d.Mass))
@@ -101,6 +104,7 @@ func (d Dimensions) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if d.Length, err = r.Int8(); err != nil {
@@ -130,6 +134,7 @@ func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
 	w.Bool(fp.Inputs != nil)
 	if fp.Inputs != nil {
@@ -152,6 +157,7 @@ func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -196,6 +202,7 @@ func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (p Param) EncodeOrc(w *orc.Writer) error {
 	w.String(p.Name)
 	if err := p.Type.EncodeOrc(w); err != nil {
@@ -211,6 +218,7 @@ func (p Param) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (p *Param) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -235,6 +243,7 @@ func (p *Param) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (t Type) EncodeOrc(w *orc.Writer) error {
 	w.Bool(t.Inputs != nil)
 	if t.Inputs != nil {
@@ -284,6 +293,7 @@ func (t Type) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (t *Type) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -385,6 +395,7 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (u Unit) EncodeOrc(w *orc.Writer) error {
 	if err := u.Dimensions.EncodeOrc(w); err != nil {
 		return err
@@ -394,6 +405,7 @@ func (u Unit) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (u *Unit) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = u.Dimensions.DecodeOrc(r); err != nil {

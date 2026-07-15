@@ -12,12 +12,13 @@
 package v0
 
 import (
-	nodev0 "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
-	controlv0 "github.com/synnaxlabs/x/control/types/v0"
+	node "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
+	control "github.com/synnaxlabs/x/control/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v1"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (c Channel) EncodeOrc(w *orc.Writer) error {
 	w.String(c.Name)
 	w.Uint16(uint16(c.Leaseholder))
@@ -41,6 +42,7 @@ func (c Channel) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (c *Channel) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if c.Name, err = r.String(); err != nil {
@@ -51,14 +53,14 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		c.Leaseholder = nodev0.Key(v)
+		c.Leaseholder = node.Key(v)
 	}
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		c.DataType = telemv1.DataType(v)
+		c.DataType = telem.DataType(v)
 	}
 	if c.IsIndex, err = r.Bool(); err != nil {
 		return err
@@ -85,7 +87,7 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		c.Concurrency = controlv0.Concurrency(v)
+		c.Concurrency = control.Concurrency(v)
 	}
 	if c.Internal, err = r.Bool(); err != nil {
 		return err
@@ -114,6 +116,7 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (o Operation) EncodeOrc(w *orc.Writer) error {
 	w.String(string(o.Type))
 	w.Uint32(uint32(o.ResetChannel))
@@ -121,6 +124,7 @@ func (o Operation) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (o *Operation) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.String()
@@ -141,7 +145,7 @@ func (o *Operation) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		o.Duration = telemv1.TimeSpan(v)
+		o.Duration = telem.TimeSpan(v)
 	}
 	return nil
 }

@@ -12,10 +12,11 @@
 package v1
 
 import (
-	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	color "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (rv Range) EncodeOrc(w *orc.Writer) error {
 	w.Write(rv.Key[:])
 	w.String(rv.Name)
@@ -33,6 +34,7 @@ func (rv Range) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (rv *Range) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -54,7 +56,7 @@ func (rv *Range) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv colorv0.Color
+			var hv color.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}

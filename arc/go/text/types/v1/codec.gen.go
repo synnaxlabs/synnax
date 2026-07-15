@@ -12,10 +12,11 @@
 package v1
 
 import (
-	crdtv0 "github.com/synnaxlabs/x/crdt/types/v0"
+	crdt "github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (d Document) EncodeOrc(w *orc.Writer) error {
 	w.Bool(d.Inserts != nil)
 	if d.Inserts != nil {
@@ -38,6 +39,7 @@ func (d Document) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (d *Document) DecodeOrc(r *orc.Reader) error {
 	{
 		present, err := r.Bool()
@@ -49,7 +51,7 @@ func (d *Document) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			d.Inserts = make([]crdtv0.Insert, n)
+			d.Inserts = make([]crdt.Insert, n)
 			for i := range d.Inserts {
 				if err = d.Inserts[i].DecodeOrc(r); err != nil {
 					return err
@@ -67,7 +69,7 @@ func (d *Document) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			d.Deletes = make([]crdtv0.Delete, n)
+			d.Deletes = make([]crdt.Delete, n)
 			for i := range d.Deletes {
 				if err = d.Deletes[i].DecodeOrc(r); err != nil {
 					return err
@@ -78,6 +80,7 @@ func (d *Document) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (t Text) EncodeOrc(w *orc.Writer) error {
 	if err := t.Doc.EncodeOrc(w); err != nil {
 		return err
@@ -85,6 +88,7 @@ func (t Text) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (t *Text) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = t.Doc.DecodeOrc(r); err != nil {

@@ -12,40 +12,40 @@
 package channel
 
 import (
-	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	nodev0 "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
-	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
-	controlv0 "github.com/synnaxlabs/x/control/types/v0"
-	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+	node "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	control "github.com/synnaxlabs/x/control/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v1"
 	"github.com/synnaxlabs/x/validate"
 	gotypes "go/types"
 	"strconv"
 )
 
 // Status is channel-specific status information.
-type Status = statusv2.Status[gotypes.Nil]
+type Status = status.Status[gotypes.Nil]
 
 // Channel is a logical collection of samples emitted by or representing values from a
 // single source. Channels are the fundamental unit of telemetry storage and streaming
 // in Synnax.
 type Channel struct {
 	// Key is the unique identifier for this channel, automatically assigned by Synnax.
-	Key channelv0.Key `json:"key" msgpack:"key"`
+	Key channel.Key `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
-	Name channelv0.Name `json:"name" msgpack:"name"`
+	Name channel.Name `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel. Mostly for
 	// internal use.
-	Leaseholder nodev0.Key `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel (e.g., Float64, Int32,
 	// TimeStamp).
-	DataType telemv1.DataType `json:"data_type" msgpack:"data_type"`
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this is an index channel. Index channels must have int64 values
 	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
 	// nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Index is the channel used to index this channel's values, associating each value with
 	// a timestamp.
-	Index channelv0.Key `json:"index" msgpack:"index"`
+	Index channel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
 	Alias *string `json:"alias,omitempty" msgpack:"alias,omitempty"`
 	// Virtual is true if this channel does not store data in the database but can still be
@@ -58,14 +58,16 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
-	Operations []channelv0.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
+	Operations []channel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
 	// channels can have a policy of shared concurrency.
-	Concurrency controlv0.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	for i := range c.Operations {

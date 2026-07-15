@@ -13,10 +13,10 @@ package v1
 
 import (
 	"github.com/google/uuid"
-	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	colorv0 "github.com/synnaxlabs/x/color/types/v0"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
-	textv0 "github.com/synnaxlabs/x/text/types/v0"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+	color "github.com/synnaxlabs/x/color/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
+	text "github.com/synnaxlabs/x/text/types/v0"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -123,17 +123,20 @@ func (y YAxisKey) IsValid() bool {
 // Title is the plot title configuration.
 type Title struct {
 	// Level is the typography level of the title text.
-	Level textv0.Level `json:"level" msgpack:"level"`
+	Level text.Level `json:"level" msgpack:"level"`
 	// Visible is whether the title is shown above the plot.
 	Visible bool `json:"visible" msgpack:"visible"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *Title) ApplyDefaults() {
 	if t.Level == "" {
-		t.Level = textv0.LevelH4
+		t.Level = text.LevelH4
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (t Title) Validate() error {
 	v := validate.New("Title")
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
@@ -146,9 +149,10 @@ type Legend struct {
 	// shown.
 	Hidden bool `json:"hidden" msgpack:"hidden"`
 	// Position is the anchor position of the legend within the plot container.
-	Position spatialv0.StickyXY `json:"position" msgpack:"position"`
+	Position spatial.StickyXY `json:"position" msgpack:"position"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Legend) ApplyDefaults() {
 	if l.Position.X == 0 {
 		l.Position.X = 50
@@ -157,20 +161,22 @@ func (l *Legend) ApplyDefaults() {
 		l.Position.Y = 50
 	}
 	if l.Position.Root.X == "" {
-		l.Position.Root.X = spatialv0.XLocationLeft
+		l.Position.Root.X = spatial.XLocationLeft
 	}
 	if l.Position.Root.Y == "" {
-		l.Position.Root.Y = spatialv0.YLocationTop
+		l.Position.Root.Y = spatial.YLocationTop
 	}
 	if l.Position.Units.X == "" {
-		l.Position.Units.X = spatialv0.StickyUnitPx
+		l.Position.Units.X = spatial.StickyUnitPx
 	}
 	if l.Position.Units.Y == "" {
-		l.Position.Units.Y = spatialv0.StickyUnitPx
+		l.Position.Units.Y = spatial.StickyUnitPx
 	}
 	l.Position.ApplyDefaults()
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (l Legend) Validate() error {
 	v := validate.New("Legend")
 	v.Exec(func() error { return validate.PathedError(l.Position.Validate(), "position") })
@@ -181,17 +187,17 @@ func (l Legend) Validate() error {
 // carry zero or more channels each.
 type Channels struct {
 	// X1 is the channel rendered on the x1 axis.
-	X1 channelv0.Key `json:"x1" msgpack:"x1"`
+	X1 channel.Key `json:"x1" msgpack:"x1"`
 	// X2 is the channel rendered on the x2 axis.
-	X2 channelv0.Key `json:"x2" msgpack:"x2"`
+	X2 channel.Key `json:"x2" msgpack:"x2"`
 	// Y1 are the channels rendered on the y1 axis.
-	Y1 []channelv0.Key `json:"y1,omitzero" msgpack:"y1,omitzero"`
+	Y1 []channel.Key `json:"y1,omitzero" msgpack:"y1,omitzero"`
 	// Y2 are the channels rendered on the y2 axis.
-	Y2 []channelv0.Key `json:"y2,omitzero" msgpack:"y2,omitzero"`
+	Y2 []channel.Key `json:"y2,omitzero" msgpack:"y2,omitzero"`
 	// Y3 are the channels rendered on the y3 axis.
-	Y3 []channelv0.Key `json:"y3,omitzero" msgpack:"y3,omitzero"`
+	Y3 []channel.Key `json:"y3,omitzero" msgpack:"y3,omitzero"`
 	// Y4 are the channels rendered on the y4 axis.
-	Y4 []channelv0.Key `json:"y4,omitzero" msgpack:"y4,omitzero"`
+	Y4 []channel.Key `json:"y4,omitzero" msgpack:"y4,omitzero"`
 }
 
 // Ranges binds range keys to each x-axis.
@@ -223,13 +229,13 @@ type Axis struct {
 	// Label is the human-readable label rendered along the axis.
 	Label string `json:"label" msgpack:"label"`
 	// LabelDirection is the orientation in which the label text is laid out.
-	LabelDirection spatialv0.Direction `json:"label_direction" msgpack:"label_direction"`
+	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
 	// LabelLevel is the typography level of the label.
-	LabelLevel textv0.Level `json:"label_level" msgpack:"label_level"`
+	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
 	// Bounds is the value-space window of the axis. When the matching entry in
 	// manual_bounds is false the field is overwritten locally on every render; otherwise it
 	// is the user-set fixed bound.
-	Bounds spatialv0.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// ManualBounds controls per-edge manual bound override.
 	ManualBounds ManualBounds `json:"manual_bounds" msgpack:"manual_bounds"`
 	// TickSpacing is the target pixel distance between adjacent tick marks.
@@ -239,18 +245,21 @@ type Axis struct {
 	Type *TickType `json:"type,omitempty" msgpack:"type,omitempty"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *Axis) ApplyDefaults() {
 	if a.LabelDirection == "" {
-		a.LabelDirection = spatialv0.DirectionX
+		a.LabelDirection = spatial.DirectionX
 	}
 	if a.LabelLevel == "" {
-		a.LabelLevel = textv0.LevelSmall
+		a.LabelLevel = text.LevelSmall
 	}
 	if a.TickSpacing == 0 {
 		a.TickSpacing = 75
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (a Axis) Validate() error {
 	v := validate.New("Axis")
 	v.Ternaryf("key", !a.Key.IsValid(), "invalid key: %v", a.Key)
@@ -275,6 +284,7 @@ type Axes struct {
 	Y4 Axis `json:"y4" msgpack:"y4"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (a *Axes) ApplyDefaults() {
 	if a.X1.Key == "" {
 		a.X1.Key = AxisKeyX1
@@ -286,25 +296,25 @@ func (a *Axes) ApplyDefaults() {
 		a.Y1.Key = AxisKeyY1
 	}
 	if a.Y1.LabelDirection == "" {
-		a.Y1.LabelDirection = spatialv0.DirectionY
+		a.Y1.LabelDirection = spatial.DirectionY
 	}
 	if a.Y2.Key == "" {
 		a.Y2.Key = AxisKeyY2
 	}
 	if a.Y2.LabelDirection == "" {
-		a.Y2.LabelDirection = spatialv0.DirectionY
+		a.Y2.LabelDirection = spatial.DirectionY
 	}
 	if a.Y3.Key == "" {
 		a.Y3.Key = AxisKeyY3
 	}
 	if a.Y3.LabelDirection == "" {
-		a.Y3.LabelDirection = spatialv0.DirectionY
+		a.Y3.LabelDirection = spatial.DirectionY
 	}
 	if a.Y4.Key == "" {
 		a.Y4.Key = AxisKeyY4
 	}
 	if a.Y4.LabelDirection == "" {
-		a.Y4.LabelDirection = spatialv0.DirectionY
+		a.Y4.LabelDirection = spatial.DirectionY
 	}
 	a.X1.ApplyDefaults()
 	a.X2.ApplyDefaults()
@@ -314,6 +324,8 @@ func (a *Axes) ApplyDefaults() {
 	a.Y4.ApplyDefaults()
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (a Axes) Validate() error {
 	v := validate.New("Axes")
 	v.Exec(func() error { return validate.PathedError(a.X1.Validate(), "x1") })
@@ -335,7 +347,7 @@ type Line struct {
 	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
 	// Color is the line color. When null, the Console assigns one from the visualization
 	// palette at render time.
-	Color *colorv0.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 	// Downsample is the downsample factor applied before rendering. 1 means render every
@@ -345,6 +357,7 @@ type Line struct {
 	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Line) ApplyDefaults() {
 	if l.StrokeWidth == 0 {
 		l.StrokeWidth = 2
@@ -357,6 +370,8 @@ func (l *Line) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (l Line) Validate() error {
 	v := validate.New("Line")
 	v.Ternaryf("downsample_mode", !l.DownsampleMode.IsValid(), "invalid downsample_mode: %v", l.DownsampleMode)
@@ -371,7 +386,7 @@ type Rule struct {
 	Label string `json:"label" msgpack:"label"`
 	// Color is the display color of the rule. When null, the Console assigns a default at
 	// render time.
-	Color *colorv0.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`
 	// LineWidth is the rule line width in pixels.
@@ -384,12 +399,15 @@ type Rule struct {
 	Position float64 `json:"position" msgpack:"position"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *Rule) ApplyDefaults() {
 	if r.LineWidth == 0 {
 		r.LineWidth = 1
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (r Rule) Validate() error {
 	v := validate.New("Rule")
 	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid axis: %v", r.Axis)
@@ -421,6 +439,7 @@ type LinePlot struct {
 	Rules []Rule `json:"rules,omitzero" msgpack:"rules,omitzero"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *LinePlot) ApplyDefaults() {
 	l.Title.ApplyDefaults()
 	l.Legend.ApplyDefaults()
@@ -433,6 +452,8 @@ func (l *LinePlot) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
 	validate.NotEmptyString(v, "name", l.Name)

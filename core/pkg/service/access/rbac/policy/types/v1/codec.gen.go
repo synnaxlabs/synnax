@@ -12,11 +12,12 @@
 package v1
 
 import (
-	accessv0 "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	access "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (p Policy) EncodeOrc(w *orc.Writer) error {
 	w.Write(p.Key[:])
 	w.String(p.Name)
@@ -40,6 +41,7 @@ func (p Policy) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (p *Policy) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if _, err := r.Read(p.Key[:]); err != nil {
@@ -58,7 +60,7 @@ func (p *Policy) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Objects = make([]ontologyv0.ID, n)
+			p.Objects = make([]ontology.ID, n)
 			for i := range p.Objects {
 				if err = p.Objects[i].DecodeOrc(r); err != nil {
 					return err
@@ -76,14 +78,14 @@ func (p *Policy) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Actions = make([]accessv0.Action, n)
+			p.Actions = make([]access.Action, n)
 			for i := range p.Actions {
 				{
 					v, err := r.String()
 					if err != nil {
 						return err
 					}
-					p.Actions[i] = accessv0.Action(v)
+					p.Actions[i] = access.Action(v)
 				}
 			}
 		}

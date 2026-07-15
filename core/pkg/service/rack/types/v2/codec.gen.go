@@ -18,6 +18,7 @@ import (
 	msgpack "github.com/vmihailenco/msgpack/v5"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(rv.Key))
 	w.String(rv.Name)
@@ -33,6 +34,7 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
@@ -72,11 +74,13 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(sd.Rack))
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.Uint32()
@@ -88,6 +92,7 @@ func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// DecodeMsgpack coerces numeric or string msgpack values into Key.
 func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
 	n, err := xmsgpack.UnmarshalUint32(dec)
 	if err != nil {
@@ -97,6 +102,7 @@ func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON coerces JSON numbers or strings into Key.
 func (kv *Key) UnmarshalJSON(b []byte) error {
 	n, err := xjson.UnmarshalStringUint32(b)
 	if err != nil {

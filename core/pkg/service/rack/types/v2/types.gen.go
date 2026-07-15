@@ -12,7 +12,7 @@
 package v2
 
 import (
-	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -24,7 +24,7 @@ import (
 type Key uint32
 
 // Status is rack-specific status information including operational state.
-type Status = statusv2.Status[StatusDetails]
+type Status = status.Status[StatusDetails]
 
 // StatusDetails contains rack-specific status details.
 type StatusDetails struct {
@@ -51,6 +51,8 @@ type Rack struct {
 	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (r Rack) Validate() error {
 	v := validate.New("Rack")
 	validate.NonZero(v, "key", r.Key)

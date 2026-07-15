@@ -12,9 +12,9 @@
 package v2
 
 import (
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
-	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -24,13 +24,13 @@ type Key = string
 
 // Status is device-specific status information including operational state and device
 // identification.
-type Status = statusv2.Status[StatusDetails]
+type Status = status.Status[StatusDetails]
 
 // StatusDetails contains device-specific status details identifying the device and its
 // associated rack.
 type StatusDetails struct {
 	// Rack is the key of the rack this device belongs to.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Device is the device identifier.
 	Device Key `json:"device" msgpack:"device"`
 }
@@ -42,7 +42,7 @@ type Device struct {
 	// Key is the unique identifier for this device.
 	Key Key `json:"key" msgpack:"key"`
 	// Rack is the key of the rack that owns this device.
-	Rack rackv2.Key `json:"rack" msgpack:"rack"`
+	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Location is the physical location or address of the device.
 	Location string `json:"location" msgpack:"location"`
 	// Make is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
@@ -61,9 +61,11 @@ type Device struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	// Parent is an optional parent resource ID for hierarchical device organization (e.g.,
 	// NI chassis containing modules).
-	Parent *ontologyv0.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (d Device) Validate() error {
 	v := validate.New("Device")
 	validate.NonZero(v, "rack", d.Rack)

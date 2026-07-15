@@ -13,10 +13,10 @@ package v1
 
 import (
 	"github.com/google/uuid"
-	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	colorv0 "github.com/synnaxlabs/x/color/types/v0"
-	notationv0 "github.com/synnaxlabs/x/notation/types/v0"
-	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+	color "github.com/synnaxlabs/x/color/types/v0"
+	notation "github.com/synnaxlabs/x/notation/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v1"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -27,11 +27,13 @@ type Key = uuid.UUID
 // TimestampConfig is per-channel timestamp display configuration.
 type TimestampConfig struct {
 	// Format controls how channel timestamps are rendered.
-	Format telemv1.TimestampFormat `json:"format" msgpack:"format"`
+	Format telem.TimestampFormat `json:"format" msgpack:"format"`
 	// Tz is the time zone used when rendering timestamps.
-	Tz telemv1.TimeZone `json:"tz" msgpack:"tz"`
+	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (t TimestampConfig) Validate() error {
 	v := validate.New("TimestampConfig")
 	v.Ternaryf("format", !t.Format.IsValid(), "invalid format: %v", t.Format)
@@ -42,11 +44,11 @@ func (t TimestampConfig) Validate() error {
 // ChannelEntry is a per-channel display configuration entry within a log.
 type ChannelEntry struct {
 	// Channel is the channel this entry references.
-	Channel channelv0.Key `json:"channel" msgpack:"channel"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
 	// Color is the display color for the channel.
-	Color colorv0.Color `json:"color" msgpack:"color"`
+	Color color.Color `json:"color" msgpack:"color"`
 	// Notation is the numeric notation used to render samples.
-	Notation notationv0.Notation `json:"notation" msgpack:"notation"`
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
 	// Precision is the number of decimal digits to display. -1 means "use the log-level
 	// precision"; 17 is the maximum significant digits for a float64.
 	Precision int32 `json:"precision" msgpack:"precision"`
@@ -56,6 +58,7 @@ type ChannelEntry struct {
 	Timestamp TimestampConfig `json:"timestamp" msgpack:"timestamp"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (c *ChannelEntry) ApplyDefaults() {
 	if c.Notation == "" {
 		c.Notation = "standard"
@@ -71,6 +74,8 @@ func (c *ChannelEntry) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
@@ -100,12 +105,15 @@ type Log struct {
 	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (l *Log) ApplyDefaults() {
 	for i := range l.Channels {
 		l.Channels[i].ApplyDefaults()
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
 	validate.NotEmptyString(v, "name", l.Name)

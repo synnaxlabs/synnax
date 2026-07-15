@@ -13,6 +13,7 @@ package v0
 
 import "github.com/synnaxlabs/x/encoding/orc"
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (o Output) EncodeOrc(w *orc.Writer) error {
 	w.Bool(o.WASM != nil)
 	if o.WASM != nil {
@@ -29,6 +30,7 @@ func (o Output) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (o *Output) DecodeOrc(r *orc.Reader) error {
 	{
 		present, err := r.Bool()

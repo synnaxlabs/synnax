@@ -14,11 +14,12 @@ package v2
 import (
 	"encoding/json"
 
-	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
+	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (e Edge) EncodeOrc(w *orc.Writer) error {
 	if err := e.Source.EncodeOrc(w); err != nil {
 		return err
@@ -31,6 +32,7 @@ func (e Edge) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (e *Edge) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = e.Source.DecodeOrc(r); err != nil {
@@ -44,7 +46,7 @@ func (e *Edge) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		e.Kind = irv2.EdgeKind(v)
+		e.Kind = ir.EdgeKind(v)
 	}
 	if e.Key, err = r.String(); err != nil {
 		return err
@@ -52,6 +54,7 @@ func (e *Edge) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (g Graph) EncodeOrc(w *orc.Writer) error {
 	w.Bool(g.Functions != nil)
 	if g.Functions != nil {
@@ -97,6 +100,7 @@ func (g Graph) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (g *Graph) DecodeOrc(r *orc.Reader) error {
 	{
 		present, err := r.Bool()
@@ -108,7 +112,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Functions = make([]irv2.Function, n)
+			g.Functions = make([]ir.Function, n)
 			for i := range g.Functions {
 				if err = g.Functions[i].DecodeOrc(r); err != nil {
 					return err
@@ -185,6 +189,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	if err := nv.Position.EncodeOrc(w); err != nil {
@@ -193,6 +198,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if nv.Key, err = r.String(); err != nil {

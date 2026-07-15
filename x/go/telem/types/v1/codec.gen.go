@@ -13,12 +13,14 @@ package v1
 
 import "github.com/synnaxlabs/x/encoding/orc"
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (tr TimeRange) EncodeOrc(w *orc.Writer) error {
 	w.Int64(int64(tr.Start))
 	w.Int64(int64(tr.End))
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (tr *TimeRange) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.Int64()

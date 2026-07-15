@@ -69,6 +69,8 @@ type ID struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (i ID) Validate() error {
 	v := validate.New("ID")
 	v.Ternaryf("type", !i.Type.IsValid(), "invalid type: %v", i.Type)

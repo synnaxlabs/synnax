@@ -33,6 +33,8 @@ type Project struct {
 	Layout msgpack.EncodedJSON `json:"layout,omitzero" msgpack:"layout,omitzero"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (p Project) Validate() error {
 	v := validate.New("Project")
 	validate.NotEmptyString(v, "name", p.Name)

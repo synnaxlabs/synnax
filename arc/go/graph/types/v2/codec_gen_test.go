@@ -18,11 +18,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph/types/v2"
-	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
+	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	gov1 "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 var _ = Describe("Codec", func() {
@@ -38,18 +38,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.Edge{
-				Edge: irv2.Edge{
-					Source: irv2.Handle{Node: "test_2", Param: "test_3"},
-					Target: irv2.Handle{Node: "test_5", Param: "test_6"},
-					Kind:   irv2.EdgeKind(0),
+				Edge: ir.Edge{
+					Source: ir.Handle{Node: "test_2", Param: "test_3"},
+					Target: ir.Handle{Node: "test_5", Param: "test_6"},
+					Kind:   ir.EdgeKind(0),
 				},
 				Key: "test_8",
 			}),
 			Entry("zero values", v2.Edge{
-				Edge: irv2.Edge{
-					Source: irv2.Handle{Node: "", Param: ""},
-					Target: irv2.Handle{Node: "", Param: ""},
-					Kind:   irv2.EdgeKind(0),
+				Edge: ir.Edge{
+					Source: ir.Handle{Node: "", Param: ""},
+					Target: ir.Handle{Node: "", Param: ""},
+					Kind:   ir.EdgeKind(0),
 				},
 				Key: "",
 			}),
@@ -67,10 +67,10 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.Graph{
-				Functions: []irv2.Function{
+				Functions: []ir.Function{
 					{
 						Key:  "test_2",
-						Body: irv2.Body{Raw: "test_4"},
+						Body: ir.Body{Raw: "test_4"},
 						Inputs: []gov1.Param{
 							{
 								Name: "test_6",
@@ -115,15 +115,15 @@ var _ = Describe("Codec", func() {
 				},
 				Edges: []v2.Edge{
 					{
-						Edge: irv2.Edge{
-							Source: irv2.Handle{Node: "test_34", Param: "test_35"},
-							Target: irv2.Handle{Node: "test_37", Param: "test_38"},
-							Kind:   irv2.EdgeKind(0),
+						Edge: ir.Edge{
+							Source: ir.Handle{Node: "test_34", Param: "test_35"},
+							Target: ir.Handle{Node: "test_37", Param: "test_38"},
+							Kind:   ir.EdgeKind(0),
 						},
 						Key: "test_40",
 					},
 				},
-				Nodes:  []v2.Node{{Key: "test_42", Position: spatialv0.XY{X: 44.5, Y: 45.5}}},
+				Nodes:  []v2.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
 				Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 			}),
 			Entry("zero values", v2.Graph{
@@ -133,7 +133,7 @@ var _ = Describe("Codec", func() {
 				Inputs:    nil,
 			}),
 			Entry("empty collections", v2.Graph{
-				Functions: []irv2.Function{},
+				Functions: []ir.Function{},
 				Edges:     []v2.Edge{},
 				Nodes:     []v2.Node{},
 				Inputs:    map[string]msgpack.EncodedJSON{},
@@ -151,18 +151,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v2.Node{Key: "test_1", Position: spatialv0.XY{X: 3.5, Y: 4.5}}),
-			Entry("zero values", v2.Node{Key: "", Position: spatialv0.XY{X: 0, Y: 0}}),
+			Entry("fully populated", v2.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}),
+			Entry("zero values", v2.Node{Key: "", Position: spatial.XY{X: 0, Y: 0}}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	e := v2.Edge{
-		Edge: irv2.Edge{
-			Source: irv2.Handle{Node: "test_2", Param: "test_3"},
-			Target: irv2.Handle{Node: "test_5", Param: "test_6"},
-			Kind:   irv2.EdgeKind(0),
+		Edge: ir.Edge{
+			Source: ir.Handle{Node: "test_2", Param: "test_3"},
+			Target: ir.Handle{Node: "test_5", Param: "test_6"},
+			Kind:   ir.EdgeKind(0),
 		},
 		Key: "test_8",
 	}
@@ -183,10 +183,10 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 
 func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	g := v2.Graph{
-		Functions: []irv2.Function{
+		Functions: []ir.Function{
 			{
 				Key:  "test_2",
-				Body: irv2.Body{Raw: "test_4"},
+				Body: ir.Body{Raw: "test_4"},
 				Inputs: []gov1.Param{
 					{
 						Name: "test_6",
@@ -231,15 +231,15 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 		},
 		Edges: []v2.Edge{
 			{
-				Edge: irv2.Edge{
-					Source: irv2.Handle{Node: "test_34", Param: "test_35"},
-					Target: irv2.Handle{Node: "test_37", Param: "test_38"},
-					Kind:   irv2.EdgeKind(0),
+				Edge: ir.Edge{
+					Source: ir.Handle{Node: "test_34", Param: "test_35"},
+					Target: ir.Handle{Node: "test_37", Param: "test_38"},
+					Kind:   ir.EdgeKind(0),
 				},
 				Key: "test_40",
 			},
 		},
-		Nodes:  []v2.Node{{Key: "test_42", Position: spatialv0.XY{X: 44.5, Y: 45.5}}},
+		Nodes:  []v2.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
 		Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 	}
 	w := orc.NewWriter(0)
@@ -258,7 +258,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeNode(b *testing.B) {
-	nv := v2.Node{Key: "test_1", Position: spatialv0.XY{X: 3.5, Y: 4.5}}
+	nv := v2.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -277,10 +277,10 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 func FuzzDecodeEdge(f *testing.F) {
 	{
 		seed := v2.Edge{
-			Edge: irv2.Edge{
-				Source: irv2.Handle{Node: "test_2", Param: "test_3"},
-				Target: irv2.Handle{Node: "test_5", Param: "test_6"},
-				Kind:   irv2.EdgeKind(0),
+			Edge: ir.Edge{
+				Source: ir.Handle{Node: "test_2", Param: "test_3"},
+				Target: ir.Handle{Node: "test_5", Param: "test_6"},
+				Kind:   ir.EdgeKind(0),
 			},
 			Key: "test_8",
 		}
@@ -292,10 +292,10 @@ func FuzzDecodeEdge(f *testing.F) {
 	}
 	{
 		seed := v2.Edge{
-			Edge: irv2.Edge{
-				Source: irv2.Handle{Node: "", Param: ""},
-				Target: irv2.Handle{Node: "", Param: ""},
-				Kind:   irv2.EdgeKind(0),
+			Edge: ir.Edge{
+				Source: ir.Handle{Node: "", Param: ""},
+				Target: ir.Handle{Node: "", Param: ""},
+				Kind:   ir.EdgeKind(0),
 			},
 			Key: "",
 		}
@@ -337,10 +337,10 @@ func FuzzDecodeEdge(f *testing.F) {
 func FuzzDecodeGraph(f *testing.F) {
 	{
 		seed := v2.Graph{
-			Functions: []irv2.Function{
+			Functions: []ir.Function{
 				{
 					Key:  "test_2",
-					Body: irv2.Body{Raw: "test_4"},
+					Body: ir.Body{Raw: "test_4"},
 					Inputs: []gov1.Param{
 						{
 							Name: "test_6",
@@ -385,15 +385,15 @@ func FuzzDecodeGraph(f *testing.F) {
 			},
 			Edges: []v2.Edge{
 				{
-					Edge: irv2.Edge{
-						Source: irv2.Handle{Node: "test_34", Param: "test_35"},
-						Target: irv2.Handle{Node: "test_37", Param: "test_38"},
-						Kind:   irv2.EdgeKind(0),
+					Edge: ir.Edge{
+						Source: ir.Handle{Node: "test_34", Param: "test_35"},
+						Target: ir.Handle{Node: "test_37", Param: "test_38"},
+						Kind:   ir.EdgeKind(0),
 					},
 					Key: "test_40",
 				},
 			},
-			Nodes:  []v2.Node{{Key: "test_42", Position: spatialv0.XY{X: 44.5, Y: 45.5}}},
+			Nodes:  []v2.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
 			Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 		}
 		w := orc.NewWriter(0)
@@ -417,7 +417,7 @@ func FuzzDecodeGraph(f *testing.F) {
 	}
 	{
 		seed := v2.Graph{
-			Functions: []irv2.Function{},
+			Functions: []ir.Function{},
 			Edges:     []v2.Edge{},
 			Nodes:     []v2.Node{},
 			Inputs:    map[string]msgpack.EncodedJSON{},
@@ -459,7 +459,7 @@ func FuzzDecodeGraph(f *testing.F) {
 
 func FuzzDecodeNode(f *testing.F) {
 	{
-		seed := v2.Node{Key: "test_1", Position: spatialv0.XY{X: 3.5, Y: 4.5}}
+		seed := v2.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -467,7 +467,7 @@ func FuzzDecodeNode(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Node{Key: "", Position: spatialv0.XY{X: 0, Y: 0}}
+		seed := v2.Node{Key: "", Position: spatial.XY{X: 0, Y: 0}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

@@ -13,7 +13,7 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	color "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -28,9 +28,11 @@ type Label struct {
 	// Name is a human-readable name for the label.
 	Name string `json:"name" msgpack:"name"`
 	// Color is the display color for visual identification of the label.
-	Color colorv0.Color `json:"color" msgpack:"color"`
+	Color color.Color `json:"color" msgpack:"color"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (l Label) Validate() error {
 	v := validate.New("Label")
 	validate.NotEmptyString(v, "name", l.Name)

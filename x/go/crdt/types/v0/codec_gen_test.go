@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 var _ = Describe("Codec", func() {
@@ -67,13 +67,13 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.Insert{
 				ID:     v0.ID{Replica: 3, Counter: 4},
 				Origin: v0.ID{Replica: 6, Counter: 7},
-				Side:   spatialv0.XLocation("left"),
+				Side:   spatial.XLocation("left"),
 				Char:   9,
 			}),
 			Entry("zero values", v0.Insert{
 				ID:     v0.ID{Replica: 0, Counter: 0},
 				Origin: v0.ID{Replica: 0, Counter: 0},
-				Side:   spatialv0.XLocation(""),
+				Side:   spatial.XLocation(""),
 				Char:   0,
 			}),
 		)
@@ -118,7 +118,7 @@ func BenchmarkEncodeDecodeInsert(b *testing.B) {
 	iv := v0.Insert{
 		ID:     v0.ID{Replica: 3, Counter: 4},
 		Origin: v0.ID{Replica: 6, Counter: 7},
-		Side:   spatialv0.XLocation("left"),
+		Side:   spatial.XLocation("left"),
 		Char:   9,
 	}
 	w := orc.NewWriter(0)
@@ -233,7 +233,7 @@ func FuzzDecodeInsert(f *testing.F) {
 		seed := v0.Insert{
 			ID:     v0.ID{Replica: 3, Counter: 4},
 			Origin: v0.ID{Replica: 6, Counter: 7},
-			Side:   spatialv0.XLocation("left"),
+			Side:   spatial.XLocation("left"),
 			Char:   9,
 		}
 		w := orc.NewWriter(0)
@@ -246,7 +246,7 @@ func FuzzDecodeInsert(f *testing.F) {
 		seed := v0.Insert{
 			ID:     v0.ID{Replica: 0, Counter: 0},
 			Origin: v0.ID{Replica: 0, Counter: 0},
-			Side:   spatialv0.XLocation(""),
+			Side:   spatial.XLocation(""),
 			Char:   0,
 		}
 		w := orc.NewWriter(0)

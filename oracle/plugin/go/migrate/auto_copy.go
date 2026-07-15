@@ -548,7 +548,7 @@ func (c *collector) addImport(goPath string) importEntry {
 	if imp, ok := c.imports[importPath]; ok {
 		return imp
 	}
-	imp := importEntry{Alias: naming.DerivePackageAlias(goPath, c.pkg), Path: importPath}
+	imp := importEntry{Alias: naming.DeriveVersionedAlias(goPath, c.pkg), Path: importPath}
 	c.imports[importPath] = imp
 	return imp
 }

@@ -13,9 +13,10 @@ package v0
 
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (d Delete) EncodeOrc(w *orc.Writer) error {
 	if err := d.ID.EncodeOrc(w); err != nil {
 		return err
@@ -23,6 +24,7 @@ func (d Delete) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (d *Delete) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = d.ID.DecodeOrc(r); err != nil {
@@ -31,12 +33,14 @@ func (d *Delete) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (id ID) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(id.Replica))
 	w.Uint32(uint32(id.Counter))
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (id *ID) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if id.Replica, err = r.Uint32(); err != nil {
@@ -48,6 +52,7 @@ func (id *ID) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (iv Insert) EncodeOrc(w *orc.Writer) error {
 	if err := iv.ID.EncodeOrc(w); err != nil {
 		return err
@@ -60,6 +65,7 @@ func (iv Insert) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (iv *Insert) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = iv.ID.DecodeOrc(r); err != nil {
@@ -73,7 +79,7 @@ func (iv *Insert) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		iv.Side = spatialv0.XLocation(v)
+		iv.Side = spatial.XLocation(v)
 	}
 	if iv.Char, err = r.Int32(); err != nil {
 		return err

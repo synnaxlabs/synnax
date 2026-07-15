@@ -17,8 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	compilerv0 "github.com/synnaxlabs/arc/compiler/types/v0"
-	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
+	compiler "github.com/synnaxlabs/arc/compiler/types/v0"
+	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	"github.com/synnaxlabs/arc/program/types/v2"
 	gov1 "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -37,11 +37,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v2.Program{
-				IR: irv2.IR{
-					Functions: []irv2.Function{
+				IR: ir.IR{
+					Functions: []ir.Function{
 						{
 							Key:  "test_2",
-							Body: irv2.Body{Raw: "test_4"},
+							Body: ir.Body{Raw: "test_4"},
 							Inputs: []gov1.Param{
 								{
 									Name: "test_6",
@@ -84,7 +84,7 @@ var _ = Describe("Codec", func() {
 							},
 						},
 					},
-					Nodes: []irv2.Node{
+					Nodes: []ir.Node{
 						{
 							Key:  "test_33",
 							Type: "test_34",
@@ -130,97 +130,97 @@ var _ = Describe("Codec", func() {
 							},
 						},
 					},
-					Edges: []irv2.Edge{
+					Edges: []ir.Edge{
 						{
-							Source: irv2.Handle{Node: "test_64", Param: "test_65"},
-							Target: irv2.Handle{Node: "test_67", Param: "test_68"},
-							Kind:   irv2.EdgeKind(0),
+							Source: ir.Handle{Node: "test_64", Param: "test_65"},
+							Target: ir.Handle{Node: "test_67", Param: "test_68"},
+							Kind:   ir.EdgeKind(0),
 						},
 					},
-					Authorities: irv2.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
-					Root: irv2.Scope{
+					Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
+					Root: ir.Scope{
 						Key:        "test_74",
-						Mode:       irv2.ScopeMode(0),
-						Liveness:   irv2.Liveness(0),
-						Activation: new(irv2.Handle{Node: "test_78", Param: "test_79"}),
-						Strata: [][]irv2.Member{
+						Mode:       ir.ScopeMode(0),
+						Liveness:   ir.Liveness(0),
+						Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
+						Strata: [][]ir.Member{
 							{
 								{
 									NodeKey: new(string("test_81")),
-									Scope: new(irv2.Scope{
+									Scope: new(ir.Scope{
 										Key:         "test_83",
-										Mode:        irv2.ScopeMode(0),
-										Liveness:    irv2.Liveness(0),
-										Activation:  new(irv2.Handle{}),
-										Strata:      [][]irv2.Member{{{}}},
-										Steps:       []irv2.Member{{}},
-										Transitions: []irv2.Transition{{}},
+										Mode:        ir.ScopeMode(0),
+										Liveness:    ir.Liveness(0),
+										Activation:  new(ir.Handle{}),
+										Strata:      [][]ir.Member{{{}}},
+										Steps:       []ir.Member{{}},
+										Transitions: []ir.Transition{{}},
 									}),
 								},
 							},
 						},
-						Steps: []irv2.Member{
+						Steps: []ir.Member{
 							{
 								NodeKey: new(string("test_91")),
-								Scope: new(irv2.Scope{
+								Scope: new(ir.Scope{
 									Key:         "test_93",
-									Mode:        irv2.ScopeMode(0),
-									Liveness:    irv2.Liveness(0),
-									Activation:  new(irv2.Handle{}),
-									Strata:      [][]irv2.Member{{{}}},
-									Steps:       []irv2.Member{{}},
-									Transitions: []irv2.Transition{{}},
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  new(ir.Handle{}),
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
 								}),
 							},
 						},
-						Transitions: []irv2.Transition{
+						Transitions: []ir.Transition{
 							{
-								On:        irv2.Handle{Node: "test_102", Param: "test_103"},
+								On:        ir.Handle{Node: "test_102", Param: "test_103"},
 								TargetKey: new(string("test_104")),
 							},
 						},
 					},
 				},
-				Output: compilerv0.Output{
+				Output: compiler.Output{
 					WASM:              []byte{105, 106, 107},
 					OutputMemoryBases: map[string]uint32{"test_106": 107},
 				},
 			}),
 			Entry("zero values", v2.Program{
-				IR: irv2.IR{
+				IR: ir.IR{
 					Functions:   nil,
 					Nodes:       nil,
 					Edges:       nil,
-					Authorities: irv2.Authorities{Default: nil, Channels: nil},
-					Root: irv2.Scope{
+					Authorities: ir.Authorities{Default: nil, Channels: nil},
+					Root: ir.Scope{
 						Key:         "",
-						Mode:        irv2.ScopeMode(0),
-						Liveness:    irv2.Liveness(0),
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
 						Activation:  nil,
 						Strata:      nil,
 						Steps:       nil,
 						Transitions: nil,
 					},
 				},
-				Output: compilerv0.Output{WASM: nil, OutputMemoryBases: nil},
+				Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 			}),
 			Entry("empty collections", v2.Program{
-				IR: irv2.IR{
-					Functions:   []irv2.Function{},
-					Nodes:       []irv2.Node{},
-					Edges:       []irv2.Edge{},
-					Authorities: irv2.Authorities{Default: new(uint8(6)), Channels: map[uint32]uint8{}},
-					Root: irv2.Scope{
+				IR: ir.IR{
+					Functions:   []ir.Function{},
+					Nodes:       []ir.Node{},
+					Edges:       []ir.Edge{},
+					Authorities: ir.Authorities{Default: new(uint8(6)), Channels: map[uint32]uint8{}},
+					Root: ir.Scope{
 						Key:         "test_8",
-						Mode:        irv2.ScopeMode(0),
-						Liveness:    irv2.Liveness(0),
-						Activation:  new(irv2.Handle{Node: "test_12", Param: "test_13"}),
-						Strata:      [][]irv2.Member{},
-						Steps:       []irv2.Member{},
-						Transitions: []irv2.Transition{},
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{Node: "test_12", Param: "test_13"}),
+						Strata:      [][]ir.Member{},
+						Steps:       []ir.Member{},
+						Transitions: []ir.Transition{},
 					},
 				},
-				Output: compilerv0.Output{
+				Output: compiler.Output{
 					WASM:              []byte{17, 18, 19},
 					OutputMemoryBases: map[string]uint32{},
 				},
@@ -231,11 +231,11 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeProgram(b *testing.B) {
 	p := v2.Program{
-		IR: irv2.IR{
-			Functions: []irv2.Function{
+		IR: ir.IR{
+			Functions: []ir.Function{
 				{
 					Key:  "test_2",
-					Body: irv2.Body{Raw: "test_4"},
+					Body: ir.Body{Raw: "test_4"},
 					Inputs: []gov1.Param{
 						{
 							Name: "test_6",
@@ -278,7 +278,7 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 					},
 				},
 			},
-			Nodes: []irv2.Node{
+			Nodes: []ir.Node{
 				{
 					Key:  "test_33",
 					Type: "test_34",
@@ -324,58 +324,58 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 					},
 				},
 			},
-			Edges: []irv2.Edge{
+			Edges: []ir.Edge{
 				{
-					Source: irv2.Handle{Node: "test_64", Param: "test_65"},
-					Target: irv2.Handle{Node: "test_67", Param: "test_68"},
-					Kind:   irv2.EdgeKind(0),
+					Source: ir.Handle{Node: "test_64", Param: "test_65"},
+					Target: ir.Handle{Node: "test_67", Param: "test_68"},
+					Kind:   ir.EdgeKind(0),
 				},
 			},
-			Authorities: irv2.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
-			Root: irv2.Scope{
+			Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
+			Root: ir.Scope{
 				Key:        "test_74",
-				Mode:       irv2.ScopeMode(0),
-				Liveness:   irv2.Liveness(0),
-				Activation: new(irv2.Handle{Node: "test_78", Param: "test_79"}),
-				Strata: [][]irv2.Member{
+				Mode:       ir.ScopeMode(0),
+				Liveness:   ir.Liveness(0),
+				Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
+				Strata: [][]ir.Member{
 					{
 						{
 							NodeKey: new(string("test_81")),
-							Scope: new(irv2.Scope{
+							Scope: new(ir.Scope{
 								Key:         "test_83",
-								Mode:        irv2.ScopeMode(0),
-								Liveness:    irv2.Liveness(0),
-								Activation:  new(irv2.Handle{}),
-								Strata:      [][]irv2.Member{{{}}},
-								Steps:       []irv2.Member{{}},
-								Transitions: []irv2.Transition{{}},
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
 							}),
 						},
 					},
 				},
-				Steps: []irv2.Member{
+				Steps: []ir.Member{
 					{
 						NodeKey: new(string("test_91")),
-						Scope: new(irv2.Scope{
+						Scope: new(ir.Scope{
 							Key:         "test_93",
-							Mode:        irv2.ScopeMode(0),
-							Liveness:    irv2.Liveness(0),
-							Activation:  new(irv2.Handle{}),
-							Strata:      [][]irv2.Member{{{}}},
-							Steps:       []irv2.Member{{}},
-							Transitions: []irv2.Transition{{}},
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
 						}),
 					},
 				},
-				Transitions: []irv2.Transition{
+				Transitions: []ir.Transition{
 					{
-						On:        irv2.Handle{Node: "test_102", Param: "test_103"},
+						On:        ir.Handle{Node: "test_102", Param: "test_103"},
 						TargetKey: new(string("test_104")),
 					},
 				},
 			},
 		},
-		Output: compilerv0.Output{
+		Output: compiler.Output{
 			WASM:              []byte{105, 106, 107},
 			OutputMemoryBases: map[string]uint32{"test_106": 107},
 		},
@@ -398,11 +398,11 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 func FuzzDecodeProgram(f *testing.F) {
 	{
 		seed := v2.Program{
-			IR: irv2.IR{
-				Functions: []irv2.Function{
+			IR: ir.IR{
+				Functions: []ir.Function{
 					{
 						Key:  "test_2",
-						Body: irv2.Body{Raw: "test_4"},
+						Body: ir.Body{Raw: "test_4"},
 						Inputs: []gov1.Param{
 							{
 								Name: "test_6",
@@ -445,7 +445,7 @@ func FuzzDecodeProgram(f *testing.F) {
 						},
 					},
 				},
-				Nodes: []irv2.Node{
+				Nodes: []ir.Node{
 					{
 						Key:  "test_33",
 						Type: "test_34",
@@ -491,58 +491,58 @@ func FuzzDecodeProgram(f *testing.F) {
 						},
 					},
 				},
-				Edges: []irv2.Edge{
+				Edges: []ir.Edge{
 					{
-						Source: irv2.Handle{Node: "test_64", Param: "test_65"},
-						Target: irv2.Handle{Node: "test_67", Param: "test_68"},
-						Kind:   irv2.EdgeKind(0),
+						Source: ir.Handle{Node: "test_64", Param: "test_65"},
+						Target: ir.Handle{Node: "test_67", Param: "test_68"},
+						Kind:   ir.EdgeKind(0),
 					},
 				},
-				Authorities: irv2.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
-				Root: irv2.Scope{
+				Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
+				Root: ir.Scope{
 					Key:        "test_74",
-					Mode:       irv2.ScopeMode(0),
-					Liveness:   irv2.Liveness(0),
-					Activation: new(irv2.Handle{Node: "test_78", Param: "test_79"}),
-					Strata: [][]irv2.Member{
+					Mode:       ir.ScopeMode(0),
+					Liveness:   ir.Liveness(0),
+					Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
+					Strata: [][]ir.Member{
 						{
 							{
 								NodeKey: new(string("test_81")),
-								Scope: new(irv2.Scope{
+								Scope: new(ir.Scope{
 									Key:         "test_83",
-									Mode:        irv2.ScopeMode(0),
-									Liveness:    irv2.Liveness(0),
-									Activation:  new(irv2.Handle{}),
-									Strata:      [][]irv2.Member{{{}}},
-									Steps:       []irv2.Member{{}},
-									Transitions: []irv2.Transition{{}},
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  new(ir.Handle{}),
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
 								}),
 							},
 						},
 					},
-					Steps: []irv2.Member{
+					Steps: []ir.Member{
 						{
 							NodeKey: new(string("test_91")),
-							Scope: new(irv2.Scope{
+							Scope: new(ir.Scope{
 								Key:         "test_93",
-								Mode:        irv2.ScopeMode(0),
-								Liveness:    irv2.Liveness(0),
-								Activation:  new(irv2.Handle{}),
-								Strata:      [][]irv2.Member{{{}}},
-								Steps:       []irv2.Member{{}},
-								Transitions: []irv2.Transition{{}},
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
 							}),
 						},
 					},
-					Transitions: []irv2.Transition{
+					Transitions: []ir.Transition{
 						{
-							On:        irv2.Handle{Node: "test_102", Param: "test_103"},
+							On:        ir.Handle{Node: "test_102", Param: "test_103"},
 							TargetKey: new(string("test_104")),
 						},
 					},
 				},
 			},
-			Output: compilerv0.Output{
+			Output: compiler.Output{
 				WASM:              []byte{105, 106, 107},
 				OutputMemoryBases: map[string]uint32{"test_106": 107},
 			},
@@ -555,22 +555,22 @@ func FuzzDecodeProgram(f *testing.F) {
 	}
 	{
 		seed := v2.Program{
-			IR: irv2.IR{
+			IR: ir.IR{
 				Functions:   nil,
 				Nodes:       nil,
 				Edges:       nil,
-				Authorities: irv2.Authorities{Default: nil, Channels: nil},
-				Root: irv2.Scope{
+				Authorities: ir.Authorities{Default: nil, Channels: nil},
+				Root: ir.Scope{
 					Key:         "",
-					Mode:        irv2.ScopeMode(0),
-					Liveness:    irv2.Liveness(0),
+					Mode:        ir.ScopeMode(0),
+					Liveness:    ir.Liveness(0),
 					Activation:  nil,
 					Strata:      nil,
 					Steps:       nil,
 					Transitions: nil,
 				},
 			},
-			Output: compilerv0.Output{WASM: nil, OutputMemoryBases: nil},
+			Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -580,22 +580,22 @@ func FuzzDecodeProgram(f *testing.F) {
 	}
 	{
 		seed := v2.Program{
-			IR: irv2.IR{
-				Functions:   []irv2.Function{},
-				Nodes:       []irv2.Node{},
-				Edges:       []irv2.Edge{},
-				Authorities: irv2.Authorities{Default: new(uint8(6)), Channels: map[uint32]uint8{}},
-				Root: irv2.Scope{
+			IR: ir.IR{
+				Functions:   []ir.Function{},
+				Nodes:       []ir.Node{},
+				Edges:       []ir.Edge{},
+				Authorities: ir.Authorities{Default: new(uint8(6)), Channels: map[uint32]uint8{}},
+				Root: ir.Scope{
 					Key:         "test_8",
-					Mode:        irv2.ScopeMode(0),
-					Liveness:    irv2.Liveness(0),
-					Activation:  new(irv2.Handle{Node: "test_12", Param: "test_13"}),
-					Strata:      [][]irv2.Member{},
-					Steps:       []irv2.Member{},
-					Transitions: []irv2.Transition{},
+					Mode:        ir.ScopeMode(0),
+					Liveness:    ir.Liveness(0),
+					Activation:  new(ir.Handle{Node: "test_12", Param: "test_13"}),
+					Strata:      [][]ir.Member{},
+					Steps:       []ir.Member{},
+					Transitions: []ir.Transition{},
 				},
 			},
-			Output: compilerv0.Output{
+			Output: compiler.Output{
 				WASM:              []byte{17, 18, 19},
 				OutputMemoryBases: map[string]uint32{},
 			},

@@ -379,7 +379,7 @@ func (g *generation) scaffoldIncoming(
 	oldImport := gomod.ResolveImportPath(
 		oldVersionedPath, g.req.RepoRoot, gomod.DefaultModulePrefix,
 	)
-	oldAlias := naming.DerivePackageAlias(oldVersionedPath, newDir)
+	oldAlias := naming.DeriveVersionedAlias(oldVersionedPath, newDir)
 	names := make([]string, 0, len(roots))
 	for name := range roots {
 		names = append(names, name)
@@ -649,9 +649,11 @@ func generateGorpEntryMethods(types []resolution.Type, migrateEntryNames set.Set
 			continue
 		}
 		recv := goName + formatTypeParamsRef(form.TypeParams)
-		_, _ = fmt.Fprintf(&buf, "\nfunc (e %s) GorpKey() %s { return e.%s }\n",
+		_, _ = fmt.Fprintf(&buf,
+			"\n// GorpKey implements gorp.Entry.\nfunc (e %s) GorpKey() %s { return e.%s }\n",
 			recv, keyFieldType, keyFieldGoName)
-		_, _ = fmt.Fprintf(&buf, "\nfunc (e %s) SetOptions() []any { return nil }\n",
+		_, _ = fmt.Fprintf(&buf,
+			"\n// SetOptions implements gorp.Entry.\nfunc (e %s) SetOptions() []any { return nil }\n",
 			recv)
 	}
 	return buf.Bytes()
@@ -792,7 +794,7 @@ func renderTypeMigrateTemplate(
 		newTypeName := naming.GetGoName(newType)
 		if newGoPath != mirroredPath {
 			ip := gomod.ResolveImportPath(newGoPath, repoRoot, gomod.DefaultModulePrefix)
-			alias := naming.DerivePackageAlias(newGoPath, pkg)
+			alias := naming.DeriveVersionedAlias(newGoPath, pkg)
 			importSet[ip] = versionImport{Alias: alias, Path: ip}
 			newTypeName = alias + "." + newTypeName
 		}

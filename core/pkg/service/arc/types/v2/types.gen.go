@@ -13,15 +13,15 @@ package v2
 
 import (
 	"github.com/google/uuid"
-	graphv2 "github.com/synnaxlabs/arc/graph/types/v2"
-	programv2 "github.com/synnaxlabs/arc/program/types/v2"
-	textv1 "github.com/synnaxlabs/arc/text/types/v1"
-	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	graph "github.com/synnaxlabs/arc/graph/types/v2"
+	program "github.com/synnaxlabs/arc/program/types/v2"
+	text "github.com/synnaxlabs/arc/text/types/v1"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Status is the status of an Arc module including execution state.
-type Status = statusv2.Status[StatusDetails]
+type Status = status.Status[StatusDetails]
 
 // Key is a unique identifier for an Arc module.
 type Key = uuid.UUID
@@ -61,15 +61,17 @@ type Arc struct {
 	// Arc code or "graph" for visual dataflow.
 	Mode Mode `json:"mode" msgpack:"mode"`
 	// Graph is the visual dataflow graph representation of the module.
-	Graph graphv2.Graph `json:"graph" msgpack:"graph"`
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
 	// Text is the text-based Arc source code.
-	Text textv1.Text `json:"text" msgpack:"text"`
+	Text text.Text `json:"text" msgpack:"text"`
 	// Program is the compiled module output including IR and WebAssembly bytecode.
-	Program *programv2.Program `json:"program,omitempty" msgpack:"program,omitempty"`
+	Program *program.Program `json:"program,omitempty" msgpack:"program,omitempty"`
 	// Status is the current execution status of the module.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (a Arc) Validate() error {
 	v := validate.New("Arc")
 	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)

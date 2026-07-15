@@ -12,10 +12,11 @@
 package v2
 
 import (
-	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
+	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (p Program) EncodeOrc(w *orc.Writer) error {
 	w.Bool(p.Functions != nil)
 	if p.Functions != nil {
@@ -65,6 +66,7 @@ func (p Program) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (p *Program) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
@@ -77,7 +79,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Functions = make([]irv2.Function, n)
+			p.Functions = make([]ir.Function, n)
 			for i := range p.Functions {
 				if err = p.Functions[i].DecodeOrc(r); err != nil {
 					return err
@@ -95,7 +97,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Nodes = make([]irv2.Node, n)
+			p.Nodes = make([]ir.Node, n)
 			for i := range p.Nodes {
 				if err = p.Nodes[i].DecodeOrc(r); err != nil {
 					return err
@@ -113,7 +115,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Edges = make([]irv2.Edge, n)
+			p.Edges = make([]ir.Edge, n)
 			for i := range p.Edges {
 				if err = p.Edges[i].DecodeOrc(r); err != nil {
 					return err

@@ -13,6 +13,7 @@ package v0
 
 import "github.com/synnaxlabs/x/encoding/orc"
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (rv Role) EncodeOrc(w *orc.Writer) error {
 	w.Write(rv.Key[:])
 	w.String(rv.Name)
@@ -21,6 +22,7 @@ func (rv Role) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (rv *Role) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if _, err := r.Read(rv.Key[:]); err != nil {

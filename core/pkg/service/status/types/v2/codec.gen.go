@@ -15,9 +15,10 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/x/encoding/orc"
-	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v1"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Key)
 	w.String(s.Name)
@@ -35,6 +36,7 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
@@ -61,7 +63,7 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		s.Time = telemv1.TimeStamp(v)
+		s.Time = telem.TimeStamp(v)
 	}
 	{
 		b, err := r.ReadWithLen()

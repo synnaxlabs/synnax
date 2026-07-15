@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	color "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -38,7 +38,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.Label{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
-				Color: colorv0.Color{
+				Color: color.Color{
 					R: 5,
 					G: 6,
 					B: 7,
@@ -48,7 +48,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Label{
 				Key:  uuid.Nil,
 				Name: "",
-				Color: colorv0.Color{
+				Color: color.Color{
 					R: 0,
 					G: 0,
 					B: 0,
@@ -63,7 +63,7 @@ func BenchmarkEncodeDecodeLabel(b *testing.B) {
 	lv := v0.Label{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
-		Color: colorv0.Color{
+		Color: color.Color{
 			R: 5,
 			G: 6,
 			B: 7,
@@ -90,7 +90,7 @@ func FuzzDecodeLabel(f *testing.F) {
 		seed := v0.Label{
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
-			Color: colorv0.Color{
+			Color: color.Color{
 				R: 5,
 				G: 6,
 				B: 7,
@@ -107,7 +107,7 @@ func FuzzDecodeLabel(f *testing.F) {
 		seed := v0.Label{
 			Key:  uuid.Nil,
 			Name: "",
-			Color: colorv0.Color{
+			Color: color.Color{
 				R: 0,
 				G: 0,
 				B: 0,

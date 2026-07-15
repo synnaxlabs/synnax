@@ -19,8 +19,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v1"
-	accessv0 "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	access "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -39,8 +39,8 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.Policy{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
-				Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
-				Actions:  []accessv0.Action{accessv0.Action("create")},
+				Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+				Actions:  []access.Action{access.Action("create")},
 				Internal: true,
 			}),
 			Entry("zero values", v1.Policy{
@@ -53,8 +53,8 @@ var _ = Describe("Codec", func() {
 			Entry("empty collections", v1.Policy{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
-				Objects:  []ontologyv0.ID{},
-				Actions:  []accessv0.Action{},
+				Objects:  []ontology.ID{},
+				Actions:  []access.Action{},
 				Internal: true,
 			}),
 		)
@@ -65,8 +65,8 @@ func BenchmarkEncodeDecodePolicy(b *testing.B) {
 	p := v1.Policy{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:     "test_2",
-		Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
-		Actions:  []accessv0.Action{accessv0.Action("create")},
+		Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+		Actions:  []access.Action{access.Action("create")},
 		Internal: true,
 	}
 	w := orc.NewWriter(0)
@@ -89,8 +89,8 @@ func FuzzDecodePolicy(f *testing.F) {
 		seed := v1.Policy{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
-			Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
-			Actions:  []accessv0.Action{accessv0.Action("create")},
+			Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+			Actions:  []access.Action{access.Action("create")},
 			Internal: true,
 		}
 		w := orc.NewWriter(0)
@@ -117,8 +117,8 @@ func FuzzDecodePolicy(f *testing.F) {
 		seed := v1.Policy{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
-			Objects:  []ontologyv0.ID{},
-			Actions:  []accessv0.Action{},
+			Objects:  []ontology.ID{},
+			Actions:  []access.Action{},
 			Internal: true,
 		}
 		w := orc.NewWriter(0)

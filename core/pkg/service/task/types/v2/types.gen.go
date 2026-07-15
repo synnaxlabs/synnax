@@ -12,7 +12,7 @@
 package v2
 
 import (
-	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -22,7 +22,7 @@ type Key uint64
 
 // Status is task-specific status information including execution state and
 // task-specific data.
-type Status = statusv2.Status[StatusDetails]
+type Status = status.Status[StatusDetails]
 
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {

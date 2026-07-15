@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
-	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -36,14 +36,14 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v2.Device{
 				Key:        "test_1",
-				Rack:       rackv2.Key(3),
+				Rack:       rack.Key(3),
 				Location:   "test_3",
 				Name:       "test_4",
 				Configured: true,
 			}),
 			Entry("zero values", v2.Device{
 				Key:        "",
-				Rack:       rackv2.Key(0),
+				Rack:       rack.Key(0),
 				Location:   "",
 				Name:       "",
 				Configured: false,
@@ -61,8 +61,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v2.StatusDetails{Rack: rackv2.Key(2), Device: "test_2"}),
-			Entry("zero values", v2.StatusDetails{Rack: rackv2.Key(0), Device: ""}),
+			Entry("fully populated", v2.StatusDetails{Rack: rack.Key(2), Device: "test_2"}),
+			Entry("zero values", v2.StatusDetails{Rack: rack.Key(0), Device: ""}),
 		)
 	})
 })
@@ -70,7 +70,7 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeDevice(b *testing.B) {
 	d := v2.Device{
 		Key:        "test_1",
-		Rack:       rackv2.Key(3),
+		Rack:       rack.Key(3),
 		Location:   "test_3",
 		Name:       "test_4",
 		Configured: true,
@@ -91,7 +91,7 @@ func BenchmarkEncodeDecodeDevice(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	sd := v2.StatusDetails{Rack: rackv2.Key(2), Device: "test_2"}
+	sd := v2.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -111,7 +111,7 @@ func FuzzDecodeDevice(f *testing.F) {
 	{
 		seed := v2.Device{
 			Key:        "test_1",
-			Rack:       rackv2.Key(3),
+			Rack:       rack.Key(3),
 			Location:   "test_3",
 			Name:       "test_4",
 			Configured: true,
@@ -125,7 +125,7 @@ func FuzzDecodeDevice(f *testing.F) {
 	{
 		seed := v2.Device{
 			Key:        "",
-			Rack:       rackv2.Key(0),
+			Rack:       rack.Key(0),
 			Location:   "",
 			Name:       "",
 			Configured: false,
@@ -167,7 +167,7 @@ func FuzzDecodeDevice(f *testing.F) {
 
 func FuzzDecodeStatusDetails(f *testing.F) {
 	{
-		seed := v2.StatusDetails{Rack: rackv2.Key(2), Device: "test_2"}
+		seed := v2.StatusDetails{Rack: rack.Key(2), Device: "test_2"}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -175,7 +175,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.StatusDetails{Rack: rackv2.Key(0), Device: ""}
+		seed := v2.StatusDetails{Rack: rack.Key(0), Device: ""}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

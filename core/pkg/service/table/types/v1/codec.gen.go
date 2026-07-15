@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (c Cell) EncodeOrc(w *orc.Writer) error {
 	w.String(c.Key)
 	w.String(c.Variant)
@@ -30,6 +31,7 @@ func (c Cell) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (c *Cell) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if c.Key, err = r.String(); err != nil {
@@ -50,11 +52,13 @@ func (c *Cell) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (c Column) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(c.Size))
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (c *Column) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if c.Size, err = r.Float64(); err != nil {
@@ -63,6 +67,7 @@ func (c *Column) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (rv Row) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(rv.Size))
 	w.Bool(rv.Cells != nil)
@@ -75,6 +80,7 @@ func (rv Row) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (rv *Row) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if rv.Size, err = r.Float64(); err != nil {
@@ -101,6 +107,7 @@ func (rv *Row) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (t Table) EncodeOrc(w *orc.Writer) error {
 	w.Write(t.Key[:])
 	w.String(t.Name)
@@ -135,6 +142,7 @@ func (t Table) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (t *Table) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if _, err := r.Read(t.Key[:]); err != nil {

@@ -14,7 +14,7 @@ package v1
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,7 +26,7 @@ type Node struct {
 	// Key is the unique node identifier within the schematic.
 	Key string `json:"key" msgpack:"key"`
 	// Position is the top-left position of the node.
-	Position spatialv0.XY `json:"position" msgpack:"position"`
+	Position spatial.XY `json:"position" msgpack:"position"`
 	// ZIndex is the stacking order of the node within the schematic. Higher values render
 	// above lower values. Set by the user via send-to-back / bring-to-front actions.
 	ZIndex int16 `json:"z_index" msgpack:"z_index"`
@@ -71,6 +71,8 @@ type Schematic struct {
 	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
 	validate.NotEmptyString(v, "name", s.Name)

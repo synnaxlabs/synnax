@@ -12,7 +12,7 @@
 package v0
 
 import (
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,11 +37,13 @@ type Insert struct {
 	Origin ID `json:"origin" msgpack:"origin"`
 	// Side is the side of origin the character anchors to: left places it immediately
 	// before the origin, right immediately after.
-	Side spatialv0.XLocation `json:"side" msgpack:"side"`
+	Side spatial.XLocation `json:"side" msgpack:"side"`
 	// Char is the inserted Unicode code point.
 	Char int32 `json:"char" msgpack:"char"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (i Insert) Validate() error {
 	v := validate.New("Insert")
 	v.Ternaryf("side", !i.Side.IsValid(), "invalid side: %v", i.Side)

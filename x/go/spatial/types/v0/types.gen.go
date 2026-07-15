@@ -259,6 +259,8 @@ type CornerLocation struct {
 	Y YLocation `json:"y" msgpack:"y"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (c CornerLocation) Validate() error {
 	v := validate.New("CornerLocation")
 	v.Ternaryf("x", !c.X.IsValid(), "invalid x: %v", c.X)
@@ -274,6 +276,8 @@ type StickyUnits struct {
 	Y StickyUnit `json:"y" msgpack:"y"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (s StickyUnits) Validate() error {
 	v := validate.New("StickyUnits")
 	v.Ternaryf("x", !s.X.IsValid(), "invalid x: %v", s.X)
@@ -294,6 +298,7 @@ type StickyXY struct {
 	Units StickyUnits `json:"units" msgpack:"units"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StickyXY) ApplyDefaults() {
 	if s.Root.X == "" {
 		s.Root.X = XLocationLeft
@@ -309,6 +314,8 @@ func (s *StickyXY) ApplyDefaults() {
 	}
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (s StickyXY) Validate() error {
 	v := validate.New("StickyXY")
 	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })
@@ -332,6 +339,7 @@ type Viewport struct {
 	Position XY `json:"position" msgpack:"position"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (v *Viewport) ApplyDefaults() {
 	if v.Zoom == 0 {
 		v.Zoom = 1

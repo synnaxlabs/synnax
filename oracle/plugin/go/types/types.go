@@ -733,6 +733,7 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{- $s := .}}
 {{- if or .DefaultFills .DefaultRecurse}}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- range $s.DefaultFills}}
 	if {{$s.Receiver}}.{{.GoName}} == {{.ZeroLit}} {
@@ -761,6 +762,8 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- end}}
 {{- if or .EnumChecks .ConstraintChecks .ValidateRecurse}}
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
@@ -836,6 +839,7 @@ func ({{.TypeName}}) {{$u.Marker}}() {}
 {{- $vt := .}}
 {{- if .NeedsApplyDefaults}}
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- range $vt.DefaultRecurse}}
 {{- if eq (printf "%s" .Kind) "value"}}
@@ -859,6 +863,8 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- end}}
 {{- if .NeedsValidate}}
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
 {{- range $vt.ValidateRecurse}}
@@ -892,6 +898,7 @@ type {{.Name}} struct {
 	Variant {{.InterfaceName}}
 }
 
+// MarshalJSON encodes the active variant with its "{{.DiscJSONName}}" tag injected.
 func (u {{.Name}}) MarshalJSON() ([]byte, error) {
 	if u.Variant == nil {
 		return []byte("null"), nil
@@ -921,6 +928,7 @@ func (u {{.Name}}) MarshalJSON() ([]byte, error) {
 	return json.Marshal(fields)
 }
 
+// UnmarshalJSON decodes the variant selected by the "{{.DiscJSONName}}" field.
 func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
 		u.Variant = nil
@@ -948,6 +956,8 @@ func (u *{{.Name}}) UnmarshalJSON(data []byte) error {
 }
 {{- if .NeedsApplyDefaults}}
 
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
 func (u *{{.Name}}) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}
@@ -962,6 +972,8 @@ func (u *{{.Name}}) ApplyDefaults() {
 {{- end}}
 {{- if .NeedsValidate}}
 
+// Validate returns an error wrapping validate.ErrValidation if the active
+// variant violates its schema constraints.
 func (u {{.Name}}) Validate() error {
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}

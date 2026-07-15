@@ -12,9 +12,9 @@
 package v0
 
 import (
-	nodev0 "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
-	controlv0 "github.com/synnaxlabs/x/control/types/v0"
-	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
+	node "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
+	control "github.com/synnaxlabs/x/control/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v1"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -56,9 +56,11 @@ type Operation struct {
 	// duration-based reset is used.
 	ResetChannel Key `json:"reset_channel" msgpack:"reset_channel"`
 	// Duration is the time window for aggregation when reset_channel is 0.
-	Duration telemv1.TimeSpan `json:"duration" msgpack:"duration"`
+	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (o Operation) Validate() error {
 	v := validate.New("Operation")
 	v.Ternaryf("type", !o.Type.IsValid(), "invalid type: %v", o.Type)
@@ -73,9 +75,9 @@ type Channel struct {
 	Name Name `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel and is
 	// authorized to accept writes.
-	Leaseholder nodev0.Key `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel.
-	DataType telemv1.DataType `json:"data_type" msgpack:"data_type"`
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this channel is an index channel. Index channels must have int64
 	// values (TIMESTAMP data type) written in ascending order, and are most commonly unix
 	// nanosecond timestamps.
@@ -89,7 +91,7 @@ type Channel struct {
 	Virtual bool `json:"virtual" msgpack:"virtual"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
 	// channels can have a policy of shared concurrency.
-	Concurrency controlv0.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Operations contains aggregation operations applied to this channel's data.
@@ -99,6 +101,8 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	for i := range c.Operations {

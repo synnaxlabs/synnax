@@ -78,6 +78,7 @@ func generateFlexMethods(fc FlexCodec) (string, error) {
 }
 
 const flexTemplate = `
+// DecodeMsgpack coerces numeric or string msgpack values into {{.GoName}}.
 func ({{.Receiver}} *{{.GoName}}) DecodeMsgpack(dec *msgpack.Decoder) error {
 	n, err := xmsgpack.{{.MsgpackHelper}}(dec)
 	if err != nil {
@@ -87,6 +88,7 @@ func ({{.Receiver}} *{{.GoName}}) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
+// UnmarshalJSON coerces JSON numbers or strings into {{.GoName}}.
 func ({{.Receiver}} *{{.GoName}}) UnmarshalJSON(b []byte) error {
 	n, err := xjson.{{.JSONHelper}}(b)
 	if err != nil {

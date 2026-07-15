@@ -18,9 +18,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/text/types/v1"
-	crdtv0 "github.com/synnaxlabs/x/crdt/types/v0"
+	crdt "github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 var _ = Describe("Codec", func() {
@@ -36,18 +36,18 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.Document{
-				Inserts: []crdtv0.Insert{
+				Inserts: []crdt.Insert{
 					{
-						ID:     crdtv0.ID{Replica: 4, Counter: 5},
-						Origin: crdtv0.ID{Replica: 7, Counter: 8},
-						Side:   spatialv0.XLocation("left"),
+						ID:     crdt.ID{Replica: 4, Counter: 5},
+						Origin: crdt.ID{Replica: 7, Counter: 8},
+						Side:   spatial.XLocation("left"),
 						Char:   10,
 					},
 				},
-				Deletes: []crdtv0.Delete{{ID: crdtv0.ID{Replica: 13, Counter: 14}}},
+				Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 13, Counter: 14}}},
 			}),
 			Entry("zero values", v1.Document{Inserts: nil, Deletes: nil}),
-			Entry("empty collections", v1.Document{Inserts: []crdtv0.Insert{}, Deletes: []crdtv0.Delete{}}),
+			Entry("empty collections", v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}),
 		)
 	})
 	Describe("Text", func() {
@@ -63,15 +63,15 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v1.Text{
 				Doc: v1.Document{
-					Inserts: []crdtv0.Insert{
+					Inserts: []crdt.Insert{
 						{
-							ID:     crdtv0.ID{Replica: 5, Counter: 6},
-							Origin: crdtv0.ID{Replica: 8, Counter: 9},
-							Side:   spatialv0.XLocation("left"),
+							ID:     crdt.ID{Replica: 5, Counter: 6},
+							Origin: crdt.ID{Replica: 8, Counter: 9},
+							Side:   spatial.XLocation("left"),
 							Char:   11,
 						},
 					},
-					Deletes: []crdtv0.Delete{{ID: crdtv0.ID{Replica: 14, Counter: 15}}},
+					Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 14, Counter: 15}}},
 				},
 			}),
 			Entry("zero values", v1.Text{Doc: v1.Document{Inserts: nil, Deletes: nil}}),
@@ -81,15 +81,15 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeDocument(b *testing.B) {
 	d := v1.Document{
-		Inserts: []crdtv0.Insert{
+		Inserts: []crdt.Insert{
 			{
-				ID:     crdtv0.ID{Replica: 4, Counter: 5},
-				Origin: crdtv0.ID{Replica: 7, Counter: 8},
-				Side:   spatialv0.XLocation("left"),
+				ID:     crdt.ID{Replica: 4, Counter: 5},
+				Origin: crdt.ID{Replica: 7, Counter: 8},
+				Side:   spatial.XLocation("left"),
 				Char:   10,
 			},
 		},
-		Deletes: []crdtv0.Delete{{ID: crdtv0.ID{Replica: 13, Counter: 14}}},
+		Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 13, Counter: 14}}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -109,15 +109,15 @@ func BenchmarkEncodeDecodeDocument(b *testing.B) {
 func BenchmarkEncodeDecodeText(b *testing.B) {
 	t := v1.Text{
 		Doc: v1.Document{
-			Inserts: []crdtv0.Insert{
+			Inserts: []crdt.Insert{
 				{
-					ID:     crdtv0.ID{Replica: 5, Counter: 6},
-					Origin: crdtv0.ID{Replica: 8, Counter: 9},
-					Side:   spatialv0.XLocation("left"),
+					ID:     crdt.ID{Replica: 5, Counter: 6},
+					Origin: crdt.ID{Replica: 8, Counter: 9},
+					Side:   spatial.XLocation("left"),
 					Char:   11,
 				},
 			},
-			Deletes: []crdtv0.Delete{{ID: crdtv0.ID{Replica: 14, Counter: 15}}},
+			Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 14, Counter: 15}}},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -138,15 +138,15 @@ func BenchmarkEncodeDecodeText(b *testing.B) {
 func FuzzDecodeDocument(f *testing.F) {
 	{
 		seed := v1.Document{
-			Inserts: []crdtv0.Insert{
+			Inserts: []crdt.Insert{
 				{
-					ID:     crdtv0.ID{Replica: 4, Counter: 5},
-					Origin: crdtv0.ID{Replica: 7, Counter: 8},
-					Side:   spatialv0.XLocation("left"),
+					ID:     crdt.ID{Replica: 4, Counter: 5},
+					Origin: crdt.ID{Replica: 7, Counter: 8},
+					Side:   spatial.XLocation("left"),
 					Char:   10,
 				},
 			},
-			Deletes: []crdtv0.Delete{{ID: crdtv0.ID{Replica: 13, Counter: 14}}},
+			Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 13, Counter: 14}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -163,7 +163,7 @@ func FuzzDecodeDocument(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Document{Inserts: []crdtv0.Insert{}, Deletes: []crdtv0.Delete{}}
+		seed := v1.Document{Inserts: []crdt.Insert{}, Deletes: []crdt.Delete{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -203,15 +203,15 @@ func FuzzDecodeText(f *testing.F) {
 	{
 		seed := v1.Text{
 			Doc: v1.Document{
-				Inserts: []crdtv0.Insert{
+				Inserts: []crdt.Insert{
 					{
-						ID:     crdtv0.ID{Replica: 5, Counter: 6},
-						Origin: crdtv0.ID{Replica: 8, Counter: 9},
-						Side:   spatialv0.XLocation("left"),
+						ID:     crdt.ID{Replica: 5, Counter: 6},
+						Origin: crdt.ID{Replica: 8, Counter: 9},
+						Side:   spatial.XLocation("left"),
 						Char:   11,
 					},
 				},
-				Deletes: []crdtv0.Delete{{ID: crdtv0.ID{Replica: 14, Counter: 15}}},
+				Deletes: []crdt.Delete{{ID: crdt.ID{Replica: 14, Counter: 15}}},
 			},
 		}
 		w := orc.NewWriter(0)

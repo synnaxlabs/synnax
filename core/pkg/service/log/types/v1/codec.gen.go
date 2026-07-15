@@ -12,12 +12,13 @@
 package v1
 
 import (
-	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	notationv0 "github.com/synnaxlabs/x/notation/types/v0"
-	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
+	notation "github.com/synnaxlabs/x/notation/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v1"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(ce.Channel))
 	if err := ce.Color.EncodeOrc(w); err != nil {
@@ -32,6 +33,7 @@ func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
@@ -39,7 +41,7 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		ce.Channel = channelv0.Key(v)
+		ce.Channel = channel.Key(v)
 	}
 	if err = ce.Color.DecodeOrc(r); err != nil {
 		return err
@@ -49,7 +51,7 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		ce.Notation = notationv0.Notation(v)
+		ce.Notation = notation.Notation(v)
 	}
 	if ce.Precision, err = r.Int32(); err != nil {
 		return err
@@ -63,6 +65,7 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (lv Log) EncodeOrc(w *orc.Writer) error {
 	w.Write(lv.Key[:])
 	w.String(lv.Name)
@@ -81,6 +84,7 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if _, err := r.Read(lv.Key[:]); err != nil {
@@ -119,26 +123,28 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (tc TimestampConfig) EncodeOrc(w *orc.Writer) error {
 	w.String(string(tc.Format))
 	w.String(string(tc.Tz))
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		tc.Format = telemv1.TimestampFormat(v)
+		tc.Format = telem.TimestampFormat(v)
 	}
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		tc.Tz = telemv1.TimeZone(v)
+		tc.Tz = telem.TimeZone(v)
 	}
 	return nil
 }
