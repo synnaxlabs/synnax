@@ -40,8 +40,6 @@ type Rack struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the rack.
 	Name string `json:"name" msgpack:"name"`
-	// TaskCounter is an internal counter used for generating unique local task keys.
-	TaskCounter uint32 `json:"task_counter" msgpack:"task_counter"`
 	// Embedded is true if this rack is embedded within the Synnax server process.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
 	// Status is the current operational status of the rack.

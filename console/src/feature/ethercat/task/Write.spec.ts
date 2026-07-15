@@ -40,7 +40,7 @@ beforeAll(async () => {
 const renderWrite = async (config?: unknown) =>
   await renderTaskFormTab(EtherCAT.Task.Write, EtherCAT.Task.WRITE_TYPE, {
     client,
-    args: config == null ? {} : { config },
+    params: config == null ? {} : { config },
   });
 
 describe("EtherCAT Write", () => {

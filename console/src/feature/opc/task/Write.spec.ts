@@ -56,7 +56,7 @@ describe("OPC.Write", () => {
     const chB = createOutputChannel();
     const rendered = await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
-      args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [chA, chB]) },
+      params: { deviceKey: dev.key, config: createWriteConfig(dev.key, [chA, chB]) },
     });
     await screen.findByText(new RegExp(chA.nodeName));
     await screen.findByText(new RegExp(chB.nodeName));
@@ -91,7 +91,7 @@ describe("OPC.Write", () => {
     const ch = createOutputChannel();
     const first = await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
-      args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [ch]) },
+      params: { deviceKey: dev.key, config: createWriteConfig(dev.key, [ch]) },
     });
     await screen.findByText(new RegExp(ch.nodeName));
     fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
@@ -104,7 +104,7 @@ describe("OPC.Write", () => {
 
     await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
-      args: { deviceKey: dev.key, taskKey },
+      params: { deviceKey: dev.key, taskKey },
     });
     await screen.findByText(new RegExp(ch.nodeName));
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
@@ -126,7 +126,7 @@ describe("OPC.Write", () => {
     const ch = createOutputChannel();
     await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
-      args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [ch]) },
+      params: { deviceKey: dev.key, config: createWriteConfig(dev.key, [ch]) },
     });
     fireEvent.contextMenu(await screen.findByText(new RegExp(ch.nodeName)));
     fireEvent.click(await screen.findByText("Rename"));

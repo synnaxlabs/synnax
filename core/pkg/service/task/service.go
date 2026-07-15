@@ -13,11 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
@@ -151,7 +151,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			Virtual:  true,
 			Internal: true,
 		}
-		if err = cfg.Channel.Create(
+		if err = cfg.Channel.NewWriter(nil).Create(
 			ctx,
 			&cmdCh,
 			channel.RetrieveIfNameExists(),

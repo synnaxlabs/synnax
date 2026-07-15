@@ -97,7 +97,7 @@ describe("wrapForm", () => {
   describe("initial rackKey", () => {
     const renderProbe = async (params: Task.FormViewParams = {}) => {
       const Renderer = createRenderer({ Form: RackKeyProbe });
-      await renderTaskFormTab(Renderer, "test_task", { args: params });
+      await renderTaskFormTab(Renderer, "test_task", { params });
     };
 
     it("should prefill from the rackKey view arg", async () => {
@@ -116,7 +116,7 @@ describe("wrapForm", () => {
       const Renderer = createRenderer({ Form: RackKeyProbe });
       await renderTaskFormTab(Renderer, "test_task", {
         client,
-        args: { taskKey: tsk.key },
+        params: { taskKey: tsk.key },
       });
       await waitFor(() =>
         expect(screen.getByText(`rack-key:${rack.key}`)).toBeTruthy(),

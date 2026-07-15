@@ -309,6 +309,7 @@ describe("lineplot ingest", () => {
       store,
       client,
       projectKey: await project(),
+      fileName: "test.json",
     });
     expect(openTab).toHaveBeenCalledTimes(1);
     const spec = openTab.mock.calls[0][0];
@@ -331,6 +332,7 @@ describe("lineplot ingest", () => {
         store,
         client: null,
         projectKey: "project-1",
+        fileName: "test.json",
       }),
     ).rejects.toThrow("You do not have permission to import line plots");
   });

@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -22,17 +21,11 @@ import (
 var _ = Describe("Accuracy", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			var (
-				db *cesium.DB
-				fs xfs.FS
-			)
+			var db *cesium.DB
+
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, openFS())
 			})
 			Context("Single Channel", func() {
 				var (

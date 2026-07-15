@@ -51,11 +51,6 @@ Rack struct {
         @validate required
         @filter
     }
-    task_counter uint32 = 0 {
-        @doc value """
-            is an internal counter used for generating unique local task keys.
-        """
-    }
     embedded     bool = false {
         @doc value """
             is true if this rack is embedded within the Synnax server process.
@@ -91,7 +86,6 @@ Rack struct {
 }
 
 New struct extends Rack {
-    -task_counter
     -embedded
     key = 0
 

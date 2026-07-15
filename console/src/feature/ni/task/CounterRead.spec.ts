@@ -44,10 +44,10 @@ const createChannel = (
     ...overrides,
   }) as NI.Task.CIChannel;
 
-const renderCounterRead = async (args = {}) =>
+const renderCounterRead = async (params = {}) =>
   await renderNITaskForm(NI.Task.CounterRead, NI.Task.COUNTER_READ_TYPE, {
     client,
-    args,
+    params,
   });
 
 const createConfig = (channels: NI.Task.CIChannel[]) => ({

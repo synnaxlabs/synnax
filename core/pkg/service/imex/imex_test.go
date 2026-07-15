@@ -119,14 +119,12 @@ var _ = Describe("ImEx", func() {
 				))
 			})
 
-			It("Should reject an empty name with a validation error scoped to the name field", func() {
+			It("Should accept an envelope without a name", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
-					[]byte(`{"version":1,"type":"log","name":""}`), &env,
-				)).To(SatisfyAll(
-					MatchError(ContainSubstring("name must be a non-empty string")),
-					MatchError(ContainSubstring("validation error")),
-				))
+					[]byte(`{"version":1,"type":"log"}`), &env,
+				)).To(Succeed())
+				Expect(env.Name).To(BeEmpty())
 			})
 
 			It("Should error when the input is a bare JSON number", func() {

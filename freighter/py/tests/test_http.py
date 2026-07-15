@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import uuid
 from pathlib import Path
 
@@ -86,6 +87,47 @@ class TestUpload:
         path.write_bytes(JSONCodec().encode(Message(id=1, message=big)))
         res = client.upload("/echo", path, Message)
         assert res.message == big
+
+    def test_file_name_key_always_sent(
+        self, client: HTTPClient, tmp_path: Path
+    ) -> None:
+        """The file's base name accompanies every upload as the file_name key of the
+        JSON-encoded params param, even when the caller supplies no params."""
+        path = tmp_path / "Metrics Log.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="params")))
+        res = client.upload("/paramEcho", path, Message)
+        assert json.loads(res.message or "") == {"file_name": "Metrics Log.json"}
+
+    def test_params_reach_server(self, client: HTTPClient, tmp_path: Path) -> None:
+        """Caller-supplied params travel on the single params param alongside the
+        automatic file_name key."""
+        path = tmp_path / "Metrics Log.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="params")))
+        res = client.upload("/paramEcho", path, Message, {"project": "project:abc"})
+        assert json.loads(res.message or "") == {
+            "file_name": "Metrics Log.json",
+            "project": "project:abc",
+        }
+
+    def test_caller_file_name_param_wins(
+        self, client: HTTPClient, tmp_path: Path
+    ) -> None:
+        """A caller-supplied file_name key overrides the automatic one derived from
+        the path."""
+        path = tmp_path / "in.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="params")))
+        res = client.upload("/paramEcho", path, Message, {"file_name": "Override.json"})
+        assert json.loads(res.message or "") == {"file_name": "Override.json"}
+
+    def test_params_keys_never_travel_individually(
+        self, client: HTTPClient, tmp_path: Path
+    ) -> None:
+        """Params keys travel only inside the JSON object — never as individual
+        request params."""
+        path = tmp_path / "in.json"
+        path.write_bytes(JSONCodec().encode(Message(id=1, message="file_name,project")))
+        res = client.upload("/paramEcho", path, Message, {"project": "project:abc"})
+        assert res.message == "|"
 
 
 @pytest.mark.http

@@ -23,7 +23,7 @@ import {
 import { getHeaderIconButton, uniqueName } from "@/testutil";
 
 const renderRead = async (
-  options: { client?: Synnax | null; args?: Task.FormViewParams } = {},
+  options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
 ) => await renderTaskFormTab(HTTP.Task.Read, HTTP.Task.READ_TYPE, options);
 
 const addEndpoint = async (): Promise<void> => {
@@ -141,7 +141,7 @@ describe("HTTP Read form", () => {
         fields: [createReadField("f1", "/temp")],
       },
     ]);
-    await renderRead({ args: { config } });
+    await renderRead({ params: { config } });
     await screen.findByText(/\/seeded/);
   });
 
@@ -163,7 +163,7 @@ describe("HTTP Read form", () => {
           ],
         },
       ]);
-      const rendered = await renderRead({ client, args: { config } });
+      const rendered = await renderRead({ client, params: { config } });
       const created = await configureAndAwaitTask(client, rendered);
 
       const updated = await client.devices.retrieve({
@@ -214,7 +214,7 @@ describe("HTTP Read form", () => {
           fields: [createReadField("f1", "/temperature")],
         },
       ]);
-      const rendered = await renderRead({ client, args: { config } });
+      const rendered = await renderRead({ client, params: { config } });
       const created = await configureAndAwaitTask(client, rendered);
       expect(created.config.endpoints[0].fields[0].channel).toBe(dataCh.key);
     });
@@ -244,7 +244,7 @@ describe("HTTP Read form", () => {
           fields: [createReadField("f1", "/temperature")],
         },
       ]);
-      const rendered = await renderRead({ client, args: { config } });
+      const rendered = await renderRead({ client, params: { config } });
       await configureAndAwaitTask(client, rendered);
       const updated = await client.devices.retrieve({
         key: dev.key,

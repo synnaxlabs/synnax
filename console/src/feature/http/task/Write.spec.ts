@@ -33,7 +33,7 @@ import {
 stubGeometry();
 
 const renderWrite = async (
-  options: { client?: Synnax | null; args?: Task.FormViewParams } = {},
+  options: { client?: Synnax | null; params?: Task.FormViewParams } = {},
 ) => await renderTaskFormTab(HTTP.Task.Write, HTTP.Task.WRITE_TYPE, options);
 
 const addEndpoint = async (): Promise<void> => {
@@ -132,7 +132,7 @@ describe("HTTP Write form", () => {
 
   it("should seed the form from a config passed through view args", async () => {
     const config = createWriteConfig("dev_1", [createWriteEndpoint("ep1", "/seeded")]);
-    await renderWrite({ args: { config } });
+    await renderWrite({ params: { config } });
     await screen.findByText(/\/seeded/);
   });
 
@@ -146,7 +146,7 @@ describe("HTTP Write form", () => {
         createWriteEndpoint("ep1", "/cmd", { dataType: "uint8" }),
         createWriteEndpoint("ep2", "/msg", { dataType: "string", name: virtualName }),
       ]);
-      const rendered = await renderWrite({ client, args: { config } });
+      const rendered = await renderWrite({ client, params: { config } });
       await clickConfigure();
       const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
@@ -192,7 +192,7 @@ describe("HTTP Write form", () => {
         createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
         createWriteEndpoint("ep2", "/stored"),
       ]);
-      const rendered = await renderWrite({ client, args: { config } });
+      const rendered = await renderWrite({ client, params: { config } });
       await clickConfigure();
       const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({

@@ -88,15 +88,13 @@ type Rack struct {
 	Key uint32 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the rack.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// task_counter is an internal counter used for generating unique local task keys.
-	TaskCounter uint32 `protobuf:"varint,3,opt,name=task_counter,json=taskCounter,proto3" json:"task_counter,omitempty"`
 	// embedded is true if this rack is embedded within the Synnax server process.
-	Embedded bool `protobuf:"varint,4,opt,name=embedded,proto3" json:"embedded,omitempty"`
+	Embedded bool `protobuf:"varint,3,opt,name=embedded,proto3" json:"embedded,omitempty"`
 	// status is the current operational status of the rack.
-	Status *pb.Status `protobuf:"bytes,5,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status *pb.Status `protobuf:"bytes,4,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	// integrations is the list of hardware integrations this rack supports (e.g., "ni",
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
-	Integrations  []string `protobuf:"bytes,6,rep,name=integrations,proto3" json:"integrations,omitempty"`
+	Integrations  []string `protobuf:"bytes,5,rep,name=integrations,proto3" json:"integrations,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -145,13 +143,6 @@ func (x *Rack) GetName() string {
 	return ""
 }
 
-func (x *Rack) GetTaskCounter() uint32 {
-	if x != nil {
-		return x.TaskCounter
-	}
-	return 0
-}
-
 func (x *Rack) GetEmbedded() bool {
 	if x != nil {
 		return x.Embedded
@@ -179,14 +170,13 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\n" +
 	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\"#\n" +
 	"\rStatusDetails\x12\x12\n" +
-	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xd2\x01\n" +
+	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xaf\x01\n" +
 	"\x04Rack\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
-	"\ftask_counter\x18\x03 \x01(\rR\vtaskCounter\x12\x1a\n" +
-	"\bembedded\x18\x04 \x01(\bR\bembedded\x126\n" +
-	"\x06status\x18\x05 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
-	"\fintegrations\x18\x06 \x03(\tR\fintegrationsB\t\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bembedded\x18\x03 \x01(\bR\bembedded\x126\n" +
+	"\x06status\x18\x04 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
+	"\fintegrations\x18\x05 \x03(\tR\fintegrationsB\t\n" +
 	"\a_statusB\xb0\x01\n" +
 	"\x13com.service.rack.pbB\tRackProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/rack/pb\xa2\x02\x03SRP\xaa\x02\x0fService.Rack.Pb\xca\x02\x0fService\\Rack\\Pb\xe2\x02\x1bService\\Rack\\Pb\\GPBMetadata\xea\x02\x11Service::Rack::Pbb\x06proto3"
 
