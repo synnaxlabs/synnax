@@ -11,9 +11,7 @@
 
 package ranger
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
 
 // Key is a unique identifier for a range, represented as a UUID.
 type Key = latest.Key

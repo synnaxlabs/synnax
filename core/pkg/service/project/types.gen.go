@@ -11,9 +11,7 @@
 
 package project
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 
 // Key is a unique identifier for a project, represented as a UUID.
 type Key = latest.Key

@@ -11,9 +11,7 @@
 
 package v2
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 func (a Arc) EncodeOrc(w *orc.Writer) error {
 	w.Write(a.Key[:])

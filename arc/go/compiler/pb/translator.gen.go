@@ -11,9 +11,7 @@
 
 package pb
 
-import (
-	"github.com/synnaxlabs/arc/compiler"
-)
+import "github.com/synnaxlabs/arc/compiler"
 
 // OutputToPB converts Output to Output.
 func OutputToPB(r compiler.Output) (*Output, error) {

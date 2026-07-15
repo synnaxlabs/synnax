@@ -11,9 +11,7 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/x/validate"
-)
+import "github.com/synnaxlabs/x/validate"
 
 // ResourceType is the type of the resource.
 type ResourceType string

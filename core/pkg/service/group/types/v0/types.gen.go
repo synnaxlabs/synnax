@@ -11,9 +11,7 @@
 
 package v0
 
-import (
-	"github.com/google/uuid"
-)
+import "github.com/google/uuid"
 
 // Key is a unique identifier for a group, represented as a UUID.
 type Key = uuid.UUID

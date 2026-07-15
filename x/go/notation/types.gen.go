@@ -11,9 +11,7 @@
 
 package notation
 
-import (
-	latest "github.com/synnaxlabs/x/notation/types/v0"
-)
+import latest "github.com/synnaxlabs/x/notation/types/v0"
 
 // Notation is the numeric notation used to render samples.
 type Notation = latest.Notation

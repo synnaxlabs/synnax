@@ -11,9 +11,7 @@
 
 package alias
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/types/v0"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/types/v0"
 
 // Alias associates a human-readable string alias with a channel within the context of a
 // specific range. Enables semantic naming of channels that varies by range context.

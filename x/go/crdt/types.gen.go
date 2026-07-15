@@ -11,9 +11,7 @@
 
 package crdt
 
-import (
-	latest "github.com/synnaxlabs/x/crdt/types/v0"
-)
+import latest "github.com/synnaxlabs/x/crdt/types/v0"
 
 // ID uniquely identifies a character within a replicated text document. It pairs the
 // replica that created the character with that replica's per-character counter, making

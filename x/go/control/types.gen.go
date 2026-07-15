@@ -11,9 +11,7 @@
 
 package control
 
-import (
-	latest "github.com/synnaxlabs/x/control/types/v0"
-)
+import latest "github.com/synnaxlabs/x/control/types/v0"
 
 // Authority is a numeric value (0-255) representing the level of control authority a
 // subject has over a resource. Higher values indicate greater authority. The maximum

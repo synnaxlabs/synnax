@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/x/color/types/v0"
-)
+import latest "github.com/synnaxlabs/x/color/types/v0"
 
 // Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
 type Color = latest.Color

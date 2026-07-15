@@ -11,9 +11,7 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 func (bv Bounds) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(bv.Lower))

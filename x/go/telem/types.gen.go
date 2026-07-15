@@ -11,9 +11,7 @@
 
 package telem
 
-import (
-	latest "github.com/synnaxlabs/x/telem/types/v1"
-)
+import latest "github.com/synnaxlabs/x/telem/types/v1"
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
 // (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency telemetry

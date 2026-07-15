@@ -11,9 +11,7 @@
 
 package v1
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 func (tr TimeRange) EncodeOrc(w *orc.Writer) error {
 	w.Int64(int64(tr.Start))

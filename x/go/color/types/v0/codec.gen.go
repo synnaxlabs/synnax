@@ -11,9 +11,7 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 func (c Color) EncodeOrc(w *orc.Writer) error {
 	w.Uint8(uint8(c.R))

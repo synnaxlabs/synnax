@@ -11,9 +11,7 @@
 
 package v0
 
-import (
-	rangerv1 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
-)
+import rangerv1 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
 
 // Pair is a key-value metadata pair associated with a specific range, enabling
 // arbitrary metadata storage on time ranges.

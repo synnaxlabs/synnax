@@ -11,9 +11,7 @@
 
 package text
 
-import (
-	latest "github.com/synnaxlabs/arc/text/types/v1"
-)
+import latest "github.com/synnaxlabs/arc/text/types/v1"
 
 // Document is the conflict-free replicated representation of the text: the operations
 // that reconstruct it when applied to an empty replica. It is the durable source of

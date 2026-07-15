@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 
 // Key is a unique identifier for a table, represented as a UUID.
 type Key = latest.Key

@@ -11,9 +11,7 @@
 
 package role
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types/v0"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types/v0"
 
 // Key is a unique identifier for a role, represented as a UUID.
 type Key = latest.Key

@@ -11,9 +11,7 @@
 
 package spatial
 
-import (
-	latest "github.com/synnaxlabs/x/spatial/types/v0"
-)
+import latest "github.com/synnaxlabs/x/spatial/types/v0"
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.

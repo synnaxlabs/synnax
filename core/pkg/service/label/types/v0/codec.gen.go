@@ -11,9 +11,7 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 func (lv Label) EncodeOrc(w *orc.Writer) error {
 	w.Write(lv.Key[:])

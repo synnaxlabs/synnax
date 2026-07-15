@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
 
 // Key is a unique identifier for the device
 type Key = latest.Key

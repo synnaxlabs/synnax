@@ -11,9 +11,7 @@
 
 package schematic
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v1"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v1"
 
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = latest.Key

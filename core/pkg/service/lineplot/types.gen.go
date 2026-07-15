@@ -11,9 +11,7 @@
 
 package lineplot
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
 type Key = latest.Key

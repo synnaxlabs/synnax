@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 
 // ResourceType is the type of the resource.
 type ResourceType = latest.ResourceType

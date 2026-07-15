@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 
 // Name is a human-readable name for a channel. Must start with a letter or underscore
 // and contain only letters, digits, and underscores. Names are not guaranteed to be

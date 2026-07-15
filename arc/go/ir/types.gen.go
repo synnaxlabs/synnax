@@ -11,9 +11,7 @@
 
 package ir
 
-import (
-	latest "github.com/synnaxlabs/arc/ir/types/v2"
-)
+import latest "github.com/synnaxlabs/arc/ir/types/v2"
 
 // Edges is a collection of dataflow edges in an Arc graph.
 type Edges = latest.Edges

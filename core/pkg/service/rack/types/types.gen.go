@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 
 // Key is a composite identifier for a rack. The high 16 bits contain the core node key,
 // and the low 16 bits contain the local sequential key. Racks are leased to specific

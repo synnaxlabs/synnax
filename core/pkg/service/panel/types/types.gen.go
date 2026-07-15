@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = latest.Key

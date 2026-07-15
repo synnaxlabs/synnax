@@ -11,9 +11,7 @@
 
 package program
 
-import (
-	latest "github.com/synnaxlabs/arc/program/types/v2"
-)
+import latest "github.com/synnaxlabs/arc/program/types/v2"
 
 // Program is a compiled Arc program combining the intermediate representation with
 // WebAssembly bytecode, ready for execution.

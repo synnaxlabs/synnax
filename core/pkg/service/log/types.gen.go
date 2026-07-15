@@ -11,9 +11,7 @@
 
 package log
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
 
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = latest.Key

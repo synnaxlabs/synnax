@@ -11,9 +11,7 @@
 
 package label
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 
 // Key is a unique identifier for a label, represented as a UUID.
 type Key = latest.Key

@@ -11,9 +11,7 @@
 
 package arc
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 
 // Status is the status of an Arc module including execution state.
 type Status = latest.Status

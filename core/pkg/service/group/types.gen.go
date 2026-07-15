@@ -11,9 +11,7 @@
 
 package group
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/group/types/v0"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/group/types/v0"
 
 // Key is a unique identifier for a group, represented as a UUID.
 type Key = latest.Key

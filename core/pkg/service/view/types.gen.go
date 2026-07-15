@@ -11,9 +11,7 @@
 
 package view
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/view/types/v0"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/view/types/v0"
 
 // Key is a unique identifier for a saved view configuration.
 type Key = latest.Key

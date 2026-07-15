@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/arc/compiler/types/v0"
-)
+import latest "github.com/synnaxlabs/arc/compiler/types/v0"
 
 // Output is compiled output from the Arc compiler including WebAssembly bytecode and
 // memory layout.

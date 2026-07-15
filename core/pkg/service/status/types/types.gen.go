@@ -11,9 +11,7 @@
 
 package types
 
-import (
-	latest "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
-)
+import latest "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 
 // Variant is the severity or type of a status message.
 type Variant = latest.Variant
