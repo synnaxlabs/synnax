@@ -79,19 +79,17 @@ func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	return Channel{}, channel.NewNotFoundError(key)
 }
 
-// RenameChannels finds the specified keys in the database and renames them to the new
-// name as specified in names.
-func (db *DB) RenameChannels(ctx context.Context, keys []ChannelKey, names []string) error {
+// RenameChannels renames each channel keyed in renames to its corresponding new name.
+func (db *DB) RenameChannels(
+	ctx context.Context, renames map[ChannelKey]string,
+) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	if len(keys) != len(names) {
-		return errors.Wrapf(validate.ErrValidation, "keys and names must have the same length")
-	}
-	for i := range keys {
-		if err := db.renameChannel(ctx, keys[i], names[i]); err != nil {
+	for key, name := range renames {
+		if err := db.renameChannel(ctx, key, name); err != nil {
 			return err
 		}
 	}

@@ -45,6 +45,7 @@ var _ = Describe("BindTo", func() {
 			"/stream/slamMessages",
 			"/stream/eventuallyResponseWithMessage",
 			"/unary/echo",
+			"/unary/paramEcho",
 			"/unary/middlewareCheck",
 			"/unary/slamMessagesTimeoutCheck",
 			"/unary/flakyUnavailable",
@@ -105,6 +106,60 @@ var _ = Describe("BindTo", func() {
 		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
 		Expect(msg.ID).To(Equal(8))
 	})
+})
+
+var _ = Describe("unaryParamEcho", func() {
+	postParamEcho := func(query, message string) ihttp.Message {
+		app := fiber.New(fiber.Config{})
+		Expect(ihttp.BindTo(app)).To(Succeed())
+
+		target := "http://localhost/unary/paramEcho"
+		if query != "" {
+			target += "?" + query
+		}
+		body := MustSucceed(json.Marshal(ihttp.Message{Message: message}))
+		req := MustSucceed(http.NewRequest(http.MethodPost, target, bytes.NewReader(body)))
+		req.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+		req.Header.Set(fiber.HeaderAccept, fiber.MIMEApplicationJSON)
+
+		resp := MustSucceed(app.Test(req))
+		DeferCleanup(func() { Expect(resp.Body.Close()).To(Succeed()) })
+		Expect(resp.StatusCode).To(Equal(http.StatusOK))
+
+		var msg ihttp.Message
+		Expect(json.NewDecoder(resp.Body).Decode(&msg)).To(Succeed())
+		return msg
+	}
+
+	DescribeTable("echoes the requested params sorted and joined by '|'",
+		func(query, message, expected string) {
+			Expect(postParamEcho(query, message).Message).To(Equal(expected))
+		},
+		Entry(
+			"freighterctx-prefixed query params reach the handler with the prefix stripped",
+			"freighterctxfile_name=Metrics%20Log.json&freighterctxproject=project:abc",
+			"file_name,project",
+			"Metrics Log.json|project:abc",
+		),
+		Entry(
+			"values come back in the same sorted order regardless of the requested key order",
+			"freighterctxfile_name=Metrics%20Log.json&freighterctxproject=project:abc",
+			"project,file_name",
+			"Metrics Log.json|project:abc",
+		),
+		Entry(
+			"absent params echo as empty strings",
+			"",
+			"file_name,project",
+			"|",
+		),
+		Entry(
+			"unprefixed query params are not exposed to the handler",
+			"file_name=Metrics%20Log.json&project=project:abc",
+			"file_name,project",
+			"|",
+		),
+	)
 })
 
 var _ = Describe("flakyUnavailable", func() {

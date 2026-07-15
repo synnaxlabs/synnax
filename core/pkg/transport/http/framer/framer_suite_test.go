@@ -14,12 +14,25 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/api/channel"
+	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/service"
+	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var dist *distribution.Layer
+var (
+	channelSvc    *svcchannel.Service
+	channelWriter svcchannel.Writer
+	apiChannelSvc *channel.Service
+)
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -28,7 +41,41 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	dist = mock.NewNode(ctx).Layer
+	node := mock.NewNode(ctx)
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	searchIdx := MustOpen(search.OpenIndex())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+	}))
+	channelWriter = channelSvc.NewWriter(nil)
+	apiChannelSvc = MustSucceed(channel.NewService(config.LayerConfig{
+		Distribution: &distribution.Layer{DB: node.DB},
+		Service:      &service.Layer{Channel: channelSvc},
+	}))
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

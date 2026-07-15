@@ -7,20 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError } from "@synnaxlabs/client";
+import { DisconnectedError, log } from "@synnaxlabs/client";
+import { z } from "zod";
 
 import { Export } from "@/platform/export";
-import { Log } from "@/platform/log";
 
-export const VERSION = "2.0.0";
+const envelopeZ = z.object({ name: z.string() });
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();
-  const log = await client.logs.retrieve({ key });
-  return {
-    data: JSON.stringify({ ...log, type: Log.LAYOUT_TYPE, version: VERSION }),
-    name: log.name,
-  };
+  const stream = await client.imex.export(log.ontologyID(key), { encoding: "JSON" });
+  const data = await new Response(stream).text();
+  // When this is fully migrated, we can remove the envelopeZ and parsing that happens
+  // here.
+  const { name } = envelopeZ.parse(JSON.parse(data));
+  return { data, name };
 };
 
 export const useExport = () => Export.use(extract, "log");
