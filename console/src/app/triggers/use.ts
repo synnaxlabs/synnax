@@ -42,7 +42,7 @@ export const use = (): void => {
   const getFocusedTab = Session.Panel.useGetFocusedTab();
   const { dispatch } = Panel.useDispatch();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const createComponentEnabled = useSelectorVisible();
+  const createTabEnabled = useSelectorVisible();
   const openSelector = Selector.useOpenTab();
   Triggers.use({
     triggers: [["Control", "L"]],
@@ -117,10 +117,10 @@ export const use = (): void => {
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || !createComponentEnabled) return;
+        if (stage !== "start" || !createTabEnabled) return;
         openSelector();
       },
-      [createComponentEnabled, openSelector],
+      [createTabEnabled, openSelector],
     ),
   });
 };

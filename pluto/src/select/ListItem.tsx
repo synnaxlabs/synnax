@@ -25,6 +25,13 @@ export const ListItem = <
   props: ListItemProps<K, E>,
 ) => {
   const { itemKey } = props;
-  const selectProps = useItemState(itemKey);
-  return <List.Item<K, E> {...selectProps} {...props} />;
+  const { selected, hovered, onSelect } = useItemState(itemKey);
+  return (
+    <List.Item<K, E>
+      selected={selected}
+      hovered={hovered}
+      onSelect={onSelect}
+      {...props}
+    />
+  );
 };
