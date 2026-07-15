@@ -61,10 +61,12 @@ if (Test-EnoughSpace) {
     Write-Output "Free space ${freeMB}MB >= target ${minFreeMB}MB - keeping caches warm (no clean)."
     Write-Output ""
     $diskAfter = Get-DiskUsedMB
+    $diskFreed = $diskBefore - $diskAfter
     Write-Output "=== Summary ==="
     Write-Output "  Cache freed:  0MB"
     Write-Output "  Disk before:  ${diskBefore}MB"
     Write-Output "  Disk after:   ${diskAfter}MB"
+    Write-Output "  Disk freed:   ${diskFreed}MB"
     Write-DiskSummary
     return
 }
