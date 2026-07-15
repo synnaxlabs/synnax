@@ -11,6 +11,7 @@ package channels
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -181,10 +182,16 @@ func (s *source) Next(ctx node.Context) {
 				1*telem.NanosecondTS,
 			)
 			timeSeries.Alignment = ser.Alignment
-		} else if ts, found := indexSeriesFor(indexData, ser.Alignment); found {
-			timeSeries = ts
 		} else {
-			continue
+			// Match by alignment, not position: a shared index also buffers other
+			// channels' series, so position i no longer pairs to the right timestamp.
+			i := slices.IndexFunc(indexData.Series, func(idx telem.Series) bool {
+				return idx.Alignment == ser.Alignment
+			})
+			if i == -1 {
+				continue
+			}
+			timeSeries = indexData.Series[i]
 		}
 		*s.Output(0) = ser
 		*s.OutputTime(0) = timeSeries
@@ -192,20 +199,6 @@ func (s *source) Next(ctx node.Context) {
 		ctx.MarkChanged(0)
 		return
 	}
-}
-
-// indexSeriesFor returns the index series matching alignment, so a shared index
-// buffer holding series from other channels still pairs to the right timestamps.
-func indexSeriesFor(
-	indexData telem.MultiSeries,
-	alignment telem.Alignment,
-) (telem.Series, bool) {
-	for _, ser := range indexData.Series {
-		if ser.Alignment == alignment {
-			return ser, true
-		}
-	}
-	return telem.Series{}, false
 }
 
 type sink struct {
