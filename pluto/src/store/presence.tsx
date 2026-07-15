@@ -39,20 +39,20 @@ export interface PresenceProps<
  * key plus hooks bound to its own React context. Nesting is independent, so a created
  * presence never reads or writes the presence of another.
  */
-export interface Presence {
+export interface Presence<K extends record.Key = record.Key> {
   /**
    * Context distributes the single present key to keyed consumers. On change it notifies
    * only the previous and next holders, so at most two items re-render.
    */
-  Context: <K extends record.Key = record.Key>(props: PresenceProps<K>) => ReactElement;
-  useContext: <K extends record.Key = record.Key>() => ContextValue<K>;
+  Context: (props: PresenceProps<K>) => ReactElement;
+  useContext: () => ContextValue<K>;
   /**
    * useIsPresent subscribes a single keyed item to the enclosing Provider, re-rendering
    * only when this key gains or loses presence.
    */
-  useIsPresent: <K extends record.Key>(key: K) => boolean;
+  useIsPresent: (key: K) => boolean;
   /** usePresent returns the currently present key, or undefined when none is present. */
-  usePresent: <K extends record.Key = record.Key>() => K | undefined;
+  usePresent: () => K | undefined;
 }
 
 const NOOP = () => {};
@@ -71,39 +71,29 @@ export const createPresence = (name: string): Presence => {
     displayName: `${name}.Context`,
   });
 
-  const Context = <K extends record.Key = record.Key>({
-    value,
-    children,
-  }: PresenceProps<K>): ReactElement => {
+  const Context = ({ value, children }: PresenceProps): ReactElement => {
     const valueRef = useRef(value);
-    const { notifyListeners, subscribe } = useKeyedListeners<K>();
+    const { notifyListeners, subscribe } = useKeyedListeners();
     const getPresent = useCallback(() => valueRef.current, []);
-    const ctx = useMemo<ContextValue<K>>(
+    const ctx = useMemo<ContextValue>(
       () => ({ getPresent, subscribe }),
       [getPresent, subscribe],
     );
     useLayoutEffect(() => {
       if (valueRef.current === value) return;
-      const changed: K[] = [];
+      const changed: record.Key[] = [];
       if (valueRef.current != null) changed.push(valueRef.current);
       if (value != null) changed.push(value);
       valueRef.current = value;
       if (changed.length > 0) notifyListeners(changed);
     }, [value, notifyListeners]);
-    return (
-      <BaseContext value={ctx as unknown as ContextValue<record.Key>}>
-        {children}
-      </BaseContext>
-    );
+    return <BaseContext value={ctx}>{children}</BaseContext>;
   };
 
-  // The context is stored monomorphically at record.Key (React contexts are invariant);
-  // each consumer reapplies its own K here and in the Provider.
-  const useContext = <K extends record.Key = record.Key>(): ContextValue<K> =>
-    useCtx() as unknown as ContextValue<K>;
+  const useContext = (): ContextValue => useCtx();
 
-  const useIsPresent = <K extends record.Key>(key: K): boolean => {
-    const { getPresent, subscribe } = useContext<K>();
+  const useIsPresent = (key: record.Key): boolean => {
+    const { getPresent, subscribe } = useContext();
     return useSyncExternalStore(
       useCallback((onStoreChange) => subscribe(onStoreChange, key), [key, subscribe]),
       useCallback((): boolean => getPresent() === key, [key, getPresent]),
@@ -111,8 +101,8 @@ export const createPresence = (name: string): Presence => {
     );
   };
 
-  const usePresent = <K extends record.Key = record.Key>(): K | undefined => {
-    const { getPresent, subscribe } = useContext<K>();
+  const usePresent = (): record.Key | undefined => {
+    const { getPresent, subscribe } = useContext();
     return useSyncExternalStore(
       subscribe,
       () => getPresent(),

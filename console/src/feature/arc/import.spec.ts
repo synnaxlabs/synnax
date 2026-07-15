@@ -181,6 +181,7 @@ describe("arc import", () => {
           store,
           client,
           projectKey: "project-1",
+          fileName: "test.json",
         },
       );
       expect(placeLayout).toHaveBeenCalledTimes(1);
@@ -199,6 +200,7 @@ describe("arc import", () => {
           store,
           client: null,
           projectKey: "project-1",
+          fileName: "test.json",
         }),
       ).rejects.toThrow("You do not have permission to import Arc automations");
     });

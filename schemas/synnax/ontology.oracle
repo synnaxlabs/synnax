@@ -9,7 +9,7 @@
 
 @ts output  "client/ts/src/ontology"
 @py output  "client/py/synnax/ontology"
-@go output  "core/pkg/distribution/ontology"
+@go output  "core/pkg/service/ontology"
 @cpp output "client/cpp/ontology"
 @pb
 
@@ -40,7 +40,6 @@ ResourceType enum {
     view             = "view"
 
     @doc value "is the type of the resource."
-    @go output "core/pkg/distribution/ontology"
 }
 
 RelationshipType string {

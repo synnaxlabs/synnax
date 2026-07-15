@@ -11,7 +11,7 @@ import { type binary, errors, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { EOF, StreamClosed } from "@/errors";
-import { CONTENT_TYPE_HEADER_KEY } from "@/http";
+import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type Stream, type StreamClient } from "@/stream";
 
@@ -134,8 +134,6 @@ class WebSocketStream<
     });
   }
 }
-
-export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 
 const CLOSE_NORMAL = 1000;
 
