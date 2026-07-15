@@ -168,32 +168,44 @@ func (s *source) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
-	for i, ser := range data.Series {
+	for _, ser := range data.Series {
 		ab := ser.AlignmentBounds()
-		if ab.Lower >= s.highWaterMark {
-			var timeSeries telem.Series
-			if indexData.DataType() == telem.UnknownT {
-				timeSeries = telem.Arrange(
-					s.clock.Now(),
-					int(ser.Len()),
-					1*telem.NanosecondTS,
-				)
-				timeSeries.Alignment = ser.Alignment
-			} else if len(indexData.Series) > i {
-				timeSeries = indexData.Series[i]
-			} else {
-				return
-			}
-			if timeSeries.Alignment != ser.Alignment {
-				return
-			}
-			*s.Output(0) = ser
-			*s.OutputTime(0) = timeSeries
-			s.highWaterMark = ab.Upper
-			ctx.MarkChanged(0)
-			return
+		if ab.Lower < s.highWaterMark {
+			continue
+		}
+		var timeSeries telem.Series
+		if indexData.DataType() == telem.UnknownT {
+			timeSeries = telem.Arrange(
+				s.clock.Now(),
+				int(ser.Len()),
+				1*telem.NanosecondTS,
+			)
+			timeSeries.Alignment = ser.Alignment
+		} else if ts, found := indexSeriesFor(indexData, ser.Alignment); found {
+			timeSeries = ts
+		} else {
+			continue
+		}
+		*s.Output(0) = ser
+		*s.OutputTime(0) = timeSeries
+		s.highWaterMark = ab.Upper
+		ctx.MarkChanged(0)
+		return
+	}
+}
+
+// indexSeriesFor returns the index series matching alignment, so a shared index
+// buffer holding series from other channels still pairs to the right timestamps.
+func indexSeriesFor(
+	indexData telem.MultiSeries,
+	alignment telem.Alignment,
+) (telem.Series, bool) {
+	for _, ser := range indexData.Series {
+		if ser.Alignment == alignment {
+			return ser, true
 		}
 	}
+	return telem.Series{}, false
 }
 
 type sink struct {
