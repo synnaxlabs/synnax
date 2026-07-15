@@ -104,6 +104,7 @@ const Base = <E extends ElementType = "button">({
   el,
   ghost,
   propagateClick = false,
+  draggable,
   href,
   ...rest
 }: ButtonProps<E>): ReactElement => {
@@ -125,7 +126,9 @@ const Base = <E extends ElementType = "button">({
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMouseDown = (e: any) => {
-    if (tabIndex == -1) e.preventDefault();
+    // Preventing default on mousedown cancels a native dragstart, so skip it for
+    // draggable buttons (e.g. roving-tabindex tabs that are also drag sources).
+    if (tabIndex == -1 && draggable !== true) e.preventDefault();
     onMouseDown?.(e);
     if (isDisabled || variant === "preview" || parsedDelay.isZero) return;
     document.addEventListener(
@@ -211,6 +214,7 @@ const Base = <E extends ElementType = "button">({
       overflow="nowrap"
       status={status}
       href={href}
+      draggable={draggable}
       {...(record.purgeUndefined(rest) as Text.TextProps<E>)}
     >
       {(!isLoading || !square) && children}

@@ -47,7 +47,7 @@ export const Container = memo(
     const [position, setPosition] = state.usePurePassthrough<sticky.XY>({
       value,
       onChange,
-      initial,
+      initialValue: initial,
     });
     const positionRef = useRef<sticky.XY>(position);
     const disabled = useSyncedRef(draggable === false);

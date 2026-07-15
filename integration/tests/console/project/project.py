@@ -10,6 +10,7 @@
 import json
 import os
 import shutil
+import tempfile
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -59,6 +60,7 @@ class Project(ConsoleCase):
         self.test_import_line_plot()
         self.test_import_schematic()
         self.test_import_log()
+        self.test_import_log_name_key_preferred()
         self.test_import_table()
 
         # Export/Import
@@ -165,6 +167,49 @@ class Project(ConsoleCase):
         )
 
         self.console.layout.close_tab("Metrics Log")
+
+    def test_import_log_name_key_preferred(self) -> None:
+        """Test that a name key in the log JSON wins over the file's name.
+
+        The Core names an imported log after the file only when the JSON carries no
+        top-level name key; when both are present, the name key must be preferred.
+        """
+        self.log("Testing import log prefers the JSON name key over the file name")
+        json_path = get_fixture_path("ImportSpace/Metrics Log.json")
+        with open(json_path) as f:
+            data = json.load(f)
+        body_name = "Body Name Log"
+        file_name = "File Name Log"
+        data["name"] = body_name
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = os.path.join(tmp_dir, f"{file_name}.json")
+            with open(tmp_path, "w") as f:
+                json.dump(data, f)
+            with self.console.layout.page.expect_file_chooser() as fc_info:
+                self.console.layout.command_palette("Import component(s)")
+            fc_info.value.set_files(tmp_path)
+            # The tab initially carries the file-derived layout name and converges to
+            # the log's real name once retrieved, so wait for either before asserting on
+            # the tree.
+            self.console.layout.get_tab(body_name).or_(
+                self.console.layout.get_tab(file_name)
+            ).first.wait_for(state="visible", timeout=10000)
+
+        assert self.console.project.page_exists(body_name), (
+            f"Imported log should appear in project resources as {body_name!r}, "
+            "taking its name from the JSON's name key"
+        )
+        assert not self.console.project.page_exists(file_name), (
+            f"Imported log should not be named after the file ({file_name!r}) when "
+            "the JSON carries a name key"
+        )
+
+        self.console.layout.close_left_toolbar()
+        if self.console.layout.get_tab(body_name).is_visible():
+            self.console.layout.close_tab(body_name)
+        else:
+            self.console.layout.close_tab(file_name)
 
     def test_import_table(self) -> None:
         """Test importing a table from a JSON file."""

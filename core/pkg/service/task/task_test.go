@@ -14,14 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
@@ -48,7 +48,7 @@ var _ = Describe("Task", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -534,7 +534,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create unknown statuses for tasks missing them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -595,7 +595,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should not create statuses for tasks that already have them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,

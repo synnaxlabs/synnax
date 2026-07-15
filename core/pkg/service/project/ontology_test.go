@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
@@ -105,7 +105,7 @@ var _ = Describe("Ontology", func() {
 			DeferCleanup(disconnect)
 
 			p := project.Project{Key: uuid.New(), Name: "observed"}
-			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+			Expect(writer.Create(ctx, &p)).To(Succeed())
 			expectedID := project.OntologyID(p.Key).String()
 
 			Eventually(func(g Gomega) {
@@ -118,7 +118,7 @@ var _ = Describe("Ontology", func() {
 				g.Expect(changes[idx].Value.Name).To(Equal("observed"))
 			}).Should(Succeed())
 
-			Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
+			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				mu.Lock()
@@ -134,8 +134,8 @@ var _ = Describe("Ontology", func() {
 		It("Should iterate over all projects currently stored", func(ctx SpecContext) {
 			a := project.Project{Key: uuid.New(), Name: "a"}
 			b := project.Project{Key: uuid.New(), Name: "b"}
-			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-			Expect(svc.NewWriter(nil).Create(ctx, &b)).To(Succeed())
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(writer.Create(ctx, &b)).To(Succeed())
 
 			seq, closer := MustSucceed2(svc.OpenNexter(ctx))
 			DeferClose(closer)

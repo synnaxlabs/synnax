@@ -312,8 +312,15 @@ class LogLifecycle(ConsoleCase):
 
         self.log("Testing export log via context menu")
         exported = self.console.project.export_page(self.ctx_log_name)
-        assert "key" in exported, "Exported JSON should contain 'key'"
-        assert len(exported["key"]) == 36, "Log key should be a UUID"
+        assert exported.get("type") == "log", "Exported JSON should be a log envelope"
+        assert exported.get("name") == self.ctx_log_name, (
+            f"Exported envelope name should match the log: expected "
+            f"{self.ctx_log_name!r}, got {exported.get('name')!r}"
+        )
+        assert exported.get("version") == 2, "Exported envelope should be version 2"
+        assert "key" not in exported, (
+            "Server-side export strips the resource key from the portable envelope"
+        )
 
         self.log("Testing rename log via context menu")
         new_name = f"Renamed Log {self.suffix}"

@@ -18,8 +18,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
@@ -86,7 +86,7 @@ var _ = Describe("Ontology", func() {
 			Expect(svc.SearchableFields()).To(ConsistOf("username", "first_name", "last_name"))
 		})
 		It("Should index first_name for fuzzy search via the suite's search index", func(ctx SpecContext) {
-			created := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+			created := MustSucceed(writer.Create(ctx, user.User{
 				Username:  uuid.NewString(),
 				FirstName: "Persephone",
 				LastName:  "Quintarelli",
@@ -101,7 +101,7 @@ var _ = Describe("Ontology", func() {
 			}).Should(Succeed())
 		})
 		It("Should index last_name for fuzzy search via the suite's search index", func(ctx SpecContext) {
-			created := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+			created := MustSucceed(writer.Create(ctx, user.User{
 				Username:  uuid.NewString(),
 				FirstName: "Marigold",
 				LastName:  "Ravenscroft",
@@ -119,7 +119,7 @@ var _ = Describe("Ontology", func() {
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a user's schema entity by its key", func(ctx SpecContext) {
 			key := uuid.New()
-			created := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+			created := MustSucceed(writer.Create(ctx, user.User{
 				Username: uuid.NewString(),
 				Key:      key,
 			}))
@@ -164,7 +164,7 @@ var _ = Describe("Ontology", func() {
 				})
 				DeferCleanup(disconnect)
 
-				created := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+				created := MustSucceed(writer.Create(ctx, user.User{
 					Username:  uuid.NewString(),
 					FirstName: "Octavian",
 				}))
@@ -181,7 +181,7 @@ var _ = Describe("Ontology", func() {
 					g.Expect(changes[setIdx].Value.Name).To(Equal(created.Username))
 				}).Should(Succeed())
 
-				Expect(svc.NewWriter(nil).Delete(ctx, created.Key)).To(Succeed())
+				Expect(writer.Delete(ctx, created.Key)).To(Succeed())
 
 				Eventually(func(g Gomega) {
 					mu.Lock()
@@ -195,10 +195,10 @@ var _ = Describe("Ontology", func() {
 	})
 	Describe("OpenNexter", func() {
 		It("Should iterate over all users currently stored in the service", func(ctx SpecContext) {
-			a := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+			a := MustSucceed(writer.Create(ctx, user.User{
 				Username: uuid.NewString(),
 			}))
-			b := MustSucceed(svc.NewWriter(nil).Create(ctx, user.User{
+			b := MustSucceed(writer.Create(ctx, user.User{
 				Username: uuid.NewString(),
 			}))
 
