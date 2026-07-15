@@ -12,6 +12,7 @@ package diagnostics
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -259,36 +260,34 @@ func (d Diagnostics) String() string {
 	var sb strings.Builder
 	for i, diag := range d {
 		if i > 0 {
-			sb.WriteString("\n")
+			sb.WriteByte('\n')
 		}
 		if diag.File != "" {
-			_, _ = fmt.Fprintf(&sb, "%s ", diag.File)
+			sb.WriteString(diag.File)
+			sb.WriteByte(' ')
 		}
+		sb.WriteString(strconv.Itoa(diag.Start.Line))
+		sb.WriteByte(':')
+		sb.WriteString(strconv.Itoa(diag.Start.Col))
+		sb.WriteByte(' ')
+		sb.WriteString(diag.Severity.String())
 		if diag.Code != "" {
-			_, _ = fmt.Fprintf(&sb,
-				"%d:%d %s [%s]: %s",
-				diag.Start.Line,
-				diag.Start.Col,
-				diag.Severity.String(),
-				diag.Code,
-				diag.Message,
-			)
-		} else {
-			_, _ = fmt.Fprintf(&sb,
-				"%d:%d %s: %s",
-				diag.Start.Line,
-				diag.Start.Col,
-				diag.Severity.String(),
-				diag.Message,
-			)
+			sb.WriteString(" [")
+			sb.WriteString(string(diag.Code))
+			sb.WriteByte(']')
 		}
+		sb.WriteString(": ")
+		sb.WriteString(diag.Message)
 		for _, note := range diag.Notes {
-			sb.WriteString("\n")
+			sb.WriteString("\n  ")
 			if note.Start.Line > 0 {
-				_, _ = fmt.Fprintf(&sb, "  %d:%d note: %s", note.Start.Line, note.Start.Col, note.Message)
-			} else {
-				_, _ = fmt.Fprintf(&sb, "  note: %s", note.Message)
+				sb.WriteString(strconv.Itoa(note.Start.Line))
+				sb.WriteByte(':')
+				sb.WriteString(strconv.Itoa(note.Start.Col))
+				sb.WriteByte(' ')
 			}
+			sb.WriteString("note: ")
+			sb.WriteString(note.Message)
 		}
 	}
 	return sb.String()
