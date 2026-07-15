@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement } from "react";
 
 import { createSelectorLayout, useSelectorVisible } from "@/app/vis/Selector";
@@ -17,6 +17,7 @@ import { Log } from "@/feature/log";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Empty } from "@/platform/empty";
+import { Errors } from "@/platform/errors";
 import { Layout } from "@/platform/layout";
 import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
@@ -73,7 +74,7 @@ const Content = (): ReactElement => {
   const Toolbar = TOOLBARS[layout.type as LayoutType];
   if (Toolbar == null) return <NoVis />;
   return (
-    <Errors.SuspenseBoundary>
+    <Errors.SuspenseBoundary layoutKey={layout.key}>
       <Toolbar layoutKey={layout.key} />
     </Errors.SuspenseBoundary>
   );

@@ -19,48 +19,67 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type benchStreamerEnv struct {
-	ctx         context.Context
-	node        mock.Node
-	channelSvc  *channel.Service
-	streamerSvc *streamer.Service
+	ctx           context.Context
+	node          mock.Node
+	closer        io.MultiCloser
+	channelSvc    *channel.Service
+	channelWriter channel.Writer
+	streamerSvc   *streamer.Service
 }
 
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
-	ctx := context.Background()
-	node := mock.OpenNode(ctx)
+	node := mock.OpenNode(b.Context())
 
-	searchIdx, err := search.Open()
+	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
-		b.Fatalf("failed to create search index: %v", err)
+		b.Fatalf("failed to open ontology: %v", err)
 	}
 
-	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{
+	searchIdx, err := search.OpenIndex()
+	if err != nil {
+		b.Fatalf("failed to open search index: %v", err)
+	}
+
+	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
+		Ontology: otg,
+		Search:   searchIdx,
+	})
+	if err != nil {
+		b.Fatalf("failed to open group service: %v", err)
+	}
+
+	labelSvc, err := label.OpenService(b.Context(), label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
 	}
 
-	statusSvc, err := status.OpenService(ctx, status.ServiceConfig{
+	statusSvc, err := status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
-		Group:    node.Group,
-		Ontology: node.Ontology,
+		Group:    groupSvc,
+		Ontology: otg,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	})
@@ -68,15 +87,28 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		b.Fatalf("failed to open status service: %v", err)
 	}
 
-	channelSvc, err := channel.NewService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		Status:  statusSvc,
+	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
 	})
 	if err != nil {
 		b.Fatalf("failed to open channel service: %v", err)
 	}
-	calc, err := calculation.OpenService(ctx, calculation.ServiceConfig{
+	writerSvc, err := writer.NewService(writer.ServiceConfig{
 		Framer:  node.Framer,
+		Channel: channelSvc,
+	})
+	if err != nil {
+		b.Fatalf("failed to open writer service: %v", err)
+	}
+	calc, err := calculation.OpenService(b.Context(), calculation.ServiceConfig{
+		Framer:  node.Framer,
+		Writer:  writerSvc,
 		Channel: channelSvc,
 		Status:  statusSvc,
 	})
@@ -94,16 +126,20 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	}
 
 	return &benchStreamerEnv{
-		ctx:         ctx,
-		node:        node,
-		channelSvc:  channelSvc,
-		streamerSvc: streamerSvc,
+		ctx:  b.Context(),
+		node: node,
+		closer: io.MultiCloser{
+			calc, channelSvc, statusSvc, labelSvc, groupSvc, searchIdx, otg, node,
+		},
+		channelSvc:    channelSvc,
+		channelWriter: channelSvc.NewWriter(nil),
+		streamerSvc:   streamerSvc,
 	}
 }
 
 func (e *benchStreamerEnv) close(b *testing.B) {
-	if err := e.node.Close(); err != nil {
-		b.Errorf("failed to close cluster: %v", err)
+	if err := e.closer.Close(); err != nil {
+		b.Errorf("failed to close env: %v", err)
 	}
 }
 
@@ -113,7 +149,7 @@ func (e *benchStreamerEnv) createVirtualChannel(b *testing.B, name string) *chan
 		DataType: telem.Float32T,
 		Virtual:  true,
 	}
-	if err := e.channelSvc.Create(e.ctx, ch); err != nil {
+	if err := e.channelWriter.Create(e.ctx, ch); err != nil {
 		b.Fatalf("failed to create channel: %v", err)
 	}
 	return ch
@@ -129,7 +165,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 		DataType: telem.TimeStampT,
 		IsIndex:  true,
 	}
-	if err := e.channelSvc.Create(e.ctx, indexCh); err != nil {
+	if err := e.channelWriter.Create(e.ctx, indexCh); err != nil {
 		b.Fatalf("failed to create index channel: %v", err)
 	}
 	dataChannels := make([]*channel.Channel, numDataChannels)
@@ -139,7 +175,7 @@ func (e *benchStreamerEnv) createIndexedChannels(
 			DataType:   telem.Float32T,
 			LocalIndex: indexCh.LocalKey,
 		}
-		if err := e.channelSvc.Create(e.ctx, dataChannels[i]); err != nil {
+		if err := e.channelWriter.Create(e.ctx, dataChannels[i]); err != nil {
 			b.Fatalf("failed to create data channel: %v", err)
 		}
 	}
@@ -152,7 +188,7 @@ func (e *benchStreamerEnv) createCalculation(b *testing.B, name, expression stri
 		DataType:   telem.Float32T,
 		Expression: expression,
 	}
-	if err := e.channelSvc.Create(e.ctx, calc); err != nil {
+	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calculation channel: %v", err)
 	}
 	return calc
