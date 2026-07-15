@@ -19,11 +19,18 @@ import "github.com/synnaxlabs/x/text/types"
 type Level = types.Level
 
 const (
-	LevelH1    = types.LevelH1
-	LevelH2    = types.LevelH2
-	LevelH3    = types.LevelH3
-	LevelH4    = types.LevelH4
-	LevelH5    = types.LevelH5
-	LevelP     = types.LevelP
+	// LevelH1 is the largest heading level.
+	LevelH1 = types.LevelH1
+	// LevelH2 is the second-largest heading level.
+	LevelH2 = types.LevelH2
+	// LevelH3 is the third-largest heading level.
+	LevelH3 = types.LevelH3
+	// LevelH4 is the fourth-largest heading level.
+	LevelH4 = types.LevelH4
+	// LevelH5 is the smallest heading level.
+	LevelH5 = types.LevelH5
+	// LevelP is the standard paragraph level.
+	LevelP = types.LevelP
+	// LevelSmall is the smallest level, used for captions and annotations.
 	LevelSmall = types.LevelSmall
 )

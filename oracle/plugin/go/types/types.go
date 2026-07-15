@@ -240,6 +240,7 @@ func processEnum(e resolution.Type) enumData {
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
 			Name:     naming.ToPascalCase(v.Name),
+			Doc:      doc.Get(v.Domains),
 			Value:    v.StringValue(),
 			IntValue: v.IntValue(),
 		})
@@ -600,6 +601,7 @@ func (e enumData) Receiver() string { return strings.ToLower(e.Name[:1]) }
 
 type enumValueData struct {
 	Name     string
+	Doc      string
 	Value    string
 	IntValue int64
 }
@@ -674,6 +676,9 @@ type {{$enum.Name}} string
 
 const (
 {{- range $enum.Values}}
+{{- if .Doc}}
+	{{formatDoc (printf "%s%s" $enum.Name .Name) .Doc | printf "%s"}}
+{{- end}}
 	{{$enum.Name}}{{.Name}} {{$enum.Name}} = "{{.Value}}"
 {{- end}}
 )

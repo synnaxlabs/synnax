@@ -1931,6 +1931,31 @@ var _ = Describe("Go Types Plugin", func() {
 					)
 			})
 
+			It("Should render and transpose enum value docs", func(ctx SpecContext) {
+				source := `
+					@go output "out"
+					@go version 1
+
+					Color enum {
+						red = "red" { @doc value "is the color of fire." }
+						blue = "blue"
+					}
+
+					Entry struct {
+						key uuid @key
+						@go marshal
+						color Color
+					}
+				`
+				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
+				ExpectContent(resp, "out/types/v1/types.gen.go").
+					ToBeValidGoSource().
+					ToContain("// ColorRed is the color of fire.")
+				ExpectContent(resp, "out/types.gen.go").
+					ToBeValidGoSource().
+					ToContain("// ColorRed is the color of fire.")
+			})
+
 			It("Should re-export enum members as consts", func(ctx SpecContext) {
 				source := `
 					@go output "out"

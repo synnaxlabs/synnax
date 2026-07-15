@@ -1171,6 +1171,36 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 	} else if ctx.STRING_LIT() != nil {
 		f.write(ctx.STRING_LIT().GetText())
 	}
+	if body := ctx.EnumValueBody(); body != nil {
+		f.writeLine(" {")
+		f.currentIndent++
+		maxPrefixLen := 0
+		for _, dom := range body.AllDomain() {
+			prefixLen := 1 + len(dom.IDENT().GetText())
+			if dom.DomainContent() != nil && dom.DomainContent().Expression() != nil {
+				expr := dom.DomainContent().Expression()
+				prefixLen += 1 + len(expr.IDENT().GetText())
+			}
+			if prefixLen > maxPrefixLen {
+				maxPrefixLen = prefixLen
+			}
+		}
+		for _, dom := range body.AllDomain() {
+			f.emitCommentsBefore(dom.GetStart().GetTokenIndex())
+			f.writeIndent()
+			f.write("@")
+			f.write(dom.IDENT().GetText())
+			if dom.DomainContent() != nil {
+				f.write(" ")
+				f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			}
+			f.newline()
+			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
+		}
+		f.currentIndent--
+		f.writeIndent()
+		f.write("}")
+	}
 	f.newline()
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }

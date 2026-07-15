@@ -15,8 +15,13 @@ package v0
 type Notation string
 
 const (
-	NotationStandard    Notation = "standard"
-	NotationScientific  Notation = "scientific"
+	// NotationStandard renders samples as plain decimal numbers.
+	NotationStandard Notation = "standard"
+	// NotationScientific renders samples in scientific notation with a single leading
+	// digit.
+	NotationScientific Notation = "scientific"
+	// NotationEngineering renders samples in engineering notation with exponents in
+	// multiples of three.
 	NotationEngineering Notation = "engineering"
 )
 

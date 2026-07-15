@@ -15,9 +15,9 @@
 @pb
 
 Notation enum {
-    standard    = "standard"
-    scientific  = "scientific"
-    engineering = "engineering"
+    standard    = "standard"    { @doc value "renders samples as plain decimal numbers." }
+    scientific  = "scientific"  { @doc value "renders samples in scientific notation with a single leading digit." }
+    engineering = "engineering" { @doc value "renders samples in engineering notation with exponents in multiples of three." }
 
     @doc value "is the numeric notation used to render samples."
     @py omit

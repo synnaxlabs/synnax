@@ -15,13 +15,13 @@
 @pb
 
 Level enum {
-    h1    = "h1"
-    h2    = "h2"
-    h3    = "h3"
-    h4    = "h4"
-    h5    = "h5"
-    p     = "p"
-    small = "small"
+    h1    = "h1"    { @doc value "is the largest heading level." }
+    h2    = "h2"    { @doc value "is the second-largest heading level." }
+    h3    = "h3"    { @doc value "is the third-largest heading level." }
+    h4    = "h4"    { @doc value "is the fourth-largest heading level." }
+    h5    = "h5"    { @doc value "is the smallest heading level." }
+    p     = "p"     { @doc value "is the standard paragraph level." }
+    small = "small" { @doc value "is the smallest level, used for captions and annotations." }
 
     @doc value """
         is a typography level identifier shared across visualizations.
