@@ -9,6 +9,7 @@
 
 @ts output "client/ts/src/access/action"
 @go output "core/pkg/service/access"
+@go version 0
 @py output "client/py/synnax/access/action"
 @pb
 

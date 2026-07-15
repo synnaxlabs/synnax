@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	xchange "github.com/synnaxlabs/x/change"
@@ -155,7 +156,7 @@ func (s *Service) RetrieveResource(
 	key string,
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
-	rangeKey, channelKey, err := parseGorpKey(key)
+	rangeKey, channelKey, err := v0.ParseGorpKey(key)
 	if err != nil {
 		return ontology.Resource{}, err
 	}

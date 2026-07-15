@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v1"
+	accessv0 "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 )
 
@@ -41,7 +41,7 @@ var _ = Describe("Codec", func() {
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
 				Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
-				Actions:  []access.Action{access.Action("create")},
+				Actions:  []accessv0.Action{accessv0.Action("create")},
 				Internal: true,
 			}),
 			Entry("zero values", v1.Policy{
@@ -55,7 +55,7 @@ var _ = Describe("Codec", func() {
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
 				Objects:  []ontologyv0.ID{},
-				Actions:  []access.Action{},
+				Actions:  []accessv0.Action{},
 				Internal: true,
 			}),
 		)
@@ -67,7 +67,7 @@ func BenchmarkEncodeDecodePolicy(b *testing.B) {
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:     "test_2",
 		Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
-		Actions:  []access.Action{access.Action("create")},
+		Actions:  []accessv0.Action{accessv0.Action("create")},
 		Internal: true,
 	}
 	w := orc.NewWriter(0)
@@ -91,7 +91,7 @@ func FuzzDecodePolicy(f *testing.F) {
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
 			Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
-			Actions:  []access.Action{access.Action("create")},
+			Actions:  []accessv0.Action{accessv0.Action("create")},
 			Internal: true,
 		}
 		w := orc.NewWriter(0)
@@ -119,7 +119,7 @@ func FuzzDecodePolicy(f *testing.F) {
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
 			Objects:  []ontologyv0.ID{},
-			Actions:  []access.Action{},
+			Actions:  []accessv0.Action{},
 			Internal: true,
 		}
 		w := orc.NewWriter(0)

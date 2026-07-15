@@ -11,6 +11,7 @@ import "schemas/synnax/ranger"
 import "schemas/synnax/channel"
 
 @go output "core/pkg/service/ranger/alias"
+@go version 0
 @ts output "client/ts/src/range/alias"
 @pb
 

@@ -12,7 +12,7 @@
 package v1
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	accessv0 "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -76,14 +76,14 @@ func (p *Policy) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Actions = make([]access.Action, n)
+			p.Actions = make([]accessv0.Action, n)
 			for i := range p.Actions {
 				{
 					v, err := r.String()
 					if err != nil {
 						return err
 					}
-					p.Actions[i] = access.Action(v)
+					p.Actions[i] = accessv0.Action(v)
 				}
 			}
 		}

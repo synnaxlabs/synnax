@@ -9,19 +9,3 @@
 
 // Package kv implements a service for managing key-value pairs on ranges.
 package kv
-
-import (
-	"github.com/synnaxlabs/x/gorp"
-)
-
-const keySeparator = "<--->"
-
-var _ gorp.Entry[string] = Pair{}
-
-// GorpKey implements gorp.Entry.
-func (k Pair) GorpKey() string { return k.Range.String() + keySeparator + k.Key }
-
-// SetOptions implements gorp.Entry.
-func (k Pair) SetOptions() []any { return nil }
-
-func (k Pair) CustomTypeName() string { return "KVPair" }

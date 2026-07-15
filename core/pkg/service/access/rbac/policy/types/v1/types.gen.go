@@ -13,7 +13,7 @@ package v1
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	accessv0 "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
@@ -33,7 +33,7 @@ type Policy struct {
 	// Objects is the list of ontology resources this policy applies to.
 	Objects []ontologyv0.ID `json:"objects,omitzero" msgpack:"objects,omitzero"`
 	// Actions is the list of actions this policy permits.
-	Actions []access.Action `json:"actions,omitzero" msgpack:"actions,omitzero"`
+	Actions []accessv0.Action `json:"actions,omitzero" msgpack:"actions,omitzero"`
 	// Internal is true if this is a built-in system policy that cannot be deleted.
 	Internal bool `json:"internal" msgpack:"internal"`
 }

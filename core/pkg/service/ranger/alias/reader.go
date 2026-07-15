@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -159,7 +160,7 @@ func (r Reader) Search(
 	}
 	res := make([]channel.Key, 0)
 	for _, id := range ids {
-		rangeKey, chKey, err := parseGorpKey(id.Key)
+		rangeKey, chKey, err := v0.ParseGorpKey(id.Key)
 		if err != nil {
 			return nil, err
 		}

@@ -11,8 +11,8 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	access "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/gorp"
 )
 

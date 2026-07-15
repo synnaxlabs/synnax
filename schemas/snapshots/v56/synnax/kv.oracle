@@ -10,6 +10,7 @@
 import "schemas/synnax/ranger"
 
 @go output "core/pkg/service/ranger/kv"
+@go version 0
 @ts output "client/ts/src/range/kv"
 @pb
 
