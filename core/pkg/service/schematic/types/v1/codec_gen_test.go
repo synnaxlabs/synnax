@@ -22,7 +22,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/spatial"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 var _ = Describe("Codec", func() {
@@ -77,12 +77,12 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v1.Node{
 				Key:      "test_1",
-				Position: spatial.XY{X: 3.5, Y: 4.5},
+				Position: spatialv0.XY{X: 3.5, Y: 4.5},
 				ZIndex:   6,
 			}),
 			Entry("zero values", v1.Node{
 				Key:      "",
-				Position: spatial.XY{X: 0, Y: 0},
+				Position: spatialv0.XY{X: 0, Y: 0},
 				ZIndex:   0,
 			}),
 		)
@@ -105,7 +105,7 @@ var _ = Describe("Codec", func() {
 				Nodes: []v1.Node{
 					{
 						Key:      "test_5",
-						Position: spatial.XY{X: 7.5, Y: 8.5},
+						Position: spatialv0.XY{X: 7.5, Y: 8.5},
 						ZIndex:   10,
 					},
 				},
@@ -179,7 +179,7 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 func BenchmarkEncodeDecodeNode(b *testing.B) {
 	nv := v1.Node{
 		Key:      "test_1",
-		Position: spatial.XY{X: 3.5, Y: 4.5},
+		Position: spatialv0.XY{X: 3.5, Y: 4.5},
 		ZIndex:   6,
 	}
 	w := orc.NewWriter(0)
@@ -205,7 +205,7 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 		Nodes: []v1.Node{
 			{
 				Key:      "test_5",
-				Position: spatial.XY{X: 7.5, Y: 8.5},
+				Position: spatialv0.XY{X: 7.5, Y: 8.5},
 				ZIndex:   10,
 			},
 		},
@@ -337,7 +337,7 @@ func FuzzDecodeNode(f *testing.F) {
 	{
 		seed := v1.Node{
 			Key:      "test_1",
-			Position: spatial.XY{X: 3.5, Y: 4.5},
+			Position: spatialv0.XY{X: 3.5, Y: 4.5},
 			ZIndex:   6,
 		}
 		w := orc.NewWriter(0)
@@ -349,7 +349,7 @@ func FuzzDecodeNode(f *testing.F) {
 	{
 		seed := v1.Node{
 			Key:      "",
-			Position: spatial.XY{X: 0, Y: 0},
+			Position: spatialv0.XY{X: 0, Y: 0},
 			ZIndex:   0,
 		}
 		w := orc.NewWriter(0)
@@ -396,7 +396,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Nodes: []v1.Node{
 				{
 					Key:      "test_5",
-					Position: spatial.XY{X: 7.5, Y: 8.5},
+					Position: spatialv0.XY{X: 7.5, Y: 8.5},
 					ZIndex:   10,
 				},
 			},

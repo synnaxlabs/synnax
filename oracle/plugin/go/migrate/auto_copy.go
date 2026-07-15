@@ -507,9 +507,16 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 	}
 	// For TypeChanged types in external packages, call MigrateX (the developer
 	// template) instead of AutoMigrateX, so developer customization takes effect.
+	// Both live in the dependency's incoming version package, so the import
+	// targets the type's NEW path, not the frozen one being read from.
 	prefix := "AutoMigrate"
 	if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == TypeChanged {
 		prefix = "Migrate"
+	}
+	if nt, ok := c.newTable.Get(typ.QualifiedName); ok {
+		if p := output.GetPath(nt, "go"); p != "" {
+			goPath = p
+		}
 	}
 	imp := c.addImport(goPath)
 	return imp.Alias + "." + prefix + goName

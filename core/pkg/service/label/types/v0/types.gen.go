@@ -13,7 +13,7 @@ package v0
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/color"
+	colorv0 "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -28,7 +28,7 @@ type Label struct {
 	// Name is a human-readable name for the label.
 	Name string `json:"name" msgpack:"name"`
 	// Color is the display color for visual identification of the label.
-	Color color.Color `json:"color" msgpack:"color"`
+	Color colorv0.Color `json:"color" msgpack:"color"`
 }
 
 func (l Label) Validate() error {

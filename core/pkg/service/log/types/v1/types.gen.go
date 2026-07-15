@@ -14,9 +14,9 @@ package v1
 import (
 	"github.com/google/uuid"
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
+	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	notationv0 "github.com/synnaxlabs/x/notation/types/v0"
+	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -27,9 +27,9 @@ type Key = uuid.UUID
 // TimestampConfig is per-channel timestamp display configuration.
 type TimestampConfig struct {
 	// Format controls how channel timestamps are rendered.
-	Format telem.TimestampFormat `json:"format" msgpack:"format"`
+	Format telemv1.TimestampFormat `json:"format" msgpack:"format"`
 	// Tz is the time zone used when rendering timestamps.
-	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
+	Tz telemv1.TimeZone `json:"tz" msgpack:"tz"`
 }
 
 func (t TimestampConfig) Validate() error {
@@ -44,9 +44,9 @@ type ChannelEntry struct {
 	// Channel is the channel this entry references.
 	Channel channelv0.Key `json:"channel" msgpack:"channel"`
 	// Color is the display color for the channel.
-	Color color.Color `json:"color" msgpack:"color"`
+	Color colorv0.Color `json:"color" msgpack:"color"`
 	// Notation is the numeric notation used to render samples.
-	Notation notation.Notation `json:"notation" msgpack:"notation"`
+	Notation notationv0.Notation `json:"notation" msgpack:"notation"`
 	// Precision is the number of decimal digits to display. -1 means "use the log-level
 	// precision"; 17 is the maximum significant digits for a float64.
 	Precision int32 `json:"precision" msgpack:"precision"`

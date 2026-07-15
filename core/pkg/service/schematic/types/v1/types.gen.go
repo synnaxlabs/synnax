@@ -14,7 +14,7 @@ package v1
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/spatial"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,7 +26,7 @@ type Node struct {
 	// Key is the unique node identifier within the schematic.
 	Key string `json:"key" msgpack:"key"`
 	// Position is the top-left position of the node.
-	Position spatial.XY `json:"position" msgpack:"position"`
+	Position spatialv0.XY `json:"position" msgpack:"position"`
 	// ZIndex is the stacking order of the node within the schematic. Higher values render
 	// above lower values. Set by the user via send-to-back / bring-to-front actions.
 	ZIndex int16 `json:"z_index" msgpack:"z_index"`

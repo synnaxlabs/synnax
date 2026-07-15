@@ -13,10 +13,10 @@ package v1
 
 import (
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	"github.com/synnaxlabs/x/color"
+	colorv0 "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/text"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	textv0 "github.com/synnaxlabs/x/text/types/v0"
 )
 
 func (a Axes) EncodeOrc(w *orc.Writer) error {
@@ -101,14 +101,14 @@ func (a *Axis) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		a.LabelDirection = spatial.Direction(v)
+		a.LabelDirection = spatialv0.Direction(v)
 	}
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		a.LabelLevel = text.Level(v)
+		a.LabelLevel = textv0.Level(v)
 	}
 	if a.Bounds.Lower, err = r.Float64(); err != nil {
 		return err
@@ -347,7 +347,7 @@ func (lv *Line) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv colorv0.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -579,7 +579,7 @@ func (rv *Rule) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv colorv0.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -621,7 +621,7 @@ func (t *Title) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		t.Level = text.Level(v)
+		t.Level = textv0.Level(v)
 	}
 	if t.Visible, err = r.Bool(); err != nil {
 		return err

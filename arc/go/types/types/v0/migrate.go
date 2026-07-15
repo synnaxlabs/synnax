@@ -14,7 +14,7 @@ package v0
 import (
 	"context"
 
-	types "github.com/synnaxlabs/arc/types"
+	types "github.com/synnaxlabs/arc/types/types/v1"
 )
 
 func MigrateFunctionProperties(ctx context.Context, old FunctionProperties) (types.FunctionProperties, error) {

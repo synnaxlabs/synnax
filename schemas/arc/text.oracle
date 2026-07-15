@@ -12,7 +12,7 @@ import "schemas/x/crdt"
 @ts output  "client/ts/src/arc/text"
 @py output  "client/py/synnax/arc/text"
 @go output  "arc/go/text"
-@go version 0
+@go version 1
 @cpp output "arc/cpp/text"
 @pb
 

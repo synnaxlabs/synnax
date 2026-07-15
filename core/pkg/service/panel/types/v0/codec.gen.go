@@ -16,7 +16,7 @@ import (
 
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/spatial"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 func (lv Leaf) EncodeOrc(w *orc.Writer) error {
@@ -146,7 +146,7 @@ func (s *Split) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		s.Direction = spatial.Direction(v)
+		s.Direction = spatialv0.Direction(v)
 	}
 	if s.Size, err = r.Float64(); err != nil {
 		return err

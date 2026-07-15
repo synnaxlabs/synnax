@@ -20,10 +20,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/spatial"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 var (
@@ -31,12 +31,12 @@ var (
 		Tabs: []v0.Tab{
 			{Variant: v0.TabResource{
 				TabBase:  v0.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
+				Resource: ontologyv0.ID{Type: ontologyv0.ResourceType("arc"), Key: "test_5"},
 			}},
 		},
 	}
 	fullyPopulatedSplit = v0.Split{
-		Direction: spatial.Direction("x"),
+		Direction: spatialv0.Direction("x"),
 		Size:      2.5,
 		First:     v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: []v0.Tab{{Variant: v0.TabResource{}}}}}},
 		Last:      v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: []v0.Tab{{Variant: v0.TabResource{}}}}}},
@@ -117,7 +117,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedSplit),
 			Entry("zero values", v0.Split{
-				Direction: spatial.Direction(""),
+				Direction: spatialv0.Direction(""),
 				Size:      0,
 				First:     v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
 				Last:      v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
@@ -137,7 +137,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("resource variant", v0.Tab{Variant: v0.TabResource{
 				TabBase:  fullyPopulatedTabBase,
-				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+				Resource: ontologyv0.ID{Type: ontologyv0.ResourceType("arc"), Key: "test_3"},
 			}}),
 			Entry("view variant", v0.Tab{Variant: v0.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}),
 			Entry("empty variant", v0.Tab{Variant: v0.TabEmpty{TabBase: fullyPopulatedTabBase}}),
@@ -254,7 +254,7 @@ func BenchmarkEncodeDecodeSplit(b *testing.B) {
 func BenchmarkEncodeDecodeTab(b *testing.B) {
 	t := v0.Tab{Variant: v0.TabResource{
 		TabBase:  fullyPopulatedTabBase,
-		Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+		Resource: ontologyv0.ID{Type: ontologyv0.ResourceType("arc"), Key: "test_3"},
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -470,7 +470,7 @@ func FuzzDecodeSplit(f *testing.F) {
 	}
 	{
 		seed := v0.Split{
-			Direction: spatial.Direction(""),
+			Direction: spatialv0.Direction(""),
 			Size:      0,
 			First:     v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
 			Last:      v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
@@ -514,7 +514,7 @@ func FuzzDecodeTab(f *testing.F) {
 	{
 		seed := v0.Tab{Variant: v0.TabResource{
 			TabBase:  fullyPopulatedTabBase,
-			Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
+			Resource: ontologyv0.ID{Type: ontologyv0.ResourceType("arc"), Key: "test_3"},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

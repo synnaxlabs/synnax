@@ -13,7 +13,7 @@ package v0
 
 import (
 	"context"
-	types "github.com/synnaxlabs/arc/types"
+	types "github.com/synnaxlabs/arc/types/types/v1"
 )
 
 func AutoMigrateParams(ctx context.Context, old Params) (types.Params, error) {

@@ -14,8 +14,8 @@ package v1
 import (
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
+	notationv0 "github.com/synnaxlabs/x/notation/types/v0"
+	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
 
 func (ce ChannelEntry) EncodeOrc(w *orc.Writer) error {
@@ -49,7 +49,7 @@ func (ce *ChannelEntry) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		ce.Notation = notation.Notation(v)
+		ce.Notation = notationv0.Notation(v)
 	}
 	if ce.Precision, err = r.Int32(); err != nil {
 		return err
@@ -131,14 +131,14 @@ func (tc *TimestampConfig) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		tc.Format = telem.TimestampFormat(v)
+		tc.Format = telemv1.TimestampFormat(v)
 	}
 	{
 		v, err := r.String()
 		if err != nil {
 			return err
 		}
-		tc.Tz = telem.TimeZone(v)
+		tc.Tz = telemv1.TimeZone(v)
 	}
 	return nil
 }

@@ -12,48 +12,11 @@
 package ontology
 
 import (
-	"github.com/synnaxlabs/x/validate"
+	latest "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 )
 
 // ResourceType is the type of the resource.
-type ResourceType string
-
-const (
-	ResourceTypeArc             ResourceType = "arc"
-	ResourceTypeBuiltin         ResourceType = "builtin"
-	ResourceTypeChannel         ResourceType = "channel"
-	ResourceTypeDevice          ResourceType = "device"
-	ResourceTypeFramer          ResourceType = "framer"
-	ResourceTypeGroup           ResourceType = "group"
-	ResourceTypeLabel           ResourceType = "label"
-	ResourceTypeLineplot        ResourceType = "lineplot"
-	ResourceTypeLog             ResourceType = "log"
-	ResourceTypeNode            ResourceType = "node"
-	ResourceTypePanel           ResourceType = "panel"
-	ResourceTypePolicy          ResourceType = "policy"
-	ResourceTypeProject         ResourceType = "project"
-	ResourceTypeRack            ResourceType = "rack"
-	ResourceTypeRange           ResourceType = "range"
-	ResourceTypeRangeAlias      ResourceType = "range-alias"
-	ResourceTypeRole            ResourceType = "role"
-	ResourceTypeSchematic       ResourceType = "schematic"
-	ResourceTypeSchematicSymbol ResourceType = "schematic_symbol"
-	ResourceTypeStatus          ResourceType = "status"
-	ResourceTypeTable           ResourceType = "table"
-	ResourceTypeTask            ResourceType = "task"
-	ResourceTypeUser            ResourceType = "user"
-	ResourceTypeView            ResourceType = "view"
-)
-
-// IsValid reports whether r is one of the defined ResourceType values.
-func (r ResourceType) IsValid() bool {
-	switch r {
-	case ResourceTypeArc, ResourceTypeBuiltin, ResourceTypeChannel, ResourceTypeDevice, ResourceTypeFramer, ResourceTypeGroup, ResourceTypeLabel, ResourceTypeLineplot, ResourceTypeLog, ResourceTypeNode, ResourceTypePanel, ResourceTypePolicy, ResourceTypeProject, ResourceTypeRack, ResourceTypeRange, ResourceTypeRangeAlias, ResourceTypeRole, ResourceTypeSchematic, ResourceTypeSchematicSymbol, ResourceTypeStatus, ResourceTypeTable, ResourceTypeTask, ResourceTypeUser, ResourceTypeView:
-		return true
-	default:
-		return false
-	}
-}
+type ResourceType = latest.ResourceType
 
 // ID ID is a unique identifier for a Resource. An example:
 //
@@ -63,16 +26,31 @@ func (r ResourceType) IsValid() bool {
 // service to query for additional info on the Resource. Second, while a Key may be
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
-type ID struct {
-	// Type defines the type of resource the key refers to. For example, a channel is a
-	// resource of type "channel". A user is a resource of type "user".
-	Type ResourceType `json:"type" msgpack:"type"`
-	// Key is the unique key identifying the resource within its type.
-	Key string `json:"key" msgpack:"key"`
-}
+type ID = latest.ID
 
-func (i ID) Validate() error {
-	v := validate.New("ID")
-	v.Ternaryf("type", !i.Type.IsValid(), "invalid type: %v", i.Type)
-	return v.Error()
-}
+const (
+	ResourceTypeArc             = latest.ResourceTypeArc
+	ResourceTypeBuiltin         = latest.ResourceTypeBuiltin
+	ResourceTypeChannel         = latest.ResourceTypeChannel
+	ResourceTypeDevice          = latest.ResourceTypeDevice
+	ResourceTypeFramer          = latest.ResourceTypeFramer
+	ResourceTypeGroup           = latest.ResourceTypeGroup
+	ResourceTypeLabel           = latest.ResourceTypeLabel
+	ResourceTypeLineplot        = latest.ResourceTypeLineplot
+	ResourceTypeLog             = latest.ResourceTypeLog
+	ResourceTypeNode            = latest.ResourceTypeNode
+	ResourceTypePanel           = latest.ResourceTypePanel
+	ResourceTypePolicy          = latest.ResourceTypePolicy
+	ResourceTypeProject         = latest.ResourceTypeProject
+	ResourceTypeRack            = latest.ResourceTypeRack
+	ResourceTypeRange           = latest.ResourceTypeRange
+	ResourceTypeRangeAlias      = latest.ResourceTypeRangeAlias
+	ResourceTypeRole            = latest.ResourceTypeRole
+	ResourceTypeSchematic       = latest.ResourceTypeSchematic
+	ResourceTypeSchematicSymbol = latest.ResourceTypeSchematicSymbol
+	ResourceTypeStatus          = latest.ResourceTypeStatus
+	ResourceTypeTable           = latest.ResourceTypeTable
+	ResourceTypeTask            = latest.ResourceTypeTask
+	ResourceTypeUser            = latest.ResourceTypeUser
+	ResourceTypeView            = latest.ResourceTypeView
+)

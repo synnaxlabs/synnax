@@ -11,21 +11,15 @@
 
 package notation
 
-// Notation is the numeric notation used to render samples.
-type Notation string
-
-const (
-	NotationStandard    Notation = "standard"
-	NotationScientific  Notation = "scientific"
-	NotationEngineering Notation = "engineering"
+import (
+	latest "github.com/synnaxlabs/x/notation/types/v0"
 )
 
-// IsValid reports whether n is one of the defined Notation values.
-func (n Notation) IsValid() bool {
-	switch n {
-	case NotationStandard, NotationScientific, NotationEngineering:
-		return true
-	default:
-		return false
-	}
-}
+// Notation is the numeric notation used to render samples.
+type Notation = latest.Notation
+
+const (
+	NotationStandard    = latest.NotationStandard
+	NotationScientific  = latest.NotationScientific
+	NotationEngineering = latest.NotationEngineering
+)

@@ -12,176 +12,75 @@
 package ir
 
 import (
-	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
+	latest "github.com/synnaxlabs/arc/ir/types/v2"
 )
 
 // Edges is a collection of dataflow edges in an Arc graph.
-type Edges []Edge
+type Edges = latest.Edges
 
 // Functions is a collection of function definitions in an Arc module.
-type Functions []Function
+type Functions = latest.Functions
 
 // Nodes is a collection of node instantiations in an Arc module.
-type Nodes []Node
+type Nodes = latest.Nodes
 
 // Members is an ordered collection of Scope members, one per position.
-type Members = []Member
+type Members = latest.Members
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
-type EdgeKind uint8
-
-//go:generate stringer -type=EdgeKind
-
-const (
-	EdgeKindUnspecified EdgeKind = iota
-	EdgeKindContinuous
-	EdgeKindConditional
-)
+type EdgeKind = latest.EdgeKind
 
 // ScopeMode defines the concurrency model of a Scope.
-type ScopeMode uint8
-
-//go:generate stringer -type=ScopeMode
-
-const (
-	ScopeModeUnspecified ScopeMode = iota
-	ScopeModeParallel
-	ScopeModeSequential
-)
+type ScopeMode = latest.ScopeMode
 
 // Liveness defines whether a Scope is continuously active or must be activated.
-type Liveness uint8
-
-//go:generate stringer -type=Liveness
-
-const (
-	LivenessUnspecified Liveness = iota
-	LivenessAlways
-	LivenessGated
-)
+type Liveness = latest.Liveness
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
-type Handle struct {
-	// Node is the node identifier.
-	Node string `json:"node" msgpack:"node"`
-	// Param is the parameter name (input or output).
-	Param string `json:"param" msgpack:"param"`
-}
+type Handle = latest.Handle
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge struct {
-	// Source is the source node parameter producing data.
-	Source Handle `json:"source" msgpack:"source"`
-	// Target is the target node parameter consuming data.
-	Target Handle `json:"target" msgpack:"target"`
-	// Kind defines execution semantics for this connection.
-	Kind EdgeKind `json:"kind" msgpack:"kind"`
-}
+type Edge = latest.Edge
 
 // Transition is a declarative state-transition rule on a sequential Scope.
-type Transition struct {
-	// On is the dataflow handle whose truthy value fires this transition.
-	On Handle `json:"on" msgpack:"on"`
-	// TargetKey is the sibling step key to activate. Null when the transition exits the
-	// scope, yielding to the parent.
-	TargetKey *string `json:"target_key,omitempty" msgpack:"target_key,omitempty"`
-}
+type Transition = latest.Transition
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
 // nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
 // transitions) is derived from the set variant via Member.key().
-type Member struct {
-	// NodeKey is the key of the referenced node in IR.nodes. Null when this member is a
-	// nested scope.
-	NodeKey *string `json:"node_key,omitempty" msgpack:"node_key,omitempty"`
-	// Scope is set when this member is a nested scope.
-	Scope *Scope `json:"scope,omitempty" msgpack:"scope,omitempty"`
-}
+type Member = latest.Member
 
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members
 // into strata; sequential scopes run one step at a time and advance via transitions.
-type Scope struct {
-	// Key is the scope identifier.
-	Key string `json:"key" msgpack:"key"`
-	// Mode defines whether this scope runs steps in parallel or sequentially.
-	Mode ScopeMode `json:"mode" msgpack:"mode"`
-	// Liveness defines whether this scope is continuously active or must be activated.
-	Liveness Liveness `json:"liveness" msgpack:"liveness"`
-	// Activation is the handle whose truthy value activates a gated scope. Unset for
-	// always-live scopes.
-	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
-	// Strata contains stratified execution layers for parallel scopes. Empty for sequential
-	// scopes. Stratum N depends only on strata 0 to N-1.
-	Strata []Members `json:"strata,omitzero" msgpack:"strata,omitzero"`
-	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-	Steps Members `json:"steps,omitzero" msgpack:"steps,omitzero"`
-	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
-	// scopes.
-	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
-}
+type Scope = latest.Scope
 
 // Body is raw function body source code with optional parsed AST.
-type Body struct {
-	// Raw is the raw source code text.
-	Raw string                  `json:"raw" msgpack:"raw"`
-	AST antlr.ParserRuleContext `json:"-"`
-}
+type Body = latest.Body
 
 // Function is a function template definition with typed parameters, serving as a
 // blueprint for node instantiation.
-type Function struct {
-	// Key is the function identifier (template name).
-	Key string `json:"key" msgpack:"key"`
-	// Body is raw source code for user-defined functions.
-	Body Body `json:"body" msgpack:"body"`
-	// Inputs contains input parameter definitions.
-	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
-	// Outputs contains output parameter definitions.
-	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
-	// Channels contains channel read/write declarations.
-	Channels types.Channels `json:"channels" msgpack:"channels"`
-}
+type Function = latest.Function
 
 // Node is a concrete instantiation of a function with typed parameters and values.
-type Node struct {
-	// Key is the unique identifier for this node instance.
-	Key string `json:"key" msgpack:"key"`
-	// Type is the function type being instantiated.
-	Type string `json:"type" msgpack:"type"`
-	// Inputs contains input parameter type signatures.
-	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
-	// Outputs contains output parameter type signatures.
-	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
-	// Channels contains channel read/write mappings.
-	Channels types.Channels `json:"channels" msgpack:"channels"`
-}
+type Node = latest.Node
 
 // Authorities holds the static authority declarations from an Arc program.
-type Authorities struct {
-	// Default is the default authority for all write channels not explicitly listed.
-	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
-	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
+type Authorities = latest.Authorities
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
-type IR struct {
-	// Functions contains function template definitions.
-	Functions Functions `json:"functions,omitzero" msgpack:"functions,omitzero"`
-	// Nodes contains node instantiations.
-	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
-	// Edges contains dataflow connections.
-	Edges Edges `json:"edges,omitzero" msgpack:"edges,omitzero"`
-	// Authorities contains the static authority declarations for this program.
-	Authorities Authorities `json:"authorities" msgpack:"authorities"`
-	// Root is the top-level execution context. The root is always a parallel, always-live
-	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
-	Root    Scope                                  `json:"root" msgpack:"root"`
-	Symbols *symbol.Symbol                         `json:"-"`
-	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
-}
+type IR = latest.IR
+
+const (
+	EdgeKindUnspecified  = latest.EdgeKindUnspecified
+	EdgeKindContinuous   = latest.EdgeKindContinuous
+	EdgeKindConditional  = latest.EdgeKindConditional
+	ScopeModeUnspecified = latest.ScopeModeUnspecified
+	ScopeModeParallel    = latest.ScopeModeParallel
+	ScopeModeSequential  = latest.ScopeModeSequential
+	LivenessUnspecified  = latest.LivenessUnspecified
+	LivenessAlways       = latest.LivenessAlways
+	LivenessGated        = latest.LivenessGated
+)

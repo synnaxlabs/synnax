@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
-	"github.com/synnaxlabs/x/telem"
+	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
 
 var _ = Describe("Codec", func() {
@@ -41,7 +41,7 @@ var _ = Describe("Codec", func() {
 				Variant:     v2.Variant("success"),
 				Message:     "test_4",
 				Description: "test_5",
-				Time:        telem.TimeStamp(7),
+				Time:        telemv1.TimeStamp(7),
 				Details:     "test_7",
 			}),
 			Entry("zero values", v2.Status[string]{
@@ -50,7 +50,7 @@ var _ = Describe("Codec", func() {
 				Variant:     v2.Variant(""),
 				Message:     "",
 				Description: "",
-				Time:        telem.TimeStamp(0),
+				Time:        telemv1.TimeStamp(0),
 				Details:     "",
 			}),
 			Entry("empty collections", v2.Status[string]{
@@ -59,7 +59,7 @@ var _ = Describe("Codec", func() {
 				Variant:     v2.Variant("success"),
 				Message:     "test_4",
 				Description: "test_5",
-				Time:        telem.TimeStamp(7),
+				Time:        telemv1.TimeStamp(7),
 				Details:     "test_7",
 			}),
 		)
@@ -73,7 +73,7 @@ func BenchmarkEncodeDecodeStatus(b *testing.B) {
 		Variant:     v2.Variant("success"),
 		Message:     "test_4",
 		Description: "test_5",
-		Time:        telem.TimeStamp(7),
+		Time:        telemv1.TimeStamp(7),
 		Details:     "test_7",
 	}
 	w := orc.NewWriter(0)
@@ -99,7 +99,7 @@ func FuzzDecodeStatus(f *testing.F) {
 			Variant:     v2.Variant("success"),
 			Message:     "test_4",
 			Description: "test_5",
-			Time:        telem.TimeStamp(7),
+			Time:        telemv1.TimeStamp(7),
 			Details:     "test_7",
 		}
 		w := orc.NewWriter(0)
@@ -115,7 +115,7 @@ func FuzzDecodeStatus(f *testing.F) {
 			Variant:     v2.Variant(""),
 			Message:     "",
 			Description: "",
-			Time:        telem.TimeStamp(0),
+			Time:        telemv1.TimeStamp(0),
 			Details:     "",
 		}
 		w := orc.NewWriter(0)
@@ -131,7 +131,7 @@ func FuzzDecodeStatus(f *testing.F) {
 			Variant:     v2.Variant("success"),
 			Message:     "test_4",
 			Description: "test_5",
-			Time:        telem.TimeStamp(7),
+			Time:        telemv1.TimeStamp(7),
 			Details:     "test_7",
 		}
 		w := orc.NewWriter(0)

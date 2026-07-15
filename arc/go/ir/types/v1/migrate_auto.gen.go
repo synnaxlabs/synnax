@@ -13,9 +13,9 @@ package v1
 
 import (
 	"context"
-	ir "github.com/synnaxlabs/arc/ir"
-	types "github.com/synnaxlabs/arc/types"
+	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	typesv0 "github.com/synnaxlabs/arc/types/types/v0"
+	types "github.com/synnaxlabs/arc/types/types/v1"
 )
 
 func AutoMigrateFunctions(ctx context.Context, old Functions) (ir.Functions, error) {

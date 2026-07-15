@@ -20,14 +20,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/arc/types"
+	graphv2 "github.com/synnaxlabs/arc/graph/types/v2"
+	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
+	textv1 "github.com/synnaxlabs/arc/text/types/v1"
+	gov1 "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/spatial"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 var _ = Describe("Codec", func() {
@@ -46,51 +46,51 @@ var _ = Describe("Codec", func() {
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
 				Mode: v2.Mode("text"),
-				Graph: graph.Graph{
-					Functions: []ir.Function{
+				Graph: graphv2.Graph{
+					Functions: []irv2.Function{
 						{
 							Key:  "test_6",
-							Body: ir.Body{Raw: "test_8"},
-							Inputs: []types.Param{
+							Body: irv2.Body{Raw: "test_8"},
+							Inputs: []gov1.Param{
 								{
 									Name:  "test_10",
-									Type:  types.Type{},
+									Type:  gov1.Type{},
 									Value: map[string]interface{}{"key_12": "value_12"},
 								},
 							},
-							Outputs: []types.Param{
+							Outputs: []gov1.Param{
 								{
 									Name:  "test_14",
-									Type:  types.Type{},
+									Type:  gov1.Type{},
 									Value: map[string]interface{}{"key_16": "value_16"},
 								},
 							},
-							Channels: types.Channels{
+							Channels: gov1.Channels{
 								Read:  map[uint32]string{19: "test_18"},
 								Write: map[uint32]string{20: "test_19"},
 							},
 						},
 					},
-					Edges: []graph.Edge{
+					Edges: []graphv2.Edge{
 						{
-							Edge: ir.Edge{
-								Source: ir.Handle{Node: "test_22", Param: "test_23"},
-								Target: ir.Handle{Node: "test_25", Param: "test_26"},
-								Kind:   ir.EdgeKind(0),
+							Edge: irv2.Edge{
+								Source: irv2.Handle{Node: "test_22", Param: "test_23"},
+								Target: irv2.Handle{Node: "test_25", Param: "test_26"},
+								Kind:   irv2.EdgeKind(0),
 							},
 							Key: "test_28",
 						},
 					},
-					Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+					Nodes:  []graphv2.Node{{Key: "test_30", Position: spatialv0.XY{X: 32.5, Y: 33.5}}},
 					Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 				},
-				Text: text.Text{
-					Doc: text.Document{
+				Text: textv1.Text{
+					Doc: textv1.Document{
 						Inserts: []crdt.Insert{
 							{
 								ID:     crdt.ID{},
 								Origin: crdt.ID{},
-								Side:   spatial.XLocation("left"),
+								Side:   spatialv0.XLocation("left"),
 								Char:   42,
 							},
 						},
@@ -102,13 +102,13 @@ var _ = Describe("Codec", func() {
 				Key:  uuid.Nil,
 				Name: "",
 				Mode: v2.Mode(""),
-				Graph: graph.Graph{
+				Graph: graphv2.Graph{
 					Functions: nil,
 					Edges:     nil,
 					Nodes:     nil,
 					Inputs:    nil,
 				},
-				Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
+				Text: textv1.Text{Doc: textv1.Document{Inserts: nil, Deletes: nil}},
 			}),
 		)
 	})
@@ -134,51 +134,51 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
 		Mode: v2.Mode("text"),
-		Graph: graph.Graph{
-			Functions: []ir.Function{
+		Graph: graphv2.Graph{
+			Functions: []irv2.Function{
 				{
 					Key:  "test_6",
-					Body: ir.Body{Raw: "test_8"},
-					Inputs: []types.Param{
+					Body: irv2.Body{Raw: "test_8"},
+					Inputs: []gov1.Param{
 						{
 							Name:  "test_10",
-							Type:  types.Type{},
+							Type:  gov1.Type{},
 							Value: map[string]interface{}{"key_12": "value_12"},
 						},
 					},
-					Outputs: []types.Param{
+					Outputs: []gov1.Param{
 						{
 							Name:  "test_14",
-							Type:  types.Type{},
+							Type:  gov1.Type{},
 							Value: map[string]interface{}{"key_16": "value_16"},
 						},
 					},
-					Channels: types.Channels{
+					Channels: gov1.Channels{
 						Read:  map[uint32]string{19: "test_18"},
 						Write: map[uint32]string{20: "test_19"},
 					},
 				},
 			},
-			Edges: []graph.Edge{
+			Edges: []graphv2.Edge{
 				{
-					Edge: ir.Edge{
-						Source: ir.Handle{Node: "test_22", Param: "test_23"},
-						Target: ir.Handle{Node: "test_25", Param: "test_26"},
-						Kind:   ir.EdgeKind(0),
+					Edge: irv2.Edge{
+						Source: irv2.Handle{Node: "test_22", Param: "test_23"},
+						Target: irv2.Handle{Node: "test_25", Param: "test_26"},
+						Kind:   irv2.EdgeKind(0),
 					},
 					Key: "test_28",
 				},
 			},
-			Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+			Nodes:  []graphv2.Node{{Key: "test_30", Position: spatialv0.XY{X: 32.5, Y: 33.5}}},
 			Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 		},
-		Text: text.Text{
-			Doc: text.Document{
+		Text: textv1.Text{
+			Doc: textv1.Document{
 				Inserts: []crdt.Insert{
 					{
 						ID:     crdt.ID{},
 						Origin: crdt.ID{},
-						Side:   spatial.XLocation("left"),
+						Side:   spatialv0.XLocation("left"),
 						Char:   42,
 					},
 				},
@@ -224,51 +224,51 @@ func FuzzDecodeArc(f *testing.F) {
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
 			Mode: v2.Mode("text"),
-			Graph: graph.Graph{
-				Functions: []ir.Function{
+			Graph: graphv2.Graph{
+				Functions: []irv2.Function{
 					{
 						Key:  "test_6",
-						Body: ir.Body{Raw: "test_8"},
-						Inputs: []types.Param{
+						Body: irv2.Body{Raw: "test_8"},
+						Inputs: []gov1.Param{
 							{
 								Name:  "test_10",
-								Type:  types.Type{},
+								Type:  gov1.Type{},
 								Value: map[string]interface{}{"key_12": "value_12"},
 							},
 						},
-						Outputs: []types.Param{
+						Outputs: []gov1.Param{
 							{
 								Name:  "test_14",
-								Type:  types.Type{},
+								Type:  gov1.Type{},
 								Value: map[string]interface{}{"key_16": "value_16"},
 							},
 						},
-						Channels: types.Channels{
+						Channels: gov1.Channels{
 							Read:  map[uint32]string{19: "test_18"},
 							Write: map[uint32]string{20: "test_19"},
 						},
 					},
 				},
-				Edges: []graph.Edge{
+				Edges: []graphv2.Edge{
 					{
-						Edge: ir.Edge{
-							Source: ir.Handle{Node: "test_22", Param: "test_23"},
-							Target: ir.Handle{Node: "test_25", Param: "test_26"},
-							Kind:   ir.EdgeKind(0),
+						Edge: irv2.Edge{
+							Source: irv2.Handle{Node: "test_22", Param: "test_23"},
+							Target: irv2.Handle{Node: "test_25", Param: "test_26"},
+							Kind:   irv2.EdgeKind(0),
 						},
 						Key: "test_28",
 					},
 				},
-				Nodes:  []graph.Node{{Key: "test_30", Position: spatial.XY{X: 32.5, Y: 33.5}}},
+				Nodes:  []graphv2.Node{{Key: "test_30", Position: spatialv0.XY{X: 32.5, Y: 33.5}}},
 				Inputs: map[string]msgpack.EncodedJSON{"test_34": {"key_34": "value_34"}},
 			},
-			Text: text.Text{
-				Doc: text.Document{
+			Text: textv1.Text{
+				Doc: textv1.Document{
 					Inserts: []crdt.Insert{
 						{
 							ID:     crdt.ID{},
 							Origin: crdt.ID{},
-							Side:   spatial.XLocation("left"),
+							Side:   spatialv0.XLocation("left"),
 							Char:   42,
 						},
 					},
@@ -287,13 +287,13 @@ func FuzzDecodeArc(f *testing.F) {
 			Key:  uuid.Nil,
 			Name: "",
 			Mode: v2.Mode(""),
-			Graph: graph.Graph{
+			Graph: graphv2.Graph{
 				Functions: nil,
 				Edges:     nil,
 				Nodes:     nil,
 				Inputs:    nil,
 			},
-			Text: text.Text{Doc: text.Document{Inserts: nil, Deletes: nil}},
+			Text: textv1.Text{Doc: textv1.Document{Inserts: nil, Deletes: nil}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

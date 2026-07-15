@@ -649,17 +649,20 @@ seam for any future wire-format change that breaks all frozen decoders at once.
 is its own `types/vN/` package, a bump freezes the outgoing directory in place: `oracle
 migrate` regenerates it one final time from the snapshot (pinning dependency imports at
 snapshot versions and appending gorp entry methods) and simply stops emitting into it;
-`oracle sync` emits the new current into `types/v(N+1)/`. Value-type packages (no
-keyed struct — `telem`, `spatial`, `color`, the arc-module types) keep their current
-code at the package root and gain `types/vN/` directories only for frozen historical
-shapes, mirrored by their dependents' freezes.
+`oracle sync` emits the new current into `types/v(N+1)/`. The layout is uniform: every
+`@go version` path — value-type packages (`telem`, `spatial`, `color`, the arc-module
+types) included — emits its current version into `types/vN/`, so a dependent's current
+package always pins an explicit version directory and frozen code never references
+live code. The cost is that hand-written method receivers on generated types live in
+the version package (Go requires receivers in the defining package), carried forward
+by `oracle migrate` at each bump.
 
 **The historical `migrations/vN/` directories** were renumbered onto dense per-resource
 integers and renamed to `types/vN/` in the Phase 2 cutover; the v56 snapshot was
 back-filled with the corresponding `@go version` declarations so discipline enforcement
-is live immediately. Stored-but-keyless packages whose gorp keys are hand-computed
-composites (`ranger/alias`, `ranger/kv`) are excluded from the layout for now and keep
-root emission.
+is live immediately. Stored-but-keyless packages whose schemas declare no
+`@go version` (`ranger/alias`, `ranger/kv` — hand-computed composite gorp keys) are
+excluded from the layout for now and keep root emission.
 
 ### 4.4.0 - Two-Stage Decode
 

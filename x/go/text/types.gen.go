@@ -11,27 +11,21 @@
 
 package text
 
+import (
+	latest "github.com/synnaxlabs/x/text/types/v0"
+)
+
 // Level is a typography level identifier shared across visualizations. Mirrors the
 // heading ladder (h1 through h5) plus paragraph (p) and small. Order is descending: h1
 // is the largest, small is the smallest.
-type Level string
+type Level = latest.Level
 
 const (
-	LevelH1    Level = "h1"
-	LevelH2    Level = "h2"
-	LevelH3    Level = "h3"
-	LevelH4    Level = "h4"
-	LevelH5    Level = "h5"
-	LevelP     Level = "p"
-	LevelSmall Level = "small"
+	LevelH1    = latest.LevelH1
+	LevelH2    = latest.LevelH2
+	LevelH3    = latest.LevelH3
+	LevelH4    = latest.LevelH4
+	LevelH5    = latest.LevelH5
+	LevelP     = latest.LevelP
+	LevelSmall = latest.LevelSmall
 )
-
-// IsValid reports whether l is one of the defined Level values.
-func (l Level) IsValid() bool {
-	switch l {
-	case LevelH1, LevelH2, LevelH3, LevelH4, LevelH5, LevelP, LevelSmall:
-		return true
-	default:
-		return false
-	}
-}

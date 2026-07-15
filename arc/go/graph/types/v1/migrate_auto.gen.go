@@ -14,9 +14,9 @@ package v1
 import (
 	"context"
 	uuid "github.com/google/uuid"
-	graph "github.com/synnaxlabs/arc/graph"
-	ir "github.com/synnaxlabs/arc/ir"
+	graph "github.com/synnaxlabs/arc/graph/types/v2"
 	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
+	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	msgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	spatial "github.com/synnaxlabs/x/spatial"
 )

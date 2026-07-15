@@ -14,7 +14,7 @@ package v1
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
+	types "github.com/synnaxlabs/arc/types/types/v0"
 	typesv0 "github.com/synnaxlabs/arc/types/types/v0"
 )
 

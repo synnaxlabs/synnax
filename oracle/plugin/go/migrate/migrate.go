@@ -65,9 +65,6 @@ type generation struct {
 	rewrittenNew *resolution.Table
 	entryNames   set.Set[string]
 	bumps        map[string]bump
-	// emitted dedups frozen-file emission when multiple bumped paths share a
-	// value-type dependency.
-	emitted set.Set[string]
 }
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
@@ -76,7 +73,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return resp, nil
 	}
 
-	g := &generation{req: req, resp: resp, emitted: make(set.Set[string])}
+	g := &generation{req: req, resp: resp}
 	var err error
 	if g.newVersions, err = versioning.PathVersions(req.Resolutions); err != nil {
 		return nil, err
@@ -206,9 +203,8 @@ func typesAtPath(table *resolution.Table, path string) map[string]resolution.Typ
 
 // freezePath finalizes the outgoing version of a version-laid-out path and
 // scaffolds the incoming one. The outgoing types/v{old} package is
-// regenerated from the snapshot with dependency imports pinned to frozen
-// versions and gorp entry methods appended; value-type dependencies are
-// mirrored into their own types/vN packages. For @go migrate entries the
+// regenerated from the snapshot with dependency imports pinned at the
+// versions the snapshot declares and gorp entry methods appended. The
 // incoming types/v{new} package gains migrate_auto.gen.go and a migrate.go
 // template, and helpers.go carries forward.
 func (g *generation) freezePath(path string) error {
@@ -233,65 +229,43 @@ func (g *generation) freezePath(path string) error {
 
 	diff := g.pathDiff(path, roots)
 
-	for origPath, types := range pkgTypes {
-		if origPath != path {
-			if _, laidOut := g.oldLaidOut[origPath]; laidOut {
-				// Version-laid-out dependencies own their frozen dirs; the
-				// pathMap pins imports at them without re-emitting.
-				continue
-			}
-		}
-		mirroredPath := pathMap[origPath]
-		if g.emitted.Contains(mirroredPath) {
-			continue
-		}
-		g.emitted.Add(mirroredPath)
+	// Dependencies own their frozen dirs — the pathMap pins imports at them
+	// without re-emitting. Only the bumped path itself is regenerated.
+	frozenPath := pathMap[path]
+	types := pkgTypes[path]
+	typeContent, err := generateFrozenTypesFile(types, rewrittenOld, frozenPath, g.req.RepoRoot)
+	if err != nil {
+		return errors.Wrapf(err, "failed to generate frozen types for %s", path)
+	}
+	entryMethods := generateGorpEntryMethods(types, g.entryNames)
+	if len(entryMethods) > 0 {
+		typeContent = append(typeContent, entryMethods...)
+	}
+	g.resp.Files = append(g.resp.Files, plugin.File{
+		Path:    frozenPath + "/types.gen.go",
+		Content: typeContent,
+	})
 
-		typeContent, err := generateFrozenTypesFile(types, rewrittenOld, mirroredPath, g.req.RepoRoot)
+	codecEntries := codecEntriesForTypes(types, codecReachable)
+	flex := collectFlexTypes(types)
+	if len(codecEntries) > 0 || len(flex) > 0 {
+		codecContent, err := gomarshal.GenerateCodecFile(
+			filepath.Base(frozenPath), frozenPath,
+			codecEntries,
+			flex,
+			rewrittenOld,
+			g.req.RepoRoot,
+		)
 		if err != nil {
-			return errors.Wrapf(err, "failed to generate frozen types for %s", origPath)
-		}
-		entryMethods := generateGorpEntryMethods(types, g.entryNames)
-		if len(entryMethods) > 0 {
-			typeContent = append(typeContent, entryMethods...)
+			return errors.Wrapf(err, "failed to generate frozen codec for %s", path)
 		}
 		g.resp.Files = append(g.resp.Files, plugin.File{
-			Path:    mirroredPath + "/types.gen.go",
-			Content: typeContent,
+			Path:    frozenPath + "/codec.gen.go",
+			Content: codecContent,
 		})
-
-		codecEntries := codecEntriesForTypes(types, codecReachable)
-		flex := collectFlexTypes(types)
-		if len(codecEntries) > 0 || len(flex) > 0 {
-			versionDir := filepath.Base(mirroredPath)
-			codecContent, err := gomarshal.GenerateCodecFile(
-				versionDir, mirroredPath,
-				codecEntries,
-				flex,
-				rewrittenOld,
-				g.req.RepoRoot,
-			)
-			if err != nil {
-				return errors.Wrapf(err, "failed to generate frozen codec for %s", origPath)
-			}
-			g.resp.Files = append(g.resp.Files, plugin.File{
-				Path:    mirroredPath + "/codec.gen.go",
-				Content: codecContent,
-			})
-		}
-
-		// Value-type dependencies with changed shapes get a migrate template
-		// in their frozen dir for the per-step lift.
-		if origPath != path && needsAutoMigrate(types, diff) {
-			if err := g.generateDepMigration(
-				filepath.Base(mirroredPath), mirroredPath, types, diff, rewrittenOld,
-			); err != nil {
-				return err
-			}
-		}
 	}
 
-	return g.scaffoldIncoming(path, b, roots, pkgTypes[path], diff, rewrittenOld)
+	return g.scaffoldIncoming(path, b, roots, types, diff, rewrittenOld)
 }
 
 // pathDiff computes the schema diff for a path's freeze, walking from its
@@ -311,8 +285,7 @@ func (g *generation) pathDiff(
 	sort.Strings(names)
 	for _, name := range names {
 		oldType := roots[name]
-		form, ok := oldType.Form.(resolution.StructForm)
-		if !ok || !form.HasKeyDomain {
+		if _, ok := oldType.Form.(resolution.StructForm); !ok {
 			continue
 		}
 		newType, ok := newByName[name]
@@ -328,7 +301,7 @@ func (g *generation) pathDiff(
 	if b := g.bumps[path]; !b.Changed {
 		for _, name := range names {
 			oldType := roots[name]
-			if form, ok := oldType.Form.(resolution.StructForm); !ok || !form.HasKeyDomain {
+			if _, ok := oldType.Form.(resolution.StructForm); !ok {
 				continue
 			}
 			if _, exists := diff[oldType.QualifiedName]; !exists {
@@ -371,7 +344,14 @@ func (g *generation) scaffoldIncoming(
 		}
 	}
 	if !hasMigrateEntry {
-		return nil
+		// Paths without @go migrate entries (value types, hand-migrated
+		// resources) get dep-style scaffolding: per-type Migrate wrappers over
+		// the generated auto-copies.
+		fmt.Printf("DEBUG scaffold %s types=%d diff=%d needs=%v\n", path, len(oldEntryTypes), len(diff), needsAutoMigrate(oldEntryTypes, diff))
+		if !needsAutoMigrate(oldEntryTypes, diff) {
+			return nil
+		}
+		return g.generateDepMigration(newDir, newPath, oldEntryTypes, diff, rewrittenOld)
 	}
 
 	if needsAutoMigrate(oldEntryTypes, diff) {

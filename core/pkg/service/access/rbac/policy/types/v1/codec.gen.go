@@ -13,7 +13,7 @@ package v1
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -58,7 +58,7 @@ func (p *Policy) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Objects = make([]ontology.ID, n)
+			p.Objects = make([]ontologyv0.ID, n)
 			for i := range p.Objects {
 				if err = p.Objects[i].DecodeOrc(r); err != nil {
 					return err

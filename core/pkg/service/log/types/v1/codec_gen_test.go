@@ -22,9 +22,9 @@ import (
 
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
+	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	notationv0 "github.com/synnaxlabs/x/notation/types/v0"
+	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
 
 var _ = Describe("Codec", func() {
@@ -41,32 +41,35 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v1.ChannelEntry{
 				Channel: channelv0.Key(2),
-				Color: color.Color{
+				Color: colorv0.Color{
 					R: 4,
 					G: 5,
 					B: 6,
 					A: 6.5,
 				},
-				Notation:  notation.Notation("standard"),
+				Notation:  notationv0.Notation("standard"),
 				Precision: 9,
 				Alias:     "test_9",
 				Timestamp: v1.TimestampConfig{
-					Format: telem.TimestampFormat("ISO"),
-					Tz:     telem.TimeZone("local"),
+					Format: telemv1.TimestampFormat("ISO"),
+					Tz:     telemv1.TimeZone("local"),
 				},
 			}),
 			Entry("zero values", v1.ChannelEntry{
 				Channel: channelv0.Key(0),
-				Color: color.Color{
+				Color: colorv0.Color{
 					R: 0,
 					G: 0,
 					B: 0,
 					A: 0,
 				},
-				Notation:  notation.Notation(""),
+				Notation:  notationv0.Notation(""),
 				Precision: 0,
 				Alias:     "",
-				Timestamp: v1.TimestampConfig{Format: telem.TimestampFormat(""), Tz: telem.TimeZone("")},
+				Timestamp: v1.TimestampConfig{
+					Format: telemv1.TimestampFormat(""),
+					Tz:     telemv1.TimeZone(""),
+				},
 			}),
 		)
 	})
@@ -87,18 +90,18 @@ var _ = Describe("Codec", func() {
 				Channels: []v1.ChannelEntry{
 					{
 						Channel: channelv0.Key(5),
-						Color: color.Color{
+						Color: colorv0.Color{
 							R: 7,
 							G: 8,
 							B: 9,
 							A: 9.5,
 						},
-						Notation:  notation.Notation("standard"),
+						Notation:  notationv0.Notation("standard"),
 						Precision: 12,
 						Alias:     "test_12",
 						Timestamp: v1.TimestampConfig{
-							Format: telem.TimestampFormat("ISO"),
-							Tz:     telem.TimeZone("local"),
+							Format: telemv1.TimestampFormat("ISO"),
+							Tz:     telemv1.TimeZone("local"),
 						},
 					},
 				},
@@ -136,10 +139,13 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", v1.TimestampConfig{
-				Format: telem.TimestampFormat("ISO"),
-				Tz:     telem.TimeZone("local"),
+				Format: telemv1.TimestampFormat("ISO"),
+				Tz:     telemv1.TimeZone("local"),
 			}),
-			Entry("zero values", v1.TimestampConfig{Format: telem.TimestampFormat(""), Tz: telem.TimeZone("")}),
+			Entry("zero values", v1.TimestampConfig{
+				Format: telemv1.TimestampFormat(""),
+				Tz:     telemv1.TimeZone(""),
+			}),
 		)
 	})
 })
@@ -147,18 +153,18 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeChannelEntry(b *testing.B) {
 	ce := v1.ChannelEntry{
 		Channel: channelv0.Key(2),
-		Color: color.Color{
+		Color: colorv0.Color{
 			R: 4,
 			G: 5,
 			B: 6,
 			A: 6.5,
 		},
-		Notation:  notation.Notation("standard"),
+		Notation:  notationv0.Notation("standard"),
 		Precision: 9,
 		Alias:     "test_9",
 		Timestamp: v1.TimestampConfig{
-			Format: telem.TimestampFormat("ISO"),
-			Tz:     telem.TimeZone("local"),
+			Format: telemv1.TimestampFormat("ISO"),
+			Tz:     telemv1.TimeZone("local"),
 		},
 	}
 	w := orc.NewWriter(0)
@@ -183,18 +189,18 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 		Channels: []v1.ChannelEntry{
 			{
 				Channel: channelv0.Key(5),
-				Color: color.Color{
+				Color: colorv0.Color{
 					R: 7,
 					G: 8,
 					B: 9,
 					A: 9.5,
 				},
-				Notation:  notation.Notation("standard"),
+				Notation:  notationv0.Notation("standard"),
 				Precision: 12,
 				Alias:     "test_12",
 				Timestamp: v1.TimestampConfig{
-					Format: telem.TimestampFormat("ISO"),
-					Tz:     telem.TimeZone("local"),
+					Format: telemv1.TimestampFormat("ISO"),
+					Tz:     telemv1.TimeZone("local"),
 				},
 			},
 		},
@@ -219,8 +225,8 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 
 func BenchmarkEncodeDecodeTimestampConfig(b *testing.B) {
 	tc := v1.TimestampConfig{
-		Format: telem.TimestampFormat("ISO"),
-		Tz:     telem.TimeZone("local"),
+		Format: telemv1.TimestampFormat("ISO"),
+		Tz:     telemv1.TimeZone("local"),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -241,18 +247,18 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 	{
 		seed := v1.ChannelEntry{
 			Channel: channelv0.Key(2),
-			Color: color.Color{
+			Color: colorv0.Color{
 				R: 4,
 				G: 5,
 				B: 6,
 				A: 6.5,
 			},
-			Notation:  notation.Notation("standard"),
+			Notation:  notationv0.Notation("standard"),
 			Precision: 9,
 			Alias:     "test_9",
 			Timestamp: v1.TimestampConfig{
-				Format: telem.TimestampFormat("ISO"),
-				Tz:     telem.TimeZone("local"),
+				Format: telemv1.TimestampFormat("ISO"),
+				Tz:     telemv1.TimeZone("local"),
 			},
 		}
 		w := orc.NewWriter(0)
@@ -264,16 +270,19 @@ func FuzzDecodeChannelEntry(f *testing.F) {
 	{
 		seed := v1.ChannelEntry{
 			Channel: channelv0.Key(0),
-			Color: color.Color{
+			Color: colorv0.Color{
 				R: 0,
 				G: 0,
 				B: 0,
 				A: 0,
 			},
-			Notation:  notation.Notation(""),
+			Notation:  notationv0.Notation(""),
 			Precision: 0,
 			Alias:     "",
-			Timestamp: v1.TimestampConfig{Format: telem.TimestampFormat(""), Tz: telem.TimeZone("")},
+			Timestamp: v1.TimestampConfig{
+				Format: telemv1.TimestampFormat(""),
+				Tz:     telemv1.TimeZone(""),
+			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -318,18 +327,18 @@ func FuzzDecodeLog(f *testing.F) {
 			Channels: []v1.ChannelEntry{
 				{
 					Channel: channelv0.Key(5),
-					Color: color.Color{
+					Color: colorv0.Color{
 						R: 7,
 						G: 8,
 						B: 9,
 						A: 9.5,
 					},
-					Notation:  notation.Notation("standard"),
+					Notation:  notationv0.Notation("standard"),
 					Precision: 12,
 					Alias:     "test_12",
 					Timestamp: v1.TimestampConfig{
-						Format: telem.TimestampFormat("ISO"),
-						Tz:     telem.TimeZone("local"),
+						Format: telemv1.TimestampFormat("ISO"),
+						Tz:     telemv1.TimeZone("local"),
 					},
 				},
 			},
@@ -405,8 +414,8 @@ func FuzzDecodeLog(f *testing.F) {
 func FuzzDecodeTimestampConfig(f *testing.F) {
 	{
 		seed := v1.TimestampConfig{
-			Format: telem.TimestampFormat("ISO"),
-			Tz:     telem.TimeZone("local"),
+			Format: telemv1.TimestampFormat("ISO"),
+			Tz:     telemv1.TimeZone("local"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -415,7 +424,10 @@ func FuzzDecodeTimestampConfig(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.TimestampConfig{Format: telem.TimestampFormat(""), Tz: telem.TimeZone("")}
+		seed := v1.TimestampConfig{
+			Format: telemv1.TimestampFormat(""),
+			Tz:     telemv1.TimeZone(""),
+		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

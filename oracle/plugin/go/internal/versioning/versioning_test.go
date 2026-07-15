@@ -176,7 +176,7 @@ var _ = Describe("Versioning", func() {
 	})
 
 	Describe("EntryPaths", func() {
-		It("Should include versioned paths containing a keyed marshaled struct", func(ctx SpecContext) {
+		It("Should include versioned paths containing a keyed struct", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				@go version 3
@@ -190,7 +190,7 @@ var _ = Describe("Versioning", func() {
 			Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
 		})
 
-		It("Should exclude versioned paths with no keyed struct", func(ctx SpecContext) {
+		It("Should include versioned paths with no keyed struct", func(ctx SpecContext) {
 			source := `
 				@go output "out"
 				@go version 3
@@ -199,7 +199,7 @@ var _ = Describe("Versioning", func() {
 				}
 			`
 			table := MustSucceed(analyze(ctx, source, "test", loader))
-			Expect(versioning.EntryPaths(table)).To(BeEmpty())
+			Expect(versioning.EntryPaths(table)).To(Equal(map[string]int{"out": 3}))
 		})
 
 		It("Should exclude keyed structs with no version", func(ctx SpecContext) {

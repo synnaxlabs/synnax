@@ -9,13 +9,16 @@
 
 package text
 
-import "github.com/synnaxlabs/x/crdt"
+import (
+	v1 "github.com/synnaxlabs/arc/text/types/v1"
+	"github.com/synnaxlabs/x/crdt"
+)
 
 // SeedReplica is the replica id the server uses when seeding or materializing a
 // document. The server never authors characters of its own (clients do), so the replica
 // only needs to be stable and distinct from the zero root sentinel; clients must choose
 // a different replica.
-const SeedReplica uint32 = 1
+const SeedReplica = v1.SeedReplica
 
 // Create builds a Document from raw source text, attributing every character to the
 // seed replica. It initializes the replicated document for an arc created or imported
@@ -25,14 +28,4 @@ func Create(raw string) Document {
 	doc.Insert(0, raw)
 	inserts, deletes := doc.Snapshot()
 	return Document{Inserts: inserts, Deletes: deletes}
-}
-
-// Materialize returns a copy of t with Raw set to the current string value of its
-// replicated document. Raw is derived from Doc and not persisted, so callers that need
-// the source text (compilation, client responses) materialize it on demand.
-func (t Text) Materialize() Text {
-	doc := crdt.New(SeedReplica)
-	doc.Load(t.Doc.Inserts, t.Doc.Deletes)
-	t.Raw = doc.String()
-	return t
 }

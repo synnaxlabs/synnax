@@ -11,14 +11,9 @@
 
 package color
 
+import (
+	latest "github.com/synnaxlabs/x/color/types/v0"
+)
+
 // Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
-type Color struct {
-	// R is the red component (0-255).
-	R uint8 `json:"r" msgpack:"r"`
-	// G is the green component (0-255).
-	G uint8 `json:"g" msgpack:"g"`
-	// B is the blue component (0-255).
-	B uint8 `json:"b" msgpack:"b"`
-	// A is the alpha component (0-1).
-	A float64 `json:"a" msgpack:"a"`
-}
+type Color = latest.Color

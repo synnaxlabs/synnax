@@ -22,7 +22,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 )
 
 var _ = Describe("Codec", func() {
@@ -40,7 +40,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.Policy{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
-				Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+				Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
 				Actions:  []access.Action{access.Action("create")},
 				Internal: true,
 			}),
@@ -54,7 +54,7 @@ var _ = Describe("Codec", func() {
 			Entry("empty collections", v1.Policy{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
-				Objects:  []ontology.ID{},
+				Objects:  []ontologyv0.ID{},
 				Actions:  []access.Action{},
 				Internal: true,
 			}),
@@ -66,7 +66,7 @@ func BenchmarkEncodeDecodePolicy(b *testing.B) {
 	p := v1.Policy{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:     "test_2",
-		Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+		Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
 		Actions:  []access.Action{access.Action("create")},
 		Internal: true,
 	}
@@ -90,7 +90,7 @@ func FuzzDecodePolicy(f *testing.F) {
 		seed := v1.Policy{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
-			Objects:  []ontology.ID{{Type: ontology.ResourceType("arc"), Key: "test_5"}},
+			Objects:  []ontologyv0.ID{{Type: ontologyv0.ResourceType("arc"), Key: "test_5"}},
 			Actions:  []access.Action{access.Action("create")},
 			Internal: true,
 		}
@@ -118,7 +118,7 @@ func FuzzDecodePolicy(f *testing.F) {
 		seed := v1.Policy{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
-			Objects:  []ontology.ID{},
+			Objects:  []ontologyv0.ID{},
 			Actions:  []access.Action{},
 			Internal: true,
 		}

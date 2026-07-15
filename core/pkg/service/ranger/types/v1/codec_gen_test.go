@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/telem"
+	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
 
 var _ = Describe("Codec", func() {
@@ -40,8 +40,8 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.Range{
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:      "test_2",
-				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-				Color: new(color.Color{
+				TimeRange: telemv1.TimeRange{Start: telemv1.TimeStamp(5), End: telemv1.TimeStamp(6)},
+				Color: new(colorv0.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -51,14 +51,14 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v1.Range{
 				Key:       uuid.Nil,
 				Name:      "",
-				TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
+				TimeRange: telemv1.TimeRange{Start: telemv1.TimeStamp(0), End: telemv1.TimeStamp(0)},
 				Color:     nil,
 			}),
 			Entry("empty collections", v1.Range{
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:      "test_2",
-				TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-				Color: new(color.Color{
+				TimeRange: telemv1.TimeRange{Start: telemv1.TimeStamp(5), End: telemv1.TimeStamp(6)},
+				Color: new(colorv0.Color{
 					R: 8,
 					G: 9,
 					B: 10,
@@ -73,8 +73,8 @@ func BenchmarkEncodeDecodeRange(b *testing.B) {
 	rv := v1.Range{
 		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:      "test_2",
-		TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-		Color: new(color.Color{
+		TimeRange: telemv1.TimeRange{Start: telemv1.TimeStamp(5), End: telemv1.TimeStamp(6)},
+		Color: new(colorv0.Color{
 			R: 8,
 			G: 9,
 			B: 10,
@@ -101,8 +101,8 @@ func FuzzDecodeRange(f *testing.F) {
 		seed := v1.Range{
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:      "test_2",
-			TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-			Color: new(color.Color{
+			TimeRange: telemv1.TimeRange{Start: telemv1.TimeStamp(5), End: telemv1.TimeStamp(6)},
+			Color: new(colorv0.Color{
 				R: 8,
 				G: 9,
 				B: 10,
@@ -119,7 +119,7 @@ func FuzzDecodeRange(f *testing.F) {
 		seed := v1.Range{
 			Key:       uuid.Nil,
 			Name:      "",
-			TimeRange: telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)},
+			TimeRange: telemv1.TimeRange{Start: telemv1.TimeStamp(0), End: telemv1.TimeStamp(0)},
 			Color:     nil,
 		}
 		w := orc.NewWriter(0)
@@ -132,8 +132,8 @@ func FuzzDecodeRange(f *testing.F) {
 		seed := v1.Range{
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:      "test_2",
-			TimeRange: telem.TimeRange{Start: telem.TimeStamp(5), End: telem.TimeStamp(6)},
-			Color: new(color.Color{
+			TimeRange: telemv1.TimeRange{Start: telemv1.TimeStamp(5), End: telemv1.TimeStamp(6)},
+			Color: new(colorv0.Color{
 				R: 8,
 				G: 9,
 				B: 10,

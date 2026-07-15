@@ -13,7 +13,7 @@ import "schemas/arc/compiler"
 @ts output  "client/ts/src/arc/program"
 @py output  "client/py/synnax/arc/program"
 @go output  "arc/go/program"
-@go version 1
+@go version 2
 @cpp output "arc/cpp/program"
 @pb
 

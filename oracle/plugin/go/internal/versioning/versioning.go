@@ -85,35 +85,14 @@ func PathVersions(table *resolution.Table) (map[string]int, error) {
 	return versions, nil
 }
 
-// EntryPaths returns the version-laid-out output paths: those declaring a
-// @go version and containing at least one gorp-entry struct — keyed and
-// marshaled, or marked @go migrate. The marshal requirement keeps transient
-// keyed structs (API wire types sharing a versioned file) from dragging their
-// output path into the layout. These packages emit their current version into
-// types/vN.
+// EntryPaths returns the version-laid-out output paths: every path declaring
+// a @go version. These packages emit their current version into types/vN, so
+// dependents — current and frozen alike — always pin an explicit version
+// directory and never reference live code. Declare @go version struct-level
+// when a file mixes storable and transient output paths (channel), so
+// transient paths stay out of the layout.
 func EntryPaths(table *resolution.Table) (map[string]int, error) {
-	versions, err := PathVersions(table)
-	if err != nil {
-		return nil, err
-	}
-	entries := make(map[string]int)
-	for _, t := range table.StructTypes() {
-		form, ok := t.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		keyed := form.HasKeyDomain && domain.HasExprFromType(t, "go", "marshal")
-		if !keyed && !domain.HasExprFromType(t, "go", "migrate") {
-			continue
-		}
-		goPath := output.GetPath(t, "go")
-		v, ok := versions[goPath]
-		if !ok {
-			continue
-		}
-		entries[goPath] = v
-	}
-	return entries, nil
+	return PathVersions(table)
 }
 
 // CurrentPathMap maps each version-laid-out path to its current types/vN

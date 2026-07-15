@@ -14,10 +14,10 @@ package v0
 import (
 	"encoding/json"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/spatial"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -66,10 +66,10 @@ func (l Leaf) Validate() error {
 // Split is an interior split node dividing its area between two children.
 type Split struct {
 	// Direction is the axis along which this node is split.
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
+	Direction spatialv0.Direction `json:"direction" msgpack:"direction"`
 	// Size is the fraction in [0, 1] of the parent area allocated to first. The remainder
 	// is allocated to last.
-	Size spatial.Decimal `json:"size" msgpack:"size"`
+	Size spatialv0.Decimal `json:"size" msgpack:"size"`
 	// First is the first child (left for x, top for y).
 	First Node `json:"first" msgpack:"first"`
 	// Last is the second child (right for x, bottom for y).
@@ -98,7 +98,7 @@ type Panel struct {
 	// create, the panel is parented to the creating user as a draft. Parenthood lives in
 	// the ontology graph, so the field is not persisted on the panel record and is absent
 	// on retrieve.
-	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+	Parent *ontologyv0.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 
 func (p Panel) Validate() error {
@@ -127,7 +127,7 @@ type TabVariant interface {
 type TabResource struct {
 	TabBase
 	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource ontologyv0.ID `json:"resource" msgpack:"resource"`
 }
 
 func (TabResource) isTabVariant() {}

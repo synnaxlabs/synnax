@@ -13,9 +13,9 @@ package v0
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/x/control"
+	controlv0 "github.com/synnaxlabs/x/control/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/telem"
+	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
 
 func (c Channel) EncodeOrc(w *orc.Writer) error {
@@ -58,7 +58,7 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		c.DataType = telem.DataType(v)
+		c.DataType = telemv1.DataType(v)
 	}
 	if c.IsIndex, err = r.Bool(); err != nil {
 		return err
@@ -85,7 +85,7 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		c.Concurrency = control.Concurrency(v)
+		c.Concurrency = controlv0.Concurrency(v)
 	}
 	if c.Internal, err = r.Bool(); err != nil {
 		return err
@@ -141,7 +141,7 @@ func (o *Operation) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		o.Duration = telem.TimeSpan(v)
+		o.Duration = telemv1.TimeSpan(v)
 	}
 	return nil
 }

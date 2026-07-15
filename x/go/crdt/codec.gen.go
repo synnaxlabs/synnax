@@ -13,7 +13,7 @@ package crdt
 
 import (
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/spatial"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 func (d Delete) EncodeOrc(w *orc.Writer) error {
@@ -73,7 +73,7 @@ func (iv *Insert) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		iv.Side = spatial.XLocation(v)
+		iv.Side = spatialv0.XLocation(v)
 	}
 	if iv.Char, err = r.Int32(); err != nil {
 		return err

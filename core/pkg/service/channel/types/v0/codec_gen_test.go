@@ -21,8 +21,8 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/telem"
+	controlv0 "github.com/synnaxlabs/x/control/types/v0"
+	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
 
 var _ = Describe("Codec", func() {
@@ -40,18 +40,18 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.Channel{
 				Name:        "test_1",
 				Leaseholder: node.Key(3),
-				DataType:    telem.DataType("test_3"),
+				DataType:    telemv1.DataType("test_3"),
 				IsIndex:     false,
 				LocalKey:    v0.LocalKey(6),
 				LocalIndex:  v0.LocalKey(7),
 				Virtual:     true,
-				Concurrency: control.Concurrency(0),
+				Concurrency: controlv0.Concurrency(0),
 				Internal:    true,
 				Operations: []v0.Operation{
 					{
 						Type:         v0.OperationType("min"),
 						ResetChannel: v0.Key(13),
-						Duration:     telem.TimeSpan(14),
+						Duration:     telemv1.TimeSpan(14),
 					},
 				},
 				Expression: "test_14",
@@ -59,12 +59,12 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v0.Channel{
 				Name:        "",
 				Leaseholder: node.Key(0),
-				DataType:    telem.DataType(""),
+				DataType:    telemv1.DataType(""),
 				IsIndex:     false,
 				LocalKey:    v0.LocalKey(0),
 				LocalIndex:  v0.LocalKey(0),
 				Virtual:     false,
-				Concurrency: control.Concurrency(0),
+				Concurrency: controlv0.Concurrency(0),
 				Internal:    false,
 				Operations:  nil,
 				Expression:  "",
@@ -72,12 +72,12 @@ var _ = Describe("Codec", func() {
 			Entry("empty collections", v0.Channel{
 				Name:        "test_1",
 				Leaseholder: node.Key(3),
-				DataType:    telem.DataType("test_3"),
+				DataType:    telemv1.DataType("test_3"),
 				IsIndex:     false,
 				LocalKey:    v0.LocalKey(6),
 				LocalIndex:  v0.LocalKey(7),
 				Virtual:     true,
-				Concurrency: control.Concurrency(0),
+				Concurrency: controlv0.Concurrency(0),
 				Internal:    true,
 				Operations:  []v0.Operation{},
 				Expression:  "test_11",
@@ -98,12 +98,12 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v0.Operation{
 				Type:         v0.OperationType("min"),
 				ResetChannel: v0.Key(3),
-				Duration:     telem.TimeSpan(4),
+				Duration:     telemv1.TimeSpan(4),
 			}),
 			Entry("zero values", v0.Operation{
 				Type:         v0.OperationType(""),
 				ResetChannel: v0.Key(0),
-				Duration:     telem.TimeSpan(0),
+				Duration:     telemv1.TimeSpan(0),
 			}),
 		)
 	})
@@ -113,18 +113,18 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 	c := v0.Channel{
 		Name:        "test_1",
 		Leaseholder: node.Key(3),
-		DataType:    telem.DataType("test_3"),
+		DataType:    telemv1.DataType("test_3"),
 		IsIndex:     false,
 		LocalKey:    v0.LocalKey(6),
 		LocalIndex:  v0.LocalKey(7),
 		Virtual:     true,
-		Concurrency: control.Concurrency(0),
+		Concurrency: controlv0.Concurrency(0),
 		Internal:    true,
 		Operations: []v0.Operation{
 			{
 				Type:         v0.OperationType("min"),
 				ResetChannel: v0.Key(13),
-				Duration:     telem.TimeSpan(14),
+				Duration:     telemv1.TimeSpan(14),
 			},
 		},
 		Expression: "test_14",
@@ -148,7 +148,7 @@ func BenchmarkEncodeDecodeOperation(b *testing.B) {
 	o := v0.Operation{
 		Type:         v0.OperationType("min"),
 		ResetChannel: v0.Key(3),
-		Duration:     telem.TimeSpan(4),
+		Duration:     telemv1.TimeSpan(4),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -170,18 +170,18 @@ func FuzzDecodeChannel(f *testing.F) {
 		seed := v0.Channel{
 			Name:        "test_1",
 			Leaseholder: node.Key(3),
-			DataType:    telem.DataType("test_3"),
+			DataType:    telemv1.DataType("test_3"),
 			IsIndex:     false,
 			LocalKey:    v0.LocalKey(6),
 			LocalIndex:  v0.LocalKey(7),
 			Virtual:     true,
-			Concurrency: control.Concurrency(0),
+			Concurrency: controlv0.Concurrency(0),
 			Internal:    true,
 			Operations: []v0.Operation{
 				{
 					Type:         v0.OperationType("min"),
 					ResetChannel: v0.Key(13),
-					Duration:     telem.TimeSpan(14),
+					Duration:     telemv1.TimeSpan(14),
 				},
 			},
 			Expression: "test_14",
@@ -196,12 +196,12 @@ func FuzzDecodeChannel(f *testing.F) {
 		seed := v0.Channel{
 			Name:        "",
 			Leaseholder: node.Key(0),
-			DataType:    telem.DataType(""),
+			DataType:    telemv1.DataType(""),
 			IsIndex:     false,
 			LocalKey:    v0.LocalKey(0),
 			LocalIndex:  v0.LocalKey(0),
 			Virtual:     false,
-			Concurrency: control.Concurrency(0),
+			Concurrency: controlv0.Concurrency(0),
 			Internal:    false,
 			Operations:  nil,
 			Expression:  "",
@@ -216,12 +216,12 @@ func FuzzDecodeChannel(f *testing.F) {
 		seed := v0.Channel{
 			Name:        "test_1",
 			Leaseholder: node.Key(3),
-			DataType:    telem.DataType("test_3"),
+			DataType:    telemv1.DataType("test_3"),
 			IsIndex:     false,
 			LocalKey:    v0.LocalKey(6),
 			LocalIndex:  v0.LocalKey(7),
 			Virtual:     true,
-			Concurrency: control.Concurrency(0),
+			Concurrency: controlv0.Concurrency(0),
 			Internal:    true,
 			Operations:  []v0.Operation{},
 			Expression:  "test_11",
@@ -266,7 +266,7 @@ func FuzzDecodeOperation(f *testing.F) {
 		seed := v0.Operation{
 			Type:         v0.OperationType("min"),
 			ResetChannel: v0.Key(3),
-			Duration:     telem.TimeSpan(4),
+			Duration:     telemv1.TimeSpan(4),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -278,7 +278,7 @@ func FuzzDecodeOperation(f *testing.F) {
 		seed := v0.Operation{
 			Type:         v0.OperationType(""),
 			ResetChannel: v0.Key(0),
-			Duration:     telem.TimeSpan(0),
+			Duration:     telemv1.TimeSpan(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

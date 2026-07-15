@@ -35,3 +35,47 @@ func (id *ID) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
+
+func (rv Relationship) EncodeOrc(w *orc.Writer) error {
+	if err := rv.From.EncodeOrc(w); err != nil {
+		return err
+	}
+	w.String(string(rv.Type))
+	if err := rv.To.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rv *Relationship) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = rv.From.DecodeOrc(r); err != nil {
+		return err
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		rv.Type = RelationshipType(v)
+	}
+	if err = rv.To.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rv Resource) EncodeOrc(w *orc.Writer) error {
+	if err := rv.ID.EncodeOrc(w); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (rv *Resource) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if err = rv.ID.DecodeOrc(r); err != nil {
+		return err
+	}
+	return nil
+}

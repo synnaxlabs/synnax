@@ -14,9 +14,9 @@ package v1
 import (
 	"github.com/google/uuid"
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/text"
+	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	textv0 "github.com/synnaxlabs/x/text/types/v0"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -123,14 +123,14 @@ func (y YAxisKey) IsValid() bool {
 // Title is the plot title configuration.
 type Title struct {
 	// Level is the typography level of the title text.
-	Level text.Level `json:"level" msgpack:"level"`
+	Level textv0.Level `json:"level" msgpack:"level"`
 	// Visible is whether the title is shown above the plot.
 	Visible bool `json:"visible" msgpack:"visible"`
 }
 
 func (t *Title) ApplyDefaults() {
 	if t.Level == "" {
-		t.Level = text.LevelH4
+		t.Level = textv0.LevelH4
 	}
 }
 
@@ -146,7 +146,7 @@ type Legend struct {
 	// shown.
 	Hidden bool `json:"hidden" msgpack:"hidden"`
 	// Position is the anchor position of the legend within the plot container.
-	Position spatial.StickyXY `json:"position" msgpack:"position"`
+	Position spatialv0.StickyXY `json:"position" msgpack:"position"`
 }
 
 func (l *Legend) ApplyDefaults() {
@@ -157,16 +157,16 @@ func (l *Legend) ApplyDefaults() {
 		l.Position.Y = 50
 	}
 	if l.Position.Root.X == "" {
-		l.Position.Root.X = spatial.XLocationLeft
+		l.Position.Root.X = spatialv0.XLocationLeft
 	}
 	if l.Position.Root.Y == "" {
-		l.Position.Root.Y = spatial.YLocationTop
+		l.Position.Root.Y = spatialv0.YLocationTop
 	}
 	if l.Position.Units.X == "" {
-		l.Position.Units.X = spatial.StickyUnitPx
+		l.Position.Units.X = spatialv0.StickyUnitPx
 	}
 	if l.Position.Units.Y == "" {
-		l.Position.Units.Y = spatial.StickyUnitPx
+		l.Position.Units.Y = spatialv0.StickyUnitPx
 	}
 	l.Position.ApplyDefaults()
 }
@@ -223,13 +223,13 @@ type Axis struct {
 	// Label is the human-readable label rendered along the axis.
 	Label string `json:"label" msgpack:"label"`
 	// LabelDirection is the orientation in which the label text is laid out.
-	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
+	LabelDirection spatialv0.Direction `json:"label_direction" msgpack:"label_direction"`
 	// LabelLevel is the typography level of the label.
-	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
+	LabelLevel textv0.Level `json:"label_level" msgpack:"label_level"`
 	// Bounds is the value-space window of the axis. When the matching entry in
 	// manual_bounds is false the field is overwritten locally on every render; otherwise it
 	// is the user-set fixed bound.
-	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	Bounds spatialv0.Bounds `json:"bounds" msgpack:"bounds"`
 	// ManualBounds controls per-edge manual bound override.
 	ManualBounds ManualBounds `json:"manual_bounds" msgpack:"manual_bounds"`
 	// TickSpacing is the target pixel distance between adjacent tick marks.
@@ -241,10 +241,10 @@ type Axis struct {
 
 func (a *Axis) ApplyDefaults() {
 	if a.LabelDirection == "" {
-		a.LabelDirection = spatial.DirectionX
+		a.LabelDirection = spatialv0.DirectionX
 	}
 	if a.LabelLevel == "" {
-		a.LabelLevel = text.LevelSmall
+		a.LabelLevel = textv0.LevelSmall
 	}
 	if a.TickSpacing == 0 {
 		a.TickSpacing = 75
@@ -286,25 +286,25 @@ func (a *Axes) ApplyDefaults() {
 		a.Y1.Key = AxisKeyY1
 	}
 	if a.Y1.LabelDirection == "" {
-		a.Y1.LabelDirection = spatial.DirectionY
+		a.Y1.LabelDirection = spatialv0.DirectionY
 	}
 	if a.Y2.Key == "" {
 		a.Y2.Key = AxisKeyY2
 	}
 	if a.Y2.LabelDirection == "" {
-		a.Y2.LabelDirection = spatial.DirectionY
+		a.Y2.LabelDirection = spatialv0.DirectionY
 	}
 	if a.Y3.Key == "" {
 		a.Y3.Key = AxisKeyY3
 	}
 	if a.Y3.LabelDirection == "" {
-		a.Y3.LabelDirection = spatial.DirectionY
+		a.Y3.LabelDirection = spatialv0.DirectionY
 	}
 	if a.Y4.Key == "" {
 		a.Y4.Key = AxisKeyY4
 	}
 	if a.Y4.LabelDirection == "" {
-		a.Y4.LabelDirection = spatial.DirectionY
+		a.Y4.LabelDirection = spatialv0.DirectionY
 	}
 	a.X1.ApplyDefaults()
 	a.X2.ApplyDefaults()
@@ -335,7 +335,7 @@ type Line struct {
 	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
 	// Color is the line color. When null, the Console assigns one from the visualization
 	// palette at render time.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *colorv0.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 	// Downsample is the downsample factor applied before rendering. 1 means render every
@@ -371,7 +371,7 @@ type Rule struct {
 	Label string `json:"label" msgpack:"label"`
 	// Color is the display color of the rule. When null, the Console assigns a default at
 	// render time.
-	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
+	Color *colorv0.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`
 	// LineWidth is the rule line width in pixels.

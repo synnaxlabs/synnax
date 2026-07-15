@@ -14,7 +14,7 @@ package v1
 import (
 	"context"
 
-	ir "github.com/synnaxlabs/arc/ir"
+	ir "github.com/synnaxlabs/arc/ir/types/v2"
 )
 
 func MigrateFunction(ctx context.Context, old Function) (ir.Function, error) {

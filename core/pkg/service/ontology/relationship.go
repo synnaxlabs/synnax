@@ -12,8 +12,8 @@ package ontology
 import (
 	"strings"
 
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -24,45 +24,23 @@ import (
 // [Relationship.To] pattern. For example, if a relationship of type "member" indicates
 // that a particular the variable should be named MemberOf (i.e. Start is a MemberOf
 // To).
-type RelationshipType string
+type RelationshipType = v0.RelationshipType
 
 // RelationshipTypeParentOf indicates that a resource is the parent of another resource.
 // When examining a Relationship of type RelationshipTypeParentOf, the From field will
 // be the parent and the To field will be the child i.e. (From is the parent of To).
-const RelationshipTypeParentOf RelationshipType = "parent"
+const RelationshipTypeParentOf = v0.RelationshipTypeParentOf
 
 // Relationship is a struct that represents a relationship between two resources in the
 // ontology. A relationship is defined by a type, a from and a to field. This means that
 // two resources can have multiple relationships of different types between them. Think
 // about the relationship like From->Type->To i.e. Dog->Parent->Puppy.
-type Relationship struct {
-	// From is the ID of the resource that the relationship starts from.
-	From ID `json:"from" msgpack:"from"`
-	// To is the ID of the resource that the relationship ends at.
-	To ID `json:"to" msgpack:"to"`
-	// Type is the type of relationship between the two resources. For more information
-	// on relationship types, see the [RelationshipType] documentation.
-	Type RelationshipType `json:"type" msgpack:"type"`
-}
-
-var _ gorp.Entry[string] = Relationship{}
+type Relationship = v0.Relationship
 
 // relationshipKeySep separates the From, Type, and To fields in an encoded relationship
 // gorp key. The four Writer delete helpers depend on this layout to short-circuit scans
 // without decoding the entry.
-const relationshipKeySep = "->"
-
-// GorpKey implements the gorp.Entry interface.
-func (r Relationship) GorpKey() string {
-	return r.From.String() +
-		relationshipKeySep +
-		string(r.Type) +
-		relationshipKeySep +
-		r.To.String()
-}
-
-// SetOptions implements the gorp.Entry interface.
-func (Relationship) SetOptions() []any { return nil }
+const relationshipKeySep = v0.RelationshipKeySep
 
 func ParseRelationship(key string) (Relationship, error) {
 	split := strings.Split(key, "->")

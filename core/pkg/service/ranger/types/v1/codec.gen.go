@@ -12,7 +12,7 @@
 package v1
 
 import (
-	"github.com/synnaxlabs/x/color"
+	colorv0 "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -54,7 +54,7 @@ func (rv *Range) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var hv color.Color
+			var hv colorv0.Color
 			if err = hv.DecodeOrc(r); err != nil {
 				return err
 			}

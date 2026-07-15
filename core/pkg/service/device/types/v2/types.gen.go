@@ -12,7 +12,7 @@
 package v2
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -61,7 +61,7 @@ type Device struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	// Parent is an optional parent resource ID for hierarchical device organization (e.g.,
 	// NI chassis containing modules).
-	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+	Parent *ontologyv0.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 
 func (d Device) Validate() error {

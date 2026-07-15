@@ -15,8 +15,8 @@ import (
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
-	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/telem"
+	controlv0 "github.com/synnaxlabs/x/control/types/v0"
+	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 	"github.com/synnaxlabs/x/validate"
 	gotypes "go/types"
 	"strconv"
@@ -38,7 +38,7 @@ type Channel struct {
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel (e.g., Float64, Int32,
 	// TimeStamp).
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
+	DataType telemv1.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this is an index channel. Index channels must have int64 values
 	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
 	// nanosecond timestamps.
@@ -61,7 +61,7 @@ type Channel struct {
 	Operations []channelv0.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
 	// channels can have a policy of shared concurrency.
-	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	Concurrency controlv0.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }

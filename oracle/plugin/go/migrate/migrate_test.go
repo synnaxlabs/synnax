@@ -1051,8 +1051,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 		})
 
-		Context("value-type dependency mirroring", func() {
-			It("Should mirror value-type dependencies into their own types/vN", func() {
+		Context("unchanged dependency", func() {
+			It("Should pin the dependency without re-emitting its frozen package", func() {
 				loader.Add("schemas/dep", `
 					@go output "dep"
 					@go version 1
@@ -1083,9 +1083,10 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				paths := filePaths(resp)
-				Expect(paths).To(ContainElement("dep/types/v1/types.gen.go"))
 				Expect(paths).To(ContainElement("out/types/v1/types.gen.go"))
-				Expect(paths).NotTo(ContainElement("dep/types/v1/migrate.go"))
+				Expect(paths).NotTo(ContainElement("dep/types/v1/types.gen.go"))
+				Expect(fileContent(resp, "out/types/v1/types.gen.go")).
+					To(ContainSubstring("dep/types/v1"))
 			})
 		})
 
@@ -1562,13 +1563,16 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				Expect(filePaths(resp)).To(ContainElement("out/types/v1/types.gen.go"))
-				Expect(fileContent(resp, "migrate_auto.gen.go")).To(BeEmpty())
-				Expect(fileContent(resp, "out/types/v2/migrate.go")).To(BeEmpty())
+				auto := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				Expect(auto).To(ContainSubstring("package v2"))
+				Expect(auto).To(ContainSubstring("AutoMigrateEntry"))
+				tmpl := fileContent(resp, "out/types/v2/migrate.go")
+				Expect(tmpl).To(ContainSubstring("func MigrateEntry"))
 			})
 		})
 
 		Context("struct without key field", func() {
-			It("Should not freeze value-type paths standalone", func() {
+			It("Should freeze value-type paths standalone", func() {
 				oldSchema := `
 					@go output "out"
 					@go version 1
@@ -1585,7 +1589,10 @@ var _ = Describe("Go Migrate Plugin", func() {
 					}
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
-				Expect(resp.Files).To(BeEmpty())
+				paths := filePaths(resp)
+				Expect(paths).To(ContainElement("out/types/v1/types.gen.go"))
+				Expect(fileContent(resp, "out/types/v2/migrate_auto.gen.go")).
+					To(ContainSubstring("AutoMigrateEntry"))
 			})
 		})
 
@@ -1722,18 +1729,19 @@ var _ = Describe("Go Migrate Plugin", func() {
 			resp = MustSucceed(p.Generate(req))
 		})
 
-		It("Should emit a migrate template in the dependency's frozen package", func() {
-			tmpl := fileContent(resp, "dep/types/v1/migrate.go")
-			Expect(tmpl).To(ContainSubstring("package v1"))
+		It("Should scaffold the dependency's own incoming version", func() {
+			tmpl := fileContent(resp, "dep/types/v2/migrate.go")
+			Expect(tmpl).To(ContainSubstring("package v2"))
 			Expect(tmpl).To(ContainSubstring("func MigrateItem"))
 			Expect(tmpl).To(ContainSubstring("AutoMigrateItem"))
-			Expect(fileContent(resp, "dep/types/v1/migrate_auto.gen.go")).
+			Expect(fileContent(resp, "dep/types/v2/migrate_auto.gen.go")).
 				NotTo(BeEmpty())
 		})
 
-		It("Should call MigrateX, not AutoMigrateX, for TypeChanged externals", func() {
+		It("Should call the dependency's MigrateX at its incoming version", func() {
 			content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
 			Expect(content).To(ContainSubstring(".MigrateItem"))
+			Expect(content).To(ContainSubstring("dep/types/v2"))
 			Expect(content).NotTo(ContainSubstring(".AutoMigrateItem"))
 		})
 	})

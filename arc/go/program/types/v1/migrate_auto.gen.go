@@ -15,7 +15,7 @@ import (
 	"context"
 	compiler "github.com/synnaxlabs/arc/compiler"
 	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
-	program "github.com/synnaxlabs/arc/program"
+	program "github.com/synnaxlabs/arc/program/types/v2"
 )
 
 func AutoMigrateProgram(ctx context.Context, old Program) (program.Program, error) {

@@ -22,9 +22,9 @@ import (
 
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/text"
+	colorv0 "github.com/synnaxlabs/x/color/types/v0"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	textv0 "github.com/synnaxlabs/x/text/types/v0"
 )
 
 var _ = Describe("Codec", func() {
@@ -43,9 +43,9 @@ var _ = Describe("Codec", func() {
 				X1: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_3",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    10.5,
 					Type:           new(v1.TickType("linear")),
@@ -53,9 +53,9 @@ var _ = Describe("Codec", func() {
 				X2: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_14",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    21.5,
 					Type:           new(v1.TickType("linear")),
@@ -63,9 +63,9 @@ var _ = Describe("Codec", func() {
 				Y1: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_25",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    32.5,
 					Type:           new(v1.TickType("linear")),
@@ -73,9 +73,9 @@ var _ = Describe("Codec", func() {
 				Y2: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_36",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    43.5,
 					Type:           new(v1.TickType("linear")),
@@ -83,9 +83,9 @@ var _ = Describe("Codec", func() {
 				Y3: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_47",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    54.5,
 					Type:           new(v1.TickType("linear")),
@@ -93,9 +93,9 @@ var _ = Describe("Codec", func() {
 				Y4: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_58",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    65.5,
 					Type:           new(v1.TickType("linear")),
@@ -105,9 +105,9 @@ var _ = Describe("Codec", func() {
 				X1: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -115,9 +115,9 @@ var _ = Describe("Codec", func() {
 				X2: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -125,9 +125,9 @@ var _ = Describe("Codec", func() {
 				Y1: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -135,9 +135,9 @@ var _ = Describe("Codec", func() {
 				Y2: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -145,9 +145,9 @@ var _ = Describe("Codec", func() {
 				Y3: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -155,9 +155,9 @@ var _ = Describe("Codec", func() {
 				Y4: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -179,9 +179,9 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_2",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    9.5,
 				Type:           new(v1.TickType("linear")),
@@ -189,9 +189,9 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v1.Axis{
 				Key:            v1.AxisKey(""),
 				Label:          "",
-				LabelDirection: spatial.Direction(""),
-				LabelLevel:     text.Level(""),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction(""),
+				LabelLevel:     textv0.Level(""),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
@@ -248,23 +248,26 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v1.Legend{
 				Hidden: true,
-				Position: spatial.StickyXY{
+				Position: spatialv0.StickyXY{
 					X: 3.5,
 					Y: 4.5,
-					Root: spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
+					Root: spatialv0.CornerLocation{
+						X: spatialv0.XLocation("left"),
+						Y: spatialv0.YLocation("top"),
 					},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+					Units: spatialv0.StickyUnits{
+						X: spatialv0.StickyUnit("px"),
+						Y: spatialv0.StickyUnit("px"),
+					},
 				},
 			}),
 			Entry("zero values", v1.Legend{
 				Hidden: false,
-				Position: spatial.StickyXY{
+				Position: spatialv0.StickyXY{
 					X:     0,
 					Y:     0,
-					Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+					Root:  spatialv0.CornerLocation{X: spatialv0.XLocation(""), Y: spatialv0.YLocation("")},
+					Units: spatialv0.StickyUnits{X: spatialv0.StickyUnit(""), Y: spatialv0.StickyUnit("")},
 				},
 			}),
 		)
@@ -283,7 +286,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.Line{
 				Key:   "test_1",
 				Label: new(string("test_2")),
-				Color: new(color.Color{
+				Color: new(colorv0.Color{
 					R: 5,
 					G: 6,
 					B: 7,
@@ -317,17 +320,20 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.LinePlot{
 				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:  "test_2",
-				Title: v1.Title{Level: text.Level("h1"), Visible: true},
+				Title: v1.Title{Level: textv0.Level("h1"), Visible: true},
 				Legend: v1.Legend{
 					Hidden: true,
-					Position: spatial.StickyXY{
+					Position: spatialv0.StickyXY{
 						X: 9.5,
 						Y: 10.5,
-						Root: spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
+						Root: spatialv0.CornerLocation{
+							X: spatialv0.XLocation("left"),
+							Y: spatialv0.YLocation("top"),
 						},
-						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+						Units: spatialv0.StickyUnits{
+							X: spatialv0.StickyUnit("px"),
+							Y: spatialv0.StickyUnit("px"),
+						},
 					},
 				},
 				Channels: v1.Channels{
@@ -343,9 +349,9 @@ var _ = Describe("Codec", func() {
 					X1: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_30",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    37.5,
 						Type:           new(v1.TickType("linear")),
@@ -353,9 +359,9 @@ var _ = Describe("Codec", func() {
 					X2: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_41",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    48.5,
 						Type:           new(v1.TickType("linear")),
@@ -363,9 +369,9 @@ var _ = Describe("Codec", func() {
 					Y1: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_52",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    59.5,
 						Type:           new(v1.TickType("linear")),
@@ -373,9 +379,9 @@ var _ = Describe("Codec", func() {
 					Y2: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_63",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    70.5,
 						Type:           new(v1.TickType("linear")),
@@ -383,9 +389,9 @@ var _ = Describe("Codec", func() {
 					Y3: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_74",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    81.5,
 						Type:           new(v1.TickType("linear")),
@@ -393,9 +399,9 @@ var _ = Describe("Codec", func() {
 					Y4: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_85",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    92.5,
 						Type:           new(v1.TickType("linear")),
@@ -405,7 +411,7 @@ var _ = Describe("Codec", func() {
 					{
 						Key:   "test_95",
 						Label: new(string("test_96")),
-						Color: new(color.Color{
+						Color: new(colorv0.Color{
 							R: 99,
 							G: 100,
 							B: 101,
@@ -420,7 +426,7 @@ var _ = Describe("Codec", func() {
 					{
 						Key:   "test_106",
 						Label: "test_107",
-						Color: new(color.Color{
+						Color: new(colorv0.Color{
 							R: 110,
 							G: 111,
 							B: 112,
@@ -437,14 +443,14 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v1.LinePlot{
 				Key:   uuid.Nil,
 				Name:  "",
-				Title: v1.Title{Level: text.Level(""), Visible: false},
+				Title: v1.Title{Level: textv0.Level(""), Visible: false},
 				Legend: v1.Legend{
 					Hidden: false,
-					Position: spatial.StickyXY{
+					Position: spatialv0.StickyXY{
 						X:     0,
 						Y:     0,
-						Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-						Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+						Root:  spatialv0.CornerLocation{X: spatialv0.XLocation(""), Y: spatialv0.YLocation("")},
+						Units: spatialv0.StickyUnits{X: spatialv0.StickyUnit(""), Y: spatialv0.StickyUnit("")},
 					},
 				},
 				Channels: v1.Channels{
@@ -460,9 +466,9 @@ var _ = Describe("Codec", func() {
 					X1: v1.Axis{
 						Key:            v1.AxisKey(""),
 						Label:          "",
-						LabelDirection: spatial.Direction(""),
-						LabelLevel:     text.Level(""),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction(""),
+						LabelLevel:     textv0.Level(""),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
@@ -470,9 +476,9 @@ var _ = Describe("Codec", func() {
 					X2: v1.Axis{
 						Key:            v1.AxisKey(""),
 						Label:          "",
-						LabelDirection: spatial.Direction(""),
-						LabelLevel:     text.Level(""),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction(""),
+						LabelLevel:     textv0.Level(""),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
@@ -480,9 +486,9 @@ var _ = Describe("Codec", func() {
 					Y1: v1.Axis{
 						Key:            v1.AxisKey(""),
 						Label:          "",
-						LabelDirection: spatial.Direction(""),
-						LabelLevel:     text.Level(""),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction(""),
+						LabelLevel:     textv0.Level(""),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
@@ -490,9 +496,9 @@ var _ = Describe("Codec", func() {
 					Y2: v1.Axis{
 						Key:            v1.AxisKey(""),
 						Label:          "",
-						LabelDirection: spatial.Direction(""),
-						LabelLevel:     text.Level(""),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction(""),
+						LabelLevel:     textv0.Level(""),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
@@ -500,9 +506,9 @@ var _ = Describe("Codec", func() {
 					Y3: v1.Axis{
 						Key:            v1.AxisKey(""),
 						Label:          "",
-						LabelDirection: spatial.Direction(""),
-						LabelLevel:     text.Level(""),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction(""),
+						LabelLevel:     textv0.Level(""),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
@@ -510,9 +516,9 @@ var _ = Describe("Codec", func() {
 					Y4: v1.Axis{
 						Key:            v1.AxisKey(""),
 						Label:          "",
-						LabelDirection: spatial.Direction(""),
-						LabelLevel:     text.Level(""),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction(""),
+						LabelLevel:     textv0.Level(""),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
@@ -524,17 +530,20 @@ var _ = Describe("Codec", func() {
 			Entry("empty collections", v1.LinePlot{
 				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:  "test_2",
-				Title: v1.Title{Level: text.Level("h1"), Visible: true},
+				Title: v1.Title{Level: textv0.Level("h1"), Visible: true},
 				Legend: v1.Legend{
 					Hidden: true,
-					Position: spatial.StickyXY{
+					Position: spatialv0.StickyXY{
 						X: 9.5,
 						Y: 10.5,
-						Root: spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
+						Root: spatialv0.CornerLocation{
+							X: spatialv0.XLocation("left"),
+							Y: spatialv0.YLocation("top"),
 						},
-						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+						Units: spatialv0.StickyUnits{
+							X: spatialv0.StickyUnit("px"),
+							Y: spatialv0.StickyUnit("px"),
+						},
 					},
 				},
 				Channels: v1.Channels{
@@ -550,9 +559,9 @@ var _ = Describe("Codec", func() {
 					X1: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_30",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    37.5,
 						Type:           new(v1.TickType("linear")),
@@ -560,9 +569,9 @@ var _ = Describe("Codec", func() {
 					X2: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_41",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    48.5,
 						Type:           new(v1.TickType("linear")),
@@ -570,9 +579,9 @@ var _ = Describe("Codec", func() {
 					Y1: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_52",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    59.5,
 						Type:           new(v1.TickType("linear")),
@@ -580,9 +589,9 @@ var _ = Describe("Codec", func() {
 					Y2: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_63",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    70.5,
 						Type:           new(v1.TickType("linear")),
@@ -590,9 +599,9 @@ var _ = Describe("Codec", func() {
 					Y3: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_74",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    81.5,
 						Type:           new(v1.TickType("linear")),
@@ -600,9 +609,9 @@ var _ = Describe("Codec", func() {
 					Y4: v1.Axis{
 						Key:            v1.AxisKey("x1"),
 						Label:          "test_85",
-						LabelDirection: spatial.Direction("x"),
-						LabelLevel:     text.Level("h1"),
-						Bounds:         spatial.Bounds{},
+						LabelDirection: spatialv0.Direction("x"),
+						LabelLevel:     textv0.Level("h1"),
+						Bounds:         spatialv0.Bounds{},
 						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    92.5,
 						Type:           new(v1.TickType("linear")),
@@ -658,7 +667,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v1.Rule{
 				Key:   "test_1",
 				Label: "test_2",
-				Color: new(color.Color{
+				Color: new(colorv0.Color{
 					R: 5,
 					G: 6,
 					B: 7,
@@ -693,8 +702,8 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Title{Level: text.Level("h1"), Visible: false}),
-			Entry("zero values", v1.Title{Level: text.Level(""), Visible: false}),
+			Entry("fully populated", v1.Title{Level: textv0.Level("h1"), Visible: false}),
+			Entry("zero values", v1.Title{Level: textv0.Level(""), Visible: false}),
 		)
 	})
 })
@@ -704,9 +713,9 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 		X1: v1.Axis{
 			Key:            v1.AxisKey("x1"),
 			Label:          "test_3",
-			LabelDirection: spatial.Direction("x"),
-			LabelLevel:     text.Level("h1"),
-			Bounds:         spatial.Bounds{},
+			LabelDirection: spatialv0.Direction("x"),
+			LabelLevel:     textv0.Level("h1"),
+			Bounds:         spatialv0.Bounds{},
 			ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    10.5,
 			Type:           new(v1.TickType("linear")),
@@ -714,9 +723,9 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 		X2: v1.Axis{
 			Key:            v1.AxisKey("x1"),
 			Label:          "test_14",
-			LabelDirection: spatial.Direction("x"),
-			LabelLevel:     text.Level("h1"),
-			Bounds:         spatial.Bounds{},
+			LabelDirection: spatialv0.Direction("x"),
+			LabelLevel:     textv0.Level("h1"),
+			Bounds:         spatialv0.Bounds{},
 			ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    21.5,
 			Type:           new(v1.TickType("linear")),
@@ -724,9 +733,9 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 		Y1: v1.Axis{
 			Key:            v1.AxisKey("x1"),
 			Label:          "test_25",
-			LabelDirection: spatial.Direction("x"),
-			LabelLevel:     text.Level("h1"),
-			Bounds:         spatial.Bounds{},
+			LabelDirection: spatialv0.Direction("x"),
+			LabelLevel:     textv0.Level("h1"),
+			Bounds:         spatialv0.Bounds{},
 			ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    32.5,
 			Type:           new(v1.TickType("linear")),
@@ -734,9 +743,9 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 		Y2: v1.Axis{
 			Key:            v1.AxisKey("x1"),
 			Label:          "test_36",
-			LabelDirection: spatial.Direction("x"),
-			LabelLevel:     text.Level("h1"),
-			Bounds:         spatial.Bounds{},
+			LabelDirection: spatialv0.Direction("x"),
+			LabelLevel:     textv0.Level("h1"),
+			Bounds:         spatialv0.Bounds{},
 			ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    43.5,
 			Type:           new(v1.TickType("linear")),
@@ -744,9 +753,9 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 		Y3: v1.Axis{
 			Key:            v1.AxisKey("x1"),
 			Label:          "test_47",
-			LabelDirection: spatial.Direction("x"),
-			LabelLevel:     text.Level("h1"),
-			Bounds:         spatial.Bounds{},
+			LabelDirection: spatialv0.Direction("x"),
+			LabelLevel:     textv0.Level("h1"),
+			Bounds:         spatialv0.Bounds{},
 			ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    54.5,
 			Type:           new(v1.TickType("linear")),
@@ -754,9 +763,9 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 		Y4: v1.Axis{
 			Key:            v1.AxisKey("x1"),
 			Label:          "test_58",
-			LabelDirection: spatial.Direction("x"),
-			LabelLevel:     text.Level("h1"),
-			Bounds:         spatial.Bounds{},
+			LabelDirection: spatialv0.Direction("x"),
+			LabelLevel:     textv0.Level("h1"),
+			Bounds:         spatialv0.Bounds{},
 			ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    65.5,
 			Type:           new(v1.TickType("linear")),
@@ -781,9 +790,9 @@ func BenchmarkEncodeDecodeAxis(b *testing.B) {
 	a := v1.Axis{
 		Key:            v1.AxisKey("x1"),
 		Label:          "test_2",
-		LabelDirection: spatial.Direction("x"),
-		LabelLevel:     text.Level("h1"),
-		Bounds:         spatial.Bounds{},
+		LabelDirection: spatialv0.Direction("x"),
+		LabelLevel:     textv0.Level("h1"),
+		Bounds:         spatialv0.Bounds{},
 		ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 		TickSpacing:    9.5,
 		Type:           new(v1.TickType("linear")),
@@ -830,14 +839,17 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 func BenchmarkEncodeDecodeLegend(b *testing.B) {
 	lv := v1.Legend{
 		Hidden: true,
-		Position: spatial.StickyXY{
+		Position: spatialv0.StickyXY{
 			X: 3.5,
 			Y: 4.5,
-			Root: spatial.CornerLocation{
-				X: spatial.XLocation("left"),
-				Y: spatial.YLocation("top"),
+			Root: spatialv0.CornerLocation{
+				X: spatialv0.XLocation("left"),
+				Y: spatialv0.YLocation("top"),
 			},
-			Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+			Units: spatialv0.StickyUnits{
+				X: spatialv0.StickyUnit("px"),
+				Y: spatialv0.StickyUnit("px"),
+			},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -859,7 +871,7 @@ func BenchmarkEncodeDecodeLine(b *testing.B) {
 	lv := v1.Line{
 		Key:   "test_1",
 		Label: new(string("test_2")),
-		Color: new(color.Color{
+		Color: new(colorv0.Color{
 			R: 5,
 			G: 6,
 			B: 7,
@@ -888,17 +900,20 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 	lp := v1.LinePlot{
 		Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:  "test_2",
-		Title: v1.Title{Level: text.Level("h1"), Visible: true},
+		Title: v1.Title{Level: textv0.Level("h1"), Visible: true},
 		Legend: v1.Legend{
 			Hidden: true,
-			Position: spatial.StickyXY{
+			Position: spatialv0.StickyXY{
 				X: 9.5,
 				Y: 10.5,
-				Root: spatial.CornerLocation{
-					X: spatial.XLocation("left"),
-					Y: spatial.YLocation("top"),
+				Root: spatialv0.CornerLocation{
+					X: spatialv0.XLocation("left"),
+					Y: spatialv0.YLocation("top"),
 				},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+				Units: spatialv0.StickyUnits{
+					X: spatialv0.StickyUnit("px"),
+					Y: spatialv0.StickyUnit("px"),
+				},
 			},
 		},
 		Channels: v1.Channels{
@@ -914,9 +929,9 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			X1: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_30",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    37.5,
 				Type:           new(v1.TickType("linear")),
@@ -924,9 +939,9 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			X2: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_41",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    48.5,
 				Type:           new(v1.TickType("linear")),
@@ -934,9 +949,9 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Y1: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_52",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    59.5,
 				Type:           new(v1.TickType("linear")),
@@ -944,9 +959,9 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Y2: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_63",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    70.5,
 				Type:           new(v1.TickType("linear")),
@@ -954,9 +969,9 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Y3: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_74",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    81.5,
 				Type:           new(v1.TickType("linear")),
@@ -964,9 +979,9 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Y4: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_85",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    92.5,
 				Type:           new(v1.TickType("linear")),
@@ -976,7 +991,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			{
 				Key:   "test_95",
 				Label: new(string("test_96")),
-				Color: new(color.Color{
+				Color: new(colorv0.Color{
 					R: 99,
 					G: 100,
 					B: 101,
@@ -991,7 +1006,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			{
 				Key:   "test_106",
 				Label: "test_107",
-				Color: new(color.Color{
+				Color: new(colorv0.Color{
 					R: 110,
 					G: 111,
 					B: 112,
@@ -1058,7 +1073,7 @@ func BenchmarkEncodeDecodeRule(b *testing.B) {
 	rv := v1.Rule{
 		Key:   "test_1",
 		Label: "test_2",
-		Color: new(color.Color{
+		Color: new(colorv0.Color{
 			R: 5,
 			G: 6,
 			B: 7,
@@ -1086,7 +1101,7 @@ func BenchmarkEncodeDecodeRule(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTitle(b *testing.B) {
-	t := v1.Title{Level: text.Level("h1"), Visible: false}
+	t := v1.Title{Level: textv0.Level("h1"), Visible: false}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -1108,9 +1123,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			X1: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_3",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    10.5,
 				Type:           new(v1.TickType("linear")),
@@ -1118,9 +1133,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			X2: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_14",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    21.5,
 				Type:           new(v1.TickType("linear")),
@@ -1128,9 +1143,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			Y1: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_25",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    32.5,
 				Type:           new(v1.TickType("linear")),
@@ -1138,9 +1153,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			Y2: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_36",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    43.5,
 				Type:           new(v1.TickType("linear")),
@@ -1148,9 +1163,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			Y3: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_47",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    54.5,
 				Type:           new(v1.TickType("linear")),
@@ -1158,9 +1173,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			Y4: v1.Axis{
 				Key:            v1.AxisKey("x1"),
 				Label:          "test_58",
-				LabelDirection: spatial.Direction("x"),
-				LabelLevel:     text.Level("h1"),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction("x"),
+				LabelLevel:     textv0.Level("h1"),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    65.5,
 				Type:           new(v1.TickType("linear")),
@@ -1177,9 +1192,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			X1: v1.Axis{
 				Key:            v1.AxisKey(""),
 				Label:          "",
-				LabelDirection: spatial.Direction(""),
-				LabelLevel:     text.Level(""),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction(""),
+				LabelLevel:     textv0.Level(""),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
@@ -1187,9 +1202,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			X2: v1.Axis{
 				Key:            v1.AxisKey(""),
 				Label:          "",
-				LabelDirection: spatial.Direction(""),
-				LabelLevel:     text.Level(""),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction(""),
+				LabelLevel:     textv0.Level(""),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
@@ -1197,9 +1212,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			Y1: v1.Axis{
 				Key:            v1.AxisKey(""),
 				Label:          "",
-				LabelDirection: spatial.Direction(""),
-				LabelLevel:     text.Level(""),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction(""),
+				LabelLevel:     textv0.Level(""),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
@@ -1207,9 +1222,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			Y2: v1.Axis{
 				Key:            v1.AxisKey(""),
 				Label:          "",
-				LabelDirection: spatial.Direction(""),
-				LabelLevel:     text.Level(""),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction(""),
+				LabelLevel:     textv0.Level(""),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
@@ -1217,9 +1232,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			Y3: v1.Axis{
 				Key:            v1.AxisKey(""),
 				Label:          "",
-				LabelDirection: spatial.Direction(""),
-				LabelLevel:     text.Level(""),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction(""),
+				LabelLevel:     textv0.Level(""),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
@@ -1227,9 +1242,9 @@ func FuzzDecodeAxes(f *testing.F) {
 			Y4: v1.Axis{
 				Key:            v1.AxisKey(""),
 				Label:          "",
-				LabelDirection: spatial.Direction(""),
-				LabelLevel:     text.Level(""),
-				Bounds:         spatial.Bounds{},
+				LabelDirection: spatialv0.Direction(""),
+				LabelLevel:     textv0.Level(""),
+				Bounds:         spatialv0.Bounds{},
 				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
@@ -1275,9 +1290,9 @@ func FuzzDecodeAxis(f *testing.F) {
 		seed := v1.Axis{
 			Key:            v1.AxisKey("x1"),
 			Label:          "test_2",
-			LabelDirection: spatial.Direction("x"),
-			LabelLevel:     text.Level("h1"),
-			Bounds:         spatial.Bounds{},
+			LabelDirection: spatialv0.Direction("x"),
+			LabelLevel:     textv0.Level("h1"),
+			Bounds:         spatialv0.Bounds{},
 			ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    9.5,
 			Type:           new(v1.TickType("linear")),
@@ -1292,9 +1307,9 @@ func FuzzDecodeAxis(f *testing.F) {
 		seed := v1.Axis{
 			Key:            v1.AxisKey(""),
 			Label:          "",
-			LabelDirection: spatial.Direction(""),
-			LabelLevel:     text.Level(""),
-			Bounds:         spatial.Bounds{},
+			LabelDirection: spatialv0.Direction(""),
+			LabelLevel:     textv0.Level(""),
+			Bounds:         spatialv0.Bounds{},
 			ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 			TickSpacing:    0,
 			Type:           nil,
@@ -1413,14 +1428,17 @@ func FuzzDecodeLegend(f *testing.F) {
 	{
 		seed := v1.Legend{
 			Hidden: true,
-			Position: spatial.StickyXY{
+			Position: spatialv0.StickyXY{
 				X: 3.5,
 				Y: 4.5,
-				Root: spatial.CornerLocation{
-					X: spatial.XLocation("left"),
-					Y: spatial.YLocation("top"),
+				Root: spatialv0.CornerLocation{
+					X: spatialv0.XLocation("left"),
+					Y: spatialv0.YLocation("top"),
 				},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+				Units: spatialv0.StickyUnits{
+					X: spatialv0.StickyUnit("px"),
+					Y: spatialv0.StickyUnit("px"),
+				},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1432,11 +1450,11 @@ func FuzzDecodeLegend(f *testing.F) {
 	{
 		seed := v1.Legend{
 			Hidden: false,
-			Position: spatial.StickyXY{
+			Position: spatialv0.StickyXY{
 				X:     0,
 				Y:     0,
-				Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+				Root:  spatialv0.CornerLocation{X: spatialv0.XLocation(""), Y: spatialv0.YLocation("")},
+				Units: spatialv0.StickyUnits{X: spatialv0.StickyUnit(""), Y: spatialv0.StickyUnit("")},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1479,7 +1497,7 @@ func FuzzDecodeLine(f *testing.F) {
 		seed := v1.Line{
 			Key:   "test_1",
 			Label: new(string("test_2")),
-			Color: new(color.Color{
+			Color: new(colorv0.Color{
 				R: 5,
 				G: 6,
 				B: 7,
@@ -1544,17 +1562,20 @@ func FuzzDecodeLinePlot(f *testing.F) {
 		seed := v1.LinePlot{
 			Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:  "test_2",
-			Title: v1.Title{Level: text.Level("h1"), Visible: true},
+			Title: v1.Title{Level: textv0.Level("h1"), Visible: true},
 			Legend: v1.Legend{
 				Hidden: true,
-				Position: spatial.StickyXY{
+				Position: spatialv0.StickyXY{
 					X: 9.5,
 					Y: 10.5,
-					Root: spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
+					Root: spatialv0.CornerLocation{
+						X: spatialv0.XLocation("left"),
+						Y: spatialv0.YLocation("top"),
 					},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+					Units: spatialv0.StickyUnits{
+						X: spatialv0.StickyUnit("px"),
+						Y: spatialv0.StickyUnit("px"),
+					},
 				},
 			},
 			Channels: v1.Channels{
@@ -1570,9 +1591,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				X1: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_30",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    37.5,
 					Type:           new(v1.TickType("linear")),
@@ -1580,9 +1601,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				X2: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_41",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    48.5,
 					Type:           new(v1.TickType("linear")),
@@ -1590,9 +1611,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y1: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_52",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    59.5,
 					Type:           new(v1.TickType("linear")),
@@ -1600,9 +1621,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y2: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_63",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    70.5,
 					Type:           new(v1.TickType("linear")),
@@ -1610,9 +1631,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_74",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    81.5,
 					Type:           new(v1.TickType("linear")),
@@ -1620,9 +1641,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y4: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_85",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    92.5,
 					Type:           new(v1.TickType("linear")),
@@ -1632,7 +1653,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				{
 					Key:   "test_95",
 					Label: new(string("test_96")),
-					Color: new(color.Color{
+					Color: new(colorv0.Color{
 						R: 99,
 						G: 100,
 						B: 101,
@@ -1647,7 +1668,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				{
 					Key:   "test_106",
 					Label: "test_107",
-					Color: new(color.Color{
+					Color: new(colorv0.Color{
 						R: 110,
 						G: 111,
 						B: 112,
@@ -1671,14 +1692,14 @@ func FuzzDecodeLinePlot(f *testing.F) {
 		seed := v1.LinePlot{
 			Key:   uuid.Nil,
 			Name:  "",
-			Title: v1.Title{Level: text.Level(""), Visible: false},
+			Title: v1.Title{Level: textv0.Level(""), Visible: false},
 			Legend: v1.Legend{
 				Hidden: false,
-				Position: spatial.StickyXY{
+				Position: spatialv0.StickyXY{
 					X:     0,
 					Y:     0,
-					Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+					Root:  spatialv0.CornerLocation{X: spatialv0.XLocation(""), Y: spatialv0.YLocation("")},
+					Units: spatialv0.StickyUnits{X: spatialv0.StickyUnit(""), Y: spatialv0.StickyUnit("")},
 				},
 			},
 			Channels: v1.Channels{
@@ -1694,9 +1715,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				X1: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -1704,9 +1725,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				X2: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -1714,9 +1735,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y1: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -1724,9 +1745,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y2: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -1734,9 +1755,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -1744,9 +1765,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y4: v1.Axis{
 					Key:            v1.AxisKey(""),
 					Label:          "",
-					LabelDirection: spatial.Direction(""),
-					LabelLevel:     text.Level(""),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction(""),
+					LabelLevel:     textv0.Level(""),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
@@ -1765,17 +1786,20 @@ func FuzzDecodeLinePlot(f *testing.F) {
 		seed := v1.LinePlot{
 			Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:  "test_2",
-			Title: v1.Title{Level: text.Level("h1"), Visible: true},
+			Title: v1.Title{Level: textv0.Level("h1"), Visible: true},
 			Legend: v1.Legend{
 				Hidden: true,
-				Position: spatial.StickyXY{
+				Position: spatialv0.StickyXY{
 					X: 9.5,
 					Y: 10.5,
-					Root: spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
+					Root: spatialv0.CornerLocation{
+						X: spatialv0.XLocation("left"),
+						Y: spatialv0.YLocation("top"),
 					},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+					Units: spatialv0.StickyUnits{
+						X: spatialv0.StickyUnit("px"),
+						Y: spatialv0.StickyUnit("px"),
+					},
 				},
 			},
 			Channels: v1.Channels{
@@ -1791,9 +1815,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				X1: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_30",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    37.5,
 					Type:           new(v1.TickType("linear")),
@@ -1801,9 +1825,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				X2: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_41",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    48.5,
 					Type:           new(v1.TickType("linear")),
@@ -1811,9 +1835,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y1: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_52",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    59.5,
 					Type:           new(v1.TickType("linear")),
@@ -1821,9 +1845,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y2: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_63",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    70.5,
 					Type:           new(v1.TickType("linear")),
@@ -1831,9 +1855,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_74",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    81.5,
 					Type:           new(v1.TickType("linear")),
@@ -1841,9 +1865,9 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y4: v1.Axis{
 					Key:            v1.AxisKey("x1"),
 					Label:          "test_85",
-					LabelDirection: spatial.Direction("x"),
-					LabelLevel:     text.Level("h1"),
-					Bounds:         spatial.Bounds{},
+					LabelDirection: spatialv0.Direction("x"),
+					LabelLevel:     textv0.Level("h1"),
+					Bounds:         spatialv0.Bounds{},
 					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    92.5,
 					Type:           new(v1.TickType("linear")),
@@ -1992,7 +2016,7 @@ func FuzzDecodeRule(f *testing.F) {
 		seed := v1.Rule{
 			Key:   "test_1",
 			Label: "test_2",
-			Color: new(color.Color{
+			Color: new(colorv0.Color{
 				R: 5,
 				G: 6,
 				B: 7,
@@ -2058,7 +2082,7 @@ func FuzzDecodeRule(f *testing.F) {
 
 func FuzzDecodeTitle(f *testing.F) {
 	{
-		seed := v1.Title{Level: text.Level("h1"), Visible: false}
+		seed := v1.Title{Level: textv0.Level("h1"), Visible: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2066,7 +2090,7 @@ func FuzzDecodeTitle(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Title{Level: text.Level(""), Visible: false}
+		seed := v1.Title{Level: textv0.Level(""), Visible: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
