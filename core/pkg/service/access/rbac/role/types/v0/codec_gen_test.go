@@ -18,29 +18,29 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	role "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Role", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original role.Role) {
+			func(original v0.Role) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded role.Role
+				var decoded v0.Role
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", role.Role{
+			Entry("fully populated", v0.Role{
 				Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:        "test_2",
 				Description: "test_3",
 				Internal:    false,
 			}),
-			Entry("zero values", role.Role{
+			Entry("zero values", v0.Role{
 				Key:         uuid.Nil,
 				Name:        "",
 				Description: "",
@@ -51,7 +51,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeRole(b *testing.B) {
-	seed := role.Role{
+	seed := v0.Role{
 		Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:        "test_2",
 		Description: "test_3",
@@ -64,7 +64,7 @@ func BenchmarkEncodeDecodeRole(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded role.Role
+		var decoded v0.Role
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -74,7 +74,7 @@ func BenchmarkEncodeDecodeRole(b *testing.B) {
 
 func FuzzDecodeRole(f *testing.F) {
 	{
-		seed := role.Role{
+		seed := v0.Role{
 			Key:         uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:        "test_2",
 			Description: "test_3",
@@ -87,7 +87,7 @@ func FuzzDecodeRole(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := role.Role{
+		seed := v0.Role{
 			Key:         uuid.Nil,
 			Name:        "",
 			Description: "",
@@ -100,7 +100,7 @@ func FuzzDecodeRole(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded role.Role
+		var decoded v0.Role
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -110,7 +110,7 @@ func FuzzDecodeRole(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded role.Role
+		var redecoded v0.Role
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

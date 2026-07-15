@@ -17,29 +17,29 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	color "github.com/synnaxlabs/x/color/types/v0"
+	"github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Color", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original color.Color) {
+			func(original v0.Color) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded color.Color
+				var decoded v0.Color
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", color.Color{
+			Entry("fully populated", v0.Color{
 				R: 2,
 				G: 3,
 				B: 4,
 				A: 4.5,
 			}),
-			Entry("zero values", color.Color{
+			Entry("zero values", v0.Color{
 				R: 0,
 				G: 0,
 				B: 0,
@@ -50,7 +50,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeColor(b *testing.B) {
-	seed := color.Color{
+	seed := v0.Color{
 		R: 2,
 		G: 3,
 		B: 4,
@@ -63,7 +63,7 @@ func BenchmarkEncodeDecodeColor(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded color.Color
+		var decoded v0.Color
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -73,7 +73,7 @@ func BenchmarkEncodeDecodeColor(b *testing.B) {
 
 func FuzzDecodeColor(f *testing.F) {
 	{
-		seed := color.Color{
+		seed := v0.Color{
 			R: 2,
 			G: 3,
 			B: 4,
@@ -86,7 +86,7 @@ func FuzzDecodeColor(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := color.Color{
+		seed := v0.Color{
 			R: 0,
 			G: 0,
 			B: 0,
@@ -99,7 +99,7 @@ func FuzzDecodeColor(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded color.Color
+		var decoded v0.Color
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -109,7 +109,7 @@ func FuzzDecodeColor(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded color.Color
+		var redecoded v0.Color
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

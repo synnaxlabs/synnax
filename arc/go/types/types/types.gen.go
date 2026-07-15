@@ -11,63 +11,63 @@
 
 package types
 
-import types "github.com/synnaxlabs/arc/types/types/v1"
+import "github.com/synnaxlabs/arc/types/types/v1"
 
 // Params is a collection of named, typed parameters for function inputs or outputs.
-type Params = types.Params
+type Params = v1.Params
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
-type Kind = types.Kind
+type Kind = v1.Kind
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection = types.ChanDirection
+type ChanDirection = v1.ChanDirection
 
 // FunctionProperties contains common parameter definitions for function-like types.
-type FunctionProperties = types.FunctionProperties
+type FunctionProperties = v1.FunctionProperties
 
 // Type is a type in Arc's type system with optional element type for compounds,
 // physical units, and constraints.
-type Type = types.Type
+type Type = v1.Type
 
 // Param is a named, typed parameter with optional default value.
-type Param = types.Param
+type Param = v1.Param
 
 // Channels contains channel declarations for reading from and writing to Synnax
 // channels.
-type Channels = types.Channels
+type Channels = v1.Channels
 
 // Dimensions contains physical dimension exponents for dimensional analysis (SI base
 // quantities).
-type Dimensions = types.Dimensions
+type Dimensions = v1.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
-type Unit = types.Unit
+type Unit = v1.Unit
 
 const (
-	KindInvalid                   Kind          = types.KindInvalid
-	KindU8                        Kind          = types.KindU8
-	KindU16                       Kind          = types.KindU16
-	KindU32                       Kind          = types.KindU32
-	KindU64                       Kind          = types.KindU64
-	KindI8                        Kind          = types.KindI8
-	KindI16                       Kind          = types.KindI16
-	KindI32                       Kind          = types.KindI32
-	KindI64                       Kind          = types.KindI64
-	KindF32                       Kind          = types.KindF32
-	KindF64                       Kind          = types.KindF64
-	KindString                    Kind          = types.KindString
-	KindChan                      Kind          = types.KindChan
-	KindSeries                    Kind          = types.KindSeries
-	KindVariable                  Kind          = types.KindVariable
-	KindNumericConstant           Kind          = types.KindNumericConstant
-	KindIntegerConstant           Kind          = types.KindIntegerConstant
-	KindFloatConstant             Kind          = types.KindFloatConstant
-	KindExactIntegerFloatConstant Kind          = types.KindExactIntegerFloatConstant
-	KindFunction                  Kind          = types.KindFunction
-	KindSequence                  Kind          = types.KindSequence
-	KindStage                     Kind          = types.KindStage
-	ChanDirectionNone             ChanDirection = types.ChanDirectionNone
-	ChanDirectionRead             ChanDirection = types.ChanDirectionRead
-	ChanDirectionWrite            ChanDirection = types.ChanDirectionWrite
+	KindInvalid                   Kind          = v1.KindInvalid
+	KindU8                        Kind          = v1.KindU8
+	KindU16                       Kind          = v1.KindU16
+	KindU32                       Kind          = v1.KindU32
+	KindU64                       Kind          = v1.KindU64
+	KindI8                        Kind          = v1.KindI8
+	KindI16                       Kind          = v1.KindI16
+	KindI32                       Kind          = v1.KindI32
+	KindI64                       Kind          = v1.KindI64
+	KindF32                       Kind          = v1.KindF32
+	KindF64                       Kind          = v1.KindF64
+	KindString                    Kind          = v1.KindString
+	KindChan                      Kind          = v1.KindChan
+	KindSeries                    Kind          = v1.KindSeries
+	KindVariable                  Kind          = v1.KindVariable
+	KindNumericConstant           Kind          = v1.KindNumericConstant
+	KindIntegerConstant           Kind          = v1.KindIntegerConstant
+	KindFloatConstant             Kind          = v1.KindFloatConstant
+	KindExactIntegerFloatConstant Kind          = v1.KindExactIntegerFloatConstant
+	KindFunction                  Kind          = v1.KindFunction
+	KindSequence                  Kind          = v1.KindSequence
+	KindStage                     Kind          = v1.KindStage
+	ChanDirectionNone             ChanDirection = v1.ChanDirectionNone
+	ChanDirectionRead             ChanDirection = v1.ChanDirectionRead
+	ChanDirectionWrite            ChanDirection = v1.ChanDirectionWrite
 )

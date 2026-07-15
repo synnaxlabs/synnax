@@ -11,18 +11,18 @@
 
 package types
 
-import notation "github.com/synnaxlabs/x/notation/types/v0"
+import "github.com/synnaxlabs/x/notation/types/v0"
 
 // Notation is the numeric notation used to render samples.
-type Notation = notation.Notation
+type Notation = v0.Notation
 
 const (
 	// NotationStandard renders samples as plain decimal numbers.
-	NotationStandard Notation = notation.NotationStandard
+	NotationStandard Notation = v0.NotationStandard
 	// NotationScientific renders samples in scientific notation with a single leading
 	// digit.
-	NotationScientific Notation = notation.NotationScientific
+	NotationScientific Notation = v0.NotationScientific
 	// NotationEngineering renders samples in engineering notation with exponents in
 	// multiples of three.
-	NotationEngineering Notation = notation.NotationEngineering
+	NotationEngineering Notation = v0.NotationEngineering
 )

@@ -11,12 +11,12 @@
 
 package role
 
-import role "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types"
+import "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types"
 
 // Key is a unique identifier for a role, represented as a UUID.
-type Key = role.Key
+type Key = types.Key
 
 // Role is a named collection of policies that can be assigned to users, enabling
 // group-based permission management. Roles define what actions users can perform on
 // resources.
-type Role = role.Role
+type Role = types.Role

@@ -11,26 +11,26 @@
 
 package types
 
-import text "github.com/synnaxlabs/x/text/types/v0"
+import "github.com/synnaxlabs/x/text/types/v0"
 
 // Level is a typography level identifier shared across visualizations. Mirrors the
 // heading ladder (h1 through h5) plus paragraph (p) and small. Order is descending: h1
 // is the largest, small is the smallest.
-type Level = text.Level
+type Level = v0.Level
 
 const (
 	// LevelH1 is the largest heading level.
-	LevelH1 Level = text.LevelH1
+	LevelH1 Level = v0.LevelH1
 	// LevelH2 is the second-largest heading level.
-	LevelH2 Level = text.LevelH2
+	LevelH2 Level = v0.LevelH2
 	// LevelH3 is the third-largest heading level.
-	LevelH3 Level = text.LevelH3
+	LevelH3 Level = v0.LevelH3
 	// LevelH4 is the fourth-largest heading level.
-	LevelH4 Level = text.LevelH4
+	LevelH4 Level = v0.LevelH4
 	// LevelH5 is the smallest heading level.
-	LevelH5 Level = text.LevelH5
+	LevelH5 Level = v0.LevelH5
 	// LevelP is the standard paragraph level.
-	LevelP Level = text.LevelP
+	LevelP Level = v0.LevelP
 	// LevelSmall is the smallest level, used for captions and annotations.
-	LevelSmall Level = text.LevelSmall
+	LevelSmall Level = v0.LevelSmall
 )

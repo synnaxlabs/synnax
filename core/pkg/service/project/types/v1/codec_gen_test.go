@@ -18,7 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	project "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -26,21 +26,21 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Project", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original project.Project) {
+			func(original v1.Project) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded project.Project
+				var decoded v1.Project
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", project.Project{
+			Entry("fully populated", v1.Project{
 				Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:   "test_2",
 				Layout: msgpack.EncodedJSON{"key_3": "value_3"},
 			}),
-			Entry("zero values", project.Project{
+			Entry("zero values", v1.Project{
 				Key:    uuid.Nil,
 				Name:   "",
 				Layout: nil,
@@ -50,7 +50,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeProject(b *testing.B) {
-	seed := project.Project{
+	seed := v1.Project{
 		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:   "test_2",
 		Layout: msgpack.EncodedJSON{"key_3": "value_3"},
@@ -62,7 +62,7 @@ func BenchmarkEncodeDecodeProject(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded project.Project
+		var decoded v1.Project
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -72,7 +72,7 @@ func BenchmarkEncodeDecodeProject(b *testing.B) {
 
 func FuzzDecodeProject(f *testing.F) {
 	{
-		seed := project.Project{
+		seed := v1.Project{
 			Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:   "test_2",
 			Layout: msgpack.EncodedJSON{"key_3": "value_3"},
@@ -84,7 +84,7 @@ func FuzzDecodeProject(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := project.Project{
+		seed := v1.Project{
 			Key:    uuid.Nil,
 			Name:   "",
 			Layout: nil,
@@ -96,7 +96,7 @@ func FuzzDecodeProject(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded project.Project
+		var decoded v1.Project
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -106,7 +106,7 @@ func FuzzDecodeProject(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded project.Project
+		var redecoded v1.Project
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

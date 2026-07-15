@@ -17,7 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	graph "github.com/synnaxlabs/arc/graph/types/v2"
+	"github.com/synnaxlabs/arc/graph/types/v2"
 	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	gov1 "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -28,16 +28,16 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Edge", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original graph.Edge) {
+			func(original v2.Edge) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded graph.Edge
+				var decoded v2.Edge
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", graph.Edge{
+			Entry("fully populated", v2.Edge{
 				Edge: ir.Edge{
 					Source: ir.Handle{Node: "test_2", Param: "test_3"},
 					Target: ir.Handle{Node: "test_5", Param: "test_6"},
@@ -45,7 +45,7 @@ var _ = Describe("Codec", func() {
 				},
 				Key: "test_8",
 			}),
-			Entry("zero values", graph.Edge{
+			Entry("zero values", v2.Edge{
 				Edge: ir.Edge{
 					Source: ir.Handle{Node: "", Param: ""},
 					Target: ir.Handle{Node: "", Param: ""},
@@ -57,16 +57,16 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Graph", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original graph.Graph) {
+			func(original v2.Graph) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded graph.Graph
+				var decoded v2.Graph
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", graph.Graph{
+			Entry("fully populated", v2.Graph{
 				Functions: []ir.Function{
 					{
 						Key:  "test_2",
@@ -113,7 +113,7 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				Edges: []graph.Edge{
+				Edges: []v2.Edge{
 					{
 						Edge: ir.Edge{
 							Source: ir.Handle{Node: "test_34", Param: "test_35"},
@@ -123,42 +123,42 @@ var _ = Describe("Codec", func() {
 						Key: "test_40",
 					},
 				},
-				Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+				Nodes:  []v2.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
 				Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 			}),
-			Entry("zero values", graph.Graph{
+			Entry("zero values", v2.Graph{
 				Functions: nil,
 				Edges:     nil,
 				Nodes:     nil,
 				Inputs:    nil,
 			}),
-			Entry("empty collections", graph.Graph{
+			Entry("empty collections", v2.Graph{
 				Functions: []ir.Function{},
-				Edges:     []graph.Edge{},
-				Nodes:     []graph.Node{},
+				Edges:     []v2.Edge{},
+				Nodes:     []v2.Node{},
 				Inputs:    map[string]msgpack.EncodedJSON{},
 			}),
 		)
 	})
 	Describe("Node", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original graph.Node) {
+			func(original v2.Node) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded graph.Node
+				var decoded v2.Node
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", graph.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}),
-			Entry("zero values", graph.Node{Key: "", Position: spatial.XY{X: 0, Y: 0}}),
+			Entry("fully populated", v2.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}),
+			Entry("zero values", v2.Node{Key: "", Position: spatial.XY{X: 0, Y: 0}}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
-	seed := graph.Edge{
+	seed := v2.Edge{
 		Edge: ir.Edge{
 			Source: ir.Handle{Node: "test_2", Param: "test_3"},
 			Target: ir.Handle{Node: "test_5", Param: "test_6"},
@@ -173,7 +173,7 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded graph.Edge
+		var decoded v2.Edge
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -182,7 +182,7 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeGraph(b *testing.B) {
-	seed := graph.Graph{
+	seed := v2.Graph{
 		Functions: []ir.Function{
 			{
 				Key:  "test_2",
@@ -229,7 +229,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 				},
 			},
 		},
-		Edges: []graph.Edge{
+		Edges: []v2.Edge{
 			{
 				Edge: ir.Edge{
 					Source: ir.Handle{Node: "test_34", Param: "test_35"},
@@ -239,7 +239,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 				Key: "test_40",
 			},
 		},
-		Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+		Nodes:  []v2.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
 		Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 	}
 	w := orc.NewWriter(0)
@@ -249,7 +249,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded graph.Graph
+		var decoded v2.Graph
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -258,7 +258,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeNode(b *testing.B) {
-	seed := graph.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}
+	seed := v2.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -266,7 +266,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded graph.Node
+		var decoded v2.Node
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -276,7 +276,7 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 
 func FuzzDecodeEdge(f *testing.F) {
 	{
-		seed := graph.Edge{
+		seed := v2.Edge{
 			Edge: ir.Edge{
 				Source: ir.Handle{Node: "test_2", Param: "test_3"},
 				Target: ir.Handle{Node: "test_5", Param: "test_6"},
@@ -291,7 +291,7 @@ func FuzzDecodeEdge(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := graph.Edge{
+		seed := v2.Edge{
 			Edge: ir.Edge{
 				Source: ir.Handle{Node: "", Param: ""},
 				Target: ir.Handle{Node: "", Param: ""},
@@ -306,7 +306,7 @@ func FuzzDecodeEdge(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded graph.Edge
+		var decoded v2.Edge
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -316,7 +316,7 @@ func FuzzDecodeEdge(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded graph.Edge
+		var redecoded v2.Edge
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -336,7 +336,7 @@ func FuzzDecodeEdge(f *testing.F) {
 
 func FuzzDecodeGraph(f *testing.F) {
 	{
-		seed := graph.Graph{
+		seed := v2.Graph{
 			Functions: []ir.Function{
 				{
 					Key:  "test_2",
@@ -383,7 +383,7 @@ func FuzzDecodeGraph(f *testing.F) {
 					},
 				},
 			},
-			Edges: []graph.Edge{
+			Edges: []v2.Edge{
 				{
 					Edge: ir.Edge{
 						Source: ir.Handle{Node: "test_34", Param: "test_35"},
@@ -393,7 +393,7 @@ func FuzzDecodeGraph(f *testing.F) {
 					Key: "test_40",
 				},
 			},
-			Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+			Nodes:  []v2.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
 			Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 		}
 		w := orc.NewWriter(0)
@@ -403,7 +403,7 @@ func FuzzDecodeGraph(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := graph.Graph{
+		seed := v2.Graph{
 			Functions: nil,
 			Edges:     nil,
 			Nodes:     nil,
@@ -416,10 +416,10 @@ func FuzzDecodeGraph(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := graph.Graph{
+		seed := v2.Graph{
 			Functions: []ir.Function{},
-			Edges:     []graph.Edge{},
-			Nodes:     []graph.Node{},
+			Edges:     []v2.Edge{},
+			Nodes:     []v2.Node{},
 			Inputs:    map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
@@ -429,7 +429,7 @@ func FuzzDecodeGraph(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded graph.Graph
+		var decoded v2.Graph
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -439,7 +439,7 @@ func FuzzDecodeGraph(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded graph.Graph
+		var redecoded v2.Graph
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -459,7 +459,7 @@ func FuzzDecodeGraph(f *testing.F) {
 
 func FuzzDecodeNode(f *testing.F) {
 	{
-		seed := graph.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}
+		seed := v2.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -467,7 +467,7 @@ func FuzzDecodeNode(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := graph.Node{Key: "", Position: spatial.XY{X: 0, Y: 0}}
+		seed := v2.Node{Key: "", Position: spatial.XY{X: 0, Y: 0}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -475,7 +475,7 @@ func FuzzDecodeNode(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded graph.Node
+		var decoded v2.Node
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -485,7 +485,7 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded graph.Node
+		var redecoded v2.Node
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

@@ -18,7 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	table "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -26,21 +26,21 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Cell", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original table.Cell) {
+			func(original v1.Cell) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded table.Cell
+				var decoded v1.Cell
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", table.Cell{
+			Entry("fully populated", v1.Cell{
 				Key:     "test_1",
 				Variant: "test_2",
 				Props:   msgpack.EncodedJSON{"key_3": "value_3"},
 			}),
-			Entry("zero values", table.Cell{
+			Entry("zero values", v1.Cell{
 				Key:     "",
 				Variant: "",
 				Props:   nil,
@@ -49,52 +49,52 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Column", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original table.Column) {
+			func(original v1.Column) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded table.Column
+				var decoded v1.Column
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", table.Column{Size: 1.5}),
-			Entry("zero values", table.Column{Size: 0}),
+			Entry("fully populated", v1.Column{Size: 1.5}),
+			Entry("zero values", v1.Column{Size: 0}),
 		)
 	})
 	Describe("Row", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original table.Row) {
+			func(original v1.Row) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded table.Row
+				var decoded v1.Row
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", table.Row{Size: 1.5, Cells: []string{"test_2"}}),
-			Entry("zero values", table.Row{Size: 0, Cells: nil}),
-			Entry("empty collections", table.Row{Size: 1.5, Cells: []string{}}),
+			Entry("fully populated", v1.Row{Size: 1.5, Cells: []string{"test_2"}}),
+			Entry("zero values", v1.Row{Size: 0, Cells: nil}),
+			Entry("empty collections", v1.Row{Size: 1.5, Cells: []string{}}),
 		)
 	})
 	Describe("Table", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original table.Table) {
+			func(original v1.Table) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded table.Table
+				var decoded v1.Table
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", table.Table{
+			Entry("fully populated", v1.Table{
 				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:    "test_2",
-				Rows:    []table.Row{{Size: 4.5, Cells: []string{"test_5"}}},
-				Columns: []table.Column{{Size: 7.5}},
-				Cells: map[string]table.Cell{
+				Rows:    []v1.Row{{Size: 4.5, Cells: []string{"test_5"}}},
+				Columns: []v1.Column{{Size: 7.5}},
+				Cells: map[string]v1.Cell{
 					"test_8": {
 						Key:     "test_9",
 						Variant: "test_10",
@@ -102,26 +102,26 @@ var _ = Describe("Codec", func() {
 					},
 				},
 			}),
-			Entry("zero values", table.Table{
+			Entry("zero values", v1.Table{
 				Key:     uuid.Nil,
 				Name:    "",
 				Rows:    nil,
 				Columns: nil,
 				Cells:   nil,
 			}),
-			Entry("empty collections", table.Table{
+			Entry("empty collections", v1.Table{
 				Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:    "test_2",
-				Rows:    []table.Row{},
-				Columns: []table.Column{},
-				Cells:   map[string]table.Cell{},
+				Rows:    []v1.Row{},
+				Columns: []v1.Column{},
+				Cells:   map[string]v1.Cell{},
 			}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeCell(b *testing.B) {
-	seed := table.Cell{
+	seed := v1.Cell{
 		Key:     "test_1",
 		Variant: "test_2",
 		Props:   msgpack.EncodedJSON{"key_3": "value_3"},
@@ -133,7 +133,7 @@ func BenchmarkEncodeDecodeCell(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded table.Cell
+		var decoded v1.Cell
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -142,7 +142,7 @@ func BenchmarkEncodeDecodeCell(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeColumn(b *testing.B) {
-	seed := table.Column{Size: 1.5}
+	seed := v1.Column{Size: 1.5}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -150,7 +150,7 @@ func BenchmarkEncodeDecodeColumn(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded table.Column
+		var decoded v1.Column
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -159,7 +159,7 @@ func BenchmarkEncodeDecodeColumn(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeRow(b *testing.B) {
-	seed := table.Row{Size: 1.5, Cells: []string{"test_2"}}
+	seed := v1.Row{Size: 1.5, Cells: []string{"test_2"}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -167,7 +167,7 @@ func BenchmarkEncodeDecodeRow(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded table.Row
+		var decoded v1.Row
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -176,12 +176,12 @@ func BenchmarkEncodeDecodeRow(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTable(b *testing.B) {
-	seed := table.Table{
+	seed := v1.Table{
 		Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:    "test_2",
-		Rows:    []table.Row{{Size: 4.5, Cells: []string{"test_5"}}},
-		Columns: []table.Column{{Size: 7.5}},
-		Cells: map[string]table.Cell{
+		Rows:    []v1.Row{{Size: 4.5, Cells: []string{"test_5"}}},
+		Columns: []v1.Column{{Size: 7.5}},
+		Cells: map[string]v1.Cell{
 			"test_8": {
 				Key:     "test_9",
 				Variant: "test_10",
@@ -196,7 +196,7 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded table.Table
+		var decoded v1.Table
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -206,7 +206,7 @@ func BenchmarkEncodeDecodeTable(b *testing.B) {
 
 func FuzzDecodeCell(f *testing.F) {
 	{
-		seed := table.Cell{
+		seed := v1.Cell{
 			Key:     "test_1",
 			Variant: "test_2",
 			Props:   msgpack.EncodedJSON{"key_3": "value_3"},
@@ -218,7 +218,7 @@ func FuzzDecodeCell(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := table.Cell{
+		seed := v1.Cell{
 			Key:     "",
 			Variant: "",
 			Props:   nil,
@@ -230,7 +230,7 @@ func FuzzDecodeCell(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded table.Cell
+		var decoded v1.Cell
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -240,7 +240,7 @@ func FuzzDecodeCell(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded table.Cell
+		var redecoded v1.Cell
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -260,7 +260,7 @@ func FuzzDecodeCell(f *testing.F) {
 
 func FuzzDecodeColumn(f *testing.F) {
 	{
-		seed := table.Column{Size: 1.5}
+		seed := v1.Column{Size: 1.5}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -268,7 +268,7 @@ func FuzzDecodeColumn(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := table.Column{Size: 0}
+		seed := v1.Column{Size: 0}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -276,7 +276,7 @@ func FuzzDecodeColumn(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded table.Column
+		var decoded v1.Column
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -286,7 +286,7 @@ func FuzzDecodeColumn(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded table.Column
+		var redecoded v1.Column
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -306,7 +306,7 @@ func FuzzDecodeColumn(f *testing.F) {
 
 func FuzzDecodeRow(f *testing.F) {
 	{
-		seed := table.Row{Size: 1.5, Cells: []string{"test_2"}}
+		seed := v1.Row{Size: 1.5, Cells: []string{"test_2"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -314,7 +314,7 @@ func FuzzDecodeRow(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := table.Row{Size: 0, Cells: nil}
+		seed := v1.Row{Size: 0, Cells: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -322,7 +322,7 @@ func FuzzDecodeRow(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := table.Row{Size: 1.5, Cells: []string{}}
+		seed := v1.Row{Size: 1.5, Cells: []string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -330,7 +330,7 @@ func FuzzDecodeRow(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded table.Row
+		var decoded v1.Row
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -340,7 +340,7 @@ func FuzzDecodeRow(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded table.Row
+		var redecoded v1.Row
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -360,12 +360,12 @@ func FuzzDecodeRow(f *testing.F) {
 
 func FuzzDecodeTable(f *testing.F) {
 	{
-		seed := table.Table{
+		seed := v1.Table{
 			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:    "test_2",
-			Rows:    []table.Row{{Size: 4.5, Cells: []string{"test_5"}}},
-			Columns: []table.Column{{Size: 7.5}},
-			Cells: map[string]table.Cell{
+			Rows:    []v1.Row{{Size: 4.5, Cells: []string{"test_5"}}},
+			Columns: []v1.Column{{Size: 7.5}},
+			Cells: map[string]v1.Cell{
 				"test_8": {
 					Key:     "test_9",
 					Variant: "test_10",
@@ -380,7 +380,7 @@ func FuzzDecodeTable(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := table.Table{
+		seed := v1.Table{
 			Key:     uuid.Nil,
 			Name:    "",
 			Rows:    nil,
@@ -394,12 +394,12 @@ func FuzzDecodeTable(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := table.Table{
+		seed := v1.Table{
 			Key:     uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:    "test_2",
-			Rows:    []table.Row{},
-			Columns: []table.Column{},
-			Cells:   map[string]table.Cell{},
+			Rows:    []v1.Row{},
+			Columns: []v1.Column{},
+			Cells:   map[string]v1.Cell{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -408,7 +408,7 @@ func FuzzDecodeTable(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded table.Table
+		var decoded v1.Table
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -418,7 +418,7 @@ func FuzzDecodeTable(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded table.Table
+		var redecoded v1.Table
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

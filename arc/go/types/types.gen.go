@@ -11,7 +11,7 @@
 
 package types
 
-import types "github.com/synnaxlabs/arc/types/types"
+import "github.com/synnaxlabs/arc/types/types"
 
 // Params is a collection of named, typed parameters for function inputs or outputs.
 type Params = types.Params

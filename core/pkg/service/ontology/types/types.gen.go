@@ -11,10 +11,10 @@
 
 package types
 
-import ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 
 // ResourceType is the type of the resource.
-type ResourceType = ontology.ResourceType
+type ResourceType = v0.ResourceType
 
 // ID ID is a unique identifier for a Resource. An example:
 //
@@ -24,31 +24,31 @@ type ResourceType = ontology.ResourceType
 // service to query for additional info on the Resource. Second, while a Key may be
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
-type ID = ontology.ID
+type ID = v0.ID
 
 const (
-	ResourceTypeArc             ResourceType = ontology.ResourceTypeArc
-	ResourceTypeBuiltin         ResourceType = ontology.ResourceTypeBuiltin
-	ResourceTypeChannel         ResourceType = ontology.ResourceTypeChannel
-	ResourceTypeDevice          ResourceType = ontology.ResourceTypeDevice
-	ResourceTypeFramer          ResourceType = ontology.ResourceTypeFramer
-	ResourceTypeGroup           ResourceType = ontology.ResourceTypeGroup
-	ResourceTypeLabel           ResourceType = ontology.ResourceTypeLabel
-	ResourceTypeLineplot        ResourceType = ontology.ResourceTypeLineplot
-	ResourceTypeLog             ResourceType = ontology.ResourceTypeLog
-	ResourceTypeNode            ResourceType = ontology.ResourceTypeNode
-	ResourceTypePanel           ResourceType = ontology.ResourceTypePanel
-	ResourceTypePolicy          ResourceType = ontology.ResourceTypePolicy
-	ResourceTypeProject         ResourceType = ontology.ResourceTypeProject
-	ResourceTypeRack            ResourceType = ontology.ResourceTypeRack
-	ResourceTypeRange           ResourceType = ontology.ResourceTypeRange
-	ResourceTypeRangeAlias      ResourceType = ontology.ResourceTypeRangeAlias
-	ResourceTypeRole            ResourceType = ontology.ResourceTypeRole
-	ResourceTypeSchematic       ResourceType = ontology.ResourceTypeSchematic
-	ResourceTypeSchematicSymbol ResourceType = ontology.ResourceTypeSchematicSymbol
-	ResourceTypeStatus          ResourceType = ontology.ResourceTypeStatus
-	ResourceTypeTable           ResourceType = ontology.ResourceTypeTable
-	ResourceTypeTask            ResourceType = ontology.ResourceTypeTask
-	ResourceTypeUser            ResourceType = ontology.ResourceTypeUser
-	ResourceTypeView            ResourceType = ontology.ResourceTypeView
+	ResourceTypeArc             ResourceType = v0.ResourceTypeArc
+	ResourceTypeBuiltin         ResourceType = v0.ResourceTypeBuiltin
+	ResourceTypeChannel         ResourceType = v0.ResourceTypeChannel
+	ResourceTypeDevice          ResourceType = v0.ResourceTypeDevice
+	ResourceTypeFramer          ResourceType = v0.ResourceTypeFramer
+	ResourceTypeGroup           ResourceType = v0.ResourceTypeGroup
+	ResourceTypeLabel           ResourceType = v0.ResourceTypeLabel
+	ResourceTypeLineplot        ResourceType = v0.ResourceTypeLineplot
+	ResourceTypeLog             ResourceType = v0.ResourceTypeLog
+	ResourceTypeNode            ResourceType = v0.ResourceTypeNode
+	ResourceTypePanel           ResourceType = v0.ResourceTypePanel
+	ResourceTypePolicy          ResourceType = v0.ResourceTypePolicy
+	ResourceTypeProject         ResourceType = v0.ResourceTypeProject
+	ResourceTypeRack            ResourceType = v0.ResourceTypeRack
+	ResourceTypeRange           ResourceType = v0.ResourceTypeRange
+	ResourceTypeRangeAlias      ResourceType = v0.ResourceTypeRangeAlias
+	ResourceTypeRole            ResourceType = v0.ResourceTypeRole
+	ResourceTypeSchematic       ResourceType = v0.ResourceTypeSchematic
+	ResourceTypeSchematicSymbol ResourceType = v0.ResourceTypeSchematicSymbol
+	ResourceTypeStatus          ResourceType = v0.ResourceTypeStatus
+	ResourceTypeTable           ResourceType = v0.ResourceTypeTable
+	ResourceTypeTask            ResourceType = v0.ResourceTypeTask
+	ResourceTypeUser            ResourceType = v0.ResourceTypeUser
+	ResourceTypeView            ResourceType = v0.ResourceTypeView
 )

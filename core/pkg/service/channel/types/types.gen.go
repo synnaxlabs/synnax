@@ -11,31 +11,31 @@
 
 package types
 
-import channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 
 // Name is a human-readable name for a channel. Must start with a letter or underscore
 // and contain only letters, digits, and underscores. Names are not guaranteed to be
 // unique across channels.
-type Name = channel.Name
+type Name = v0.Name
 
 // OperationType is the type of aggregation operation to apply to channel data over
 // time.
-type OperationType = channel.OperationType
+type OperationType = v0.OperationType
 
 // Operation defines an aggregation operation applied to channel data. Operations
 // calculate min, max, or average values over a time duration or triggered by a reset
 // channel.
-type Operation = channel.Operation
+type Operation = v0.Operation
 
 // Channel is an internal representation of a channel containing all storage and
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
-type Channel = channel.Channel
+type Channel = v0.Channel
 
 const (
-	OperationTypeMin        OperationType = channel.OperationTypeMin
-	OperationTypeMax        OperationType = channel.OperationTypeMax
-	OperationTypeAvg        OperationType = channel.OperationTypeAvg
-	OperationTypeNone       OperationType = channel.OperationTypeNone
-	OperationTypeDerivative OperationType = channel.OperationTypeDerivative
+	OperationTypeMin        OperationType = v0.OperationTypeMin
+	OperationTypeMax        OperationType = v0.OperationTypeMax
+	OperationTypeAvg        OperationType = v0.OperationTypeAvg
+	OperationTypeNone       OperationType = v0.OperationTypeNone
+	OperationTypeDerivative OperationType = v0.OperationTypeDerivative
 )

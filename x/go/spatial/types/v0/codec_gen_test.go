@@ -18,105 +18,99 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	spatial "github.com/synnaxlabs/x/spatial/types/v0"
+	"github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Bounds", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original spatial.Bounds) {
+			func(original v0.Bounds) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded spatial.Bounds
+				var decoded v0.Bounds
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", spatial.Bounds{}),
-			Entry("zero values", spatial.Bounds{}),
+			Entry("fully populated", v0.Bounds{}),
+			Entry("zero values", v0.Bounds{}),
 		)
 	})
 	Describe("CornerLocation", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original spatial.CornerLocation) {
+			func(original v0.CornerLocation) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded spatial.CornerLocation
+				var decoded v0.CornerLocation
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", spatial.CornerLocation{
-				X: spatial.XLocation("left"),
-				Y: spatial.YLocation("top"),
-			}),
-			Entry("zero values", spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")}),
+			Entry("fully populated", v0.CornerLocation{X: v0.XLocation("left"), Y: v0.YLocation("top")}),
+			Entry("zero values", v0.CornerLocation{X: v0.XLocation(""), Y: v0.YLocation("")}),
 		)
 	})
 	Describe("StickyUnits", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original spatial.StickyUnits) {
+			func(original v0.StickyUnits) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded spatial.StickyUnits
+				var decoded v0.StickyUnits
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
-			Entry("zero values", spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")}),
+			Entry("fully populated", v0.StickyUnits{X: v0.StickyUnit("px"), Y: v0.StickyUnit("px")}),
+			Entry("zero values", v0.StickyUnits{X: v0.StickyUnit(""), Y: v0.StickyUnit("")}),
 		)
 	})
 	Describe("StickyXY", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original spatial.StickyXY) {
+			func(original v0.StickyXY) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded spatial.StickyXY
+				var decoded v0.StickyXY
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", spatial.StickyXY{
-				X: 1.5,
-				Y: 2.5,
-				Root: spatial.CornerLocation{
-					X: spatial.XLocation("left"),
-					Y: spatial.YLocation("top"),
-				},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+			Entry("fully populated", v0.StickyXY{
+				X:     1.5,
+				Y:     2.5,
+				Root:  v0.CornerLocation{X: v0.XLocation("left"), Y: v0.YLocation("top")},
+				Units: v0.StickyUnits{X: v0.StickyUnit("px"), Y: v0.StickyUnit("px")},
 			}),
-			Entry("zero values", spatial.StickyXY{
+			Entry("zero values", v0.StickyXY{
 				X:     0,
 				Y:     0,
-				Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+				Root:  v0.CornerLocation{X: v0.XLocation(""), Y: v0.YLocation("")},
+				Units: v0.StickyUnits{X: v0.StickyUnit(""), Y: v0.StickyUnit("")},
 			}),
 		)
 	})
 	Describe("XY", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original spatial.XY) {
+			func(original v0.XY) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded spatial.XY
+				var decoded v0.XY
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", spatial.XY{X: 1.5, Y: 2.5}),
-			Entry("zero values", spatial.XY{X: 0, Y: 0}),
+			Entry("fully populated", v0.XY{X: 1.5, Y: 2.5}),
+			Entry("zero values", v0.XY{X: 0, Y: 0}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeBounds(b *testing.B) {
-	seed := spatial.Bounds{}
+	seed := v0.Bounds{}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -124,7 +118,7 @@ func BenchmarkEncodeDecodeBounds(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded spatial.Bounds
+		var decoded v0.Bounds
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -133,10 +127,7 @@ func BenchmarkEncodeDecodeBounds(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeCornerLocation(b *testing.B) {
-	seed := spatial.CornerLocation{
-		X: spatial.XLocation("left"),
-		Y: spatial.YLocation("top"),
-	}
+	seed := v0.CornerLocation{X: v0.XLocation("left"), Y: v0.YLocation("top")}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -144,7 +135,7 @@ func BenchmarkEncodeDecodeCornerLocation(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded spatial.CornerLocation
+		var decoded v0.CornerLocation
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -153,7 +144,7 @@ func BenchmarkEncodeDecodeCornerLocation(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStickyUnits(b *testing.B) {
-	seed := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+	seed := v0.StickyUnits{X: v0.StickyUnit("px"), Y: v0.StickyUnit("px")}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -161,7 +152,7 @@ func BenchmarkEncodeDecodeStickyUnits(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded spatial.StickyUnits
+		var decoded v0.StickyUnits
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -170,14 +161,11 @@ func BenchmarkEncodeDecodeStickyUnits(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStickyXY(b *testing.B) {
-	seed := spatial.StickyXY{
-		X: 1.5,
-		Y: 2.5,
-		Root: spatial.CornerLocation{
-			X: spatial.XLocation("left"),
-			Y: spatial.YLocation("top"),
-		},
-		Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+	seed := v0.StickyXY{
+		X:     1.5,
+		Y:     2.5,
+		Root:  v0.CornerLocation{X: v0.XLocation("left"), Y: v0.YLocation("top")},
+		Units: v0.StickyUnits{X: v0.StickyUnit("px"), Y: v0.StickyUnit("px")},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -186,7 +174,7 @@ func BenchmarkEncodeDecodeStickyXY(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded spatial.StickyXY
+		var decoded v0.StickyXY
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -195,7 +183,7 @@ func BenchmarkEncodeDecodeStickyXY(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeXY(b *testing.B) {
-	seed := spatial.XY{X: 1.5, Y: 2.5}
+	seed := v0.XY{X: 1.5, Y: 2.5}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -203,7 +191,7 @@ func BenchmarkEncodeDecodeXY(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded spatial.XY
+		var decoded v0.XY
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -213,7 +201,7 @@ func BenchmarkEncodeDecodeXY(b *testing.B) {
 
 func FuzzDecodeBounds(f *testing.F) {
 	{
-		seed := spatial.Bounds{}
+		seed := v0.Bounds{}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -221,7 +209,7 @@ func FuzzDecodeBounds(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := spatial.Bounds{}
+		seed := v0.Bounds{}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -229,7 +217,7 @@ func FuzzDecodeBounds(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded spatial.Bounds
+		var decoded v0.Bounds
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -239,7 +227,7 @@ func FuzzDecodeBounds(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded spatial.Bounds
+		var redecoded v0.Bounds
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -259,10 +247,7 @@ func FuzzDecodeBounds(f *testing.F) {
 
 func FuzzDecodeCornerLocation(f *testing.F) {
 	{
-		seed := spatial.CornerLocation{
-			X: spatial.XLocation("left"),
-			Y: spatial.YLocation("top"),
-		}
+		seed := v0.CornerLocation{X: v0.XLocation("left"), Y: v0.YLocation("top")}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -270,7 +255,7 @@ func FuzzDecodeCornerLocation(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")}
+		seed := v0.CornerLocation{X: v0.XLocation(""), Y: v0.YLocation("")}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -278,7 +263,7 @@ func FuzzDecodeCornerLocation(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded spatial.CornerLocation
+		var decoded v0.CornerLocation
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -288,7 +273,7 @@ func FuzzDecodeCornerLocation(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded spatial.CornerLocation
+		var redecoded v0.CornerLocation
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -308,7 +293,7 @@ func FuzzDecodeCornerLocation(f *testing.F) {
 
 func FuzzDecodeStickyUnits(f *testing.F) {
 	{
-		seed := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+		seed := v0.StickyUnits{X: v0.StickyUnit("px"), Y: v0.StickyUnit("px")}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -316,7 +301,7 @@ func FuzzDecodeStickyUnits(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")}
+		seed := v0.StickyUnits{X: v0.StickyUnit(""), Y: v0.StickyUnit("")}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -324,7 +309,7 @@ func FuzzDecodeStickyUnits(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded spatial.StickyUnits
+		var decoded v0.StickyUnits
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -334,7 +319,7 @@ func FuzzDecodeStickyUnits(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded spatial.StickyUnits
+		var redecoded v0.StickyUnits
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -354,14 +339,11 @@ func FuzzDecodeStickyUnits(f *testing.F) {
 
 func FuzzDecodeStickyXY(f *testing.F) {
 	{
-		seed := spatial.StickyXY{
-			X: 1.5,
-			Y: 2.5,
-			Root: spatial.CornerLocation{
-				X: spatial.XLocation("left"),
-				Y: spatial.YLocation("top"),
-			},
-			Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+		seed := v0.StickyXY{
+			X:     1.5,
+			Y:     2.5,
+			Root:  v0.CornerLocation{X: v0.XLocation("left"), Y: v0.YLocation("top")},
+			Units: v0.StickyUnits{X: v0.StickyUnit("px"), Y: v0.StickyUnit("px")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -370,11 +352,11 @@ func FuzzDecodeStickyXY(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := spatial.StickyXY{
+		seed := v0.StickyXY{
 			X:     0,
 			Y:     0,
-			Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-			Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+			Root:  v0.CornerLocation{X: v0.XLocation(""), Y: v0.YLocation("")},
+			Units: v0.StickyUnits{X: v0.StickyUnit(""), Y: v0.StickyUnit("")},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -383,7 +365,7 @@ func FuzzDecodeStickyXY(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded spatial.StickyXY
+		var decoded v0.StickyXY
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -393,7 +375,7 @@ func FuzzDecodeStickyXY(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded spatial.StickyXY
+		var redecoded v0.StickyXY
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -413,7 +395,7 @@ func FuzzDecodeStickyXY(f *testing.F) {
 
 func FuzzDecodeXY(f *testing.F) {
 	{
-		seed := spatial.XY{X: 1.5, Y: 2.5}
+		seed := v0.XY{X: 1.5, Y: 2.5}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -421,7 +403,7 @@ func FuzzDecodeXY(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := spatial.XY{X: 0, Y: 0}
+		seed := v0.XY{X: 0, Y: 0}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -429,7 +411,7 @@ func FuzzDecodeXY(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded spatial.XY
+		var decoded v0.XY
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -439,7 +421,7 @@ func FuzzDecodeXY(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded spatial.XY
+		var redecoded v0.XY
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

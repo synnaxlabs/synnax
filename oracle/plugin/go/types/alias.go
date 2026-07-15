@@ -28,9 +28,8 @@ import (
 // sub-package, plus const re-declarations for enum members and union
 // discriminator values. Methods travel with the aliased types, so the alias
 // package presents the full generated API. The types/ selector imports the
-// current version package and the root imports the selector, both aliased to
-// the resource name, so a version bump touches only the selector and the
-// root never changes.
+// current version package and the root imports the selector, so a version
+// bump touches only the selector and the root never changes.
 type aliasFileGenerator struct {
 	// pathMap maps each version-laid-out root path to its current types/vN
 	// sub-path.
@@ -55,7 +54,6 @@ type aliasConst struct{ Name, Type, Target, Doc string }
 
 type aliasData struct {
 	Package string
-	Alias   string
 	Import  string
 	Types   []aliasDecl
 	Consts  []aliasConst
@@ -96,16 +94,13 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 
 	emitPkg := pkg
 	importPath := ctx.OutputPath + "/types"
-	// Both surfaces alias the import to the resource name, so re-exports read
-	// "color.Color" and editors surface the resource, not the version package.
-	prefix := pkg
 	if g.pkg != "" {
 		emitPkg = g.pkg
 		importPath = versionedPath
 	}
+	prefix := naming.DerivePackageName(importPath)
 	ad := &aliasData{
 		Package: emitPkg,
-		Alias:   prefix,
 		Import:  resolveGoImportPath(importPath, ctx.RepoRoot),
 	}
 
@@ -216,7 +211,7 @@ var aliasTemplate = template.Must(template.New("go-alias").
 
 package {{.Package}}
 
-import {{.Alias}} "{{.Import}}"
+import "{{.Import}}"
 {{range .Types}}
 {{- if .Doc}}
 {{formatDoc .Name .Doc}}

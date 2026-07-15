@@ -17,38 +17,38 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Rack", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original rack.Rack) {
+			func(original v2.Rack) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded rack.Rack
+				var decoded v2.Rack
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", rack.Rack{
-				Key:          rack.Key(2),
+			Entry("fully populated", v2.Rack{
+				Key:          v2.Key(2),
 				Name:         "test_2",
 				TaskCounter:  4,
 				Embedded:     false,
 				Integrations: []string{"test_5"},
 			}),
-			Entry("zero values", rack.Rack{
-				Key:          rack.Key(0),
+			Entry("zero values", v2.Rack{
+				Key:          v2.Key(0),
 				Name:         "",
 				TaskCounter:  0,
 				Embedded:     false,
 				Integrations: nil,
 			}),
-			Entry("empty collections", rack.Rack{
-				Key:          rack.Key(2),
+			Entry("empty collections", v2.Rack{
+				Key:          v2.Key(2),
 				Name:         "test_2",
 				TaskCounter:  4,
 				Embedded:     false,
@@ -58,24 +58,24 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("StatusDetails", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original rack.StatusDetails) {
+			func(original v2.StatusDetails) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded rack.StatusDetails
+				var decoded v2.StatusDetails
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", rack.StatusDetails{Rack: rack.Key(2)}),
-			Entry("zero values", rack.StatusDetails{Rack: rack.Key(0)}),
+			Entry("fully populated", v2.StatusDetails{Rack: v2.Key(2)}),
+			Entry("zero values", v2.StatusDetails{Rack: v2.Key(0)}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeRack(b *testing.B) {
-	seed := rack.Rack{
-		Key:          rack.Key(2),
+	seed := v2.Rack{
+		Key:          v2.Key(2),
 		Name:         "test_2",
 		TaskCounter:  4,
 		Embedded:     false,
@@ -88,7 +88,7 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded rack.Rack
+		var decoded v2.Rack
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -97,7 +97,7 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	seed := rack.StatusDetails{Rack: rack.Key(2)}
+	seed := v2.StatusDetails{Rack: v2.Key(2)}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -105,7 +105,7 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded rack.StatusDetails
+		var decoded v2.StatusDetails
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -115,8 +115,8 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 
 func FuzzDecodeRack(f *testing.F) {
 	{
-		seed := rack.Rack{
-			Key:          rack.Key(2),
+		seed := v2.Rack{
+			Key:          v2.Key(2),
 			Name:         "test_2",
 			TaskCounter:  4,
 			Embedded:     false,
@@ -129,8 +129,8 @@ func FuzzDecodeRack(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := rack.Rack{
-			Key:          rack.Key(0),
+		seed := v2.Rack{
+			Key:          v2.Key(0),
 			Name:         "",
 			TaskCounter:  0,
 			Embedded:     false,
@@ -143,8 +143,8 @@ func FuzzDecodeRack(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := rack.Rack{
-			Key:          rack.Key(2),
+		seed := v2.Rack{
+			Key:          v2.Key(2),
 			Name:         "test_2",
 			TaskCounter:  4,
 			Embedded:     false,
@@ -157,7 +157,7 @@ func FuzzDecodeRack(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded rack.Rack
+		var decoded v2.Rack
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -167,7 +167,7 @@ func FuzzDecodeRack(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded rack.Rack
+		var redecoded v2.Rack
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -187,7 +187,7 @@ func FuzzDecodeRack(f *testing.F) {
 
 func FuzzDecodeStatusDetails(f *testing.F) {
 	{
-		seed := rack.StatusDetails{Rack: rack.Key(2)}
+		seed := v2.StatusDetails{Rack: v2.Key(2)}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -195,7 +195,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := rack.StatusDetails{Rack: rack.Key(0)}
+		seed := v2.StatusDetails{Rack: v2.Key(0)}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -203,7 +203,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded rack.StatusDetails
+		var decoded v2.StatusDetails
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -213,7 +213,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded rack.StatusDetails
+		var redecoded v2.StatusDetails
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

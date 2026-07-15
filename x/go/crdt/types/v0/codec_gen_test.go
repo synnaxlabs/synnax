@@ -17,7 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	crdt "github.com/synnaxlabs/x/crdt/types/v0"
+	"github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
@@ -25,54 +25,54 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Delete", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original crdt.Delete) {
+			func(original v0.Delete) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded crdt.Delete
+				var decoded v0.Delete
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", crdt.Delete{ID: crdt.ID{Replica: 3, Counter: 4}}),
-			Entry("zero values", crdt.Delete{ID: crdt.ID{Replica: 0, Counter: 0}}),
+			Entry("fully populated", v0.Delete{ID: v0.ID{Replica: 3, Counter: 4}}),
+			Entry("zero values", v0.Delete{ID: v0.ID{Replica: 0, Counter: 0}}),
 		)
 	})
 	Describe("ID", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original crdt.ID) {
+			func(original v0.ID) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded crdt.ID
+				var decoded v0.ID
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", crdt.ID{Replica: 2, Counter: 3}),
-			Entry("zero values", crdt.ID{Replica: 0, Counter: 0}),
+			Entry("fully populated", v0.ID{Replica: 2, Counter: 3}),
+			Entry("zero values", v0.ID{Replica: 0, Counter: 0}),
 		)
 	})
 	Describe("Insert", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original crdt.Insert) {
+			func(original v0.Insert) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded crdt.Insert
+				var decoded v0.Insert
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", crdt.Insert{
-				ID:     crdt.ID{Replica: 3, Counter: 4},
-				Origin: crdt.ID{Replica: 6, Counter: 7},
+			Entry("fully populated", v0.Insert{
+				ID:     v0.ID{Replica: 3, Counter: 4},
+				Origin: v0.ID{Replica: 6, Counter: 7},
 				Side:   spatial.XLocation("left"),
 				Char:   9,
 			}),
-			Entry("zero values", crdt.Insert{
-				ID:     crdt.ID{Replica: 0, Counter: 0},
-				Origin: crdt.ID{Replica: 0, Counter: 0},
+			Entry("zero values", v0.Insert{
+				ID:     v0.ID{Replica: 0, Counter: 0},
+				Origin: v0.ID{Replica: 0, Counter: 0},
 				Side:   spatial.XLocation(""),
 				Char:   0,
 			}),
@@ -81,7 +81,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeDelete(b *testing.B) {
-	seed := crdt.Delete{ID: crdt.ID{Replica: 3, Counter: 4}}
+	seed := v0.Delete{ID: v0.ID{Replica: 3, Counter: 4}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -89,7 +89,7 @@ func BenchmarkEncodeDecodeDelete(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded crdt.Delete
+		var decoded v0.Delete
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -98,7 +98,7 @@ func BenchmarkEncodeDecodeDelete(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeID(b *testing.B) {
-	seed := crdt.ID{Replica: 2, Counter: 3}
+	seed := v0.ID{Replica: 2, Counter: 3}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -106,7 +106,7 @@ func BenchmarkEncodeDecodeID(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded crdt.ID
+		var decoded v0.ID
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -115,9 +115,9 @@ func BenchmarkEncodeDecodeID(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeInsert(b *testing.B) {
-	seed := crdt.Insert{
-		ID:     crdt.ID{Replica: 3, Counter: 4},
-		Origin: crdt.ID{Replica: 6, Counter: 7},
+	seed := v0.Insert{
+		ID:     v0.ID{Replica: 3, Counter: 4},
+		Origin: v0.ID{Replica: 6, Counter: 7},
 		Side:   spatial.XLocation("left"),
 		Char:   9,
 	}
@@ -128,7 +128,7 @@ func BenchmarkEncodeDecodeInsert(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded crdt.Insert
+		var decoded v0.Insert
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -138,7 +138,7 @@ func BenchmarkEncodeDecodeInsert(b *testing.B) {
 
 func FuzzDecodeDelete(f *testing.F) {
 	{
-		seed := crdt.Delete{ID: crdt.ID{Replica: 3, Counter: 4}}
+		seed := v0.Delete{ID: v0.ID{Replica: 3, Counter: 4}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -146,7 +146,7 @@ func FuzzDecodeDelete(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := crdt.Delete{ID: crdt.ID{Replica: 0, Counter: 0}}
+		seed := v0.Delete{ID: v0.ID{Replica: 0, Counter: 0}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -154,7 +154,7 @@ func FuzzDecodeDelete(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded crdt.Delete
+		var decoded v0.Delete
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -164,7 +164,7 @@ func FuzzDecodeDelete(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded crdt.Delete
+		var redecoded v0.Delete
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -184,7 +184,7 @@ func FuzzDecodeDelete(f *testing.F) {
 
 func FuzzDecodeID(f *testing.F) {
 	{
-		seed := crdt.ID{Replica: 2, Counter: 3}
+		seed := v0.ID{Replica: 2, Counter: 3}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -192,7 +192,7 @@ func FuzzDecodeID(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := crdt.ID{Replica: 0, Counter: 0}
+		seed := v0.ID{Replica: 0, Counter: 0}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -200,7 +200,7 @@ func FuzzDecodeID(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded crdt.ID
+		var decoded v0.ID
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -210,7 +210,7 @@ func FuzzDecodeID(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded crdt.ID
+		var redecoded v0.ID
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -230,9 +230,9 @@ func FuzzDecodeID(f *testing.F) {
 
 func FuzzDecodeInsert(f *testing.F) {
 	{
-		seed := crdt.Insert{
-			ID:     crdt.ID{Replica: 3, Counter: 4},
-			Origin: crdt.ID{Replica: 6, Counter: 7},
+		seed := v0.Insert{
+			ID:     v0.ID{Replica: 3, Counter: 4},
+			Origin: v0.ID{Replica: 6, Counter: 7},
 			Side:   spatial.XLocation("left"),
 			Char:   9,
 		}
@@ -243,9 +243,9 @@ func FuzzDecodeInsert(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := crdt.Insert{
-			ID:     crdt.ID{Replica: 0, Counter: 0},
-			Origin: crdt.ID{Replica: 0, Counter: 0},
+		seed := v0.Insert{
+			ID:     v0.ID{Replica: 0, Counter: 0},
+			Origin: v0.ID{Replica: 0, Counter: 0},
 			Side:   spatial.XLocation(""),
 			Char:   0,
 		}
@@ -256,7 +256,7 @@ func FuzzDecodeInsert(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded crdt.Insert
+		var decoded v0.Insert
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -266,7 +266,7 @@ func FuzzDecodeInsert(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded crdt.Insert
+		var redecoded v0.Insert
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

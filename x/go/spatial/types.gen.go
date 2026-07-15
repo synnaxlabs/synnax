@@ -11,113 +11,113 @@
 
 package spatial
 
-import spatial "github.com/synnaxlabs/x/spatial/types"
+import "github.com/synnaxlabs/x/spatial/types"
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
-type Decimal = spatial.Decimal
+type Decimal = types.Decimal
 
 // XLocation is a horizontal-axis location at the left or right edge.
-type XLocation = spatial.XLocation
+type XLocation = types.XLocation
 
 // YLocation is a vertical-axis location at the top or bottom edge.
-type YLocation = spatial.YLocation
+type YLocation = types.YLocation
 
 // StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
 // decimal fraction of the container.
-type StickyUnit = spatial.StickyUnit
+type StickyUnit = types.StickyUnit
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
-type OuterLocation = spatial.OuterLocation
+type OuterLocation = types.OuterLocation
 
 // Direction is a 2D axis direction.
-type Direction = spatial.Direction
+type Direction = types.Direction
 
 // AngularDirection is a rotational direction in 2D space.
-type AngularDirection = spatial.AngularDirection
+type AngularDirection = types.AngularDirection
 
 // CenterLocation is a location at the center of a container.
-type CenterLocation = spatial.CenterLocation
+type CenterLocation = types.CenterLocation
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
-type Location = spatial.Location
+type Location = types.Location
 
 // Alignment is a positioning indicator for aligning content along an axis within a
 // container.
-type Alignment = spatial.Alignment
+type Alignment = types.Alignment
 
 // Order is a positional ordering indicator for elements in a sequence.
-type Order = spatial.Order
+type Order = types.Order
 
 // Dimension is the name of a 2D size axis.
-type Dimension = spatial.Dimension
+type Dimension = types.Dimension
 
 // SignedDimension is the name of a 2D signed size axis.
-type SignedDimension = spatial.SignedDimension
+type SignedDimension = types.SignedDimension
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
-type XY = spatial.XY
+type XY = types.XY
 
 // CornerLocation is an anchor corner for positioning.
-type CornerLocation = spatial.CornerLocation
+type CornerLocation = types.CornerLocation
 
 // StickyUnits specifies the measurement units for sticky positioning.
-type StickyUnits = spatial.StickyUnits
+type StickyUnits = types.StickyUnits
 
 // StickyXY is a position that can be anchored to different corners of a container with
 // configurable units (pixels or decimal fractions).
-type StickyXY = spatial.StickyXY
+type StickyXY = types.StickyXY
 
 // Dimensions is a 2D size with width and height values.
-type Dimensions = spatial.Dimensions
+type Dimensions = types.Dimensions
 
 // Viewport is the camera state of a viewport.
-type Viewport = spatial.Viewport
+type Viewport = types.Viewport
 
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing
 // negative values to express direction.
-type SignedDimensions = spatial.SignedDimensions
+type SignedDimensions = types.SignedDimensions
 
 // ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
 // shape of DOM mouse events.
-type ClientXY = spatial.ClientXY
+type ClientXY = types.ClientXY
 
 // Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
 // The TypeScript binding is generic over T so callers can express bounds over either
 // number or bigint values; other languages emit a concrete float64-based type.
-type Bounds = spatial.Bounds
+type Bounds = types.Bounds
 
 const (
-	XLocationLeft                    XLocation        = spatial.XLocationLeft
-	XLocationRight                   XLocation        = spatial.XLocationRight
-	YLocationTop                     YLocation        = spatial.YLocationTop
-	YLocationBottom                  YLocation        = spatial.YLocationBottom
-	StickyUnitPx                     StickyUnit       = spatial.StickyUnitPx
-	StickyUnitDecimal                StickyUnit       = spatial.StickyUnitDecimal
-	OuterLocationTop                 OuterLocation    = spatial.OuterLocationTop
-	OuterLocationRight               OuterLocation    = spatial.OuterLocationRight
-	OuterLocationBottom              OuterLocation    = spatial.OuterLocationBottom
-	OuterLocationLeft                OuterLocation    = spatial.OuterLocationLeft
-	DirectionX                       Direction        = spatial.DirectionX
-	DirectionY                       Direction        = spatial.DirectionY
-	AngularDirectionClockwise        AngularDirection = spatial.AngularDirectionClockwise
-	AngularDirectionCounterclockwise AngularDirection = spatial.AngularDirectionCounterclockwise
-	CenterLocationCenter             CenterLocation   = spatial.CenterLocationCenter
-	LocationTop                      Location         = spatial.LocationTop
-	LocationRight                    Location         = spatial.LocationRight
-	LocationBottom                   Location         = spatial.LocationBottom
-	LocationLeft                     Location         = spatial.LocationLeft
-	LocationCenter                   Location         = spatial.LocationCenter
-	AlignmentStart                   Alignment        = spatial.AlignmentStart
-	AlignmentCenter                  Alignment        = spatial.AlignmentCenter
-	AlignmentEnd                     Alignment        = spatial.AlignmentEnd
-	OrderFirst                       Order            = spatial.OrderFirst
-	OrderLast                        Order            = spatial.OrderLast
-	DimensionWidth                   Dimension        = spatial.DimensionWidth
-	DimensionHeight                  Dimension        = spatial.DimensionHeight
-	SignedDimensionSignedWidth       SignedDimension  = spatial.SignedDimensionSignedWidth
-	SignedDimensionSignedHeight      SignedDimension  = spatial.SignedDimensionSignedHeight
+	XLocationLeft                    XLocation        = types.XLocationLeft
+	XLocationRight                   XLocation        = types.XLocationRight
+	YLocationTop                     YLocation        = types.YLocationTop
+	YLocationBottom                  YLocation        = types.YLocationBottom
+	StickyUnitPx                     StickyUnit       = types.StickyUnitPx
+	StickyUnitDecimal                StickyUnit       = types.StickyUnitDecimal
+	OuterLocationTop                 OuterLocation    = types.OuterLocationTop
+	OuterLocationRight               OuterLocation    = types.OuterLocationRight
+	OuterLocationBottom              OuterLocation    = types.OuterLocationBottom
+	OuterLocationLeft                OuterLocation    = types.OuterLocationLeft
+	DirectionX                       Direction        = types.DirectionX
+	DirectionY                       Direction        = types.DirectionY
+	AngularDirectionClockwise        AngularDirection = types.AngularDirectionClockwise
+	AngularDirectionCounterclockwise AngularDirection = types.AngularDirectionCounterclockwise
+	CenterLocationCenter             CenterLocation   = types.CenterLocationCenter
+	LocationTop                      Location         = types.LocationTop
+	LocationRight                    Location         = types.LocationRight
+	LocationBottom                   Location         = types.LocationBottom
+	LocationLeft                     Location         = types.LocationLeft
+	LocationCenter                   Location         = types.LocationCenter
+	AlignmentStart                   Alignment        = types.AlignmentStart
+	AlignmentCenter                  Alignment        = types.AlignmentCenter
+	AlignmentEnd                     Alignment        = types.AlignmentEnd
+	OrderFirst                       Order            = types.OrderFirst
+	OrderLast                        Order            = types.OrderLast
+	DimensionWidth                   Dimension        = types.DimensionWidth
+	DimensionHeight                  Dimension        = types.DimensionHeight
+	SignedDimensionSignedWidth       SignedDimension  = types.SignedDimensionSignedWidth
+	SignedDimensionSignedHeight      SignedDimension  = types.SignedDimensionSignedHeight
 )

@@ -22,7 +22,7 @@ import (
 	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	text "github.com/synnaxlabs/arc/text/types/v1"
 	gov1 "github.com/synnaxlabs/arc/types/types/v1"
-	arc "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	crdt "github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
@@ -32,19 +32,19 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Arc", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original arc.Arc) {
+			func(original v2.Arc) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded arc.Arc
+				var decoded v2.Arc
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", arc.Arc{
+			Entry("fully populated", v2.Arc{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
-				Mode: arc.Mode("text"),
+				Mode: v2.Mode("text"),
 				Graph: graph.Graph{
 					Functions: []ir.Function{
 						{
@@ -97,10 +97,10 @@ var _ = Describe("Codec", func() {
 					},
 				},
 			}),
-			Entry("zero values", arc.Arc{
+			Entry("zero values", v2.Arc{
 				Key:  uuid.Nil,
 				Name: "",
-				Mode: arc.Mode(""),
+				Mode: v2.Mode(""),
 				Graph: graph.Graph{
 					Functions: nil,
 					Edges:     nil,
@@ -113,26 +113,26 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("StatusDetails", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original arc.StatusDetails) {
+			func(original v2.StatusDetails) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded arc.StatusDetails
+				var decoded v2.StatusDetails
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", arc.StatusDetails{Running: true}),
-			Entry("zero values", arc.StatusDetails{Running: false}),
+			Entry("fully populated", v2.StatusDetails{Running: true}),
+			Entry("zero values", v2.StatusDetails{Running: false}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeArc(b *testing.B) {
-	seed := arc.Arc{
+	seed := v2.Arc{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
-		Mode: arc.Mode("text"),
+		Mode: v2.Mode("text"),
 		Graph: graph.Graph{
 			Functions: []ir.Function{
 				{
@@ -192,7 +192,7 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded arc.Arc
+		var decoded v2.Arc
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -201,7 +201,7 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	seed := arc.StatusDetails{Running: true}
+	seed := v2.StatusDetails{Running: true}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -209,7 +209,7 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded arc.StatusDetails
+		var decoded v2.StatusDetails
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -219,10 +219,10 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 
 func FuzzDecodeArc(f *testing.F) {
 	{
-		seed := arc.Arc{
+		seed := v2.Arc{
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
-			Mode: arc.Mode("text"),
+			Mode: v2.Mode("text"),
 			Graph: graph.Graph{
 				Functions: []ir.Function{
 					{
@@ -282,10 +282,10 @@ func FuzzDecodeArc(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := arc.Arc{
+		seed := v2.Arc{
 			Key:  uuid.Nil,
 			Name: "",
-			Mode: arc.Mode(""),
+			Mode: v2.Mode(""),
 			Graph: graph.Graph{
 				Functions: nil,
 				Edges:     nil,
@@ -301,7 +301,7 @@ func FuzzDecodeArc(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded arc.Arc
+		var decoded v2.Arc
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -311,7 +311,7 @@ func FuzzDecodeArc(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded arc.Arc
+		var redecoded v2.Arc
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -331,7 +331,7 @@ func FuzzDecodeArc(f *testing.F) {
 
 func FuzzDecodeStatusDetails(f *testing.F) {
 	{
-		seed := arc.StatusDetails{Running: true}
+		seed := v2.StatusDetails{Running: true}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -339,7 +339,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := arc.StatusDetails{Running: false}
+		seed := v2.StatusDetails{Running: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -347,7 +347,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded arc.StatusDetails
+		var decoded v2.StatusDetails
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -357,7 +357,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded arc.StatusDetails
+		var redecoded v2.StatusDetails
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

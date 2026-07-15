@@ -11,20 +11,20 @@
 
 package device
 
-import device "github.com/synnaxlabs/synnax/pkg/service/device/types"
+import "github.com/synnaxlabs/synnax/pkg/service/device/types"
 
 // Key is a unique identifier for the device
-type Key = device.Key
+type Key = types.Key
 
 // Status is device-specific status information including operational state and device
 // identification.
-type Status = device.Status
+type Status = types.Status
 
 // StatusDetails contains device-specific status details identifying the device and its
 // associated rack.
-type StatusDetails = device.StatusDetails
+type StatusDetails = types.StatusDetails
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
 // Devices represent external equipment like LabJack, National Instruments, OPC UA
 // servers, or Modbus devices.
-type Device = device.Device
+type Device = types.Device

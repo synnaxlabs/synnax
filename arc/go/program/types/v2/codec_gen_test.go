@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	compiler "github.com/synnaxlabs/arc/compiler/types/v0"
 	ir "github.com/synnaxlabs/arc/ir/types/v2"
-	program "github.com/synnaxlabs/arc/program/types/v2"
+	"github.com/synnaxlabs/arc/program/types/v2"
 	gov1 "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -27,16 +27,16 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Program", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original program.Program) {
+			func(original v2.Program) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded program.Program
+				var decoded v2.Program
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", program.Program{
+			Entry("fully populated", v2.Program{
 				IR: ir.IR{
 					Functions: []ir.Function{
 						{
@@ -186,7 +186,7 @@ var _ = Describe("Codec", func() {
 					OutputMemoryBases: map[string]uint32{"test_106": 107},
 				},
 			}),
-			Entry("zero values", program.Program{
+			Entry("zero values", v2.Program{
 				IR: ir.IR{
 					Functions:   nil,
 					Nodes:       nil,
@@ -204,7 +204,7 @@ var _ = Describe("Codec", func() {
 				},
 				Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
 			}),
-			Entry("empty collections", program.Program{
+			Entry("empty collections", v2.Program{
 				IR: ir.IR{
 					Functions:   []ir.Function{},
 					Nodes:       []ir.Node{},
@@ -230,7 +230,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeProgram(b *testing.B) {
-	seed := program.Program{
+	seed := v2.Program{
 		IR: ir.IR{
 			Functions: []ir.Function{
 				{
@@ -387,7 +387,7 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded program.Program
+		var decoded v2.Program
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -397,7 +397,7 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 
 func FuzzDecodeProgram(f *testing.F) {
 	{
-		seed := program.Program{
+		seed := v2.Program{
 			IR: ir.IR{
 				Functions: []ir.Function{
 					{
@@ -554,7 +554,7 @@ func FuzzDecodeProgram(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := program.Program{
+		seed := v2.Program{
 			IR: ir.IR{
 				Functions:   nil,
 				Nodes:       nil,
@@ -579,7 +579,7 @@ func FuzzDecodeProgram(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := program.Program{
+		seed := v2.Program{
 			IR: ir.IR{
 				Functions:   []ir.Function{},
 				Nodes:       []ir.Node{},
@@ -607,7 +607,7 @@ func FuzzDecodeProgram(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded program.Program
+		var decoded v2.Program
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -617,7 +617,7 @@ func FuzzDecodeProgram(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded program.Program
+		var redecoded v2.Program
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

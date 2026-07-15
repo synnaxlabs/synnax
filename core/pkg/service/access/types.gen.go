@@ -11,15 +11,15 @@
 
 package access
 
-import access "github.com/synnaxlabs/synnax/pkg/service/access/types"
+import "github.com/synnaxlabs/synnax/pkg/service/access/types"
 
 // Action is the fundamental operations that are controlled by the permission system.
 // Actions define what operations a subject can perform on resources.
-type Action = access.Action
+type Action = types.Action
 
 const (
-	ActionCreate   Action = access.ActionCreate
-	ActionDelete   Action = access.ActionDelete
-	ActionRetrieve Action = access.ActionRetrieve
-	ActionUpdate   Action = access.ActionUpdate
+	ActionCreate   Action = types.ActionCreate
+	ActionDelete   Action = types.ActionDelete
+	ActionRetrieve Action = types.ActionRetrieve
+	ActionUpdate   Action = types.ActionUpdate
 )
