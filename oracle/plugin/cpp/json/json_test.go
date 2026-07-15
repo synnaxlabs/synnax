@@ -668,6 +668,22 @@ var _ = Describe("C++ JSON Plugin", func() {
 			})
 		})
 
+		Context("package with nothing to serialize", func() {
+			It("Should request deletion of json.gen.h instead of emitting a file", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/node"
+
+					Key uint12 {
+						@doc value "is a 12-bit unsigned integer identifying a node."
+					}
+				`
+				resp := MustGenerate(ctx, source, "node", loader, jsonPlugin)
+
+				Expect(resp.Files).To(BeEmpty())
+				Expect(resp.Deletions).To(ConsistOf("client/cpp/node/json.gen.h"))
+			})
+		})
+
 		Context("plugin interface", func() {
 			It("Should return default options with json.gen.h filename", func() {
 				opts := json.DefaultOptions()
