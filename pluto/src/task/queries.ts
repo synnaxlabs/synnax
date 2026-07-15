@@ -204,6 +204,7 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
   z.object({
     key: task.keyZ.optional(),
     name: z.string(),
+    // NOTE: rackKey collapses into the rack payload field in PR 3.
     rackKey: z.number(),
     type: schemas.type,
     snapshot: z.boolean(),
@@ -214,6 +215,7 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
 export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.ZodType<{
   key?: task.Key;
   name: string;
+  // NOTE: rackKey collapses into the rack payload field in PR 3.
   rackKey: rack.Key;
   type: z.infer<S["type"]>;
   snapshot: boolean;
@@ -232,6 +234,7 @@ export interface InitialValues<
   key?: task.Key;
   /** Rack to pre-select when creating a new task. The payload rack takes
    * precedence when set. */
+  // NOTE: this pre-select fallback dies once rack lives on the payload in PR 3.
   rackKey?: rack.Key;
 }
 
@@ -244,6 +247,7 @@ const taskToFormValues = <S extends task.Schemas = task.Schemas>(
 ): z.infer<FormSchema<S>> => ({
   key: t.key,
   name: t.name,
+  // NOTE: this rack/rackKey merge collapses to `rack: t.rack ?? 0` in PR 3.
   rackKey: primitive.isNonZero(t.rack) ? t.rack : (t.rackKey ?? 0),
   type: t.type,
   config: t.config,
@@ -261,6 +265,7 @@ const resetFormValues = <S extends task.Schemas = task.Schemas>(
   set("key", values.key, RESET_OPTIONS);
   set("name", values.name, RESET_OPTIONS);
   set("type", values.type, RESET_OPTIONS);
+  // NOTE: becomes set("rack", ...) in PR 3.
   set("rackKey", values.rackKey, RESET_OPTIONS);
   set("config", values.config, RESET_OPTIONS);
   set("snapshot", values.snapshot, RESET_OPTIONS);
@@ -287,6 +292,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     },
     update: async ({ client, store, ...form }) => {
       const value = form.value();
+      // NOTE: reads value.rack in PR 3.
       const rack = await client.racks.retrieve({ key: value.rackKey });
       const task = await rack.createTask(
         {

@@ -57,9 +57,6 @@ struct Rack {
     Key key = 0;
     /// @brief name is a human-readable name for the rack.
     std::string name;
-    /// @brief task_counter is an internal counter used for generating unique local task
-    /// keys.
-    std::uint32_t task_counter = 0;
     /// @brief embedded is true if this rack is embedded within the Synnax server
     /// process.
     bool embedded = false;

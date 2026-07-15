@@ -37,22 +37,19 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", rack.Rack{
 				Key:          rack.Key(2),
 				Name:         "test_2",
-				TaskCounter:  4,
-				Embedded:     false,
-				Integrations: []string{"test_5"},
+				Embedded:     true,
+				Integrations: []string{"test_4"},
 			}),
 			Entry("zero values", rack.Rack{
 				Key:          rack.Key(0),
 				Name:         "",
-				TaskCounter:  0,
 				Embedded:     false,
 				Integrations: nil,
 			}),
 			Entry("empty collections", rack.Rack{
 				Key:          rack.Key(2),
 				Name:         "test_2",
-				TaskCounter:  4,
-				Embedded:     false,
+				Embedded:     true,
 				Integrations: []string{},
 			}),
 		)
@@ -78,9 +75,8 @@ func BenchmarkEncodeDecodeRack(b *testing.B) {
 	rv := rack.Rack{
 		Key:          rack.Key(2),
 		Name:         "test_2",
-		TaskCounter:  4,
-		Embedded:     false,
-		Integrations: []string{"test_5"},
+		Embedded:     true,
+		Integrations: []string{"test_4"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -119,9 +115,8 @@ func FuzzDecodeRack(f *testing.F) {
 		seed := rack.Rack{
 			Key:          rack.Key(2),
 			Name:         "test_2",
-			TaskCounter:  4,
-			Embedded:     false,
-			Integrations: []string{"test_5"},
+			Embedded:     true,
+			Integrations: []string{"test_4"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -133,7 +128,6 @@ func FuzzDecodeRack(f *testing.F) {
 		seed := rack.Rack{
 			Key:          rack.Key(0),
 			Name:         "",
-			TaskCounter:  0,
 			Embedded:     false,
 			Integrations: nil,
 		}
@@ -147,8 +141,7 @@ func FuzzDecodeRack(f *testing.F) {
 		seed := rack.Rack{
 			Key:          rack.Key(2),
 			Name:         "test_2",
-			TaskCounter:  4,
-			Embedded:     false,
+			Embedded:     true,
 			Integrations: []string{},
 		}
 		w := orc.NewWriter(0)

@@ -31,13 +31,11 @@ message Rack {
   uint32 key = 1;
   // name is a human-readable name for the rack.
   string name = 2;
-  // task_counter is an internal counter used for generating unique local task keys.
-  uint32 task_counter = 3;
   // embedded is true if this rack is embedded within the Synnax server process.
-  bool embedded = 4;
+  bool embedded = 3;
   // status is the current operational status of the rack.
-  optional .service.status.pb.Status status = 5;
+  optional .service.status.pb.Status status = 4;
   // integrations is the list of hardware integrations this rack supports (e.g., "ni",
   // "opc", "labjack"). An empty or nil list means the rack supports no integrations.
-  repeated string integrations = 6;
+  repeated string integrations = 5;
 }

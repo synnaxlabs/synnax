@@ -175,8 +175,13 @@ var _ = Describe("Driver", func() {
 			t := newTask(embeddedRackKey(ctx))
 			Expect(taskService.NewWriter(nil).Create(ctx, &t)).To(Succeed())
 
-			Eventually(func() bool { return configuredTask.Load() != nil }).Should(BeTrue())
-			Expect(configuredTask.Load().(*mockTask).key).To(Equal(t.Key))
+			Eventually(func() task.Key {
+				mt, ok := configuredTask.Load().(*mockTask)
+				if !ok {
+					return task.Key{}
+				}
+				return mt.key
+			}).Should(Equal(t.Key))
 		})
 
 		It("should stop existing task before reconfiguration", func(ctx SpecContext) {

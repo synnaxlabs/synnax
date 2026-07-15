@@ -15,6 +15,7 @@
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/test/test.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "x/go/telem/pb/telem.pb.h"
 
@@ -2246,5 +2247,41 @@ TEST(SeriesBytes, StringsThrowsForBytesType) {
 TEST(SeriesBytes, AtStringThrowsForBytesType) {
     const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
     ASSERT_THROW((void) s.at<std::string>(0), std::runtime_error);
+}
+
+/// @brief uuids() should recover the same UUIDs written into a UUID series.
+TEST(SeriesUUID, TestUUIDsRoundTrip) {
+    const std::vector<x::uuid::UUID> expected = {
+        x::uuid::create(),
+        x::uuid::create(),
+        x::uuid::create(),
+    };
+    std::vector<uint8_t> raw(expected.size() * x::uuid::UUID::size());
+    for (size_t i = 0; i < expected.size(); i++)
+        memcpy(
+            raw.data() + i * x::uuid::UUID::size(),
+            expected[i].data(),
+            x::uuid::UUID::size()
+        );
+    Series s(UUID_T, expected.size());
+    s.write(raw.data(), expected.size());
+    ASSERT_EQ(s.data_type(), UUID_T);
+    ASSERT_EQ(s.size(), expected.size());
+    const auto actual = s.uuids();
+    ASSERT_EQ(actual.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); i++)
+        ASSERT_EQ(actual[i], expected[i]);
+}
+
+/// @brief uuids() should return an empty vector for an empty UUID series.
+TEST(SeriesUUID, TestUUIDsEmpty) {
+    const Series s(UUID_T, 0);
+    ASSERT_TRUE(s.uuids().empty());
+}
+
+/// @brief uuids() should throw when called on a non-UUID series.
+TEST(SeriesUUID, TestUUIDsThrowsForNonUUIDType) {
+    const Series s(std::vector<int64_t>{1, 2, 3});
+    ASSERT_THROW((void) s.uuids(), std::runtime_error);
 }
 }

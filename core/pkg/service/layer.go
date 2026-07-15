@@ -434,8 +434,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			SetDataType:    telem.JSONT,
 			DeleteDataType: telem.UUIDT,
 			MarshalDelete:  func(k task.Key) ([]byte, error) { return k[:], nil },
-			// Set events carry task metadata only; configs stay out of the
-			// signal channel and are fetched on demand.
 			MarshalSet: func(t task.Task) ([]byte, error) {
 				t.Config = nil
 				t.Status = nil
@@ -445,8 +443,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, closer) {
 		return nil, err
 	}
-	// Panel opens after task so the panel migrations can consume the task re-key
-	// staging map.
 	if l.Panel, err = panel.OpenService(ctx, panel.ServiceConfig{
 		Instrumentation: cfg.Child("panel"),
 		DB:              cfg.Distribution.DB,

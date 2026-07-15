@@ -21,7 +21,6 @@ import (
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(rv.Key))
 	w.String(rv.Name)
-	w.Uint32(uint32(rv.TaskCounter))
 	w.Bool(rv.Embedded)
 	w.Bool(rv.Integrations != nil)
 	if rv.Integrations != nil {
@@ -43,9 +42,6 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 		rv.Key = Key(v)
 	}
 	if rv.Name, err = r.String(); err != nil {
-		return err
-	}
-	if rv.TaskCounter, err = r.Uint32(); err != nil {
 		return err
 	}
 	if rv.Embedded, err = r.Bool(); err != nil {

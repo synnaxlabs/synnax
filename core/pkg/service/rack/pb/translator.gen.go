@@ -70,7 +70,6 @@ func RackToPB(r rack.Rack) (*Rack, error) {
 	pb := &Rack{
 		Key:          uint32(r.Key),
 		Name:         r.Name,
-		TaskCounter:  r.TaskCounter,
 		Embedded:     r.Embedded,
 		Integrations: r.Integrations,
 	}
@@ -92,7 +91,6 @@ func RackFromPB(pb *Rack) (rack.Rack, error) {
 	}
 	r.Key = rack.Key(pb.Key)
 	r.Name = pb.Name
-	r.TaskCounter = pb.TaskCounter
 	r.Embedded = pb.Embedded
 	r.Integrations = pb.Integrations
 	if pb.Status != nil {
