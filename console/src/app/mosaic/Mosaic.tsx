@@ -68,15 +68,15 @@ const PORTAL_OUT_STYLE: CSSProperties = {
 };
 
 const EmptyContent = (): ReactElement => {
-  const createComponentEnabled = Selector.useVisible();
+  const createTabEnabled = Selector.useVisible();
   return (
     <Eraser.Eraser>
       <Flex.Box gap={5} center>
         <Logo className="synnax-logo-watermark" />
-        {createComponentEnabled && (
+        {createTabEnabled && (
           <Flex.Box x gap="small">
             <Text.Text level="h5" weight={450} color={9}>
-              New Component
+              New Tab
             </Text.Text>
             <Flex.Box x empty>
               <Triggers.Text level="h5" trigger={["Control", "T"]} />

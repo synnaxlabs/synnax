@@ -37,7 +37,7 @@ export const use = (): void => {
   const openInNewWindow = Layout.useOpenInNewWindow();
   const placeLayout = Layout.usePlacer();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const createComponentEnabled = Selector.useVisible();
+  const createTabEnabled = Selector.useVisible();
   Triggers.use({
     triggers: [["Control", "L"]],
     loose: true,
@@ -114,10 +114,10 @@ export const use = (): void => {
     loose: true,
     callback: useCallback(
       ({ stage }: Triggers.UseEvent) => {
-        if (stage !== "start" || !createComponentEnabled) return;
+        if (stage !== "start" || !createTabEnabled) return;
         placeLayout(Selector.create({ tab: { location: "center" } }));
       },
-      [createComponentEnabled, placeLayout],
+      [createTabEnabled, placeLayout],
     ),
   });
 };
