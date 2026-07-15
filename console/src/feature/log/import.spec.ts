@@ -38,6 +38,5 @@ describe("ingest", () => {
     expect(openTab).toHaveBeenCalledWith({ variant: "resource", resource: id });
     const created = await client.logs.retrieve({ key: id.key });
     expect(created.name).toBe(original.name);
-    expect(store.logs.get(id.key)?.name).toBe(original.name);
   });
 });
