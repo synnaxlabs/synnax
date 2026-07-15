@@ -11,25 +11,20 @@ import { Errors } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 
 import { ErrorDiagnostics } from "@/platform/errors/ErrorDiagnostics";
-import { Session } from "@/session";
 
 export interface BoundaryProps extends PropsWithChildren {
-  /** When provided, crash diagnostics include the layout page's name and key. */
-  layoutKey?: string;
+  /** When provided, crash diagnostics include the crashed panel's name and key. */
+  panelKey?: string;
 }
 
 /** Error boundary that renders ErrorDiagnostics on a crash, annotating it with the
- * connected Core and, when layoutKey is given, the page's name and key. */
-export const Boundary = ({ layoutKey, children }: BoundaryProps): ReactElement => {
-  const name = Session.Layout.useSelectName(layoutKey ?? "");
+ * connected Core and, when panelKey is given, the crashed panel's name and key. */
+export const Boundary = ({ panelKey, children }: BoundaryProps): ReactElement => {
   const renderFallback = useCallback(
     (props: Errors.FallbackProps) => (
-      <ErrorDiagnostics
-        page={layoutKey == null ? undefined : { name, key: layoutKey }}
-        {...props}
-      />
+      <ErrorDiagnostics panelKey={panelKey} {...props} />
     ),
-    [name, layoutKey],
+    [panelKey],
   );
   return (
     <Errors.Boundary FallbackComponent={renderFallback}>{children}</Errors.Boundary>

@@ -17,20 +17,20 @@ import {
 import { Boundary } from "@/platform/errors/Boundary";
 
 export interface SuspenseBoundaryProps extends PropsWithChildren {
-  /** When provided, crash diagnostics include the layout page's name and key. */
-  layoutKey?: string;
+  /** When provided, crash diagnostics include the crashed panel's name and key. */
+  panelKey?: string;
   /** Rendered while children are suspended. Defaults to blank space. */
   loading?: ReactNode;
 }
 
 /** Boundary + React Suspense in one component. On a crash it renders ErrorDiagnostics
- * annotated with the connected Core and, when layoutKey is given, the page details. */
+ * annotated with the connected Core and, when panelKey is given, the panel details. */
 export const SuspenseBoundary = ({
-  layoutKey,
+  panelKey,
   loading,
   children,
 }: SuspenseBoundaryProps): ReactElement => (
-  <Boundary layoutKey={layoutKey}>
+  <Boundary panelKey={panelKey}>
     <Suspense fallback={loading}>{children}</Suspense>
   </Boundary>
 );
