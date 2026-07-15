@@ -9,7 +9,7 @@
 
 import "@/platform/nav/Nav.css";
 
-import { Eraser, Errors, Nav, type Resize } from "@synnaxlabs/pluto";
+import { Eraser, Nav, type Resize } from "@synnaxlabs/pluto";
 import { box, direction, type location, xy } from "@synnaxlabs/x";
 import {
   type MouseEvent as ReactMouseEvent,
@@ -18,6 +18,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
+import { Errors } from "@/platform/errors";
 
 const X_THRESHOLD = { x: 36, y: 24 };
 const Y_THRESHOLD = xy.swap(X_THRESHOLD);
