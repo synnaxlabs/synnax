@@ -682,6 +682,29 @@ var _ = Describe("C++ JSON Plugin", func() {
 				Expect(resp.Files).To(BeEmpty())
 				Expect(resp.Deletions).To(ConsistOf("client/cpp/node/json.gen.h"))
 			})
+
+			It("Should include types.gen.h for references into scalar-only packages", func(ctx SpecContext) {
+				loader.Add("schemas/node", `
+					@cpp output "client/cpp/node"
+
+					Key uint12
+				`)
+
+				source := `
+					import "schemas/node"
+
+					@cpp output "client/cpp/channel"
+
+					Channel struct {
+						leaseholder node.Key
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+
+				ExpectContent(resp, "channel/json.gen.h").
+					ToContain(`#include "client/cpp/node/types.gen.h"`).
+					ToNotContain(`#include "client/cpp/node/json.gen.h"`)
+			})
 		})
 
 		Context("plugin interface", func() {

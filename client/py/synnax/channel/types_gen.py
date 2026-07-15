@@ -68,8 +68,7 @@ class Payload(BaseModel):
         key: Is the unique identifier for this channel, automatically assigned
             by Synnax.
         name: Is the human-readable channel name.
-        leaseholder: Is the node that holds the lease for this channel. Mostly
-            for internal use.
+        leaseholder: Is the node that holds the lease for this channel. Mostly for internal use.
         data_type: Is the data type of samples stored in this channel (e.g., Float64,
             Int32, TimeStamp).
         is_index: Is true if this is an index channel. Index channels must have int64

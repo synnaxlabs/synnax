@@ -82,6 +82,17 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		allPaths.Add(path)
 	}
 
+	jsonPaths := make(set.Set[string])
+	for outputPath := range allPaths {
+		if pathHasJSONContent(
+			structCollector.Get(outputPath),
+			distinctCollector.Get(outputPath),
+			unionCollector.Get(outputPath),
+		) {
+			jsonPaths.Add(outputPath)
+		}
+	}
+
 	for outputPath := range allPaths {
 		structs := structCollector.Get(outputPath)
 		distinctTypes := distinctCollector.Get(outputPath)
@@ -98,7 +109,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			continue
 		}
 
-		content, err := p.generateFile(outputPath, structs, distinctTypes, unions, namespace, req)
+		content, err := p.generateFile(
+			outputPath, structs, distinctTypes, unions, namespace, jsonPaths, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate json for %s", outputPath)
 		}
@@ -113,12 +125,40 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
+// pathHasJSONContent reports whether the plugin emits a json.gen.h for a path: at
+// least one non-omitted struct, union, or variable-length array wrapper lives there.
+func pathHasJSONContent(structs, distinctTypes, unions []resolution.Type) bool {
+	for _, s := range structs {
+		if !omit.IsType(s, "cpp") {
+			return true
+		}
+	}
+	for _, u := range unions {
+		if !omit.IsType(u, "cpp") {
+			return true
+		}
+	}
+	for _, dt := range distinctTypes {
+		if omit.IsType(dt, "cpp") {
+			continue
+		}
+		if form, ok := dt.Form.(resolution.DistinctForm); ok &&
+			form.Base.Name == "Array" &&
+			len(form.Base.TypeArgs) > 0 &&
+			form.Base.ArraySize == nil {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *Plugin) generateFile(
 	outputPath string,
 	structs []resolution.Type,
 	distinctTypes []resolution.Type,
 	unions []resolution.Type,
 	namespace string,
+	jsonPaths set.Set[string],
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
@@ -128,6 +168,7 @@ func (p *Plugin) generateFile(
 		ArrayWrappers: make([]arrayWrapperData, 0),
 		includes:      newIncludeManager(),
 		table:         req.Resolutions,
+		jsonPaths:     jsonPaths,
 		rawNs:         namespace,
 	}
 
@@ -215,8 +256,7 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 	if parent.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(parent, "cpp")
 		if targetOutputPath != "" {
-			includePath := fmt.Sprintf("%s/%s", targetOutputPath, "json.gen.h")
-			data.includes.addInternal(includePath)
+			data.includes.addInternal(data.jsonInclude(targetOutputPath))
 			ns := deriveNamespace(targetOutputPath)
 			name = fmt.Sprintf("::%s::%s", ns, name)
 		}
@@ -422,7 +462,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 				if targetResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(targetResolved, "cpp")
 					if targetOutputPath != "" {
-						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						data.includes.addInternal(data.jsonInclude(targetOutputPath))
 					}
 				}
 			}
@@ -439,7 +479,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 				headerName := lo.SnakeCase(resolved.Name)
 				includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
 			} else {
-				includePath = fmt.Sprintf("%s/json.gen.h", targetOutputPath)
+				includePath = data.jsonInclude(targetOutputPath)
 			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)
@@ -530,7 +570,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 					if targetOutputPath != "" {
 						ns := deriveNamespace(targetOutputPath)
 						parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
-						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						data.includes.addInternal(data.jsonInclude(targetOutputPath))
 					}
 				}
 				return fmt.Sprintf(
@@ -616,7 +656,7 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 				if targetOutputPath != "" {
 					ns := deriveNamespace(targetOutputPath)
 					parseFn = fmt.Sprintf("::%s::%s", ns, parseFn)
-					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+					data.includes.addInternal(data.jsonInclude(targetOutputPath))
 				}
 			}
 			if field.Optional {
@@ -779,7 +819,7 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 				if elemResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(elemResolved, "cpp")
 					if targetOutputPath != "" {
-						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						data.includes.addInternal(data.jsonInclude(targetOutputPath))
 						qualifier = "::" + deriveNamespace(targetOutputPath)
 					}
 				}
@@ -831,7 +871,7 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 			if resolved.Namespace != data.rawNs {
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
-					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+					data.includes.addInternal(data.jsonInclude(targetOutputPath))
 					qualifier = "::" + deriveNamespace(targetOutputPath)
 				}
 			}
@@ -1037,12 +1077,23 @@ func (p *Plugin) isFixedSizeUint8ArrayType(resolved resolution.Type) bool {
 type templateData struct {
 	includes      *includeManager
 	table         *resolution.Table
+	jsonPaths     set.Set[string]
 	OutputPath    string
 	Namespace     string
 	rawNs         string
 	Serializers   []serializerData
 	ArrayWrappers []arrayWrapperData
 	Unions        []unionDispatchData
+}
+
+// jsonInclude returns the header to include for a cross-namespace reference into
+// outputPath: json.gen.h when that path emits one, types.gen.h otherwise (scalar-only
+// packages use default JSON serialization and get no json.gen.h).
+func (d *templateData) jsonInclude(outputPath string) string {
+	if d.jsonPaths.Contains(outputPath) {
+		return outputPath + "/json.gen.h"
+	}
+	return outputPath + "/types.gen.h"
 }
 
 type arrayWrapperData struct {

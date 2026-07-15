@@ -11,6 +11,6 @@ import { Icon } from "@synnaxlabs/pluto";
 
 import { Tree } from "@/platform/tree";
 
-const NodeTreeItem = Tree.createItem({ type: "node", icon: <Icon.Node /> });
+const TreeItem = Tree.createItem({ type: "node", icon: <Icon.Node /> });
 
-export const TREE_ITEMS = { node: NodeTreeItem } satisfies Tree.Items;
+export const TREE_ITEMS = { node: TreeItem } satisfies Tree.Items;

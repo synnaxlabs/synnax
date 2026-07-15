@@ -68,10 +68,7 @@ export const payloadZ = z.object({
   key: keyZ.default(0),
   /** name is the human-readable channel name. */
   name: nameZ,
-  /**
-   * leaseholder is the node that holds the lease for this channel. Mostly
-   * for internal use.
-   */
+  /** leaseholder is the node that holds the lease for this channel. Mostly for internal use. */
   leaseholder: node.keyZ.default(0),
   /**
    * dataType is the data type of samples stored in this channel (e.g., Float64,
