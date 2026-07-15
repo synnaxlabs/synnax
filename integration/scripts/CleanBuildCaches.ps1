@@ -14,10 +14,10 @@
 # - Otherwise: `bazel clean` first (largest consumer), then oldest Go/binary files
 #   until MinFreeGB is available.
 #
-# Usage: CleanBuildCaches.ps1 [-MinFreeGB 40]
+# Usage: CleanBuildCaches.ps1 [-MinFreeGB 35]
 
 param(
-    [int]$MinFreeGB = 40
+    [int]$MinFreeGB = 35
 )
 
 # Best-effort cleanup — must never fail the build
