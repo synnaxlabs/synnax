@@ -126,8 +126,8 @@ export class Client {
     const sugared = array
       .toArray(payloads)
       .map(
-        ({ key, name, status, integrations, taskCounter, embedded }) =>
-          new Rack(key, name, this.tasks, status, integrations, taskCounter, embedded),
+        ({ key, name, status, integrations, embedded }) =>
+          new Rack(key, name, this.tasks, status, integrations, embedded),
       );
     return isSingle ? sugared[0] : sugared;
   }
@@ -138,7 +138,6 @@ export class Rack {
   name: string;
   status?: Status;
   integrations: string[];
-  taskCounter: number;
   embedded: boolean;
   private readonly tasks: task.Client;
 
@@ -148,7 +147,6 @@ export class Rack {
     taskClient: task.Client,
     status?: Status,
     integrations: string[] = [],
-    taskCounter: number = 0,
     embedded: boolean = false,
   ) {
     this.key = key;
@@ -156,7 +154,6 @@ export class Rack {
     this.tasks = taskClient;
     this.status = status;
     this.integrations = integrations;
-    this.taskCounter = taskCounter;
     this.embedded = embedded;
   }
 
@@ -188,7 +185,6 @@ export class Rack {
       name: this.name,
       status: this.status,
       integrations: this.integrations,
-      taskCounter: this.taskCounter,
       embedded: this.embedded,
     };
   }

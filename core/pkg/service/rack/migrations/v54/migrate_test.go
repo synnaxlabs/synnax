@@ -59,7 +59,6 @@ var _ = Describe("v54 -> current Rack migration", func() {
 			Where(gorp.MatchKeys[rack.Key, rack.Rack](rack.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(rack.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
-		Expect(got.TaskCounter).To(Equal(seed.TaskCounter))
 		Expect(got.Embedded).To(Equal(seed.Embedded))
 		Expect(got.Integrations).To(Equal(seed.Integrations))
 		Expect(got.Status).To(BeNil())

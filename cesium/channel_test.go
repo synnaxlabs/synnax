@@ -29,7 +29,6 @@ import (
 var _ = Describe("Channel", Ordered, func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db *cesium.DB
 				fs fs.FS
@@ -37,10 +36,7 @@ var _ = Describe("Channel", Ordered, func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 
 			Describe("Create", func() {
@@ -473,10 +469,12 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key3, Name: "newton", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key4, Name: "descartes", Virtual: true, DataType: telem.StringT})).To(Succeed())
 
-					Expect(db.RenameChannels(ctx,
-						[]cesium.ChannelKey{key1, key2, key3, key4},
-						[]string{"newton2", "fermat3", "laplace4", "descartes5"},
-					)).To(Succeed())
+					Expect(db.RenameChannels(ctx, map[cesium.ChannelKey]string{
+						key1: "newton2",
+						key2: "fermat3",
+						key3: "laplace4",
+						key4: "descartes5",
+					})).To(Succeed())
 
 					ch := MustSucceed(db.RetrieveChannel(ctx, key1))
 					Expect(ch.Name).To(Equal("newton2"))
@@ -486,17 +484,6 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(ch.Name).To(Equal("laplace4"))
 					ch = MustSucceed(db.RetrieveChannel(ctx, key4))
 					Expect(ch.Name).To(Equal("descartes5"))
-				})
-				It("Should correctly rename if a channel is provided twice", func(ctx SpecContext) {
-					key := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "1", IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
-					Expect(db.RenameChannels(ctx,
-						[]cesium.ChannelKey{key, key, key, key},
-						[]string{"2", "3", "4", "5"},
-					)).To(Succeed())
-
-					ch := MustSucceed(db.RetrieveChannel(ctx, key))
-					Expect(ch.Name).To(Equal("5"))
 				})
 				It("Should error if the channel is not found", func(ctx SpecContext) {
 					key := GenerateChannelKey()

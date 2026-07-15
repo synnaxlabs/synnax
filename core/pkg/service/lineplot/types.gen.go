@@ -13,7 +13,7 @@ package lineplot
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"

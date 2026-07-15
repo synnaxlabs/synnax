@@ -28,8 +28,8 @@ describe("log extractor", () => {
     const { data, name } = await extract(l.key, { client, store });
     expect(name).toBe(l.name);
     const parsed = JSON.parse(data);
-    expect(parsed).toMatchObject({ key: l.key, type: log.TYPE_ONTOLOGY_ID.type });
-    expect(parsed.version).toBe("2.0.0");
+    expect(parsed).toMatchObject({ type: log.TYPE_ONTOLOGY_ID.type });
+    expect(parsed.version).toBe(2);
   });
 
   it("should reject with a disconnected error when no client exists", async () => {

@@ -17,12 +17,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -56,6 +57,41 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		alias:    cfg.Service.Alias,
 		status:   cfg.Service.Status,
 	}, nil
+}
+
+var _ codec.ChannelResolver = (*Service)(nil)
+
+// RetrieveDataTypes implements codec.ChannelResolver, resolving the data types of the
+// channels with the given keys so that a dynamic framer codec can resolve channel
+// metadata through the API layer. Resolution intentionally bypasses access control, as
+// it runs on the per-frame encode/decode hot path.
+func (s *Service) RetrieveDataTypes(
+	ctx context.Context,
+	keys channel.Keys,
+) ([]telem.DataType, error) {
+	var channels []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return lo.Map(channels, func(ch channel.Channel, _ int) telem.DataType {
+		return ch.DataType
+	}), nil
+}
+
+// RetrieveName implements codec.ChannelResolver, resolving the name of the channel with
+// the given key, returning an empty string if no channel with the key exists.
+func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
+	var ch channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, nil); err != nil {
+		return ""
+	}
+	return ch.Name
 }
 
 // CreateRequest is a request to create a Channel in the cluster.
@@ -329,7 +365,7 @@ func (s *Service) Delete(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionDelete,
-			Objects: req.Keys.OntologyIDs(),
+			Objects: channel.OntologyIDsFromKeys(req.Keys),
 		}); err != nil {
 			return types.Nil{}, err
 		}
@@ -370,7 +406,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: req.Keys.OntologyIDs(),
+		Objects: channel.OntologyIDsFromKeys(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}

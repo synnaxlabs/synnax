@@ -33,7 +33,6 @@ func AutoMigrateRack(ctx context.Context, old rackv54.Rack) (Rack, error) {
 	return Rack{
 		Key:          Key(old.Key),
 		Name:         old.Name,
-		TaskCounter:  old.TaskCounter,
 		Embedded:     old.Embedded,
 		Status:       status,
 		Integrations: old.Integrations,

@@ -37,7 +37,7 @@ func createSchematic(ctx context.Context, name string) schematic.Schematic {
 	return s
 }
 
-var _ = Describe("api.Service.Dispatch", func() {
+var _ = Describe("Service.Dispatch", func() {
 	Describe("access control", func() {
 		It("Should reject the request with access.ErrDenied when the subject has no policy", func(ctx SpecContext) {
 			s := createSchematic(ctx, "no-policy")

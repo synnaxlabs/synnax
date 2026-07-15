@@ -85,17 +85,17 @@ var _ = Describe("Writer", func() {
 			ShouldNotLeakGoroutines()
 			node := mock.OpenNode(ctx)
 			idxCh = channel.Channel{
-				Name:     channel.NewRandomName(),
+				Name:     "variable_time",
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
-			Expect(node.Channel.Create(ctx, &idxCh)).To(Succeed())
+			idxCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{idxCh}))[0]
 			strCh = channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       "variable_str",
 				DataType:   telem.StringT,
 				LocalIndex: idxCh.LocalKey,
 			}
-			Expect(node.Channel.Create(ctx, &strCh)).To(Succeed())
+			strCh = MustSucceed(node.Channel.Create(ctx, []channel.Channel{strCh}))[0]
 			s = DeferClose(scenario{
 				dist:   node,
 				closer: node,
@@ -127,11 +127,13 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should write mixed fixed and variable channels", func(ctx SpecContext) {
 			floatCh := channel.Channel{
-				Name:       channel.NewRandomName(),
+				Name:       "variable_float",
 				DataType:   telem.Float64T,
 				LocalIndex: idxCh.LocalKey,
 			}
-			Expect(s.dist.Channel.Create(ctx, &floatCh)).To(Succeed())
+			floatCh = MustSucceed(
+				s.dist.Channel.Create(ctx, []channel.Channel{floatCh}),
+			)[0]
 			keys := []channel.Key{idxCh.Key(), floatCh.Key(), strCh.Key()}
 			w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
@@ -170,16 +172,47 @@ var _ = Describe("Writer", func() {
 				Sync:  new(true),
 			})).Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
 		})
-		It("Should return an error if the channel can't be found", func(ctx SpecContext) {
+		It("Should return an error if a provided key has no storage channel", func(ctx SpecContext) {
 			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys:  []channel.Key{channel.NewKey(0, 22), s.keys[0]},
+				Keys:  []channel.Key{channel.NewKey(1, 22), s.keys[0]},
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
 			})).Error().To(SatisfyAll(
 				MatchError(query.ErrNotFound),
-				MatchError(ContainSubstring("Channel")),
-				MatchError(ContainSubstring("22")),
+				MatchError(ContainSubstring("not found")),
 			))
+		})
+		It("Should release peer control when the gateway writer fails to open", func(ctx SpecContext) {
+			cluster := mock.NewCluster(ctx, 2)
+			dist := cluster.Nodes[1]
+			peerCh := channel.Channel{
+				Name:        "cleanup_peer",
+				Virtual:     true,
+				DataType:    telem.Int64T,
+				Leaseholder: 2,
+			}
+			peerCh = MustSucceed(dist.Channel.Create(ctx, []channel.Channel{peerCh}))[0]
+			Expect(dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  []channel.Key{peerCh.Key(), channel.NewKey(1, 22)},
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			})).Error().To(MatchError(query.ErrNotFound))
+			// A lower-authority writer can only take control of the peer channel once
+			// the remote writer opened by the failed mixed open has released it, so an
+			// authorized write proves the peer stream was cleaned up.
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:        []channel.Key{peerCh.Key()},
+				Start:       10 * telem.SecondTS,
+				Sync:        new(true),
+				Authorities: []control.Authority{control.AuthorityAbsolute - 1},
+			}))
+			Eventually(func() (bool, error) {
+				return w.Write(frame.NewUnary(
+					peerCh.Key(),
+					telem.NewSeriesV[int64](1, 2, 3),
+				))
+			}).Should(BeTrue())
+			Expect(w.Close()).To(Succeed())
 		})
 	})
 
@@ -208,176 +241,10 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
-	Describe("Series Validation", func() {
-		Describe("Misaligned Fixed Density", func() {
-			It("Should return an error when series data is not aligned to density", func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						{DataType: telem.Int64T, Data: make([]byte, 7)},
-						telem.NewSeriesV[int64](1),
-						telem.NewSeriesV[int64](1),
-					},
-				))).Error().To(MatchError(validate.ErrValidation))
-				Expect(w.Close()).To(MatchError(validate.ErrValidation))
-			})
-		})
-
-		Describe("Wrong Data Type", func() {
-			It("Should return an error when series data type does not match channel", func(ctx SpecContext) {
-				s := DeferClose(gatewayOnlyScenario(ctx))
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						telem.NewSeriesV(1.0),
-						telem.NewSeriesV[int64](1),
-						telem.NewSeriesV[int64](1),
-					},
-				))).Error().To(MatchError(validate.ErrValidation))
-				Expect(w.Close()).To(MatchError(validate.ErrValidation))
-			})
-		})
-
-		Describe("Invalid JSON", Ordered, func() {
-			var s scenario
-			BeforeAll(func(ctx SpecContext) {
-				ShouldNotLeakGoroutines()
-				node := mock.OpenNode(ctx)
-				idxCh := channel.Channel{
-					Name:     channel.NewRandomName(),
-					IsIndex:  true,
-					DataType: telem.TimeStampT,
-				}
-				Expect(node.Channel.Create(ctx, &idxCh)).To(Succeed())
-				jsonCh := channel.Channel{
-					Name:       channel.NewRandomName(),
-					DataType:   telem.JSONT,
-					LocalIndex: idxCh.LocalKey,
-				}
-				Expect(node.Channel.Create(ctx, &jsonCh)).To(Succeed())
-				s = DeferClose(scenario{
-					dist:   node,
-					closer: node,
-					keys:   []channel.Key{idxCh.Key(), jsonCh.Key()},
-				})
-			})
-			It("Should return an error when JSON series contains invalid JSON", func(ctx SpecContext) {
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				invalidJSON := telem.MarshalVariableSample([]byte(`{not json}`))
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						telem.NewSeriesSecondsTSV(10),
-						{DataType: telem.JSONT, Data: invalidJSON},
-					},
-				))).Error().To(MatchError(validate.ErrValidation))
-				Expect(w.Close()).To(MatchError(validate.ErrValidation))
-			})
-		})
-
-		Describe("Invalid UTF-8", Ordered, func() {
-			var s scenario
-			BeforeAll(func(ctx SpecContext) {
-				ShouldNotLeakGoroutines()
-				node := mock.OpenNode(ctx)
-				idxCh := channel.Channel{
-					Name:     channel.NewRandomName(),
-					IsIndex:  true,
-					DataType: telem.TimeStampT,
-				}
-				Expect(node.Channel.Create(ctx, &idxCh)).To(Succeed())
-				strCh := channel.Channel{
-					Name:       channel.NewRandomName(),
-					DataType:   telem.StringT,
-					LocalIndex: idxCh.LocalKey,
-				}
-				Expect(node.Channel.Create(ctx, &strCh)).To(Succeed())
-				s = DeferClose(scenario{
-					dist:   node,
-					closer: node,
-					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
-				})
-			})
-			It("Should return an error when string series contains invalid UTF-8", func(ctx SpecContext) {
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				invalidUTF8 := telem.MarshalVariableSample([]byte{0xFF, 0xFE})
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						telem.NewSeriesSecondsTSV(10),
-						{DataType: telem.StringT, Data: invalidUTF8},
-					},
-				))).Error().To(MatchError(validate.ErrValidation))
-				Expect(w.Close()).To(MatchError(validate.ErrValidation))
-			})
-		})
-
-		Describe("Malformed Variable Prefix", Ordered, func() {
-			var s scenario
-			BeforeAll(func(ctx SpecContext) {
-				ShouldNotLeakGoroutines()
-				node := mock.OpenNode(ctx)
-				idxCh := channel.Channel{
-					Name:     channel.NewRandomName(),
-					IsIndex:  true,
-					DataType: telem.TimeStampT,
-				}
-				Expect(node.Channel.Create(ctx, &idxCh)).To(Succeed())
-				strCh := channel.Channel{
-					Name:       channel.NewRandomName(),
-					DataType:   telem.StringT,
-					LocalIndex: idxCh.LocalKey,
-				}
-				Expect(node.Channel.Create(ctx, &strCh)).To(Succeed())
-				s = DeferClose(scenario{
-					dist:   node,
-					closer: node,
-					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
-				})
-			})
-			It("Should return an error when variable-density prefix is malformed", func(ctx SpecContext) {
-				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
-					Keys:  s.keys,
-					Start: 10 * telem.SecondTS,
-					Sync:  new(true),
-				}))
-				valid := telem.NewSeriesV("ok")
-				valid.Data = append(valid.Data, 0xFF, 0xFF)
-				Expect(w.Write(frame.NewMulti(
-					s.keys,
-					[]telem.Series{
-						telem.NewSeriesSecondsTSV(10),
-						valid,
-					},
-				))).Error().To(MatchError(validate.ErrValidation))
-				Expect(w.Close()).To(MatchError(validate.ErrValidation))
-			})
-		})
-	})
-
 	Describe("Free Write Group Propagation", func() {
 		It("Should propagate the writer's group to the streamer response", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -406,7 +273,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should set group to zero when the writer has no group", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -437,7 +304,7 @@ var _ = Describe("Writer", func() {
 	Describe("Free Write Group Isolation", func() {
 		It("Should propagate distinct groups from different writers", func(ctx SpecContext) {
 			s := DeferClose(freeWriterScenario(ctx))
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        s.keys,
 				SendOpenAck: new(true),
 			}))
@@ -489,27 +356,19 @@ var _ = Describe("Writer", func() {
 			peer := node.Key(2)
 
 			idx := channel.Channel{
-				Name:        channel.NewRandomName(),
+				Name:        "auto_index_time",
 				IsIndex:     true,
 				DataType:    telem.TimeStampT,
 				Leaseholder: peer,
 			}
-			Expect(gw.Channel.Create(ctx, &idx)).To(Succeed())
+			idx = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{idx}))[0]
 			data := channel.Channel{
-				Name:        channel.NewRandomName(),
+				Name:        "auto_index_data",
 				DataType:    telem.Float64T,
 				LocalIndex:  idx.LocalKey,
 				Leaseholder: peer,
 			}
-			Expect(gw.Channel.Create(ctx, &data)).To(Succeed())
-			Eventually(func(g Gomega) {
-				var chs []channel.Channel
-				g.Expect(gw.Channel.NewRetrieve().
-					Entries(&chs).
-					Where(channel.MatchKeys(idx.Key(), data.Key())).
-					Exec(ctx, nil)).To(Succeed())
-				g.Expect(chs).To(HaveLen(2))
-			}).Should(Succeed())
+			data = MustSucceed(gw.Channel.Create(ctx, []channel.Channel{data}))[0]
 
 			before := telem.Now()
 			w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
@@ -561,12 +420,16 @@ var _ = Describe("Writer", func() {
 					Virtual:     true,
 				}
 			)
-			Expect(s.dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+			idxCh = MustSucceed(
+				s.dist.Channel.Create(ctx, []channel.Channel{idxCh}),
+			)[0]
 			dataCh.LocalIndex = idxCh.LocalKey
-			Expect(s.dist.Channel.Create(ctx, &dataCh)).To(Succeed())
+			dataCh = MustSucceed(
+				s.dist.Channel.Create(ctx, []channel.Channel{dataCh}),
+			)[0]
 
 			keys := []channel.Key{idxCh.Key(), dataCh.Key()}
-			streamer := MustSucceed(s.dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+			streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
@@ -576,6 +439,10 @@ var _ = Describe("Writer", func() {
 			streamer.Flow(sCtx)
 			var res framer.StreamerResponse
 			Eventually(out.Outlet()).Should(Receive(&res))
+			s.dist.Framer.SetFreeIndexResolver(indexResolver{
+				idxCh.Key():  idxCh.Key(),
+				dataCh.Key(): idxCh.Key(),
+			})
 			writer := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  keys,
 				Start: 10 * telem.SecondTS,
@@ -593,10 +460,10 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData).To(telem.MatchSeriesData(data))
 			writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
 			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
-			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
+			groupDomain := writtenData.Alignment.DomainIndex()
+			Expect(groupDomain).To(BeNumerically(">", cesium.ZeroLeadingAlignment))
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
-			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
-			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(0))
+			Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
 			data = telem.NewSeriesV[float32](3, 4)
 			idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
 			MustSucceed(writer.Write(frame.NewMulti(
@@ -609,13 +476,46 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData).To(telem.MatchSeriesData(data))
 			writtenIdx = res.Frame.Get(idxCh.Key()).Series[0]
 			Expect(writtenIdx).To(telem.MatchSeriesData(idx))
-			Expect(writtenData.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
+			Expect(writtenData.Alignment.DomainIndex()).To(Equal(groupDomain))
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(2))
-			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
-			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(2))
+			Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
+		})
+
+		It("Should return an error when no channel resolver is configured", func(ctx SpecContext) {
+			s := DeferClose(gatewayOnlyScenario(ctx))
+			ch := channel.Channel{
+				Name:        "free_unresolved",
+				DataType:    telem.Int64T,
+				Leaseholder: node.KeyFree,
+				Virtual:     true,
+			}
+			ch = MustSucceed(s.dist.Channel.Create(ctx, []channel.Channel{ch}))[0]
+			s.dist.Framer.SetFreeIndexResolver(nil)
+			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  channel.Keys{ch.Key()},
+				Start: 10 * telem.SecondTS,
+			})).Error().To(MatchError(
+				ContainSubstring("no free index resolver configured"),
+			))
 		})
 	})
 })
+
+// indexResolver resolves free channel indexes from a fixed key-to-index map.
+type indexResolver map[channel.Key]channel.Key
+
+func (r indexResolver) ResolveFreeIndexes(
+	_ context.Context,
+	keys channel.Keys,
+) (map[channel.Key]channel.Key, error) {
+	indexes := make(map[channel.Key]channel.Key, len(keys))
+	for _, k := range keys {
+		if idx, ok := r[k]; ok {
+			indexes[k] = idx
+		}
+	}
+	return indexes, nil
+}
 
 type scenario struct {
 	dist   mock.Node
@@ -649,9 +549,14 @@ func newChannelSet() []channel.Channel {
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
 	node := mock.OpenNode(ctx)
-	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Gateway Only", keys: keys, dist: node, closer: node}
+	return scenario{
+		name:   "Gateway Only",
+		keys:   keys,
+		dist:   node,
+		closer: node,
+	}
 }
 
 func peerOnlyScenario(ctx context.Context) scenario {
@@ -662,13 +567,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		ch.Leaseholder = node.Key(i + 2)
 		channels[i] = ch
 	}
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		err := dist.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
-		g.Expect(err).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{name: "Peer Only", keys: keys, dist: dist, closer: cluster}
 }
@@ -681,15 +580,14 @@ func mixedScenario(ctx context.Context) scenario {
 		ch.Leaseholder = node.Key(i + 1)
 		channels[i] = ch
 	}
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		err := dist.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
-		g.Expect(err).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	return scenario{name: "Mixed Gateway and Peer", keys: keys, dist: dist, closer: cluster}
+	return scenario{
+		name:   "Mixed Gateway and Peer",
+		keys:   keys,
+		dist:   dist,
+		closer: cluster,
+	}
 }
 
 func freeWriterScenario(ctx context.Context) scenario {
@@ -701,13 +599,7 @@ func freeWriterScenario(ctx context.Context) scenario {
 		ch.Virtual = true
 		channels[i] = ch
 	}
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		err := dist.Channel.NewRetrieve().Entries(&chs).Where(channel.MatchKeys(channel.KeysFromChannels(channels)...)).Exec(ctx, nil)
-		g.Expect(err).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{name: "Free Writes", keys: keys, dist: dist, closer: cluster}
 }

@@ -16,7 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v56 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v56"
@@ -68,16 +68,20 @@ func MigrateKeysToUUID(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation
 			Snapshot: old.Snapshot,
 		}
 	}
+	byKey := make(map[Key]Task, len(tasks))
+	for _, t := range tasks {
+		byKey[t.Key] = t
+	}
 	if err := gorp.WrapWriter[Key, Task](tx).Set(ctx, tasks...); err != nil {
 		return err
 	}
 	if err := gorp.WrapWriter[v56.Key, v56.Task](tx).Delete(ctx, oldKeys...); err != nil {
 		return err
 	}
-	if err := rewriteStatuses(ctx, tx, keys); err != nil {
+	if err := rewriteStatuses(ctx, tx, keys, byKey); err != nil {
 		return err
 	}
-	if err := rewriteResources(ctx, tx, keys, tasks); err != nil {
+	if err := rewriteResources(ctx, tx, keys, byKey); err != nil {
 		return err
 	}
 	if err := rewriteRelationships(ctx, tx, keys); err != nil {
@@ -102,8 +106,15 @@ func legacyKeyFromOntology(key string) (v56.Key, bool) {
 }
 
 // rewriteStatuses re-keys every task status row from "task:<legacy>" to
-// "task:<uuid>" and rewrites the task reference inside its details.
-func rewriteStatuses(ctx context.Context, tx gorp.Tx, keys map[v56.Key]Key) error {
+// "task:<uuid>" and rewrites the task and rack references inside its details. A
+// status row whose task has no live record (already deleted pre-migration) is
+// deleted rather than left stuck under its legacy key forever.
+func rewriteStatuses(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys map[v56.Key]Key,
+	byKey map[Key]Task,
+) error {
 	statusKeyPrefix := string(ontology.ResourceTypeTask) + ":"
 	var stale []status.Status[v56.StatusDetails]
 	if err := gorp.NewRetrieve[string, status.Status[v56.StatusDetails]]().
@@ -115,15 +126,18 @@ func rewriteStatuses(ctx context.Context, tx gorp.Tx, keys map[v56.Key]Key) erro
 	w := gorp.WrapWriter[string, Status](tx)
 	del := gorp.WrapWriter[string, status.Status[v56.StatusDetails]](tx)
 	for _, s := range stale {
+		oldKey := s.Key
 		legacy, ok := legacyKeyFromOntology(strings.TrimPrefix(s.Key, statusKeyPrefix))
 		if !ok {
 			continue
 		}
 		key, ok := keys[legacy]
 		if !ok {
+			if err := del.Delete(ctx, oldKey); err != nil {
+				return err
+			}
 			continue
 		}
-		oldKey := s.Key
 		if err := w.Set(ctx, Status{
 			Key:         OntologyID(key).String(),
 			Name:        s.Name,
@@ -136,6 +150,7 @@ func rewriteStatuses(ctx context.Context, tx gorp.Tx, keys map[v56.Key]Key) erro
 				Task:    key,
 				Running: s.Details.Running,
 				Cmd:     s.Details.Cmd,
+				Rack:    byKey[key].Rack,
 				Data:    s.Details.Data,
 			},
 		}); err != nil {
@@ -155,12 +170,8 @@ func rewriteResources(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys map[v56.Key]Key,
-	tasks []Task,
+	byKey map[Key]Task,
 ) error {
-	byKey := make(map[Key]Task, len(tasks))
-	for _, t := range tasks {
-		byKey[t.Key] = t
-	}
 	statusKeyPrefix := string(ontology.ResourceTypeTask) + ":"
 	stale, err := collectEntries(
 		ctx,

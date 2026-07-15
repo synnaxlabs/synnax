@@ -43,15 +43,7 @@ export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
-/** Payload written to sy_task_set: task metadata without config or status. */
-export const setSignalZ = z.object({
-  key: keyZ,
-  rack: rackKeyZ,
-  name: z.string(),
-  type: z.string(),
-  internal: z.boolean().default(false),
-  snapshot: z.boolean().default(false),
-});
+export const setSignalZ = payloadZ().omit({ config: true, status: true });
 export interface SetSignal extends z.infer<typeof setSignalZ> {}
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {

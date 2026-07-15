@@ -19,7 +19,7 @@ export interface Tick {
 }
 
 export interface TickFactory {
-  create: (ctx: TickFactoryRenderParams) => Tick[];
+  create: (params: TickFactoryRenderParams) => Tick[];
 }
 
 export const tickType = z.enum(["linear", "time"]);
