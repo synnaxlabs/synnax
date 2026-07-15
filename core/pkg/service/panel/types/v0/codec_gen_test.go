@@ -19,29 +19,33 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
+	panel "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 var (
-	fullyPopulatedLeaf = v0.Leaf{
-		Tabs: []v0.Tab{
-			{Variant: v0.TabResource{
-				TabBase:  v0.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
+	fullyPopulatedLeaf = panel.Leaf{
+		Tabs: []panel.Tab{
+			{Variant: panel.TabResource{
+				TabBase:  panel.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
 				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_5"},
 			}},
 		},
 	}
-	fullyPopulatedSplit = v0.Split{
+	fullyPopulatedSplit = panel.Split{
 		Direction: spatial.Direction("x"),
 		Size:      2.5,
-		First:     v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: []v0.Tab{{Variant: v0.TabResource{}}}}}},
-		Last:      v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: []v0.Tab{{Variant: v0.TabResource{}}}}}},
+		First: panel.Node{Variant: panel.NodeLeaf{
+			Leaf: panel.Leaf{Tabs: []panel.Tab{{Variant: panel.TabResource{}}}},
+		}},
+		Last: panel.Node{Variant: panel.NodeLeaf{
+			Leaf: panel.Leaf{Tabs: []panel.Tab{{Variant: panel.TabResource{}}}},
+		}},
 	}
-	fullyPopulatedTabBase = v0.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}
-	fullyPopulatedView    = v0.View{
+	fullyPopulatedTabBase = panel.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}
+	fullyPopulatedView    = panel.View{
 		Type: "test_1",
 		Name: "test_2",
 		Args: msgpack.EncodedJSON{"key_3": "value_3"},
@@ -51,125 +55,125 @@ var (
 var _ = Describe("Codec", func() {
 	Describe("Leaf", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Leaf) {
+			func(original panel.Leaf) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Leaf
+				var decoded panel.Leaf
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedLeaf),
-			Entry("zero values", v0.Leaf{Tabs: nil}),
-			Entry("empty collections", v0.Leaf{Tabs: []v0.Tab{}}),
+			Entry("zero values", panel.Leaf{Tabs: nil}),
+			Entry("empty collections", panel.Leaf{Tabs: []panel.Tab{}}),
 		)
 	})
 	Describe("Node", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Node) {
+			func(original panel.Node) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Node
+				var decoded panel.Node
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("leaf variant", v0.Node{Variant: v0.NodeLeaf{Leaf: fullyPopulatedLeaf}}),
-			Entry("split variant", v0.Node{Variant: v0.NodeSplit{Split: fullyPopulatedSplit}}),
+			Entry("leaf variant", panel.Node{Variant: panel.NodeLeaf{Leaf: fullyPopulatedLeaf}}),
+			Entry("split variant", panel.Node{Variant: panel.NodeSplit{Split: fullyPopulatedSplit}}),
 		)
 	})
 	Describe("Panel", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Panel) {
+			func(original panel.Panel) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Panel
+				var decoded panel.Panel
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.Panel{
+			Entry("fully populated", panel.Panel{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
-				Root: v0.Node{Variant: v0.NodeLeaf{Leaf: fullyPopulatedLeaf}},
+				Root: panel.Node{Variant: panel.NodeLeaf{Leaf: fullyPopulatedLeaf}},
 			}),
-			Entry("zero values", v0.Panel{
+			Entry("zero values", panel.Panel{
 				Key:  uuid.Nil,
 				Name: "",
-				Root: v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
+				Root: panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: nil}}},
 			}),
 		)
 	})
 	Describe("Split", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Split) {
+			func(original panel.Split) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Split
+				var decoded panel.Split
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedSplit),
-			Entry("zero values", v0.Split{
+			Entry("zero values", panel.Split{
 				Direction: spatial.Direction(""),
 				Size:      0,
-				First:     v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
-				Last:      v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
+				First:     panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: nil}}},
+				Last:      panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: nil}}},
 			}),
 		)
 	})
 	Describe("Tab", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Tab) {
+			func(original panel.Tab) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Tab
+				var decoded panel.Tab
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("resource variant", v0.Tab{Variant: v0.TabResource{
+			Entry("resource variant", panel.Tab{Variant: panel.TabResource{
 				TabBase:  fullyPopulatedTabBase,
 				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
 			}}),
-			Entry("view variant", v0.Tab{Variant: v0.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}),
-			Entry("empty variant", v0.Tab{Variant: v0.TabEmpty{TabBase: fullyPopulatedTabBase}}),
+			Entry("view variant", panel.Tab{Variant: panel.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}),
+			Entry("empty variant", panel.Tab{Variant: panel.TabEmpty{TabBase: fullyPopulatedTabBase}}),
 		)
 	})
 	Describe("TabBase", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.TabBase) {
+			func(original panel.TabBase) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.TabBase
+				var decoded panel.TabBase
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedTabBase),
-			Entry("zero values", v0.TabBase{Key: uuid.Nil}),
+			Entry("zero values", panel.TabBase{Key: uuid.Nil}),
 		)
 	})
 	Describe("View", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.View) {
+			func(original panel.View) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.View
+				var decoded panel.View
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedView),
-			Entry("zero values", v0.View{
+			Entry("zero values", panel.View{
 				Type: "",
 				Name: "",
 				Args: nil,
@@ -179,15 +183,15 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeLeaf(b *testing.B) {
-	lv := fullyPopulatedLeaf
+	seed := fullyPopulatedLeaf
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := lv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Leaf
+		var decoded panel.Leaf
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -196,15 +200,15 @@ func BenchmarkEncodeDecodeLeaf(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeNode(b *testing.B) {
-	nv := v0.Node{Variant: v0.NodeLeaf{Leaf: fullyPopulatedLeaf}}
+	seed := panel.Node{Variant: panel.NodeLeaf{Leaf: fullyPopulatedLeaf}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := nv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Node
+		var decoded panel.Node
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -213,19 +217,19 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodePanel(b *testing.B) {
-	p := v0.Panel{
+	seed := panel.Panel{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
-		Root: v0.Node{Variant: v0.NodeLeaf{Leaf: fullyPopulatedLeaf}},
+		Root: panel.Node{Variant: panel.NodeLeaf{Leaf: fullyPopulatedLeaf}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := p.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Panel
+		var decoded panel.Panel
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -234,15 +238,15 @@ func BenchmarkEncodeDecodePanel(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeSplit(b *testing.B) {
-	s := fullyPopulatedSplit
+	seed := fullyPopulatedSplit
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := s.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Split
+		var decoded panel.Split
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -251,7 +255,7 @@ func BenchmarkEncodeDecodeSplit(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTab(b *testing.B) {
-	t := v0.Tab{Variant: v0.TabResource{
+	seed := panel.Tab{Variant: panel.TabResource{
 		TabBase:  fullyPopulatedTabBase,
 		Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
 	}}
@@ -259,10 +263,10 @@ func BenchmarkEncodeDecodeTab(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := t.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Tab
+		var decoded panel.Tab
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -271,15 +275,15 @@ func BenchmarkEncodeDecodeTab(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTabBase(b *testing.B) {
-	tb := fullyPopulatedTabBase
+	seed := fullyPopulatedTabBase
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := tb.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.TabBase
+		var decoded panel.TabBase
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -288,15 +292,15 @@ func BenchmarkEncodeDecodeTabBase(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeView(b *testing.B) {
-	vv := fullyPopulatedView
+	seed := fullyPopulatedView
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := vv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.View
+		var decoded panel.View
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -314,7 +318,7 @@ func FuzzDecodeLeaf(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Leaf{Tabs: nil}
+		seed := panel.Leaf{Tabs: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -322,7 +326,7 @@ func FuzzDecodeLeaf(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Leaf{Tabs: []v0.Tab{}}
+		seed := panel.Leaf{Tabs: []panel.Tab{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -330,7 +334,7 @@ func FuzzDecodeLeaf(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Leaf
+		var decoded panel.Leaf
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -340,7 +344,7 @@ func FuzzDecodeLeaf(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Leaf
+		var redecoded panel.Leaf
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -360,7 +364,7 @@ func FuzzDecodeLeaf(f *testing.F) {
 
 func FuzzDecodeNode(f *testing.F) {
 	{
-		seed := v0.Node{Variant: v0.NodeLeaf{Leaf: fullyPopulatedLeaf}}
+		seed := panel.Node{Variant: panel.NodeLeaf{Leaf: fullyPopulatedLeaf}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -368,7 +372,7 @@ func FuzzDecodeNode(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Node{Variant: v0.NodeSplit{Split: fullyPopulatedSplit}}
+		seed := panel.Node{Variant: panel.NodeSplit{Split: fullyPopulatedSplit}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -376,7 +380,7 @@ func FuzzDecodeNode(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Node
+		var decoded panel.Node
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -386,7 +390,7 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Node
+		var redecoded panel.Node
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -406,10 +410,10 @@ func FuzzDecodeNode(f *testing.F) {
 
 func FuzzDecodePanel(f *testing.F) {
 	{
-		seed := v0.Panel{
+		seed := panel.Panel{
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
-			Root: v0.Node{Variant: v0.NodeLeaf{Leaf: fullyPopulatedLeaf}},
+			Root: panel.Node{Variant: panel.NodeLeaf{Leaf: fullyPopulatedLeaf}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -418,10 +422,10 @@ func FuzzDecodePanel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Panel{
+		seed := panel.Panel{
 			Key:  uuid.Nil,
 			Name: "",
-			Root: v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
+			Root: panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: nil}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -430,7 +434,7 @@ func FuzzDecodePanel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Panel
+		var decoded panel.Panel
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -440,7 +444,7 @@ func FuzzDecodePanel(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Panel
+		var redecoded panel.Panel
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -468,11 +472,11 @@ func FuzzDecodeSplit(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Split{
+		seed := panel.Split{
 			Direction: spatial.Direction(""),
 			Size:      0,
-			First:     v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
-			Last:      v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: nil}}},
+			First:     panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: nil}}},
+			Last:      panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: nil}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -481,7 +485,7 @@ func FuzzDecodeSplit(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Split
+		var decoded panel.Split
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -491,7 +495,7 @@ func FuzzDecodeSplit(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Split
+		var redecoded panel.Split
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -511,7 +515,7 @@ func FuzzDecodeSplit(f *testing.F) {
 
 func FuzzDecodeTab(f *testing.F) {
 	{
-		seed := v0.Tab{Variant: v0.TabResource{
+		seed := panel.Tab{Variant: panel.TabResource{
 			TabBase:  fullyPopulatedTabBase,
 			Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
 		}}
@@ -522,7 +526,7 @@ func FuzzDecodeTab(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Tab{Variant: v0.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}
+		seed := panel.Tab{Variant: panel.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -530,7 +534,7 @@ func FuzzDecodeTab(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Tab{Variant: v0.TabEmpty{TabBase: fullyPopulatedTabBase}}
+		seed := panel.Tab{Variant: panel.TabEmpty{TabBase: fullyPopulatedTabBase}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -538,7 +542,7 @@ func FuzzDecodeTab(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Tab
+		var decoded panel.Tab
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -548,7 +552,7 @@ func FuzzDecodeTab(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Tab
+		var redecoded panel.Tab
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -576,7 +580,7 @@ func FuzzDecodeTabBase(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.TabBase{Key: uuid.Nil}
+		seed := panel.TabBase{Key: uuid.Nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -584,7 +588,7 @@ func FuzzDecodeTabBase(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.TabBase
+		var decoded panel.TabBase
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -594,7 +598,7 @@ func FuzzDecodeTabBase(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.TabBase
+		var redecoded panel.TabBase
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -622,7 +626,7 @@ func FuzzDecodeView(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.View{
+		seed := panel.View{
 			Type: "",
 			Name: "",
 			Args: nil,
@@ -634,7 +638,7 @@ func FuzzDecodeView(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.View
+		var decoded panel.View
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -644,7 +648,7 @@ func FuzzDecodeView(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.View
+		var redecoded panel.View
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

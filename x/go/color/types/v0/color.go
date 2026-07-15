@@ -33,9 +33,6 @@ func (c Color) Hex() string {
 	return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, alphaByte)
 }
 
-// fromHex parses the hex color strings this version's decode methods accept.
-// Kept package-local so the frozen decode path never depends on the evolving
-// public constructors at the package root.
 func fromHex(s string) (Color, error) {
 	s = strings.TrimPrefix(s, "#")
 	var r, g, b, a uint8

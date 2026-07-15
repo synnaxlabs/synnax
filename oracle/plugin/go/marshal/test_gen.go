@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/typemap"
+	"github.com/synnaxlabs/oracle/plugin/go/keywords"
 	"github.com/synnaxlabs/oracle/plugin/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -29,6 +30,8 @@ import (
 type testFileOutput struct {
 	Package        string
 	PkgImport      string
+	PkgAlias       string
+	PkgRef         string
 	ExtraImports   map[string]string
 	NeedsUUID      bool
 	SharedFixtures []sharedFixture
@@ -80,10 +83,22 @@ func generateTestCodecFile(
 	if err != nil {
 		return nil, err
 	}
+	// A version-laid-out package is imported under its resource name ("spatial",
+	// not "v0"). A resource itself named "types" keeps the version name so it
+	// cannot collide with root imports of that resource.
+	resource := filepath.Base(filepath.Dir(filepath.Dir(parentPath)))
+	pkgRef := packageName
+	if filepath.Base(filepath.Dir(parentPath)) == "types" && resource != "types" {
+		pkgRef = keywords.Escape(resource)
+	}
 	fo := testFileOutput{
 		Package:      packageName,
 		PkgImport:    pkgImport,
 		ExtraImports: make(map[string]string),
+	}
+	fo.PkgRef = pkgRef
+	if pkgRef != packageName {
+		fo.PkgAlias = pkgRef
 	}
 
 	sharedVars := make(map[string]string)
@@ -106,7 +121,7 @@ func generateTestCodecFile(
 			packageName: packageName,
 			parentPath:  parentPath,
 			imports:     fo.ExtraImports,
-			pkgPrefix:   packageName + ".",
+			pkgPrefix:   pkgRef + ".",
 			mode:        modeFullyPopulated,
 		}
 		expr, err := b.valueExpr(typ, ref)
@@ -178,7 +193,7 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
-					pkgPrefix:   packageName + ".",
+					pkgPrefix:   pkgRef + ".",
 					mode:        modeFullyPopulated,
 					sharedVars:  sharedVars,
 				}
@@ -251,7 +266,7 @@ func generateTestCodecFile(
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
 					sharedVars:  sharedVars,
-					pkgPrefix:   packageName + ".",
+					pkgPrefix:   pkgRef + ".",
 					mode:        m.mode,
 				}
 
@@ -318,7 +333,7 @@ func generateTestCodecFile(
 					packageName: packageName,
 					parentPath:  parentPath,
 					imports:     fo.ExtraImports,
-					pkgPrefix:   packageName + ".",
+					pkgPrefix:   pkgRef + ".",
 					mode:        m.mode,
 					sharedVars:  sharedVars,
 				}
@@ -1045,7 +1060,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"{{.PkgImport}}"
+	{{if .PkgAlias}}{{.PkgAlias}} {{end}}"{{.PkgImport}}"
 {{- range sortedImports .ExtraImports}}
 	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
@@ -1063,10 +1078,10 @@ var _ = Describe("Codec", func() {
 {{- range .Tests}}
 	Describe("{{.GoName}}", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original {{$.Package}}.{{.GoName}}) {
+			func(original {{$.PkgRef}}.{{.GoName}}) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded {{$.Package}}.{{.GoName}}
+				var decoded {{$.PkgRef}}.{{.GoName}}
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
@@ -1081,10 +1096,10 @@ var _ = Describe("Codec", func() {
 {{- range .GenericTests}}
 	Describe("{{.GoName}}", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]) {
+			func(original {{$.PkgRef}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
+				var decoded {{$.PkgRef}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
@@ -1099,15 +1114,15 @@ var _ = Describe("Codec", func() {
 })
 {{range .GenericTests}}
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
-	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
+	seed := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
+		var decoded {{$.PkgRef}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1130,7 +1145,7 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 	}
 	{{- end}}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
+		var decoded {{$.PkgRef}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1140,7 +1155,7 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded {{$.Package}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
+		var redecoded {{$.PkgRef}}.{{.GoName}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{concreteGoType $tp.Constraint}}{{end}}]
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1159,15 +1174,15 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 }
 {{end}}{{range .Tests}}
 func BenchmarkEncodeDecode{{.GoName}}(b *testing.B) {
-	{{.Receiver}} := {{(index .Cases 0).ValueExpr}}
+	seed := {{(index .Cases 0).ValueExpr}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := {{.Receiver}}.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded {{$.Package}}.{{.GoName}}
+		var decoded {{$.PkgRef}}.{{.GoName}}
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1188,7 +1203,7 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 	}
 	{{- end}}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded {{$.Package}}.{{.GoName}}
+		var decoded {{$.PkgRef}}.{{.GoName}}
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1198,7 +1213,7 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded {{$.Package}}.{{.GoName}}
+		var redecoded {{$.PkgRef}}.{{.GoName}}
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

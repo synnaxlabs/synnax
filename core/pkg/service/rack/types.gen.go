@@ -11,22 +11,22 @@
 
 package rack
 
-import "github.com/synnaxlabs/synnax/pkg/service/rack/types"
+import rack "github.com/synnaxlabs/synnax/pkg/service/rack/types"
 
 // Key is a composite identifier for a rack. The high 16 bits contain the core node key,
 // and the low 16 bits contain the local sequential key. Racks are leased to specific
 // nodes because task configuration signals are passed through gossip operations, which
 // can take 15s+ to propagate through a large cluster. This structure minimizes hops and
 // configuration latency.
-type Key = types.Key
+type Key = rack.Key
 
 // Status is rack-specific status information including operational state.
-type Status = types.Status
+type Status = rack.Status
 
 // StatusDetails contains rack-specific status details.
-type StatusDetails = types.StatusDetails
+type StatusDetails = rack.StatusDetails
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // cluster node. Racks serve as the integration point between the Synnax server and
 // physical hardware via the Driver system.
-type Rack = types.Rack
+type Rack = rack.Rack

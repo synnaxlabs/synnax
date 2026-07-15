@@ -18,7 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/v1"
+	schematic "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
@@ -27,59 +27,59 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Edge", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Edge) {
+			func(original schematic.Edge) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Edge
+				var decoded schematic.Edge
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Edge{
+			Entry("fully populated", schematic.Edge{
 				Key:    "test_1",
-				Source: v1.Handle{Node: "test_3", Param: "test_4"},
-				Target: v1.Handle{Node: "test_6", Param: "test_7"},
+				Source: schematic.Handle{Node: "test_3", Param: "test_4"},
+				Target: schematic.Handle{Node: "test_6", Param: "test_7"},
 			}),
-			Entry("zero values", v1.Edge{
+			Entry("zero values", schematic.Edge{
 				Key:    "",
-				Source: v1.Handle{Node: "", Param: ""},
-				Target: v1.Handle{Node: "", Param: ""},
+				Source: schematic.Handle{Node: "", Param: ""},
+				Target: schematic.Handle{Node: "", Param: ""},
 			}),
 		)
 	})
 	Describe("Handle", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Handle) {
+			func(original schematic.Handle) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Handle
+				var decoded schematic.Handle
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Handle{Node: "test_1", Param: "test_2"}),
-			Entry("zero values", v1.Handle{Node: "", Param: ""}),
+			Entry("fully populated", schematic.Handle{Node: "test_1", Param: "test_2"}),
+			Entry("zero values", schematic.Handle{Node: "", Param: ""}),
 		)
 	})
 	Describe("Node", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Node) {
+			func(original schematic.Node) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Node
+				var decoded schematic.Node
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Node{
+			Entry("fully populated", schematic.Node{
 				Key:      "test_1",
 				Position: spatial.XY{X: 3.5, Y: 4.5},
 				ZIndex:   6,
 			}),
-			Entry("zero values", v1.Node{
+			Entry("zero values", schematic.Node{
 				Key:      "",
 				Position: spatial.XY{X: 0, Y: 0},
 				ZIndex:   0,
@@ -88,36 +88,36 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Schematic", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Schematic) {
+			func(original schematic.Schematic) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Schematic
+				var decoded schematic.Schematic
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Schematic{
+			Entry("fully populated", schematic.Schematic{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
 				Snapshot: true,
-				Nodes: []v1.Node{
+				Nodes: []schematic.Node{
 					{
 						Key:      "test_5",
 						Position: spatial.XY{X: 7.5, Y: 8.5},
 						ZIndex:   10,
 					},
 				},
-				Edges: []v1.Edge{
+				Edges: []schematic.Edge{
 					{
 						Key:    "test_11",
-						Source: v1.Handle{Node: "test_13", Param: "test_14"},
-						Target: v1.Handle{Node: "test_16", Param: "test_17"},
+						Source: schematic.Handle{Node: "test_13", Param: "test_14"},
+						Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 					},
 				},
 				Configs: map[string]msgpack.EncodedJSON{"test_18": {"key_18": "value_18"}},
 			}),
-			Entry("zero values", v1.Schematic{
+			Entry("zero values", schematic.Schematic{
 				Key:      uuid.Nil,
 				Name:     "",
 				Snapshot: false,
@@ -125,12 +125,12 @@ var _ = Describe("Codec", func() {
 				Edges:    nil,
 				Configs:  nil,
 			}),
-			Entry("empty collections", v1.Schematic{
+			Entry("empty collections", schematic.Schematic{
 				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:     "test_2",
 				Snapshot: true,
-				Nodes:    []v1.Node{},
-				Edges:    []v1.Edge{},
+				Nodes:    []schematic.Node{},
+				Edges:    []schematic.Edge{},
 				Configs:  map[string]msgpack.EncodedJSON{},
 			}),
 		)
@@ -138,19 +138,19 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
-	e := v1.Edge{
+	seed := schematic.Edge{
 		Key:    "test_1",
-		Source: v1.Handle{Node: "test_3", Param: "test_4"},
-		Target: v1.Handle{Node: "test_6", Param: "test_7"},
+		Source: schematic.Handle{Node: "test_3", Param: "test_4"},
+		Target: schematic.Handle{Node: "test_6", Param: "test_7"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := e.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Edge
+		var decoded schematic.Edge
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -159,15 +159,15 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeHandle(b *testing.B) {
-	h := v1.Handle{Node: "test_1", Param: "test_2"}
+	seed := schematic.Handle{Node: "test_1", Param: "test_2"}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := h.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Handle
+		var decoded schematic.Handle
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -176,7 +176,7 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeNode(b *testing.B) {
-	nv := v1.Node{
+	seed := schematic.Node{
 		Key:      "test_1",
 		Position: spatial.XY{X: 3.5, Y: 4.5},
 		ZIndex:   6,
@@ -185,10 +185,10 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := nv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Node
+		var decoded schematic.Node
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -197,22 +197,22 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeSchematic(b *testing.B) {
-	s := v1.Schematic{
+	seed := schematic.Schematic{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:     "test_2",
 		Snapshot: true,
-		Nodes: []v1.Node{
+		Nodes: []schematic.Node{
 			{
 				Key:      "test_5",
 				Position: spatial.XY{X: 7.5, Y: 8.5},
 				ZIndex:   10,
 			},
 		},
-		Edges: []v1.Edge{
+		Edges: []schematic.Edge{
 			{
 				Key:    "test_11",
-				Source: v1.Handle{Node: "test_13", Param: "test_14"},
-				Target: v1.Handle{Node: "test_16", Param: "test_17"},
+				Source: schematic.Handle{Node: "test_13", Param: "test_14"},
+				Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 			},
 		},
 		Configs: map[string]msgpack.EncodedJSON{"test_18": {"key_18": "value_18"}},
@@ -221,10 +221,10 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := s.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Schematic
+		var decoded schematic.Schematic
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -234,10 +234,10 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 
 func FuzzDecodeEdge(f *testing.F) {
 	{
-		seed := v1.Edge{
+		seed := schematic.Edge{
 			Key:    "test_1",
-			Source: v1.Handle{Node: "test_3", Param: "test_4"},
-			Target: v1.Handle{Node: "test_6", Param: "test_7"},
+			Source: schematic.Handle{Node: "test_3", Param: "test_4"},
+			Target: schematic.Handle{Node: "test_6", Param: "test_7"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -246,10 +246,10 @@ func FuzzDecodeEdge(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Edge{
+		seed := schematic.Edge{
 			Key:    "",
-			Source: v1.Handle{Node: "", Param: ""},
-			Target: v1.Handle{Node: "", Param: ""},
+			Source: schematic.Handle{Node: "", Param: ""},
+			Target: schematic.Handle{Node: "", Param: ""},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -258,7 +258,7 @@ func FuzzDecodeEdge(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Edge
+		var decoded schematic.Edge
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -268,7 +268,7 @@ func FuzzDecodeEdge(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Edge
+		var redecoded schematic.Edge
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -288,7 +288,7 @@ func FuzzDecodeEdge(f *testing.F) {
 
 func FuzzDecodeHandle(f *testing.F) {
 	{
-		seed := v1.Handle{Node: "test_1", Param: "test_2"}
+		seed := schematic.Handle{Node: "test_1", Param: "test_2"}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -296,7 +296,7 @@ func FuzzDecodeHandle(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Handle{Node: "", Param: ""}
+		seed := schematic.Handle{Node: "", Param: ""}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -304,7 +304,7 @@ func FuzzDecodeHandle(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Handle
+		var decoded schematic.Handle
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -314,7 +314,7 @@ func FuzzDecodeHandle(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Handle
+		var redecoded schematic.Handle
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -334,7 +334,7 @@ func FuzzDecodeHandle(f *testing.F) {
 
 func FuzzDecodeNode(f *testing.F) {
 	{
-		seed := v1.Node{
+		seed := schematic.Node{
 			Key:      "test_1",
 			Position: spatial.XY{X: 3.5, Y: 4.5},
 			ZIndex:   6,
@@ -346,7 +346,7 @@ func FuzzDecodeNode(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Node{
+		seed := schematic.Node{
 			Key:      "",
 			Position: spatial.XY{X: 0, Y: 0},
 			ZIndex:   0,
@@ -358,7 +358,7 @@ func FuzzDecodeNode(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Node
+		var decoded schematic.Node
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -368,7 +368,7 @@ func FuzzDecodeNode(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Node
+		var redecoded schematic.Node
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -388,22 +388,22 @@ func FuzzDecodeNode(f *testing.F) {
 
 func FuzzDecodeSchematic(f *testing.F) {
 	{
-		seed := v1.Schematic{
+		seed := schematic.Schematic{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
 			Snapshot: true,
-			Nodes: []v1.Node{
+			Nodes: []schematic.Node{
 				{
 					Key:      "test_5",
 					Position: spatial.XY{X: 7.5, Y: 8.5},
 					ZIndex:   10,
 				},
 			},
-			Edges: []v1.Edge{
+			Edges: []schematic.Edge{
 				{
 					Key:    "test_11",
-					Source: v1.Handle{Node: "test_13", Param: "test_14"},
-					Target: v1.Handle{Node: "test_16", Param: "test_17"},
+					Source: schematic.Handle{Node: "test_13", Param: "test_14"},
+					Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 				},
 			},
 			Configs: map[string]msgpack.EncodedJSON{"test_18": {"key_18": "value_18"}},
@@ -415,7 +415,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Schematic{
+		seed := schematic.Schematic{
 			Key:      uuid.Nil,
 			Name:     "",
 			Snapshot: false,
@@ -430,12 +430,12 @@ func FuzzDecodeSchematic(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Schematic{
+		seed := schematic.Schematic{
 			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:     "test_2",
 			Snapshot: true,
-			Nodes:    []v1.Node{},
-			Edges:    []v1.Edge{},
+			Nodes:    []schematic.Node{},
+			Edges:    []schematic.Edge{},
 			Configs:  map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
@@ -445,7 +445,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Schematic
+		var decoded schematic.Schematic
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -455,7 +455,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Schematic
+		var redecoded schematic.Schematic
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

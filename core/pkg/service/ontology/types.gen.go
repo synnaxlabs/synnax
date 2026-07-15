@@ -11,10 +11,10 @@
 
 package ontology
 
-import "github.com/synnaxlabs/synnax/pkg/service/ontology/types"
+import ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types"
 
 // ResourceType is the type of the resource.
-type ResourceType = types.ResourceType
+type ResourceType = ontology.ResourceType
 
 // ID ID is a unique identifier for a Resource. An example:
 //
@@ -24,31 +24,31 @@ type ResourceType = types.ResourceType
 // service to query for additional info on the Resource. Second, while a Key may be
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
-type ID = types.ID
+type ID = ontology.ID
 
 const (
-	ResourceTypeArc             ResourceType = types.ResourceTypeArc
-	ResourceTypeBuiltin         ResourceType = types.ResourceTypeBuiltin
-	ResourceTypeChannel         ResourceType = types.ResourceTypeChannel
-	ResourceTypeDevice          ResourceType = types.ResourceTypeDevice
-	ResourceTypeFramer          ResourceType = types.ResourceTypeFramer
-	ResourceTypeGroup           ResourceType = types.ResourceTypeGroup
-	ResourceTypeLabel           ResourceType = types.ResourceTypeLabel
-	ResourceTypeLineplot        ResourceType = types.ResourceTypeLineplot
-	ResourceTypeLog             ResourceType = types.ResourceTypeLog
-	ResourceTypeNode            ResourceType = types.ResourceTypeNode
-	ResourceTypePanel           ResourceType = types.ResourceTypePanel
-	ResourceTypePolicy          ResourceType = types.ResourceTypePolicy
-	ResourceTypeProject         ResourceType = types.ResourceTypeProject
-	ResourceTypeRack            ResourceType = types.ResourceTypeRack
-	ResourceTypeRange           ResourceType = types.ResourceTypeRange
-	ResourceTypeRangeAlias      ResourceType = types.ResourceTypeRangeAlias
-	ResourceTypeRole            ResourceType = types.ResourceTypeRole
-	ResourceTypeSchematic       ResourceType = types.ResourceTypeSchematic
-	ResourceTypeSchematicSymbol ResourceType = types.ResourceTypeSchematicSymbol
-	ResourceTypeStatus          ResourceType = types.ResourceTypeStatus
-	ResourceTypeTable           ResourceType = types.ResourceTypeTable
-	ResourceTypeTask            ResourceType = types.ResourceTypeTask
-	ResourceTypeUser            ResourceType = types.ResourceTypeUser
-	ResourceTypeView            ResourceType = types.ResourceTypeView
+	ResourceTypeArc             ResourceType = ontology.ResourceTypeArc
+	ResourceTypeBuiltin         ResourceType = ontology.ResourceTypeBuiltin
+	ResourceTypeChannel         ResourceType = ontology.ResourceTypeChannel
+	ResourceTypeDevice          ResourceType = ontology.ResourceTypeDevice
+	ResourceTypeFramer          ResourceType = ontology.ResourceTypeFramer
+	ResourceTypeGroup           ResourceType = ontology.ResourceTypeGroup
+	ResourceTypeLabel           ResourceType = ontology.ResourceTypeLabel
+	ResourceTypeLineplot        ResourceType = ontology.ResourceTypeLineplot
+	ResourceTypeLog             ResourceType = ontology.ResourceTypeLog
+	ResourceTypeNode            ResourceType = ontology.ResourceTypeNode
+	ResourceTypePanel           ResourceType = ontology.ResourceTypePanel
+	ResourceTypePolicy          ResourceType = ontology.ResourceTypePolicy
+	ResourceTypeProject         ResourceType = ontology.ResourceTypeProject
+	ResourceTypeRack            ResourceType = ontology.ResourceTypeRack
+	ResourceTypeRange           ResourceType = ontology.ResourceTypeRange
+	ResourceTypeRangeAlias      ResourceType = ontology.ResourceTypeRangeAlias
+	ResourceTypeRole            ResourceType = ontology.ResourceTypeRole
+	ResourceTypeSchematic       ResourceType = ontology.ResourceTypeSchematic
+	ResourceTypeSchematicSymbol ResourceType = ontology.ResourceTypeSchematicSymbol
+	ResourceTypeStatus          ResourceType = ontology.ResourceTypeStatus
+	ResourceTypeTable           ResourceType = ontology.ResourceTypeTable
+	ResourceTypeTask            ResourceType = ontology.ResourceTypeTask
+	ResourceTypeUser            ResourceType = ontology.ResourceTypeUser
+	ResourceTypeView            ResourceType = ontology.ResourceTypeView
 )

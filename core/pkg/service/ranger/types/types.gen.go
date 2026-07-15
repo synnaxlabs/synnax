@@ -11,11 +11,11 @@
 
 package types
 
-import "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
+import ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
 
 // Key is a unique identifier for a range, represented as a UUID.
-type Key = v1.Key
+type Key = ranger.Key
 
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
-type Range = v1.Range
+type Range = ranger.Range

@@ -17,7 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/types/v1"
 )
@@ -25,37 +25,37 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Status", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v2.Status[string]) {
+			func(original status.Status[string]) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.Status[string]
+				var decoded status.Status[string]
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v2.Status[string]{
+			Entry("fully populated", status.Status[string]{
 				Key:         "test_1",
 				Name:        "test_2",
-				Variant:     v2.Variant("success"),
+				Variant:     status.Variant("success"),
 				Message:     "test_4",
 				Description: "test_5",
 				Time:        telem.TimeStamp(7),
 				Details:     "test_7",
 			}),
-			Entry("zero values", v2.Status[string]{
+			Entry("zero values", status.Status[string]{
 				Key:         "",
 				Name:        "",
-				Variant:     v2.Variant(""),
+				Variant:     status.Variant(""),
 				Message:     "",
 				Description: "",
 				Time:        telem.TimeStamp(0),
 				Details:     "",
 			}),
-			Entry("empty collections", v2.Status[string]{
+			Entry("empty collections", status.Status[string]{
 				Key:         "test_1",
 				Name:        "test_2",
-				Variant:     v2.Variant("success"),
+				Variant:     status.Variant("success"),
 				Message:     "test_4",
 				Description: "test_5",
 				Time:        telem.TimeStamp(7),
@@ -66,10 +66,10 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeStatus(b *testing.B) {
-	s := v2.Status[string]{
+	seed := status.Status[string]{
 		Key:         "test_1",
 		Name:        "test_2",
-		Variant:     v2.Variant("success"),
+		Variant:     status.Variant("success"),
 		Message:     "test_4",
 		Description: "test_5",
 		Time:        telem.TimeStamp(7),
@@ -79,10 +79,10 @@ func BenchmarkEncodeDecodeStatus(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := s.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v2.Status[string]
+		var decoded status.Status[string]
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -92,10 +92,10 @@ func BenchmarkEncodeDecodeStatus(b *testing.B) {
 
 func FuzzDecodeStatus(f *testing.F) {
 	{
-		seed := v2.Status[string]{
+		seed := status.Status[string]{
 			Key:         "test_1",
 			Name:        "test_2",
-			Variant:     v2.Variant("success"),
+			Variant:     status.Variant("success"),
 			Message:     "test_4",
 			Description: "test_5",
 			Time:        telem.TimeStamp(7),
@@ -108,10 +108,10 @@ func FuzzDecodeStatus(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Status[string]{
+		seed := status.Status[string]{
 			Key:         "",
 			Name:        "",
-			Variant:     v2.Variant(""),
+			Variant:     status.Variant(""),
 			Message:     "",
 			Description: "",
 			Time:        telem.TimeStamp(0),
@@ -124,10 +124,10 @@ func FuzzDecodeStatus(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Status[string]{
+		seed := status.Status[string]{
 			Key:         "test_1",
 			Name:        "test_2",
-			Variant:     v2.Variant("success"),
+			Variant:     status.Variant("success"),
 			Message:     "test_4",
 			Description: "test_5",
 			Time:        telem.TimeStamp(7),
@@ -140,7 +140,7 @@ func FuzzDecodeStatus(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.Status[string]
+		var decoded status.Status[string]
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -150,7 +150,7 @@ func FuzzDecodeStatus(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v2.Status[string]
+		var redecoded status.Status[string]
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

@@ -18,33 +18,33 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/group/types/v0"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Group", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Group) {
+			func(original group.Group) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Group
+				var decoded group.Group
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.Group{
+			Entry("fully populated", group.Group{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
 			}),
-			Entry("zero values", v0.Group{Key: uuid.Nil, Name: ""}),
+			Entry("zero values", group.Group{Key: uuid.Nil, Name: ""}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeGroup(b *testing.B) {
-	g := v0.Group{
+	seed := group.Group{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
 	}
@@ -52,10 +52,10 @@ func BenchmarkEncodeDecodeGroup(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := g.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Group
+		var decoded group.Group
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -65,7 +65,7 @@ func BenchmarkEncodeDecodeGroup(b *testing.B) {
 
 func FuzzDecodeGroup(f *testing.F) {
 	{
-		seed := v0.Group{
+		seed := group.Group{
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
 		}
@@ -76,7 +76,7 @@ func FuzzDecodeGroup(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Group{Key: uuid.Nil, Name: ""}
+		seed := group.Group{Key: uuid.Nil, Name: ""}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -84,7 +84,7 @@ func FuzzDecodeGroup(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Group
+		var decoded group.Group
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -94,7 +94,7 @@ func FuzzDecodeGroup(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Group
+		var redecoded group.Group
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

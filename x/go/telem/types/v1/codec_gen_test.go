@@ -18,37 +18,37 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v1"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("TimeRange", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.TimeRange) {
+			func(original telem.TimeRange) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.TimeRange
+				var decoded telem.TimeRange
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.TimeRange{Start: v1.TimeStamp(2), End: v1.TimeStamp(3)}),
-			Entry("zero values", v1.TimeRange{Start: v1.TimeStamp(0), End: v1.TimeStamp(0)}),
+			Entry("fully populated", telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}),
+			Entry("zero values", telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
-	tr := v1.TimeRange{Start: v1.TimeStamp(2), End: v1.TimeStamp(3)}
+	seed := telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := tr.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.TimeRange
+		var decoded telem.TimeRange
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -58,7 +58,7 @@ func BenchmarkEncodeDecodeTimeRange(b *testing.B) {
 
 func FuzzDecodeTimeRange(f *testing.F) {
 	{
-		seed := v1.TimeRange{Start: v1.TimeStamp(2), End: v1.TimeStamp(3)}
+		seed := telem.TimeRange{Start: telem.TimeStamp(2), End: telem.TimeStamp(3)}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -66,7 +66,7 @@ func FuzzDecodeTimeRange(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.TimeRange{Start: v1.TimeStamp(0), End: v1.TimeStamp(0)}
+		seed := telem.TimeRange{Start: telem.TimeStamp(0), End: telem.TimeStamp(0)}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -74,7 +74,7 @@ func FuzzDecodeTimeRange(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.TimeRange
+		var decoded telem.TimeRange
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -84,7 +84,7 @@ func FuzzDecodeTimeRange(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.TimeRange
+		var redecoded telem.TimeRange
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

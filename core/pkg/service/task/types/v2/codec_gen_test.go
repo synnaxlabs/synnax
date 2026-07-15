@@ -17,29 +17,29 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("StatusDetails", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v2.StatusDetails) {
+			func(original task.StatusDetails) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.StatusDetails
+				var decoded task.StatusDetails
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v2.StatusDetails{
-				Task:    v2.Key(2),
+			Entry("fully populated", task.StatusDetails{
+				Task:    task.Key(2),
 				Running: false,
 				Cmd:     "test_3",
 			}),
-			Entry("zero values", v2.StatusDetails{
-				Task:    v2.Key(0),
+			Entry("zero values", task.StatusDetails{
+				Task:    task.Key(0),
 				Running: false,
 				Cmd:     "",
 			}),
@@ -47,23 +47,23 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Task", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v2.Task) {
+			func(original task.Task) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v2.Task
+				var decoded task.Task
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v2.Task{
-				Key:      v2.Key(2),
+			Entry("fully populated", task.Task{
+				Key:      task.Key(2),
 				Name:     "test_2",
 				Internal: true,
 				Snapshot: false,
 			}),
-			Entry("zero values", v2.Task{
-				Key:      v2.Key(0),
+			Entry("zero values", task.Task{
+				Key:      task.Key(0),
 				Name:     "",
 				Internal: false,
 				Snapshot: false,
@@ -73,8 +73,8 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
-	sd := v2.StatusDetails{
-		Task:    v2.Key(2),
+	seed := task.StatusDetails{
+		Task:    task.Key(2),
 		Running: false,
 		Cmd:     "test_3",
 	}
@@ -82,10 +82,10 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := sd.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v2.StatusDetails
+		var decoded task.StatusDetails
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -94,8 +94,8 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTask(b *testing.B) {
-	t := v2.Task{
-		Key:      v2.Key(2),
+	seed := task.Task{
+		Key:      task.Key(2),
 		Name:     "test_2",
 		Internal: true,
 		Snapshot: false,
@@ -104,10 +104,10 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := t.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v2.Task
+		var decoded task.Task
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -117,8 +117,8 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 
 func FuzzDecodeStatusDetails(f *testing.F) {
 	{
-		seed := v2.StatusDetails{
-			Task:    v2.Key(2),
+		seed := task.StatusDetails{
+			Task:    task.Key(2),
 			Running: false,
 			Cmd:     "test_3",
 		}
@@ -129,8 +129,8 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.StatusDetails{
-			Task:    v2.Key(0),
+		seed := task.StatusDetails{
+			Task:    task.Key(0),
 			Running: false,
 			Cmd:     "",
 		}
@@ -141,7 +141,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.StatusDetails
+		var decoded task.StatusDetails
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -151,7 +151,7 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v2.StatusDetails
+		var redecoded task.StatusDetails
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -171,8 +171,8 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 
 func FuzzDecodeTask(f *testing.F) {
 	{
-		seed := v2.Task{
-			Key:      v2.Key(2),
+		seed := task.Task{
+			Key:      task.Key(2),
 			Name:     "test_2",
 			Internal: true,
 			Snapshot: false,
@@ -184,8 +184,8 @@ func FuzzDecodeTask(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.Task{
-			Key:      v2.Key(0),
+		seed := task.Task{
+			Key:      task.Key(0),
 			Name:     "",
 			Internal: false,
 			Snapshot: false,
@@ -197,7 +197,7 @@ func FuzzDecodeTask(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v2.Task
+		var decoded task.Task
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -207,7 +207,7 @@ func FuzzDecodeTask(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v2.Task
+		var redecoded task.Task
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

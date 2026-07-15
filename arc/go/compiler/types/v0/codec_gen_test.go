@@ -17,34 +17,34 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/compiler/types/v0"
+	compiler "github.com/synnaxlabs/arc/compiler/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("Output", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Output) {
+			func(original compiler.Output) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Output
+				var decoded compiler.Output
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.Output{
+			Entry("fully populated", compiler.Output{
 				WASM:              []byte{1, 2, 3},
 				OutputMemoryBases: map[string]uint32{"test_2": 3},
 			}),
-			Entry("zero values", v0.Output{WASM: nil, OutputMemoryBases: nil}),
-			Entry("empty collections", v0.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{}}),
+			Entry("zero values", compiler.Output{WASM: nil, OutputMemoryBases: nil}),
+			Entry("empty collections", compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{}}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeOutput(b *testing.B) {
-	o := v0.Output{
+	seed := compiler.Output{
 		WASM:              []byte{1, 2, 3},
 		OutputMemoryBases: map[string]uint32{"test_2": 3},
 	}
@@ -52,10 +52,10 @@ func BenchmarkEncodeDecodeOutput(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := o.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Output
+		var decoded compiler.Output
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -65,7 +65,7 @@ func BenchmarkEncodeDecodeOutput(b *testing.B) {
 
 func FuzzDecodeOutput(f *testing.F) {
 	{
-		seed := v0.Output{
+		seed := compiler.Output{
 			WASM:              []byte{1, 2, 3},
 			OutputMemoryBases: map[string]uint32{"test_2": 3},
 		}
@@ -76,7 +76,7 @@ func FuzzDecodeOutput(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Output{WASM: nil, OutputMemoryBases: nil}
+		seed := compiler.Output{WASM: nil, OutputMemoryBases: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -84,7 +84,7 @@ func FuzzDecodeOutput(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{}}
+		seed := compiler.Output{WASM: []byte{1, 2, 3}, OutputMemoryBases: map[string]uint32{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -92,7 +92,7 @@ func FuzzDecodeOutput(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Output
+		var decoded compiler.Output
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -102,7 +102,7 @@ func FuzzDecodeOutput(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Output
+		var redecoded compiler.Output
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

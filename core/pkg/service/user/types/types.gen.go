@@ -11,11 +11,11 @@
 
 package types
 
-import "github.com/synnaxlabs/synnax/pkg/service/user/types/v0"
+import user "github.com/synnaxlabs/synnax/pkg/service/user/types/v0"
 
 // Key is a unique identifier for a user, represented as a UUID.
-type Key = v0.Key
+type Key = user.Key
 
 // User is an account entity representing a person accessing the Synnax system. Users
 // can have roles assigned for permission management.
-type User = v0.User
+type User = user.User

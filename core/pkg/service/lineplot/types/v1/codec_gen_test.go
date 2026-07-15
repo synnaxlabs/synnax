@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
+	lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
@@ -29,135 +29,135 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Axes", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Axes) {
+			func(original lineplot.Axes) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Axes
+				var decoded lineplot.Axes
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Axes{
-				X1: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+			Entry("fully populated", lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_3",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    10.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				X2: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_14",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    21.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y1: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_25",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    32.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y2: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_36",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    43.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y3: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_47",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    54.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y4: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_58",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    65.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
 			}),
-			Entry("zero values", v1.Axes{
-				X1: v1.Axis{
-					Key:            v1.AxisKey(""),
+			Entry("zero values", lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				X2: v1.Axis{
-					Key:            v1.AxisKey(""),
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				Y1: v1.Axis{
-					Key:            v1.AxisKey(""),
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				Y2: v1.Axis{
-					Key:            v1.AxisKey(""),
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				Y3: v1.Axis{
-					Key:            v1.AxisKey(""),
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				Y4: v1.Axis{
-					Key:            v1.AxisKey(""),
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -166,32 +166,32 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Axis", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Axis) {
+			func(original lineplot.Axis) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Axis
+				var decoded lineplot.Axis
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Entry("fully populated", lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_2",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    9.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			}),
-			Entry("zero values", v1.Axis{
-				Key:            v1.AxisKey(""),
+			Entry("zero values", lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
 				Label:          "",
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			}),
@@ -199,16 +199,16 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Channels", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Channels) {
+			func(original lineplot.Channels) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Channels
+				var decoded lineplot.Channels
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Channels{
+			Entry("fully populated", lineplot.Channels{
 				X1: channel.Key(2),
 				X2: channel.Key(3),
 				Y1: []channel.Key{channel.Key(4)},
@@ -216,7 +216,7 @@ var _ = Describe("Codec", func() {
 				Y3: []channel.Key{channel.Key(6)},
 				Y4: []channel.Key{channel.Key(7)},
 			}),
-			Entry("zero values", v1.Channels{
+			Entry("zero values", lineplot.Channels{
 				X1: channel.Key(0),
 				X2: channel.Key(0),
 				Y1: nil,
@@ -224,7 +224,7 @@ var _ = Describe("Codec", func() {
 				Y3: nil,
 				Y4: nil,
 			}),
-			Entry("empty collections", v1.Channels{
+			Entry("empty collections", lineplot.Channels{
 				X1: channel.Key(2),
 				X2: channel.Key(3),
 				Y1: []channel.Key{},
@@ -236,16 +236,16 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Legend", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Legend) {
+			func(original lineplot.Legend) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Legend
+				var decoded lineplot.Legend
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Legend{
+			Entry("fully populated", lineplot.Legend{
 				Hidden: true,
 				Position: spatial.StickyXY{
 					X: 3.5,
@@ -257,7 +257,7 @@ var _ = Describe("Codec", func() {
 					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			}),
-			Entry("zero values", v1.Legend{
+			Entry("zero values", lineplot.Legend{
 				Hidden: false,
 				Position: spatial.StickyXY{
 					X:     0,
@@ -270,16 +270,16 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Line", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Line) {
+			func(original lineplot.Line) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Line
+				var decoded lineplot.Line
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Line{
+			Entry("fully populated", lineplot.Line{
 				Key:   "test_1",
 				Label: new(string("test_2")),
 				Color: new(color.Color{
@@ -290,34 +290,34 @@ var _ = Describe("Codec", func() {
 				}),
 				StrokeWidth:    8.5,
 				Downsample:     10,
-				DownsampleMode: v1.DownsampleMode("average"),
+				DownsampleMode: lineplot.DownsampleMode("average"),
 			}),
-			Entry("zero values", v1.Line{
+			Entry("zero values", lineplot.Line{
 				Key:            "",
 				Label:          nil,
 				Color:          nil,
 				StrokeWidth:    0,
 				Downsample:     0,
-				DownsampleMode: v1.DownsampleMode(""),
+				DownsampleMode: lineplot.DownsampleMode(""),
 			}),
 		)
 	})
 	Describe("LinePlot", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.LinePlot) {
+			func(original lineplot.LinePlot) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.LinePlot
+				var decoded lineplot.LinePlot
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.LinePlot{
+			Entry("fully populated", lineplot.LinePlot{
 				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:  "test_2",
-				Title: v1.Title{Level: text.Level("h1"), Visible: true},
-				Legend: v1.Legend{
+				Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
+				Legend: lineplot.Legend{
 					Hidden: true,
 					Position: spatial.StickyXY{
 						X: 9.5,
@@ -329,7 +329,7 @@ var _ = Describe("Codec", func() {
 						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 					},
 				},
-				Channels: v1.Channels{
+				Channels: lineplot.Channels{
 					X1: channel.Key(19),
 					X2: channel.Key(20),
 					Y1: []channel.Key{channel.Key(21)},
@@ -337,70 +337,70 @@ var _ = Describe("Codec", func() {
 					Y3: []channel.Key{channel.Key(23)},
 					Y4: []channel.Key{channel.Key(24)},
 				},
-				Ranges: v1.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
-				Axes: v1.Axes{
-					X1: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+				Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
+				Axes: lineplot.Axes{
+					X1: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_30",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    37.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					X2: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					X2: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_41",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    48.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					Y1: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					Y1: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_52",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    59.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					Y2: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					Y2: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_63",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    70.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					Y3: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					Y3: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_74",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    81.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					Y4: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					Y4: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_85",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    92.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
 				},
-				Lines: []v1.Line{
+				Lines: []lineplot.Line{
 					{
 						Key:   "test_95",
 						Label: new(string("test_96")),
@@ -412,10 +412,10 @@ var _ = Describe("Codec", func() {
 						}),
 						StrokeWidth:    102.5,
 						Downsample:     104,
-						DownsampleMode: v1.DownsampleMode("average"),
+						DownsampleMode: lineplot.DownsampleMode("average"),
 					},
 				},
-				Rules: []v1.Rule{
+				Rules: []lineplot.Rule{
 					{
 						Key:   "test_106",
 						Label: "test_107",
@@ -425,7 +425,7 @@ var _ = Describe("Codec", func() {
 							B: 112,
 							A: 112.5,
 						}),
-						Axis:      v1.AxisKey("x1"),
+						Axis:      lineplot.AxisKey("x1"),
 						LineWidth: 114.5,
 						LineDash:  115.5,
 						Units:     "test_116",
@@ -433,11 +433,11 @@ var _ = Describe("Codec", func() {
 					},
 				},
 			}),
-			Entry("zero values", v1.LinePlot{
+			Entry("zero values", lineplot.LinePlot{
 				Key:   uuid.Nil,
 				Name:  "",
-				Title: v1.Title{Level: text.Level(""), Visible: false},
-				Legend: v1.Legend{
+				Title: lineplot.Title{Level: text.Level(""), Visible: false},
+				Legend: lineplot.Legend{
 					Hidden: false,
 					Position: spatial.StickyXY{
 						X:     0,
@@ -446,7 +446,7 @@ var _ = Describe("Codec", func() {
 						Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 					},
 				},
-				Channels: v1.Channels{
+				Channels: lineplot.Channels{
 					X1: channel.Key(0),
 					X2: channel.Key(0),
 					Y1: nil,
@@ -454,65 +454,65 @@ var _ = Describe("Codec", func() {
 					Y3: nil,
 					Y4: nil,
 				},
-				Ranges: v1.Ranges{X1: nil, X2: nil},
-				Axes: v1.Axes{
-					X1: v1.Axis{
-						Key:            v1.AxisKey(""),
+				Ranges: lineplot.Ranges{X1: nil, X2: nil},
+				Axes: lineplot.Axes{
+					X1: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
 						Label:          "",
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
-					X2: v1.Axis{
-						Key:            v1.AxisKey(""),
+					X2: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
 						Label:          "",
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
-					Y1: v1.Axis{
-						Key:            v1.AxisKey(""),
+					Y1: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
 						Label:          "",
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
-					Y2: v1.Axis{
-						Key:            v1.AxisKey(""),
+					Y2: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
 						Label:          "",
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
-					Y3: v1.Axis{
-						Key:            v1.AxisKey(""),
+					Y3: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
 						Label:          "",
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
-					Y4: v1.Axis{
-						Key:            v1.AxisKey(""),
+					Y4: lineplot.Axis{
+						Key:            lineplot.AxisKey(""),
 						Label:          "",
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
@@ -520,11 +520,11 @@ var _ = Describe("Codec", func() {
 				Lines: nil,
 				Rules: nil,
 			}),
-			Entry("empty collections", v1.LinePlot{
+			Entry("empty collections", lineplot.LinePlot{
 				Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:  "test_2",
-				Title: v1.Title{Level: text.Level("h1"), Visible: true},
-				Legend: v1.Legend{
+				Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
+				Legend: lineplot.Legend{
 					Hidden: true,
 					Position: spatial.StickyXY{
 						X: 9.5,
@@ -536,7 +536,7 @@ var _ = Describe("Codec", func() {
 						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 					},
 				},
-				Channels: v1.Channels{
+				Channels: lineplot.Channels{
 					X1: channel.Key(19),
 					X2: channel.Key(20),
 					Y1: []channel.Key{},
@@ -544,117 +544,117 @@ var _ = Describe("Codec", func() {
 					Y3: []channel.Key{},
 					Y4: []channel.Key{},
 				},
-				Ranges: v1.Ranges{X1: []string{}, X2: []string{}},
-				Axes: v1.Axes{
-					X1: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+				Ranges: lineplot.Ranges{X1: []string{}, X2: []string{}},
+				Axes: lineplot.Axes{
+					X1: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_30",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    37.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					X2: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					X2: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_41",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    48.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					Y1: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					Y1: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_52",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    59.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					Y2: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					Y2: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_63",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    70.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					Y3: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					Y3: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_74",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    81.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
-					Y4: v1.Axis{
-						Key:            v1.AxisKey("x1"),
+					Y4: lineplot.Axis{
+						Key:            lineplot.AxisKey("x1"),
 						Label:          "test_85",
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    92.5,
-						Type:           new(v1.TickType("linear")),
+						Type:           new(lineplot.TickType("linear")),
 					},
 				},
-				Lines: []v1.Line{},
-				Rules: []v1.Rule{},
+				Lines: []lineplot.Line{},
+				Rules: []lineplot.Rule{},
 			}),
 		)
 	})
 	Describe("ManualBounds", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.ManualBounds) {
+			func(original lineplot.ManualBounds) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.ManualBounds
+				var decoded lineplot.ManualBounds
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.ManualBounds{Lower: true, Upper: false}),
-			Entry("zero values", v1.ManualBounds{Lower: false, Upper: false}),
+			Entry("fully populated", lineplot.ManualBounds{Lower: true, Upper: false}),
+			Entry("zero values", lineplot.ManualBounds{Lower: false, Upper: false}),
 		)
 	})
 	Describe("Ranges", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Ranges) {
+			func(original lineplot.Ranges) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Ranges
+				var decoded lineplot.Ranges
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}),
-			Entry("zero values", v1.Ranges{X1: nil, X2: nil}),
-			Entry("empty collections", v1.Ranges{X1: []string{}, X2: []string{}}),
+			Entry("fully populated", lineplot.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}),
+			Entry("zero values", lineplot.Ranges{X1: nil, X2: nil}),
+			Entry("empty collections", lineplot.Ranges{X1: []string{}, X2: []string{}}),
 		)
 	})
 	Describe("Rule", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Rule) {
+			func(original lineplot.Rule) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Rule
+				var decoded lineplot.Rule
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Rule{
+			Entry("fully populated", lineplot.Rule{
 				Key:   "test_1",
 				Label: "test_2",
 				Color: new(color.Color{
@@ -663,17 +663,17 @@ var _ = Describe("Codec", func() {
 					B: 7,
 					A: 7.5,
 				}),
-				Axis:      v1.AxisKey("x1"),
+				Axis:      lineplot.AxisKey("x1"),
 				LineWidth: 9.5,
 				LineDash:  10.5,
 				Units:     "test_11",
 				Position:  12.5,
 			}),
-			Entry("zero values", v1.Rule{
+			Entry("zero values", lineplot.Rule{
 				Key:       "",
 				Label:     "",
 				Color:     nil,
-				Axis:      v1.AxisKey(""),
+				Axis:      lineplot.AxisKey(""),
 				LineWidth: 0,
 				LineDash:  0,
 				Units:     "",
@@ -683,92 +683,92 @@ var _ = Describe("Codec", func() {
 	})
 	Describe("Title", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v1.Title) {
+			func(original lineplot.Title) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Title
+				var decoded lineplot.Title
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v1.Title{Level: text.Level("h1"), Visible: false}),
-			Entry("zero values", v1.Title{Level: text.Level(""), Visible: false}),
+			Entry("fully populated", lineplot.Title{Level: text.Level("h1"), Visible: false}),
+			Entry("zero values", lineplot.Title{Level: text.Level(""), Visible: false}),
 		)
 	})
 })
 
 func BenchmarkEncodeDecodeAxes(b *testing.B) {
-	a := v1.Axes{
-		X1: v1.Axis{
-			Key:            v1.AxisKey("x1"),
+	seed := lineplot.Axes{
+		X1: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
 			Label:          "test_3",
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+			ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    10.5,
-			Type:           new(v1.TickType("linear")),
+			Type:           new(lineplot.TickType("linear")),
 		},
-		X2: v1.Axis{
-			Key:            v1.AxisKey("x1"),
+		X2: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
 			Label:          "test_14",
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    21.5,
-			Type:           new(v1.TickType("linear")),
+			Type:           new(lineplot.TickType("linear")),
 		},
-		Y1: v1.Axis{
-			Key:            v1.AxisKey("x1"),
+		Y1: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
 			Label:          "test_25",
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+			ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    32.5,
-			Type:           new(v1.TickType("linear")),
+			Type:           new(lineplot.TickType("linear")),
 		},
-		Y2: v1.Axis{
-			Key:            v1.AxisKey("x1"),
+		Y2: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
 			Label:          "test_36",
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    43.5,
-			Type:           new(v1.TickType("linear")),
+			Type:           new(lineplot.TickType("linear")),
 		},
-		Y3: v1.Axis{
-			Key:            v1.AxisKey("x1"),
+		Y3: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
 			Label:          "test_47",
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+			ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    54.5,
-			Type:           new(v1.TickType("linear")),
+			Type:           new(lineplot.TickType("linear")),
 		},
-		Y4: v1.Axis{
-			Key:            v1.AxisKey("x1"),
+		Y4: lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
 			Label:          "test_58",
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    65.5,
-			Type:           new(v1.TickType("linear")),
+			Type:           new(lineplot.TickType("linear")),
 		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := a.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Axes
+		var decoded lineplot.Axes
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -777,24 +777,24 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeAxis(b *testing.B) {
-	a := v1.Axis{
-		Key:            v1.AxisKey("x1"),
+	seed := lineplot.Axis{
+		Key:            lineplot.AxisKey("x1"),
 		Label:          "test_2",
 		LabelDirection: spatial.Direction("x"),
 		LabelLevel:     text.Level("h1"),
 		Bounds:         spatial.Bounds{},
-		ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+		ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 		TickSpacing:    9.5,
-		Type:           new(v1.TickType("linear")),
+		Type:           new(lineplot.TickType("linear")),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := a.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Axis
+		var decoded lineplot.Axis
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -803,7 +803,7 @@ func BenchmarkEncodeDecodeAxis(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeChannels(b *testing.B) {
-	c := v1.Channels{
+	seed := lineplot.Channels{
 		X1: channel.Key(2),
 		X2: channel.Key(3),
 		Y1: []channel.Key{channel.Key(4)},
@@ -815,10 +815,10 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := c.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Channels
+		var decoded lineplot.Channels
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -827,7 +827,7 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeLegend(b *testing.B) {
-	lv := v1.Legend{
+	seed := lineplot.Legend{
 		Hidden: true,
 		Position: spatial.StickyXY{
 			X: 3.5,
@@ -843,10 +843,10 @@ func BenchmarkEncodeDecodeLegend(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := lv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Legend
+		var decoded lineplot.Legend
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -855,7 +855,7 @@ func BenchmarkEncodeDecodeLegend(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeLine(b *testing.B) {
-	lv := v1.Line{
+	seed := lineplot.Line{
 		Key:   "test_1",
 		Label: new(string("test_2")),
 		Color: new(color.Color{
@@ -866,16 +866,16 @@ func BenchmarkEncodeDecodeLine(b *testing.B) {
 		}),
 		StrokeWidth:    8.5,
 		Downsample:     10,
-		DownsampleMode: v1.DownsampleMode("average"),
+		DownsampleMode: lineplot.DownsampleMode("average"),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := lv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Line
+		var decoded lineplot.Line
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -884,11 +884,11 @@ func BenchmarkEncodeDecodeLine(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
-	lp := v1.LinePlot{
+	seed := lineplot.LinePlot{
 		Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:  "test_2",
-		Title: v1.Title{Level: text.Level("h1"), Visible: true},
-		Legend: v1.Legend{
+		Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
+		Legend: lineplot.Legend{
 			Hidden: true,
 			Position: spatial.StickyXY{
 				X: 9.5,
@@ -900,7 +900,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 			},
 		},
-		Channels: v1.Channels{
+		Channels: lineplot.Channels{
 			X1: channel.Key(19),
 			X2: channel.Key(20),
 			Y1: []channel.Key{channel.Key(21)},
@@ -908,70 +908,70 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			Y3: []channel.Key{channel.Key(23)},
 			Y4: []channel.Key{channel.Key(24)},
 		},
-		Ranges: v1.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
-		Axes: v1.Axes{
-			X1: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+		Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
+		Axes: lineplot.Axes{
+			X1: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_30",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    37.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			X2: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			X2: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_41",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    48.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			Y1: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Y1: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_52",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    59.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			Y2: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Y2: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_63",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    70.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			Y3: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Y3: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_74",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    81.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			Y4: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Y4: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_85",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    92.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
 		},
-		Lines: []v1.Line{
+		Lines: []lineplot.Line{
 			{
 				Key:   "test_95",
 				Label: new(string("test_96")),
@@ -983,10 +983,10 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				}),
 				StrokeWidth:    102.5,
 				Downsample:     104,
-				DownsampleMode: v1.DownsampleMode("average"),
+				DownsampleMode: lineplot.DownsampleMode("average"),
 			},
 		},
-		Rules: []v1.Rule{
+		Rules: []lineplot.Rule{
 			{
 				Key:   "test_106",
 				Label: "test_107",
@@ -996,7 +996,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 					B: 112,
 					A: 112.5,
 				}),
-				Axis:      v1.AxisKey("x1"),
+				Axis:      lineplot.AxisKey("x1"),
 				LineWidth: 114.5,
 				LineDash:  115.5,
 				Units:     "test_116",
@@ -1008,10 +1008,10 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := lp.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.LinePlot
+		var decoded lineplot.LinePlot
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1020,15 +1020,15 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeManualBounds(b *testing.B) {
-	mb := v1.ManualBounds{Lower: true, Upper: false}
+	seed := lineplot.ManualBounds{Lower: true, Upper: false}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := mb.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.ManualBounds
+		var decoded lineplot.ManualBounds
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1037,15 +1037,15 @@ func BenchmarkEncodeDecodeManualBounds(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeRanges(b *testing.B) {
-	rv := v1.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}
+	seed := lineplot.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := rv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Ranges
+		var decoded lineplot.Ranges
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1054,7 +1054,7 @@ func BenchmarkEncodeDecodeRanges(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeRule(b *testing.B) {
-	rv := v1.Rule{
+	seed := lineplot.Rule{
 		Key:   "test_1",
 		Label: "test_2",
 		Color: new(color.Color{
@@ -1063,7 +1063,7 @@ func BenchmarkEncodeDecodeRule(b *testing.B) {
 			B: 7,
 			A: 7.5,
 		}),
-		Axis:      v1.AxisKey("x1"),
+		Axis:      lineplot.AxisKey("x1"),
 		LineWidth: 9.5,
 		LineDash:  10.5,
 		Units:     "test_11",
@@ -1073,10 +1073,10 @@ func BenchmarkEncodeDecodeRule(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := rv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Rule
+		var decoded lineplot.Rule
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1085,15 +1085,15 @@ func BenchmarkEncodeDecodeRule(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeTitle(b *testing.B) {
-	t := v1.Title{Level: text.Level("h1"), Visible: false}
+	seed := lineplot.Title{Level: text.Level("h1"), Visible: false}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := t.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v1.Title
+		var decoded lineplot.Title
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1103,66 +1103,66 @@ func BenchmarkEncodeDecodeTitle(b *testing.B) {
 
 func FuzzDecodeAxes(f *testing.F) {
 	{
-		seed := v1.Axes{
-			X1: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+		seed := lineplot.Axes{
+			X1: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_3",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    10.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			X2: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			X2: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_14",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    21.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			Y1: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Y1: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_25",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    32.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			Y2: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Y2: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_36",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    43.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			Y3: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Y3: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_47",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    54.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
-			Y4: v1.Axis{
-				Key:            v1.AxisKey("x1"),
+			Y4: lineplot.Axis{
+				Key:            lineplot.AxisKey("x1"),
 				Label:          "test_58",
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    65.5,
-				Type:           new(v1.TickType("linear")),
+				Type:           new(lineplot.TickType("linear")),
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1172,64 +1172,64 @@ func FuzzDecodeAxes(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Axes{
-			X1: v1.Axis{
-				Key:            v1.AxisKey(""),
+		seed := lineplot.Axes{
+			X1: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
 				Label:          "",
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
-			X2: v1.Axis{
-				Key:            v1.AxisKey(""),
+			X2: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
 				Label:          "",
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
-			Y1: v1.Axis{
-				Key:            v1.AxisKey(""),
+			Y1: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
 				Label:          "",
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
-			Y2: v1.Axis{
-				Key:            v1.AxisKey(""),
+			Y2: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
 				Label:          "",
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
-			Y3: v1.Axis{
-				Key:            v1.AxisKey(""),
+			Y3: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
 				Label:          "",
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
-			Y4: v1.Axis{
-				Key:            v1.AxisKey(""),
+			Y4: lineplot.Axis{
+				Key:            lineplot.AxisKey(""),
 				Label:          "",
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
@@ -1241,7 +1241,7 @@ func FuzzDecodeAxes(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Axes
+		var decoded lineplot.Axes
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1251,7 +1251,7 @@ func FuzzDecodeAxes(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Axes
+		var redecoded lineplot.Axes
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1271,15 +1271,15 @@ func FuzzDecodeAxes(f *testing.F) {
 
 func FuzzDecodeAxis(f *testing.F) {
 	{
-		seed := v1.Axis{
-			Key:            v1.AxisKey("x1"),
+		seed := lineplot.Axis{
+			Key:            lineplot.AxisKey("x1"),
 			Label:          "test_2",
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    9.5,
-			Type:           new(v1.TickType("linear")),
+			Type:           new(lineplot.TickType("linear")),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1288,13 +1288,13 @@ func FuzzDecodeAxis(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Axis{
-			Key:            v1.AxisKey(""),
+		seed := lineplot.Axis{
+			Key:            lineplot.AxisKey(""),
 			Label:          "",
 			LabelDirection: spatial.Direction(""),
 			LabelLevel:     text.Level(""),
 			Bounds:         spatial.Bounds{},
-			ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 			TickSpacing:    0,
 			Type:           nil,
 		}
@@ -1305,7 +1305,7 @@ func FuzzDecodeAxis(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Axis
+		var decoded lineplot.Axis
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1315,7 +1315,7 @@ func FuzzDecodeAxis(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Axis
+		var redecoded lineplot.Axis
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1335,7 +1335,7 @@ func FuzzDecodeAxis(f *testing.F) {
 
 func FuzzDecodeChannels(f *testing.F) {
 	{
-		seed := v1.Channels{
+		seed := lineplot.Channels{
 			X1: channel.Key(2),
 			X2: channel.Key(3),
 			Y1: []channel.Key{channel.Key(4)},
@@ -1350,7 +1350,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Channels{
+		seed := lineplot.Channels{
 			X1: channel.Key(0),
 			X2: channel.Key(0),
 			Y1: nil,
@@ -1365,7 +1365,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Channels{
+		seed := lineplot.Channels{
 			X1: channel.Key(2),
 			X2: channel.Key(3),
 			Y1: []channel.Key{},
@@ -1380,7 +1380,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Channels
+		var decoded lineplot.Channels
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1390,7 +1390,7 @@ func FuzzDecodeChannels(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Channels
+		var redecoded lineplot.Channels
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1410,7 +1410,7 @@ func FuzzDecodeChannels(f *testing.F) {
 
 func FuzzDecodeLegend(f *testing.F) {
 	{
-		seed := v1.Legend{
+		seed := lineplot.Legend{
 			Hidden: true,
 			Position: spatial.StickyXY{
 				X: 3.5,
@@ -1429,7 +1429,7 @@ func FuzzDecodeLegend(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Legend{
+		seed := lineplot.Legend{
 			Hidden: false,
 			Position: spatial.StickyXY{
 				X:     0,
@@ -1445,7 +1445,7 @@ func FuzzDecodeLegend(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Legend
+		var decoded lineplot.Legend
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1455,7 +1455,7 @@ func FuzzDecodeLegend(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Legend
+		var redecoded lineplot.Legend
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1475,7 +1475,7 @@ func FuzzDecodeLegend(f *testing.F) {
 
 func FuzzDecodeLine(f *testing.F) {
 	{
-		seed := v1.Line{
+		seed := lineplot.Line{
 			Key:   "test_1",
 			Label: new(string("test_2")),
 			Color: new(color.Color{
@@ -1486,7 +1486,7 @@ func FuzzDecodeLine(f *testing.F) {
 			}),
 			StrokeWidth:    8.5,
 			Downsample:     10,
-			DownsampleMode: v1.DownsampleMode("average"),
+			DownsampleMode: lineplot.DownsampleMode("average"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1495,13 +1495,13 @@ func FuzzDecodeLine(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Line{
+		seed := lineplot.Line{
 			Key:            "",
 			Label:          nil,
 			Color:          nil,
 			StrokeWidth:    0,
 			Downsample:     0,
-			DownsampleMode: v1.DownsampleMode(""),
+			DownsampleMode: lineplot.DownsampleMode(""),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1510,7 +1510,7 @@ func FuzzDecodeLine(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Line
+		var decoded lineplot.Line
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1520,7 +1520,7 @@ func FuzzDecodeLine(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Line
+		var redecoded lineplot.Line
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1540,11 +1540,11 @@ func FuzzDecodeLine(f *testing.F) {
 
 func FuzzDecodeLinePlot(f *testing.F) {
 	{
-		seed := v1.LinePlot{
+		seed := lineplot.LinePlot{
 			Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:  "test_2",
-			Title: v1.Title{Level: text.Level("h1"), Visible: true},
-			Legend: v1.Legend{
+			Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
+			Legend: lineplot.Legend{
 				Hidden: true,
 				Position: spatial.StickyXY{
 					X: 9.5,
@@ -1556,7 +1556,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			},
-			Channels: v1.Channels{
+			Channels: lineplot.Channels{
 				X1: channel.Key(19),
 				X2: channel.Key(20),
 				Y1: []channel.Key{channel.Key(21)},
@@ -1564,70 +1564,70 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: []channel.Key{channel.Key(23)},
 				Y4: []channel.Key{channel.Key(24)},
 			},
-			Ranges: v1.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
-			Axes: v1.Axes{
-				X1: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+			Ranges: lineplot.Ranges{X1: []string{"test_25"}, X2: []string{"test_26"}},
+			Axes: lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_30",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    37.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				X2: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_41",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    48.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y1: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_52",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    59.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y2: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_63",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    70.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y3: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_74",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    81.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y4: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_85",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    92.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
 			},
-			Lines: []v1.Line{
+			Lines: []lineplot.Line{
 				{
 					Key:   "test_95",
 					Label: new(string("test_96")),
@@ -1639,10 +1639,10 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					}),
 					StrokeWidth:    102.5,
 					Downsample:     104,
-					DownsampleMode: v1.DownsampleMode("average"),
+					DownsampleMode: lineplot.DownsampleMode("average"),
 				},
 			},
-			Rules: []v1.Rule{
+			Rules: []lineplot.Rule{
 				{
 					Key:   "test_106",
 					Label: "test_107",
@@ -1652,7 +1652,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 						B: 112,
 						A: 112.5,
 					}),
-					Axis:      v1.AxisKey("x1"),
+					Axis:      lineplot.AxisKey("x1"),
 					LineWidth: 114.5,
 					LineDash:  115.5,
 					Units:     "test_116",
@@ -1667,11 +1667,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.LinePlot{
+		seed := lineplot.LinePlot{
 			Key:   uuid.Nil,
 			Name:  "",
-			Title: v1.Title{Level: text.Level(""), Visible: false},
-			Legend: v1.Legend{
+			Title: lineplot.Title{Level: text.Level(""), Visible: false},
+			Legend: lineplot.Legend{
 				Hidden: false,
 				Position: spatial.StickyXY{
 					X:     0,
@@ -1680,7 +1680,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 				},
 			},
-			Channels: v1.Channels{
+			Channels: lineplot.Channels{
 				X1: channel.Key(0),
 				X2: channel.Key(0),
 				Y1: nil,
@@ -1688,65 +1688,65 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: nil,
 				Y4: nil,
 			},
-			Ranges: v1.Ranges{X1: nil, X2: nil},
-			Axes: v1.Axes{
-				X1: v1.Axis{
-					Key:            v1.AxisKey(""),
+			Ranges: lineplot.Ranges{X1: nil, X2: nil},
+			Axes: lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				X2: v1.Axis{
-					Key:            v1.AxisKey(""),
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				Y1: v1.Axis{
-					Key:            v1.AxisKey(""),
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				Y2: v1.Axis{
-					Key:            v1.AxisKey(""),
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				Y3: v1.Axis{
-					Key:            v1.AxisKey(""),
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
-				Y4: v1.Axis{
-					Key:            v1.AxisKey(""),
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey(""),
 					Label:          "",
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -1761,11 +1761,11 @@ func FuzzDecodeLinePlot(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.LinePlot{
+		seed := lineplot.LinePlot{
 			Key:   uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:  "test_2",
-			Title: v1.Title{Level: text.Level("h1"), Visible: true},
-			Legend: v1.Legend{
+			Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
+			Legend: lineplot.Legend{
 				Hidden: true,
 				Position: spatial.StickyXY{
 					X: 9.5,
@@ -1777,7 +1777,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			},
-			Channels: v1.Channels{
+			Channels: lineplot.Channels{
 				X1: channel.Key(19),
 				X2: channel.Key(20),
 				Y1: []channel.Key{},
@@ -1785,71 +1785,71 @@ func FuzzDecodeLinePlot(f *testing.F) {
 				Y3: []channel.Key{},
 				Y4: []channel.Key{},
 			},
-			Ranges: v1.Ranges{X1: []string{}, X2: []string{}},
-			Axes: v1.Axes{
-				X1: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+			Ranges: lineplot.Ranges{X1: []string{}, X2: []string{}},
+			Axes: lineplot.Axes{
+				X1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_30",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    37.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				X2: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				X2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_41",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    48.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y1: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y1: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_52",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    59.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y2: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y2: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_63",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    70.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y3: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y3: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_74",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    81.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
-				Y4: v1.Axis{
-					Key:            v1.AxisKey("x1"),
+				Y4: lineplot.Axis{
+					Key:            lineplot.AxisKey("x1"),
 					Label:          "test_85",
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					ManualBounds:   v1.ManualBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    92.5,
-					Type:           new(v1.TickType("linear")),
+					Type:           new(lineplot.TickType("linear")),
 				},
 			},
-			Lines: []v1.Line{},
-			Rules: []v1.Rule{},
+			Lines: []lineplot.Line{},
+			Rules: []lineplot.Rule{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1858,7 +1858,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.LinePlot
+		var decoded lineplot.LinePlot
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1868,7 +1868,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.LinePlot
+		var redecoded lineplot.LinePlot
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1888,7 +1888,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 
 func FuzzDecodeManualBounds(f *testing.F) {
 	{
-		seed := v1.ManualBounds{Lower: true, Upper: false}
+		seed := lineplot.ManualBounds{Lower: true, Upper: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1896,7 +1896,7 @@ func FuzzDecodeManualBounds(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.ManualBounds{Lower: false, Upper: false}
+		seed := lineplot.ManualBounds{Lower: false, Upper: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1904,7 +1904,7 @@ func FuzzDecodeManualBounds(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.ManualBounds
+		var decoded lineplot.ManualBounds
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1914,7 +1914,7 @@ func FuzzDecodeManualBounds(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.ManualBounds
+		var redecoded lineplot.ManualBounds
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1934,7 +1934,7 @@ func FuzzDecodeManualBounds(f *testing.F) {
 
 func FuzzDecodeRanges(f *testing.F) {
 	{
-		seed := v1.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}
+		seed := lineplot.Ranges{X1: []string{"test_1"}, X2: []string{"test_2"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1942,7 +1942,7 @@ func FuzzDecodeRanges(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Ranges{X1: nil, X2: nil}
+		seed := lineplot.Ranges{X1: nil, X2: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1950,7 +1950,7 @@ func FuzzDecodeRanges(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Ranges{X1: []string{}, X2: []string{}}
+		seed := lineplot.Ranges{X1: []string{}, X2: []string{}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -1958,7 +1958,7 @@ func FuzzDecodeRanges(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Ranges
+		var decoded lineplot.Ranges
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -1968,7 +1968,7 @@ func FuzzDecodeRanges(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Ranges
+		var redecoded lineplot.Ranges
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -1988,7 +1988,7 @@ func FuzzDecodeRanges(f *testing.F) {
 
 func FuzzDecodeRule(f *testing.F) {
 	{
-		seed := v1.Rule{
+		seed := lineplot.Rule{
 			Key:   "test_1",
 			Label: "test_2",
 			Color: new(color.Color{
@@ -1997,7 +1997,7 @@ func FuzzDecodeRule(f *testing.F) {
 				B: 7,
 				A: 7.5,
 			}),
-			Axis:      v1.AxisKey("x1"),
+			Axis:      lineplot.AxisKey("x1"),
 			LineWidth: 9.5,
 			LineDash:  10.5,
 			Units:     "test_11",
@@ -2010,11 +2010,11 @@ func FuzzDecodeRule(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Rule{
+		seed := lineplot.Rule{
 			Key:       "",
 			Label:     "",
 			Color:     nil,
-			Axis:      v1.AxisKey(""),
+			Axis:      lineplot.AxisKey(""),
 			LineWidth: 0,
 			LineDash:  0,
 			Units:     "",
@@ -2027,7 +2027,7 @@ func FuzzDecodeRule(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Rule
+		var decoded lineplot.Rule
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -2037,7 +2037,7 @@ func FuzzDecodeRule(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Rule
+		var redecoded lineplot.Rule
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -2057,7 +2057,7 @@ func FuzzDecodeRule(f *testing.F) {
 
 func FuzzDecodeTitle(f *testing.F) {
 	{
-		seed := v1.Title{Level: text.Level("h1"), Visible: false}
+		seed := lineplot.Title{Level: text.Level("h1"), Visible: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2065,7 +2065,7 @@ func FuzzDecodeTitle(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v1.Title{Level: text.Level(""), Visible: false}
+		seed := lineplot.Title{Level: text.Level(""), Visible: false}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -2073,7 +2073,7 @@ func FuzzDecodeTitle(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Title
+		var decoded lineplot.Title
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -2083,7 +2083,7 @@ func FuzzDecodeTitle(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v1.Title
+		var redecoded lineplot.Title
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

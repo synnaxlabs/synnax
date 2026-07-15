@@ -18,7 +18,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -26,16 +26,16 @@ import (
 var _ = Describe("Codec", func() {
 	Describe("Label", func() {
 		DescribeTable("should round-trip encode and decode",
-			func(original v0.Label) {
+			func(original label.Label) {
 				w := orc.NewWriter(0)
 				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Label
+				var decoded label.Label
 				r := orc.NewReader(nil)
 				r.ResetBytes(w.Bytes())
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v0.Label{
+			Entry("fully populated", label.Label{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
 				Color: color.Color{
@@ -45,7 +45,7 @@ var _ = Describe("Codec", func() {
 					A: 7.5,
 				},
 			}),
-			Entry("zero values", v0.Label{
+			Entry("zero values", label.Label{
 				Key:  uuid.Nil,
 				Name: "",
 				Color: color.Color{
@@ -60,7 +60,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeLabel(b *testing.B) {
-	lv := v0.Label{
+	seed := label.Label{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
 		Color: color.Color{
@@ -74,10 +74,10 @@ func BenchmarkEncodeDecodeLabel(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := lv.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		var decoded v0.Label
+		var decoded label.Label
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -87,7 +87,7 @@ func BenchmarkEncodeDecodeLabel(b *testing.B) {
 
 func FuzzDecodeLabel(f *testing.F) {
 	{
-		seed := v0.Label{
+		seed := label.Label{
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
 			Color: color.Color{
@@ -104,7 +104,7 @@ func FuzzDecodeLabel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Label{
+		seed := label.Label{
 			Key:  uuid.Nil,
 			Name: "",
 			Color: color.Color{
@@ -121,7 +121,7 @@ func FuzzDecodeLabel(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Label
+		var decoded label.Label
 		r := orc.NewReader(nil)
 		r.ResetBytes(data)
 		if err := decoded.DecodeOrc(r); err != nil {
@@ -131,7 +131,7 @@ func FuzzDecodeLabel(f *testing.F) {
 		if err := decoded.EncodeOrc(w1); err != nil {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
-		var redecoded v0.Label
+		var redecoded label.Label
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

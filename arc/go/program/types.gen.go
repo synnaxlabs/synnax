@@ -11,8 +11,8 @@
 
 package program
 
-import "github.com/synnaxlabs/arc/program/types"
+import program "github.com/synnaxlabs/arc/program/types"
 
 // Program is a compiled Arc program combining the intermediate representation with
 // WebAssembly bytecode, ready for execution.
-type Program = types.Program
+type Program = program.Program

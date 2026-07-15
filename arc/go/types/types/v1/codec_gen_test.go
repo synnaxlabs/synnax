@@ -1079,7 +1079,7 @@ var _ = Describe("Codec", func() {
 })
 
 func BenchmarkEncodeDecodeChannels(b *testing.B) {
-	c := v1.Channels{
+	seed := v1.Channels{
 		Read:  map[uint32]string{2: "test_1"},
 		Write: map[uint32]string{3: "test_2"},
 	}
@@ -1087,7 +1087,7 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := c.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded v1.Channels
@@ -1099,7 +1099,7 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeDimensions(b *testing.B) {
-	d := v1.Dimensions{
+	seed := v1.Dimensions{
 		Length:      2,
 		Mass:        3,
 		Time:        4,
@@ -1113,7 +1113,7 @@ func BenchmarkEncodeDecodeDimensions(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := d.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded v1.Dimensions
@@ -1125,7 +1125,7 @@ func BenchmarkEncodeDecodeDimensions(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
-	fp := v1.FunctionProperties{
+	seed := v1.FunctionProperties{
 		Inputs: []v1.Param{
 			{
 				Name: "test_2",
@@ -1243,7 +1243,7 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := fp.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded v1.FunctionProperties
@@ -1255,7 +1255,7 @@ func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeParam(b *testing.B) {
-	p := v1.Param{
+	seed := v1.Param{
 		Name: "test_1",
 		Type: v1.Type{
 			FunctionProperties: v1.FunctionProperties{
@@ -1420,7 +1420,7 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := p.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded v1.Param
@@ -1432,7 +1432,7 @@ func BenchmarkEncodeDecodeParam(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeType(b *testing.B) {
-	t := v1.Type{
+	seed := v1.Type{
 		FunctionProperties: v1.FunctionProperties{
 			Inputs: []v1.Param{
 				{
@@ -1883,7 +1883,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := t.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded v1.Type
@@ -1895,7 +1895,7 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeUnit(b *testing.B) {
-	u := v1.Unit{
+	seed := v1.Unit{
 		Dimensions: v1.Dimensions{
 			Length:      3,
 			Mass:        4,
@@ -1913,7 +1913,7 @@ func BenchmarkEncodeDecodeUnit(b *testing.B) {
 	r := orc.NewReader(nil)
 	for b.Loop() {
 		w.Reset()
-		if err := u.EncodeOrc(w); err != nil {
+		if err := seed.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
 		var decoded v1.Unit

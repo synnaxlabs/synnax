@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package control_test
+package v0_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/synnaxlabs/x/control"
+	control "github.com/synnaxlabs/x/control/types/v0"
 )
 
 var _ = Describe("State", func() {
@@ -70,7 +70,7 @@ var _ = Describe("State", func() {
 				state := control.State[int]{
 					Subject:   s,
 					Resource:  1,
-					Authority: control.AuthorityAbsolute,
+					Authority: control.Authority(255),
 				}
 				Expect(state.String()).To(Equal("[Hat]<cat> with authority 255 over 1"))
 			})

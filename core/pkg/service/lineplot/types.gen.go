@@ -11,77 +11,77 @@
 
 package lineplot
 
-import "github.com/synnaxlabs/synnax/pkg/service/lineplot/types"
+import lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot/types"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = types.Key
+type Key = lineplot.Key
 
 // AxisKey names one of the six fixed plot axes.
-type AxisKey = types.AxisKey
+type AxisKey = lineplot.AxisKey
 
 // TickType selects how an axis renders its tick labels.
-type TickType = types.TickType
+type TickType = lineplot.TickType
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
-type DownsampleMode = types.DownsampleMode
+type DownsampleMode = lineplot.DownsampleMode
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
-type XAxisKey = types.XAxisKey
+type XAxisKey = lineplot.XAxisKey
 
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
-type YAxisKey = types.YAxisKey
+type YAxisKey = lineplot.YAxisKey
 
 // Title is the plot title configuration.
-type Title = types.Title
+type Title = lineplot.Title
 
 // Legend is the plot legend configuration.
-type Legend = types.Legend
+type Legend = lineplot.Legend
 
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
 // carry zero or more channels each.
-type Channels = types.Channels
+type Channels = lineplot.Channels
 
 // Ranges binds range keys to each x-axis.
-type Ranges = types.Ranges
+type Ranges = lineplot.Ranges
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
 // to the server; when true, Axis.bounds holds the user-set value.
-type ManualBounds = types.ManualBounds
+type ManualBounds = lineplot.ManualBounds
 
 // Axis is the configuration for a single plot axis.
-type Axis = types.Axis
+type Axis = lineplot.Axis
 
 // Axes bundles configuration for all six fixed plot axes.
-type Axes = types.Axes
+type Axes = lineplot.Axes
 
 // Line is the per-line styling and downsampling configuration.
-type Line = types.Line
+type Line = lineplot.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule = types.Rule
+type Rule = lineplot.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
-type LinePlot = types.LinePlot
+type LinePlot = lineplot.LinePlot
 
 const (
-	AxisKeyX1              AxisKey        = types.AxisKeyX1
-	AxisKeyX2              AxisKey        = types.AxisKeyX2
-	AxisKeyY1              AxisKey        = types.AxisKeyY1
-	AxisKeyY2              AxisKey        = types.AxisKeyY2
-	AxisKeyY3              AxisKey        = types.AxisKeyY3
-	AxisKeyY4              AxisKey        = types.AxisKeyY4
-	TickTypeLinear         TickType       = types.TickTypeLinear
-	TickTypeTime           TickType       = types.TickTypeTime
-	DownsampleModeAverage  DownsampleMode = types.DownsampleModeAverage
-	DownsampleModeDecimate DownsampleMode = types.DownsampleModeDecimate
-	XAxisKeyX1             XAxisKey       = types.XAxisKeyX1
-	XAxisKeyX2             XAxisKey       = types.XAxisKeyX2
-	YAxisKeyY1             YAxisKey       = types.YAxisKeyY1
-	YAxisKeyY2             YAxisKey       = types.YAxisKeyY2
-	YAxisKeyY3             YAxisKey       = types.YAxisKeyY3
-	YAxisKeyY4             YAxisKey       = types.YAxisKeyY4
+	AxisKeyX1              AxisKey        = lineplot.AxisKeyX1
+	AxisKeyX2              AxisKey        = lineplot.AxisKeyX2
+	AxisKeyY1              AxisKey        = lineplot.AxisKeyY1
+	AxisKeyY2              AxisKey        = lineplot.AxisKeyY2
+	AxisKeyY3              AxisKey        = lineplot.AxisKeyY3
+	AxisKeyY4              AxisKey        = lineplot.AxisKeyY4
+	TickTypeLinear         TickType       = lineplot.TickTypeLinear
+	TickTypeTime           TickType       = lineplot.TickTypeTime
+	DownsampleModeAverage  DownsampleMode = lineplot.DownsampleModeAverage
+	DownsampleModeDecimate DownsampleMode = lineplot.DownsampleModeDecimate
+	XAxisKeyX1             XAxisKey       = lineplot.XAxisKeyX1
+	XAxisKeyX2             XAxisKey       = lineplot.XAxisKeyX2
+	YAxisKeyY1             YAxisKey       = lineplot.YAxisKeyY1
+	YAxisKeyY2             YAxisKey       = lineplot.YAxisKeyY2
+	YAxisKeyY3             YAxisKey       = lineplot.YAxisKeyY3
+	YAxisKeyY4             YAxisKey       = lineplot.YAxisKeyY4
 )

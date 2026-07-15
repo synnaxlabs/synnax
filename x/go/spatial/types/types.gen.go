@@ -11,113 +11,113 @@
 
 package types
 
-import "github.com/synnaxlabs/x/spatial/types/v0"
+import spatial "github.com/synnaxlabs/x/spatial/types/v0"
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
-type Decimal = v0.Decimal
+type Decimal = spatial.Decimal
 
 // XLocation is a horizontal-axis location at the left or right edge.
-type XLocation = v0.XLocation
+type XLocation = spatial.XLocation
 
 // YLocation is a vertical-axis location at the top or bottom edge.
-type YLocation = v0.YLocation
+type YLocation = spatial.YLocation
 
 // StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
 // decimal fraction of the container.
-type StickyUnit = v0.StickyUnit
+type StickyUnit = spatial.StickyUnit
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
-type OuterLocation = v0.OuterLocation
+type OuterLocation = spatial.OuterLocation
 
 // Direction is a 2D axis direction.
-type Direction = v0.Direction
+type Direction = spatial.Direction
 
 // AngularDirection is a rotational direction in 2D space.
-type AngularDirection = v0.AngularDirection
+type AngularDirection = spatial.AngularDirection
 
 // CenterLocation is a location at the center of a container.
-type CenterLocation = v0.CenterLocation
+type CenterLocation = spatial.CenterLocation
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
-type Location = v0.Location
+type Location = spatial.Location
 
 // Alignment is a positioning indicator for aligning content along an axis within a
 // container.
-type Alignment = v0.Alignment
+type Alignment = spatial.Alignment
 
 // Order is a positional ordering indicator for elements in a sequence.
-type Order = v0.Order
+type Order = spatial.Order
 
 // Dimension is the name of a 2D size axis.
-type Dimension = v0.Dimension
+type Dimension = spatial.Dimension
 
 // SignedDimension is the name of a 2D signed size axis.
-type SignedDimension = v0.SignedDimension
+type SignedDimension = spatial.SignedDimension
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
-type XY = v0.XY
+type XY = spatial.XY
 
 // CornerLocation is an anchor corner for positioning.
-type CornerLocation = v0.CornerLocation
+type CornerLocation = spatial.CornerLocation
 
 // StickyUnits specifies the measurement units for sticky positioning.
-type StickyUnits = v0.StickyUnits
+type StickyUnits = spatial.StickyUnits
 
 // StickyXY is a position that can be anchored to different corners of a container with
 // configurable units (pixels or decimal fractions).
-type StickyXY = v0.StickyXY
+type StickyXY = spatial.StickyXY
 
 // Dimensions is a 2D size with width and height values.
-type Dimensions = v0.Dimensions
+type Dimensions = spatial.Dimensions
 
 // Viewport is the camera state of a viewport.
-type Viewport = v0.Viewport
+type Viewport = spatial.Viewport
 
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing
 // negative values to express direction.
-type SignedDimensions = v0.SignedDimensions
+type SignedDimensions = spatial.SignedDimensions
 
 // ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
 // shape of DOM mouse events.
-type ClientXY = v0.ClientXY
+type ClientXY = spatial.ClientXY
 
 // Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
 // The TypeScript binding is generic over T so callers can express bounds over either
 // number or bigint values; other languages emit a concrete float64-based type.
-type Bounds = v0.Bounds
+type Bounds = spatial.Bounds
 
 const (
-	XLocationLeft                    XLocation        = v0.XLocationLeft
-	XLocationRight                   XLocation        = v0.XLocationRight
-	YLocationTop                     YLocation        = v0.YLocationTop
-	YLocationBottom                  YLocation        = v0.YLocationBottom
-	StickyUnitPx                     StickyUnit       = v0.StickyUnitPx
-	StickyUnitDecimal                StickyUnit       = v0.StickyUnitDecimal
-	OuterLocationTop                 OuterLocation    = v0.OuterLocationTop
-	OuterLocationRight               OuterLocation    = v0.OuterLocationRight
-	OuterLocationBottom              OuterLocation    = v0.OuterLocationBottom
-	OuterLocationLeft                OuterLocation    = v0.OuterLocationLeft
-	DirectionX                       Direction        = v0.DirectionX
-	DirectionY                       Direction        = v0.DirectionY
-	AngularDirectionClockwise        AngularDirection = v0.AngularDirectionClockwise
-	AngularDirectionCounterclockwise AngularDirection = v0.AngularDirectionCounterclockwise
-	CenterLocationCenter             CenterLocation   = v0.CenterLocationCenter
-	LocationTop                      Location         = v0.LocationTop
-	LocationRight                    Location         = v0.LocationRight
-	LocationBottom                   Location         = v0.LocationBottom
-	LocationLeft                     Location         = v0.LocationLeft
-	LocationCenter                   Location         = v0.LocationCenter
-	AlignmentStart                   Alignment        = v0.AlignmentStart
-	AlignmentCenter                  Alignment        = v0.AlignmentCenter
-	AlignmentEnd                     Alignment        = v0.AlignmentEnd
-	OrderFirst                       Order            = v0.OrderFirst
-	OrderLast                        Order            = v0.OrderLast
-	DimensionWidth                   Dimension        = v0.DimensionWidth
-	DimensionHeight                  Dimension        = v0.DimensionHeight
-	SignedDimensionSignedWidth       SignedDimension  = v0.SignedDimensionSignedWidth
-	SignedDimensionSignedHeight      SignedDimension  = v0.SignedDimensionSignedHeight
+	XLocationLeft                    XLocation        = spatial.XLocationLeft
+	XLocationRight                   XLocation        = spatial.XLocationRight
+	YLocationTop                     YLocation        = spatial.YLocationTop
+	YLocationBottom                  YLocation        = spatial.YLocationBottom
+	StickyUnitPx                     StickyUnit       = spatial.StickyUnitPx
+	StickyUnitDecimal                StickyUnit       = spatial.StickyUnitDecimal
+	OuterLocationTop                 OuterLocation    = spatial.OuterLocationTop
+	OuterLocationRight               OuterLocation    = spatial.OuterLocationRight
+	OuterLocationBottom              OuterLocation    = spatial.OuterLocationBottom
+	OuterLocationLeft                OuterLocation    = spatial.OuterLocationLeft
+	DirectionX                       Direction        = spatial.DirectionX
+	DirectionY                       Direction        = spatial.DirectionY
+	AngularDirectionClockwise        AngularDirection = spatial.AngularDirectionClockwise
+	AngularDirectionCounterclockwise AngularDirection = spatial.AngularDirectionCounterclockwise
+	CenterLocationCenter             CenterLocation   = spatial.CenterLocationCenter
+	LocationTop                      Location         = spatial.LocationTop
+	LocationRight                    Location         = spatial.LocationRight
+	LocationBottom                   Location         = spatial.LocationBottom
+	LocationLeft                     Location         = spatial.LocationLeft
+	LocationCenter                   Location         = spatial.LocationCenter
+	AlignmentStart                   Alignment        = spatial.AlignmentStart
+	AlignmentCenter                  Alignment        = spatial.AlignmentCenter
+	AlignmentEnd                     Alignment        = spatial.AlignmentEnd
+	OrderFirst                       Order            = spatial.OrderFirst
+	OrderLast                        Order            = spatial.OrderLast
+	DimensionWidth                   Dimension        = spatial.DimensionWidth
+	DimensionHeight                  Dimension        = spatial.DimensionHeight
+	SignedDimensionSignedWidth       SignedDimension  = spatial.SignedDimensionSignedWidth
+	SignedDimensionSignedHeight      SignedDimension  = spatial.SignedDimensionSignedHeight
 )

@@ -11,61 +11,61 @@
 
 package types
 
-import "github.com/synnaxlabs/x/telem/types/v1"
+import telem "github.com/synnaxlabs/x/telem/types/v1"
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
 // (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency telemetry
 // timestamps.
-type TimeStamp = v1.TimeStamp
+type TimeStamp = telem.TimeStamp
 
 // TimeSpan is a 64-bit signed integer representing a duration in nanoseconds. Used for
 // expressing time intervals, sampling periods, and durations throughout the telemetry
 // system.
-type TimeSpan = v1.TimeSpan
+type TimeSpan = telem.TimeSpan
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
 // frequencies and calculate sample counts over time intervals.
-type Rate = v1.Rate
+type Rate = telem.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
-type Size = v1.Size
+type Size = telem.Size
 
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
-type DataType = v1.DataType
+type DataType = telem.DataType
 
 // Alignment is a 64-bit index for positioning samples within multi-array structures.
 // Packs a domain index (which array) and sample index (position within array) into a
 // single value for efficient multi-dimensional data access.
-type Alignment = v1.Alignment
+type Alignment = telem.Alignment
 
 // TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
-type TimestampFormat = v1.TimestampFormat
+type TimestampFormat = telem.TimestampFormat
 
 // TimeZone is the time zone used when rendering timestamps.
-type TimeZone = v1.TimeZone
+type TimeZone = telem.TimeZone
 
 // TimeRange is a time interval defined by a start and end timestamp. The range is
 // start-inclusive and end-exclusive, following standard interval conventions for
 // predictable boundary handling.
-type TimeRange = v1.TimeRange
+type TimeRange = telem.TimeRange
 
 // Series is a strongly-typed array of telemetry samples backed by a binary buffer.
 // Supports both fixed-density primitive types and variable-density types (strings,
 // JSON). Designed for high-performance, memory-efficient storage and streaming of
 // time-series data.
-type Series = v1.Series
+type Series = telem.Series
 
 const (
-	TimestampFormatISO         TimestampFormat = v1.TimestampFormatISO
-	TimestampFormatISODate     TimestampFormat = v1.TimestampFormatISODate
-	TimestampFormatTime        TimestampFormat = v1.TimestampFormatTime
-	TimestampFormatPreciseTime TimestampFormat = v1.TimestampFormatPreciseTime
-	TimestampFormatDate        TimestampFormat = v1.TimestampFormatDate
-	TimestampFormatPreciseDate TimestampFormat = v1.TimestampFormatPreciseDate
-	TimestampFormatDateTime    TimestampFormat = v1.TimestampFormatDateTime
-	TimeZoneLocal              TimeZone        = v1.TimeZoneLocal
-	TimeZoneUTC                TimeZone        = v1.TimeZoneUTC
+	TimestampFormatISO         TimestampFormat = telem.TimestampFormatISO
+	TimestampFormatISODate     TimestampFormat = telem.TimestampFormatISODate
+	TimestampFormatTime        TimestampFormat = telem.TimestampFormatTime
+	TimestampFormatPreciseTime TimestampFormat = telem.TimestampFormatPreciseTime
+	TimestampFormatDate        TimestampFormat = telem.TimestampFormatDate
+	TimestampFormatPreciseDate TimestampFormat = telem.TimestampFormatPreciseDate
+	TimestampFormatDateTime    TimestampFormat = telem.TimestampFormatDateTime
+	TimeZoneLocal              TimeZone        = telem.TimeZoneLocal
+	TimeZoneUTC                TimeZone        = telem.TimeZoneUTC
 )
