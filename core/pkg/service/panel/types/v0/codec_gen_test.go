@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
@@ -48,6 +49,13 @@ var (
 		Args: msgpack.EncodedJSON{"key_3": "value_3"},
 	}
 )
+
+func TestCodec(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Panel V0 Codec Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("Codec", func() {
 	Describe("Leaf", func() {

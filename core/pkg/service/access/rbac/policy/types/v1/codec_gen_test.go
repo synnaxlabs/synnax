@@ -19,11 +19,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v1"
 	accessv0 "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 )
+
+func TestCodec(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Policy V1 Codec Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("Codec", func() {
 	Describe("Policy", func() {

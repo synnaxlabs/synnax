@@ -28,6 +28,7 @@ import (
 
 type testFileOutput struct {
 	Package        string
+	SuiteName      string
 	PkgImport      string
 	ExtraImports   map[string]string
 	NeedsUUID      bool
@@ -80,8 +81,12 @@ func generateTestCodecFile(
 	if err != nil {
 		return nil, err
 	}
+	resource := filepath.Base(strings.TrimSuffix(
+		parentPath, "/types/"+packageName,
+	))
 	fo := testFileOutput{
 		Package:      packageName,
+		SuiteName:    naming.ToPascalCase(resource) + " " + naming.ToPascalCase(packageName) + " Codec Suite",
 		PkgImport:    pkgImport,
 		ExtraImports: make(map[string]string),
 	}
@@ -1045,6 +1050,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	"{{.PkgImport}}"
 {{- range sortedImports .ExtraImports}}
@@ -1059,6 +1065,13 @@ var (
 {{- end}}
 )
 {{- end}}
+
+func TestCodec(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "{{.SuiteName}}")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("Codec", func() {
 {{- range .Tests}}

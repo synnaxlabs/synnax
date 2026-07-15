@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
+	. "github.com/synnaxlabs/x/testutil"
 
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
@@ -26,6 +27,13 @@ import (
 	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 	textv0 "github.com/synnaxlabs/x/text/types/v0"
 )
+
+func TestCodec(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Lineplot V1 Codec Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("Codec", func() {
 	Describe("Axes", func() {
