@@ -69,7 +69,7 @@ export const payloadZ = z.object({
   /** name is the human-readable channel name. */
   name: nameZ,
   /**
-   * leaseholder is the cluster node that holds the lease for this channel. Mostly
+   * leaseholder is the node that holds the lease for this channel. Mostly
    * for internal use.
    */
   leaseholder: node.keyZ.default(0),

@@ -41,8 +41,8 @@ constexpr const char *OPERATION_TYPE_NONE = "none";
 constexpr const char *OPERATION_TYPE_DERIVATIVE = "derivative";
 
 /// @brief Key is a unique identifier for a channel in the Synnax database. Composed of
-/// a cluster node key (first 12 bits) and a local key (last 20 bits), enabling
-/// distributed assignment while maintaining global uniqueness.
+/// a node key (first 12 bits) and a local key (last 20 bits), enabling distributed
+/// assignment while maintaining global uniqueness.
 using Key = std::uint32_t;
 
 using Name = std::string;
@@ -81,9 +81,8 @@ struct Channel {
     Key key = 0;
     /// @brief name is the human-readable channel name.
     Name name;
-    /// @brief leaseholder is the cluster node that holds the lease for this channel.
-    /// Mostly
-    /// for internal use.
+    /// @brief leaseholder is the node that holds the lease for this channel. Mostly for
+    /// internal use.
     ::synnax::node::Key leaseholder = 0;
     /// @brief data_type is the data type of samples stored in this channel (e.g.,
     /// Float64,

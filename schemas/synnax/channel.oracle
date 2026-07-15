@@ -20,7 +20,7 @@ import "schemas/synnax/status"
 Key uint32 {
     @doc value    """
         is a unique identifier for a channel in the Synnax database. Composed
-        of a cluster node key (first 12 bits) and a local key (last 20 bits),
+        of a node key (first 12 bits) and a local key (last 20 bits),
         enabling distributed assignment while maintaining global uniqueness.
     """
     @go output    "core/pkg/service/channel"
@@ -92,7 +92,7 @@ Channel struct {
     }
     leaseholder node.Key            {
         @doc value """
-            is the cluster node that holds the lease for this channel and is
+            is the node that holds the lease for this channel and is
             authorized to accept writes.
         """
         @filter
@@ -180,7 +180,7 @@ APIChannel struct {
     }
     leaseholder node.Key = 0 {
         @doc value """
-            is the cluster node that holds the lease for this channel. Mostly
+            is the node that holds the lease for this channel. Mostly
             for internal use.
         """
     }
