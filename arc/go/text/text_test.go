@@ -289,6 +289,42 @@ var _ = Describe("Text", func() {
 						level = 10
 					}
 				}`),
+			Entry("value variable copied from another value variable", `
+				sequence main {
+					v i64 := 0
+					w i64 := 0
+					stage s1 {
+						count_ch -> v
+						w = v
+					}
+				}`),
+			Entry("value variable initialized from a reactive variable", `
+				sequence main {
+					a i64 := count_ch + 1
+					b i64 := a + 2
+					stage s1 {
+						a -> out_ch
+						b -> sink_ch
+					}
+				}`),
+			Entry("alias read in an expression in a later stage", `
+				sequence main {
+					p := count_ch
+					stage s1 {
+						count_ch > 0 => s2
+					}
+					stage s2 {
+						p + 1 -> out_ch
+					}
+				}`),
+			Entry("reactive variable copied to a value variable", `
+				sequence main {
+					r i64 := count_ch + 1
+					m i64 := 0
+					stage s1 {
+						m = r
+					}
+				}`),
 		)
 
 		It("Should lower a format-string flow node", func(ctx SpecContext) {

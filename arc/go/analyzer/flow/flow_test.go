@@ -2371,4 +2371,16 @@ var _ = Describe("Flow Sink Type Compatibility", func() {
 		Entry("value variable to matching channel", "z := 3\n\nz -> num_i64"),
 		Entry("channel to matching channel", "num_f64 -> sink_f64"),
 	)
+
+	Describe("Writing to a channelRead variable", func() {
+		It("Should reject a flow that writes into a channelRead variable", func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+r := sensor_chan + 1
+sensor_chan -> r`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(ctx.Diagnostics.String()).To(ContainSubstring("read-only"))
+		})
+	})
 })

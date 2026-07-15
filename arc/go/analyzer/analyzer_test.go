@@ -406,6 +406,18 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(varScope.Kind).To(Equal(symbol.KindVariable))
 			Expect(varScope.Type).To(Equal(types.I64()))
 		})
+
+		It("Should reject reassigning a top-level variable", func(bCtx SpecContext) {
+			prog := MustSucceed(parser.Parse(`
+				COUNT := 0
+				COUNT = 1
+			`))
+			ctx := context.NewRoot(bCtx, prog, nil)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+				"cannot reassign a top-level variable"))
+		})
 	})
 
 	Describe("Channel Propagation Through Function Calls", func() {

@@ -835,6 +835,7 @@ var _ = Describe("Name conflicts", func() {
 		Entry("sequence", symbol.KindSequence, "sequence"),
 		Entry("stage", symbol.KindStage, "stage"),
 		Entry("constant", symbol.KindConstant, "constant"),
+		Entry("module alias", symbol.KindModuleAlias, "import"),
 		Entry("block falls back to symbol", symbol.KindBlock, "symbol"),
 	)
 })

@@ -828,6 +828,38 @@ var _ = Describe("Expressions", func() {
 		})
 	})
 
+	Describe("Channel Reads", func() {
+		It("Should record a channel read for a chan-typed input parameter", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+				func f(ch chan f32) f32 {
+					return ch + 1.0
+				}
+			`))
+			ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+			Expect(fn.Channels.Read).ToNot(BeEmpty())
+		})
+
+		It("Should record a channel read for a channel-alias variable", func(specCtx SpecContext) {
+			resolver := []symbol.Symbol{
+				{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
+			}
+			ast := MustSucceed(parser.Parse(`
+				func f() f32 {
+					alias := ch
+					return alias + 1.0
+				}
+			`))
+			ctx := context.NewRoot(specCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+			Expect(fn.Channels.Read).To(HaveKeyWithValue(uint32(10), "alias"))
+		})
+	})
+
 	Describe("Optional Parameter Function Calls", func() {
 		DescribeTable("valid optional parameter calls",
 			func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },

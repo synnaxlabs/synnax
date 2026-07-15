@@ -229,6 +229,14 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(
 					ContainSubstring("must be a literal value"))
 			})
+
+			It("makes an explicitly-typed alias to a reactive variable reactive", func(bCtx SpecContext) {
+				root := NewRoot(nil, sensorChan...)
+				declareIn(bCtx, root, "derived := sensor + 1")
+				ctx := declareIn(bCtx, root, "mirror f64 := derived")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(MustSucceed(ctx.Scope.Resolve(ctx, "mirror")).IsReactive()).To(BeTrue())
+			})
 		})
 	})
 
@@ -260,6 +268,17 @@ var _ = Describe("Statement", func() {
 				x = [1, 2]
 			}`, false, "type mismatch"),
 		)
+
+		It("validates an assignment through the exported entry point", func(bCtx SpecContext) {
+			root := NewRoot(nil)
+			decl := MustSucceed(parser.ParseStatement("x := 42"))
+			statement.AnalyzeVariableDeclaration(
+				context.NewRoot(bCtx, decl.VariableDeclaration(), root))
+			assign := MustSucceed(parser.ParseStatement("x = 99"))
+			ctx := context.NewRoot(bCtx, assign.Assignment(), root)
+			statement.AnalyzeAssignment(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
 	})
 
 	Describe("If Statement", func() {

@@ -694,6 +694,32 @@ var _ = Describe("Channel", func() {
 				Expect(changed).To(BeFalse())
 				Expect(fr.Get(100).Series).To(BeEmpty())
 			})
+			It("Should loop back into the read buffer when backing an internal channel", func(ctx SpecContext) {
+				sink := MustSucceed(factory.Create(ctx, rnode.Config{
+					Node: ir.Node{
+						Type:                 "write",
+						BacksInternalChannel: true,
+						Inputs:               types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
+					},
+					State: progState.Node("sink"),
+				}))
+				upstream := progState.Node("upstream")
+				*upstream.Output(0) = telem.NewSeriesV[float32](3.3)
+				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(300)
+				deadlineSet := false
+				sink.Next(rnode.Context{
+					Context:     ctx,
+					Elapsed:     telem.Second,
+					MarkChanged: func(int) {},
+					SetDeadline: func(telem.TimeSpan) { deadlineSet = true },
+				})
+				Expect(deadlineSet).To(BeTrue(),
+					"an internal-backed write sets a deadline to re-run the loopback")
+				fr, changed := channelState.Flush(telem.Frame[uint32]{})
+				Expect(changed).To(BeFalse(),
+					"an internal-backed write must not flush an external channel write")
+				Expect(fr.Get(100).Series).To(BeEmpty())
+			})
 		})
 		Describe("Multiple Writes", func() {
 			It("Should handle sequential writes", func(ctx SpecContext) {

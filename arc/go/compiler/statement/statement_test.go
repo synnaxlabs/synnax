@@ -2299,4 +2299,30 @@ var _ = Describe("Statement Compiler", func() {
 			Expect(ctx.Writer.Bytes()).ToNot(BeEmpty())
 		})
 	})
+
+	Describe("channelRead Variables", func() {
+		It("Should skip compiling a channelRead variable declaration", func(bCtx SpecContext) {
+			stmt := MustSucceed(parser.ParseStatement("r := 5"))
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I64()),
+			}))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
+			Expect(FinalizeContext(ctx)).To(BeEmpty())
+		})
+
+		It("Should skip compiling a channelRead variable reassignment to a literal", func(bCtx SpecContext) {
+			stmt := MustSucceed(parser.ParseStatement("r = 5"))
+			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I64()),
+			}))
+			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
+			diverged := MustSucceed(statement.Compile(context.Child(ctx, stmt)))
+			Expect(diverged).To(BeFalse())
+			Expect(FinalizeContext(ctx)).To(BeEmpty())
+		})
+	})
 })

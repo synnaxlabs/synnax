@@ -545,6 +545,22 @@ func cat() {
 			}))
 			Expect(channelReadWrite).To(HaveLen(3))
 		})
+
+		It("colors a constant reference with the constant token type", func(ctx SpecContext) {
+			constants := []symbol.Symbol{
+				{Name: "MAX", Type: types.I64(), Kind: symbol.KindConstant},
+			}
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol { return NewRoot(nil, constants...) },
+			})
+			OpenArcDocument(server, ctx, uri, "x := MAX\n")
+			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			constant := filterByType(tokens, uint32(lsp.SemanticTokenTypeConstant))
+			Expect(constant).To(ContainElement(decodedToken{
+				Line: 0, StartChar: 5, Length: 3,
+				TokenType: uint32(lsp.SemanticTokenTypeConstant),
+			}))
+		})
 	})
 
 	Describe("Legend", func() {

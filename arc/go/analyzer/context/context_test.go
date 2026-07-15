@@ -12,6 +12,7 @@ package context_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	analyzerContext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
@@ -164,6 +165,35 @@ var _ = Describe("Context", func() {
 			Expect(finalCtx.Scope).To(Equal(newScope))
 			finalCtx.Diagnostics.Add(diagnostics.Errorf(finalCtx.AST, "test"))
 			Expect(*rootCtx.Diagnostics).To(HaveLen(1))
+		})
+	})
+
+	Describe("ResolveOwnScope", func() {
+		It("Should resolve a named declaration by its identifier", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`sequence main {}`))
+			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+			analyzer.AnalyzeProgram(ctx)
+			seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
+			scope := MustSucceed(analyzerContext.ResolveOwnScope(
+				analyzerContext.Child(ctx, seqDecl)))
+			Expect(scope.Name).To(Equal("main"))
+			Expect(scope.Kind).To(Equal(symbol.KindSequence))
+		})
+
+		It("Should resolve an anonymous declaration by its parser rule", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+				sequence main {
+					stage {}
+				}
+			`))
+			ctx := analyzerContext.NewRoot(specCtx, ast, nil)
+			analyzer.AnalyzeProgram(ctx)
+			seqDecl := ast.AllTopLevelItem()[0].SequenceDeclaration()
+			seqScope := MustSucceed(ctx.Scope.Resolve(ctx, "main"))
+			stageDecl := seqDecl.AllSequenceItem()[0].StageDeclaration()
+			scope := MustSucceed(analyzerContext.ResolveOwnScope(
+				analyzerContext.Child(ctx, stageDecl).WithScope(seqScope)))
+			Expect(scope.Kind).To(Equal(symbol.KindStage))
 		})
 	})
 })

@@ -181,6 +181,32 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I32()))
 			Expect(byteCode).ToNot(BeEmpty())
 		})
+
+		It("Should read a channel read/write alias from another unit by its source key", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			src := 77
+			aliasType := types.Chan(types.I32())
+			aliasType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "cpu", Kind: symbol.KindVariable, Type: aliasType, SourceID: &src,
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "cpu")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(77), OpCall, 0))
+		})
+
+		It("Should keep an inherited channel alias as a channel under a channel hint", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			src := 88
+			aliasType := types.Chan(types.I32())
+			aliasType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "cpu", Kind: symbol.KindVariable, Type: aliasType, SourceID: &src,
+			}))
+			byteCode, exprType := compileWithCtx(ctx.WithHint(types.Chan(types.I32())), "cpu")
+			Expect(exprType.Kind).To(Equal(types.KindChan))
+			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(88)))
+		})
 	})
 
 	Context("Function Parameters", func() {
