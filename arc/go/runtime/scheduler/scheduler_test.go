@@ -11,7 +11,6 @@ package scheduler_test
 
 import (
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -243,7 +242,7 @@ var _ = Describe("Scheduler", func() {
 	}
 
 	build := func(prog ir.IR) *scheduler.Scheduler {
-		return scheduler.New(prog, nodes, 0, nil)
+		return scheduler.New(prog, nodes, 0)
 	}
 
 	BeforeEach(func() {
@@ -730,138 +729,6 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(leaf.ResetCalled).To(Equal(1))
 			Expect(leaf.NextCalled).To(Equal(1))
-		})
-	})
-
-	Describe("Variable channel reset", func() {
-		It("Should re-seed a scope's ResetChannels on activation, before members run", func(ctx SpecContext) {
-			var events []string
-			mock("trigger", true)
-			n := mock("n")
-			n.OnNext = func(node.Context) { events = append(events, "next") }
-			act := ir.Handle{Node: "trigger", Param: "output"}
-			stage := parallelScope("stage", stratum(ir.NodeMember("n")))
-			stage.Activation = &act
-			stage.ResetChannels = []uint32{7}
-			prog := programOf(
-				[]ir.Node{irNode("trigger", "output"), irNode("n")},
-				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(stage)),
-			)
-			s := scheduler.New(prog, nodes, 0, func(ch uint32) {
-				events = append(events, fmt.Sprintf("seed:%d", ch))
-			})
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			Expect(events).To(Equal([]string{"seed:7", "next"}))
-		})
-
-		It("Should not re-seed a gated scope before its activation fires", func(ctx SpecContext) {
-			var seeded []uint32
-			mock("trigger")
-			mock("n")
-			act := ir.Handle{Node: "trigger", Param: "output"}
-			stage := parallelScope("stage", stratum(ir.NodeMember("n")))
-			stage.Activation = &act
-			stage.ResetChannels = []uint32{7}
-			prog := programOf(
-				[]ir.Node{irNode("trigger", "output"), irNode("n")},
-				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(stage)),
-			)
-			s := scheduler.New(prog, nodes, 0, func(ch uint32) {
-				seeded = append(seeded, ch)
-			})
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			Expect(seeded).To(BeEmpty())
-		})
-
-		It("Should cascade re-seed into nested always-live scopes on activation", func(ctx SpecContext) {
-			var seeded []uint32
-			mock("trigger", true)
-			mock("inner")
-			nested := alwaysScope("nested", stratum(ir.NodeMember("inner")))
-			nested.ResetChannels = []uint32{9}
-			outer := parallelScope("outer", stratum(ir.ScopeMember(nested)))
-			outer.ResetChannels = []uint32{8}
-			act := ir.Handle{Node: "trigger", Param: "output"}
-			outer.Activation = &act
-			prog := programOf(
-				[]ir.Node{irNode("trigger", "output"), irNode("inner")},
-				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(outer)),
-			)
-			s := scheduler.New(prog, nodes, 0, func(ch uint32) {
-				seeded = append(seeded, ch)
-			})
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			Expect(seeded).To(Equal([]uint32{8, 9}))
-		})
-
-		It("Should re-seed on every re-entry of a sequential step", func(ctx SpecContext) {
-			var seeded []uint32
-			mock("trigger", true)
-			firstNode := mock("first_node")
-			secondNode := mock("second_node")
-			first := parallelScope("first", stratum(ir.NodeMember("first_node")))
-			first.ResetChannels = []uint32{1}
-			second := parallelScope("second", stratum(ir.NodeMember("second_node")))
-			second.ResetChannels = []uint32{2}
-			main := sequentialScope("main",
-				[]ir.Member{{Scope: &first}, {Scope: &second}},
-				ir.Transition{
-					On:        ir.Handle{Node: "first_node", Param: "output"},
-					TargetKey: stepKeyTarget("second"),
-				},
-				ir.Transition{
-					On:        ir.Handle{Node: "second_node", Param: "output"},
-					TargetKey: stepKeyTarget("first"),
-				},
-			)
-			trig := ir.Handle{Node: "trigger", Param: "output"}
-			main.Activation = &trig
-			prog := programOf(
-				[]ir.Node{
-					irNode("trigger", "output"),
-					irNode("first_node", "output"),
-					irNode("second_node", "output"),
-				},
-				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
-			)
-			s := scheduler.New(prog, nodes, 0, func(ch uint32) {
-				seeded = append(seeded, ch)
-			})
-
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			Expect(seeded).To(Equal([]uint32{1}))
-
-			firstNode.SetTruthy(0)
-			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
-			Expect(seeded).To(Equal([]uint32{1, 2}))
-
-			firstNode.OutputTruthy[0] = false
-			secondNode.SetTruthy(0)
-			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
-			Expect(seeded).To(Equal([]uint32{1, 2, 1}))
-		})
-
-		It("Should not re-seed when resetVar is nil", func(ctx SpecContext) {
-			mock("trigger", true)
-			n := mock("n")
-			act := ir.Handle{Node: "trigger", Param: "output"}
-			stage := parallelScope("stage", stratum(ir.NodeMember("n")))
-			stage.Activation = &act
-			stage.ResetChannels = []uint32{7}
-			prog := programOf(
-				[]ir.Node{irNode("trigger", "output"), irNode("n")},
-				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(stage)),
-			)
-			s := build(prog)
-			Expect(func() {
-				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			}).ToNot(Panic())
-			Expect(n.NextCalled).To(Equal(1))
 		})
 	})
 

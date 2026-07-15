@@ -482,10 +482,7 @@ type Scope struct {
 	Steps []*Member `protobuf:"bytes,6,rep,name=steps,proto3" json:"steps,omitempty"`
 	// transitions contains state-transition rules for sequential scopes. Empty for parallel
 	// scopes.
-	Transitions []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
-	// reset_channels variable channels re-seeded to their declared value on each entry into
-	// this scope.
-	ResetChannels []uint32 `protobuf:"varint,8,rep,packed,name=reset_channels,json=resetChannels,proto3" json:"reset_channels,omitempty"`
+	Transitions   []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -565,13 +562,6 @@ func (x *Scope) GetSteps() []*Member {
 func (x *Scope) GetTransitions() []*Transition {
 	if x != nil {
 		return x.Transitions
-	}
-	return nil
-}
-
-func (x *Scope) GetResetChannels() []uint32 {
-	if x != nil {
-		return x.ResetChannels
 	}
 	return nil
 }
@@ -717,15 +707,9 @@ type Node struct {
 	// outputs contains output parameter type signatures.
 	Outputs []*pb.Param `protobuf:"bytes,4,rep,name=outputs,proto3" json:"outputs,omitempty"`
 	// channels contains channel read/write mappings.
-	Channels *pb.Channels `protobuf:"bytes,5,opt,name=channels,proto3" json:"channels,omitempty"`
-	// is_literal reports whether the node's variable is a literal, so a source latches its
-	// newest value rather than streaming.
-	IsLiteral bool `protobuf:"varint,6,opt,name=is_literal,json=isLiteral,proto3" json:"is_literal,omitempty"`
-	// backs_internal_channel reports whether a sink loops back into a program-local channel
-	// rather than an external one.
-	BacksInternalChannel bool `protobuf:"varint,7,opt,name=backs_internal_channel,json=backsInternalChannel,proto3" json:"backs_internal_channel,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	Channels      *pb.Channels `protobuf:"bytes,5,opt,name=channels,proto3" json:"channels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Node) Reset() {
@@ -793,20 +777,6 @@ func (x *Node) GetChannels() *pb.Channels {
 	return nil
 }
 
-func (x *Node) GetIsLiteral() bool {
-	if x != nil {
-		return x.IsLiteral
-	}
-	return false
-}
-
-func (x *Node) GetBacksInternalChannel() bool {
-	if x != nil {
-		return x.BacksInternalChannel
-	}
-	return false
-}
-
 // Authorities holds the static authority declarations from an Arc program.
 type Authorities struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -862,70 +832,6 @@ func (x *Authorities) GetChannels() map[uint32]uint32 {
 	return nil
 }
 
-// VarSeed is the startup seed for a reactive value variable's channel.
-type VarSeed struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// channel is the key of the channel backing the value variable.
-	Channel uint32 `protobuf:"varint,1,opt,name=channel,proto3" json:"channel,omitempty"`
-	// type is the variable's value type.
-	Type *pb.Type `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
-	// value is the literal value seeded into the channel at startup.
-	Value         []byte `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *VarSeed) Reset() {
-	*x = VarSeed{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *VarSeed) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*VarSeed) ProtoMessage() {}
-
-func (x *VarSeed) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use VarSeed.ProtoReflect.Descriptor instead.
-func (*VarSeed) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *VarSeed) GetChannel() uint32 {
-	if x != nil {
-		return x.Channel
-	}
-	return 0
-}
-
-func (x *VarSeed) GetType() *pb.Type {
-	if x != nil {
-		return x.Type
-	}
-	return nil
-}
-
-func (x *VarSeed) GetValue() []byte {
-	if x != nil {
-		return x.Value
-	}
-	return nil
-}
-
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
 type IR struct {
@@ -940,20 +846,14 @@ type IR struct {
 	Authorities *Authorities `protobuf:"bytes,4,opt,name=authorities,proto3" json:"authorities,omitempty"`
 	// root is the top-level execution context. The root is always a parallel, always-live
 	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
-	Root *Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
-	// var_channels lists the channel keys that back reactive value variables. These
-	// channels live only in program-local state and are never read from or written to Core.
-	VarChannels []uint32 `protobuf:"varint,6,rep,packed,name=var_channels,json=varChannels,proto3" json:"var_channels,omitempty"`
-	// var_seeds lists startup seeds applied to program-local state before execution so a
-	// read preceding any write still observes the declared value.
-	VarSeeds      []*VarSeed `protobuf:"bytes,7,rep,name=var_seeds,json=varSeeds,proto3" json:"var_seeds,omitempty"`
+	Root          *Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IR) Reset() {
 	*x = IR{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -965,7 +865,7 @@ func (x *IR) String() string {
 func (*IR) ProtoMessage() {}
 
 func (x *IR) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -978,7 +878,7 @@ func (x *IR) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IR.ProtoReflect.Descriptor instead.
 func (*IR) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{11}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *IR) GetFunctions() []*Function {
@@ -1016,20 +916,6 @@ func (x *IR) GetRoot() *Scope {
 	return nil
 }
 
-func (x *IR) GetVarChannels() []uint32 {
-	if x != nil {
-		return x.VarChannels
-	}
-	return nil
-}
-
-func (x *IR) GetVarSeeds() []*VarSeed {
-	if x != nil {
-		return x.VarSeeds
-	}
-	return nil
-}
-
 var File_arc_go_ir_pb_ir_proto protoreflect.FileDescriptor
 
 const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
@@ -1054,7 +940,7 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\t_node_keyB\b\n" +
 	"\x06_scope\";\n" +
 	"\x0eMembersWrapper\x12)\n" +
-	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\xf7\x02\n" +
+	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\xd0\x02\n" +
 	"\x05Scope\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\x14.arc.ir.pb.ScopeModeR\x04mode\x12/\n" +
@@ -1064,8 +950,7 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"activation\x88\x01\x01\x121\n" +
 	"\x06strata\x18\x05 \x03(\v2\x19.arc.ir.pb.MembersWrapperR\x06strata\x12'\n" +
 	"\x05steps\x18\x06 \x03(\v2\x11.arc.ir.pb.MemberR\x05steps\x127\n" +
-	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitions\x12%\n" +
-	"\x0ereset_channels\x18\b \x03(\rR\rresetChannelsB\r\n" +
+	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitionsB\r\n" +
 	"\v_activation\"\x18\n" +
 	"\x04Body\x12\x10\n" +
 	"\x03raw\x18\x01 \x01(\tR\x03raw\"\xd1\x01\n" +
@@ -1074,16 +959,13 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04body\x18\x02 \x01(\v2\x0f.arc.ir.pb.BodyR\x04body\x12+\n" +
 	"\x06inputs\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\x91\x02\n" +
+	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xbc\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12+\n" +
 	"\x06inputs\x18\x03 \x03(\v2\x13.arc.types.pb.ParamR\x06inputs\x12-\n" +
 	"\aoutputs\x18\x04 \x03(\v2\x13.arc.types.pb.ParamR\aoutputs\x122\n" +
-	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\x12\x1d\n" +
-	"\n" +
-	"is_literal\x18\x06 \x01(\bR\tisLiteral\x124\n" +
-	"\x16backs_internal_channel\x18\a \x01(\bR\x14backsInternalChannel\"\xb7\x01\n" +
+	"\bchannels\x18\x05 \x01(\v2\x16.arc.types.pb.ChannelsR\bchannels\"\xb7\x01\n" +
 	"\vAuthorities\x12\x1d\n" +
 	"\adefault\x18\x01 \x01(\rH\x00R\adefault\x88\x01\x01\x12@\n" +
 	"\bchannels\x18\x02 \x03(\v2$.arc.ir.pb.Authorities.ChannelsEntryR\bchannels\x1a;\n" +
@@ -1091,19 +973,13 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\rR\x05value:\x028\x01B\n" +
 	"\n" +
-	"\b_default\"a\n" +
-	"\aVarSeed\x12\x18\n" +
-	"\achannel\x18\x01 \x01(\rR\achannel\x12&\n" +
-	"\x04type\x18\x02 \x01(\v2\x12.arc.types.pb.TypeR\x04type\x12\x14\n" +
-	"\x05value\x18\x03 \x01(\fR\x05value\"\xb9\x02\n" +
+	"\b_default\"\xe5\x01\n" +
 	"\x02IR\x121\n" +
 	"\tfunctions\x18\x01 \x03(\v2\x13.arc.ir.pb.FunctionR\tfunctions\x12%\n" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x128\n" +
 	"\vauthorities\x18\x04 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
-	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root\x12!\n" +
-	"\fvar_channels\x18\x06 \x03(\rR\vvarChannels\x12/\n" +
-	"\tvar_seeds\x18\a \x03(\v2\x12.arc.ir.pb.VarSeedR\bvarSeeds*Z\n" +
+	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root*Z\n" +
 	"\bEdgeKind\x12\x19\n" +
 	"\x15EDGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x19\n" +
@@ -1131,7 +1007,7 @@ func file_arc_go_ir_pb_ir_proto_rawDescGZIP() []byte {
 }
 
 var file_arc_go_ir_pb_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_arc_go_ir_pb_ir_proto_goTypes = []any{
 	(EdgeKind)(0),          // 0: arc.ir.pb.EdgeKind
 	(ScopeMode)(0),         // 1: arc.ir.pb.ScopeMode
@@ -1146,12 +1022,10 @@ var file_arc_go_ir_pb_ir_proto_goTypes = []any{
 	(*Function)(nil),       // 10: arc.ir.pb.Function
 	(*Node)(nil),           // 11: arc.ir.pb.Node
 	(*Authorities)(nil),    // 12: arc.ir.pb.Authorities
-	(*VarSeed)(nil),        // 13: arc.ir.pb.VarSeed
-	(*IR)(nil),             // 14: arc.ir.pb.IR
-	nil,                    // 15: arc.ir.pb.Authorities.ChannelsEntry
-	(*pb.Param)(nil),       // 16: arc.types.pb.Param
-	(*pb.Channels)(nil),    // 17: arc.types.pb.Channels
-	(*pb.Type)(nil),        // 18: arc.types.pb.Type
+	(*IR)(nil),             // 13: arc.ir.pb.IR
+	nil,                    // 14: arc.ir.pb.Authorities.ChannelsEntry
+	(*pb.Param)(nil),       // 15: arc.types.pb.Param
+	(*pb.Channels)(nil),    // 16: arc.types.pb.Channels
 }
 var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	3,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
@@ -1167,25 +1041,23 @@ var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	6,  // 10: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
 	5,  // 11: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
 	9,  // 12: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
-	16, // 13: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
-	16, // 14: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
-	17, // 15: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
-	16, // 16: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
-	16, // 17: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
-	17, // 18: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
-	15, // 19: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
-	18, // 20: arc.ir.pb.VarSeed.type:type_name -> arc.types.pb.Type
-	10, // 21: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
-	11, // 22: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
-	4,  // 23: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	12, // 24: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	8,  // 25: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
-	13, // 26: arc.ir.pb.IR.var_seeds:type_name -> arc.ir.pb.VarSeed
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	15, // 13: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
+	15, // 14: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
+	16, // 15: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
+	15, // 16: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
+	15, // 17: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
+	16, // 18: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
+	14, // 19: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
+	10, // 20: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
+	11, // 21: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
+	4,  // 22: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
+	12, // 23: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	8,  // 24: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
+	25, // [25:25] is the sub-list for method output_type
+	25, // [25:25] is the sub-list for method input_type
+	25, // [25:25] is the sub-list for extension type_name
+	25, // [25:25] is the sub-list for extension extendee
+	0,  // [0:25] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }
@@ -1203,7 +1075,7 @@ func file_arc_go_ir_pb_ir_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_ir_pb_ir_proto_rawDesc), len(file_arc_go_ir_pb_ir_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   13,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

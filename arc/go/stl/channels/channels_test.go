@@ -490,35 +490,6 @@ var _ = Describe("Channel", func() {
 				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
 				Expect(triggered).To(BeFalse())
 			})
-			It("Should not re-emit a variable's current value after reset", func(ctx SpecContext) {
-				source := MustSucceed(factory.Create(ctx, rnode.Config{
-					Node: ir.Node{
-						Type:      "on",
-						IsLiteral: true,
-						Inputs:    types.Params{{Name: "channel", Type: types.U32(), Value: uint32(20)}},
-					},
-					State: progState.Node("source"),
-				}))
-				d1 := telem.NewSeriesV[int32](1)
-				d1.Alignment = telem.NewAlignment(1, 0)
-				channelState.Ingest(telem.UnaryFrame[uint32](20, d1))
-
-				var triggered bool
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
-				Expect(triggered).To(BeTrue(), "a variable read must emit its current value")
-
-				source.Reset()
-				triggered = false
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
-				Expect(triggered).To(BeFalse(),
-					"reactivation must not re-emit an unchanged variable value")
-
-				d2 := telem.NewSeriesV[int32](2)
-				d2.Alignment = telem.NewAlignment(2, 0)
-				channelState.Ingest(telem.UnaryFrame[uint32](20, d2))
-				source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { triggered = true }})
-				Expect(triggered).To(BeTrue(), "a write after reactivation must emit the new value")
-			})
 		})
 
 		Describe("Alignment Validation", func() {
@@ -692,32 +663,6 @@ var _ = Describe("Channel", func() {
 				sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
 				fr, changed := channelState.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
-				Expect(fr.Get(100).Series).To(BeEmpty())
-			})
-			It("Should loop back into the read buffer when backing an internal channel", func(ctx SpecContext) {
-				sink := MustSucceed(factory.Create(ctx, rnode.Config{
-					Node: ir.Node{
-						Type:                 "write",
-						BacksInternalChannel: true,
-						Inputs:               types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
-					},
-					State: progState.Node("sink"),
-				}))
-				upstream := progState.Node("upstream")
-				*upstream.Output(0) = telem.NewSeriesV[float32](3.3)
-				*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(300)
-				deadlineSet := false
-				sink.Next(rnode.Context{
-					Context:     ctx,
-					Elapsed:     telem.Second,
-					MarkChanged: func(int) {},
-					SetDeadline: func(telem.TimeSpan) { deadlineSet = true },
-				})
-				Expect(deadlineSet).To(BeTrue(),
-					"an internal-backed write sets a deadline to re-run the loopback")
-				fr, changed := channelState.Flush(telem.Frame[uint32]{})
-				Expect(changed).To(BeFalse(),
-					"an internal-backed write must not flush an external channel write")
 				Expect(fr.Get(100).Series).To(BeEmpty())
 			})
 		})
@@ -921,37 +866,5 @@ var _ = Describe("Construction validation", func() {
 		cfg := rnode.Config{Node: prog.Nodes[0], State: s.Node("write")}
 		Expect(factory.Create(ctx, cfg)).Error().
 			To(MatchError(rnode.ErrInputNotFound))
-	})
-})
-
-var _ = Describe("Program state writers", func() {
-	It("Should append every fixed-width sample type and reset a seeded var", func() {
-		cs := channels.NewProgramState([]channels.Digest{
-			{Key: 20, DataType: telem.Uint8T},
-			{Key: 21, DataType: telem.Uint16T},
-			{Key: 22, DataType: telem.Uint32T},
-			{Key: 23, DataType: telem.Uint64T},
-			{Key: 24, DataType: telem.Int8T},
-			{Key: 25, DataType: telem.Int16T},
-			{Key: 26, DataType: telem.Int32T},
-			{Key: 27, DataType: telem.Int64T},
-			{Key: 28, DataType: telem.Float32T},
-			{Key: 29, DataType: telem.Float64T},
-			{Key: 30, DataType: telem.Int64T, Seed: telem.NewSeriesV[int64](7)},
-		})
-		cs.WriteChannelU8(20, 1)
-		cs.WriteChannelU16(21, 2)
-		cs.WriteChannelU32(22, 3)
-		cs.WriteChannelU64(23, 4)
-		cs.WriteChannelI8(24, 5)
-		cs.WriteChannelI16(25, 6)
-		cs.WriteChannelI32(26, 7)
-		cs.WriteChannelI64(27, 8)
-		cs.WriteChannelF32(28, 9)
-		cs.WriteChannelF64(29, 10)
-		fr := telem.Frame[uint32]{}
-		fr, _ = cs.Flush(fr)
-		Expect(fr.Empty()).To(BeFalse())
-		cs.ResetVar(30)
 	})
 })

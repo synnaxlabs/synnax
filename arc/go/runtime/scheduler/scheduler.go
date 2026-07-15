@@ -143,8 +143,6 @@ type Scheduler struct {
 	// nextDeadline is the earliest deadline reported by any node during
 	// the previous Next; reset to TimeSpanMax at the start of each cycle.
 	nextDeadline telem.TimeSpan
-	// resetVar re-seeds a variable channel to its declared value; nil disables it.
-	resetVar func(uint32)
 }
 
 // ErrorHandler receives errors raised by node execution.
@@ -309,11 +307,6 @@ func (s *Scheduler) clearLeafNodeSelfChanged(m *member) {
 // stay inert (used for named top-level scopes awaiting an external trigger).
 func (s *Scheduler) activateScope(ss *scope) {
 	ss.active = true
-	if s.resetVar != nil {
-		for _, ch := range ss.ir.ResetChannels {
-			s.resetVar(ch)
-		}
-	}
 	if ss.ir.Mode == ir.ScopeModeSequential {
 		if len(ss.members) > 0 {
 			s.activateSequentialStep(ss, 0)

@@ -102,51 +102,6 @@ var _ = Describe("Dependencies", Ordered, func() {
 			Expect(deps.ChannelDigests[0].DataType).To(Equal(telem.Float32T))
 		})
 
-		It("Should exclude variable-channel keys from Core retrieval", func(ctx SpecContext) {
-			const varKey uint32 = 0xFE01
-			prog := arc.Program{
-				IR: ir.IR{
-					Nodes: []ir.Node{
-						{
-							Key:      "on_var",
-							Type:     "on",
-							Channels: types.Channels{Read: map[uint32]string{varKey: "counter"}},
-						},
-						{
-							Key:      "write_var",
-							Type:     "write",
-							Channels: types.Channels{Write: map[uint32]string{varKey: "counter"}},
-						},
-					},
-					VarChannels: []uint32{varKey},
-				},
-			}
-
-			deps := MustSucceed(runtime.NewDependencies(ctx, channelSvc, prog))
-			Expect(deps.Reads.Contains(channel.Key(varKey))).To(BeFalse())
-			Expect(deps.Writes.Contains(channel.Key(varKey))).To(BeFalse())
-			var hasVarDigest bool
-			for _, d := range deps.ChannelDigests {
-				if d.Key == varKey {
-					hasVarDigest = true
-				}
-			}
-			Expect(hasVarDigest).To(BeTrue())
-		})
-
-		It("Should fail closed when a variable key carries a real leaseholder", func(ctx SpecContext) {
-			const overlappingKey uint32 = 1 << 20 // leaseholder 1: persisted key space, never a program-local var
-			prog := arc.Program{
-				IR: ir.IR{
-					Nodes:       []ir.Node{},
-					VarChannels: []uint32{overlappingKey},
-				},
-			}
-			Expect(runtime.NewDependencies(ctx, channelSvc, prog)).Error().To(
-				MatchError(ContainSubstring("overlaps the persisted channel key space")),
-			)
-		})
-
 		It("Should add channels from write nodes to writes set", func(ctx SpecContext) {
 			ch := &channel.Channel{
 				Name:     "actuator_1",

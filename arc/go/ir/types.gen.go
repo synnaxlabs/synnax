@@ -26,9 +26,6 @@ type Functions []Function
 // Nodes is a collection of node instantiations in an Arc module.
 type Nodes []Node
 
-// VarSeeds is a collection of value-variable startup seeds.
-type VarSeeds []VarSeed
-
 // Members is an ordered collection of Scope members, one per position.
 type Members = []Member
 
@@ -125,9 +122,6 @@ type Scope struct {
 	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
 	// scopes.
 	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
-	// ResetChannels variable channels re-seeded to their declared value on each entry into
-	// this scope.
-	ResetChannels []uint32 `json:"reset_channels,omitzero" msgpack:"reset_channels,omitzero"`
 }
 
 // Body is raw function body source code with optional parsed AST.
@@ -164,12 +158,6 @@ type Node struct {
 	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
-	// IsLiteral reports whether the node's variable is a literal, so a source latches its
-	// newest value rather than streaming.
-	IsLiteral bool `json:"is_literal" msgpack:"is_literal"`
-	// BacksInternalChannel reports whether a sink loops back into a program-local channel
-	// rather than an external one.
-	BacksInternalChannel bool `json:"backs_internal_channel" msgpack:"backs_internal_channel"`
 }
 
 // Authorities holds the static authority declarations from an Arc program.
@@ -178,16 +166,6 @@ type Authorities struct {
 	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
 	// Channels maps channel keys to their specific authority values.
 	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
-
-// VarSeed is the startup seed for a reactive value variable's channel.
-type VarSeed struct {
-	// Channel is the key of the channel backing the value variable.
-	Channel uint32 `json:"channel" msgpack:"channel"`
-	// Type is the variable's value type.
-	Type types.Type `json:"type" msgpack:"type"`
-	// Value is the literal value seeded into the channel at startup.
-	Value any `json:"value" msgpack:"value"`
 }
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
@@ -203,13 +181,7 @@ type IR struct {
 	Authorities Authorities `json:"authorities" msgpack:"authorities"`
 	// Root is the top-level execution context. The root is always a parallel, always-live
 	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
-	Root Scope `json:"root" msgpack:"root"`
-	// VarChannels lists the channel keys that back reactive value variables. These channels
-	// live only in program-local state and are never read from or written to Core.
-	VarChannels []uint32 `json:"var_channels,omitzero" msgpack:"var_channels,omitzero"`
-	// VarSeeds lists startup seeds applied to program-local state before execution so a
-	// read preceding any write still observes the declared value.
-	VarSeeds VarSeeds                               `json:"var_seeds,omitzero" msgpack:"var_seeds,omitzero"`
-	Symbols  *symbol.Symbol                         `json:"-"`
-	TypeMap  map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Root    Scope                                  `json:"root" msgpack:"root"`
+	Symbols *symbol.Symbol                         `json:"-"`
+	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

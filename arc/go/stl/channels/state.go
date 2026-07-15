@@ -21,9 +21,6 @@ type Digest struct {
 	DataType telem.DataType
 	Key      uint32
 	Index    uint32
-	// Seed, when non-empty, pre-fills the read buffer for a variable channel so
-	// a read preceding any write observes the declared value.
-	Seed telem.Series
 }
 
 // ProgramState manages channel I/O buffers and index mapping.
@@ -32,8 +29,6 @@ type ProgramState struct {
 	writes          map[uint32]telem.Series
 	activeWriteKeys []uint32
 	indexes         map[uint32]uint32
-	// seeds retains each seeded variable channel's declared initial value.
-	seeds map[uint32]telem.Series
 	// clock provides monotonically increasing timestamps for indexed
 	// channel writes, avoiding duplicate timestamps on platforms with
 	// coarse clock resolution (e.g. Windows).
@@ -46,36 +41,11 @@ func NewProgramState(digests []Digest) *ProgramState {
 		reads:   make(map[uint32]telem.MultiSeries),
 		writes:  make(map[uint32]telem.Series),
 		indexes: make(map[uint32]uint32),
-		seeds:   make(map[uint32]telem.Series),
 	}
 	for _, d := range digests {
 		cs.indexes[d.Key] = d.Index
-		if len(d.Seed.Data) > 0 {
-			cs.seeds[d.Key] = d.Seed
-			cs.appendVarRead(d.Key, d.Seed)
-		}
 	}
 	return cs
-}
-
-// ResetVar restores a seeded variable channel to its declared initial value.
-func (cs *ProgramState) ResetVar(key uint32) {
-	seed, ok := cs.seeds[key]
-	if !ok {
-		return
-	}
-	cs.appendVarRead(key, seed.DeepCopy())
-}
-
-// appendVarRead loops a variable-channel write back into the read buffer at the next alignment so source nodes treat it as fresh data.
-func (cs *ProgramState) appendVarRead(key uint32, s telem.Series) {
-	cur := cs.reads[key]
-	if n := len(cur.Series); n > 0 {
-		s.Alignment = cur.Series[n-1].AlignmentBounds().Upper
-	} else {
-		s.Alignment = 0
-	}
-	cs.reads[key] = cur.Append(s)
 }
 
 // Ingest adds external channel data to the read buffer.

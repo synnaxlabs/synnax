@@ -342,118 +342,56 @@ var _ = Describe("Codec", func() {
 							Read:  map[uint32]string{61: "test_60"},
 							Write: map[uint32]string{62: "test_61"},
 						},
-						IsLiteral:            false,
-						BacksInternalChannel: true,
 					},
 				},
 				Edges: []ir.Edge{
 					{
-						Source: ir.Handle{Node: "test_66", Param: "test_67"},
-						Target: ir.Handle{Node: "test_69", Param: "test_70"},
+						Source: ir.Handle{Node: "test_64", Param: "test_65"},
+						Target: ir.Handle{Node: "test_67", Param: "test_68"},
 						Kind:   ir.EdgeKind(0),
 					},
 				},
-				Authorities: ir.Authorities{Default: new(uint8(74)), Channels: map[uint32]uint8{75: 75}},
+				Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 				Root: ir.Scope{
-					Key:        "test_76",
+					Key:        "test_74",
 					Mode:       ir.ScopeMode(0),
 					Liveness:   ir.Liveness(0),
-					Activation: new(ir.Handle{Node: "test_80", Param: "test_81"}),
+					Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 					Strata: [][]ir.Member{
 						{
 							{
-								NodeKey: new(string("test_83")),
+								NodeKey: new(string("test_81")),
 								Scope: new(ir.Scope{
-									Key:           "test_85",
-									Mode:          ir.ScopeMode(0),
-									Liveness:      ir.Liveness(0),
-									Activation:    new(ir.Handle{}),
-									Strata:        [][]ir.Member{{{}}},
-									Steps:         []ir.Member{{}},
-									Transitions:   []ir.Transition{{}},
-									ResetChannels: []uint32{93},
+									Key:         "test_83",
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  new(ir.Handle{}),
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
 								}),
 							},
 						},
 					},
 					Steps: []ir.Member{
 						{
-							NodeKey: new(string("test_94")),
+							NodeKey: new(string("test_91")),
 							Scope: new(ir.Scope{
-								Key:           "test_96",
-								Mode:          ir.ScopeMode(0),
-								Liveness:      ir.Liveness(0),
-								Activation:    new(ir.Handle{}),
-								Strata:        [][]ir.Member{{{}}},
-								Steps:         []ir.Member{{}},
-								Transitions:   []ir.Transition{{}},
-								ResetChannels: []uint32{104},
+								Key:         "test_93",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
 							}),
 						},
 					},
 					Transitions: []ir.Transition{
 						{
-							On:        ir.Handle{Node: "test_106", Param: "test_107"},
-							TargetKey: new(string("test_108")),
+							On:        ir.Handle{Node: "test_102", Param: "test_103"},
+							TargetKey: new(string("test_104")),
 						},
-					},
-					ResetChannels: []uint32{110},
-				},
-				VarChannels: []uint32{111},
-				VarSeeds: []ir.VarSeed{
-					{
-						Channel: 113,
-						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs: []types.Param{
-									{
-										Name:  "test_115",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_117": "value_117"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_119",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_121": "value_121"},
-									},
-								},
-							},
-							Kind: types.Kind(0),
-							Name: "test_123",
-							Elem: new(types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_128",
-								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
-								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
-							}),
-							Unit: new(types.Unit{
-								Dimensions: types.Dimensions{},
-								Scale:      135.5,
-								Name:       "test_136",
-							}),
-							Constraint: new(types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_141",
-								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
-								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
-							}),
-							ChanDirection: types.ChanDirection(0),
-						},
-						Value: map[string]interface{}{"key_147": "value_147"},
 					},
 				},
 			}),
@@ -463,17 +401,14 @@ var _ = Describe("Codec", func() {
 				Edges:       nil,
 				Authorities: ir.Authorities{Default: nil, Channels: nil},
 				Root: ir.Scope{
-					Key:           "",
-					Mode:          ir.ScopeMode(0),
-					Liveness:      ir.Liveness(0),
-					Activation:    nil,
-					Strata:        nil,
-					Steps:         nil,
-					Transitions:   nil,
-					ResetChannels: nil,
+					Key:         "",
+					Mode:        ir.ScopeMode(0),
+					Liveness:    ir.Liveness(0),
+					Activation:  nil,
+					Strata:      nil,
+					Steps:       nil,
+					Transitions: nil,
 				},
-				VarChannels: nil,
-				VarSeeds:    nil,
 			}),
 			Entry("empty collections", ir.IR{
 				Functions:   []ir.Function{},
@@ -481,17 +416,14 @@ var _ = Describe("Codec", func() {
 				Edges:       []ir.Edge{},
 				Authorities: ir.Authorities{Default: new(uint8(6)), Channels: map[uint32]uint8{}},
 				Root: ir.Scope{
-					Key:           "test_8",
-					Mode:          ir.ScopeMode(0),
-					Liveness:      ir.Liveness(0),
-					Activation:    new(ir.Handle{Node: "test_12", Param: "test_13"}),
-					Strata:        [][]ir.Member{},
-					Steps:         []ir.Member{},
-					Transitions:   []ir.Transition{},
-					ResetChannels: []uint32{},
+					Key:         "test_8",
+					Mode:        ir.ScopeMode(0),
+					Liveness:    ir.Liveness(0),
+					Activation:  new(ir.Handle{Node: "test_12", Param: "test_13"}),
+					Strata:      [][]ir.Member{},
+					Steps:       []ir.Member{},
+					Transitions: []ir.Transition{},
 				},
-				VarChannels: []uint32{},
-				VarSeeds:    []ir.VarSeed{},
 			}),
 		)
 	})
@@ -518,40 +450,37 @@ var _ = Describe("Codec", func() {
 							{
 								NodeKey: new(string("test_10")),
 								Scope: new(ir.Scope{
-									Key:           "test_12",
-									Mode:          ir.ScopeMode(0),
-									Liveness:      ir.Liveness(0),
-									Activation:    new(ir.Handle{}),
-									Strata:        [][]ir.Member{{{}}},
-									Steps:         []ir.Member{{}},
-									Transitions:   []ir.Transition{{}},
-									ResetChannels: []uint32{20},
+									Key:         "test_12",
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  new(ir.Handle{}),
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
 								}),
 							},
 						},
 					},
 					Steps: []ir.Member{
 						{
-							NodeKey: new(string("test_21")),
+							NodeKey: new(string("test_20")),
 							Scope: new(ir.Scope{
-								Key:           "test_23",
-								Mode:          ir.ScopeMode(0),
-								Liveness:      ir.Liveness(0),
-								Activation:    new(ir.Handle{}),
-								Strata:        [][]ir.Member{{{}}},
-								Steps:         []ir.Member{{}},
-								Transitions:   []ir.Transition{{}},
-								ResetChannels: []uint32{31},
+								Key:         "test_22",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
 							}),
 						},
 					},
 					Transitions: []ir.Transition{
 						{
-							On:        ir.Handle{Node: "test_33", Param: "test_34"},
-							TargetKey: new(string("test_35")),
+							On:        ir.Handle{Node: "test_31", Param: "test_32"},
+							TargetKey: new(string("test_33")),
 						},
 					},
-					ResetChannels: []uint32{37},
 				}),
 			}),
 			Entry("zero values", ir.Member{NodeKey: nil, Scope: nil}),
@@ -687,26 +616,20 @@ var _ = Describe("Codec", func() {
 					Read:  map[uint32]string{79: "test_78"},
 					Write: map[uint32]string{80: "test_79"},
 				},
-				IsLiteral:            false,
-				BacksInternalChannel: true,
 			}),
 			Entry("zero values", ir.Node{
-				Key:                  "",
-				Type:                 "",
-				Inputs:               nil,
-				Outputs:              nil,
-				Channels:             types.Channels{Read: nil, Write: nil},
-				IsLiteral:            false,
-				BacksInternalChannel: false,
+				Key:      "",
+				Type:     "",
+				Inputs:   nil,
+				Outputs:  nil,
+				Channels: types.Channels{Read: nil, Write: nil},
 			}),
 			Entry("empty collections", ir.Node{
-				Key:                  "test_1",
-				Type:                 "test_2",
-				Inputs:               []types.Param{},
-				Outputs:              []types.Param{},
-				Channels:             types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
-				IsLiteral:            false,
-				BacksInternalChannel: true,
+				Key:      "test_1",
+				Type:     "test_2",
+				Inputs:   []types.Param{},
+				Outputs:  []types.Param{},
+				Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 			}),
 		)
 	})
@@ -731,60 +654,55 @@ var _ = Describe("Codec", func() {
 						{
 							NodeKey: new(string("test_8")),
 							Scope: new(ir.Scope{
-								Key:           "test_10",
-								Mode:          ir.ScopeMode(0),
-								Liveness:      ir.Liveness(0),
-								Activation:    new(ir.Handle{Node: "test_14", Param: "test_15"}),
-								Strata:        [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
-								Steps:         []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
-								Transitions:   []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
-								ResetChannels: []uint32{26},
+								Key:         "test_10",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{Node: "test_14", Param: "test_15"}),
+								Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
+								Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
+								Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
 							}),
 						},
 					},
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: new(string("test_27")),
+						NodeKey: new(string("test_26")),
 						Scope: new(ir.Scope{
-							Key:           "test_29",
-							Mode:          ir.ScopeMode(0),
-							Liveness:      ir.Liveness(0),
-							Activation:    new(ir.Handle{Node: "test_33", Param: "test_34"}),
-							Strata:        [][]ir.Member{{{NodeKey: new(string("test_36")), Scope: new(ir.Scope{})}}},
-							Steps:         []ir.Member{{NodeKey: new(string("test_39")), Scope: new(ir.Scope{})}},
-							Transitions:   []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_43"))}},
-							ResetChannels: []uint32{45},
+							Key:         "test_28",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
+							Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
+							Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
+							Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
 						}),
 					},
 				},
 				Transitions: []ir.Transition{
 					{
-						On:        ir.Handle{Node: "test_47", Param: "test_48"},
-						TargetKey: new(string("test_49")),
+						On:        ir.Handle{Node: "test_45", Param: "test_46"},
+						TargetKey: new(string("test_47")),
 					},
 				},
-				ResetChannels: []uint32{51},
 			}),
 			Entry("zero values", ir.Scope{
-				Key:           "",
-				Mode:          ir.ScopeMode(0),
-				Liveness:      ir.Liveness(0),
-				Activation:    nil,
-				Strata:        nil,
-				Steps:         nil,
-				Transitions:   nil,
-				ResetChannels: nil,
+				Key:         "",
+				Mode:        ir.ScopeMode(0),
+				Liveness:    ir.Liveness(0),
+				Activation:  nil,
+				Strata:      nil,
+				Steps:       nil,
+				Transitions: nil,
 			}),
 			Entry("empty collections", ir.Scope{
-				Key:           "test_1",
-				Mode:          ir.ScopeMode(0),
-				Liveness:      ir.Liveness(0),
-				Activation:    new(ir.Handle{Node: "test_5", Param: "test_6"}),
-				Strata:        [][]ir.Member{},
-				Steps:         []ir.Member{},
-				Transitions:   []ir.Transition{},
-				ResetChannels: []uint32{},
+				Key:         "test_1",
+				Mode:        ir.ScopeMode(0),
+				Liveness:    ir.Liveness(0),
+				Activation:  new(ir.Handle{Node: "test_5", Param: "test_6"}),
+				Strata:      [][]ir.Member{},
+				Steps:       []ir.Member{},
+				Transitions: []ir.Transition{},
 			}),
 		)
 	})
@@ -804,193 +722,6 @@ var _ = Describe("Codec", func() {
 				TargetKey: new(string("test_4")),
 			}),
 			Entry("zero values", ir.Transition{On: ir.Handle{Node: "", Param: ""}, TargetKey: nil}),
-		)
-	})
-	Describe("VarSeed", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original ir.VarSeed) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded ir.VarSeed
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", ir.VarSeed{
-				Channel: 2,
-				Type: types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs: []types.Param{
-							{
-								Name: "test_4",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_9",
-									Elem:          new(types.Type{}),
-									Unit:          new(types.Unit{}),
-									Constraint:    new(types.Type{}),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_14": "value_14"},
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name: "test_16",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_21",
-									Elem:          new(types.Type{}),
-									Unit:          new(types.Unit{}),
-									Constraint:    new(types.Type{}),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_26": "value_26"},
-							},
-						},
-					},
-					Kind: types.Kind(0),
-					Name: "test_28",
-					Elem: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_31",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_33": "value_33"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_35",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_37": "value_37"},
-								},
-							},
-						},
-						Kind: types.Kind(0),
-						Name: "test_39",
-						Elem: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_44",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						}),
-						Unit: new(types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      51.5,
-							Name:       "test_52",
-						}),
-						Constraint: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_57",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						}),
-						ChanDirection: types.ChanDirection(0),
-					}),
-					Unit: new(types.Unit{
-						Dimensions: types.Dimensions{
-							Length:      66,
-							Mass:        67,
-							Time:        68,
-							Current:     69,
-							Temperature: 70,
-							Angle:       71,
-							Count:       72,
-							Data:        73,
-						},
-						Scale: 73.5,
-						Name:  "test_74",
-					}),
-					Constraint: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_77",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_79": "value_79"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_81",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_83": "value_83"},
-								},
-							},
-						},
-						Kind: types.Kind(0),
-						Name: "test_85",
-						Elem: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_90",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						}),
-						Unit: new(types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      97.5,
-							Name:       "test_98",
-						}),
-						Constraint: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_103",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						}),
-						ChanDirection: types.ChanDirection(0),
-					}),
-					ChanDirection: types.ChanDirection(0),
-				},
-				Value: map[string]interface{}{"key_110": "value_110"},
-			}),
-			Entry("zero values", ir.VarSeed{
-				Channel: 0,
-				Type: types.Type{
-					FunctionProperties: types.FunctionProperties{Inputs: nil, Outputs: nil},
-					Kind:               types.Kind(0),
-					Name:               "",
-					Elem:               nil,
-					Unit:               nil,
-					Constraint:         nil,
-					ChanDirection:      types.ChanDirection(0),
-				},
-				Value: nil,
-			}),
 		)
 	})
 })
@@ -1295,118 +1026,56 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 					Read:  map[uint32]string{61: "test_60"},
 					Write: map[uint32]string{62: "test_61"},
 				},
-				IsLiteral:            false,
-				BacksInternalChannel: true,
 			},
 		},
 		Edges: []ir.Edge{
 			{
-				Source: ir.Handle{Node: "test_66", Param: "test_67"},
-				Target: ir.Handle{Node: "test_69", Param: "test_70"},
+				Source: ir.Handle{Node: "test_64", Param: "test_65"},
+				Target: ir.Handle{Node: "test_67", Param: "test_68"},
 				Kind:   ir.EdgeKind(0),
 			},
 		},
-		Authorities: ir.Authorities{Default: new(uint8(74)), Channels: map[uint32]uint8{75: 75}},
+		Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 		Root: ir.Scope{
-			Key:        "test_76",
+			Key:        "test_74",
 			Mode:       ir.ScopeMode(0),
 			Liveness:   ir.Liveness(0),
-			Activation: new(ir.Handle{Node: "test_80", Param: "test_81"}),
+			Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 			Strata: [][]ir.Member{
 				{
 					{
-						NodeKey: new(string("test_83")),
+						NodeKey: new(string("test_81")),
 						Scope: new(ir.Scope{
-							Key:           "test_85",
-							Mode:          ir.ScopeMode(0),
-							Liveness:      ir.Liveness(0),
-							Activation:    new(ir.Handle{}),
-							Strata:        [][]ir.Member{{{}}},
-							Steps:         []ir.Member{{}},
-							Transitions:   []ir.Transition{{}},
-							ResetChannels: []uint32{93},
+							Key:         "test_83",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
 						}),
 					},
 				},
 			},
 			Steps: []ir.Member{
 				{
-					NodeKey: new(string("test_94")),
+					NodeKey: new(string("test_91")),
 					Scope: new(ir.Scope{
-						Key:           "test_96",
-						Mode:          ir.ScopeMode(0),
-						Liveness:      ir.Liveness(0),
-						Activation:    new(ir.Handle{}),
-						Strata:        [][]ir.Member{{{}}},
-						Steps:         []ir.Member{{}},
-						Transitions:   []ir.Transition{{}},
-						ResetChannels: []uint32{104},
+						Key:         "test_93",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{}),
+						Strata:      [][]ir.Member{{{}}},
+						Steps:       []ir.Member{{}},
+						Transitions: []ir.Transition{{}},
 					}),
 				},
 			},
 			Transitions: []ir.Transition{
 				{
-					On:        ir.Handle{Node: "test_106", Param: "test_107"},
-					TargetKey: new(string("test_108")),
+					On:        ir.Handle{Node: "test_102", Param: "test_103"},
+					TargetKey: new(string("test_104")),
 				},
-			},
-			ResetChannels: []uint32{110},
-		},
-		VarChannels: []uint32{111},
-		VarSeeds: []ir.VarSeed{
-			{
-				Channel: 113,
-				Type: types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs: []types.Param{
-							{
-								Name:  "test_115",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_117": "value_117"},
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_119",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_121": "value_121"},
-							},
-						},
-					},
-					Kind: types.Kind(0),
-					Name: "test_123",
-					Elem: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
-						Kind:          types.Kind(0),
-						Name:          "test_128",
-						Elem:          new(types.Type{}),
-						Unit:          new(types.Unit{}),
-						Constraint:    new(types.Type{}),
-						ChanDirection: types.ChanDirection(0),
-					}),
-					Unit: new(types.Unit{
-						Dimensions: types.Dimensions{},
-						Scale:      135.5,
-						Name:       "test_136",
-					}),
-					Constraint: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
-						Kind:          types.Kind(0),
-						Name:          "test_141",
-						Elem:          new(types.Type{}),
-						Unit:          new(types.Unit{}),
-						Constraint:    new(types.Type{}),
-						ChanDirection: types.ChanDirection(0),
-					}),
-					ChanDirection: types.ChanDirection(0),
-				},
-				Value: map[string]interface{}{"key_147": "value_147"},
 			},
 		},
 	}
@@ -1438,40 +1107,37 @@ func BenchmarkEncodeDecodeMember(b *testing.B) {
 					{
 						NodeKey: new(string("test_10")),
 						Scope: new(ir.Scope{
-							Key:           "test_12",
-							Mode:          ir.ScopeMode(0),
-							Liveness:      ir.Liveness(0),
-							Activation:    new(ir.Handle{}),
-							Strata:        [][]ir.Member{{{}}},
-							Steps:         []ir.Member{{}},
-							Transitions:   []ir.Transition{{}},
-							ResetChannels: []uint32{20},
+							Key:         "test_12",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
 						}),
 					},
 				},
 			},
 			Steps: []ir.Member{
 				{
-					NodeKey: new(string("test_21")),
+					NodeKey: new(string("test_20")),
 					Scope: new(ir.Scope{
-						Key:           "test_23",
-						Mode:          ir.ScopeMode(0),
-						Liveness:      ir.Liveness(0),
-						Activation:    new(ir.Handle{}),
-						Strata:        [][]ir.Member{{{}}},
-						Steps:         []ir.Member{{}},
-						Transitions:   []ir.Transition{{}},
-						ResetChannels: []uint32{31},
+						Key:         "test_22",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{}),
+						Strata:      [][]ir.Member{{{}}},
+						Steps:       []ir.Member{{}},
+						Transitions: []ir.Transition{{}},
 					}),
 				},
 			},
 			Transitions: []ir.Transition{
 				{
-					On:        ir.Handle{Node: "test_33", Param: "test_34"},
-					TargetKey: new(string("test_35")),
+					On:        ir.Handle{Node: "test_31", Param: "test_32"},
+					TargetKey: new(string("test_33")),
 				},
 			},
-			ResetChannels: []uint32{37},
 		}),
 	}
 	w := orc.NewWriter(0)
@@ -1609,8 +1275,6 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 			Read:  map[uint32]string{79: "test_78"},
 			Write: map[uint32]string{80: "test_79"},
 		},
-		IsLiteral:            false,
-		BacksInternalChannel: true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1638,40 +1302,37 @@ func BenchmarkEncodeDecodeScope(b *testing.B) {
 				{
 					NodeKey: new(string("test_8")),
 					Scope: new(ir.Scope{
-						Key:           "test_10",
-						Mode:          ir.ScopeMode(0),
-						Liveness:      ir.Liveness(0),
-						Activation:    new(ir.Handle{Node: "test_14", Param: "test_15"}),
-						Strata:        [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
-						Steps:         []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
-						Transitions:   []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
-						ResetChannels: []uint32{26},
+						Key:         "test_10",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{Node: "test_14", Param: "test_15"}),
+						Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
+						Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
+						Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
 					}),
 				},
 			},
 		},
 		Steps: []ir.Member{
 			{
-				NodeKey: new(string("test_27")),
+				NodeKey: new(string("test_26")),
 				Scope: new(ir.Scope{
-					Key:           "test_29",
-					Mode:          ir.ScopeMode(0),
-					Liveness:      ir.Liveness(0),
-					Activation:    new(ir.Handle{Node: "test_33", Param: "test_34"}),
-					Strata:        [][]ir.Member{{{NodeKey: new(string("test_36")), Scope: new(ir.Scope{})}}},
-					Steps:         []ir.Member{{NodeKey: new(string("test_39")), Scope: new(ir.Scope{})}},
-					Transitions:   []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_43"))}},
-					ResetChannels: []uint32{45},
+					Key:         "test_28",
+					Mode:        ir.ScopeMode(0),
+					Liveness:    ir.Liveness(0),
+					Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
+					Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
+					Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
+					Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
 				}),
 			},
 		},
 		Transitions: []ir.Transition{
 			{
-				On:        ir.Handle{Node: "test_47", Param: "test_48"},
-				TargetKey: new(string("test_49")),
+				On:        ir.Handle{Node: "test_45", Param: "test_46"},
+				TargetKey: new(string("test_47")),
 			},
 		},
-		ResetChannels: []uint32{51},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1701,183 +1362,6 @@ func BenchmarkEncodeDecodeTransition(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded ir.Transition
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeVarSeed(b *testing.B) {
-	vs := ir.VarSeed{
-		Channel: 2,
-		Type: types.Type{
-			FunctionProperties: types.FunctionProperties{
-				Inputs: []types.Param{
-					{
-						Name: "test_4",
-						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_9",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						},
-						Value: map[string]interface{}{"key_14": "value_14"},
-					},
-				},
-				Outputs: []types.Param{
-					{
-						Name: "test_16",
-						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_21",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						},
-						Value: map[string]interface{}{"key_26": "value_26"},
-					},
-				},
-			},
-			Kind: types.Kind(0),
-			Name: "test_28",
-			Elem: new(types.Type{
-				FunctionProperties: types.FunctionProperties{
-					Inputs: []types.Param{
-						{
-							Name:  "test_31",
-							Type:  types.Type{},
-							Value: map[string]interface{}{"key_33": "value_33"},
-						},
-					},
-					Outputs: []types.Param{
-						{
-							Name:  "test_35",
-							Type:  types.Type{},
-							Value: map[string]interface{}{"key_37": "value_37"},
-						},
-					},
-				},
-				Kind: types.Kind(0),
-				Name: "test_39",
-				Elem: new(types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs:  []types.Param{{}},
-						Outputs: []types.Param{{}},
-					},
-					Kind:          types.Kind(0),
-					Name:          "test_44",
-					Elem:          new(types.Type{}),
-					Unit:          new(types.Unit{}),
-					Constraint:    new(types.Type{}),
-					ChanDirection: types.ChanDirection(0),
-				}),
-				Unit: new(types.Unit{
-					Dimensions: types.Dimensions{},
-					Scale:      51.5,
-					Name:       "test_52",
-				}),
-				Constraint: new(types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs:  []types.Param{{}},
-						Outputs: []types.Param{{}},
-					},
-					Kind:          types.Kind(0),
-					Name:          "test_57",
-					Elem:          new(types.Type{}),
-					Unit:          new(types.Unit{}),
-					Constraint:    new(types.Type{}),
-					ChanDirection: types.ChanDirection(0),
-				}),
-				ChanDirection: types.ChanDirection(0),
-			}),
-			Unit: new(types.Unit{
-				Dimensions: types.Dimensions{
-					Length:      66,
-					Mass:        67,
-					Time:        68,
-					Current:     69,
-					Temperature: 70,
-					Angle:       71,
-					Count:       72,
-					Data:        73,
-				},
-				Scale: 73.5,
-				Name:  "test_74",
-			}),
-			Constraint: new(types.Type{
-				FunctionProperties: types.FunctionProperties{
-					Inputs: []types.Param{
-						{
-							Name:  "test_77",
-							Type:  types.Type{},
-							Value: map[string]interface{}{"key_79": "value_79"},
-						},
-					},
-					Outputs: []types.Param{
-						{
-							Name:  "test_81",
-							Type:  types.Type{},
-							Value: map[string]interface{}{"key_83": "value_83"},
-						},
-					},
-				},
-				Kind: types.Kind(0),
-				Name: "test_85",
-				Elem: new(types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs:  []types.Param{{}},
-						Outputs: []types.Param{{}},
-					},
-					Kind:          types.Kind(0),
-					Name:          "test_90",
-					Elem:          new(types.Type{}),
-					Unit:          new(types.Unit{}),
-					Constraint:    new(types.Type{}),
-					ChanDirection: types.ChanDirection(0),
-				}),
-				Unit: new(types.Unit{
-					Dimensions: types.Dimensions{},
-					Scale:      97.5,
-					Name:       "test_98",
-				}),
-				Constraint: new(types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs:  []types.Param{{}},
-						Outputs: []types.Param{{}},
-					},
-					Kind:          types.Kind(0),
-					Name:          "test_103",
-					Elem:          new(types.Type{}),
-					Unit:          new(types.Unit{}),
-					Constraint:    new(types.Type{}),
-					ChanDirection: types.ChanDirection(0),
-				}),
-				ChanDirection: types.ChanDirection(0),
-			}),
-			ChanDirection: types.ChanDirection(0),
-		},
-		Value: map[string]interface{}{"key_110": "value_110"},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := vs.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded ir.VarSeed
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2363,118 +1847,56 @@ func FuzzDecodeIR(f *testing.F) {
 						Read:  map[uint32]string{61: "test_60"},
 						Write: map[uint32]string{62: "test_61"},
 					},
-					IsLiteral:            false,
-					BacksInternalChannel: true,
 				},
 			},
 			Edges: []ir.Edge{
 				{
-					Source: ir.Handle{Node: "test_66", Param: "test_67"},
-					Target: ir.Handle{Node: "test_69", Param: "test_70"},
+					Source: ir.Handle{Node: "test_64", Param: "test_65"},
+					Target: ir.Handle{Node: "test_67", Param: "test_68"},
 					Kind:   ir.EdgeKind(0),
 				},
 			},
-			Authorities: ir.Authorities{Default: new(uint8(74)), Channels: map[uint32]uint8{75: 75}},
+			Authorities: ir.Authorities{Default: new(uint8(72)), Channels: map[uint32]uint8{73: 73}},
 			Root: ir.Scope{
-				Key:        "test_76",
+				Key:        "test_74",
 				Mode:       ir.ScopeMode(0),
 				Liveness:   ir.Liveness(0),
-				Activation: new(ir.Handle{Node: "test_80", Param: "test_81"}),
+				Activation: new(ir.Handle{Node: "test_78", Param: "test_79"}),
 				Strata: [][]ir.Member{
 					{
 						{
-							NodeKey: new(string("test_83")),
+							NodeKey: new(string("test_81")),
 							Scope: new(ir.Scope{
-								Key:           "test_85",
-								Mode:          ir.ScopeMode(0),
-								Liveness:      ir.Liveness(0),
-								Activation:    new(ir.Handle{}),
-								Strata:        [][]ir.Member{{{}}},
-								Steps:         []ir.Member{{}},
-								Transitions:   []ir.Transition{{}},
-								ResetChannels: []uint32{93},
+								Key:         "test_83",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
 							}),
 						},
 					},
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: new(string("test_94")),
+						NodeKey: new(string("test_91")),
 						Scope: new(ir.Scope{
-							Key:           "test_96",
-							Mode:          ir.ScopeMode(0),
-							Liveness:      ir.Liveness(0),
-							Activation:    new(ir.Handle{}),
-							Strata:        [][]ir.Member{{{}}},
-							Steps:         []ir.Member{{}},
-							Transitions:   []ir.Transition{{}},
-							ResetChannels: []uint32{104},
+							Key:         "test_93",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
 						}),
 					},
 				},
 				Transitions: []ir.Transition{
 					{
-						On:        ir.Handle{Node: "test_106", Param: "test_107"},
-						TargetKey: new(string("test_108")),
+						On:        ir.Handle{Node: "test_102", Param: "test_103"},
+						TargetKey: new(string("test_104")),
 					},
-				},
-				ResetChannels: []uint32{110},
-			},
-			VarChannels: []uint32{111},
-			VarSeeds: []ir.VarSeed{
-				{
-					Channel: 113,
-					Type: types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs: []types.Param{
-								{
-									Name:  "test_115",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_117": "value_117"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_119",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_121": "value_121"},
-								},
-							},
-						},
-						Kind: types.Kind(0),
-						Name: "test_123",
-						Elem: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_128",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						}),
-						Unit: new(types.Unit{
-							Dimensions: types.Dimensions{},
-							Scale:      135.5,
-							Name:       "test_136",
-						}),
-						Constraint: new(types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_141",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						}),
-						ChanDirection: types.ChanDirection(0),
-					},
-					Value: map[string]interface{}{"key_147": "value_147"},
 				},
 			},
 		}
@@ -2491,17 +1913,14 @@ func FuzzDecodeIR(f *testing.F) {
 			Edges:       nil,
 			Authorities: ir.Authorities{Default: nil, Channels: nil},
 			Root: ir.Scope{
-				Key:           "",
-				Mode:          ir.ScopeMode(0),
-				Liveness:      ir.Liveness(0),
-				Activation:    nil,
-				Strata:        nil,
-				Steps:         nil,
-				Transitions:   nil,
-				ResetChannels: nil,
+				Key:         "",
+				Mode:        ir.ScopeMode(0),
+				Liveness:    ir.Liveness(0),
+				Activation:  nil,
+				Strata:      nil,
+				Steps:       nil,
+				Transitions: nil,
 			},
-			VarChannels: nil,
-			VarSeeds:    nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2516,17 +1935,14 @@ func FuzzDecodeIR(f *testing.F) {
 			Edges:       []ir.Edge{},
 			Authorities: ir.Authorities{Default: new(uint8(6)), Channels: map[uint32]uint8{}},
 			Root: ir.Scope{
-				Key:           "test_8",
-				Mode:          ir.ScopeMode(0),
-				Liveness:      ir.Liveness(0),
-				Activation:    new(ir.Handle{Node: "test_12", Param: "test_13"}),
-				Strata:        [][]ir.Member{},
-				Steps:         []ir.Member{},
-				Transitions:   []ir.Transition{},
-				ResetChannels: []uint32{},
+				Key:         "test_8",
+				Mode:        ir.ScopeMode(0),
+				Liveness:    ir.Liveness(0),
+				Activation:  new(ir.Handle{Node: "test_12", Param: "test_13"}),
+				Strata:      [][]ir.Member{},
+				Steps:       []ir.Member{},
+				Transitions: []ir.Transition{},
 			},
-			VarChannels: []uint32{},
-			VarSeeds:    []ir.VarSeed{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2577,40 +1993,37 @@ func FuzzDecodeMember(f *testing.F) {
 						{
 							NodeKey: new(string("test_10")),
 							Scope: new(ir.Scope{
-								Key:           "test_12",
-								Mode:          ir.ScopeMode(0),
-								Liveness:      ir.Liveness(0),
-								Activation:    new(ir.Handle{}),
-								Strata:        [][]ir.Member{{{}}},
-								Steps:         []ir.Member{{}},
-								Transitions:   []ir.Transition{{}},
-								ResetChannels: []uint32{20},
+								Key:         "test_12",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  new(ir.Handle{}),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
 							}),
 						},
 					},
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: new(string("test_21")),
+						NodeKey: new(string("test_20")),
 						Scope: new(ir.Scope{
-							Key:           "test_23",
-							Mode:          ir.ScopeMode(0),
-							Liveness:      ir.Liveness(0),
-							Activation:    new(ir.Handle{}),
-							Strata:        [][]ir.Member{{{}}},
-							Steps:         []ir.Member{{}},
-							Transitions:   []ir.Transition{{}},
-							ResetChannels: []uint32{31},
+							Key:         "test_22",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{}),
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
+							Transitions: []ir.Transition{{}},
 						}),
 					},
 				},
 				Transitions: []ir.Transition{
 					{
-						On:        ir.Handle{Node: "test_33", Param: "test_34"},
-						TargetKey: new(string("test_35")),
+						On:        ir.Handle{Node: "test_31", Param: "test_32"},
+						TargetKey: new(string("test_33")),
 					},
 				},
-				ResetChannels: []uint32{37},
 			}),
 		}
 		w := orc.NewWriter(0)
@@ -2777,8 +2190,6 @@ func FuzzDecodeNode(f *testing.F) {
 				Read:  map[uint32]string{79: "test_78"},
 				Write: map[uint32]string{80: "test_79"},
 			},
-			IsLiteral:            false,
-			BacksInternalChannel: true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2788,13 +2199,11 @@ func FuzzDecodeNode(f *testing.F) {
 	}
 	{
 		seed := ir.Node{
-			Key:                  "",
-			Type:                 "",
-			Inputs:               nil,
-			Outputs:              nil,
-			Channels:             types.Channels{Read: nil, Write: nil},
-			IsLiteral:            false,
-			BacksInternalChannel: false,
+			Key:      "",
+			Type:     "",
+			Inputs:   nil,
+			Outputs:  nil,
+			Channels: types.Channels{Read: nil, Write: nil},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2804,13 +2213,11 @@ func FuzzDecodeNode(f *testing.F) {
 	}
 	{
 		seed := ir.Node{
-			Key:                  "test_1",
-			Type:                 "test_2",
-			Inputs:               []types.Param{},
-			Outputs:              []types.Param{},
-			Channels:             types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
-			IsLiteral:            false,
-			BacksInternalChannel: true,
+			Key:      "test_1",
+			Type:     "test_2",
+			Inputs:   []types.Param{},
+			Outputs:  []types.Param{},
+			Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2859,40 +2266,37 @@ func FuzzDecodeScope(f *testing.F) {
 					{
 						NodeKey: new(string("test_8")),
 						Scope: new(ir.Scope{
-							Key:           "test_10",
-							Mode:          ir.ScopeMode(0),
-							Liveness:      ir.Liveness(0),
-							Activation:    new(ir.Handle{Node: "test_14", Param: "test_15"}),
-							Strata:        [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
-							Steps:         []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
-							Transitions:   []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
-							ResetChannels: []uint32{26},
+							Key:         "test_10",
+							Mode:        ir.ScopeMode(0),
+							Liveness:    ir.Liveness(0),
+							Activation:  new(ir.Handle{Node: "test_14", Param: "test_15"}),
+							Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
+							Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
+							Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
 						}),
 					},
 				},
 			},
 			Steps: []ir.Member{
 				{
-					NodeKey: new(string("test_27")),
+					NodeKey: new(string("test_26")),
 					Scope: new(ir.Scope{
-						Key:           "test_29",
-						Mode:          ir.ScopeMode(0),
-						Liveness:      ir.Liveness(0),
-						Activation:    new(ir.Handle{Node: "test_33", Param: "test_34"}),
-						Strata:        [][]ir.Member{{{NodeKey: new(string("test_36")), Scope: new(ir.Scope{})}}},
-						Steps:         []ir.Member{{NodeKey: new(string("test_39")), Scope: new(ir.Scope{})}},
-						Transitions:   []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_43"))}},
-						ResetChannels: []uint32{45},
+						Key:         "test_28",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
+						Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
+						Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
+						Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
 					}),
 				},
 			},
 			Transitions: []ir.Transition{
 				{
-					On:        ir.Handle{Node: "test_47", Param: "test_48"},
-					TargetKey: new(string("test_49")),
+					On:        ir.Handle{Node: "test_45", Param: "test_46"},
+					TargetKey: new(string("test_47")),
 				},
 			},
-			ResetChannels: []uint32{51},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2902,14 +2306,13 @@ func FuzzDecodeScope(f *testing.F) {
 	}
 	{
 		seed := ir.Scope{
-			Key:           "",
-			Mode:          ir.ScopeMode(0),
-			Liveness:      ir.Liveness(0),
-			Activation:    nil,
-			Strata:        nil,
-			Steps:         nil,
-			Transitions:   nil,
-			ResetChannels: nil,
+			Key:         "",
+			Mode:        ir.ScopeMode(0),
+			Liveness:    ir.Liveness(0),
+			Activation:  nil,
+			Strata:      nil,
+			Steps:       nil,
+			Transitions: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2919,14 +2322,13 @@ func FuzzDecodeScope(f *testing.F) {
 	}
 	{
 		seed := ir.Scope{
-			Key:           "test_1",
-			Mode:          ir.ScopeMode(0),
-			Liveness:      ir.Liveness(0),
-			Activation:    new(ir.Handle{Node: "test_5", Param: "test_6"}),
-			Strata:        [][]ir.Member{},
-			Steps:         []ir.Member{},
-			Transitions:   []ir.Transition{},
-			ResetChannels: []uint32{},
+			Key:         "test_1",
+			Mode:        ir.ScopeMode(0),
+			Liveness:    ir.Liveness(0),
+			Activation:  new(ir.Handle{Node: "test_5", Param: "test_6"}),
+			Strata:      [][]ir.Member{},
+			Steps:       []ir.Member{},
+			Transitions: []ir.Transition{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2995,224 +2397,6 @@ func FuzzDecodeTransition(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded ir.Transition
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeVarSeed(f *testing.F) {
-	{
-		seed := ir.VarSeed{
-			Channel: 2,
-			Type: types.Type{
-				FunctionProperties: types.FunctionProperties{
-					Inputs: []types.Param{
-						{
-							Name: "test_4",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_9",
-								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
-								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_14": "value_14"},
-						},
-					},
-					Outputs: []types.Param{
-						{
-							Name: "test_16",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_21",
-								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
-								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_26": "value_26"},
-						},
-					},
-				},
-				Kind: types.Kind(0),
-				Name: "test_28",
-				Elem: new(types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs: []types.Param{
-							{
-								Name:  "test_31",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_33": "value_33"},
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_35",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_37": "value_37"},
-							},
-						},
-					},
-					Kind: types.Kind(0),
-					Name: "test_39",
-					Elem: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
-						Kind:          types.Kind(0),
-						Name:          "test_44",
-						Elem:          new(types.Type{}),
-						Unit:          new(types.Unit{}),
-						Constraint:    new(types.Type{}),
-						ChanDirection: types.ChanDirection(0),
-					}),
-					Unit: new(types.Unit{
-						Dimensions: types.Dimensions{},
-						Scale:      51.5,
-						Name:       "test_52",
-					}),
-					Constraint: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
-						Kind:          types.Kind(0),
-						Name:          "test_57",
-						Elem:          new(types.Type{}),
-						Unit:          new(types.Unit{}),
-						Constraint:    new(types.Type{}),
-						ChanDirection: types.ChanDirection(0),
-					}),
-					ChanDirection: types.ChanDirection(0),
-				}),
-				Unit: new(types.Unit{
-					Dimensions: types.Dimensions{
-						Length:      66,
-						Mass:        67,
-						Time:        68,
-						Current:     69,
-						Temperature: 70,
-						Angle:       71,
-						Count:       72,
-						Data:        73,
-					},
-					Scale: 73.5,
-					Name:  "test_74",
-				}),
-				Constraint: new(types.Type{
-					FunctionProperties: types.FunctionProperties{
-						Inputs: []types.Param{
-							{
-								Name:  "test_77",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_79": "value_79"},
-							},
-						},
-						Outputs: []types.Param{
-							{
-								Name:  "test_81",
-								Type:  types.Type{},
-								Value: map[string]interface{}{"key_83": "value_83"},
-							},
-						},
-					},
-					Kind: types.Kind(0),
-					Name: "test_85",
-					Elem: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
-						Kind:          types.Kind(0),
-						Name:          "test_90",
-						Elem:          new(types.Type{}),
-						Unit:          new(types.Unit{}),
-						Constraint:    new(types.Type{}),
-						ChanDirection: types.ChanDirection(0),
-					}),
-					Unit: new(types.Unit{
-						Dimensions: types.Dimensions{},
-						Scale:      97.5,
-						Name:       "test_98",
-					}),
-					Constraint: new(types.Type{
-						FunctionProperties: types.FunctionProperties{
-							Inputs:  []types.Param{{}},
-							Outputs: []types.Param{{}},
-						},
-						Kind:          types.Kind(0),
-						Name:          "test_103",
-						Elem:          new(types.Type{}),
-						Unit:          new(types.Unit{}),
-						Constraint:    new(types.Type{}),
-						ChanDirection: types.ChanDirection(0),
-					}),
-					ChanDirection: types.ChanDirection(0),
-				}),
-				ChanDirection: types.ChanDirection(0),
-			},
-			Value: map[string]interface{}{"key_110": "value_110"},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := ir.VarSeed{
-			Channel: 0,
-			Type: types.Type{
-				FunctionProperties: types.FunctionProperties{Inputs: nil, Outputs: nil},
-				Kind:               types.Kind(0),
-				Name:               "",
-				Elem:               nil,
-				Unit:               nil,
-				Constraint:         nil,
-				ChanDirection:      types.ChanDirection(0),
-			},
-			Value: nil,
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded ir.VarSeed
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded ir.VarSeed
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

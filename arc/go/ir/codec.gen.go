@@ -12,8 +12,6 @@
 package ir
 
 import (
-	"encoding/json"
-
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
@@ -249,22 +247,6 @@ func (ir IR) EncodeOrc(w *orc.Writer) error {
 	if err := ir.Root.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Bool(ir.VarChannels != nil)
-	if ir.VarChannels != nil {
-		w.Uint32(uint32(len(ir.VarChannels)))
-		for i := range ir.VarChannels {
-			w.Uint32(uint32(ir.VarChannels[i]))
-		}
-	}
-	w.Bool(ir.VarSeeds != nil)
-	if ir.VarSeeds != nil {
-		w.Uint32(uint32(len(ir.VarSeeds)))
-		for i := range ir.VarSeeds {
-			if err := ir.VarSeeds[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 
@@ -329,42 +311,6 @@ func (ir *IR) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = ir.Root.DecodeOrc(r); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			ir.VarChannels = make([]uint32, n)
-			for i := range ir.VarChannels {
-				if ir.VarChannels[i], err = r.Uint32(); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			ir.VarSeeds = make([]VarSeed, n)
-			for i := range ir.VarSeeds {
-				if err = ir.VarSeeds[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	return nil
 }
@@ -445,8 +391,6 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	if err := nv.Channels.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Bool(nv.IsLiteral)
-	w.Bool(nv.BacksInternalChannel)
 	return nil
 }
 
@@ -497,12 +441,6 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	if err = nv.Channels.DecodeOrc(r); err != nil {
 		return err
 	}
-	if nv.IsLiteral, err = r.Bool(); err != nil {
-		return err
-	}
-	if nv.BacksInternalChannel, err = r.Bool(); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -549,13 +487,6 @@ func (s Scope) EncodeOrc(w *orc.Writer) error {
 			if err := s.Transitions[i].EncodeOrc(w); err != nil {
 				return err
 			}
-		}
-	}
-	w.Bool(s.ResetChannels != nil)
-	if s.ResetChannels != nil {
-		w.Uint32(uint32(len(s.ResetChannels)))
-		for i := range s.ResetChannels {
-			w.Uint32(uint32(s.ResetChannels[i]))
 		}
 	}
 	return nil
@@ -666,24 +597,6 @@ func (s *Scope) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.ResetChannels = make([]uint32, n)
-			for i := range s.ResetChannels {
-				if s.ResetChannels[i], err = r.Uint32(); err != nil {
-					return err
-				}
-			}
-		}
-	}
 	return nil
 }
 
@@ -716,41 +629,6 @@ func (t *Transition) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			t.TargetKey = &hv
-		}
-	}
-	return nil
-}
-
-func (vs VarSeed) EncodeOrc(w *orc.Writer) error {
-	w.Uint32(uint32(vs.Channel))
-	if err := vs.Type.EncodeOrc(w); err != nil {
-		return err
-	}
-	{
-		b, err := json.Marshal(vs.Value)
-		if err != nil {
-			return err
-		}
-		w.WriteWithLen(b)
-	}
-	return nil
-}
-
-func (vs *VarSeed) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if vs.Channel, err = r.Uint32(); err != nil {
-		return err
-	}
-	if err = vs.Type.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		b, err := r.ReadWithLen()
-		if err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &vs.Value); err != nil {
-			return err
 		}
 	}
 	return nil

@@ -94,116 +94,12 @@ type shellBuilder struct {
 	// synthByAST maps each inline-body declaration to its synth scope, keyed by
 	// the declaration's parser node.
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
-	// varChannels holds the channel keys backing value variables.
-	varChannels set.Set[uint32]
-	// reExprs records channel-read re-expressions (`r = new_expr`) in walk order, so a
-	// post-pass can assemble each channel-read var's feeder state machine.
-	reExprs []reExprFeeder
-	// channelReadWriteBacking maps each reassigned channel read/write variable to the backing channel its reads use.
-	channelReadWriteBacking map[*symbol.Symbol]*symbol.Symbol
-	// channelWriteBackings maps each reassigned channel read/write variable to its write-redirection machine.
-	channelWriteBackings map[*symbol.Symbol]*channelWriteMux
-	// channelWriteOrder lists reassigned channel read/write variables in first-seen order for deterministic lowering.
-	channelWriteOrder []*symbol.Symbol
-	// channelReadWriteBindingBody maps a reassigned channel read/write variable to the leaf body of its most recent binding.
-	channelReadWriteBindingBody map[*symbol.Symbol]*symbol.Symbol
-	// channelReadWriteCrossBodyRead and channelReadWriteCrossBodyWrite hold channel read/write variables whose reads or writes routed
-	// through the machine; a direction with none needs none.
-	channelReadWriteCrossBodyRead  set.Set[*symbol.Symbol]
-	channelReadWriteCrossBodyWrite set.Set[*symbol.Symbol]
-}
-
-// leafBody returns the nearest enclosing stage or sequence scope.
-func leafBody(scope *symbol.Symbol) *symbol.Symbol {
-	for s := scope; s != nil; s = s.Parent {
-		if s.Kind == symbol.KindStage || s.Kind == symbol.KindSequence {
-			return s
-		}
-	}
-	return scope
-}
-
-// boundInSameBody reports whether channel read/write variable's current binding was set in refScope's leaf body,
-// in which case the reference bakes that binding instead of routing through the machine.
-func (s *shellBuilder) boundInSameBody(channelReadWrite, refScope *symbol.Symbol) bool {
-	bind, ok := s.channelReadWriteBindingBody[channelReadWrite]
-	if !ok {
-		return false
-	}
-	return leafBody(bind) == leafBody(refScope)
-}
-
-// channelWriteMux holds the write-redirection machine for one reassigned channel read/write variable.
-type channelWriteMux struct {
-	// backing is the backing channel the channel read/write variable's writes are redirected to.
-	backing *symbol.Symbol
-	// initBinding is the channel the channel read/write variable is bound to at its declaration.
-	initBinding *symbol.Symbol
-	// feeders forward backing to each rebind's channel, selected by the shared switch.
-	feeders []reExprFeeder
-}
-
-// reExprFeeder records a channel-read re-expression: its feeder subgraph and switch channel.
-type reExprFeeder struct {
-	// target is the channel-read variable being re-expressed.
-	target *symbol.Symbol
-	// nodes and edges are the feeder subgraph computing the new expression.
-	nodes []ir.Node
-	edges []ir.Edge
-	// switchSym backs a program-local signal channel the reassignment writes and the
-	// feeder machine reads to advance to this feeder; it persists across walk cycles.
-	switchSym *symbol.Symbol
-}
-
-// recordReExpr records a channel-read re-expression for the feeder-machine post-pass.
-func (s *shellBuilder) recordReExpr(f reExprFeeder) {
-	s.reExprs = append(s.reExprs, f)
-}
-
-// isReExpressed reports whether sym is the target of any recorded re-expression.
-func (s *shellBuilder) isReExpressed(sym *symbol.Symbol) bool {
-	for _, f := range s.reExprs {
-		if f.target == sym {
-			return true
-		}
-	}
-	return false
-}
-
-// reExprTargets returns each re-expressed variable once, in first-seen order.
-func (s *shellBuilder) reExprTargets() []*symbol.Symbol {
-	seen := set.New[*symbol.Symbol]()
-	var out []*symbol.Symbol
-	for _, f := range s.reExprs {
-		if !seen.Contains(f.target) {
-			seen.Add(f.target)
-			out = append(out, f.target)
-		}
-	}
-	return out
-}
-
-// reExprsFor returns target's recorded re-expressions in execution order.
-func (s *shellBuilder) reExprsFor(target *symbol.Symbol) []reExprFeeder {
-	var out []reExprFeeder
-	for _, f := range s.reExprs {
-		if f.target == target {
-			out = append(out, f)
-		}
-	}
-	return out
 }
 
 func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
 	return &shellBuilder{
-		activations:                    map[string]ir.Handle{},
-		synthByAST:                     synthByAST,
-		varChannels:                    set.New[uint32](),
-		channelReadWriteBacking:        map[*symbol.Symbol]*symbol.Symbol{},
-		channelWriteBackings:           map[*symbol.Symbol]*channelWriteMux{},
-		channelReadWriteBindingBody:    map[*symbol.Symbol]*symbol.Symbol{},
-		channelReadWriteCrossBodyRead:  set.New[*symbol.Symbol](),
-		channelReadWriteCrossBodyWrite: set.New[*symbol.Symbol](),
+		activations: map[string]ir.Handle{},
+		synthByAST:  synthByAST,
 	}
 }
 
@@ -371,6 +267,35 @@ func firstOutputParam(outputs types.Params) string {
 	return ir.DefaultOutputParam
 }
 
+// identifierAST is the common shape of sequence and stage declarations: both
+// carry an optional IDENTIFIER token that is absent for anonymous inline
+// blocks.
+type identifierAST interface {
+	antlr.ParserRuleContext
+	IDENTIFIER() antlr.TerminalNode
+}
+
+// resolveDeclScope returns the symbol scope for a named or anonymous
+// declaration. Named declarations resolve by identifier; anonymous ones are
+// looked up via their parser rule (registered during the collect pass under a
+// synthesized AutoName key).
+func resolveDeclScope[T identifierAST](ctx acontext.Context[T]) (*symbol.Symbol, bool) {
+	var (
+		scope *symbol.Symbol
+		err   error
+	)
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		scope, err = ctx.Scope.Resolve(ctx, id.GetText())
+	} else {
+		scope, err = ctx.Scope.GetChildByParserRule(ctx.AST)
+	}
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return nil, false
+	}
+	return scope, true
+}
+
 func analyzeFlowNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	kg *keyGenerator,
@@ -448,20 +373,9 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
-		if sym.BacksInternalChannel() {
-			shell.varChannels.Add(channelKey(sym))
-		}
 		if isSink {
-			if mux, ok := shell.channelWriteBackings[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
-				shell.channelReadWriteCrossBodyWrite.Add(sym)
-				sym = mux.backing
-			}
 			r, ok := buildChannelWriteNode(name, sym, kg)
 			return flowNodeResult{node: r}, ok
-		}
-		if backing, ok := shell.channelReadWriteBacking[sym]; ok && !shell.boundInSameBody(sym, ctx.Scope) {
-			shell.channelReadWriteCrossBodyRead.Add(sym)
-			sym = backing
 		}
 		r, ok := buildChannelReadNode(name, sym, kg)
 		return flowNodeResult{node: r}, ok
@@ -528,52 +442,15 @@ func isRootLevelScope(sym *symbol.Symbol) bool {
 	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
 }
 
-// channelKey returns the channel key sym refers to: its SourceID when sym is an
-// channel read/write bound to another channel (cpu := some_channel), otherwise its own ID.
-func channelKey(sym *symbol.Symbol) uint32 {
-	if sym.SourceID != nil {
-		return uint32(*sym.SourceID)
-	}
-	return uint32(sym.ID)
-}
-
-// scopeResetChannels returns the channels of `:=` constant variables declared in
-// scopeSym, re-seeded on each entry; `$=` variables are omitted so they persist.
-func scopeResetChannels(scopeSym *symbol.Symbol) []uint32 {
-	var out []uint32
-	for _, c := range scopeSym.Children() {
-		if !c.Internal && c.Kind == symbol.KindVariable && c.IsLiteral() &&
-			c.DefaultValue != nil {
-			out = append(out, channelKey(c))
-		}
-	}
-	slices.Sort(out)
-	return out
-}
-
-// chanAndValueTypes returns the channel-param and value types for sym, wrapping a value variable's bare type into a channel.
-func chanAndValueTypes(sym *symbol.Symbol, write bool) (chanType, valType types.Type) {
-	if sym.Type.Kind == types.KindChan {
-		return sym.Type, sym.Type.Unwrap()
-	}
-	if write {
-		return types.WriteChan(sym.Type), sym.Type
-	}
-	return types.ReadChan(sym.Type), sym.Type
-}
-
 func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("on", name)
-	chKey := channelKey(sym)
-	chanType, valType := chanAndValueTypes(sym, false)
+	chKey := uint32(sym.ID)
 	n := ir.Node{
-		Key:                  nodeKey,
-		Type:                 "on",
-		Channels:             types.NewChannels(),
-		Inputs:               types.Params{{Name: "channel", Type: chanType, Value: chKey}},
-		Outputs:              types.Params{{Name: ir.DefaultOutputParam, Type: valType}},
-		IsLiteral:            sym.IsLiteral(),
-		BacksInternalChannel: sym.BacksInternalChannel(),
+		Key:      nodeKey,
+		Type:     "on",
+		Channels: types.NewChannels(),
+		Inputs:   types.Params{{Name: "channel", Type: sym.Type, Value: chKey}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type.Unwrap()}},
 	}
 	n.Channels.Read[chKey] = sym.Name
 	return newNodeResult(n, "", ir.DefaultOutputParam), true
@@ -581,571 +458,19 @@ func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (no
 
 func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("write", name)
-	chKey := channelKey(sym)
-	chanType, valType := chanAndValueTypes(sym, true)
+	chKey := uint32(sym.ID)
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",
 		Channels: types.NewChannels(),
 		Inputs: types.Params{
-			{Name: ir.DefaultInputParam, Type: valType},
-			{Name: "channel", Type: chanType, Value: chKey},
+			{Name: ir.DefaultInputParam, Type: sym.Type.Unwrap()},
+			{Name: "channel", Type: sym.Type, Value: chKey},
 		},
-		Outputs:              types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-		IsLiteral:            sym.IsLiteral(),
-		BacksInternalChannel: sym.BacksInternalChannel(),
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 	}
 	n.Channels.Write[chKey] = sym.Name
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
-}
-
-// buildExprReadTriggers builds a read node for each channel the expression
-// reads, registering any value-variable channels touched along the way.
-func buildExprReadTriggers[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	expr parser.IExpressionContext,
-	kg *keyGenerator,
-	shell *shellBuilder,
-) ([]nodeResult, bool) {
-	sym, err := ctx.Scope.Root().GetChildByParserRule(expr)
-	if err != nil || sym.Kind == symbol.KindConstant {
-		return nil, true
-	}
-	var reads []nodeResult
-	for _, chName := range sym.Channels.Read {
-		chanSym, rerr := ctx.Scope.Resolve(ctx, chName)
-		if rerr != nil {
-			continue
-		}
-		if backing, ok := shell.channelReadWriteBacking[chanSym]; ok && !shell.boundInSameBody(chanSym, ctx.Scope) {
-			shell.channelReadWriteCrossBodyRead.Add(chanSym)
-			chanSym = backing
-		}
-		read, ok := buildChannelReadNode(chName, chanSym, kg)
-		if !ok {
-			return nil, false
-		}
-		if chanSym.BacksInternalChannel() {
-			shell.varChannels.Add(channelKey(chanSym))
-		}
-		reads = append(reads, read)
-	}
-	return reads, true
-}
-
-// flowWriteKey returns the channel key the flow's terminal sink writes to.
-func flowWriteKey(ctx acontext.Context[parser.IFlowStatementContext]) (uint32, bool) {
-	nodes := ctx.AST.AllFlowNode()
-	if len(nodes) == 0 {
-		return 0, false
-	}
-	id := nodes[len(nodes)-1].Identifier()
-	if id == nil {
-		return 0, false
-	}
-	sym, err := ctx.Scope.Resolve(ctx, id.IDENTIFIER().GetText())
-	if err != nil || (!sym.BacksInternalChannel() && sym.Kind != symbol.KindChannel && sym.Type.Kind != types.KindChan) {
-		return 0, false
-	}
-	return channelKey(sym), true
-}
-
-// buildConstantNode builds a constant node emitting value of type t once per activation.
-func buildConstantNode(kg *keyGenerator, suffix string, value any, t types.Type) nodeResult {
-	n := ir.Node{
-		Key:      kg.generate("const", suffix),
-		Type:     "constant",
-		Channels: types.NewChannels(),
-		Inputs:   types.Params{{Name: "value", Type: t, Value: value}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: t}},
-	}
-	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam)
-}
-
-// buildActivationPulse builds a one-shot constant that fires once per activation.
-func buildActivationPulse(kg *keyGenerator) nodeResult {
-	return buildConstantNode(kg, "pulse", uint8(1), types.U8())
-}
-
-// filterSelfWriteTriggers drops self-triggering reads, adding a pulse if none are left.
-func filterSelfWriteTriggers(
-	reads []nodeResult,
-	writeKey uint32,
-	hasWrite bool,
-	kg *keyGenerator,
-) []nodeResult {
-	var triggers []nodeResult
-	selfWrite := false
-	for _, r := range reads {
-		if _, writes := r.node.Channels.Read[writeKey]; hasWrite && writes {
-			selfWrite = true
-			continue
-		}
-		triggers = append(triggers, r)
-	}
-	if selfWrite && len(triggers) == 0 {
-		triggers = append(triggers, buildActivationPulse(kg))
-	}
-	return triggers
-}
-
-// buildVarSeed records a value variable's declared value and channel key so the
-// runtime can pre-fill its channel with the seed before execution.
-func buildVarSeed(sym *symbol.Symbol, shell *shellBuilder) ir.VarSeed {
-	shell.varChannels.Add(channelKey(sym))
-	return ir.VarSeed{
-		Channel: channelKey(sym),
-		Type:    sym.Type,
-		Value:   sym.DefaultValue,
-	}
-}
-
-// collectSeededVars returns every value variable with a literal
-// initializer. Function bodies are skipped: their locals are WASM locals.
-func collectSeededVars(root *symbol.Symbol) []*symbol.Symbol {
-	var out []*symbol.Symbol
-	var walk func(s *symbol.Symbol)
-	walk = func(s *symbol.Symbol) {
-		for _, c := range s.Children() {
-			switch c.Kind {
-			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
-				continue
-			}
-			if !c.Internal && c.BacksInternalChannel() && c.DefaultValue != nil {
-				out = append(out, c)
-			}
-			walk(c)
-		}
-	}
-	walk(root)
-	return out
-}
-
-// collectExprVars returns every value variable initialized by a non-literal
-// expression rather than a seed.
-func collectExprVars(root *symbol.Symbol) []*symbol.Symbol {
-	var out []*symbol.Symbol
-	var walk func(s *symbol.Symbol)
-	walk = func(s *symbol.Symbol) {
-		for _, c := range s.Children() {
-			switch c.Kind {
-			case symbol.KindModule, symbol.KindModuleAlias, symbol.KindFunction:
-				continue
-			}
-			if !c.Internal && c.Kind == symbol.KindVariable && c.BacksInternalChannel() &&
-				c.DefaultValue == nil {
-				if lv, ok := c.AST.(parser.ILocalVariableContext); ok && lv.Expression() != nil {
-					out = append(out, c)
-				}
-			}
-			walk(c)
-		}
-	}
-	walk(root)
-	return out
-}
-
-// lowerVarInit lowers a value variable's expression initializer into a reactive flow
-// that computes it and writes the variable's channel.
-func lowerVarInit[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	sym *symbol.Symbol,
-	kg *keyGenerator,
-	shell *shellBuilder,
-) ([]ir.Node, []ir.Edge, bool) {
-	lv, ok := sym.AST.(parser.ILocalVariableContext)
-	if !ok {
-		return nil, nil, false
-	}
-	expr := lv.Expression()
-	if expr == nil {
-		return nil, nil, false
-	}
-	return lowerVarWrite(ctx.WithScope(sym.Parent), sym, expr, kg, shell)
-}
-
-// lowerVarWrite lowers `target = expr` into a reactive flow that computes expr and
-// writes target's channel, firing a self-write once per activation instead of looping.
-func lowerVarWrite[T antlr.ParserRuleContext](
-	base acontext.Context[T],
-	target *symbol.Symbol,
-	expr parser.IExpressionContext,
-	kg *keyGenerator,
-	shell *shellBuilder,
-) ([]ir.Node, []ir.Edge, bool) {
-	write, ok := buildChannelWriteNode(target.Name, target, kg)
-	if !ok {
-		return nil, nil, false
-	}
-	shell.varChannels.Add(channelKey(target))
-
-	// A bare identifier copies the referenced channel's stream directly.
-	if primary := parser.GetPrimaryExpression(expr); primary != nil && primary.IDENTIFIER() != nil {
-		if src, err := base.Scope.Resolve(base, primary.IDENTIFIER().GetText()); err == nil &&
-			(src.BacksInternalChannel() || src.Kind == symbol.KindChannel) {
-			read, rok := buildChannelReadNode(src.Name, src, kg)
-			if !rok {
-				return nil, nil, false
-			}
-			if src.BacksInternalChannel() {
-				shell.varChannels.Add(channelKey(src))
-			}
-			edge := ir.Edge{Source: read.output, Target: write.input, Kind: ir.EdgeKindContinuous}
-			return []ir.Node{read.node, write.node}, []ir.Edge{edge}, true
-		}
-	}
-
-	exprRes, ok := analyzeExpression(acontext.Child(base, expr), kg)
-	if !ok {
-		return nil, nil, false
-	}
-	reads, ok := buildExprReadTriggers(base, expr, kg, shell)
-	if !ok {
-		return nil, nil, false
-	}
-	triggers := filterSelfWriteTriggers(reads, channelKey(target), true, kg)
-	var (
-		nodes []ir.Node
-		edges []ir.Edge
-	)
-	// Each referenced channel triggers the expression node.
-	for _, trigger := range triggers {
-		nodes = append(nodes, trigger.node)
-		edges = append(edges, ir.Edge{Source: trigger.output, Target: exprRes.input, Kind: ir.EdgeKindContinuous})
-	}
-	nodes = append(nodes, exprRes.node, write.node)
-	edges = append(edges, ir.Edge{Source: exprRes.output, Target: write.input, Kind: ir.EdgeKindContinuous})
-	return nodes, edges, true
-}
-
-// lowerAssignment lowers a variable `=`: a constant write or an in-place channel read/write rebind.
-func lowerAssignment[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	assign parser.IAssignmentContext,
-	kg *keyGenerator,
-	shell *shellBuilder,
-) ([]ir.Node, []ir.Edge, bool) {
-	if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
-		return nil, nil, true
-	}
-	expr := assign.Expression()
-	if expr == nil {
-		return nil, nil, true
-	}
-	target, err := ctx.Scope.Resolve(ctx, assign.IDENTIFIER().GetText())
-	if err != nil {
-		return nil, nil, true
-	}
-	switch {
-	case target.IsChannelReadWrite():
-		rebindChannelReadWrite(ctx, target, expr)
-		shell.channelReadWriteBindingBody[target] = ctx.Scope
-		return lowerChannelReadWriteRebind(ctx, target, expr, kg, shell)
-	case target.IsReactive():
-		return lowerReExpr(ctx, target, expr, kg, shell)
-	case target.IsValueVariable():
-		return lowerVarWrite(ctx, target, expr, kg, shell)
-	default:
-		return nil, nil, true
-	}
-}
-
-// lowerReExpr records target's feeder subgraph and lowers the reassignment to a pulse
-// that writes a switch channel, advancing both the sequence and target's feeder machine.
-func lowerReExpr[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	target *symbol.Symbol,
-	expr parser.IExpressionContext,
-	kg *keyGenerator,
-	shell *shellBuilder,
-) ([]ir.Node, []ir.Edge, bool) {
-	feederNodes, feederEdges, ok := lowerVarWrite(ctx, target, expr, kg, shell)
-	if !ok {
-		return nil, nil, false
-	}
-	sw, stepNodes, stepEdges, ok := buildFeederSwitch(ctx, target, kg, shell)
-	if !ok {
-		return nil, nil, false
-	}
-	shell.recordReExpr(reExprFeeder{
-		target:    target,
-		nodes:     feederNodes,
-		edges:     feederEdges,
-		switchSym: sw,
-	})
-	return stepNodes, stepEdges, true
-}
-
-// buildFeederSwitch creates the program-local switch a reassignment writes to advance its
-// feeder machine, returning the switch symbol and the pulse->write step nodes.
-func buildFeederSwitch[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	target *symbol.Symbol,
-	kg *keyGenerator,
-	shell *shellBuilder,
-) (*symbol.Symbol, []ir.Node, []ir.Edge, bool) {
-	// The switch channel is compiler-internal: it stays out of user-facing
-	// resolution and the value-variable collectors (seed, flow, reset).
-	sw, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-		Kind:     symbol.KindVariable,
-		Type:     types.ReadChan(types.U8()),
-		Internal: true,
-	})
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return nil, nil, nil, false
-	}
-	sw.Name = fmt.Sprintf("__reexpr_switch_%s_%d", target.Name, sw.ID)
-	write, ok := buildChannelWriteNode(sw.Name, sw, kg)
-	if !ok {
-		return nil, nil, nil, false
-	}
-	shell.varChannels.Add(channelKey(sw))
-	pulse := buildActivationPulse(kg)
-	stepEdge := ir.Edge{Source: pulse.output, Target: write.input, Kind: ir.EdgeKindContinuous}
-	return sw, []ir.Node{pulse.node, write.node}, []ir.Edge{stepEdge}, true
-}
-
-// lowerChannelReadWriteRebind records a reassigned channel read/write variable's read and write feeders off one shared
-// switch, so both its read and write machines advance to the new binding together.
-func lowerChannelReadWriteRebind[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	channelReadWrite *symbol.Symbol,
-	expr parser.IExpressionContext,
-	kg *keyGenerator,
-	shell *shellBuilder,
-) ([]ir.Node, []ir.Edge, bool) {
-	readBacking, ok := shell.channelReadWriteBacking[channelReadWrite]
-	if !ok {
-		return nil, nil, true
-	}
-	mux, ok := shell.channelWriteBackings[channelReadWrite]
-	if !ok {
-		return nil, nil, true
-	}
-	readNodes, readEdges, ok := lowerVarWrite(ctx, readBacking, expr, kg, shell)
-	if !ok {
-		return nil, nil, false
-	}
-	writeNodes, writeEdges, ok := buildChannelReadWriteWriteFeeder(ctx, mux.backing, expr, kg)
-	if !ok {
-		return nil, nil, false
-	}
-	sw, stepNodes, stepEdges, ok := buildFeederSwitch(ctx, channelReadWrite, kg, shell)
-	if !ok {
-		return nil, nil, false
-	}
-	shell.recordReExpr(reExprFeeder{
-		target:    readBacking,
-		nodes:     readNodes,
-		edges:     readEdges,
-		switchSym: sw,
-	})
-	mux.feeders = append(mux.feeders, reExprFeeder{
-		target:    mux.backing,
-		nodes:     writeNodes,
-		edges:     writeEdges,
-		switchSym: sw,
-	})
-	return stepNodes, stepEdges, true
-}
-
-// buildChannelReadWriteWriteFeeder forwards a reassigned channel read/write variable's write backing to the channel named
-// by expr, the write machine's per-rebind feeder.
-func buildChannelReadWriteWriteFeeder[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	writeBacking *symbol.Symbol,
-	expr parser.IExpressionContext,
-	kg *keyGenerator,
-) ([]ir.Node, []ir.Edge, bool) {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
-		return nil, nil, false
-	}
-	binding, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
-	if err != nil {
-		return nil, nil, false
-	}
-	return buildBackingForward(writeBacking, binding, kg)
-}
-
-// buildBackingForward builds read(backing) -> write(dst), the write machine's per-state forward.
-func buildBackingForward(backing, dst *symbol.Symbol, kg *keyGenerator) ([]ir.Node, []ir.Edge, bool) {
-	read, ok := buildChannelReadNode(backing.Name, backing, kg)
-	if !ok {
-		return nil, nil, false
-	}
-	write, ok := buildChannelWriteNode(dst.Name, dst, kg)
-	if !ok {
-		return nil, nil, false
-	}
-	edge := ir.Edge{Source: read.output, Target: write.input, Kind: ir.EdgeKindContinuous}
-	return []ir.Node{read.node, write.node}, []ir.Edge{edge}, true
-}
-
-// buildReExprMachine builds target's feeder machine (init + reassignment states) and
-// returns its switch-reader nodes; a fresh switch write jumps to that feeder's state.
-func buildReExprMachine(
-	target *symbol.Symbol,
-	initNodes []ir.Node,
-	feeders []reExprFeeder,
-	kg *keyGenerator,
-) (ir.Scope, []ir.Node, bool) {
-	machineKey := kg.generate("reexpr", target.Name)
-	machine := ir.Scope{
-		Key:      machineKey,
-		Mode:     ir.ScopeModeSequential,
-		Liveness: ir.LivenessAlways,
-	}
-	stateNodes := make([][]ir.Node, len(feeders)+1)
-	stateNodes[0] = initNodes
-	for k := range feeders {
-		stateNodes[k+1] = feeders[k].nodes
-	}
-	var readers []ir.Node
-	for i := range stateNodes {
-		for k, f := range slices.Backward(feeders) {
-			read, ok := buildChannelReadNode(f.switchSym.Name, f.switchSym, kg)
-			if !ok {
-				return ir.Scope{}, nil, false
-			}
-			stateNodes[i] = append(stateNodes[i], read.node)
-			readers = append(readers, read.node)
-			targetKey := fmt.Sprintf("%s_s%d", machineKey, k+1)
-			machine.Transitions = append(machine.Transitions,
-				ir.Transition{On: read.output, TargetKey: new(targetKey)})
-		}
-	}
-	for i, nodes := range stateNodes {
-		state := flowScope(fmt.Sprintf("%s_s%d", machineKey, i), nodes)
-		machine.Steps = append(machine.Steps, ir.Member{Scope: &state})
-	}
-	return machine, readers, true
-}
-
-// rebindChannelReadWrite re-points target's channel read/write binding to the channel named by expr, so later
-// references resolve to it. The analyzer has validated expr names a matching channel.
-func rebindChannelReadWrite[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	target *symbol.Symbol,
-	expr parser.IExpressionContext,
-) {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
-		return
-	}
-	src, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
-	if err != nil {
-		return
-	}
-	id := src.ID
-	target.SourceID = &id
-}
-
-// createChannelReadWriteBacking adds a backing channel that redirects a reassigned channel read/write variable's reads
-// or writes; role distinguishes the two so each channel read/write variable gets a distinct backing.
-func createChannelReadWriteBacking[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	channelReadWrite *symbol.Symbol,
-	role string,
-	shell *shellBuilder,
-) (*symbol.Symbol, bool) {
-	backing, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
-		Kind:     symbol.KindVariable,
-		Type:     types.ReadChan(channelReadWrite.Type.Unwrap()),
-		Internal: true,
-		AST:      channelReadWrite.AST,
-	})
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, channelReadWrite.AST))
-		return nil, false
-	}
-	backing.Name = fmt.Sprintf("__channel_read_write_backing_%s_%s_%d", role, channelReadWrite.Name, backing.ID)
-	shell.varChannels.Add(channelKey(backing))
-	return backing, true
-}
-
-// resolveChannelReadWriteInit resolves the channel a channel read/write variable is bound to at its declaration.
-func resolveChannelReadWriteInit[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	channelReadWrite *symbol.Symbol,
-) (*symbol.Symbol, bool) {
-	lv, ok := channelReadWrite.AST.(parser.ILocalVariableContext)
-	if !ok || lv.Expression() == nil {
-		return nil, false
-	}
-	primary := parser.GetPrimaryExpression(lv.Expression())
-	if primary == nil || primary.IDENTIFIER() == nil {
-		return nil, false
-	}
-	src, err := channelReadWrite.Parent.Resolve(ctx, primary.IDENTIFIER().GetText())
-	if err != nil {
-		return nil, false
-	}
-	return src, true
-}
-
-// collectChannelReadWriteBackings backs every reassigned channel read/write variable before the main walk.
-func collectChannelReadWriteBackings[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	shell *shellBuilder,
-) {
-	var walk func(scope *symbol.Symbol, node antlr.Tree)
-	walk = func(scope *symbol.Symbol, node antlr.Tree) {
-		if assign, ok := node.(parser.IAssignmentContext); ok {
-			recordChannelReadWriteRebind(ctx, scope, assign, shell)
-		}
-		next := scope
-		switch node.(type) {
-		case parser.ISequenceDeclarationContext, parser.IStageDeclarationContext:
-			if c, err := scope.GetChildByParserRule(node.(antlr.ParserRuleContext)); err == nil {
-				next = c
-			}
-		}
-		for i := 0; i < node.GetChildCount(); i++ {
-			walk(next, node.GetChild(i))
-		}
-	}
-	walk(ctx.Scope.Root(), ctx.AST)
-}
-
-// recordChannelReadWriteRebind backs assign's target if it is a channel read/write variable not already backed.
-func recordChannelReadWriteRebind[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	scope *symbol.Symbol,
-	assign parser.IAssignmentContext,
-	shell *shellBuilder,
-) {
-	if assign.Expression() == nil || assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
-		return
-	}
-	id := assign.IDENTIFIER()
-	if id == nil {
-		return
-	}
-	sym, err := scope.Resolve(ctx, id.GetText())
-	if err != nil || !sym.IsChannelReadWrite() {
-		return
-	}
-	if _, ok := shell.channelReadWriteBacking[sym]; ok {
-		return
-	}
-	readBacking, ok := createChannelReadWriteBacking(ctx, sym, "read", shell)
-	if !ok {
-		return
-	}
-	writeBacking, ok := createChannelReadWriteBacking(ctx, sym, "write", shell)
-	if !ok {
-		return
-	}
-	initBinding, ok := resolveChannelReadWriteInit(ctx, sym)
-	if !ok {
-		return
-	}
-	shell.channelReadWriteBacking[sym] = readBacking
-	shell.channelWriteBackings[sym] = &channelWriteMux{backing: writeBacking, initBinding: initBinding}
-	shell.channelWriteOrder = append(shell.channelWriteOrder, sym)
-	shell.channelReadWriteBindingBody[sym] = sym.Parent
 }
 
 // analyzeNextToken emits a transition intent that advances the enclosing
@@ -1209,7 +534,7 @@ func analyzeFunctionNode(
 		return nodeResult{}, false
 	}
 	// Node.Type is the canonical module path so factories find it. After
-	// channel read/write indirection in Resolve, sym's tree position already points at
+	// alias indirection in Resolve, sym's tree position already points at
 	// the canonical module member; QualifiedName joins the parts.
 	nodeType := sym.QualifiedName()
 	freshType := types.Freshen(sym.Type, key)
@@ -1270,7 +595,6 @@ func tryAnalyzeFmtStrLiteral(
 	}
 	key := kg.generate("fmt", "")
 	synthKey := compiler.FmtStrSyntheticPrefix + key
-	sym.Name = synthKey
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
 		Body:     ir.Body{Raw: body},
@@ -1305,12 +629,21 @@ func analyzeExpression(
 
 	if sym.Kind == symbol.KindConstant {
 		outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-		parsedValue, err := literal.ParseConst(ctx.AST, outputType)
+		literalCtx := parser.GetLiteral(ctx.AST)
+		parsedValue, err := literal.Parse(literalCtx, outputType)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return nodeResult{}, false
 		}
-		return buildConstantNode(kg, "", parsedValue.Value, outputType), true
+		key := kg.generate("const", "")
+		n := ir.Node{
+			Key:      key,
+			Type:     "constant",
+			Channels: types.NewChannels(),
+			Inputs:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
+			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
+		}
+		return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 	}
 
 	key := kg.generate(sym.Name, "")
@@ -1365,9 +698,6 @@ func Analyze(
 		if c.Kind != symbol.KindFunction || c.AST == nil {
 			continue
 		}
-		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
-			continue
-		}
 		fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)
 		var bodyAst antlr.ParserRuleContext = fnDecl
 		if ok {
@@ -1387,14 +717,11 @@ func Analyze(
 	}
 	kg := newKeyGenerator(&i.Functions)
 	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
-	// Back reassigned channel read/write variables before lowering so reads compiled ahead of a rebind resolve.
-	collectChannelReadWriteBackings(aCtx, shell)
 
 	// The root scope is always parallel and always-live.
 	i.Root = ir.Scope{
-		Mode:          ir.ScopeModeParallel,
-		Liveness:      ir.LivenessAlways,
-		ResetChannels: scopeResetChannels(aCtx.Scope.Root()),
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessAlways,
 	}
 	// rootMembers accumulates every top-level item as a Member of the root
 	// scope. Module-scope flow nodes become leaf-node members; top-level
@@ -1440,89 +767,10 @@ func Analyze(
 		}
 	}
 
-	// Seed each literal-initialized value variable so a read before any write
-	// still observes its declared value. Seeding is applied at runtime setup.
-	for _, v := range collectSeededVars(aCtx.Scope.Root()) {
-		i.VarSeeds = append(i.VarSeeds, buildVarSeed(v, shell))
-	}
-
-	// Lower each expression-initialized value variable into a reactive flow. A
-	// re-expressed variable is assembled into a feeder machine below instead.
-	for _, v := range collectExprVars(aCtx.Scope.Root()) {
-		if shell.isReExpressed(v) {
-			continue
-		}
-		nodes, edges, ok := lowerVarInit(aCtx, v, kg, shell)
-		if !ok {
-			return i, aCtx.Diagnostics
-		}
-		for _, n := range nodes {
-			rootMembers = append(rootMembers, ir.Member{NodeKey: new(n.Key)})
-		}
-		i.Nodes = append(i.Nodes, nodes...)
-		i.Edges = append(i.Edges, edges...)
-	}
-
-	// assembleMachine appends target's feeder machine (init, feeders, readers, and
-	// the machine scope as a root member); shared by the read and write assembly.
-	assembleMachine := func(target *symbol.Symbol, initNodes []ir.Node, initEdges []ir.Edge, feeders []reExprFeeder) bool {
-		machine, readers, ok := buildReExprMachine(target, initNodes, feeders, kg)
-		if !ok {
-			return false
-		}
-		i.Nodes = append(i.Nodes, initNodes...)
-		i.Edges = append(i.Edges, initEdges...)
-		for _, f := range feeders {
-			i.Nodes = append(i.Nodes, f.nodes...)
-			i.Edges = append(i.Edges, f.edges...)
-		}
-		i.Nodes = append(i.Nodes, readers...)
-		rootMembers = append(rootMembers, ir.Member{Scope: &machine})
-		return true
-	}
-
-	// Assemble each re-expressed channel-read variable's feeder state machine.
-	channelReadWriteByReadBacking := make(map[*symbol.Symbol]*symbol.Symbol, len(shell.channelReadWriteBacking))
-	for channelReadWrite, backing := range shell.channelReadWriteBacking {
-		channelReadWriteByReadBacking[backing] = channelReadWrite
-	}
-	for _, target := range shell.reExprTargets() {
-		if channelReadWrite, ok := channelReadWriteByReadBacking[target]; ok && !shell.channelReadWriteCrossBodyRead.Contains(channelReadWrite) {
-			continue
-		}
-		initNodes, initEdges, ok := lowerVarInit(aCtx, target, kg, shell)
-		if !ok {
-			return i, aCtx.Diagnostics
-		}
-		if !assembleMachine(target, initNodes, initEdges, shell.reExprsFor(target)) {
-			return i, aCtx.Diagnostics
-		}
-	}
-
-	// Assemble each reassigned channel read/write variable's write machine, forwarding its write backing to the
-	// binding current at runtime; the mirror of the read machine above.
-	for _, channelReadWrite := range shell.channelWriteOrder {
-		// A channel read/write variable whose writes all baked needs no machine.
-		if !shell.channelReadWriteCrossBodyWrite.Contains(channelReadWrite) {
-			continue
-		}
-		mux := shell.channelWriteBackings[channelReadWrite]
-		initNodes, initEdges, ok := buildBackingForward(mux.backing, mux.initBinding, kg)
-		if !ok {
-			return i, aCtx.Diagnostics
-		}
-		if !assembleMachine(mux.backing, initNodes, initEdges, mux.feeders) {
-			return i, aCtx.Diagnostics
-		}
-	}
-
 	// Inline bodies live as members of their enclosing scope; their flat IR
 	// still registers in the program's global node and edge lists.
 	i.Nodes = append(i.Nodes, shell.inlineNodes...)
 	i.Edges = append(i.Edges, shell.inlineEdges...)
-
-	i.VarChannels = shell.varChannels.Slice()
-	slices.Sort(i.VarChannels)
 
 	if len(rootMembers) > 0 {
 		i.Root.Strata = []ir.Members{rootMembers}
@@ -1632,14 +880,27 @@ func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
 // This enables the shorthand syntax: `ox_pt_1 > 20 => do_something{}`
 // which expands to: `ox_pt_1 -> ox_pt_1 > 20 => do_something{}`
 func (p *flowChainProcessor) injectImplicitTriggers(expr parser.IExpressionContext) bool {
-	reads, ok := buildExprReadTriggers(p.ctx, expr, p.kg, p.shell)
-	if !ok {
-		return false
+	sym, err := p.ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil || sym.Kind == symbol.KindConstant {
+		return true // Constants don't need triggers
 	}
-	writeKey, hasWrite := flowWriteKey(p.ctx)
-	triggers := filterSelfWriteTriggers(reads, writeKey, hasWrite, p.kg)
-	for _, result := range triggers {
+
+	if len(sym.Channels.Read) == 0 {
+		return true // No channels referenced
+	}
+
+	// Create trigger node for each channel
+	for _, chName := range sym.Channels.Read {
+		chanSym, err := p.ctx.Scope.Resolve(p.ctx, chName)
+		if err != nil {
+			continue
+		}
+		result, ok := buildChannelReadNode(chName, chanSym, p.kg)
+		if !ok {
+			return false
+		}
 		p.nodes = append(p.nodes, result.node)
+
 		if p.prevNode == nil {
 			p.prevOutput = result.output
 			p.prevNode = &result.node
@@ -1842,25 +1103,10 @@ func extractInputValues(
 			return channelKey, true
 		}
 
-		if primary := parser.GetPrimaryExpression(expr); primary != nil {
-			if id := primary.IDENTIFIER(); id != nil {
-				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
-				if err != nil {
-					ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-					return nil, false
-				}
-				isValueVar := sym.Kind == symbol.KindVariable ||
-					sym.Kind == symbol.KindStatefulVariable
-				if isValueVar && sym.DefaultValue != nil {
-					return sym.DefaultValue, true
-				}
-			}
-		}
-
 		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,
-				"input value for '%s' must be a literal or variable",
+				"input value for '%s' must be a literal",
 				paramName,
 			))
 			return nil, false
@@ -2059,11 +1305,6 @@ type stepInfo struct {
 func collectStepKeys(items []parser.ISequenceItemContext) []stepInfo {
 	steps := make([]stepInfo, 0, len(items))
 	for i, item := range items {
-		// Variable declarations are ambient (seeded or channel-read), not sequential
-		// steps; a reassignment, like a flow write, is a step.
-		if item.VariableDeclaration() != nil {
-			continue
-		}
 		key := fmt.Sprintf("step_%d", i)
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			if id := stageDecl.IDENTIFIER(); id != nil {
@@ -2136,9 +1377,8 @@ func analyzeSequence(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	seqScope, err := acontext.ResolveOwnScope(ctx)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+	seqScope, ok := resolveDeclScope(ctx)
+	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
 	seqName := seqScope.Name
@@ -2147,10 +1387,9 @@ func analyzeSequence(
 		liveness = ir.LivenessGated
 	}
 	scope := ir.Scope{
-		Key:           seqName,
-		Mode:          ir.ScopeModeSequential,
-		Liveness:      liveness,
-		ResetChannels: scopeResetChannels(seqScope),
+		Key:      seqName,
+		Mode:     ir.ScopeModeSequential,
+		Liveness: liveness,
 	}
 
 	items := ctx.AST.AllSequenceItem()
@@ -2222,29 +1461,6 @@ func analyzeSequence(
 			continue
 		}
 
-		if assign := item.Assignment(); assign != nil {
-			nodes, edges, ok := lowerAssignment(
-				acontext.Child(ctx, assign).WithScope(seqScope),
-				assign,
-				kg,
-				shell,
-			)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			// An channel read/write rebind produces no IR, but a sequence step still needs a
-			// firing node to advance; clock it once with an activation pulse.
-			if len(nodes) == 0 {
-				nodes = []ir.Node{buildActivationPulse(kg).node}
-			}
-			child := flowScope(si.key, nodes)
-			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
-			allNodes = append(allNodes, nodes...)
-			allEdges = append(allEdges, edges...)
-			autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
-			continue
-		}
-
 		if single := item.SingleInvocation(); single != nil {
 			node, ok := analyzeSingleInvocation(
 				acontext.Child(ctx, single).WithScope(seqScope),
@@ -2293,9 +1509,12 @@ func analyzeTopLevelStage(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	stageSym, err := acontext.ResolveOwnScope(ctx)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+	// Resolve the symbol scope registered by collectTopLevelStage so that
+	// anonymous top-level stages pick up the auto-generated name and the
+	// resulting ir.Scope has a non-empty, unique Key. Without this, anonymous
+	// stages would collide at the root member level.
+	stageSym, ok := resolveDeclScope(ctx)
+	if !ok {
 		return ir.Scope{}, nil, nil, false
 	}
 	scope, nodes, edges, ok := analyzeStage(ctx, kg, shell)
@@ -2333,16 +1552,10 @@ func analyzeStage(
 		return scope, nodes, edges, true
 	}
 
-	stageCtx := ctx
-	if stageScope, err := acontext.ResolveOwnScope(ctx); err == nil {
-		stageCtx = ctx.WithScope(stageScope)
-		scope.ResetChannels = scopeResetChannels(stageScope)
-	}
-
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			itemNodes, itemEdges, inlineMembers, _, ok := analyzeFlow(
-				acontext.Child(stageCtx, flowStmt),
+				acontext.Child(ctx, flowStmt),
 				kg,
 				shell,
 			)
@@ -2358,7 +1571,7 @@ func analyzeStage(
 			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
-			node, ok := analyzeSingleInvocation(acontext.Child(stageCtx, single), kg)
+			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -2367,26 +1580,22 @@ func analyzeStage(
 			continue
 		}
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
-			subScope, subNodes, subEdges, ok := analyzeSequence(
-				acontext.Child(stageCtx, nestedSeqDecl), kg, shell)
+			// The inline sequence is registered as a child of this stage's
+			// scope, not the parent sequence's scope. Look up the stage's own
+			// scope so analyzeSequence can resolve the nested seq via parser
+			// rule. Top-level stages don't have their own scope entry; in
+			// that case keep ctx.Scope.
+			seqCtx := acontext.Child(ctx, nestedSeqDecl)
+			if stageScope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
+				seqCtx = seqCtx.WithScope(stageScope)
+			}
+			subScope, subNodes, subEdges, ok := analyzeSequence(seqCtx, kg, shell)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
 			nodes = append(nodes, subNodes...)
 			edges = append(edges, subEdges...)
 			members = append(members, ir.Member{Scope: &subScope})
-			continue
-		}
-		if assign := item.Assignment(); assign != nil {
-			itemNodes, itemEdges, ok := lowerAssignment(stageCtx, assign, kg, shell)
-			if !ok {
-				return ir.Scope{}, nil, nil, false
-			}
-			nodes = append(nodes, itemNodes...)
-			edges = append(edges, itemEdges...)
-			for _, n := range itemNodes {
-				members = append(members, ir.Member{NodeKey: new(n.Key)})
-			}
 			continue
 		}
 	}

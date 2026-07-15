@@ -16,11 +16,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/telem"
 )
 
 // Dependencies describes the channels a compiled Arc program reads from and writes to,
@@ -76,27 +73,12 @@ func NewDependencies(
 		reads  = make(set.Set[channel.Key])
 		writes = make(set.Set[channel.Key])
 	)
-	varChannels := set.New(prog.VarChannels...)
-	// Program-local variable keys live in the leaseholder-0 band; every persisted key
-	// has a nonzero leaseholder. Fail closed so an overlap can't silently mask one.
-	for _, k := range prog.VarChannels {
-		if channel.Key(k).Lease() != 0 {
-			return Dependencies{}, errors.Newf(
-				"arc program-local variable channel key %d overlaps the persisted channel key space",
-				k,
-			)
-		}
-	}
 	for _, n := range prog.Nodes {
 		for rawChanKey := range n.Channels.Read {
-			if !varChannels.Contains(rawChanKey) {
-				reads.Add(channel.Key(rawChanKey))
-			}
+			reads.Add(channel.Key(rawChanKey))
 		}
 		for chanKey := range n.Channels.Write {
-			if !varChannels.Contains(chanKey) {
-				writes.Add(channel.Key(chanKey))
-			}
+			writes.Add(channel.Key(chanKey))
 		}
 	}
 	for key := range prog.Authorities.Channels {
@@ -106,17 +88,7 @@ func NewDependencies(
 	if err != nil {
 		return Dependencies{}, err
 	}
-	seeds := make(map[uint32]telem.Series, len(prog.VarSeeds))
-	for _, vs := range prog.VarSeeds {
-		seeds[vs.Channel] = telem.NewSeriesFromAny(vs.Value, types.ToTelem(vs.Type))
-	}
-	channelDigests := make([]stlchannels.Digest, 0, len(channels)+len(varChannels))
-	for key := range varChannels {
-		channelDigests = append(channelDigests, stlchannels.Digest{
-			Key:  key,
-			Seed: seeds[key],
-		})
-	}
+	channelDigests := make([]stlchannels.Digest, 0, len(channels))
 	for _, ch := range channels {
 		channelDigests = append(channelDigests, stlchannels.Digest{
 			Key:      uint32(ch.Key()),
@@ -130,20 +102,9 @@ func NewDependencies(
 			writes.Add(ch.Index())
 		}
 	}
-	// Digest carries a telem.Series (non-comparable), so dedup by channel key
-	// rather than by value equality.
-	seen := make(set.Set[uint32], len(channelDigests))
-	uniq := make([]stlchannels.Digest, 0, len(channelDigests))
-	for _, d := range channelDigests {
-		if seen.Contains(d.Key) {
-			continue
-		}
-		seen.Add(d.Key)
-		uniq = append(uniq, d)
-	}
 	return Dependencies{
 		Reads:          reads,
 		Writes:         writes,
-		ChannelDigests: uniq,
+		ChannelDigests: lo.Uniq(channelDigests),
 	}, nil
 }

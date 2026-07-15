@@ -110,32 +110,29 @@ Members = Member[] {
 }
 
 Scope struct {
-    key            string       {
+    key         string       {
         @doc value "is the scope identifier."
     }
-    mode           ScopeMode    {
+    mode        ScopeMode    {
         @doc value "defines whether this scope runs steps in parallel or sequentially."
     }
-    liveness       Liveness     {
+    liveness    Liveness     {
         @doc value "defines whether this scope is continuously active or must be activated."
     }
-    activation     Handle?      {
+    activation  Handle?      {
         @doc value "is the handle whose truthy value activates a gated scope. Unset for always-live scopes."
     }
-    strata         Members[]    {
+    strata      Members[]    {
         @doc value """
             contains stratified execution layers for parallel scopes. Empty
             for sequential scopes. Stratum N depends only on strata 0 to N-1.
         """
     }
-    steps          Members      {
+    steps       Members      {
         @doc value "contains ordered steps for sequential scopes. Empty for parallel scopes."
     }
-    transitions    Transition[] {
+    transitions Transition[] {
         @doc value "contains state-transition rules for sequential scopes. Empty for parallel scopes."
-    }
-    reset_channels uint32[] = [] {
-        @doc value "variable channels re-seeded to their declared value on each entry into this scope."
     }
 
     @doc value   """
@@ -186,26 +183,20 @@ Functions Function[] {
 }
 
 Node struct {
-    key                    string         {
+    key      string         {
         @doc value "is the unique identifier for this node instance."
     }
-    type                   string         {
+    type     string         {
         @doc value "is the function type being instantiated."
     }
-    inputs                 types.Params   {
+    inputs   types.Params   {
         @doc value "contains input parameter type signatures."
     }
-    outputs                types.Params   {
+    outputs  types.Params   {
         @doc value "contains output parameter type signatures."
     }
-    channels               types.Channels {
+    channels types.Channels {
         @doc value "contains channel read/write mappings."
-    }
-    is_literal             bool           {
-        @doc value "reports whether the node's variable is a literal, so a source latches its newest value rather than streaming."
-    }
-    backs_internal_channel bool           {
-        @doc value "reports whether a sink loops back into a program-local channel rather than an external one."
     }
 
     @doc value   """
@@ -229,55 +220,24 @@ Authorities struct {
     @doc value "holds the static authority declarations from an Arc program."
 }
 
-VarSeed struct {
-    channel uint32     {
-        @doc value "is the key of the channel backing the value variable."
-    }
-    type    types.Type {
-        @doc value "is the variable's value type."
-    }
-    value   any        {
-        @doc value "is the literal value seeded into the channel at startup."
-    }
-
-    @doc value "is the startup seed for a reactive value variable's channel."
-}
-
-VarSeeds VarSeed[] {
-    @doc value "is a collection of value-variable startup seeds."
-}
-
 IR struct {
-    functions    Functions   {
+    functions   Functions   {
         @doc value "contains function template definitions."
     }
-    nodes        Nodes       {
+    nodes       Nodes       {
         @doc value "contains node instantiations."
     }
-    edges        Edges       {
+    edges       Edges       {
         @doc value "contains dataflow connections."
     }
-    authorities  Authorities {
+    authorities Authorities {
         @doc value "contains the static authority declarations for this program."
     }
-    root         Scope       {
+    root        Scope       {
         @doc value """
             is the top-level execution context. The root is always a
             parallel, always-live Scope whose strata mix module-scope
             reactive flow with top-level gated scopes.
-        """
-    }
-    var_channels uint32[] = [] {
-        @doc value """
-            lists the channel keys that back reactive value variables. These
-            channels live only in program-local state and are never read from
-            or written to Core.
-        """
-    }
-    var_seeds    VarSeeds    {
-        @doc value """
-            lists startup seeds applied to program-local state before execution
-            so a read preceding any write still observes the declared value.
         """
     }
 

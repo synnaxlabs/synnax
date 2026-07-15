@@ -101,9 +101,6 @@ message Scope {
   // transitions contains state-transition rules for sequential scopes. Empty for parallel
   // scopes.
   repeated Transition transitions = 7;
-  // reset_channels variable channels re-seeded to their declared value on each entry into
-  // this scope.
-  repeated uint32 reset_channels = 8;
 }
 
 // Body is raw function body source code with optional parsed AST.
@@ -139,12 +136,6 @@ message Node {
   repeated .arc.types.pb.Param outputs = 4;
   // channels contains channel read/write mappings.
   .arc.types.pb.Channels channels = 5;
-  // is_literal reports whether the node's variable is a literal, so a source latches its
-  // newest value rather than streaming.
-  bool is_literal = 6;
-  // backs_internal_channel reports whether a sink loops back into a program-local channel
-  // rather than an external one.
-  bool backs_internal_channel = 7;
 }
 
 // Authorities holds the static authority declarations from an Arc program.
@@ -153,16 +144,6 @@ message Authorities {
   optional uint32 default = 1;
   // channels maps channel keys to their specific authority values.
   map<uint32, uint32> channels = 2;
-}
-
-// VarSeed is the startup seed for a reactive value variable's channel.
-message VarSeed {
-  // channel is the key of the channel backing the value variable.
-  uint32 channel = 1;
-  // type is the variable's value type.
-  .arc.types.pb.Type type = 2;
-  // value is the literal value seeded into the channel at startup.
-  bytes value = 3;
 }
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
@@ -179,10 +160,4 @@ message IR {
   // root is the top-level execution context. The root is always a parallel, always-live
   // Scope whose strata mix module-scope reactive flow with top-level gated scopes.
   Scope root = 5;
-  // var_channels lists the channel keys that back reactive value variables. These
-  // channels live only in program-local state and are never read from or written to Core.
-  repeated uint32 var_channels = 6;
-  // var_seeds lists startup seeds applied to program-local state before execution so a
-  // read preceding any write still observes the declared value.
-  repeated VarSeed var_seeds = 7;
 }

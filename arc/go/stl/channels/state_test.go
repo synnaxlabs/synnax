@@ -66,16 +66,6 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
-	Describe("Variable Channels", func() {
-		It("Should seed the read buffer from a digest seed", func() {
-			cs := channels.NewProgramState([]channels.Digest{
-				{Key: 7, DataType: telem.Int64T, Seed: telem.NewSeriesV[int64](42)},
-			})
-			ser := MustBeOk(cs.ReadValue(7))
-			Expect(telem.ValueAt[int64](ser, 0)).To(Equal(int64(42)))
-		})
-	})
-
 	Describe("Ingest", func() {
 		It("Should buffer ingested frame data for later reads", func() {
 			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](1.5, 2.5)))

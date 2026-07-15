@@ -52,9 +52,6 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	if err != nil {
 		return err
 	}
-	if varScope.IsReactive() {
-		return nil
-	}
 	varType := varScope.Type
 
 	// Special case: if LHS has channel type and RHS is a symbol with channel type,
@@ -371,10 +368,6 @@ func compileAssignment(
 	if err != nil {
 		return err
 	}
-	// Reactive reassignment is handled by the feeder machine, not inline WASM.
-	if scope.IsReactive() {
-		return nil
-	}
 
 	if compoundOp := ctx.AST.CompoundOp(); compoundOp != nil {
 		return compileCompoundAssignment(ctx, scope, compoundOp)
@@ -390,7 +383,7 @@ func compileAssignment(
 	// For channel writes, push the channel ID before compiling the expression.
 	// This avoids needing a temporary local variable to rearrange the stack.
 	if sym.Kind == symbol.KindChannel {
-		// For channel read/write variables, SourceID points to the original channel key.
+		// For channel aliases, SourceID points to the original channel key.
 		// For direct channel references (not aliases), use scope.ID directly.
 		if sym.SourceID != nil {
 			// Alias: the channel key is stored in a WASM local

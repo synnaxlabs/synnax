@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"encoding/json"
 	"github.com/synnaxlabs/arc/ir"
 	typespb "github.com/synnaxlabs/arc/types/pb"
 	"github.com/synnaxlabs/x/errors"
@@ -286,13 +285,12 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 		return nil, err
 	}
 	pb := &Scope{
-		Key:           r.Key,
-		ResetChannels: r.ResetChannels,
-		Mode:          modeVal,
-		Liveness:      livenessVal,
-		Strata:        strataVal,
-		Steps:         stepsVal,
-		Transitions:   transitionsVal,
+		Key:         r.Key,
+		Mode:        modeVal,
+		Liveness:    livenessVal,
+		Strata:      strataVal,
+		Steps:       stepsVal,
+		Transitions: transitionsVal,
 	}
 	if r.Activation != nil {
 		var err error
@@ -342,7 +340,6 @@ func ScopeFromPB(pb *Scope) (ir.Scope, error) {
 		return ir.Scope{}, err
 	}
 	r.Key = pb.Key
-	r.ResetChannels = pb.ResetChannels
 	if pb.Activation != nil {
 		val, err := HandleFromPB(pb.Activation)
 		if err != nil {
@@ -519,13 +516,11 @@ func NodeToPB(r ir.Node) (*Node, error) {
 		return nil, err
 	}
 	pb := &Node{
-		Key:                  r.Key,
-		Type:                 r.Type,
-		IsLiteral:            r.IsLiteral,
-		BacksInternalChannel: r.BacksInternalChannel,
-		Inputs:               inputsVal,
-		Outputs:              outputsVal,
-		Channels:             channelsVal,
+		Key:      r.Key,
+		Type:     r.Type,
+		Inputs:   inputsVal,
+		Outputs:  outputsVal,
+		Channels: channelsVal,
 	}
 	return pb, nil
 }
@@ -551,8 +546,6 @@ func NodeFromPB(pb *Node) (ir.Node, error) {
 	}
 	r.Key = pb.Key
 	r.Type = pb.Type
-	r.IsLiteral = pb.IsLiteral
-	r.BacksInternalChannel = pb.BacksInternalChannel
 	return r, nil
 }
 
@@ -643,66 +636,6 @@ func AuthoritiesListFromPB(pbs []*Authorities) ([]ir.Authorities, error) {
 	return result, nil
 }
 
-// VarSeedToPB converts VarSeed to VarSeed.
-func VarSeedToPB(r ir.VarSeed) (*VarSeed, error) {
-	typeVal, err := typespb.TypeToPB(r.Type)
-	if err != nil {
-		return nil, err
-	}
-	valueVal, err := json.Marshal(r.Value)
-	if err != nil {
-		return nil, err
-	}
-	pb := &VarSeed{
-		Channel: r.Channel,
-		Type:    typeVal,
-		Value:   valueVal,
-	}
-	return pb, nil
-}
-
-// VarSeedFromPB converts VarSeed to VarSeed.
-func VarSeedFromPB(pb *VarSeed) (ir.VarSeed, error) {
-	var r ir.VarSeed
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Type, err = typespb.TypeFromPB(pb.Type)
-	if err != nil {
-		return ir.VarSeed{}, err
-	}
-	r.Value = func() any { var v any; _ = json.Unmarshal(pb.Value, &v); return v }()
-	r.Channel = pb.Channel
-	return r, nil
-}
-
-// VarSeedsToPB converts a slice of VarSeed to VarSeed.
-func VarSeedsToPB(rs []ir.VarSeed) ([]*VarSeed, error) {
-	result := make([]*VarSeed, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = VarSeedToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// VarSeedsFromPB converts a slice of VarSeed to VarSeed.
-func VarSeedsFromPB(pbs []*VarSeed) ([]ir.VarSeed, error) {
-	result := make([]ir.VarSeed, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = VarSeedFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // IRToPB converts IR to IR.
 func IRToPB(r ir.IR) (*IR, error) {
 	functionsVal, err := FunctionsToPB(r.Functions)
@@ -725,18 +658,12 @@ func IRToPB(r ir.IR) (*IR, error) {
 	if err != nil {
 		return nil, err
 	}
-	varSeedsVal, err := VarSeedsToPB(r.VarSeeds)
-	if err != nil {
-		return nil, err
-	}
 	pb := &IR{
-		VarChannels: r.VarChannels,
 		Functions:   functionsVal,
 		Nodes:       nodesVal,
 		Edges:       edgesVal,
 		Authorities: authoritiesVal,
 		Root:        rootVal,
-		VarSeeds:    varSeedsVal,
 	}
 	return pb, nil
 }
@@ -768,11 +695,6 @@ func IRFromPB(pb *IR) (ir.IR, error) {
 	if err != nil {
 		return ir.IR{}, err
 	}
-	r.VarSeeds, err = VarSeedsFromPB(pb.VarSeeds)
-	if err != nil {
-		return ir.IR{}, err
-	}
-	r.VarChannels = pb.VarChannels
 	return r, nil
 }
 

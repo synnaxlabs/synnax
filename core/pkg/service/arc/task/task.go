@@ -221,7 +221,7 @@ func (t *impl) start(ctx context.Context) (err error) {
 	}
 
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
-	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance, drt.state.channel.ResetVar)
+	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
 
 	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(ctx context.Context, nodeKey string, err error) {
 		t.factoryCfg.L.Warn("runtime error in arc node",

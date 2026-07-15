@@ -34,18 +34,6 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		name = head + "." + tail
 	}
 	chanRef := ctx.Hint.Kind == types.KindChan
-	// Reactive vars read from their internal channel, even same-unit.
-	if scope.IsReactive() {
-		ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
-		emitChannelRead(ctx, scope.Type)
-		return scope.Type.Unwrap(), nil
-	}
-	// A value variable inherited from an enclosing reactive scope is backed by a channel read by key.
-	if isInheritedVarChannel(ctx.Scope, scope) {
-		ctx.Writer.WriteI32Const(int32(channelKeyOf(scope)))
-		emitChannelRead(ctx, scope.Type)
-		return scope.Type.UnwrapChan(), nil
-	}
 	switch scope.Kind {
 	case symbol.KindVariable, symbol.KindInput, symbol.KindLoopVariable:
 		// Inherited channel read/write (cpu := chan): no local here, read by key.
@@ -79,14 +67,6 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	default:
 		return types.Type{}, errors.Newf("unsupported symbol kind: %v for '%s'", scope.Kind, name)
 	}
-}
-
-// isInheritedVarChannel reports whether scope is a value variable backed by an internal channel and read from a different unit than its declaration.
-func isInheritedVarChannel(reader, scope *symbol.Symbol) bool {
-	if scope.Kind != symbol.KindVariable && scope.Kind != symbol.KindStatefulVariable {
-		return false
-	}
-	return scope.Type.Kind != types.KindChan && scope.SourceID == nil && !sameFunction(reader, scope)
 }
 
 // channelKeyOf returns the channel key sym refers to: its SourceID when sym is

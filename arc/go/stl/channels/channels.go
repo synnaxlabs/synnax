@@ -11,7 +11,6 @@ package channels
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -127,23 +126,16 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	if isSource {
 		return &source{
-			State:     cfg.State,
-			key:       inputs.Channel,
-			state:     h.state,
-			isLiteral: cfg.Node.IsLiteral,
+			State: cfg.State,
+			key:   inputs.Channel,
+			state: h.state,
 		}, nil
 	}
 	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
 	if err != nil {
 		return nil, err
 	}
-	return &sink{
-		State:         cfg.State,
-		state:         h.state,
-		key:           inputs.Channel,
-		backsInternal: cfg.Node.BacksInternalChannel,
-		inputIdx:      inputIdx,
-	}, nil
+	return &sink{State: cfg.State, state: h.state, key: inputs.Channel, inputIdx: inputIdx}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -158,7 +150,6 @@ type source struct {
 	*node.State
 	state         *ProgramState
 	key           uint32
-	isLiteral     bool
 	highWaterMark telem.Alignment
 	clock         telem.MonoClock
 }
@@ -170,9 +161,6 @@ func (s *source) Init(node.Context) {}
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
-	if s.isLiteral {
-		return
-	}
 	data, _, ok := s.state.readSeries(s.key)
 	if !ok || len(data.Series) == 0 {
 		return
@@ -188,53 +176,39 @@ func (s *source) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
-	// A literal variable reflects its current value: emit the newest unread series.
-	if s.isLiteral {
-		for i := range slices.Backward(data.Series) {
-			if data.Series[i].AlignmentBounds().Lower >= s.highWaterMark {
-				s.emitSeries(ctx, data, indexData, i)
+	for i, ser := range data.Series {
+		ab := ser.AlignmentBounds()
+		if ab.Lower >= s.highWaterMark {
+			var timeSeries telem.Series
+			if indexData.DataType() == telem.UnknownT {
+				timeSeries = telem.Arrange(
+					s.clock.Now(),
+					int(ser.Len()),
+					1*telem.NanosecondTS,
+				)
+				timeSeries.Alignment = ser.Alignment
+			} else if len(indexData.Series) > i {
+				timeSeries = indexData.Series[i]
+			} else {
 				return
 			}
-		}
-		return
-	}
-	// A channel, channel read/write, or channel read streams: emit the oldest unread series.
-	for i := range data.Series {
-		if data.Series[i].AlignmentBounds().Lower >= s.highWaterMark {
-			s.emitSeries(ctx, data, indexData, i)
+			if timeSeries.Alignment != ser.Alignment {
+				return
+			}
+			*s.Output(0) = ser
+			*s.OutputTime(0) = timeSeries
+			s.highWaterMark = ab.Upper
+			ctx.MarkChanged(0)
 			return
 		}
 	}
 }
 
-// emitSeries emits data.Series[i] and its aligned timestamp on output 0 and
-// advances the high water mark; it is a no-op when no aligned timestamp exists.
-func (s *source) emitSeries(ctx node.Context, data, indexData telem.MultiSeries, i int) {
-	ser := data.Series[i]
-	var timeSeries telem.Series
-	if indexData.DataType() == telem.UnknownT {
-		timeSeries = telem.Arrange(s.clock.Now(), int(ser.Len()), 1*telem.NanosecondTS)
-		timeSeries.Alignment = ser.Alignment
-	} else if len(indexData.Series) > i {
-		timeSeries = indexData.Series[i]
-	} else {
-		return
-	}
-	if timeSeries.Alignment != ser.Alignment {
-		return
-	}
-	*s.Output(0) = ser
-	*s.OutputTime(0) = timeSeries
-	s.highWaterMark = ser.AlignmentBounds().Upper
-	ctx.MarkChanged(0)
-}
-
 type sink struct {
 	*node.State
-	state         *ProgramState
-	key           uint32
-	backsInternal bool
-	inputIdx      int
+	state    *ProgramState
+	key      uint32
+	inputIdx int
 }
 
 func (s *sink) Next(ctx node.Context) {
@@ -246,12 +220,7 @@ func (s *sink) Next(ctx node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	if s.backsInternal {
-		s.state.appendVarRead(s.key, data.DeepCopy())
-		ctx.SetDeadline(ctx.Elapsed)
-	} else {
-		s.state.writeChannel(s.key, data, time)
-	}
+	s.state.writeChannel(s.key, data, time)
 	lastTS := telem.ValueAt[telem.TimeStamp](time, -1)
 	out := s.Output(0)
 	out.Resize(1)
