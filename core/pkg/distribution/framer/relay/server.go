@@ -20,13 +20,13 @@ import (
 )
 
 type server struct {
-	newStreamer func(context.Context, ...StreamerConfig) (confluence.Segment[Request, Response], error)
+	newStreamer func(...StreamerConfig) (confluence.Segment[Request, Response], error)
 	Config
 }
 
 func startServer(
 	cfg Config,
-	newStreamer func(context.Context, ...StreamerConfig) (confluence.Segment[Request, Response], error),
+	newStreamer func(...StreamerConfig) (confluence.Segment[Request, Response], error),
 ) *server {
 	s := &server{Config: cfg, newStreamer: newStreamer}
 	cfg.Transport.Server().BindHandler(s.handle)
@@ -40,7 +40,7 @@ func (s *server) handle(ctx context.Context, server ServerStream) error {
 		sender       = &freightfluence.Sender[Response]{
 			Sender: freighter.SenderNopCloser[Response]{StreamSender: server},
 		}
-		reader, err = s.newStreamer(ctx, StreamerConfig{})
+		reader, err = s.newStreamer(StreamerConfig{})
 		pipe        = plumber.New()
 	)
 	defer cancel()

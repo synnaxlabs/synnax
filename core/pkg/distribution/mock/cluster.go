@@ -88,6 +88,7 @@ func (c *Cluster) Provision(
 		cfgs              = append([]distribution.LayerConfig{cfg}, overrides...)
 		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
 	)
+	distributionLayer.Framer.SetFreeIndexResolver(nopFreeIndexResolver{})
 	node := Node{Layer: distributionLayer, Storage: storageLayer}
 	c.Nodes[distributionLayer.Cluster.HostKey()] = node
 	for _, node := range c.Nodes {

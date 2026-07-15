@@ -14,10 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -30,7 +30,7 @@ var _ = Describe("Service", func() {
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustOpen(search.Open())
+			testSearchIdx := MustOpen(search.OpenIndex())
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
@@ -43,7 +43,7 @@ var _ = Describe("Service", func() {
 		It("Should create a service with group configuration", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-			testSearchIdx := MustOpen(search.Open())
+			testSearchIdx := MustOpen(search.OpenIndex())
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
@@ -78,7 +78,7 @@ var _ = Describe("Service", func() {
 			testOtg2 := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB2,
 			}))
-			testSearchIdx := MustOpen(search.Open())
+			testSearchIdx := MustOpen(search.OpenIndex())
 
 			cfg1 := symbol.ServiceConfig{
 				DB:       testDB1,
@@ -123,7 +123,7 @@ var _ = Describe("Service", func() {
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustOpen(search.Open())
+			testSearchIdx := MustOpen(search.OpenIndex())
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,

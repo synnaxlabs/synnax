@@ -61,6 +61,33 @@ Where a package exposes subpath entries (`@synnaxlabs/pluto/testutil`), exports-
 and vite `lib.entry` keys use real slash paths
 (`"telem/aether": "src/telem/aether/index.ts"`) so `dist/` mirrors the subpath.
 
+### Rule 4: Alias only to resolve a name collision
+
+`import { X as Y }` is banned except when the bare name `X` is already bound in the
+file. Never alias to shorten a name, dodge the namespace-carries-context rule, or by
+preference — an alias exists to name a real collision, nothing else. When a collision
+forces one, which side gets the bare name and which gets aliased follows the file's own
+subject:
+
+- **Wrapping the same name**: a file whose own primary export shares the exact name of
+  the lower-layer/pluto component it wraps aliases that import to `Base` (`Tree as Base`
+  in a Tree wrapper, `Toolbar as Base` in a Toolbar wrapper, `Schematic as Base` in a
+  Schematic tree adapter). `Base.<Member>` reads as "the underlying implementation."
+- **Secondary collision**: when the colliding import isn't the file's own primary
+  subject (a type built on top of it, a companion `Props` type, an unrelated same-named
+  import), alias it to `Base` + the identifier (`Store as BaseStore`,
+  `ChannelListProps as BaseProps`, `Diagram as BaseDiagram`).
+- **Cross-package/layer collision**: when a local or feature-layer identifier collides
+  with an imported one, alias the import to the identifier prefixed (or, for lowercase
+  namespaces, suffixed) with a short tag for its origin, matching the identifier's own
+  casing: `P` for `@synnaxlabs/pluto` (`Form as PForm`, `Menu as PMenu`, `CSS as PCSS`),
+  `Platform` for console's `platform/` layer (`Device as PlatformDevice`,
+  `Nav as PlatformNav`), `Client`/`client` for `@synnaxlabs/client` (`Synnax as Client`,
+  `table as clientTable`), `X` for `@synnaxlabs/x` (`TimeSpan as XTimeSpan`), and the
+  short name of any other third-party package (`Position as RFPosition` for
+  `@xyflow/react`). The file's own identifier keeps the bare name; only the import is
+  aliased.
+
 ## Comments
 
 The universal body-comment and doc-comment rules in the root CLAUDE.md apply. TypeScript

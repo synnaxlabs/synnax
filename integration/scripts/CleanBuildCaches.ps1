@@ -8,13 +8,16 @@
 # included in the file licenses/APL.txt.
 
 # Cleans build caches on self-hosted Windows runners to prevent unbounded disk growth.
-# - Bazel: always runs `bazel clean` (unconditional - remote cache serves next build)
-# - Go/binaries: deletes oldest files first until MinFreeGB of disk space is available
+# Runs only under disk pressure so the Bazel output tree stays warm and builds stay
+# incremental:
+# - If free space >= MinFreeGB, nothing is cleaned.
+# - Otherwise: `bazel clean` first (largest consumer), then oldest Go/binary files
+#   until MinFreeGB is available.
 #
-# Usage: CleanBuildCaches.ps1 [-MinFreeGB 25]
+# Usage: CleanBuildCaches.ps1 [-MinFreeGB 35]
 
 param(
-    [int]$MinFreeGB = 25
+    [int]$MinFreeGB = 35
 )
 
 # Best-effort cleanup — must never fail the build
@@ -53,7 +56,22 @@ Write-Output "=== Build Cache Cleanup (target: ${MinFreeGB}GB free) ==="
 Write-Output "  Current free space: ${freeMB}MB (target: ${minFreeMB}MB)"
 Write-Output ""
 
-# --- Bazel clean (unconditional) ---
+# --- Above threshold: Keep Bazel cache warm ---
+if (Test-EnoughSpace) {
+    Write-Output "Free space ${freeMB}MB >= target ${minFreeMB}MB - keeping caches warm (no clean)."
+    Write-Output ""
+    $diskAfter = Get-DiskUsedMB
+    $diskFreed = $diskBefore - $diskAfter
+    Write-Output "=== Summary ==="
+    Write-Output "  Cache freed:  0MB"
+    Write-Output "  Disk before:  ${diskBefore}MB"
+    Write-Output "  Disk after:   ${diskAfter}MB"
+    Write-Output "  Disk freed:   ${diskFreed}MB"
+    Write-DiskSummary
+    return
+}
+
+# --- Below threshold: Bazel is the largest consumer, so clean it first ---
 Write-Output "Bazel clean:"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $bazelBase = $null

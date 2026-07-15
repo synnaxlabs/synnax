@@ -23,7 +23,6 @@ import (
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db *cesium.DB
 				fs fs.FS
@@ -31,10 +30,7 @@ var _ = Describe("Iterator Behavior", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 
 			Describe("Accuracy", func() {
