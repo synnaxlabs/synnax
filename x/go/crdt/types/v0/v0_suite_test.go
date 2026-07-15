@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestCrdtV0(t *testing.T) {
+func TestCRDTV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Crdt v0 Suite")
+	RunSpecs(t, "CRDT v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

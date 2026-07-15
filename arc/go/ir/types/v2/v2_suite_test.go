@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestIrV2(t *testing.T) {
+func TestIRV2(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ir v2 Suite")
+	RunSpecs(t, "IR v2 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
