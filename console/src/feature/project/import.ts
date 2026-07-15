@@ -64,7 +64,7 @@ const remapNode = (node: panel.Node, remap: Map<string, ontology.ID>): panel.Nod
   };
 };
 
-type ComponentContext = Omit<Import.FileIngesterContext, "name">;
+type ComponentContext = Omit<Import.FileIngesterContext, "name" | "fileName">;
 
 const ingestComponents = async (
   files: Import.File[],
@@ -81,6 +81,7 @@ const ingestComponents = async (
     const id = await ingestFile(data, {
       ...ctx,
       name: Import.trimFileName(file.name),
+      fileName: file.name,
     });
     if (id != null && "key" in data && typeof data.key === "string")
       remap.set(data.key, id);
@@ -98,7 +99,7 @@ const ingestLegacy = async (
   for (const [key, layout] of Object.entries(layouts)) {
     const ingestFile = fileIngesters[layout.type];
     if (ingestFile == null) continue;
-    const data = files.find(
+    const file = files.find(
       (file) =>
         file.name === `${layout.name}.json` ||
         file.name === `${key}.json` ||
@@ -106,9 +107,9 @@ const ingestLegacy = async (
           file.data != null &&
           (("key" in file.data && file.data.key === key) ||
             ("name" in file.data && file.data.name === layout.name))),
-    )?.data;
-    if (data == null) throw new Error(`Data for ${key} not found`);
-    await ingestFile(data, { ...ctx, name: layout.name });
+    );
+    if (file == null) throw new Error(`Data for ${key} not found`);
+    await ingestFile(file.data, { ...ctx, name: layout.name, fileName: file.name });
   }
   // TODO(SY-4370): legacy exports carried a mosaic tiling for these layouts;
   // reconstructing it as panel documents is dropped, so a legacy import only
