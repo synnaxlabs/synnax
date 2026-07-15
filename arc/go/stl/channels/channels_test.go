@@ -381,7 +381,7 @@ var _ = Describe("Channel", func() {
 				nodeState := progState.Node("source")
 				var prevTS telem.TimeStamp
 				for i := range 10 {
-					d := telem.NewSeriesV[int32](int32(i))
+					d := telem.NewSeriesV(int32(i))
 					d.Alignment = telem.NewAlignment(1, uint32(i))
 					channelState.Ingest(telem.UnaryFrame[uint32](20, d))
 
@@ -538,7 +538,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: s2.Node("misaligned"),
 				}))
-				dataSeries := telem.NewSeriesV[float64](1.0, 2.0)
+				dataSeries := telem.NewSeriesV(1.0, 2.0)
 				dataSeries.Alignment = 100
 				timeSeries := telem.NewSeriesSecondsTSV(10, 20)
 				timeSeries.Alignment = 200
@@ -567,10 +567,14 @@ var _ = Describe("Channel", func() {
 		BeforeEach(func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "s0", Type: "on"}, {Key: "s1", Type: "on"},
-					{Key: "s2", Type: "on"}, {Key: "s3", Type: "on"},
-					{Key: "s4", Type: "on"}, {Key: "s5", Type: "on"},
-					{Key: "s6", Type: "on"}, {Key: "s7", Type: "on"},
+					{Key: "s0"}, {Key: "s1"}, {Key: "s2"}, {Key: "s3"},
+					{Key: "s4"}, {Key: "s5"}, {Key: "s6"}, {Key: "s7"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"s0": {"type": "on"}, "s1": {"type": "on"},
+					"s2": {"type": "on"}, "s3": {"type": "on"},
+					"s4": {"type": "on"}, "s5": {"type": "on"},
+					"s6": {"type": "on"}, "s7": {"type": "on"},
 				},
 				Functions: []graph.Function{{
 					Key:     "on",
@@ -597,7 +601,7 @@ var _ = Describe("Channel", func() {
 			return MustSucceed(factory.Create(ctx, rnode.Config{
 				Node: ir.Node{
 					Type:   "on",
-					Config: types.Params{{Name: "channel", Type: types.U32(), Value: ch}},
+					Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: ch}},
 				},
 				State: progState.Node(nodeKey),
 			}))
@@ -605,9 +609,9 @@ var _ = Describe("Channel", func() {
 		// writeData co-writes a data sample and its index timestamp at the SAME
 		// alignment, as cesium delivers a data channel written with its index.
 		writeData := func(dataKey, idxKey uint32, value float32, ts telem.TimeStamp, a telem.Alignment) {
-			d := telem.NewSeriesV[float32](value)
+			d := telem.NewSeriesV(value)
 			d.Alignment = a
-			t := telem.NewSeriesV[telem.TimeStamp](ts)
+			t := telem.NewSeriesV(ts)
 			t.Alignment = a
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(idxKey, t)
@@ -617,15 +621,15 @@ var _ = Describe("Channel", func() {
 		// writeIndexNoise writes a lone index sample: another channel sharing
 		// idxKey being written, which the relay still delivers to arc.
 		writeIndexNoise := func(idxKey uint32, ts telem.TimeStamp, a telem.Alignment) {
-			t := telem.NewSeriesV[telem.TimeStamp](ts)
+			t := telem.NewSeriesV(ts)
 			t.Alignment = a
-			channelState.Ingest(telem.UnaryFrame[uint32](idxKey, t))
+			channelState.Ingest(telem.UnaryFrame(idxKey, t))
 		}
 		// writeDataOnly writes a data sample with no accompanying index sample.
 		writeDataOnly := func(dataKey uint32, value float32, a telem.Alignment) {
-			d := telem.NewSeriesV[float32](value)
+			d := telem.NewSeriesV(value)
 			d.Alignment = a
-			channelState.Ingest(telem.UnaryFrame[uint32](dataKey, d))
+			channelState.Ingest(telem.UnaryFrame(dataKey, d))
 		}
 		firesOn := func(ctx SpecContext, src rnode.Node) bool {
 			f := false
@@ -652,7 +656,7 @@ var _ = Describe("Channel", func() {
 
 			It("Should fire on every consecutive write", func(ctx SpecContext) {
 				src := newSource(ctx, "s0", 30)
-				for i := uint32(0); i < 20; i++ {
+				for i := range uint32(20) {
 					writeData(30, 31, float32(i), telem.TimeStamp(1000+i), al(i))
 					Expect(firesOn(ctx, src)).To(BeTrue(), "write %d must fire", i)
 					Expect(emittedValue("s0")).To(Equal(float32(i)))
@@ -1232,7 +1236,7 @@ var _ = Describe("Channel", func() {
 				fr := telem.Frame[uint32]{}
 				fr = fr.Append(10, telem.NewSeriesV[float32](1.1, 2.2))
 				fr = fr.Append(11, telem.NewSeriesSecondsTSV(100, 200))
-				fr = fr.Append(20, telem.NewSeriesV[float64](3.3, 4.4))
+				fr = fr.Append(20, telem.NewSeriesV(3.3, 4.4))
 				fr = fr.Append(21, telem.NewSeriesSecondsTSV(100, 200))
 				channelState.Ingest(fr)
 				source1.Next(rnode.Context{Context: ctx, MarkChanged: func(int) {}})
@@ -1245,7 +1249,7 @@ var _ = Describe("Channel", func() {
 				outputFr, changed := channelState.Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
 				Expect(outputFr.Get(30).Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float32](1.1, 2.2)))
-				Expect(outputFr.Get(40).Series[0]).To(telem.MatchSeries(telem.NewSeriesV[float64](3.3, 4.4)))
+				Expect(outputFr.Get(40).Series[0]).To(telem.MatchSeries(telem.NewSeriesV(3.3, 4.4)))
 			})
 		})
 	})
