@@ -7,4 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Store from "@/store/external";
+import { Store } from "@/store";
+
+/** Selection tracks which table cells are selected, keyed by cell key. */
+export const Selection = Store.createMembership("Table");
