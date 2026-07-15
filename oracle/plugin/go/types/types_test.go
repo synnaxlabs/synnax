@@ -1898,8 +1898,8 @@ var _ = Describe("Go Types Plugin", func() {
 					ToBeValidGoSource().
 					ToContain(
 						"package types",
-						`import out "github.com/synnaxlabs/synnax/out/types/v3"`,
-						"type Entry = out.Entry",
+						`import "github.com/synnaxlabs/synnax/out/types/v3"`,
+						"type Entry = v3.Entry",
 					)
 			})
 
@@ -1926,8 +1926,8 @@ var _ = Describe("Go Types Plugin", func() {
 					ToBeValidGoSource().
 					ToContain(
 						"package out",
-						`import out "github.com/synnaxlabs/synnax/out/types"`,
-						"type Entry = out.Entry",
+						`import "github.com/synnaxlabs/synnax/out/types"`,
+						"type Entry = types.Entry",
 					)
 			})
 
@@ -1951,9 +1951,9 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Color = out.Color",
-						"ColorRed = out.ColorRed",
-						"ColorBlue = out.ColorBlue",
+						"type Color = types.Color",
+						"ColorRed = types.ColorRed",
+						"ColorBlue = types.ColorBlue",
 					)
 			})
 
@@ -1976,8 +1976,8 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Status[D any] = out.Status[D]",
-						"type Entry = out.Entry",
+						"type Status[D any] = types.Status[D]",
+						"type Entry = types.Entry",
 					)
 			})
 
@@ -2004,11 +2004,11 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Scale = out.Scale",
-						"type ScaleVariant = out.ScaleVariant",
-						"type ScaleType = out.ScaleType",
-						"type ScaleLinear = out.ScaleLinear",
-						"ScaleTypeLinear = out.ScaleTypeLinear",
+						"type Scale = types.Scale",
+						"type ScaleVariant = types.ScaleVariant",
+						"type ScaleType = types.ScaleType",
+						"type ScaleLinear = types.ScaleLinear",
+						"ScaleTypeLinear = types.ScaleTypeLinear",
 					)
 			})
 

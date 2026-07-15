@@ -11,10 +11,10 @@
 
 package types
 
-import ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+import "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 
 // ResourceType is the type of the resource.
-type ResourceType = ontology.ResourceType
+type ResourceType = v0.ResourceType
 
 // ID ID is a unique identifier for a Resource. An example:
 //
@@ -24,31 +24,31 @@ type ResourceType = ontology.ResourceType
 // service to query for additional info on the Resource. Second, while a Key may be
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
-type ID = ontology.ID
+type ID = v0.ID
 
 const (
-	ResourceTypeArc             = ontology.ResourceTypeArc
-	ResourceTypeBuiltin         = ontology.ResourceTypeBuiltin
-	ResourceTypeChannel         = ontology.ResourceTypeChannel
-	ResourceTypeDevice          = ontology.ResourceTypeDevice
-	ResourceTypeFramer          = ontology.ResourceTypeFramer
-	ResourceTypeGroup           = ontology.ResourceTypeGroup
-	ResourceTypeLabel           = ontology.ResourceTypeLabel
-	ResourceTypeLineplot        = ontology.ResourceTypeLineplot
-	ResourceTypeLog             = ontology.ResourceTypeLog
-	ResourceTypeNode            = ontology.ResourceTypeNode
-	ResourceTypePanel           = ontology.ResourceTypePanel
-	ResourceTypePolicy          = ontology.ResourceTypePolicy
-	ResourceTypeProject         = ontology.ResourceTypeProject
-	ResourceTypeRack            = ontology.ResourceTypeRack
-	ResourceTypeRange           = ontology.ResourceTypeRange
-	ResourceTypeRangeAlias      = ontology.ResourceTypeRangeAlias
-	ResourceTypeRole            = ontology.ResourceTypeRole
-	ResourceTypeSchematic       = ontology.ResourceTypeSchematic
-	ResourceTypeSchematicSymbol = ontology.ResourceTypeSchematicSymbol
-	ResourceTypeStatus          = ontology.ResourceTypeStatus
-	ResourceTypeTable           = ontology.ResourceTypeTable
-	ResourceTypeTask            = ontology.ResourceTypeTask
-	ResourceTypeUser            = ontology.ResourceTypeUser
-	ResourceTypeView            = ontology.ResourceTypeView
+	ResourceTypeArc             = v0.ResourceTypeArc
+	ResourceTypeBuiltin         = v0.ResourceTypeBuiltin
+	ResourceTypeChannel         = v0.ResourceTypeChannel
+	ResourceTypeDevice          = v0.ResourceTypeDevice
+	ResourceTypeFramer          = v0.ResourceTypeFramer
+	ResourceTypeGroup           = v0.ResourceTypeGroup
+	ResourceTypeLabel           = v0.ResourceTypeLabel
+	ResourceTypeLineplot        = v0.ResourceTypeLineplot
+	ResourceTypeLog             = v0.ResourceTypeLog
+	ResourceTypeNode            = v0.ResourceTypeNode
+	ResourceTypePanel           = v0.ResourceTypePanel
+	ResourceTypePolicy          = v0.ResourceTypePolicy
+	ResourceTypeProject         = v0.ResourceTypeProject
+	ResourceTypeRack            = v0.ResourceTypeRack
+	ResourceTypeRange           = v0.ResourceTypeRange
+	ResourceTypeRangeAlias      = v0.ResourceTypeRangeAlias
+	ResourceTypeRole            = v0.ResourceTypeRole
+	ResourceTypeSchematic       = v0.ResourceTypeSchematic
+	ResourceTypeSchematicSymbol = v0.ResourceTypeSchematicSymbol
+	ResourceTypeStatus          = v0.ResourceTypeStatus
+	ResourceTypeTable           = v0.ResourceTypeTable
+	ResourceTypeTask            = v0.ResourceTypeTask
+	ResourceTypeUser            = v0.ResourceTypeUser
+	ResourceTypeView            = v0.ResourceTypeView
 )

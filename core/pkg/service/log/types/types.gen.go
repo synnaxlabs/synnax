@@ -11,18 +11,18 @@
 
 package types
 
-import log "github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
 
 // Key is a unique identifier for a log, represented as a UUID.
-type Key = log.Key
+type Key = v1.Key
 
 // TimestampConfig is per-channel timestamp display configuration.
-type TimestampConfig = log.TimestampConfig
+type TimestampConfig = v1.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.
-type ChannelEntry = log.ChannelEntry
+type ChannelEntry = v1.ChannelEntry
 
 // Log is a timestamped event and message logging component. Logs display chronological
 // records of events, system messages, and audit trails with filtering and formatting
 // capabilities.
-type Log = log.Log
+type Log = v1.Log

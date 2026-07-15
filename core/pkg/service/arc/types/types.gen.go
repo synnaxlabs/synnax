@@ -11,25 +11,25 @@
 
 package types
 
-import arc "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 
 // Status is the status of an Arc module including execution state.
-type Status = arc.Status
+type Status = v2.Status
 
 // Key is a unique identifier for an Arc module.
-type Key = arc.Key
+type Key = v2.Key
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode = arc.Mode
+type Mode = v2.Mode
 
 // StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = arc.StatusDetails
+type StatusDetails = v2.StatusDetails
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc = arc.Arc
+type Arc = v2.Arc
 
 const (
-	ModeText  = arc.ModeText
-	ModeGraph = arc.ModeGraph
+	ModeText  = v2.ModeText
+	ModeGraph = v2.ModeGraph
 )

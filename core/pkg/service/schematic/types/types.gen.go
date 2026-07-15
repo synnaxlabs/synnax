@@ -11,22 +11,22 @@
 
 package types
 
-import schematic "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v1"
+import "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v1"
 
 // Key is a unique identifier for a schematic, represented as a UUID.
-type Key = schematic.Key
+type Key = v1.Key
 
 // Node is a diagram node representing a symbol in the schematic.
-type Node = schematic.Node
+type Node = v1.Node
 
 // Handle is a reference to a specific connection point on a specific node. For
 // schematics, param is the symbol handle key (e.g. inlet, outlet).
-type Handle = schematic.Handle
+type Handle = v1.Handle
 
 // Edge is a connection between two nodes in the schematic.
-type Edge = schematic.Edge
+type Edge = v1.Edge
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
-type Schematic = schematic.Schematic
+type Schematic = v1.Schematic

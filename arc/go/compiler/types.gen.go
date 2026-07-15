@@ -11,8 +11,8 @@
 
 package compiler
 
-import compiler "github.com/synnaxlabs/arc/compiler/types"
+import "github.com/synnaxlabs/arc/compiler/types"
 
 // Output is compiled output from the Arc compiler including WebAssembly bytecode and
 // memory layout.
-type Output = compiler.Output
+type Output = types.Output

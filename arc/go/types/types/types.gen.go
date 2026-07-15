@@ -11,63 +11,63 @@
 
 package types
 
-import types "github.com/synnaxlabs/arc/types/types/v1"
+import "github.com/synnaxlabs/arc/types/types/v1"
 
 // Params is a collection of named, typed parameters for function inputs or outputs.
-type Params = types.Params
+type Params = v1.Params
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
-type Kind = types.Kind
+type Kind = v1.Kind
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection = types.ChanDirection
+type ChanDirection = v1.ChanDirection
 
 // FunctionProperties contains common parameter definitions for function-like types.
-type FunctionProperties = types.FunctionProperties
+type FunctionProperties = v1.FunctionProperties
 
 // Type is a type in Arc's type system with optional element type for compounds,
 // physical units, and constraints.
-type Type = types.Type
+type Type = v1.Type
 
 // Param is a named, typed parameter with optional default value.
-type Param = types.Param
+type Param = v1.Param
 
 // Channels contains channel declarations for reading from and writing to Synnax
 // channels.
-type Channels = types.Channels
+type Channels = v1.Channels
 
 // Dimensions contains physical dimension exponents for dimensional analysis (SI base
 // quantities).
-type Dimensions = types.Dimensions
+type Dimensions = v1.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
-type Unit = types.Unit
+type Unit = v1.Unit
 
 const (
-	KindInvalid                   = types.KindInvalid
-	KindU8                        = types.KindU8
-	KindU16                       = types.KindU16
-	KindU32                       = types.KindU32
-	KindU64                       = types.KindU64
-	KindI8                        = types.KindI8
-	KindI16                       = types.KindI16
-	KindI32                       = types.KindI32
-	KindI64                       = types.KindI64
-	KindF32                       = types.KindF32
-	KindF64                       = types.KindF64
-	KindString                    = types.KindString
-	KindChan                      = types.KindChan
-	KindSeries                    = types.KindSeries
-	KindVariable                  = types.KindVariable
-	KindNumericConstant           = types.KindNumericConstant
-	KindIntegerConstant           = types.KindIntegerConstant
-	KindFloatConstant             = types.KindFloatConstant
-	KindExactIntegerFloatConstant = types.KindExactIntegerFloatConstant
-	KindFunction                  = types.KindFunction
-	KindSequence                  = types.KindSequence
-	KindStage                     = types.KindStage
-	ChanDirectionNone             = types.ChanDirectionNone
-	ChanDirectionRead             = types.ChanDirectionRead
-	ChanDirectionWrite            = types.ChanDirectionWrite
+	KindInvalid                   = v1.KindInvalid
+	KindU8                        = v1.KindU8
+	KindU16                       = v1.KindU16
+	KindU32                       = v1.KindU32
+	KindU64                       = v1.KindU64
+	KindI8                        = v1.KindI8
+	KindI16                       = v1.KindI16
+	KindI32                       = v1.KindI32
+	KindI64                       = v1.KindI64
+	KindF32                       = v1.KindF32
+	KindF64                       = v1.KindF64
+	KindString                    = v1.KindString
+	KindChan                      = v1.KindChan
+	KindSeries                    = v1.KindSeries
+	KindVariable                  = v1.KindVariable
+	KindNumericConstant           = v1.KindNumericConstant
+	KindIntegerConstant           = v1.KindIntegerConstant
+	KindFloatConstant             = v1.KindFloatConstant
+	KindExactIntegerFloatConstant = v1.KindExactIntegerFloatConstant
+	KindFunction                  = v1.KindFunction
+	KindSequence                  = v1.KindSequence
+	KindStage                     = v1.KindStage
+	ChanDirectionNone             = v1.ChanDirectionNone
+	ChanDirectionRead             = v1.ChanDirectionRead
+	ChanDirectionWrite            = v1.ChanDirectionWrite
 )

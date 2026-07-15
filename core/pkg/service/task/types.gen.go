@@ -11,23 +11,23 @@
 
 package task
 
-import task "github.com/synnaxlabs/synnax/pkg/service/task/types"
+import "github.com/synnaxlabs/synnax/pkg/service/task/types"
 
 // Key is a composite identifier for a task. The high 32 bits contain the rack key, and
 // the low 32 bits contain the local task key within that rack.
-type Key = task.Key
+type Key = types.Key
 
 // Status is task-specific status information including execution state and
 // task-specific data.
-type Status = task.Status
+type Status = types.Status
 
 // StatusDetails contains task-specific status details including execution state.
-type StatusDetails = task.StatusDetails
+type StatusDetails = types.StatusDetails
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
-type Task = task.Task
+type Task = types.Task
 
 // Command is a command to execute on a task in the Driver system.
-type Command = task.Command
+type Command = types.Command

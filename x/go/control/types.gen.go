@@ -11,24 +11,24 @@
 
 package control
 
-import control "github.com/synnaxlabs/x/control/types"
+import "github.com/synnaxlabs/x/control/types"
 
 // Authority is a numeric value (0-255) representing the level of control authority a
 // subject has over a resource. Higher values indicate greater authority. The maximum
 // value of 255 represents absolute authority.
-type Authority = control.Authority
+type Authority = types.Authority
 
 // Concurrency defines whether a resource can have multiple subjects acting on it at
 // once.
-type Concurrency = control.Concurrency
+type Concurrency = types.Concurrency
 
 // Subject is an entity that can hold control authority over a resource. Typically
 // represents a user, process, or service.
-type Subject = control.Subject
+type Subject = types.Subject
 
 // State represents the state of control over a resource at a point in time, capturing
 // who controls what and with how much authority.
-type State[R any] = control.State[R]
+type State[R any] = types.State[R]
 
 // Transfer represents a transfer of control over a resource. It is represented as a
 // transition from one state to another over the same resource. A transfer between
@@ -40,12 +40,12 @@ type State[R any] = control.State[R]
 //
 // If both From and To are nil, no transfer occurred. If both From and To are not nil,
 // and From.Subject != To.Subject, a transfer occurred.
-type Transfer[R comparable] = control.Transfer[R]
+type Transfer[R comparable] = types.Transfer[R]
 
 // Update represents a batch of control transfers that occurred atomically.
-type Update[R comparable] = control.Update[R]
+type Update[R comparable] = types.Update[R]
 
 const (
-	ConcurrencyExclusive = control.ConcurrencyExclusive
-	ConcurrencyShared    = control.ConcurrencyShared
+	ConcurrencyExclusive = types.ConcurrencyExclusive
+	ConcurrencyShared    = types.ConcurrencyShared
 )

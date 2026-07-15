@@ -11,17 +11,17 @@
 
 package crdt
 
-import crdt "github.com/synnaxlabs/x/crdt/types"
+import "github.com/synnaxlabs/x/crdt/types"
 
 // ID uniquely identifies a character within a replicated text document. It pairs the
 // replica that created the character with that replica's per-character counter, making
 // the identifier globally unique without coordination.
-type ID = crdt.ID
+type ID = types.ID
 
 // Insert introduces a single character into a replicated text document.
-type Insert = crdt.Insert
+type Insert = types.Insert
 
 // Delete tombstones the character with the given id. It carries only the id because
 // removal needs no position; the character remains in the document tree as a tombstone
 // so concurrently-inserted neighbors can still anchor to it.
-type Delete = crdt.Delete
+type Delete = types.Delete

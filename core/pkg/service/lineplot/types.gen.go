@@ -11,77 +11,77 @@
 
 package lineplot
 
-import lineplot "github.com/synnaxlabs/synnax/pkg/service/lineplot/types"
+import "github.com/synnaxlabs/synnax/pkg/service/lineplot/types"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = lineplot.Key
+type Key = types.Key
 
 // AxisKey names one of the six fixed plot axes.
-type AxisKey = lineplot.AxisKey
+type AxisKey = types.AxisKey
 
 // TickType selects how an axis renders its tick labels.
-type TickType = lineplot.TickType
+type TickType = types.TickType
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
-type DownsampleMode = lineplot.DownsampleMode
+type DownsampleMode = types.DownsampleMode
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
-type XAxisKey = lineplot.XAxisKey
+type XAxisKey = types.XAxisKey
 
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
-type YAxisKey = lineplot.YAxisKey
+type YAxisKey = types.YAxisKey
 
 // Title is the plot title configuration.
-type Title = lineplot.Title
+type Title = types.Title
 
 // Legend is the plot legend configuration.
-type Legend = lineplot.Legend
+type Legend = types.Legend
 
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
 // carry zero or more channels each.
-type Channels = lineplot.Channels
+type Channels = types.Channels
 
 // Ranges binds range keys to each x-axis.
-type Ranges = lineplot.Ranges
+type Ranges = types.Ranges
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
 // to the server; when true, Axis.bounds holds the user-set value.
-type ManualBounds = lineplot.ManualBounds
+type ManualBounds = types.ManualBounds
 
 // Axis is the configuration for a single plot axis.
-type Axis = lineplot.Axis
+type Axis = types.Axis
 
 // Axes bundles configuration for all six fixed plot axes.
-type Axes = lineplot.Axes
+type Axes = types.Axes
 
 // Line is the per-line styling and downsampling configuration.
-type Line = lineplot.Line
+type Line = types.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule = lineplot.Rule
+type Rule = types.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
-type LinePlot = lineplot.LinePlot
+type LinePlot = types.LinePlot
 
 const (
-	AxisKeyX1              = lineplot.AxisKeyX1
-	AxisKeyX2              = lineplot.AxisKeyX2
-	AxisKeyY1              = lineplot.AxisKeyY1
-	AxisKeyY2              = lineplot.AxisKeyY2
-	AxisKeyY3              = lineplot.AxisKeyY3
-	AxisKeyY4              = lineplot.AxisKeyY4
-	TickTypeLinear         = lineplot.TickTypeLinear
-	TickTypeTime           = lineplot.TickTypeTime
-	DownsampleModeAverage  = lineplot.DownsampleModeAverage
-	DownsampleModeDecimate = lineplot.DownsampleModeDecimate
-	XAxisKeyX1             = lineplot.XAxisKeyX1
-	XAxisKeyX2             = lineplot.XAxisKeyX2
-	YAxisKeyY1             = lineplot.YAxisKeyY1
-	YAxisKeyY2             = lineplot.YAxisKeyY2
-	YAxisKeyY3             = lineplot.YAxisKeyY3
-	YAxisKeyY4             = lineplot.YAxisKeyY4
+	AxisKeyX1              = types.AxisKeyX1
+	AxisKeyX2              = types.AxisKeyX2
+	AxisKeyY1              = types.AxisKeyY1
+	AxisKeyY2              = types.AxisKeyY2
+	AxisKeyY3              = types.AxisKeyY3
+	AxisKeyY4              = types.AxisKeyY4
+	TickTypeLinear         = types.TickTypeLinear
+	TickTypeTime           = types.TickTypeTime
+	DownsampleModeAverage  = types.DownsampleModeAverage
+	DownsampleModeDecimate = types.DownsampleModeDecimate
+	XAxisKeyX1             = types.XAxisKeyX1
+	XAxisKeyX2             = types.XAxisKeyX2
+	YAxisKeyY1             = types.YAxisKeyY1
+	YAxisKeyY2             = types.YAxisKeyY2
+	YAxisKeyY3             = types.YAxisKeyY3
+	YAxisKeyY4             = types.YAxisKeyY4
 )

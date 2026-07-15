@@ -11,12 +11,12 @@
 
 package text
 
-import text "github.com/synnaxlabs/arc/text/types"
+import "github.com/synnaxlabs/arc/text/types"
 
 // Document is the conflict-free replicated representation of the text: the operations
 // that reconstruct it when applied to an empty replica. It is the durable source of
 // truth from which raw is materialized.
-type Document = text.Document
+type Document = types.Document
 
 // Text is text-based Arc source code with optional parsed AST for compilation.
-type Text = text.Text
+type Text = types.Text

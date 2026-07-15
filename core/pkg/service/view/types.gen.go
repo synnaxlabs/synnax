@@ -11,11 +11,11 @@
 
 package view
 
-import view "github.com/synnaxlabs/synnax/pkg/service/view/types"
+import "github.com/synnaxlabs/synnax/pkg/service/view/types"
 
 // Key is a unique identifier for a saved view configuration.
-type Key = view.Key
+type Key = types.Key
 
 // View is a persisted view configuration storing visualization settings and query
 // parameters for line plots, tables, schematics, and other view types.
-type View = view.View
+type View = types.View

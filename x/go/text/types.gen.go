@@ -11,19 +11,19 @@
 
 package text
 
-import text "github.com/synnaxlabs/x/text/types"
+import "github.com/synnaxlabs/x/text/types"
 
 // Level is a typography level identifier shared across visualizations. Mirrors the
 // heading ladder (h1 through h5) plus paragraph (p) and small. Order is descending: h1
 // is the largest, small is the smallest.
-type Level = text.Level
+type Level = types.Level
 
 const (
-	LevelH1    = text.LevelH1
-	LevelH2    = text.LevelH2
-	LevelH3    = text.LevelH3
-	LevelH4    = text.LevelH4
-	LevelH5    = text.LevelH5
-	LevelP     = text.LevelP
-	LevelSmall = text.LevelSmall
+	LevelH1    = types.LevelH1
+	LevelH2    = types.LevelH2
+	LevelH3    = types.LevelH3
+	LevelH4    = types.LevelH4
+	LevelH5    = types.LevelH5
+	LevelP     = types.LevelP
+	LevelSmall = types.LevelSmall
 )
