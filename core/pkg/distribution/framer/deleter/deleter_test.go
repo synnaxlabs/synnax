@@ -34,11 +34,10 @@ var _ = Describe("Deleter", Ordered, func() {
 	}
 	for _, createScenario := range scenarios {
 		var s scenario
-		BeforeAll(func() {
+		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			s = createScenario(context.Background())
+			s = DeferClose(createScenario(ctx))
 		})
-		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		Describe("Happy Path", func() {
 			Context(s.name+" - Happy Path", func() {
 				var i *iterator.Iterator
@@ -115,9 +114,8 @@ var _ = Describe("Deleter", Ordered, func() {
 		var s scenario
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			s = mixedScenario(context.Background())
+			s = DeferClose(mixedScenario(context.Background()))
 		})
-		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 
 		It("Should delete channels across gateway and peer nodes", func(ctx SpecContext) {
 			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
@@ -183,12 +181,15 @@ var _ = Describe("Deleter", Ordered, func() {
 })
 
 type scenario struct {
-	dist   mock.Node
-	closer io.Closer
-	name   string
-	keys   channel.Keys
-	names  []string
+	dist     mock.Node
+	closer   io.Closer
+	name     string
+	keys     channel.Keys
+	channels []channel.Channel
+	names    []string
 }
+
+func (s scenario) Close() error { return s.closer.Close() }
 
 func newChannelSet() []channel.Channel {
 	return []channel.Channel{
@@ -212,16 +213,17 @@ func newChannelSet() []channel.Channel {
 
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	node := mock.OpenNode(ctx)
-	Expect(node.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	dist := mock.OpenNode(ctx)
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
-		name:   "Gateway Only",
-		keys:   keys,
-		names:  names,
-		dist:   node,
-		closer: node,
+		name:     "Gateway Only",
+		keys:     keys,
+		channels: channels,
+		names:    names,
+		dist:     dist,
+		closer:   dist,
 	}
 }
 
@@ -232,49 +234,35 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 2)
 	}
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.Channel.NewRetrieve().
-			Entries(&chs).
-			Where(channel.MatchKeys(keys...)).
-			Exec(ctx, nil)).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
-		name:   "Peer Only",
-		keys:   keys,
-		names:  names,
-		dist:   dist,
-		closer: cluster,
+		name:     "Peer Only",
+		keys:     keys,
+		channels: channels,
+		names:    names,
+		dist:     dist,
+		closer:   cluster,
 	}
 }
 
 func mixedScenario(ctx context.Context) scenario {
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 3)
-	dist := cluster.Nodes[1]
+	builder := mock.OpenCluster(ctx, 3)
+	dist := builder.Nodes[1]
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 1)
 	}
-	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
+	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
-	Eventually(func(g Gomega) {
-		var chs []channel.Channel
-		g.Expect(dist.Channel.NewRetrieve().
-			Entries(&chs).
-			Where(channel.MatchKeys(keys...)).
-			Exec(ctx, nil)).To(Succeed())
-		g.Expect(chs).To(HaveLen(len(channels)))
-	}).Should(Succeed())
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
 	return scenario{
-		name:   "Mixed Gateway and Peer",
-		keys:   keys,
-		names:  names,
-		dist:   dist,
-		closer: cluster,
+		name:     "Mixed Gateway and Peer",
+		keys:     keys,
+		channels: channels,
+		names:    names,
+		dist:     dist,
+		closer:   builder,
 	}
 }

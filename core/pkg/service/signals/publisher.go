@@ -139,7 +139,7 @@ func (p *Provider) PublishFromObservable(
 	if deleteEnabled {
 		channels = append(channels, cfg.DeleteChannel)
 	}
-	if err = p.cfg.Channel.CreateMany(
+	if err = p.cfg.Channel.NewWriter(nil).CreateMany(
 		ctx,
 		&channels,
 		channel.RetrieveIfNameExists(),

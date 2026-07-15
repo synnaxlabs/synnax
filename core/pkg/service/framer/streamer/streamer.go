@@ -137,7 +137,7 @@ func (s *Service) New(ctx context.Context, cfgs ...Config) (Streamer, error) {
 		return nil, err
 	}
 	p := plumber.New()
-	dist, err := s.cfg.Framer.NewStreamer(ctx, cfg.distribution())
+	dist, err := s.cfg.Framer.NewStreamer(cfg.distribution())
 	if err != nil {
 		return nil, err
 	}
