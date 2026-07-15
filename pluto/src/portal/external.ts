@@ -9,5 +9,4 @@
 
 export { Context } from "@/portal/Context";
 export * from "@/portal/In";
-export * as Legacy from "@/portal/legacy";
 export * from "@/portal/Out";

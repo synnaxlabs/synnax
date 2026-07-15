@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic } from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { z } from "zod";
+
+import * as Mosaic from "@/session/layout/mosaic";
 
 export const VERSION = "0.0.0";
 

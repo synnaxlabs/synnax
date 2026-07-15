@@ -31,6 +31,12 @@ export const tabID = (frameID: string, key: string): string => `${frameID}-tab-$
 export const panelID = (frameID: string, key: string): string =>
   `${frameID}-panel-${key}`;
 
+/** KEY_ATTRIBUTE is the DOM attribute a Tab renders to expose its key. */
+export const KEY_ATTRIBUTE = "data-tab-key";
+
+/** KEY_SELECTOR matches the tab handles rendered by Tab via {@link KEY_ATTRIBUTE}. */
+export const KEY_SELECTOR = `[${KEY_ATTRIBUTE}]`;
+
 export interface FrameProps
   extends
     Omit<Flex.BoxProps, "onChange" | "onSelect">,

@@ -21,7 +21,7 @@ import {
   HAUL_DROP_TYPE,
   isTabCreateHaulItem,
   isTabDropHaulItem,
-} from "@/mosaic/Mosaic";
+} from "@/mosaic/haul";
 
 const TAB_KEY = "tab-1";
 const ELEMENT_ID = "element-1";

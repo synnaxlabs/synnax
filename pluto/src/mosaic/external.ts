@@ -7,17 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/mosaic/Mosaic";
-export * from "@/mosaic/tree";
-export * from "@/mosaic/types";
-export * from "@/mosaic/use";
-// The legacy tab-serialization model still backs the mosaic layout until the mosaic
-// redesign lands. Surfaced here so consumers reach it through the Mosaic namespace.
-export { DefaultName } from "@/tabs/legacy/Selector";
 export {
-  type NameProps,
-  type RenderProp,
-  type Spec,
-  type Tab,
-  tabZ,
-} from "@/tabs/legacy/types";
+  type DropPosition,
+  Frame,
+  type FrameProps,
+  type OnCreateProps,
+  type OnDropProps,
+  type OnFileDropProps,
+} from "@/mosaic/Frame";
+export * from "@/mosaic/haul";
+export { Leaf, type LeafProps } from "@/mosaic/Leaf";
+export { Shield } from "@/mosaic/Shield";
+export { Split, type SplitProps } from "@/mosaic/Split";
+export * from "@/mosaic/tree";
+export { useDragTab, type UseDragTabReturn } from "@/mosaic/useDragTab";
+export {
+  useSelectorDropProps,
+  type UseSelectorDropPropsParams,
+  type UseSelectorDropPropsReturn,
+} from "@/mosaic/useSelectorDropProps";
