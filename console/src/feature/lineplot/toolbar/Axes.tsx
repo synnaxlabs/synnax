@@ -19,25 +19,27 @@ import {
   Tabs,
 } from "@synnaxlabs/pluto";
 import { type text } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
 export const Axes = (): ReactElement => {
   const axisKeys = LinePlot.useSelectAxisKeys();
-  const tabs = useMemo(
-    () => axisKeys.map((key) => ({ tabKey: key, name: key.toUpperCase() })),
-    [axisKeys],
-  );
-
-  const t = Tabs.useStatic({ tabs });
-
   return (
-    <Tabs.Tabs {...t} size="small">
-      {(p) => (
-        <LinePlotAxisControls key={p.tabKey} axisKey={p.tabKey as lineplot.AxisKey} />
-      )}
-    </Tabs.Tabs>
+    <Tabs.Frame initialValue={axisKeys[0]} grow>
+      <Tabs.Selector size="small">
+        {axisKeys.map((key) => (
+          <Tabs.Tab key={key} itemKey={key}>
+            {key.toUpperCase()}
+          </Tabs.Tab>
+        ))}
+      </Tabs.Selector>
+      {axisKeys.map((key) => (
+        <Tabs.Content key={key} itemKey={key}>
+          <LinePlotAxisControls axisKey={key} />
+        </Tabs.Content>
+      ))}
+    </Tabs.Frame>
   );
 };
 

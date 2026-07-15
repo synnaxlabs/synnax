@@ -10,7 +10,7 @@
 package v0
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/migrations/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"

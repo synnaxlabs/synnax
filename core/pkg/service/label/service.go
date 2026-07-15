@@ -13,9 +13,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"

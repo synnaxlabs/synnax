@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -149,7 +149,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should parent each panel to its own parent", func(ctx SpecContext) {
-			other := MustSucceed(node.Group.CreateOrRetrieve(ctx, "other-parent", ontology.RootID)).
+			other := MustSucceed(groupSvc.CreateOrRetrieve(ctx, "other-parent", ontology.RootID)).
 				OntologyID()
 			ps := []panel.Panel{
 				{Name: "a", Parent: &parentID},

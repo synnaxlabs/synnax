@@ -7,30 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Import } from "@/platform/import";
 
-const Consumer = (): ReactElement => {
-  const ingesters = Import.useFileIngesters();
-  return <span>{Object.keys(ingesters).join(",")}</span>;
-};
-Consumer.displayName = "Consumer";
+const fileIngesters = { log: vi.fn(), table: vi.fn() };
+
+const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <Import.FileIngestersProvider fileIngesters={fileIngesters}>
+    {children}
+  </Import.FileIngestersProvider>
+);
 
 describe("Import.FileIngestersProvider", () => {
   it("provides the file ingesters registry to descendants", () => {
-    const fileIngesters = { log: vi.fn(), table: vi.fn() };
-    render(
-      <Import.FileIngestersProvider fileIngesters={fileIngesters}>
-        <Consumer />
-      </Import.FileIngestersProvider>,
-    );
-    expect(screen.getByText("log,table")).toBeTruthy();
+    const { result } = renderHook(() => Import.useFileIngesters(), { wrapper });
+    expect(result.current).toBe(fileIngesters);
   });
 
   it("throws when useFileIngesters is called outside of a provider", () => {
-    expect(() => render(<Consumer />)).toThrow();
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => renderHook(() => Import.useFileIngesters())).toThrow();
+    spy.mockRestore();
   });
 });

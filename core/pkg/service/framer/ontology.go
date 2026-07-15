@@ -11,8 +11,8 @@ package framer
 
 import (
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 // OntologyIDs returns the ontology.ID for each key.

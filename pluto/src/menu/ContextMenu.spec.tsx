@@ -32,10 +32,33 @@ const TestMenu = (): ReactElement => {
   );
 };
 
+const KeyMenu = ({ onKeys }: { onKeys: (keys: string[]) => void }): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu menu={({ keys }) => <>{onKeys(keys)}</>} {...ctx}>
+      <div
+        id="dom-id"
+        data-menu-key="semantic-key"
+        className="pluto-context-target"
+        onContextMenu={ctx.open}
+      >
+        Right click me
+      </div>
+    </Menu.ContextMenu>
+  );
+};
+
 describe("ContextMenu", () => {
   it("should not display the menu by default", () => {
     render(<TestMenu />);
     expect(screen.queryByText("Action 1")).toBeNull();
+  });
+
+  it("should key a context target by its data-menu-key over its id", () => {
+    let captured: string[] = [];
+    render(<KeyMenu onKeys={(keys) => (captured = keys)} />);
+    fireEvent.contextMenu(screen.getByText("Right click me"));
+    expect(captured).toEqual(["semantic-key"]);
   });
 
   it("should display the menu on context menu event", () => {

@@ -27,7 +27,7 @@
 #include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
-#include "core/pkg/distribution/channel/pb/channel.pb.h"
+#include "core/pkg/service/channel/pb/channel.pb.h"
 
 namespace synnax::channel {
 
@@ -62,11 +62,11 @@ struct Operation {
     static Operation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::distribution::channel::pb::Operation;
-    [[nodiscard]] std::pair<::distribution::channel::pb::Operation, x::errors::Error>
+    using proto_type = ::service::channel::pb::Operation;
+    [[nodiscard]] std::pair<::service::channel::pb::Operation, x::errors::Error>
     to_proto() const;
     static std::pair<Operation, x::errors::Error>
-    from_proto(const ::distribution::channel::pb::Operation &pb);
+    from_proto(const ::service::channel::pb::Operation &pb);
 };
 
 /// @brief Channel is a logical collection of samples emitted by or representing values

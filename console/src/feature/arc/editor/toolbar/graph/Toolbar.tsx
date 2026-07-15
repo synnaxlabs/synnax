@@ -11,7 +11,7 @@ import "@/feature/arc/editor/toolbar/graph/Toolbar.css";
 
 import { arc } from "@synnaxlabs/client";
 import { Arc, Breadcrumb, Flex, Icon, Tabs, Text } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Stages } from "@/feature/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/feature/arc/editor/toolbar/graph/Properties";
@@ -19,11 +19,6 @@ import { Export } from "@/platform/export";
 import { Node } from "@/platform/node";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
-
-const TABS = [
-  { tabKey: "stages", name: "Stages" },
-  { tabKey: "properties", name: "Properties" },
-];
 
 const NotEditableContent = (): ReactElement => {
   const key = Arc.useKey();
@@ -71,18 +66,6 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
     singleConfig != null
       ? (Arc.Graph.Node.REGISTRY[singleConfig.type]?.name ?? null)
       : null;
-  const content = useCallback(
-    ({ tabKey }: Tabs.Tab) => {
-      if (!isCurrentlyEditable) return <NotEditableContent />;
-      switch (tabKey) {
-        case "stages":
-          return <Stages />;
-        default:
-          return <Properties />;
-      }
-    },
-    [isCurrentlyEditable],
-  );
   const handleTabSelect = useCallback(
     (tabKey: string): void => {
       dispatch(
@@ -91,17 +74,8 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
     },
     [key, dispatch],
   );
-  const contextValue = useMemo(
-    () => ({
-      tabs: TABS,
-      selected: toolbar.selectedTab,
-      onSelect: handleTabSelect,
-      content,
-    }),
-    [toolbar.selectedTab, content, handleTabSelect],
-  );
   return (
-    <Tabs.Provider value={contextValue}>
+    <Tabs.Frame value={toolbar.selectedTab} onChange={handleTabSelect} grow>
       <Base.Header>
         <Breadcrumb.Breadcrumb level="h5">
           <Breadcrumb.Segment weight={500} color={10} level="h5">
@@ -119,10 +93,28 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
             <Export.ToolbarButton onExport={handleExport} />
             <Node.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
           </Flex.Box>
-          {canEdit && <Tabs.Selector style={{ borderBottom: "none", width: 180 }} />}
+          {canEdit && (
+            <Tabs.Selector style={{ borderBottom: "none", width: 180 }}>
+              <Tabs.Tab itemKey="stages">Stages</Tabs.Tab>
+              <Tabs.Tab itemKey="properties">Properties</Tabs.Tab>
+            </Tabs.Selector>
+          )}
         </Flex.Box>
       </Base.Header>
-      <Tabs.Content />
-    </Tabs.Provider>
+      {isCurrentlyEditable ? (
+        <>
+          <Tabs.Content itemKey="stages">
+            <Stages />
+          </Tabs.Content>
+          <Tabs.Content itemKey="properties">
+            <Properties />
+          </Tabs.Content>
+        </>
+      ) : (
+        <Tabs.Content>
+          <NotEditableContent />
+        </Tabs.Content>
+      )}
+    </Tabs.Frame>
   );
 };
