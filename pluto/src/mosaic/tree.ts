@@ -10,7 +10,7 @@
 import { type direction, type location, type spatial } from "@synnaxlabs/x";
 
 import { type Node } from "@/mosaic/types";
-import { Tabs } from "@/tabs";
+import { Tabs } from "@/tabs/legacy";
 
 /**
  * Inserts a tab into a node in the mosaic. If the given key is not found,

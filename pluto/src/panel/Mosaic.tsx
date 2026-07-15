@@ -22,7 +22,7 @@ import {
   useSelectTab,
 } from "@/panel/queries";
 import { Portal } from "@/portal";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/tabs/legacy";
 
 export interface MosaicTabRenderProps extends TabContent {
   tabKey: string;
@@ -186,7 +186,7 @@ export const Mosaic = ({
     (props) => {
       const node = portalRef.current.get(props.tabKey);
       if (node == null) return null;
-      return <Portal.Out node={node} />;
+      return <Portal.Legacy.Out node={node} />;
     },
     [portalRef],
   );

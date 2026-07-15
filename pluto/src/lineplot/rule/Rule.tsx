@@ -57,7 +57,7 @@ export const Rule = ({
   const [internalLabel, setInternalLabel] = state.usePurePassthrough({
     value: label,
     onChange: onLabelChange,
-    initial: "",
+    initialValue: "",
   });
 
   const onPositionChangeRef = useSyncedRef(onPositionChange);

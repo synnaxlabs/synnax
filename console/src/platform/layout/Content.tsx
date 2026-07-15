@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement, useCallback } from "react";
 
+import { Errors } from "@/platform/errors";
 import { useRenderer } from "@/platform/layout/context";
 import { useRemover } from "@/platform/layout/useRemover";
 import { Session } from "@/session";
@@ -38,7 +38,7 @@ export const Content = memo(
     let visible = focused == null || isFocused;
     if (forceHidden) visible = false;
     return (
-      <Errors.SuspenseBoundary>
+      <Errors.SuspenseBoundary layoutKey={layoutKey}>
         <Renderer
           key={layoutKey}
           layoutKey={layoutKey}

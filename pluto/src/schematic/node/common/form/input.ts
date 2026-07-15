@@ -8,12 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Input } from "@/input";
-import { type Tabs } from "@/tabs";
-
-export const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
-  { tabKey: "style", name: "Style" },
-  { tabKey: "control", name: "Control" },
-];
 
 export const DIMENSIONS_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { y: 2, x: 0.25 },
