@@ -16,7 +16,6 @@ import {
   LinePlot,
   List,
   Select,
-  Tabs,
   type telem,
 } from "@synnaxlabs/pluto";
 import { type bounds, type color, type xy } from "@synnaxlabs/x";
@@ -27,7 +26,7 @@ import { Empty } from "@/platform/empty";
 
 export const Lines = (): ReactElement => {
   const lineKeys = LinePlot.useSelectLineKeys();
-  const { onSelect } = Tabs.useContext();
+  const { onSelect } = Select.useContext<string>();
   const emptyContent = (
     <Empty.Action
       x
@@ -35,7 +34,7 @@ export const Lines = (): ReactElement => {
       action="data tab."
       onClick={(e) => {
         e.stopPropagation();
-        onSelect?.("data");
+        onSelect("data");
       }}
     />
   );

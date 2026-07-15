@@ -22,7 +22,7 @@ import {
   useSelectTab,
 } from "@/panel/queries";
 import { Portal } from "@/portal";
-import { type Tabs } from "@/tabs";
+import { type Tabs } from "@/tabs/legacy";
 
 export interface MosaicTabRenderProps extends TabContent {
   tabKey: string;

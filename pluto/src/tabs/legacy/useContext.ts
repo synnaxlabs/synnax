@@ -15,7 +15,7 @@ import {
   type RenderProp,
   type Spec,
   type Tab,
-} from "@/tabs/types";
+} from "@/tabs/legacy/types";
 
 export interface ContextValue {
   /** The array of tabs to display. */

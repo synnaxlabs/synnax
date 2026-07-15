@@ -10,7 +10,7 @@
 import { direction } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Tabs } from "@/tabs";
+import { Tabs } from "@/tabs/legacy";
 
 /**
  * Base interface for a mosaic node in the tree. Used to make sure that

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/tabs/Tabs.css";
+import "@/tabs/legacy/legacy.css";
 
 import { direction } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
@@ -17,9 +17,9 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
-import { Selector, type SelectorProps } from "@/tabs/Selector";
-import { type RenderProp, type Tab } from "@/tabs/types";
-import { type ContextValue, Provider, useContext } from "@/tabs/useContext";
+import { Selector, type SelectorProps } from "@/tabs/legacy/Selector";
+import { type RenderProp, type Tab } from "@/tabs/legacy/types";
+import { type ContextValue, Provider, useContext } from "@/tabs/legacy/useContext";
 
 /**
  * Checks if the selected tab key exists in the tabs array. If it does not, it returns
@@ -81,7 +81,7 @@ export const useStatic = ({
   onSelect,
 }: UseStaticTabsProps): ContextValue => {
   const [value, onChange] = state.usePurePassthrough({
-    initial: selected ?? tabs[0]?.tabKey ?? "",
+    initialValue: selected ?? tabs[0]?.tabKey ?? "",
     value: selected,
     onChange: onSelect,
   });

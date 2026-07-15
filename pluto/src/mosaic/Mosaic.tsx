@@ -28,7 +28,7 @@ import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
 import { Portal } from "@/portal";
 import { Resize } from "@/resize";
-import { Tabs } from "@/tabs";
+import { Tabs } from "@/tabs/legacy";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
