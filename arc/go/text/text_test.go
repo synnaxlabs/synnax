@@ -228,7 +228,84 @@ var _ = Describe("Text", func() {
 						r = count_ch + 2
 					}
 				}`),
+			Entry("alias is written by a flow", `
+				sequence main {
+					p := count_ch
+					stage s1 {
+						out_ch -> p
+					}
+				}`),
+			Entry("alias written by a flow then rebound", `
+				sequence main {
+					p := count_ch
+					stage s1 {
+						out_ch -> p
+						count_ch > 0 => s2
+					}
+					stage s2 {
+						p = sink_ch
+					}
+				}`),
+			Entry("value variable written then read in a flow", `
+				sequence main {
+					v i64 := 0
+					stage s1 {
+						count_ch -> v
+						v -> out_ch
+					}
+				}`),
+			Entry("reactive variable reassigned across three stages", `
+				sequence main {
+					r i64 := count_ch + 1
+					stage s1 {
+						count_ch > 1 => s2
+						r = count_ch + 2
+					}
+					stage s2 {
+						count_ch > 2 => s3
+						r = count_ch + 3
+					}
+					stage s3 {
+						r = count_ch + 4
+					}
+				}`),
+			Entry("alias read in a transition then written", `
+				sequence main {
+					p := count_ch
+					stage s1 {
+						p > 0 => s2
+						out_ch -> p
+					}
+					stage s2 {
+					}
+				}`),
+			Entry("value variable seeded then reassigned to a literal", `
+				sequence main {
+					level i64 := 5
+					stage s1 {
+						count_ch > 0 => s2
+					}
+					stage s2 {
+						level = 10
+					}
+				}`),
 		)
+
+		It("Should lower a format-string flow node", func(ctx SpecContext) {
+			res := []symbol.Symbol{
+				{Name: "count_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 901},
+				{Name: "msg_ch", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 906},
+			}
+			source := `
+			sequence main {
+				stage s1 {
+					f"count={count_ch}" -> msg_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, res...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
 
 		DescribeTable("Should seed a value variable's channel with its literal value",
 			func(ctx SpecContext, decl string, expected any) {

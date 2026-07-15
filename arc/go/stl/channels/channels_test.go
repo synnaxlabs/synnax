@@ -897,3 +897,35 @@ var _ = Describe("Construction validation", func() {
 			To(MatchError(rnode.ErrInputNotFound))
 	})
 })
+
+var _ = Describe("Program state writers", func() {
+	It("Should append every fixed-width sample type and reset a seeded var", func() {
+		cs := channels.NewProgramState([]channels.Digest{
+			{Key: 20, DataType: telem.Uint8T},
+			{Key: 21, DataType: telem.Uint16T},
+			{Key: 22, DataType: telem.Uint32T},
+			{Key: 23, DataType: telem.Uint64T},
+			{Key: 24, DataType: telem.Int8T},
+			{Key: 25, DataType: telem.Int16T},
+			{Key: 26, DataType: telem.Int32T},
+			{Key: 27, DataType: telem.Int64T},
+			{Key: 28, DataType: telem.Float32T},
+			{Key: 29, DataType: telem.Float64T},
+			{Key: 30, DataType: telem.Int64T, Seed: telem.NewSeriesV[int64](7)},
+		})
+		cs.WriteChannelU8(20, 1)
+		cs.WriteChannelU16(21, 2)
+		cs.WriteChannelU32(22, 3)
+		cs.WriteChannelU64(23, 4)
+		cs.WriteChannelI8(24, 5)
+		cs.WriteChannelI16(25, 6)
+		cs.WriteChannelI32(26, 7)
+		cs.WriteChannelI64(27, 8)
+		cs.WriteChannelF32(28, 9)
+		cs.WriteChannelF64(29, 10)
+		fr := telem.Frame[uint32]{}
+		fr, _ = cs.Flush(fr)
+		Expect(fr.Empty()).To(BeFalse())
+		cs.ResetVar(30)
+	})
+})

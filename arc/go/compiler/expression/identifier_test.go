@@ -171,6 +171,16 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(exprType).To(Equal(types.I32()))
 			Expect(byteCode).ToNot(BeEmpty())
 		})
+
+		It("Should read a value variable inherited from an enclosing scope by key", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "shared")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).ToNot(BeEmpty())
+		})
 	})
 
 	Context("Function Parameters", func() {
