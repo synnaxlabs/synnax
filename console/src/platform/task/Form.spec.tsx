@@ -116,7 +116,7 @@ describe("wrapForm", () => {
       const Renderer = createRenderer({ Form: RackKeyProbe });
       await renderTaskFormTab(Renderer, "test_task", {
         client,
-        args: { taskKey: tsk.key },
+        params: { taskKey: tsk.key },
       });
       await waitFor(() =>
         expect(screen.getByText(`rack-key:${rack.key}`)).toBeTruthy(),
