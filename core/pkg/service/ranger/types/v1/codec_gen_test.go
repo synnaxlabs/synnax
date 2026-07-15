@@ -19,19 +19,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
 	colorv0 "github.com/synnaxlabs/x/color/types/v0"
 	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
-
-func TestCodec(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Ranger V1 Codec Suite")
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("Codec", func() {
 	Describe("Range", func() {

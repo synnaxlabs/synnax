@@ -11,17 +11,43 @@
 package alias
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/types/v0"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/zyn"
 )
 
+const keySeparator = "---"
+
+func gorpKey(r ranger.Key, ch channel.Key) string {
+	return fmt.Sprintf("%s%s%s", r, keySeparator, ch)
+}
+
+func parseGorpKey(key string) (ranger.Key, channel.Key, error) {
+	split := strings.Split(key, keySeparator)
+	if len(split) != 2 {
+		return uuid.Nil, 0, errors.Newf("[alias] - invalid key")
+	}
+	r, err := uuid.Parse(split[0])
+	if err != nil {
+		return uuid.Nil, 0, errors.Wrapf(err, "[alias] - invalid range")
+	}
+	c, err := channel.ParseKey(split[1])
+	if err != nil {
+		return uuid.Nil, 0, errors.Wrapf(err, "[alias] - invalid channel")
+	}
+	return r, c, nil
+}
+
 // OntologyID returns the ontology ID for an alias.
 func OntologyID(r ranger.Key, ch channel.Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRangeAlias, Key: v0.GorpKey(r, ch)}
+	return ontology.ID{Type: ontology.ResourceTypeRangeAlias, Key: gorpKey(r, ch)}
 }
 
 // OntologyIDs returns ontology IDs for multiple aliases.

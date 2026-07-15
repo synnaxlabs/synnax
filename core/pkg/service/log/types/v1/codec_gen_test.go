@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	channelv0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
@@ -27,13 +26,6 @@ import (
 	notationv0 "github.com/synnaxlabs/x/notation/types/v0"
 	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 )
-
-func TestCodec(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Log V1 Codec Suite")
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("Codec", func() {
 	Describe("ChannelEntry", func() {

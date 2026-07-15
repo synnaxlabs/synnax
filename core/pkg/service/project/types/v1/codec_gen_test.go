@@ -19,18 +19,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
-
-func TestCodec(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Project V1 Codec Suite")
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("Codec", func() {
 	Describe("Project", func() {

@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
-	. "github.com/synnaxlabs/x/testutil"
 
 	"github.com/synnaxlabs/arc/graph/types/v2"
 	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
@@ -26,13 +25,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
-
-func TestCodec(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Graph V2 Codec Suite")
-}
-
-var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = Describe("Codec", func() {
 	Describe("Edge", func() {
