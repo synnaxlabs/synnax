@@ -218,8 +218,8 @@ func generateRetrieveFile(
 	// Check if any info needs search imports.
 	hasSearch := lo.SomeBy(infos, func(i retrieveInfo) bool { return i.HasSearch })
 	if hasSearch {
-		imps.AddInternal("search", gomod.ResolveImportPath("core/pkg/distribution/search", repoRoot, gomod.DefaultModulePrefix))
-		imps.AddInternal("ontology", gomod.ResolveImportPath("core/pkg/distribution/ontology", repoRoot, gomod.DefaultModulePrefix))
+		imps.AddInternal("search", gomod.ResolveImportPath("core/pkg/service/search", repoRoot, gomod.DefaultModulePrefix))
+		imps.AddInternal("ontology", gomod.ResolveImportPath("core/pkg/service/ontology", repoRoot, gomod.DefaultModulePrefix))
 	}
 
 	// Check if any info needs lo for variadic Match filters. Index-routed

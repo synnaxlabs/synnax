@@ -18,11 +18,11 @@ export interface ContextProps {
   children: ReactNode;
 }
 
-export const Context = (props: ContextProps) => {
+export const Context = ({ children }: ContextProps) => {
   const storeRef = useInitializerRef(() => createStore());
   return (
     <Modals.Context>
-      <Provider store={storeRef.current} {...props} />
+      <Provider store={storeRef.current}>{children}</Provider>
     </Modals.Context>
   );
 };

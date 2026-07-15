@@ -82,12 +82,12 @@ var _ = Describe("Transport", func() {
 				ctx,
 				addr,
 				distchannel.RenameRequest{
-					Keys:  distchannel.Keys{1, 2},
-					Names: []string{"beta", "gamma"},
+					Renames: map[distchannel.Key]string{1: "beta", 2: "gamma"},
 				},
 			)).To(Equal(types.Nil{}))
-			Expect(received.Keys).To(Equal(distchannel.Keys{1, 2}))
-			Expect(received.Names).To(Equal([]string{"beta", "gamma"}))
+			Expect(received.Renames).To(Equal(
+				map[distchannel.Key]string{1: "beta", 2: "gamma"}),
+			)
 		})
 	})
 

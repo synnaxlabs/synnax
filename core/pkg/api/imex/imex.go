@@ -11,15 +11,21 @@ package imex
 
 import (
 	"context"
+	"encoding/json"
 
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Service struct {
@@ -52,18 +58,77 @@ func (s *Service) Import(
 	if err != nil {
 		return ImportResponse{}, err
 	}
-	if err = s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+	opts, err := parseImportOptions(ctx)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	enforcer := s.access.NewEnforcer(tx)
+	if err = enforcer.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	id, err := s.internal.Import(ctx, tx, req)
+	if err = enforcer.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{project.OntologyID(opts.Project)},
+	}); err != nil {
+		return ImportResponse{}, err
+	}
+	id, err := s.internal.Import(ctx, tx, req, opts)
 	if err != nil {
 		return ImportResponse{}, err
 	}
 	return id, nil
+}
+
+type importParams struct {
+	FileName string `json:"file_name"`
+	Project  string `json:"project"`
+}
+
+// parseImportOptions decodes the required "params" request param — a JSON object
+// carrying the out-of-band import options. A missing param, malformed JSON, or a
+// missing or invalid field returns a validation error scoped to the offending field.
+func parseImportOptions(ctx context.Context) (imex.ImportOptions, error) {
+	v, ok := freighter.MDFromContext(ctx).Get("params")
+	s, isStr := v.(string)
+	if !ok || !isStr || s == "" {
+		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "params")
+	}
+	var params importParams
+	if err := json.Unmarshal([]byte(s), &params); err != nil {
+		return imex.ImportOptions{}, validate.PathedError(
+			errors.Wrap(validate.ErrValidation, "params must be a valid JSON object"),
+			"params",
+		)
+	}
+	if params.FileName == "" {
+		return imex.ImportOptions{}, validate.PathedError(
+			validate.ErrRequired, "file_name",
+		)
+	}
+	if params.Project == "" {
+		return imex.ImportOptions{}, validate.PathedError(validate.ErrRequired, "project")
+	}
+	key, err := uuid.Parse(params.Project)
+	if err != nil {
+		return imex.ImportOptions{}, validate.PathedError(
+			errors.Wrapf(
+				validate.ErrValidation, "invalid project key %q", params.Project,
+			),
+			"project",
+		)
+	}
+	if key == uuid.Nil {
+		return imex.ImportOptions{}, validate.PathedError(
+			errors.Wrap(validate.ErrValidation, "must be non-zero"),
+			"project",
+		)
+	}
+	return imex.ImportOptions{FileName: params.FileName, Project: key}, nil
 }
 
 type (

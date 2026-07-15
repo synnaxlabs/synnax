@@ -11,18 +11,12 @@ package distribution
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -30,10 +24,9 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -46,75 +39,51 @@ type Transport interface {
 	Framer() framer.Transport
 }
 
-// LayerConfig is the configuration for opening the distribution layer.  See fields for
-// details on defining the configuration.
+// LayerConfig is the configuration for opening the distribution layer.
 type LayerConfig struct {
 	// Transport bundles the network transports used for channel and framer node-to-node
 	// RPCs.
 	//
 	// [REQUIRED]
 	Transport Transport
-	// GorpCodec sets the codec used to encode/decode data structures within the
-	// cluster meta-data DB (gorp).
+	// GorpCodec sets the codec used to encode/decode data structures within the cluster
+	// metadata DB.
 	//
-	// [OPTIONAL] - Defaults to &binary.MsgPackCodec
+	// [OPTIONAL] - Defaults to orc.NewCodec(msgpack.Codec)
 	GorpCodec encoding.Codec
 	// AspenTransport is the network transport used for key-value gossip and cluster
 	// topology information.
 	//
 	// [REQUIRED]
 	AspenTransport aspen.Transport
-	// TestingIntOverflowCheck is used for overriding default verifier behavior
-	// for testing purposes only.
-	//
-	// [OPTIONAL] - Defaults to nil
-	TestingIntOverflowCheck channel.IntOverflowChecker
-	// Instrumentation is for logging, tracing, and metrics.
-	//
 	// Storage is the storage layer that the distribution layer will use for persisting
 	// data across its various services.
 	//
 	// [REQUIRED]
 	Storage *storage.Layer
-	// ValidateChannelNames disables channel name validation when true.
-	// This allows channels with special characters, spaces, etc.
+	// Instrumentation is for logging, tracing, and metrics.
 	//
-	// [OPTIONAL] - Defaults to true (validation enabled)
-	ValidateChannelNames *bool
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	// Verifier is for verifying. Magic.
-	//
-	// [OPTIONAL] - Defaults to ""
-	Verifier string
-	// AdvertiseAddress sets the network address that the distribution layer will publish
-	// to other nodes in the cluster.
+	// AdvertiseAddress sets the network address that the distribution layer will
+	// publish to other nodes in the cluster.
 	//
 	// [REQUIRED]
 	AdvertiseAddress address.Address
-	// AspenOptions are additional options to pass when opening the aspen key-value
+	// AspenOptions are additional options to pass when opening the Aspen key-value
 	// store.
 	//
 	// [OPTIONAL] - Defaults to []
 	AspenOptions []aspen.Option
 	// PeerAddresses sets the list of peer nodes in the cluster that the distribution
-	// layer will reach out to join the cluster. If this slice is empty, the distribution
-	// layer will bootstrap a new single node cluster.
+	// layer will reach out to join the cluster. If this slice is empty, the
+	// distribution layer will bootstrap a new single node cluster.
 	//
 	// [OPTIONAL] - Defaults to []
 	PeerAddresses []address.Address
 }
 
-var (
-	_ config.Config[LayerConfig] = LayerConfig{}
-	// DefaultLayerConfig is the default configuration for opening the distribution layer.
-	// This configuration is not valid on its own and must be overridden by the
-	// required fields specific in Config.
-	DefaultLayerConfig = LayerConfig{
-		GorpCodec:            orc.NewCodec(msgpack.Codec),
-		ValidateChannelNames: new(true),
-	}
-)
+var _ config.Config[LayerConfig] = LayerConfig{}
 
 // Override implements config.Config.
 func (c LayerConfig) Override(other LayerConfig) LayerConfig {
@@ -125,76 +94,59 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.AspenTransport = override.Nil(c.AspenTransport, other.AspenTransport)
 	c.AspenOptions = override.Slice(c.AspenOptions, other.AspenOptions)
-	c.Verifier = override.String(c.Verifier, other.Verifier)
-	c.TestingIntOverflowCheck = override.Nil(c.TestingIntOverflowCheck, other.TestingIntOverflowCheck)
 	c.GorpCodec = override.Nil(c.GorpCodec, other.GorpCodec)
-	c.ValidateChannelNames = override.Nil(c.ValidateChannelNames, other.ValidateChannelNames)
 	return c
 }
 
-// Validate implements config.Config. It does nothing and leaves
-// validation to the individual components.
+// Validate implements config.Config.
 func (c LayerConfig) Validate() error {
 	v := validate.New("distribution")
 	validate.NotNil(v, "storage", c.Storage)
 	validate.NotEmptyString(v, "advertise_address", c.AdvertiseAddress)
 	validate.NotNil(v, "transport", c.Transport)
 	validate.NotNil(v, "aspen_transport", c.AspenTransport)
-	validate.NotNil(v, "codec", c.GorpCodec)
-	validate.NotNil(v, "disable_channel_name_validation", c.ValidateChannelNames)
+	validate.NotNil(v, "gorp_codec", c.GorpCodec)
 	return v.Error()
 }
 
-// Layer contains all relevant services within the Synnax distribution layer.
-// The distribution layer wraps the storage layer to provide a monolithic data space
-// for working with core data structures across Synnax.
+// Layer contains all relevant services within the Synnax distribution layer. The
+// distribution layer wraps the storage layer to provide a monolithic data space for
+// working with core data structures across Synnax.
 //
-// The Layer must be closed when it is no longer in use. It is not safe to modify any
-// of the public fields in this struct, or to access these fields after Close has
-// been called.
+// The Layer must be closed when it is no longer in use. It is not safe to modify any of
+// the public fields in this struct, or to access these fields after Close has been
+// called.
 type Layer struct {
-	// DB is the database for storing cluster wide meta-data.
+	// DB is the database for storing cluster wide metadata.
 	DB *gorp.DB
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses,
 	// states, etc.
 	Cluster node.Cluster
-	// Channel is for creating, deleting, and retrieving channels across the cluster.
+	// Channel is the distribution-layer channel allocator: it assigns local keys and
+	// creates, renames, and deletes storage channels across the cluster.
 	Channel *channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry across the
 	// cluster.
 	Framer *framer.Service
-	// Ontology manages relationships between arbitrary data structures in a directed
-	// acyclic graph. It is the main method for defining relationships between resources
-	// in Synnax.
-	Ontology *ontology.Ontology
-	// Search is the full-text search index for ontology resources.
-	// [REQUIRED]
-	Search *search.Index
-	// Group is for grouping related resources in the cluster.
-	Group *group.Service
-	// Verification verifies that the universe remains as it is.
-	Verification *verification.Service
-	// closer is for properly shutting down the distribution layer.
-	closer xio.MultiCloser
+	closer io.MultiCloser
 }
 
 // Open opens the distribution Layer using the provided configuration(s). Later
-// configurations override the fields set in previous configurations. If the configuration is
-// invalid, or any services fail to open, Open returns a nil layer and an error.
+// configurations override the fields set in previous configurations. If the
+// configuration is invalid, or any services fail to open, Open returns a nil layer and
+// an error.
 //
 // If the returned error is nil, the Layer must be closed by calling Close after use.
 // None of the services in the Layer should be used after Close is called. It is the
 // caller's responsibility to ensure that the Layer is not accessed after it is closed.
 func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
-	cfg, err := config.New(DefaultLayerConfig, cfgs...)
+	cfg, err := config.New(LayerConfig{GorpCodec: orc.NewCodec(msgpack.Codec)}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	l = &Layer{}
 	cleanup, ok := service.NewOpener(ctx, &l.closer)
-	defer func() {
-		err = cleanup(err)
-	}()
+	defer func() { err = cleanup(err) }()
 
 	aspenOptions := append([]aspen.Option{
 		aspen.WithEngine(cfg.Storage.KV),
@@ -221,64 +173,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		gorp.WithIndexObservable(aspenDB.NewObservable(aspen.IgnoreHostLeaseholder)),
 	)
 
-	if l.Ontology, err = ontology.Open(
-		ctx,
-		ontology.Config{
-			Instrumentation: cfg.Child("ontology"),
-			DB:              l.DB,
-		},
-	); !ok(err, l.Ontology) {
-		return nil, err
-	}
-
-	if l.Search, err = search.Open(search.Config{
-		Instrumentation: cfg.Child("search"),
-	}); err != nil {
-		return nil, err
-	}
-
-	if l.Group, err = group.OpenService(
-		ctx,
-		group.ServiceConfig{
-			Instrumentation: cfg.Child("group"),
-			DB:              l.DB,
-			Ontology:        l.Ontology,
-			Search:          l.Search,
-		},
-	); !ok(err, l.Group) {
-		return nil, err
-	}
-
-	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
-		Verifier:        cfg.Verifier,
-		DB:              l.DB.KV(),
-		Instrumentation: cfg.Instrumentation,
-	}); !ok(err, l.Verification) {
-		return nil, err
-	}
-
-	if l.Channel, err = channel.OpenService(ctx, channel.ServiceConfig{
+	if l.Channel, err = channel.NewService(ctx, channel.ServiceConfig{
 		Instrumentation: cfg.Child("channel"),
 		HostResolver:    l.Cluster,
-		ClusterDB:       l.DB,
-		TSChannel:       cfg.Storage.TS,
+		KV:              l.DB,
+		TS:              cfg.Storage.TS,
 		Transport:       cfg.Transport.Channel(),
-		Ontology:        l.Ontology,
-		Search:          l.Search,
-		Group:           l.Group,
-		IntOverflowCheck: lo.Ternary(
-			cfg.TestingIntOverflowCheck != nil,
-			cfg.TestingIntOverflowCheck,
-			l.Verification.IsOverflowed,
-		),
-		ValidateNames: cfg.ValidateChannelNames,
 	}); !ok(err, nil) {
 		return nil, err
 	}
 
 	if l.Framer, err = framer.OpenService(ctx, framer.ServiceConfig{
 		Instrumentation: cfg.Child("framer"),
-		Channel:         l.Channel,
 		TS:              cfg.Storage.TS,
 		Transport:       cfg.Transport.Framer(),
 		HostResolver:    l.Cluster,
@@ -286,28 +192,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	if err = l.configureControlUpdates(ctx); !ok(err, nil) {
-		return nil, err
-	}
-
-	return l, err
+	return l, nil
 }
 
-// Close closes the Layer. Close must be called when the Layer is no longer in use.
-// the caller must ensure that all routines interacting with the Layer have finished
-// before calling Close.
+// Close closes the Layer. Close must be called when the Layer is no longer in use. It
+// is the caller's responsibility to ensure that all routines interacting with the Layer
+// have finished before calling Close.
 func (l *Layer) Close() error { return l.closer.Close() }
-
-func (l *Layer) configureControlUpdates(ctx context.Context) error {
-	controlCh := channel.Channel{
-		Name:        fmt.Sprintf("sy_node_%v_control", l.Cluster.HostKey()),
-		Leaseholder: l.Cluster.HostKey(),
-		Virtual:     true,
-		DataType:    telem.StringT,
-		Internal:    true,
-	}
-	if err := l.Channel.Create(ctx, &controlCh, channel.RetrieveIfNameExists()); err != nil {
-		return err
-	}
-	return l.Framer.ConfigureControlUpdateChannel(ctx, controlCh.Key(), controlCh.Name)
-}

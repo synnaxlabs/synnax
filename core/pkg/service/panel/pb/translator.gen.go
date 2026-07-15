@@ -13,7 +13,7 @@ package pb
 
 import (
 	"github.com/google/uuid"
-	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
+	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"

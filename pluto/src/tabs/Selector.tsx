@@ -232,7 +232,8 @@ export const Selector = ({
       if (key === "Home") target = 0;
       else if (key === "End") target = tabs.length - 1;
       else {
-        const current = tabs.indexOf(document.activeElement as HTMLElement);
+        if (!(document.activeElement instanceof HTMLElement)) return;
+        const current = tabs.indexOf(document.activeElement);
         const delta = key === next ? 1 : -1;
         target = current === -1 ? 0 : (current + delta + tabs.length) % tabs.length;
       }
