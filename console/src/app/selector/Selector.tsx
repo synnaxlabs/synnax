@@ -23,8 +23,8 @@ export const useVisible = (): boolean =>
 export const Selector = Base.create({
   selectables: SELECTABLES,
   icon: <Icon.Add />,
-  tabTitle: "Create component",
-  text: "Create a component",
+  tabTitle: "Create tab",
+  text: "Create a tab",
 });
 
 export const TAB_TYPE = "selector";

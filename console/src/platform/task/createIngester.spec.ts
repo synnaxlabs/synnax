@@ -41,7 +41,10 @@ describe("createIngester", () => {
     const ingest = Task.createIngester(configSchema, TYPE);
     const openTab = vi.fn();
     expect(() =>
-      ingest({ device: "dev-1" }, { openTab, store, client, projectKey: "" }),
+      ingest(
+        { device: "dev-1" },
+        { openTab, store, client, projectKey: "", fileName: "test.json" },
+      ),
     ).toThrow();
     expect(openTab).not.toHaveBeenCalled();
   });
@@ -51,7 +54,13 @@ describe("createIngester", () => {
     const ingest = Task.createIngester(configSchema, TYPE);
     const openTab = vi.fn();
     const data = { device: "dev-1", sampleRate: 100 };
-    void ingest(data, { openTab, store, client, projectKey: "" });
+    void ingest(data, {
+      openTab,
+      store,
+      client,
+      projectKey: "",
+      fileName: "test.json",
+    });
     expect(openTab).toHaveBeenCalledTimes(1);
     const opened = openTab.mock.calls[0][0];
     expect(opened.variant).toBe("view");
