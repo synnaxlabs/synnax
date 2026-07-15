@@ -1157,35 +1157,17 @@ func extractInputValues(
 		return parsedValue.Value, true
 	}
 
-	if named := ctx.AST.NamedInputValues(); named != nil {
-		for _, cv := range named.AllNamedInputValue() {
-			key := cv.IDENTIFIER().GetText()
-			idx := input.GetIndex(key)
-			if expr := cv.Expression(); expr != nil {
-				value, ok := parseInputExpr(expr, input[idx].Type, key)
-				if !ok {
-					return nil, false
-				}
-				input[idx].Value = value
-			}
+	args := symbol.ArgumentsFrom(ctx.AST.NamedInputValues(), ctx.AST.AnonymousInputValues())
+	bound := symbol.Bind(args, input, fnSym.Trigger.Target)
+	for i := range input {
+		if bound[i] == nil {
+			continue
 		}
-	} else if anon := ctx.AST.AnonymousInputValues(); anon != nil {
-		exprs := anon.AllExpression()
-		pos := 0
-		for i := range input {
-			if input[i].Name == fnSym.Trigger.Target {
-				continue
-			}
-			if pos >= len(exprs) {
-				break
-			}
-			value, ok := parseInputExpr(exprs[pos], input[i].Type, fmt.Sprintf("position %d", pos))
-			if !ok {
-				return nil, false
-			}
-			input[i].Value = value
-			pos++
+		value, ok := parseInputExpr(bound[i], input[i].Type, input[i].Name)
+		if !ok {
+			return nil, false
 		}
+		input[i].Value = value
 	}
 
 	return input, true

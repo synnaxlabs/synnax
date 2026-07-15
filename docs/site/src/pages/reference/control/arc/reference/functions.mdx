@@ -154,7 +154,8 @@ sensor -> split{} -> {
 
 ## Calling Functions
 
-Arc has two calling conventions depending on context.
+Arc has two calling conventions depending on context. Both take input parameters
+positionally or by name (`name=value`), not a mix of the two.
 
 ### In Function Bodies
 
@@ -162,9 +163,9 @@ Inside function bodies, call functions with parentheses:
 
 ```arc
 func outer(x f64) f64 {
-    y := inner(x) // function call
-    z := clamp(y, 0.0, 100.0)
-    return z
+    y := clamp(x, 0.0, 100.0)     // positional
+    z := clamp(value=x, max=50.0) // by name
+    return y + z
 }
 ```
 
@@ -173,7 +174,8 @@ func outer(x f64) f64 {
 In flow statements, instantiate functions with braces:
 
 ```arc
-sensor -> filter{threshold=50.0} -> output
+sensor -> filter{threshold=50.0} -> output // by name
+sensor -> filter{50.0} -> output           // positional
 ```
 
 The incoming sensor value feeds the function's trigger.

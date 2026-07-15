@@ -362,10 +362,8 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	funcCalls := ctx.AST.AllFunctionCallSuffix()
 
 	for _, funcCall := range funcCalls {
-		if argList := funcCall.ArgumentList(); argList != nil {
-			for _, expr := range argList.AllExpression() {
-				Analyze(context.Child(ctx, expr))
-			}
+		for _, expr := range parser.ArgumentExpressions(funcCall.ArgumentList()) {
+			Analyze(context.Child(ctx, expr))
 		}
 	}
 
@@ -395,16 +393,23 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 				))
 				return
 			}
-			if funcName != "len" && funcName != "series.len" {
-				if hasMultipleNamedOutputs(scope.Type) {
+			var callArgs []symbol.Argument
+			if argList := funcCalls[0].ArgumentList(); argList != nil {
+				callArgs = symbol.ArgumentsFrom(argList.NamedInputValues(), argList.AnonymousInputValues())
+			}
+			if funcName == "len" || funcName == "series.len" {
+				if parser.HasNamedArgs(funcCalls[0].ArgumentList()) {
 					ctx.Diagnostics.Add(diagnostics.Errorf(funcCalls[0],
-						"cannot call function %s: functions with multiple named outputs are not callable", funcName))
-				} else {
-					AnalyzeCall(ctx, funcName, scope.Type, inputArguments(funcCalls[0]), scope.AnalyzeArguments, funcCalls[0], "")
+						"%s() does not take named arguments", funcName))
 				}
+			} else if hasMultipleNamedOutputs(scope.Type) {
+				ctx.Diagnostics.Add(diagnostics.Errorf(funcCalls[0],
+					"cannot call function %s: functions with multiple named outputs are not callable", funcName))
+			} else {
+				AnalyzeCall(ctx, funcName, scope.Type, callArgs, scope.AnalyzeArguments, funcCalls[0], "")
 			}
 			if callerFn != nil {
-				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
+				argChannels := buildArgChannels(ctx, scope, callArgs)
 				propagateChannelsWithArgMap(callerFn, scope, argChannels)
 				*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{
 					Caller:      callerFn,
@@ -425,21 +430,6 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 func hasMultipleNamedOutputs(t basetypes.Type) bool {
 	_, hasDefault := t.Outputs.Get(ir.DefaultOutputParam)
 	return len(t.Outputs) > 1 || (len(t.Outputs) == 1 && !hasDefault)
-}
-
-// inputArguments adapts the arguments in a call's parens `(...)` form into the
-// unified []symbol.Argument shape.
-func inputArguments(funcCall parser.IFunctionCallSuffixContext) []symbol.Argument {
-	argList := funcCall.ArgumentList()
-	if argList == nil {
-		return nil
-	}
-	exprs := argList.AllExpression()
-	args := make([]symbol.Argument, len(exprs))
-	for i, expr := range exprs {
-		args[i] = symbol.Argument{Index: i, Expr: expr, AST: expr}
-	}
-	return args
 }
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
@@ -514,19 +504,18 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 func buildArgChannels(
 	ctx context.Context[parser.IPostfixExpressionContext],
 	callee *symbol.Symbol,
-	funcCall parser.IFunctionCallSuffixContext,
+	args []symbol.Argument,
 ) map[int]context.ChannelMapping {
-	argList := funcCall.ArgumentList()
-	if argList == nil {
+	if len(args) == 0 {
 		return nil
 	}
-	args := argList.AllExpression()
+	bound := symbol.Bind(args, callee.Type.Inputs, "")
 	var argChannels map[int]context.ChannelMapping
 	for i, param := range callee.Type.Inputs {
-		if param.Type.Kind != basetypes.KindChan || i >= len(args) {
+		if param.Type.Kind != basetypes.KindChan || bound[i] == nil {
 			continue
 		}
-		channelID, channelName, ok := resolveChannelArg(ctx, args[i])
+		channelID, channelName, ok := resolveChannelArg(ctx, bound[i])
 		if !ok {
 			continue
 		}

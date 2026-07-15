@@ -184,14 +184,14 @@ func compileFunctionCallExpr(
 ) (types.Type, error) {
 	funcType := scope.Type
 
-	var args []parser.IExpressionContext
+	var callArgs []symbol.Argument
 	if argList := funcCall.ArgumentList(); argList != nil {
-		args = argList.AllExpression()
+		callArgs = symbol.ArgumentsFrom(argList.NamedInputValues(), argList.AnonymousInputValues())
 	}
 
 	requiredCount := funcType.Inputs.RequiredCount()
 	totalCount := len(funcType.Inputs)
-	actualCount := len(args)
+	actualCount := len(callArgs)
 	if actualCount < requiredCount || actualCount > totalCount {
 		return types.Type{}, errors.Newf(
 			"function %s expects %d to %d arguments, got %d",
@@ -208,15 +208,27 @@ func compileFunctionCallExpr(
 	// then compiles the literal 2 as f32 instead of defaulting to i64).
 	varMap := make(map[string]types.Type)
 
-	for i, arg := range args {
-		paramType := funcType.Inputs[i].Type
+	bound := symbol.Bind(callArgs, funcType.Inputs, "")
+	for i := range funcType.Inputs {
+		param := funcType.Inputs[i]
+		if bound[i] == nil {
+			if param.Value == nil {
+				return types.Type{}, errors.Newf(
+					"function %s missing required argument for parameter %s", funcName, param.Name)
+			}
+			if err := emitLiteralValue(ctx, param.Type, param.Value); err != nil {
+				return types.Type{}, errors.Wrapf(err, "default value for parameter %s", param.Name)
+			}
+			continue
+		}
+		paramType := param.Type
 		hint := paramType
 		if paramType.Kind == types.KindVariable {
 			if resolved, ok := varMap[paramType.Name]; ok {
 				hint = resolved
 			}
 		}
-		argType, err := Compile(context.Child(ctx, arg).WithHint(hint))
+		argType, err := Compile(context.Child(ctx, bound[i]).WithHint(hint))
 		if err != nil {
 			return types.Type{}, errors.Wrapf(err, "argument %d", i)
 		}
@@ -229,13 +241,6 @@ func compileFunctionCallExpr(
 			if err := EmitCast(ctx, argType, paramType); err != nil {
 				return types.Type{}, err
 			}
-		}
-	}
-
-	for i := actualCount; i < totalCount; i++ {
-		param := funcType.Inputs[i]
-		if err := emitLiteralValue(ctx, param.Type, param.Value); err != nil {
-			return types.Type{}, errors.Wrapf(err, "default value for parameter %s", param.Name)
 		}
 	}
 	concreteOutputs := make(types.Params, len(funcType.Outputs))
@@ -423,10 +428,10 @@ func compileBuiltinLen(
 	funcCall parser.IFunctionCallSuffixContext,
 	funcName string,
 ) (types.Type, error) {
-	var args []parser.IExpressionContext
-	if argList := funcCall.ArgumentList(); argList != nil {
-		args = argList.AllExpression()
+	if parser.HasNamedArgs(funcCall.ArgumentList()) {
+		return types.Type{}, errors.Newf("%s() does not take named arguments", funcName)
 	}
+	args := parser.ArgumentExpressions(funcCall.ArgumentList())
 	if len(args) != 1 {
 		return types.Type{}, errors.Newf("%s() requires exactly 1 argument, got %d", funcName, len(args))
 	}

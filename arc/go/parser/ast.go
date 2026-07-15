@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // IsLiteral checks if an expression is a single literal value (optionally negated)
@@ -24,6 +25,113 @@ func IsLiteral(expr IExpressionContext) bool {
 // IsNegatedLiteral returns true if the expression is a negated literal (e.g. -3h).
 func IsNegatedLiteral(expr IExpressionContext) bool {
 	return isNegatedLiteral(expr.LogicalOrExpression())
+}
+
+// ArgumentExpressions returns a call's argument value expressions, names dropped.
+func ArgumentExpressions(argList IArgumentListContext) []IExpressionContext {
+	if argList == nil {
+		return nil
+	}
+	if named := argList.NamedInputValues(); named != nil {
+		vals := named.AllNamedInputValue()
+		exprs := make([]IExpressionContext, 0, len(vals))
+		for _, val := range vals {
+			if expr := val.Expression(); expr != nil {
+				exprs = append(exprs, expr)
+			}
+		}
+		return exprs
+	}
+	if anon := argList.AnonymousInputValues(); anon != nil {
+		return anon.AllExpression()
+	}
+	return nil
+}
+
+// HasNamedArgs reports whether a call's argument list uses named arguments.
+func HasNamedArgs(argList IArgumentListContext) bool {
+	return argList != nil && argList.NamedInputValues() != nil
+}
+
+// RangeArgs holds a range() call's resolved bounds. Start and Step are nil when the
+// call omits them.
+type RangeArgs struct {
+	Start IExpressionContext
+	Stop  IExpressionContext
+	Step  IExpressionContext
+}
+
+// Ordered returns the present bounds in start, stop, step order.
+func (r RangeArgs) Ordered() []IExpressionContext {
+	exprs := make([]IExpressionContext, 0, 3)
+	for _, e := range []IExpressionContext{r.Start, r.Stop, r.Step} {
+		if e != nil {
+			exprs = append(exprs, e)
+		}
+	}
+	return exprs
+}
+
+// BindRangeArgs resolves a range() argument list into start/stop/step bounds.
+// Anonymous args bind by count (stop; start,stop; start,stop,step); named args bind
+// by name with stop required. Returns an error for a bad name, duplicate, missing
+// stop, or an argument count outside 1..3.
+func BindRangeArgs(argList IArgumentListContext) (RangeArgs, error) {
+	if argList == nil {
+		return RangeArgs{}, errors.New("range() requires 1 to 3 arguments")
+	}
+	if named := argList.NamedInputValues(); named != nil {
+		var rng RangeArgs
+		for _, val := range named.AllNamedInputValue() {
+			expr := val.Expression()
+			if expr == nil {
+				continue
+			}
+			name := val.IDENTIFIER().GetText()
+			slot := rng.slot(name)
+			if slot == nil {
+				return RangeArgs{}, errors.Newf(
+					"range() has no parameter '%s'; expected start, stop, or step", name)
+			}
+			if *slot != nil {
+				return RangeArgs{}, errors.Newf("range() got multiple values for '%s'", name)
+			}
+			*slot = expr
+		}
+		if rng.Stop == nil {
+			return RangeArgs{}, errors.New("range() requires a 'stop' argument")
+		}
+		return rng, nil
+	}
+	if anon := argList.AnonymousInputValues(); anon != nil {
+		exprs := anon.AllExpression()
+		switch len(exprs) {
+		case 1:
+			return RangeArgs{Stop: exprs[0]}, nil
+		case 2:
+			return RangeArgs{Start: exprs[0], Stop: exprs[1]}, nil
+		case 3:
+			return RangeArgs{Start: exprs[0], Stop: exprs[1], Step: exprs[2]}, nil
+		default:
+			return RangeArgs{}, errors.Newf("range() requires 1 to 3 arguments, got %d", len(exprs))
+		}
+	}
+	return RangeArgs{}, errors.New("range() requires 1 to 3 arguments")
+}
+
+// slot returns a pointer to the bound matching name, or nil if name is not a range
+// parameter.
+func (r *RangeArgs) slot(name string) *IExpressionContext {
+	switch name {
+	case "start":
+		return &r.Start
+	case "stop":
+		return &r.Stop
+	case "step":
+		return &r.Step
+	default:
+		return nil
+	}
 }
 
 func isNegatedLiteral(node antlr.ParserRuleContext) bool {

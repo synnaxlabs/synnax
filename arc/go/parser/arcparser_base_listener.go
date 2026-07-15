@@ -245,12 +245,6 @@ func (s *BaseArcParserListener) EnterAnonymousInputValues(ctx *AnonymousInputVal
 // ExitAnonymousInputValues is called when production anonymousInputValues is exited.
 func (s *BaseArcParserListener) ExitAnonymousInputValues(ctx *AnonymousInputValuesContext) {}
 
-// EnterArguments is called when production arguments is entered.
-func (s *BaseArcParserListener) EnterArguments(ctx *ArgumentsContext) {}
-
-// ExitArguments is called when production arguments is exited.
-func (s *BaseArcParserListener) ExitArguments(ctx *ArgumentsContext) {}
-
 // EnterArgumentList is called when production argumentList is entered.
 func (s *BaseArcParserListener) EnterArgumentList(ctx *ArgumentListContext) {}
 
