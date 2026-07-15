@@ -13,11 +13,11 @@ package device
 
 import (
 	"context"
-	ontology "github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologyv54 "github.com/synnaxlabs/synnax/pkg/distribution/ontology/migrations/v54"
 	devicev54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
 	label "github.com/synnaxlabs/synnax/pkg/service/label"
 	labelv54 "github.com/synnaxlabs/synnax/pkg/service/label/migrations/v54"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv54 "github.com/synnaxlabs/synnax/pkg/service/ontology/migrations/v54"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
 	status "github.com/synnaxlabs/synnax/pkg/service/status"
 	color "github.com/synnaxlabs/x/color"

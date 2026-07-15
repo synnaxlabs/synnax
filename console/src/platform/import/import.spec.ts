@@ -20,7 +20,7 @@ describe("ingestComponent", () => {
     const log = vi.fn();
     const table = vi.fn();
     const data = { type: "log", key: "abc" };
-    await Import.ingestComponent(data, "log.json", { log, table }, ctx);
+    await Import.ingestComponent(data, { log, table }, ctx);
     expect(log).toHaveBeenCalledTimes(1);
     expect(log).toHaveBeenCalledWith(data, ctx);
     expect(table).not.toHaveBeenCalled();
@@ -31,7 +31,7 @@ describe("ingestComponent", () => {
     const second = vi.fn().mockResolvedValue(undefined);
     const third = vi.fn();
     const data = { key: "no-type-field" };
-    await Import.ingestComponent(data, "unknown.json", { first, second, third }, ctx);
+    await Import.ingestComponent(data, { first, second, third }, ctx);
     expect(first).toHaveBeenCalledWith(data, ctx);
     expect(second).toHaveBeenCalledWith(data, ctx);
     expect(third).not.toHaveBeenCalled();
@@ -40,8 +40,9 @@ describe("ingestComponent", () => {
   it("throws a cannot-be-imported error when every ingester rejects with a ZodError", async () => {
     const first = vi.fn().mockRejectedValue(new ZodError([]));
     const second = vi.fn().mockRejectedValue(new ZodError([]));
+    const badCtx = createFileIngesterContext({ fileName: "bad.json" });
     await expect(
-      Import.ingestComponent({ key: "x" }, "bad.json", { first, second }, ctx),
+      Import.ingestComponent({ key: "x" }, { first, second }, badCtx),
     ).rejects.toThrow("bad.json cannot be imported.");
   });
 
@@ -50,7 +51,7 @@ describe("ingestComponent", () => {
     const first = vi.fn().mockRejectedValue(boom);
     const second = vi.fn();
     await expect(
-      Import.ingestComponent({ key: "x" }, "boom.json", { first, second }, ctx),
+      Import.ingestComponent({ key: "x" }, { first, second }, ctx),
     ).rejects.toThrow("disk on fire");
     expect(second).not.toHaveBeenCalled();
   });

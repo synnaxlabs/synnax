@@ -17,11 +17,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -31,7 +33,8 @@ import (
 
 var _ = Describe("Alias", Ordered, func() {
 	var (
-		node       mock.Node
+		db         *gorp.DB
+		otg        *ontology.Ontology
 		rangerSvc  *ranger.Service
 		aliasSvc   *alias.Service
 		channelSvc *channel.Service
@@ -39,42 +42,55 @@ var _ = Describe("Alias", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node = mock.NewNode(ctx)
+		node := mock.NewNode(ctx)
+		db = node.DB
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+		searchIdx := MustOpen(search.OpenIndex())
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       node.DB,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
-			Ontology: node.Ontology,
-			Group:    node.Group,
-			Search:   node.Search,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
-			Ontology: node.Ontology,
-			Group:    node.Group,
+			Ontology: otg,
+			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   node.Search,
+			Search:   searchIdx,
 		}))
-		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			Channel: node.Channel,
-			Status:  statusSvc,
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostResolver: node.Cluster,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Search:       searchIdx,
+			Status:       statusSvc,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
-			Ontology: node.Ontology,
-			Group:    node.Group,
+			Ontology: otg,
+			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   node.Search,
+			Search:   searchIdx,
 		}))
 		aliasSvc = MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
 			DB:              node.DB,
-			Ontology:        node.Ontology,
+			Ontology:        otg,
 			Channel:         channelSvc,
 			ParentRetriever: rangerSvc,
-			Search:          node.Search,
+			Search:          searchIdx,
 		}))
-		Expect(node.Search.Initialize(ctx)).To(Succeed())
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func() {
-		tx = DeferClose(node.DB.OpenTx())
+		tx = DeferClose(db.OpenTx())
 	})
 
 	channelCount := 0
@@ -325,7 +341,7 @@ var _ = Describe("Alias", Ordered, func() {
 			ch := createChannel(ctx)
 			Expect(aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias")).To(Succeed())
 			var res ontology.Resource
-			Expect(node.Ontology.NewRetrieve().
+			Expect(otg.NewRetrieve().
 				WhereIDs(alias.OntologyID(r.Key, ch.Key())).
 				Entry(&res).
 				Exec(ctx, tx),

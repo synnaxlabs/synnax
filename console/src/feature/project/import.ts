@@ -71,7 +71,7 @@ export const ingest: Import.DirectoryIngester = async (
   for (const [key, childLayout] of Object.entries(layout.layouts)) {
     const ingest = fileIngesters[childLayout.type];
     if (ingest == null) continue;
-    const data = files.find(
+    const file = files.find(
       (file) =>
         file.name === `${childLayout.name}.json` ||
         file.name === `${key}.json` ||
@@ -79,14 +79,15 @@ export const ingest: Import.DirectoryIngester = async (
           file.data != null &&
           (("key" in file.data && file.data.key === key) ||
             ("name" in file.data && file.data.name === childLayout.name))),
-    )?.data;
-    if (data == null) throw new Error(`Data for ${key} not found`);
-    const id = await ingest(data, {
+    );
+    if (file == null) throw new Error(`Data for ${key} not found`);
+    const id = await ingest(file.data, {
       layout: childLayout,
       placeLayout,
       store: fluxStore,
       client,
       projectKey,
+      fileName: file.name,
     });
     if (id != null && id.key !== key) remap.set(key, id.key);
   }

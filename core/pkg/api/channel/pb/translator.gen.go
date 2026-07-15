@@ -13,9 +13,9 @@ package pb
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	distributionchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	channelpb "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelpb "github.com/synnaxlabs/synnax/pkg/service/channel/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
@@ -74,12 +74,12 @@ func ChannelFromPB(pb *Channel) (channel.Channel, error) {
 	if err != nil {
 		return channel.Channel{}, err
 	}
-	r.Key = distributionchannel.Key(pb.Key)
-	r.Name = distributionchannel.Name(pb.Name)
+	r.Key = servicechannel.Key(pb.Key)
+	r.Name = servicechannel.Name(pb.Name)
 	r.Leaseholder = node.Key(pb.Leaseholder)
 	r.DataType = telem.DataType(pb.DataType)
 	r.IsIndex = pb.IsIndex
-	r.Index = distributionchannel.Key(pb.Index)
+	r.Index = servicechannel.Key(pb.Index)
 	r.Virtual = pb.Virtual
 	r.Internal = pb.Internal
 	r.Expression = pb.Expression
