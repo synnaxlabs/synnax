@@ -16,10 +16,10 @@ import { Session } from "@/session";
 import { createConsoleWrapper, renderWithConsole } from "@/testutil";
 
 const createClusterState = (username: string, selected = "LOCAL") => ({
-  [Session.Node.SLICE_NAME]: {
+  [Session.Cluster.SLICE_NAME]: {
     version: 0 as const,
     selected,
-    nodes: {
+    clusters: {
       LOCAL: {
         key: "LOCAL",
         name: "Local",
@@ -56,12 +56,12 @@ describe("User.Badge", () => {
     const { store } = await renderWithConsole(<User.Badge />, {
       preloadedState: createClusterState("cluster-user"),
     });
-    expect(Session.Node.selectSelectedKey(store.getState())).toBe("LOCAL");
+    expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("LOCAL");
     fireEvent.click(screen.getByText("cluster-user"));
     const logout = await screen.findByText("Log out");
     fireEvent.click(logout);
     await waitFor(() =>
-      expect(Session.Node.selectSelectedKey(store.getState())).toBeUndefined(),
+      expect(Session.Cluster.selectSelectedKey(store.getState())).toBeUndefined(),
     );
   });
 });

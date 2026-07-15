@@ -87,10 +87,10 @@ describe("Range.Details", () => {
     const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: {
-        [Session.Node.SLICE_NAME]: {
+        [Session.Cluster.SLICE_NAME]: {
           version: 0,
           selected: "local",
-          nodes: {
+          clusters: {
             local: {
               key: "local",
               name: "Local",

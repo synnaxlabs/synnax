@@ -11,11 +11,11 @@ import { ranger } from "@synnaxlabs/client";
 import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/pluto";
 
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
-import { Node } from "@/platform/node";
 import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
@@ -52,7 +52,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
     dispatch(Session.Range.remove({ keys: ranges.map((r) => r.key) }));
   };
   const handleError = Status.useErrorHandler();
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
 
   const handleDetails = () => {
     placeLayout({ ...Range.OVERVIEW_LAYOUT, name: ranges[0].name, key: ranges[0].key });

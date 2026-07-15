@@ -27,10 +27,10 @@ import { color, deep, record, type text } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { useExport } from "@/feature/table/export";
+import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
-import { Node } from "@/platform/node";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -67,7 +67,10 @@ const Internal = (): ReactElement => {
         </Flex.Box>
         <Flex.Box x className={CSS.BE("table", "toolbar-buttons")} empty>
           <Export.ToolbarButton onExport={() => handleExport(key)} />
-          <Node.CopyLinkToolbarButton name={name} ontologyID={table.ontologyID(key)} />
+          <Cluster.CopyLinkToolbarButton
+            name={name}
+            ontologyID={table.ontologyID(key)}
+          />
         </Flex.Box>
       </Base.Header>
       <Flex.Box full>

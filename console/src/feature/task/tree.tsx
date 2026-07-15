@@ -21,12 +21,12 @@ import { useCallback, useMemo } from "react";
 
 import { retrieveAndPlaceLayout } from "@/feature/task/layouts";
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
-import { Node } from "@/platform/node";
 import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Tree } from "@/platform/tree";
@@ -96,7 +96,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const { ids, rootID } = selection;
   const resources = getResource(ids);
   const handleDelete = useDelete(props);
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = PlatformTask.useExport();
   const snap = useRangeSnapshot();
   const range = Session.Range.useSelectState();

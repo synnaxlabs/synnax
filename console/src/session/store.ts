@@ -20,6 +20,7 @@ import { type deep, type record } from "@synnaxlabs/x";
 import { useDispatch as baseUseDispatch, useStore as baseUseStore } from "react-redux";
 
 import { Arc } from "@/session/arc";
+import { Cluster } from "@/session/cluster";
 import { Color } from "@/session/color";
 import { Docs } from "@/session/docs";
 import { Haul } from "@/session/haul";
@@ -27,7 +28,6 @@ import { Layout } from "@/session/layout";
 import { LinePlot } from "@/session/lineplot";
 import { Log } from "@/session/log";
 import { Nav } from "@/session/nav";
-import { Node } from "@/session/node";
 import { Persist } from "@/session/persist";
 import { Project } from "@/session/project";
 import { Range } from "@/session/range";
@@ -48,7 +48,7 @@ const PERSIST_EXCLUDE: Array<deep.Key<State> | ((func: State) => State)> = [
 
 export const ZERO_STATE: State = {
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
-  [Node.SLICE_NAME]: Node.ZERO_SLICE_STATE,
+  [Cluster.SLICE_NAME]: Cluster.ZERO_SLICE_STATE,
   [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
   [Docs.SLICE_NAME]: Docs.ZERO_SLICE_STATE,
   [Drift.SLICE_NAME]: Drift.ZERO_SLICE_STATE,
@@ -67,7 +67,7 @@ export const ZERO_STATE: State = {
 
 export const reducer = combineReducers({
   [Arc.SLICE_NAME]: Arc.reducer,
-  [Node.SLICE_NAME]: Node.reducer,
+  [Cluster.SLICE_NAME]: Cluster.reducer,
   [Color.SLICE_NAME]: Color.reducer,
   [Docs.SLICE_NAME]: Docs.reducer,
   [Drift.SLICE_NAME]: Drift.reducer,
@@ -86,7 +86,7 @@ export const reducer = combineReducers({
 
 export interface State {
   [Arc.SLICE_NAME]: Arc.SliceState;
-  [Node.SLICE_NAME]: Node.SliceState;
+  [Cluster.SLICE_NAME]: Cluster.SliceState;
   [Color.SLICE_NAME]: Color.SliceState;
   [Docs.SLICE_NAME]: Docs.SliceState;
   [Drift.SLICE_NAME]: Drift.SliceState;
@@ -105,7 +105,7 @@ export interface State {
 
 export type Action =
   | Arc.Action
-  | Node.Action
+  | Cluster.Action
   | Color.Action
   | Docs.Action
   | Drift.Action

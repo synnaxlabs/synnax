@@ -24,8 +24,8 @@ import { type ReactElement, useCallback, useState } from "react";
 import { z } from "zod";
 
 import { LoginNav } from "@/feature/auth/LoginNav";
+import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
-import { Node } from "@/platform/node";
 import { Session } from "@/session";
 
 const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
@@ -50,13 +50,13 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 };
 
 export const Login = (): ReactElement => {
-  const servingCluster = Node.detectConnection();
+  const servingCluster = Cluster.detectConnection();
   const [stat, setStatus] = useState<status.Status>(() =>
     status.create({ variant: "disabled", message: "" }),
   );
-  const clusters = Session.Node.useSelectMany();
+  const clusters = Session.Cluster.useSelectMany();
   const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
-  const selectedCluster = Session.Node.useSelectState(selectedKey);
+  const selectedCluster = Session.Cluster.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
 
@@ -88,8 +88,8 @@ export const Login = (): ReactElement => {
         const message = state.message ?? "Unknown error";
         return setStatus(status.create({ variant: "error", message }));
       }
-      dispatch(Session.Node.set({ ...clusterToConnect, key, ...credentials }));
-      dispatch(Session.Node.select(key));
+      dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
+      dispatch(Session.Cluster.select(key));
     }, "Failed to log in");
 
   const handleSelectedClusterChange = useCallback(
@@ -131,7 +131,7 @@ export const Login = (): ReactElement => {
           background={0}
         >
           {servingCluster == null && (
-            <Node.List
+            <Cluster.List
               className={CSS.BE("login", "list")}
               value={selectedKey}
               onChange={handleSelectedClusterChange}

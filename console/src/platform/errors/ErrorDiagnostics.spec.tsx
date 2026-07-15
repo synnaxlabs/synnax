@@ -65,7 +65,7 @@ describe("ErrorDiagnostics", () => {
 
   it("appends the connected Core to any error", async () => {
     const store = await createTestStore();
-    void act(() => store.dispatch(Session.Node.select("LOCAL")));
+    void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
     await renderBoundary(store, <Throw error={new Error("boom")} />);
     expect(messageText()).toBe("boom\nCore: Local (localhost:9090)");
   });
@@ -89,7 +89,7 @@ describe("ErrorDiagnostics", () => {
   it("appends page name and key for a layout page crash", async () => {
     const store = await createTestStore();
     placeLayout(store, "l1", { type: "schematic", name: "fridge_schem" });
-    void act(() => store.dispatch(Session.Node.select("LOCAL")));
+    void act(() => store.dispatch(Session.Cluster.select("LOCAL")));
     const Renderer: Layout.Renderer = () => {
       throw retrieveNotFoundError();
     };

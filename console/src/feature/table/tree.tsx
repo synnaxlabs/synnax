@@ -21,12 +21,12 @@ import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { useExport } from "@/feature/table/export";
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
-import { Node } from "@/platform/node";
 import { Table } from "@/platform/table";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
@@ -60,7 +60,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     state: { getResource, shape },
   } = props;
   const handleDelete = useDelete(props);
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();

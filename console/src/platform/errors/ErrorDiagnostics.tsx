@@ -34,7 +34,7 @@ export const ErrorDiagnostics = ({
   error,
   ...rest
 }: ErrorDiagnosticsProps): ReactElement => {
-  const node = Session.Node.useSelectState();
+  const node = Session.Cluster.useSelectState();
   const core = node != null ? `${node.name} (${node.host}:${node.port})` : "none";
   const message = [error.message, `Core: ${core}`, pageLine(page)]
     .filter((line): line is string => line != null)

@@ -22,9 +22,9 @@ import {
 
 const CLUSTER_KEY = "local";
 
-const clusterState = (): Session.Node.SliceState => ({
-  ...Session.Node.ZERO_SLICE_STATE,
-  nodes: {
+const clusterState = (): Session.Cluster.SliceState => ({
+  ...Session.Cluster.ZERO_SLICE_STATE,
+  clusters: {
     [CLUSTER_KEY]: {
       key: CLUSTER_KEY,
       name: "Local",
@@ -44,7 +44,7 @@ const renderGuard = async (selected?: string): Promise<TestStore> => {
     </Auth.Guard>,
     {
       preloadedState: {
-        [Session.Node.SLICE_NAME]: {
+        [Session.Cluster.SLICE_NAME]: {
           ...clusterState(),
           selected,
         },
@@ -82,15 +82,15 @@ describe("auth guard", () => {
     const store = await renderGuard();
     submitCredentials("synnax", "seldon");
     await waitFor(() => {
-      const key = Session.Node.selectSelectedKey(store.getState());
+      const key = Session.Cluster.selectSelectedKey(store.getState());
       expect(key).toBeDefined();
       expect(key).not.toBe(CLUSTER_KEY);
     });
     expect(await screen.findByText("authenticated content")).toBeTruthy();
     const state = store.getState();
-    const key = Session.Node.selectSelectedKey(state);
+    const key = Session.Cluster.selectSelectedKey(state);
     if (key == null) throw new Error("no cluster selected");
-    const cluster = Session.Node.selectState(state, key);
+    const cluster = Session.Cluster.selectState(state, key);
     expect(cluster?.username).toBe("synnax");
   });
 
@@ -99,6 +99,6 @@ describe("auth guard", () => {
     const store = await renderGuard();
     submitCredentials("synnax", uniqueName("wrong"));
     expect(await screen.findByText(/invalid credentials/i)).toBeTruthy();
-    expect(Session.Node.selectSelectedKey(store.getState())).toBeUndefined();
+    expect(Session.Cluster.selectSelectedKey(store.getState())).toBeUndefined();
   });
 });

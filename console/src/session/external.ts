@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/session/arc";
+export * from "@/session/cluster";
 export * from "@/session/color";
 export * from "@/session/Context";
 export * from "@/session/docs";
@@ -17,7 +18,6 @@ export * from "@/session/lineplot";
 export * from "@/session/log";
 export * from "@/session/modals";
 export * from "@/session/nav";
-export * from "@/session/node";
 export * from "@/session/persist";
 export * from "@/session/project";
 export * from "@/session/range";

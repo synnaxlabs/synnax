@@ -22,11 +22,11 @@ import {
 import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
-import { Node } from "@/platform/node";
 import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
@@ -156,7 +156,7 @@ export const ContextMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => {
   const rangeExists = rng != null;
   const del = useDelete();
   const persist = usePersist();
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
 
   return (
     <Base.Menu>

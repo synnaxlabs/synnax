@@ -15,7 +15,7 @@ import { Session } from "@/session";
 
 const useProbe = () => ({
   dispatch: Session.useDispatch(),
-  selected: useSelector(Session.Node.selectSelectedKey),
+  selected: useSelector(Session.Cluster.selectSelectedKey),
   modals: Session.Modals.useStore("context-spec"),
 });
 
@@ -34,7 +34,7 @@ describe("Session.Context", () => {
     expect(result.current.selected).toBeUndefined();
 
     act(() => {
-      result.current.dispatch(Session.Node.select("DEMO"));
+      result.current.dispatch(Session.Cluster.select("DEMO"));
     });
     expect(result.current.selected).toBe("DEMO");
   });

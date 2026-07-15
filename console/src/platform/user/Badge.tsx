@@ -16,7 +16,7 @@ import { Session } from "@/session";
 
 export const Badge = (): ReactElement | null => {
   const { data: u } = User.useRetrieve({}, { addStatusOnFailure: false });
-  const cluster = Session.Node.useSelectState();
+  const cluster = Session.Cluster.useSelectState();
   const handleLogout = Session.useLogout();
   const username = u?.username ?? cluster?.username ?? "";
   const displayName =

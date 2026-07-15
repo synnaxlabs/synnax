@@ -20,9 +20,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
+import { createCluster, createClusterState } from "@/platform/cluster/testutil";
 import { Modals } from "@/platform/modals";
 import { findButton, findLastButton } from "@/platform/modals/testutil";
-import { createCluster, createClusterState } from "@/platform/node/testutil";
 import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,

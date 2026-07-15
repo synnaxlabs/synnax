@@ -22,10 +22,10 @@ import { array } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { create } from "@/platform/arc/layout";
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
-import { Node } from "@/platform/node";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
@@ -48,7 +48,7 @@ export const ContextMenu = ({
   const dispatch = Session.useDispatch();
   const placeLayout = Layout.usePlacer();
   const addStatus = Status.useAdder();
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const confirm = Tree.useConfirmDelete({
     type: "Arc",
     description: "Deleting this Arc will permanently remove it.",

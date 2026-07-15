@@ -16,9 +16,9 @@ import { type ReactElement, useCallback } from "react";
 import { useExport } from "@/feature/log/export";
 import { Channels } from "@/feature/log/toolbar/Channels";
 import { Properties } from "@/feature/log/toolbar/Properties";
+import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
-import { Node } from "@/platform/node";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -47,7 +47,7 @@ const Internal = (): ReactElement => {
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("log-toolbar", "actions")}>
               <Export.ToolbarButton onExport={() => handleExport(key)} />
-              <Node.CopyLinkToolbarButton
+              <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={log.ontologyID(key)}
               />

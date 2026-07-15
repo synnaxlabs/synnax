@@ -15,8 +15,8 @@ import { type ReactElement, useCallback } from "react";
 
 import { Stages } from "@/feature/arc/editor/toolbar/graph/Nodes";
 import { Properties } from "@/feature/arc/editor/toolbar/graph/Properties";
+import { Cluster } from "@/platform/cluster";
 import { Export } from "@/platform/export";
-import { Node } from "@/platform/node";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -91,7 +91,10 @@ export const Toolbar = ({ onExport }: ToolbarProps): ReactElement | null => {
         <Flex.Box x align="center" empty>
           <Flex.Box x empty style={{ height: "100%", width: 66 }}>
             <Export.ToolbarButton onExport={handleExport} />
-            <Node.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
+            <Cluster.CopyLinkToolbarButton
+              name={name}
+              ontologyID={arc.ontologyID(key)}
+            />
           </Flex.Box>
           {canEdit && (
             <Tabs.Selector style={{ borderBottom: "none", width: 180 }}>

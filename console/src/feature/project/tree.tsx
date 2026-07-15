@@ -31,6 +31,7 @@ import { array } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { useExport } from "@/feature/project/export";
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
@@ -38,7 +39,6 @@ import { Import } from "@/platform/import";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
 import { Log } from "@/platform/log";
-import { Node } from "@/platform/node";
 import { Schematic } from "@/platform/schematic";
 import { Table } from "@/platform/table";
 import { Tree } from "@/platform/tree";
@@ -79,7 +79,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const firstID = selection.ids[0];
   const createSchematic = Schematic.useCreate({ project: projectKey });
   const importComponent = Import.useImport();
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
   const handleRename = useRename(props);
   const resources = getResource(ids);

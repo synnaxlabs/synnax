@@ -9,16 +9,16 @@
 
 import { useCallback } from "react";
 
+import { Cluster } from "@/session/cluster";
 import { Layout } from "@/session/layout";
 import { Nav } from "@/session/nav";
-import { Node } from "@/session/node";
 import { Project } from "@/session/project";
 import { useDispatch } from "@/session/store";
 
 export const useLogout = () => {
   const dispatch = useDispatch();
   return useCallback(() => {
-    dispatch(Node.clearSelected());
+    dispatch(Cluster.clearSelected());
     dispatch(Project.clearSelected());
     dispatch(Layout.clearProject());
     dispatch(Nav.hideAll({}));

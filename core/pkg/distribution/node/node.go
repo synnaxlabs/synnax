@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package node exposes a thin domain layer over aspen's cluster-membership primitives.
-// The ontology service that publishes nodes as resources lives in pkg/service/node.
+// Package node exposes the node domain type over aspen's membership primitives. The
+// cluster-membership view lives in pkg/distribution/cluster; the ontology service that
+// publishes nodes as resources lives in pkg/service/node.
 package node
 
 import "github.com/synnaxlabs/aspen"
@@ -28,27 +29,9 @@ type (
 	// propagate through the cluster via SI gossip.
 	State = aspen.NodeState
 	// Change describes a single mutation to a Node's record (a node joining, leaving,
-	// or transitioning state). Changes are emitted by Cluster.OnChange as part of a
-	// ClusterChange batch.
+	// or transitioning state). Changes are emitted by the cluster-membership view as
+	// part of a cluster.Change batch.
 	Change = aspen.NodeChange
-	// Cluster is the cluster-membership view as observed by the host node. It resolves
-	// node addresses, exposes the current set of Nodes, and emits ClusterChange events
-	// as topology evolves. Cluster is safe for concurrent use.
-	Cluster = aspen.Cluster
-	// ClusterChange is a batch of node-level Changes emitted by Cluster.OnChange when
-	// the gossip layer integrates new state from a peer.
-	ClusterChange = aspen.ClusterChange
-	// ClusterState is a point-in-time snapshot of the cluster as the host sees it,
-	// including the host's own Key and the Group of all known Nodes.
-	ClusterState = aspen.ClusterState
-	// Resolver maps a Key to the network Address at which that node can be reached.
-	Resolver = aspen.Resolver
-	// HostResolver is a Resolver that also exposes information about the host node it
-	// is running on (its Key and full Node record).
-	HostResolver = aspen.HostResolver
-	// HostProvider exposes information about the host node — its Key and full Node
-	// record — without performing remote resolution.
-	HostProvider = aspen.HostProvider
 )
 
 const (

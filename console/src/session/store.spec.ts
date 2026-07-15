@@ -65,9 +65,9 @@ describe("createStore", () => {
       enablePersistence: false,
       enablePrerender: false,
     });
-    store.dispatch(Session.Node.select("DEMO"));
+    store.dispatch(Session.Cluster.select("DEMO"));
     store.dispatch(Session.Nav.showBottom({ windowKey: MAIN_WINDOW }));
-    expect(Session.Node.selectSelectedKey(store.getState())).toBe("DEMO");
+    expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("DEMO");
     expect(Session.Nav.selectBottomVisible(store.getState())).toBe(true);
   });
 
@@ -77,38 +77,38 @@ describe("createStore", () => {
       enablePrerender: false,
       preloadedState: deep.copy({
         ...Session.ZERO_STATE,
-        [Session.Node.SLICE_NAME]: {
-          ...Session.Node.ZERO_SLICE_STATE,
+        [Session.Cluster.SLICE_NAME]: {
+          ...Session.Cluster.ZERO_SLICE_STATE,
           selected: "DEMO",
         },
       }),
     });
-    expect(Session.Node.selectSelectedKey(store.getState())).toBe("DEMO");
+    expect(Session.Cluster.selectSelectedKey(store.getState())).toBe("DEMO");
   });
 
   it("persists state and reloads it into a fresh store", async () => {
     const store = await Session.createStore({ enablePrerender: false });
-    store.dispatch(Session.Node.select("DEMO"));
+    store.dispatch(Session.Cluster.select("DEMO"));
     await waitFor(() => {
-      if (readPersisted()?.node.selected !== "DEMO")
-        throw new Error("node selection not persisted yet");
+      if (readPersisted()?.cluster.selected !== "DEMO")
+        throw new Error("cluster selection not persisted yet");
     });
     const reloaded = await Session.createStore({ enablePrerender: false });
-    expect(Session.Node.selectSelectedKey(reloaded.getState())).toBe("DEMO");
+    expect(Session.Cluster.selectSelectedKey(reloaded.getState())).toBe("DEMO");
   });
 
   it("excludes transient haul state from persistence", async () => {
     const store = await Session.createStore({ enablePrerender: false });
-    store.dispatch(Session.Node.select("DEMO"));
+    store.dispatch(Session.Cluster.select("DEMO"));
     store.dispatch(Session.Haul.setHauled(HAULED));
     await waitFor(() => {
-      if (readPersisted()?.node.selected !== "DEMO")
+      if (readPersisted()?.cluster.selected !== "DEMO")
         throw new Error("state not persisted yet");
     });
     const persisted = readPersisted();
     assertDefined(persisted);
     expect(store.getState().haul.state).toStrictEqual(HAULED);
     expect(persisted.haul).toStrictEqual(Session.Haul.ZERO_SLICE_STATE);
-    expect(persisted.node.selected).toBe("DEMO");
+    expect(persisted.cluster.selected).toBe("DEMO");
   });
 });

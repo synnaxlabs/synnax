@@ -30,6 +30,7 @@ import { useCallback, useState } from "react";
 
 import { useRangeSnapshot } from "@/feature/task/useRangeSnapshot";
 import { useSetDataSaving } from "@/feature/task/useSetDataSaving";
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -38,7 +39,6 @@ import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
-import { Node } from "@/platform/node";
 import { Range } from "@/platform/range";
 import { Task as PlatformTask } from "@/platform/task";
 import { Toolbar } from "@/platform/toolbar";
@@ -366,7 +366,7 @@ const ContextMenu = ({
   );
 
   const addStatus = Status.useAdder();
-  const copyLinkToClipboard = Node.useCopyLinkToClipboard();
+  const copyLinkToClipboard = Cluster.useCopyLinkToClipboard();
 
   const handleExport = PlatformTask.useExport();
   const handleLink = useCallback(

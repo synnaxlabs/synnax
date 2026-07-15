@@ -18,8 +18,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
@@ -93,7 +93,7 @@ type ServiceConfig struct {
 	// update channel.
 	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostResolver cluster.HostResolver
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.

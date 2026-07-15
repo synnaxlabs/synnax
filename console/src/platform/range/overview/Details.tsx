@@ -22,11 +22,11 @@ import {
 import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
+import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { CSV } from "@/platform/csv";
 import { Label } from "@/platform/label";
 import { Layout } from "@/platform/layout";
-import { Node } from "@/platform/node";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
 import { OVERVIEW_LAYOUT } from "@/platform/range/overview/layout";
 
@@ -82,7 +82,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     autoSave: true,
   });
 
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,

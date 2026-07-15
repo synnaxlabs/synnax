@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -57,7 +57,7 @@ type ServiceConfig struct {
 	// HostResolver provides this node's key for default leaseholder assignment.
 	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostResolver cluster.HostResolver
 	// Ontology integrates channels into the resource ontology.
 	//
 	// [REQUIRED]

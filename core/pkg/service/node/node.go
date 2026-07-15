@@ -11,7 +11,7 @@ package node
 
 import "github.com/synnaxlabs/synnax/pkg/distribution/node"
 
-// Re-exports of the cluster-membership primitives defined in pkg/distribution/node.
+// Re-exports of the node domain primitives defined in pkg/distribution/node.
 // Consumers in the service and API layers should reach for these aliases so they only
 // depend on a single node package.
 type (
@@ -23,13 +23,6 @@ type (
 	Key = node.Key
 	// Change describes a single mutation to a Node's record.
 	Change = node.Change
-	// Cluster is the cluster-membership view as observed by the host node.
-	Cluster = node.Cluster
-	// ClusterChange is a batch of node-level Changes emitted by Cluster.OnChange.
-	ClusterChange = node.ClusterChange
-	// HostProvider exposes information about the host node without performing remote
-	// resolution.
-	HostProvider = node.HostProvider
 )
 
 const (

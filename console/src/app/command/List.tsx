@@ -11,6 +11,7 @@ import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
+import { Cluster } from "@/feature/cluster";
 import { Command } from "@/feature/command";
 import { Device } from "@/feature/device";
 import { Docs } from "@/feature/docs";
@@ -19,7 +20,6 @@ import { Import } from "@/feature/import";
 import { Label } from "@/feature/label";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
-import { Node } from "@/feature/node";
 import { Persist } from "@/feature/persist";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
@@ -33,7 +33,7 @@ import { type Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
   ...Channel.COMMANDS,
-  ...Node.COMMANDS,
+  ...Cluster.COMMANDS,
   ...Device.COMMANDS,
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,

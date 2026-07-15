@@ -12,9 +12,9 @@ import { act } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Session } from "@/session";
+import { Cluster } from "@/session/cluster";
 import { Layout } from "@/session/layout";
 import { Nav } from "@/session/nav";
-import { Node } from "@/session/node";
 import { Project } from "@/session/project";
 import { renderHookWithConsole } from "@/testutil";
 
@@ -32,7 +32,7 @@ describe("useLogout", () => {
     const { result, store } = await renderHookWithConsole(() => Session.useLogout());
 
     act(() => {
-      store.dispatch(Node.select("LOCAL"));
+      store.dispatch(Cluster.select("LOCAL"));
       store.dispatch(Project.select(PROJECT_KEY));
       store.dispatch(Layout.place(MODAL_LAYOUT));
       store.dispatch(Nav.selectLeft({ windowKey: MAIN_WINDOW, key: "resources" }));
@@ -40,7 +40,7 @@ describe("useLogout", () => {
     });
 
     const before = store.getState();
-    expect(Node.selectSelectedKey(before)).toBe("LOCAL");
+    expect(Cluster.selectSelectedKey(before)).toBe("LOCAL");
     expect(Project.selectOptionalSelected(before)).toBe(PROJECT_KEY);
     expect(Layout.select(before, MODAL_LAYOUT.key)).toBeDefined();
     expect(Nav.selectLeftSelected(before)).toBe("resources");
@@ -51,7 +51,7 @@ describe("useLogout", () => {
     });
 
     const after = store.getState();
-    expect(Node.selectSelectedKey(after)).toBeUndefined();
+    expect(Cluster.selectSelectedKey(after)).toBeUndefined();
     expect(Project.selectOptionalSelected(after)).toBeUndefined();
     expect(Layout.select(after, MODAL_LAYOUT.key)).toBeUndefined();
     expect(Nav.selectLeftSelected(after)).toBeUndefined();

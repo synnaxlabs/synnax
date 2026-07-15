@@ -17,8 +17,8 @@ import { Nav } from "@/app/nav";
 import { Notifications } from "@/app/notifications";
 import { Triggers } from "@/app/triggers";
 import { Auth } from "@/feature/auth";
+import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
-import { Node } from "@/feature/node";
 import { Project } from "@/feature/project";
 import { Layout } from "@/platform/layout";
 import { Range } from "@/platform/range";
@@ -26,7 +26,7 @@ import { Status } from "@/platform/status";
 
 const SideEffect = (): null => {
   Access.useLoadPermissions({});
-  Node.useSyncClusterKey();
+  Cluster.useSyncClusterKey();
   Device.useListenForChanges();
   Range.useListenForChanges();
   Project.useCheckCore();

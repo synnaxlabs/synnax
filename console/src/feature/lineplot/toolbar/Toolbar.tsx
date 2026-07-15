@@ -20,9 +20,9 @@ import { Data } from "@/feature/lineplot/toolbar/Data";
 import { Lines } from "@/feature/lineplot/toolbar/Lines";
 import { Properties } from "@/feature/lineplot/toolbar/Properties";
 import { useDownloadPlotAsCSV } from "@/feature/lineplot/useDownloadAsCSV";
+import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
-import { Node } from "@/platform/node";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -62,7 +62,7 @@ const Internal = (): ReactElement => {
                 <Icon.CSV />
               </Button.Button>
               <Export.ToolbarButton onExport={() => handleExport(key)} />
-              <Node.CopyLinkToolbarButton
+              <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={lineplot.ontologyID(key)}
               />

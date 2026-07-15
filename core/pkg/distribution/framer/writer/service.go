@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
@@ -236,7 +237,7 @@ type ServiceConfig struct {
 	// to route writes.
 	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostResolver cluster.HostResolver
 	// TS is the local time series store to write to.
 	//
 	// [REQUIRED]

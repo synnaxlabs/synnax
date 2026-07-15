@@ -10,8 +10,8 @@
 import { Nav } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
+import { Cluster } from "@/feature/cluster";
 import { Docs } from "@/feature/docs";
-import { Node } from "@/feature/node";
 import { Project } from "@/feature/project";
 import { Version } from "@/feature/version";
 import { Nav as PlatformNav } from "@/platform/nav";
@@ -28,7 +28,7 @@ export const Top = (): ReactElement | null => (
     <Nav.Bar.End justify="end" align="center" data-tauri-drag-region gap="small">
       <Version.Badge />
       <User.Badge />
-      <Node.ConnectionBadge />
+      <Cluster.ConnectionBadge />
       <Docs.OpenButton />
       <Window.Controls visibleIfOS="Windows" />
     </Nav.Bar.End>

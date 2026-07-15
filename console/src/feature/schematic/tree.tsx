@@ -25,12 +25,12 @@ import { useCallback } from "react";
 
 import { useExport } from "@/feature/schematic/export";
 import { Symbol } from "@/feature/schematic/symbol";
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
 import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
-import { Node } from "@/platform/node";
 import { Range } from "@/platform/range";
 import { Schematic } from "@/platform/schematic";
 import { Tree } from "@/platform/tree";
@@ -136,7 +136,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleCopy = useCopy(props);
   const snapshot = useRangeSnapshot();
   const handleExport = useExport();
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const firstID = ids[0];

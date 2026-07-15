@@ -17,10 +17,10 @@ import { useExport } from "@/feature/schematic/export";
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
 import { Symbols } from "@/feature/schematic/toolbar/Symbols";
+import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
-import { Node } from "@/platform/node";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -94,7 +94,7 @@ const Internal = (): ReactElement => {
           <Flex.Box x align="center" empty>
             <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
               <Export.ToolbarButton onExport={() => handleExport(key)} />
-              <Node.CopyLinkToolbarButton
+              <Cluster.CopyLinkToolbarButton
                 name={name}
                 ontologyID={schematic.ontologyID(key)}
               />

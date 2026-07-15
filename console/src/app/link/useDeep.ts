@@ -9,11 +9,11 @@
 
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
+import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { LinePlot } from "@/feature/lineplot";
 import { Link } from "@/feature/link";
 import { Log } from "@/feature/log";
-import { Node } from "@/feature/node";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
@@ -37,5 +37,5 @@ export const useDeep = () => {
   const linkHandlers = Object.fromEntries(
     Object.entries(LINKS).map(([key, handler]) => [key, handler()]),
   );
-  Link.useDeep(Node.useLink(), linkHandlers);
+  Link.useDeep(Cluster.useLink(), linkHandlers);
 };

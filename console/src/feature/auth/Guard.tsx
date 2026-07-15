@@ -13,4 +13,4 @@ import { Login } from "@/feature/auth/Login";
 import { Session } from "@/session";
 
 export const Guard = ({ children }: PropsWithChildren): ReactNode =>
-  Session.Node.useSelectIsAnySelected() ? children : <Login />;
+  Session.Cluster.useSelectIsAnySelected() ? children : <Login />;

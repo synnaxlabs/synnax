@@ -28,12 +28,12 @@ import { id, primitive } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/platform/channel";
+import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Group } from "@/platform/group";
 import { Layout } from "@/platform/layout";
 import { LinePlot } from "@/platform/lineplot";
 import { Link } from "@/platform/link";
-import { Node } from "@/platform/node";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
@@ -211,7 +211,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
   const handleRename = useRename(props);
 
-  const handleLink = Node.useCopyLinkToClipboard();
+  const handleLink = Cluster.useCopyLinkToClipboard();
   const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
 
