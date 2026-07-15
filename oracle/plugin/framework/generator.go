@@ -144,6 +144,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate %s", outputPath)
 		}
+		if content == "" {
+			return nil
+		}
 		resp.Files = append(resp.Files, plugin.File{
 			Path:    fmt.Sprintf("%s/%s", outputPath, g.FilePattern),
 			Content: []byte(content),
@@ -194,6 +197,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate %s", outputPath)
 			}
+			if content == "" {
+				return nil
+			}
 			resp.Files = append(resp.Files, plugin.File{
 				Path:    fmt.Sprintf("%s/%s", outputPath, g.FilePattern),
 				Content: []byte(content),
@@ -228,6 +234,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate %s", outputPath)
 			}
+			if content == "" {
+				return nil
+			}
 			resp.Files = append(resp.Files, plugin.File{
 				Path:    fmt.Sprintf("%s/%s", outputPath, g.FilePattern),
 				Content: []byte(content),
@@ -256,6 +265,9 @@ func (g *Generator) Generate(req *plugin.Request) (*plugin.Response, error) {
 			content, err := g.FileGenerator.GenerateFile(ctx)
 			if err != nil {
 				return errors.Wrapf(err, "failed to generate %s", outputPath)
+			}
+			if content == "" {
+				return nil
 			}
 			resp.Files = append(resp.Files, plugin.File{
 				Path:    fmt.Sprintf("%s/%s", outputPath, g.FilePattern),

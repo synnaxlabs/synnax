@@ -12,7 +12,7 @@
 package v0
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/node"
+	nodev0 "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
 	controlv0 "github.com/synnaxlabs/x/control/types/v0"
 	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
 	"github.com/synnaxlabs/x/validate"
@@ -73,7 +73,7 @@ type Channel struct {
 	Name Name `json:"name" msgpack:"name"`
 	// Leaseholder is the cluster node that holds the lease for this channel and is
 	// authorized to accept writes.
-	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
+	Leaseholder nodev0.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel.
 	DataType telemv1.DataType `json:"data_type" msgpack:"data_type"`
 	// IsIndex is true if this channel is an index channel. Index channels must have int64

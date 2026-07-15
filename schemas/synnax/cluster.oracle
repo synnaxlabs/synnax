@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @go output  "core/pkg/service/node"
+@go version 0
 @py output  "client/py/synnax/cluster"
 @ts output  "client/ts/src/cluster"
 @cpp output "client/cpp/cluster"

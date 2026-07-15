@@ -12,7 +12,7 @@
 package v0
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/node"
+	nodev0 "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
 	controlv0 "github.com/synnaxlabs/x/control/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telemv1 "github.com/synnaxlabs/x/telem/types/v1"
@@ -51,7 +51,7 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		c.Leaseholder = node.Key(v)
+		c.Leaseholder = nodev0.Key(v)
 	}
 	{
 		v, err := r.String()

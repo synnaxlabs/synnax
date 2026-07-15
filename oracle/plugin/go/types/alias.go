@@ -179,6 +179,11 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		}
 	}
 
+	// A path whose types are all @go omit generates no aliases; emitting the
+	// file would leave an unused latest import.
+	if len(ad.Types) == 0 && len(ad.Consts) == 0 {
+		return "", nil
+	}
 	var buf bytes.Buffer
 	if err := aliasTemplate.Execute(&buf, ad); err != nil {
 		return "", err

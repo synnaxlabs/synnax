@@ -9,7 +9,10 @@
 
 package node
 
-import "github.com/synnaxlabs/synnax/pkg/distribution/node"
+import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
+)
 
 // Re-exports of the cluster-membership primitives defined in pkg/distribution/node.
 // Consumers in the service and API layers should reach for these aliases so they only
@@ -20,7 +23,7 @@ type (
 	Node = node.Node
 	// Key is a 12-bit unsigned integer that uniquely identifies a Node within a
 	// cluster.
-	Key = node.Key
+	Key = v0.Key
 	// Change describes a single mutation to a Node's record.
 	Change = node.Change
 	// Cluster is the cluster-membership view as observed by the host node.

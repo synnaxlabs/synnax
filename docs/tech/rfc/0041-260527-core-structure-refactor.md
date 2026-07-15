@@ -599,7 +599,7 @@ generated one.
 
 ### 4.3.3 - Schema Source Layout and Core-Release Snapshots
 
-*(Amended during Phase 2 implementation, SY-4232.)* The Go output layout
+_(Amended during Phase 2 implementation, SY-4232.)_ The Go output layout
 (`service/<resource>/types/vN/`) of §4.3.0 is per-resource integer versioning. The
 schema-source side organizes those resources into **core-release snapshots**: the
 working tree (`schemas/{synnax,x,arc}/`) is the active WIP, and each
@@ -625,44 +625,44 @@ integer incremented whenever the storage shape changes. When the imex phase land
 (§4.4), the same integer becomes the wire version; promotion to a language-neutral
 spelling can happen then if other generators need it.
 
-**Within a snapshot folder, unqualified type references resolve by name to that
-folder's version of the dep.** No `@uses` pin syntax is needed because the folder is
-the compatibility group: every file inside a snapshot composes with every other file in
-that snapshot, by construction. This is the property core-release snapshots provided in
-RFC 0033/0034 (`migrations/v55/`) and that per-resource integer chains alone could not.
-In the generated Go, the pins are materialized: a frozen `types/vN/` package imports
-its dependencies' `types/vM/` packages at the versions the snapshot held.
+**Within a snapshot folder, unqualified type references resolve by name to that folder's
+version of the dep.** No `@uses` pin syntax is needed because the folder is the
+compatibility group: every file inside a snapshot composes with every other file in that
+snapshot, by construction. This is the property core-release snapshots provided in RFC
+0033/0034 (`migrations/v55/`) and that per-resource integer chains alone could not. In
+the generated Go, the pins are materialized: a frozen `types/vN/` package imports its
+dependencies' `types/vM/` packages at the versions the snapshot held.
 
 **Version discipline is enforced structurally, not by codec bytes.** When
-`oracle migrate` diffs the WIP against the latest snapshot, any path whose shape
-changed (compared recursively through the type graph, `schemasEqual`) without a
-`@go version` bump is an error; a bump of exactly +1 freezes the outgoing version. A
-bump **without** a shape change is legal and freezes with a passthrough auto-migrate —
-this is the hand-declared codec-format bump. The earlier draft's byte-level codec
-divergence detection (encode-and-compare, golden fixtures) was dropped: codec-format
-changes (e.g. a new ORC enum encoding) are deliberate developer acts, declared the way
-`msgpack_to_orc` was — an explicit `CodecMigration` when the new decoder still reads
-old bytes, an explicit `@go version` bump when it doesn't. The ORC magic header is the
-seam for any future wire-format change that breaks all frozen decoders at once.
+`oracle migrate` diffs the WIP against the latest snapshot, any path whose shape changed
+(compared recursively through the type graph, `schemasEqual`) without a `@go version`
+bump is an error; a bump of exactly +1 freezes the outgoing version. A bump **without**
+a shape change is legal and freezes with a passthrough auto-migrate — this is the
+hand-declared codec-format bump. The earlier draft's byte-level codec divergence
+detection (encode-and-compare, golden fixtures) was dropped: codec-format changes (e.g.
+a new ORC enum encoding) are deliberate developer acts, declared the way
+`msgpack_to_orc` was — an explicit `CodecMigration` when the new decoder still reads old
+bytes, an explicit `@go version` bump when it doesn't. The ORC magic header is the seam
+for any future wire-format change that breaks all frozen decoders at once.
 
 **Freezing is positional, not a copy step.** Because every version — current included —
-is its own `types/vN/` package, a bump freezes the outgoing directory in place: `oracle
-migrate` regenerates it one final time from the snapshot (pinning dependency imports at
-snapshot versions and appending gorp entry methods) and simply stops emitting into it;
-`oracle sync` emits the new current into `types/v(N+1)/`. The layout is uniform: every
-`@go version` path — value-type packages (`telem`, `spatial`, `color`, the arc-module
-types) included — emits its current version into `types/vN/`, so a dependent's current
-package always pins an explicit version directory and frozen code never references
-live code. The cost is that hand-written method receivers on generated types live in
-the version package (Go requires receivers in the defining package), carried forward
-by `oracle migrate` at each bump.
+is its own `types/vN/` package, a bump freezes the outgoing directory in place:
+`oracle migrate` regenerates it one final time from the snapshot (pinning dependency
+imports at snapshot versions and appending gorp entry methods) and simply stops emitting
+into it; `oracle sync` emits the new current into `types/v(N+1)/`. The layout is
+uniform: every `@go version` path — value-type packages (`telem`, `spatial`, `color`,
+the arc-module types) included — emits its current version into `types/vN/`, so a
+dependent's current package always pins an explicit version directory and frozen code
+never references live code. The cost is that hand-written method receivers on generated
+types live in the version package (Go requires receivers in the defining package),
+carried forward by `oracle migrate` at each bump.
 
 **The historical `migrations/vN/` directories** were renumbered onto dense per-resource
 integers and renamed to `types/vN/` in the Phase 2 cutover; the v56 snapshot was
 back-filled with the corresponding `@go version` declarations so discipline enforcement
-is live immediately. Stored-but-keyless packages whose schemas declare no
-`@go version` (`ranger/alias`, `ranger/kv` — hand-computed composite gorp keys) are
-excluded from the layout for now and keep root emission.
+is live immediately. Stored-but-keyless packages whose schemas declare no `@go version`
+(`ranger/alias`, `ranger/kv` — hand-computed composite gorp keys) are excluded from the
+layout for now and keep root emission.
 
 ### 4.4.0 - Two-Stage Decode
 
@@ -1081,10 +1081,10 @@ nil; the cost is every Gorp entry across the repo (aspen, cesium, …) must impl
 Schema sources stay in the working tree (`schemas/{synnax,x,arc}/`) with immutable
 `schemas/snapshots/vN/` copies taken at each core release (§4.3.3); each storable
 `.oracle` file declares its own per-resource version (`@go version N`), which the imex
-service will use on the wire once §4.4 lands. Within a snapshot folder, unqualified
-type references resolve by name to that folder's version of the dep, so the snapshot
-folder is the compatibility group by construction — the property `migrations/v55/`
-already gave us in RFC 0033/0034 and that per-resource integer chains alone could not.
+service will use on the wire once §4.4 lands. Within a snapshot folder, unqualified type
+references resolve by name to that folder's version of the dep, so the snapshot folder
+is the compatibility group by construction — the property `migrations/v55/` already gave
+us in RFC 0033/0034 and that per-resource integer chains alone could not.
 
 The rejected alternative was **strict cascade with explicit per-version `@uses` pins**:
 each `vN.oracle` declares `@uses dep vM`, and bumping a storage-embedded type forces a
@@ -1103,18 +1103,18 @@ There is no explicit pin syntax to design or maintain. Cross-snapshot compatibil
 read off the snapshot folder directly — the snapshot's `schematic.oracle` embeds its
 sibling `spatial.oracle` because they live in the same folder, not because a line of
 schema says so. The trade is that ad-hoc "this `schematic` keeps referencing the old
-`spatial`" configurations aren't expressible; if a real use case for that appears
-later, `@uses` can be added then.
+`spatial`" configurations aren't expressible; if a real use case for that appears later,
+`@uses` can be added then.
 
-*(Amended, SY-4232.)* An earlier revision of this decision detected codec divergence
+_(Amended, SY-4232.)_ An earlier revision of this decision detected codec divergence
 behaviorally (byte-equality of encoded output against the prior frozen version) so
-codec-format changes would auto-bump dependents. That was dropped: structural
-comparison covers every schema-shape change, and codec-format changes (a new ORC
-encoding) are rare, deliberate developer acts declared explicitly — a `CodecMigration`
-when the new decoder still reads old bytes (the `msgpack_to_orc` precedent), a
-hand-declared `@go version` bump with a passthrough migrate when it doesn't. No
-detection machinery, no golden fixtures; the cost is that forgetting the sweep on a
-codec-format change is caught only by the generated round-trip codec tests.
+codec-format changes would auto-bump dependents. That was dropped: structural comparison
+covers every schema-shape change, and codec-format changes (a new ORC encoding) are
+rare, deliberate developer acts declared explicitly — a `CodecMigration` when the new
+decoder still reads old bytes (the `msgpack_to_orc` precedent), a hand-declared
+`@go version` bump with a passthrough migrate when it doesn't. No detection machinery,
+no golden fixtures; the cost is that forgetting the sweep on a codec-format change is
+caught only by the generated round-trip codec tests.
 
 Per-resource `@go version` decouples wire version from the core release: a `schematic`
 that doesn't change between releases keeps the same version even though it appears in
@@ -1140,26 +1140,25 @@ Sequenced so that the lowest-risk, dependency-unblocking work lands first.
   `lease_proxy.go::deleteGateway` and unblocks the phase without a full distributed
   transaction. A stronger atomicity contract is left to a follow-up — see §7.
 - **Phase 2 — `types/vN/` layout + schema-source snapshots (§4.3, §4.6.0).**
-  *(Implemented on SY-4232, amended scope.)* Per-resource `@go version N` in every
+  _(Implemented on SY-4232, amended scope.)_ Per-resource `@go version N` in every
   storable schema; `schemas/.snapshots/` made visible as `schemas/snapshots/`; every
-  resource with a keyed struct emits its current version into `types/v<N>/` with a
-  root alias file; historical `migrations/vN/` directories renumbered onto dense
-  per-resource integers and renamed `types/vN/`; version discipline (structural diff
-  vs. latest snapshot, bump-by-exactly-one) enforced by `oracle migrate`. Generated
+  resource with a keyed struct emits its current version into `types/v<N>/` with a root
+  alias file; historical `migrations/vN/` directories renumbered onto dense per-resource
+  integers and renamed `types/vN/`; version discipline (structural diff vs. latest
+  snapshot, bump-by-exactly-one) enforced by `oracle migrate`. Generated
   `types/types.gen.go` selectors re-export the current version (as does the package
   root), importing it as `latest` so a bump touches one line, with schema docs
   transposed onto every re-export surface. Descoped from this phase: generated
   `types/decode.go` dispatch (deferred to Phase 3, which has its only consumer),
   byte-divergence detection (dropped — see §5.6), the immutability-by-CI rule on
-  snapshot folders
-  (open parameter, along with making the advisory oracle CI check required), and
-  stored-but-keyless packages with hand-computed composite gorp keys
+  snapshot folders (open parameter, along with making the advisory oracle CI check
+  required), and stored-but-keyless packages with hand-computed composite gorp keys
   (`ranger/alias`, `ranger/kv`), which keep root emission.
 - **Phase 3 — Peek import (§4.4).** Peek front door (the `imex.Envelope` peek already
-  exists and `log` imports through it); generate `types/decode.go` version dispatch
-  and `types/types.go` selectors, port `log`'s hand-written switch onto them, register
-  the remaining resources with imex, and move the console off client-side zod
-  migration imports onto `/imex/import`.
+  exists and `log` imports through it); generate `types/decode.go` version dispatch and
+  `types/types.go` selectors, port `log`'s hand-written switch onto them, register the
+  remaining resources with imex, and move the console off client-side zod migration
+  imports onto `/imex/import`.
 - **Phase 4 — Single-type collapse + storage-exclusion marker (§4.2, §4.6.1).** Add the
   per-field "skip from storage codec" marker to Oracle; mark `Labels`/`Parent`/`Status`
   on `range`/`task`/`device`/`rack`; drop the duplicate API types and serialize the
