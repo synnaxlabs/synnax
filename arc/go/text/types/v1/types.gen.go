@@ -13,7 +13,7 @@ package v1
 
 import (
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/x/crdt"
+	crdtv0 "github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
@@ -23,9 +23,9 @@ import (
 // truth from which raw is materialized.
 type Document struct {
 	// Inserts are the operations that reconstruct the document's characters.
-	Inserts []crdt.Insert `json:"inserts,omitzero" msgpack:"inserts,omitzero"`
+	Inserts []crdtv0.Insert `json:"inserts,omitzero" msgpack:"inserts,omitzero"`
 	// Deletes are the operations that tombstone deleted characters.
-	Deletes []crdt.Delete `json:"deletes,omitzero" msgpack:"deletes,omitzero"`
+	Deletes []crdtv0.Delete `json:"deletes,omitzero" msgpack:"deletes,omitzero"`
 }
 
 func (d Document) Validate() error {

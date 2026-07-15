@@ -25,7 +25,7 @@ import (
 	textv1 "github.com/synnaxlabs/arc/text/types/v1"
 	gov1 "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
-	"github.com/synnaxlabs/x/crdt"
+	crdtv0 "github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
@@ -86,15 +86,15 @@ var _ = Describe("Codec", func() {
 				},
 				Text: textv1.Text{
 					Doc: textv1.Document{
-						Inserts: []crdt.Insert{
+						Inserts: []crdtv0.Insert{
 							{
-								ID:     crdt.ID{},
-								Origin: crdt.ID{},
+								ID:     crdtv0.ID{},
+								Origin: crdtv0.ID{},
 								Side:   spatialv0.XLocation("left"),
 								Char:   42,
 							},
 						},
-						Deletes: []crdt.Delete{{ID: crdt.ID{}}},
+						Deletes: []crdtv0.Delete{{ID: crdtv0.ID{}}},
 					},
 				},
 			}),
@@ -174,15 +174,15 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 		},
 		Text: textv1.Text{
 			Doc: textv1.Document{
-				Inserts: []crdt.Insert{
+				Inserts: []crdtv0.Insert{
 					{
-						ID:     crdt.ID{},
-						Origin: crdt.ID{},
+						ID:     crdtv0.ID{},
+						Origin: crdtv0.ID{},
 						Side:   spatialv0.XLocation("left"),
 						Char:   42,
 					},
 				},
-				Deletes: []crdt.Delete{{ID: crdt.ID{}}},
+				Deletes: []crdtv0.Delete{{ID: crdtv0.ID{}}},
 			},
 		},
 	}
@@ -264,15 +264,15 @@ func FuzzDecodeArc(f *testing.F) {
 			},
 			Text: textv1.Text{
 				Doc: textv1.Document{
-					Inserts: []crdt.Insert{
+					Inserts: []crdtv0.Insert{
 						{
-							ID:     crdt.ID{},
-							Origin: crdt.ID{},
+							ID:     crdtv0.ID{},
+							Origin: crdtv0.ID{},
 							Side:   spatialv0.XLocation("left"),
 							Char:   42,
 						},
 					},
-					Deletes: []crdt.Delete{{ID: crdt.ID{}}},
+					Deletes: []crdtv0.Delete{{ID: crdtv0.ID{}}},
 				},
 			},
 		}

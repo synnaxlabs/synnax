@@ -12,7 +12,7 @@
 package v1
 
 import (
-	"github.com/synnaxlabs/x/crdt"
+	crdtv0 "github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -49,7 +49,7 @@ func (d *Document) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			d.Inserts = make([]crdt.Insert, n)
+			d.Inserts = make([]crdtv0.Insert, n)
 			for i := range d.Inserts {
 				if err = d.Inserts[i].DecodeOrc(r); err != nil {
 					return err
@@ -67,7 +67,7 @@ func (d *Document) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			d.Deletes = make([]crdt.Delete, n)
+			d.Deletes = make([]crdtv0.Delete, n)
 			for i := range d.Deletes {
 				if err = d.Deletes[i].DecodeOrc(r); err != nil {
 					return err

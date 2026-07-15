@@ -13,6 +13,7 @@ import "schemas/x/spatial"
 @py output  "x/py/x/crdt"
 @cpp output "x/cpp/crdt"
 @go output  "x/go/crdt"
+@go version 0
 @pb
 
 ID struct {
