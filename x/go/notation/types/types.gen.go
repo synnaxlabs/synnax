@@ -17,12 +17,7 @@ import "github.com/synnaxlabs/x/notation/types/v0"
 type Notation = v0.Notation
 
 const (
-	// NotationStandard renders samples as plain decimal numbers.
-	NotationStandard Notation = v0.NotationStandard
-	// NotationScientific renders samples in scientific notation with a single leading
-	// digit.
-	NotationScientific Notation = v0.NotationScientific
-	// NotationEngineering renders samples in engineering notation with exponents in
-	// multiples of three.
+	NotationStandard    Notation = v0.NotationStandard
+	NotationScientific  Notation = v0.NotationScientific
 	NotationEngineering Notation = v0.NotationEngineering
 )
