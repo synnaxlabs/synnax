@@ -77,7 +77,9 @@ export const specZ = z.object({
   scale: z.number().default(1),
   /** scaleStroke indicates whether stroke width scales with the symbol size. */
   scaleStroke: z.boolean().default(false),
-  /** previewViewport is an optional viewport configuration for symbol preview rendering. */
+  /**
+   * previewViewport is an optional viewport configuration for symbol preview rendering.
+   */
   previewViewport: spatial.viewportZ.optional(),
 });
 export interface Spec extends z.infer<typeof specZ> {}

@@ -31,12 +31,12 @@ message TabBase {
 // configuration payload, with no backing core document. Used for app-views and tools
 // (docs, explorers, about, the visualization picker).
 message View {
-  // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-  // a renderer.
+  // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to
+  // select a renderer.
   string type = 1;
   // name is the human-readable tab name for the view. A view has no backing resource to
-  // derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-  // the Console falls back to a type-derived default.
+  // derive a name from, so it carries its own. May be renamed via SetTabView; when
+  // empty the Console falls back to a type-derived default.
   string name = 2;
   // args is an opaque, Console-owned configuration payload for the view. Core never
   // interprets it; it round-trips as-is.
@@ -79,7 +79,8 @@ message Panel {
   optional .service.ontology.pb.ID parent = 4;
 }
 message TabResourcePayload {
-  // resource is the visualization resource displayed by this tab, set via SetTabResource.
+  // resource is the visualization resource displayed by this tab, set via
+  // SetTabResource.
   .service.ontology.pb.ID resource = 1;
 }
 message TabEmptyPayload {}

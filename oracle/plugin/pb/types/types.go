@@ -212,7 +212,7 @@ func (p *Plugin) generateFile(
 
 	data := &templateData{
 		Package:    derivePackageName(outputPath, structs),
-		GoPackage:  deriveGoPackage(outputPath, structs, repoRoot),
+		GoPackage:  deriveGoPackage(outputPath, repoRoot),
 		OutputPath: outputPath,
 		Namespace:  namespace,
 		Messages:   make([]messageData, 0, len(structs)),
@@ -293,7 +293,7 @@ func deriveLayerPrefix(outputPath string) string {
 	return "synnax"
 }
 
-func deriveGoPackage(outputPath string, structs []resolution.Type, repoRoot string) string {
+func deriveGoPackage(outputPath, repoRoot string) string {
 	return gomod.ResolveImportPath(outputPath, repoRoot, defaultModulePrefix)
 }
 
@@ -657,7 +657,7 @@ func (p *Plugin) typeToProto(typeRef resolution.TypeRef, data *templateData) (st
 		return "", errors.Newf("unknown builtin generic type %q", form.Name)
 
 	case resolution.StructForm:
-		return p.resolveStructType(typeRef, resolved, data)
+		return p.resolveStructType(resolved, data)
 
 	case resolution.EnumForm:
 		return p.resolveEnumType(resolved, data), nil
@@ -749,7 +749,7 @@ func (p *Plugin) processUnion(entry resolution.Type, data *templateData) (messag
 	return md, nil
 }
 
-func (p *Plugin) resolveStructType(typeRef resolution.TypeRef, resolved resolution.Type, data *templateData) (string, error) {
+func (p *Plugin) resolveStructType(resolved resolution.Type, data *templateData) (string, error) {
 	form, ok := resolved.Form.(resolution.StructForm)
 	if !ok {
 		if aliasForm, isAlias := resolved.Form.(resolution.AliasForm); isAlias {
@@ -929,7 +929,7 @@ enum {{.Name}} {
 message {{.Name}} {
 {{- range .Fields}}
 {{- if .Doc}}
-  {{formatDoc .Name .Doc}}
+  {{formatDoc .Name .Doc 2}}
 {{- end}}
   {{if .IsRepeated}}repeated {{else if .IsOptional}}optional {{end}}{{.Type}} {{.Name}} = {{.Number}};
 {{- end}}

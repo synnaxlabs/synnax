@@ -28,6 +28,8 @@ namespace synnax::task {
 
 struct Command;
 
+/// @brief Key is a composite identifier for a task. The high 32 bits contain the rack
+/// key, and the low 32 bits contain the local task key within that rack.
 using Key = std::uint64_t;
 
 /// @brief StatusDetails contains task-specific status details including execution
