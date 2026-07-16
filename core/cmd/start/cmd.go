@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
+	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
@@ -67,7 +68,11 @@ func start(cmd *cobra.Command) {
 	// It's fine to let this get garbage collected.
 	go scanForStopKeyword(interruptC)
 
-	cfg := GetCoreConfigFromViper(ins)
+	cfg, err := GetCoreConfigFromViper(ins)
+	if err != nil {
+		ins.L.Fatal("invalid configuration", zap.Error(err))
+		return
+	}
 
 	sCtx.Go(func(ctx context.Context) error {
 		return BootupCore(ctx, nil, cfg)
@@ -97,19 +102,26 @@ func init() { AddFlags(Cmd) }
 // GetCoreConfigFromViper builds a CoreConfig from the current viper configuration.
 // This is used by the Windows service to start the Core with the config loaded from
 // a YAML file.
-func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
-	listenAddress := address.Address(viper.GetString(FlagListen))
+func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 	peers := lo.Map(viper.GetStringSlice(FlagPeers), func(peer string, _ int) address.Address {
 		return address.Address(peer)
+	})
+	factoryCfg := cert.BuildCertFactoryConfig(ins)
+	listeners, err := listener.Parse()
+	if err != nil {
+		return CoreConfig{}, err
+	}
+	factoryCfg.Hosts = lo.Map(listeners, func(l listener.Config, _ int) address.Address {
+		return l.Address
 	})
 	return CoreConfig{
 		Instrumentation:     ins,
 		insecure:            new(viper.GetBool(FlagInsecure)),
 		debug:               new(viper.GetBool(instrumentation.FlagDebug)),
-		autoCert:            new(viper.GetBool(FlagAutoCert)),
+		autoCert:            new(viper.GetBool(cert.FlagAutoCert)),
 		verifier:            viper.GetString(FlagDecoded),
 		memBacked:           new(viper.GetBool(FlagMem)),
-		listenAddress:       listenAddress,
+		listeners:           listeners,
 		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
@@ -122,9 +134,9 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		taskPollInterval:     viper.GetDuration(FlagTaskPollInterval),
 		taskShutdownTimeout:  viper.GetDuration(FlagTaskShutdownTimeout),
 		taskWorkerCount:      viper.GetUint8(FlagTaskWorkerCount),
-		certFactoryConfig:    cert.BuildCertFactoryConfig(ins, listenAddress),
+		certFactoryConfig:    factoryCfg,
 		enabledIntegrations:  viper.GetStringSlice(FlagEnableIntegrations),
 		disabledIntegrations: viper.GetStringSlice(FlagDisableIntegrations),
 		validateChannelNames: new(!viper.GetBool(FlagDisableChannelNameValidation)),
-	}
+	}, nil
 }
