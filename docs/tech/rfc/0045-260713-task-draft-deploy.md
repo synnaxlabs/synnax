@@ -21,11 +21,13 @@ This RFC splits the two:
 1. Drivers stop configuring on `sy_task_set`. The set event becomes a metadata-only
    refresh, which also fixes renaming a task restarting it.
 2. The `start` command absorbs deployment. On start, the driver fetches the task and
-   compares a hash of its `config` against the hash the running instance was built from.
-   On mismatch or no instance, it rebuilds from the fresh config before starting;
-   otherwise start is a plain start.
-3. The driver reports the hash of its running config in every task status. Any client
-   derives drift as `hash(task.config) != status.details.config_hash`.
+   compares its `config_hash` against the hash the running instance was built from. On
+   mismatch or no instance, it rebuilds from the fresh config before starting; otherwise
+   start is a plain start.
+3. Core hashes `config` on every write and stores it in the task's `config_hash` field.
+   The driver echoes the hash its instance was built from in every task status. Any
+   client derives drift as `task.config_hash != status.details.config_hash`, comparing
+   two server-assigned values without ever hashing anything itself.
 4. The Console autosaves the task form. Its controls become an always-visible play/pause
    button and a redeploy button (which sends `start`) that appears only when the task is
    running and drifted.
@@ -111,8 +113,8 @@ deployed", and it already is today; this RFC stops pretending the task is.
 
 ## 3.2 - Start means deploy
 
-`start` becomes: fetch the task, compare `hash(config)` against the hash of the running
-instance's config, and
+`start` becomes: fetch the task, compare its `config_hash` against the hash the running
+instance was built from, and
 
 - if no instance exists or the hashes differ: rebuild the task from the fresh config
   (the existing `CONFIGURE` path), then start it.
@@ -126,24 +128,39 @@ afterward, and "deploy but stay stopped" has no button, so it gets no verb. No n
 vocabulary, RBAC surface, or ack machinery is introduced: the status written at the end
 of the rebuild-then-start path carries the start command's key in `details.cmd`.
 
-## 3.3 - Drift is reported by the driver
+## 3.3 - Core assigns config identity; the driver echoes it
 
-Every task status the driver emits includes the hash of the config its instance is
-running. Drift is derived by any client as:
+Core hashes `config` on every write and stores the result in the task's `config_hash`
+field, which is server-assigned and ignored on writes from clients. The driver never
+hashes: at start it records the `config_hash` that arrived alongside the config it built
+from, and stamps that value into every status it emits. Drift is a comparison of two
+server-assigned values:
 
 ```
-hash(task.config) != status.details.config_hash
+task.config_hash != status.details.config_hash
 ```
 
-Both sides hash the exact config string stored in the task (the driver hashes the bytes
-it fetched at configure time), so the comparison is canonical by construction.
+The hash is content-addressed, so a no-op save never false-positives and an edit that is
+undone restores the original hash. The algorithm is core's alone to change: it is an
+implementation detail, not a wire contract, because nothing outside core computes it.
+
+Nothing else can hash the config correctly, which is what forces this placement. Config
+is a decoded map at every hop, never bytes: core stores `json.Marshal` output, the C++
+driver receives a protobuf `Struct`, and clients receive JSON or msgpack. A
+client-computed hash would therefore need an agreed canonicalization implemented four
+times, in Go, C++, TypeScript, and Python, matching byte-for-byte forever on key order,
+number formatting, and Unicode. Worse, a client cannot see the config core stored at
+all: the TypeScript client's config is zod-parsed, which injects schema defaults as real
+keys and strips unknown ones, so it would hash a different object rather than different
+bytes. No canonicalization repairs that. Hashing once, where the config is written, is
+correct by construction instead of by four-way agreement.
 
 Alternatives rejected: a `deployed_config` snapshot field duplicates state the driver
 already holds and drags a deploy verb, endpoint, and migration behind it; console-local
 dirty tracking is lost on reload, blind to other users' edits, and lies after a driver
-restart; a `deployed_at` timestamp false-positives on no-op saves. The driver-reported
-hash is the only signal that stays truthful across console reloads, concurrent editors,
-and driver reboots.
+restart; a `deployed_at` timestamp and a monotonic version counter both false-positive,
+on no-op saves and on undo respectively. The server-assigned hash is the only signal
+that stays truthful across console reloads, concurrent editors, and driver reboots.
 
 ## 3.4 - Boot deploys the latest draft
 
@@ -184,11 +201,13 @@ relationships, statuses, and the legacy Console layouts covered in section 7.
 
 `sy_task_set` today carries only the key, and drivers filter it by the key's rack bits.
 With UUID keys that filter is gone, so the payload extends to the full task metadata:
-everything except `config` and `status`. The event stays a broadcast: every driver keeps
-or drops it by comparing the payload's `rack` field to its own, the same architecture as
-today with a different predicate, and rackless drafts are dropped by everyone. The
-metadata refresh needs no fetch: renames and rack changes arrive in the event itself,
-and the task fetch happens exactly once, at start.
+everything except `config` and `status`. `config_hash` therefore rides along, and a
+client tracks drift from the event alone, without re-fetching a config it does not
+display. The event stays a broadcast: every driver keeps or drops it by comparing the
+payload's `rack` field to its own, the same architecture as today with a different
+predicate, and rackless drafts are dropped by everyone. The metadata refresh needs no
+fetch: renames and rack changes arrive in the event itself, and the task fetch happens
+exactly once, at start.
 
 Command routing follows the same broadcast shape on `sy_task_cmd`, with a two-part
 driver-side predicate:
@@ -208,7 +227,7 @@ When it changes under a running task, the instance keeps running on the old rack
 deployed instance, including where it is deployed, is the record. Drift widens to:
 
 ```
-drifted = hash(task.config) != status.details.config_hash
+drifted = task.config_hash != status.details.config_hash
        || task.rack != status.details.rack
 ```
 
@@ -249,11 +268,15 @@ intercepts `start` ahead of the per-task `Exec` dispatch, `handleTaskChange` sto
 calling `configure` on `VariantSet` and refreshes metadata instead, and boot is
 unchanged.
 
-## 4.3 - Status details schema
+## 4.3 - Schema changes
 
-`StatusDetails` gains `config_hash` and `rack` fields in `schemas/synnax/task.oracle`,
-regenerated across Go, TS, Python, and C++. The hash is a stable non-cryptographic
-64-bit hash (xxhash64 the leading candidate), pinned during implementation.
+`Task` gains `config_hash`, and `StatusDetails` gains `config_hash` and `rack`, in
+`schemas/synnax/task.oracle`, regenerated across Go, TS, Python, and C++. The task
+migration backfills `config_hash` in the same pass that re-keys tasks to UUIDs.
+
+The algorithm is xxhash64 of the config's JSON encoding, written once in core. It is
+core's to change freely: no other language implements it, and no consumer recomputes it.
+The one property callers depend on is that equal configs hash equally.
 
 ---
 
@@ -359,9 +382,9 @@ field is set or changed, using the same reparenting machinery NI chassis modules
 - **Creation**: `client.tasks.create({ ..., rack? })` becomes first-class in every
   client. `rack.createTask` remains as sugar that pre-fills the rack field, since tasks
   stay operationally bound to racks even though the key no longer encodes one.
-- **TS**: `Task.executeCommandSync("start")` works unchanged. `StatusDetails`
-  regenerates with `configHash` and `rack`, and a small `drifted` helper implements the
-  section 3.8 comparison.
+- **TS**: `Task.executeCommandSync("start")` works unchanged. `Payload` and
+  `StatusDetails` regenerate with `configHash`, and a small `drifted` helper implements
+  the section 3.8 comparison as a field compare.
 - **Python**: `tasks.configure(...)` becomes a plain save that returns immediately;
   there is no driver acknowledgment to await. Hardware validation errors surface at
   `start` instead, and the integration harness moves its post-configure assertions to
@@ -425,7 +448,6 @@ a new driver still deploys the latest config, and stop always works.
 2. What does the running instance do after `stop`: destroyed or retained idle? Retention
    changes nothing in this design, but determines whether a stopped task's last status
    keeps a meaningful hash.
-3. Exact hash algorithm across C++, Go, TS, and Python (xxhash64 the leading candidate).
-4. During a rack-move redeploy, is channel write authority sufficient arbitration for
+3. During a rack-move redeploy, is channel write authority sufficient arbitration for
    the both-running window, or should the new driver wait for the old instance's stopped
    status before starting?
