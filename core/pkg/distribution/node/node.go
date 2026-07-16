@@ -21,7 +21,7 @@ type (
 	// defined: KeyFree and KeyBootstrapper.
 	Key = aspen.NodeKey
 	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
-	// network address. Nodes report a State that reflects their current reachability as
+	// network address. Nodes report a state that reflects their current reachability as
 	// observed by the host Core.
 	Node = aspen.Node
 	// Change describes a single mutation to a Node's record (a node joining, leaving,

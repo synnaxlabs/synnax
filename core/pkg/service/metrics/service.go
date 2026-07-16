@@ -40,7 +40,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// HostProvider is for identify the current host for channel naming.
+	// HostProvider identifies the current host for channel naming.
 	//
 	// [REQUIRED]
 	HostProvider cluster.HostProvider

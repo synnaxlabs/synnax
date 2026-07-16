@@ -52,7 +52,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Transport Transport
-	// HostResolved is used to resolve address information about hosts on the network.
+	// HostResolver is used to resolve address information about hosts on the network.
 	//
 	// [REQUIRED]
 	HostResolver cluster.HostResolver
