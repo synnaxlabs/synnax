@@ -138,6 +138,7 @@ class Task:
     name: str = ""
     type: str = ""
     config: dict[str, Any] = {}
+    config_hash: str = ""
     snapshot: bool = False
     status: Status | None = None
     _cached_frame_client: FrameClient | None = None
@@ -150,6 +151,7 @@ class Task:
         name: str = "",
         type: str = "",
         config: dict[str, Any] | None = None,
+        config_hash: str = "",
         snapshot: bool = False,
         status: Status | None = None,
         internal: bool = False,
@@ -164,6 +166,7 @@ class Task:
         self.name = name
         self.type = type
         self.config = config if config is not None else {}
+        self.config_hash = config_hash
         self.internal = internal
         self.snapshot = snapshot
         self.status = status
@@ -192,6 +195,7 @@ class Task:
         self.name = task.name
         self.type = task.type
         self.config = task.config
+        self.config_hash = task.config_hash
         self.snapshot = task.snapshot
         self._cached_frame_client = task._cached_frame_client
 
