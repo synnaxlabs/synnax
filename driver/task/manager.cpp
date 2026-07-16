@@ -96,10 +96,7 @@ x::errors::Error Manager::configure_initial_tasks() {
                 auto &entry = this->entries[sy_task.key];
                 if (!entry) entry = std::make_shared<Entry>();
                 entry->task = std::move(driver_task);
-                this->deploys_->set_hash(
-                    sy_task.key,
-                    synnax::task::hash_config(sy_task.config)
-                );
+                this->deploys_->set_hash(sy_task.key, sy_task.config_hash);
             }
         }
     }
@@ -201,10 +198,9 @@ void Manager::process_start(const synnax::task::Command &cmd) {
         VLOG(1) << "ignoring start for task " << tsk;
         return;
     }
-    const auto hash = synnax::task::hash_config(tsk.config);
     std::lock_guard<std::mutex> lock(this->mu);
     if (!this->entries[cmd.task]) this->entries[cmd.task] = std::make_shared<Entry>();
-    if (this->deploys_->hash(cmd.task) == hash) {
+    if (this->deploys_->hash(cmd.task) == tsk.config_hash) {
         VLOG(1) << "queuing start for live task " << tsk;
         this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
     } else {
@@ -367,10 +363,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) cons
             LOG(INFO) << "configuring task " << op.task;
             // Set before configuring so statuses emitted during construction
             // already carry the deployed hash and ack the pending start.
-            this->deploys_->set_hash(
-                op.task_key,
-                synnax::task::hash_config(op.task.config)
-            );
+            this->deploys_->set_hash(op.task_key, op.task.config_hash);
             if (!op.cmd.key.empty())
                 this->deploys_->set_pending_cmd(op.task_key, op.cmd.key);
             auto [driver_task, handled] = this->factory->configure_task(

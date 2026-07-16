@@ -14,6 +14,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -70,12 +71,14 @@ public:
         this->states[key].hash = hash;
     }
 
-    /// @brief returns the deployed config hash for key, or an empty string when
-    /// no live instance exists.
-    std::string hash(const synnax::task::Key &key) {
+    /// @brief returns the config hash the live instance for key was built from, or
+    /// nullopt when no live instance exists. Never conflate the two: a task that was
+    /// never deployed must rebuild, not plain start.
+    std::optional<std::string> hash(const synnax::task::Key &key) {
         std::lock_guard lock{this->mu};
         const auto it = this->states.find(key);
-        return it == this->states.end() ? "" : it->second.hash;
+        if (it == this->states.end()) return std::nullopt;
+        return it->second.hash;
     }
 
     void set_pending_cmd(const synnax::task::Key &key, const std::string &cmd) {
@@ -184,7 +187,8 @@ public:
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
         if (this->deploys_ != nullptr) {
-            status.details.config_hash = this->deploys_->hash(status.details.task);
+            status.details.config_hash = this->deploys_->hash(status.details.task)
+                                             .value_or("");
             // A config error during a start-triggered deploy must ack the start
             // command so sync waiters resolve with the detailed failure.
             if (status.details.cmd.empty() &&

@@ -43,9 +43,9 @@ type Driver struct {
 	rack             rack.Rack
 	mu               struct {
 		tasks map[task.Key]Task
-		// hashes records, per live task instance, the hash of the config the
-		// instance was built from. Start commands compare it against the hash
-		// of the stored row to decide whether to rebuild.
+		// hashes records, per live task instance, the config hash the instance was
+		// built from. Start commands compare it against the stored task's
+		// config_hash to decide whether to rebuild.
 		hashes map[task.Key]string
 		sync.RWMutex
 	}
@@ -223,12 +223,11 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	if tsk.Rack != d.rack.Key || tsk.Snapshot {
 		return
 	}
-	hash := task.HashConfig(tsk.Config)
 	d.mu.RLock()
 	t, ok := d.mu.tasks[cmd.Task]
 	recorded := d.mu.hashes[cmd.Task]
 	d.mu.RUnlock()
-	if !ok || recorded != hash {
+	if !ok || recorded != tsk.ConfigHash {
 		if err := d.configure(ctx, tsk); err != nil {
 			d.cfg.L.Error("failed to configure task",
 				zap.Stringer("task", tsk),
@@ -379,7 +378,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) error {
 			}
 			d.mu.Lock()
 			d.mu.tasks[t.Key] = newTask
-			d.mu.hashes[t.Key] = task.HashConfig(t.Config)
+			d.mu.hashes[t.Key] = t.ConfigHash
 			d.mu.Unlock()
 			d.cfg.L.Info("configured task", zap.Stringer("task", t))
 			return nil
