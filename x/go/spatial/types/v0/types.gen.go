@@ -232,9 +232,7 @@ func (a AngularDirection) IsValid() bool {
 // CenterLocation is a location at the center of a container.
 type CenterLocation string
 
-const (
-	CenterLocationCenter CenterLocation = "center"
-)
+const CenterLocationCenter CenterLocation = "center"
 
 // IsValid reports whether c is one of the defined CenterLocation values.
 func (c CenterLocation) IsValid() bool {

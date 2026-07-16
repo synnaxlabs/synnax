@@ -212,7 +212,16 @@ import "{{.Import}}"
 {{formatDoc .Name .Doc}}
 {{- end}}
 type {{.LHS}} = {{.RHS}}
-{{- if .Consts}}
+{{- if eq (len .Consts) 1}}
+{{- with index .Consts 0}}
+
+{{- if .Doc}}
+
+{{formatDoc .Name .Doc}}
+{{- end}}
+const {{.Name}} {{.Type}} = {{.Target}}
+{{- end}}
+{{- else if .Consts}}
 
 const (
 {{- range .Consts}}

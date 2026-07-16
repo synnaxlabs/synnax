@@ -713,6 +713,12 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 type {{$enum.Name}} uint8
 
 {{"//"}}go:generate stringer -type={{$enum.Name}}
+{{- if eq (len $enum.Values) 1}}
+{{- with index $enum.Values 0}}
+
+const {{$enum.Name}}{{.Name}} {{$enum.Name}} = {{if $enum.StartsAtOne}}1{{else}}0{{end}}
+{{- end}}
+{{- else}}
 
 const (
 {{- range $i, $v := $enum.Values}}
@@ -723,11 +729,22 @@ const (
 {{- end}}
 {{- end}}
 )
+{{- end}}
 {{- else}}
 
 {{- if not $enum.Doc}}
 {{- end}}
 type {{$enum.Name}} string
+{{- if eq (len $enum.Values) 1}}
+{{- with index $enum.Values 0}}
+
+{{- if .Doc}}
+
+{{formatDoc (printf "%s%s" $enum.Name .Name) .Doc}}
+{{- end}}
+const {{$enum.Name}}{{.Name}} {{$enum.Name}} = "{{.Value}}"
+{{- end}}
+{{- else}}
 
 const (
 {{- range $enum.Values}}
@@ -737,6 +754,7 @@ const (
 	{{$enum.Name}}{{.Name}} {{$enum.Name}} = "{{.Value}}"
 {{- end}}
 )
+{{- end}}
 {{- if $enum.Values}}
 
 // IsValid reports whether {{$enum.Receiver}} is one of the defined {{$enum.Name}} values.

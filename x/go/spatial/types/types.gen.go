@@ -88,9 +88,7 @@ const (
 // CenterLocation is a location at the center of a container.
 type CenterLocation = v0.CenterLocation
 
-const (
-	CenterLocationCenter CenterLocation = v0.CenterLocationCenter
-)
+const CenterLocationCenter CenterLocation = v0.CenterLocationCenter
 
 // Location is a position indicator covering the four outer edges of a container and its
 // center.
