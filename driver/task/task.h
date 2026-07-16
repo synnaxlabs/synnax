@@ -187,8 +187,8 @@ public:
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
         if (this->deploys_ != nullptr) {
-            status.details.config_hash =
-                this->deploys_->hash(status.details.task).value_or("");
+            status.details.config_hash = this->deploys_->hash(status.details.task)
+                                             .value_or("");
             // A config error during a start-triggered deploy must ack the start
             // command so sync waiters resolve with the detailed failure.
             if (status.details.cmd.empty() &&
