@@ -97,7 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           db,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Status:       statusSvc,

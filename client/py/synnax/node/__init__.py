@@ -7,6 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.cluster.types_gen import NodeKey
+from synnax.node.types_gen import Key
 
-__all__ = ["NodeKey"]
+__all__ = ["Key"]
