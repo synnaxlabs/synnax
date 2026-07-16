@@ -13,6 +13,6 @@ exported as PascalCase (or the reverse) is a defect.
 
 ## Live-Core Tests
 
-Query/flux specs (e.g. `cluster/queries.spec.ts`, `task/queries.spec.ts`,
-`synnax/aether/provider.spec.ts`) connect to a real core at `localhost:9090`. Check for
+Query/flux specs (e.g. `node/queries.spec.ts`, `task/queries.spec.ts`,
+`synnax/aether/provider.spec.ts`) connect to a real Core at `localhost:9090`. Check for
 one and start it if missing per "Live-Core Tests" in `docs/claude/testing.md`.

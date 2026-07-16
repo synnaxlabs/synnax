@@ -41,8 +41,9 @@ type Node struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// position is the top-left position of the node.
 	Position *pb.XY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
-	// z_index is the stacking order of the node within the schematic. Higher values render
-	// above lower values. Set by the user via send-to-back / bring-to-front actions.
+	// z_index is the stacking order of the node within the schematic. Higher values
+	// render above lower values. Set by the user via send-to-back / bring-to-front
+	// actions.
 	ZIndex        int32 `protobuf:"varint,3,opt,name=z_index,json=zIndex,proto3" json:"z_index,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

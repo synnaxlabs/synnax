@@ -1479,6 +1479,27 @@ var _ = Describe("C++ Types Plugin", func() {
 						"/// @brief name is the user's display name.",
 					)
 			})
+
+			It("Should generate doxygen comments for type definitions", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/node"
+
+					Key uint12 {
+						@doc value "is a 12-bit unsigned integer identifying a node."
+					}
+
+					Keys Key[] {
+						@doc value "is a list of node keys."
+					}
+				`
+				resp := MustGenerate(ctx, source, "node", loader, cppPlugin)
+
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"/// @brief Key is a 12-bit unsigned integer identifying a node.\nusing Key = std::uint16_t;",
+						"/// @brief Keys is a list of node keys.\nstruct Keys : private std::vector<Key> {",
+					)
+			})
 		})
 
 		Context("enum variant defaults", func() {

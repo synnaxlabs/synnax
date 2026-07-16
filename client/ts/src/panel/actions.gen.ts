@@ -17,9 +17,8 @@ import { ontology } from "@/ontology";
 import { keyZ, type Panel, tabKeyZ, tabZ, viewZ } from "@/panel/types.gen";
 
 /**
- * Rename renames the panel. When the panel is owned by a user (draft),
- * the writer promotes it to project ownership in the same
- * transaction.
+ * Rename renames the panel. When the panel is owned by a user (draft), the writer
+ * promotes it to project ownership in the same transaction.
  */
 export const renamePayloadZ = z.object({
   name: z.string(),
@@ -28,16 +27,14 @@ export const renamePayloadZ = z.object({
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
 /**
- * InsertTab inserts a tab into a leaf at the given index, appending when index
- * is absent. The destination leaf is resolved from target_tab (the
- * leaf holding that tab) when set, otherwise from the target_leaf
- * path-derived key, otherwise the first leaf in traversal order. When
- * location is an edge, the resolved leaf is first split at that
- * location and the tab is inserted into the new empty leaf; a center
- * location places the tab directly in the resolved leaf, equivalent
- * to absent. Inserting a resource tab whose resource already backs
- * a tab in the panel is a no-op: a resource may back at most one
- * tab per panel, and callers select the existing tab instead.
+ * InsertTab inserts a tab into a leaf at the given index, appending when index is
+ * absent. The destination leaf is resolved from target_tab (the leaf holding that tab)
+ * when set, otherwise from the target_leaf path-derived key, otherwise the first leaf
+ * in traversal order. When location is an edge, the resolved leaf is first split at
+ * that location and the tab is inserted into the new empty leaf; a center location
+ * places the tab directly in the resolved leaf, equivalent to absent. Inserting a
+ * resource tab whose resource already backs a tab in the panel is a no-op: a resource
+ * may back at most one tab per panel, and callers select the existing tab instead.
  */
 export const insertTabPayloadZ = z.object({
   tab: tabZ,
@@ -50,9 +47,8 @@ export const insertTabPayloadZ = z.object({
 export type InsertTabPayload = z.infer<typeof insertTabPayloadZ>;
 
 /**
- * RemoveTab removes the tab with the given key. If the containing leaf
- * becomes empty and has a sibling, the reducer collapses the
- * parent split.
+ * RemoveTab removes the tab with the given key. If the containing leaf becomes empty
+ * and has a sibling, the reducer collapses the parent split.
  */
 export const removeTabPayloadZ = z.object({
   key: z.uuid(),
@@ -61,13 +57,12 @@ export const removeTabPayloadZ = z.object({
 export type RemoveTabPayload = z.infer<typeof removeTabPayloadZ>;
 
 /**
- * MoveTab moves a tab to a position within the panel. When location is an
- * edge, the target leaf is first split at that location and the
- * tab moves into the new empty leaf; moving a leaf's only tab to
- * an edge of its own leaf is a no-op. A center location places the
- * tab directly in the target leaf, equivalent to absent.
- * Cross-panel moves are RemoveTab on the source plus InsertTab on
- * the destination (two dispatches; not atomic).
+ * MoveTab moves a tab to a position within the panel. When location is an edge, the
+ * target leaf is first split at that location and the tab moves into the new empty
+ * leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. A center
+ * location places the tab directly in the target leaf, equivalent to absent.
+ * Cross-panel moves are RemoveTab on the source plus InsertTab on the destination (two
+ * dispatches; not atomic).
  */
 export const moveTabPayloadZ = z.object({
   key: z.uuid(),
@@ -79,10 +74,10 @@ export const moveTabPayloadZ = z.object({
 export type MoveTabPayload = z.infer<typeof moveTabPayloadZ>;
 
 /**
- * SplitTab splits the tab with the given key off its leaf into a new sibling
- * pane, moving the tab into it. direction x places the new pane to
- * the right, y to the bottom. The tab must share its leaf with at
- * least one other tab; splitting the only tab in a leaf is a no-op.
+ * SplitTab splits the tab with the given key off its leaf into a new sibling pane,
+ * moving the tab into it. direction x places the new pane to the right, y to the
+ * bottom. The tab must share its leaf with at least one other tab; splitting the only
+ * tab in a leaf is a no-op.
  */
 export const splitTabPayloadZ = z.object({
   key: z.uuid(),
@@ -100,11 +95,10 @@ export const resizeSplitPayloadZ = z.object({
 export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;
 
 /**
- * SetTabResource sets the visualization resource displayed by the tab with the
- * given key, swapping it in place without changing the tab's
- * identity or position. Clears any view set on the tab. A no-op
- * when the resource already backs another tab in the panel. Used
- * to fill a freshly inserted selector tab once the user picks a
+ * SetTabResource sets the visualization resource displayed by the tab with the given
+ * key, swapping it in place without changing the tab's identity or position. Clears any
+ * view set on the tab. A no-op when the resource already backs another tab in the
+ * panel. Used to fill a freshly inserted selector tab once the user picks a
  * visualization.
  */
 export const setTabResourcePayloadZ = z.object({
@@ -115,9 +109,9 @@ export const setTabResourcePayloadZ = z.object({
 export type SetTabResourcePayload = z.infer<typeof setTabResourcePayloadZ>;
 
 /**
- * SetTabView sets the inline view displayed by the tab with the given key,
- * swapping it in place without changing the tab's identity or
- * position. Clears any resource set on the tab.
+ * SetTabView sets the inline view displayed by the tab with the given key, swapping it
+ * in place without changing the tab's identity or position. Clears any resource set on
+ * the tab.
  */
 export const setTabViewPayloadZ = z.object({
   key: z.uuid(),
