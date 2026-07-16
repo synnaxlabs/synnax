@@ -121,6 +121,14 @@ var _ = Describe("FormatTS", func() {
 			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 	})
+	It("should account for indentation when wrapping", func() {
+		longDoc := "is the channel used to index this channel's values, associating each value with a timestamp."
+		result := doc.FormatTS("index", longDoc, 2)
+		lines := strings.SplitSeq(result, "\n")
+		for line := range lines {
+			Expect(2+len(line)).To(BeNumerically("<=", 88), "indented line exceeds 88 chars: %s", line)
+		}
+	})
 })
 
 var _ = Describe("FormatPyDocstring", func() {

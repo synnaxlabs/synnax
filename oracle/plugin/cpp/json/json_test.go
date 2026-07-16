@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("C++ JSON Plugin", func() {
@@ -866,6 +867,16 @@ var _ = Describe("C++ JSON Plugin", func() {
 					To(MatchError(ContainSubstring("path traversal")))
 			})
 
+			It("Should return the paths with JSON content from ContentPaths", func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+					@cpp output "client/cpp/types"
+
+					Item struct { name string }
+				`, "types", loader)
+				paths := MustSucceed(json.ContentPaths(req))
+				Expect(paths.Contains("client/cpp/types")).To(BeTrue())
+			})
+
 			It("Should propagate collection errors from ContentPaths", func(ctx SpecContext) {
 				req := MustGenerateRequest(ctx, `
 					@cpp output "../escape"
@@ -1018,6 +1029,29 @@ var _ = Describe("C++ JSON Union Generation", func() {
 			ToContain(
 				`.custom_scale = parse_scale(parser.child("custom_scale")),`,
 				`j["custom_scale"] = ::synnax::out::to_json(this->custom_scale);`,
+			)
+	})
+
+	It("Should parse an optional union-typed field as std::optional", func(ctx SpecContext) {
+		source := `
+			@cpp output "out"
+
+			LinearScale struct { slope float64 }
+			NoneScale struct {}
+
+			Scale union on type {
+				linear LinearScale
+				none NoneScale
+			}
+
+			Channel struct {
+				customScale Scale?
+			}
+		`
+		resp := MustGenerate(ctx, source, "ni", loader, jsonPlugin)
+		ExpectContent(resp, "json.gen.h").
+			ToContain(
+				`parser.has("custom_scale") ? std::optional<Scale>(parse_scale(parser.child("custom_scale"))) : std::nullopt`,
 			)
 	})
 

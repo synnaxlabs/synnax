@@ -1022,6 +1022,50 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
+			It("Should convert optional alias fields targeting cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					InfoRef = common.Info
+
+					Task struct {
+						info InfoRef?
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						"if (this->info.has_value())",
+						"this->info->to_proto()",
+						"if (pb.has_info())",
+					)
+			})
+
+			It("Should convert optional arrays of cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						infos common.Info[]?
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						"if (this->infos.has_value())",
+						"wrapper->add_values()",
+						"cpp.infos.emplace();",
+					)
+			})
+
 			It("Should convert arrays of cross-namespace structs", func(ctx SpecContext) {
 				source := `
 					import "schemas/common"
