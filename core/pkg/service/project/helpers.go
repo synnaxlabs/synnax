@@ -10,7 +10,7 @@
 package project
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 

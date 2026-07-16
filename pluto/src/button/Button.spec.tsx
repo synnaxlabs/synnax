@@ -31,6 +31,28 @@ describe("Button", () => {
     });
   });
 
+  describe("draggable", () => {
+    it("should not prevent default on mousedown for a draggable button, so a native dragstart can begin", () => {
+      const c = render(
+        <Button.Button el="div" tabIndex={-1} draggable>
+          Drag
+        </Button.Button>,
+      );
+      const notPrevented = fireEvent.mouseDown(c.getByText("Drag"));
+      expect(notPrevented).toBe(true);
+    });
+
+    it("should prevent default on mousedown for a non-draggable tabIndex=-1 button", () => {
+      const c = render(
+        <Button.Button el="div" tabIndex={-1}>
+          NoDrag
+        </Button.Button>,
+      );
+      const notPrevented = fireEvent.mouseDown(c.getByText("NoDrag"));
+      expect(notPrevented).toBe(false);
+    });
+  });
+
   describe("size", () => {
     it("should render a medium button by default", () => {
       const c = render(<Button.Button>Hello</Button.Button>);

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Mosaic } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v1 from "@/session/layout/migrations/v1";
 import * as v9 from "@/session/layout/migrations/v9";
+import * as Mosaic from "@/session/layout/mosaic";
 
 export const VERSION = "10.0.0";
 

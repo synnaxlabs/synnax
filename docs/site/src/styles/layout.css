@@ -66,7 +66,7 @@ nav {
     background: var(--pluto-gray-l2-20);
     border-right: var(--pluto-border);
 
-    .pluto-tabs-selector {
+    .pluto-tabs__selector {
         position: sticky;
         top: 0;
         background: var(--pluto-gray-l0);
@@ -77,7 +77,7 @@ nav {
             font-weight: 400;
         }
 
-        & .pluto-tabs-selector__btn {
+        & .pluto-tabs__tab {
             flex-grow: 1;
         }
     }
@@ -145,11 +145,11 @@ article {
         margin-top: 4rem;
     }
 
-    .pluto-tabs-selector .pluto-text {
+    .pluto-tabs__selector .pluto-text {
         color: var(--pluto-gray-l10);
     }
 
-    .pluto-tabs-content h2:first-of-type {
+    .pluto-tabs__content h2:first-of-type {
         margin-top: 4rem;
     }
 

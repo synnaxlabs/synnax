@@ -7,36 +7,62 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
-import { type Theming } from "@synnaxlabs/pluto";
-import { useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { Theming, useAsyncEffect } from "@synnaxlabs/pluto";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useMemo, useState } from "react";
 
+import { Runtime } from "@/session/runtime";
 import { Select } from "@/session/select";
 import {
-  type Action,
-  select,
+  type Mode,
+  modeZ,
   SLICE_NAME,
   type SliceState,
   type StoreState,
-  toggle,
 } from "@/session/theme/slice";
 
 const selectSlice = (state: StoreState): SliceState => state[SLICE_NAME];
 
-const selectSelected = (state: StoreState) => selectSlice(state).selected;
+const selectMode = (state: StoreState): Mode =>
+  modeZ.catch("system").parse(selectSlice(state).mode);
 
-export const useSelectSelected = (): string => Select.useMemo(selectSelected, []);
+export const useSelectMode = (): Mode => Select.useMemo(selectMode, []);
+
+const keyFor = (dark: boolean): string =>
+  dark ? Theming.SYNNAX_DARK.key : Theming.SYNNAX_LIGHT.key;
+
+const prefersDark = (): boolean =>
+  typeof window?.matchMedia !== "undefined" &&
+  window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+const FIXED_KEYS: Record<Exclude<Mode, "system">, string> = {
+  light: Theming.SYNNAX_LIGHT.key,
+  dark: Theming.SYNNAX_DARK.key,
+};
 
 export const useProviderProps = (): Theming.ProviderProps => {
-  const key = useSelectSelected();
-  const dispatch = useDispatch<Dispatch<Action>>();
-  return useMemo<Theming.ProviderProps>(
-    () => ({
-      theme: { key },
-      setTheme: (key: string) => dispatch(select(key)),
-      toggleTheme: () => dispatch(toggle()),
-    }),
-    [key],
+  const mode = useSelectMode();
+  const system = mode === "system";
+  const [osKey, setOSKey] = useState(() => keyFor(prefersDark()));
+  useAsyncEffect(
+    async (signal) => {
+      if (!system) return;
+      if (Runtime.ENGINE !== "tauri") {
+        const query = window.matchMedia("(prefers-color-scheme: dark)");
+        setOSKey(keyFor(query.matches));
+        const handler = (e: MediaQueryListEvent) => setOSKey(keyFor(e.matches));
+        query.addEventListener("change", handler);
+        return () => query.removeEventListener("change", handler);
+      }
+      const win = getCurrentWindow();
+      setOSKey(keyFor((await win.theme()) === "dark"));
+      if (signal.aborted) return;
+      return await win.onThemeChanged(({ payload }) =>
+        setOSKey(keyFor(payload === "dark")),
+      );
+    },
+    [system],
   );
+  const key = system ? osKey : FIXED_KEYS[mode];
+  return useMemo<Theming.ProviderProps>(() => ({ theme: { key } }), [key]);
 };

@@ -19,7 +19,10 @@ import { status } from "@/status";
 export const keyZ = z.string();
 export type Key = z.infer<typeof keyZ>;
 
-/** StatusDetails contains device-specific status details identifying the device and its associated rack. */
+/**
+ * StatusDetails contains device-specific status details identifying the device and its
+ * associated rack.
+ */
 export const statusDetailsZ = z.object({
   /** rack is the key of the rack this device belongs to. */
   rack: rack.keyZ,

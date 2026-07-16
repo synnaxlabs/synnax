@@ -20,10 +20,11 @@ import (
 )
 
 type (
-	Command        = framer.IteratorCommand
-	StreamIterator = framer.StreamIterator
-	Request        = framer.IteratorRequest
-	Response       = framer.IteratorResponse
+	Command         = framer.IteratorCommand
+	ResponseVariant = framer.IteratorResponseVariant
+	StreamIterator  = framer.StreamIterator
+	Request         = framer.IteratorRequest
+	Response        = framer.IteratorResponse
 )
 
 const (

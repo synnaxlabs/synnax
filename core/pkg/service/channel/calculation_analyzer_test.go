@@ -22,7 +22,6 @@ import (
 )
 
 var _ = Describe("Analyze", func() {
-
 	Describe("Type Inference", func() {
 		It("Should infer the correct type for integer literal expressions", func(ctx SpecContext) {
 			a := channel.NewCalculationAnalyzer(StaticResolver{})
@@ -73,7 +72,10 @@ var _ = Describe("Analyze", func() {
 			r := StaticResolver{
 				{Name: "ox-pt-1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10},
 			}
-			a := channel.NewCalculationAnalyzer(r, parser.Config{AllowDashedNames: true})
+			a := channel.NewCalculationAnalyzer(
+				r,
+				parser.Config{AllowDashedNames: true},
+			)
 			ch := channel.Channel{Name: "calc", Expression: "return ox-pt-1 * 2.0"}
 			res := MustSucceed(a.Analyze(ctx, ch))
 			Expect(res.ChanDataType).To(Equal(telem.Float32T))
@@ -214,12 +216,11 @@ var _ = Describe("Analyze", func() {
 			Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 		})
 
-		It("Should return zero Result on parse error", func(ctx SpecContext) {
+		It("Should return zero CalculationAnalysisResult on parse error", func(ctx SpecContext) {
 			a := channel.NewCalculationAnalyzer(StaticResolver{})
 			ch := channel.Channel{Name: "calc", Expression: "return {{invalid"}
-			res, err := a.Analyze(ctx, ch)
-			Expect(err).To(MatchError(ContainSubstring("extraneous input")))
-			Expect(res).To(Equal(channel.CalculationAnalysisResult{}))
+			Expect(a.Analyze(ctx, ch)).Error().
+				To(MatchError(ContainSubstring("extraneous input")))
 		})
 
 		It("Should return unresolved names on analysis error", func(ctx SpecContext) {

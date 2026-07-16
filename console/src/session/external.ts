@@ -18,6 +18,7 @@ export * from "@/session/lineplot";
 export * from "@/session/log";
 export * from "@/session/modals";
 export * from "@/session/nav";
+export * from "@/session/panel";
 export * from "@/session/persist";
 export * from "@/session/project";
 export * from "@/session/range";

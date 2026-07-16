@@ -16,7 +16,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 
-#include "core/pkg/distribution/ontology/pb/ontology.pb.h"
+#include "core/pkg/service/ontology/pb/ontology.pb.h"
 
 namespace synnax::ontology {
 /// @brief An ontology ID is a composite identifier consisting of a type and key.
@@ -51,12 +51,12 @@ struct ID {
     [[nodiscard]] x::json::json to_json() const;
 
     /// @brief Constructs an ID from its protobuf representation.
-    using proto_type = ::distribution::ontology::pb::ID;
+    using proto_type = ::service::ontology::pb::ID;
     static std::pair<ID, x::errors::Error>
-    from_proto(const ::distribution::ontology::pb::ID &pb);
+    from_proto(const ::service::ontology::pb::ID &pb);
 
     /// @brief Serializes the ID to its protobuf representation.
-    [[nodiscard]] std::pair<::distribution::ontology::pb::ID, x::errors::Error>
+    [[nodiscard]] std::pair<::service::ontology::pb::ID, x::errors::Error>
     to_proto() const;
 
     /// @brief Equality operator.

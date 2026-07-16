@@ -38,10 +38,11 @@ message Task {
   uint64 key = 1;
   // name is a human-readable name for the task.
   string name = 2;
-  // type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
-  // which hardware integration handles the task.
+  // type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+  // Determines which hardware integration handles the task.
   string type = 3;
-  // config is task-specific configuration stored as JSON. Structure varies by task type.
+  // config is task-specific configuration stored as JSON. Structure varies by task
+  // type.
   google.protobuf.Struct config = 4;
   // internal is true if this is an internal system task.
   bool internal = 5;

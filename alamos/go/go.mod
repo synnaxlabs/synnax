@@ -5,10 +5,12 @@ go 1.26.4
 replace github.com/synnaxlabs/x => ../../x/go
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/onsi/ginkgo/v2 v2.32.0
 	github.com/onsi/gomega v1.42.0
 	github.com/samber/lo v1.53.0
 	github.com/synnaxlabs/x v0.0.0
+	github.com/uptrace/uptrace-go v1.43.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/trace v1.44.0
 	go.uber.org/zap v1.28.0
@@ -28,13 +30,11 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20260604005048-7023385849c0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rogpeppe/go-internal v1.15.0 // indirect
-	github.com/uptrace/uptrace-go v1.43.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/runtime v0.69.0 // indirect
 	go.opentelemetry.io/contrib/processors/minsev v0.16.1 // indirect

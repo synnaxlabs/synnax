@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { ColorField } from "@/schematic/node/common/form/Color";
-import { COMMON_TOGGLE_FORM_TABS } from "@/schematic/node/common/form/input";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
 import { StyleForm } from "@/schematic/node/common/form/Style";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";
@@ -31,21 +30,28 @@ export const ToggleForm = ({
   actions,
   hideInnerOrientation,
   omit,
-}: ToggleFormProps): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(
-    ({ tabKey }) => {
-      switch (tabKey) {
-        case "control":
-          return <Toggle.ChannelForm path="" omit={omit} />;
-        default:
-          return <StyleForm hideInnerOrientation={hideInnerOrientation} />;
-      }
-    },
-    [hideInnerOrientation, omit],
-  );
-  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
-  return <Tabs.Tabs {...props} actions={actions} />;
-};
+}: ToggleFormProps): ReactElement => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
+      {actions != null && (
+        <>
+          <Flex.Box grow />
+          <Flex.Box x align="center" empty>
+            {actions}
+          </Flex.Box>
+        </>
+      )}
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <StyleForm hideInnerOrientation={hideInnerOrientation} />
+    </Tabs.Content>
+    <Tabs.Content itemKey="control">
+      <Toggle.ChannelForm path="" omit={omit} />
+    </Tabs.Content>
+  </Tabs.Frame>
+);
 
 export const DummyToggleForm = (): ReactElement => (
   <Wrapper x align="stretch">

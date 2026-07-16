@@ -106,7 +106,11 @@ export const useContextMenu = (): UseContextMenuReturn => {
       // Prevent parent context menus from opening.
       e.stopPropagation();
       const selected = findSelected(e.target as HTMLElement);
-      keys = unique.unique(selected.map((el) => el.id).filter((id) => id.length > 0));
+      keys = unique.unique(
+        selected
+          .map((el) => el.dataset.menuKey ?? el.id)
+          .filter((key) => key.length > 0),
+      );
     }
     setMenuState({ visible: true, keys, position: p, cursor: p });
   }, []);
@@ -194,13 +198,15 @@ const Internal = ({
  * Menu.ContextMenu should be used in conjunction with the Menu.useContextMenu
  * hook.
  *
- * The rendered menu is provided with a set of keys that represent the HTML IDs
- * of the context target elements. The first target is evaluated by traversing
- * the parents of the element that was right clicked until an element with the
- * class "pluto-context-target" is found. If no such element is found, the right
- * clicked element itself is used as the target. If this target has the class
- * "pluto-context-selected", then subsequent targets are found by querying all
- * siblings of the first target that have the "pluto-context-selected" class.
+ * The rendered menu is provided with a set of keys that identify the context
+ * target elements. A target's key is its `data-menu-key` attribute when present,
+ * otherwise its HTML id. Set `data-menu-key` when the element's id is reserved for
+ * another purpose (e.g. a tab whose id encodes ARIA linking). The first target is
+ * evaluated by traversing the parents of the element that was right clicked until
+ * an element with the class "pluto-context-target" is found. If no such element is
+ * found, the right clicked element itself is used as the target. If this target has
+ * the class "pluto-context-selected", then subsequent targets are found by querying
+ * all siblings of the first target that have the "pluto-context-selected" class.
  * Otherwise, the only key is the first target.
  *
  * @example <caption>Example DOM structure</caption>

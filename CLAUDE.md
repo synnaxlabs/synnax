@@ -38,8 +38,8 @@ needing broader context:
 - **BDD-style tests** with the language's framework; co-located with source where the
   language allows.
 - **Absolute imports** in TypeScript (`@/components`).
-- **Dependency injection & composition** over singletons, mocking, and inheritance, in
-  every language.
+- **Composition over inheritance**, in every language. Dependency injection and globals:
+  see Architectural Principles below.
 - **Naming**: functions that populate data (fixtures, initial records) are `create*`,
   never `seed*`.
 - 🚨 **THE NAMESPACE CARRIES THE CONTEXT — NEVER REPEAT IT IN AN IDENTIFIER.** Claude
@@ -57,6 +57,42 @@ needing broader context:
 
 - **`common/`, never `shared/`**, for directories holding utilities reused by sibling
   modules. All languages.
+
+## Architectural Principles
+
+Dependencies are explicit, injected inputs — never reached for ambiently. All languages.
+
+- **Inject dependencies; make them visible and substitutable.** Every dependency is an
+  input at the construction boundary (a `Config` struct, constructor args) — the
+  constructor shows the full set; nothing comes from module scope. Each is a seam,
+  swappable for another production or test implementation. Validate required ones at
+  construction (Go: `Config.Validate`).
+- **Substitute by constructing the real thing with test config** (in-memory DB, fake
+  cluster), not mocks. Tests exercise production paths.
+- **Concrete by default; an interface only for real runtime polymorphism.** A
+  speculative one-impl interface is a smell. When warranted, keep it small and
+  single-role. (Go ladder: concrete → interface → generic → sealed sum → `any`.)
+- **Deep modules**: a small interface hiding substantial implementation. Worth =
+  functionality hidden ÷ interface size (`cesium`, `freighter`). A narrow surface over a
+  trivial body is a shallow wrapper; the test is whether deleting the module would just
+  push its complexity onto every caller.
+- **No pass-through functions** unless one enforces an architectural boundary: a layer
+  forwarding to its neighbor so callers can't reach past it, keeping the dependency
+  direction intact. Absent that boundary, inline it.
+- 🚨 **No mutable globals, ever** — no package-level mutable `var`s or singletons.
+  `const`s are fine; a `var` never mutated is fine. A registry is fine only as an
+  injected, explicitly-constructed instance (`imex.Service`), never a package singleton
+  that self-populates through the import graph.
+- **No load-time self-wiring**: no `init()` side effects, no `import _ "pkg"`. Wire at
+  the call site. (Go: `docs/claude/toolchains/go.md` Rule 10.)
+- **Pluggable dispatch** (handlers keyed by type/variant) is composed at an explicit
+  wiring site: a module-level `const` map in TS (canonical), a runtime-assembled
+  injected instance in Go/C++. Avoid runtime `Register` unless a stronger principle
+  (layer boundaries, init order) forces it; then register onto an injected base, never
+  via `init()`.
+- **Unknown dispatch key**: fail loud (throw/error/panic) when the key is internal and
+  the table should cover it — a missing handler is a composition bug. Handle gracefully
+  as normal validation when the key is user-provided. Never a silent no-op.
 
 ## Comments (all languages)
 
@@ -121,7 +157,7 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
    to `main`.
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
-3. **Match the title convention**: `SY-####: Title Case Description` (Linear issue),
+3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
    prefixes like `[docs]`/`[rc]` for non-issue work. Check
    `gh pr list --state all --limit 20 --json title,baseRefName` and match — don't invent
    a format.

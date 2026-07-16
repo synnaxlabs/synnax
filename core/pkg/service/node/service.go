@@ -15,8 +15,9 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -30,7 +31,7 @@ type ServiceConfig struct {
 	// peers.
 	//
 	// [REQUIRED]
-	Cluster Cluster
+	Cluster cluster.Cluster
 	// Ontology is the ontology to which node resources are published.
 	//
 	// [REQUIRED]

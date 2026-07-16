@@ -25,7 +25,7 @@ class MosaicOperations(ConsoleCase):
     def run(self) -> None:
         """Run all mosaic operation tests."""
         # Tests using shared page (non-destructive)
-        self.test_toggle_color_theme()
+        self.test_change_color_theme()
         self.test_find_tab()
         self.test_focus_via_context_menu()
         self.test_focus_via_cmd_l()
@@ -180,20 +180,35 @@ class MosaicOperations(ConsoleCase):
         )
         return classes
 
-    def test_toggle_color_theme(self) -> None:
-        """Should toggle the color theme via the command palette."""
-        self.log("test_toggle_color_theme: Toggling color theme")
+    def test_change_color_theme(self) -> None:
+        """Should change the color theme via the command palette picker."""
+        self.log("test_change_color_theme: Changing color theme")
         console = self.console
 
         original_theme = self._get_theme_class()
         assert original_theme, "Should have an active pluto theme class"
 
-        console.layout.command_palette("Toggle color theme")
+        is_dark = "dark" in original_theme
+        target_option = "Light" if is_dark else "Dark"
+        target_theme = (
+            "pluto-theme-synnax-light" if is_dark else "pluto-theme-synnax-dark"
+        )
+
+        console.layout.command_palette("Change color theme")
+        option = (
+            console.layout.page.locator(".console-theme-modal .pluto-list__item")
+            .filter(has_text=target_option)
+            .first
+        )
+        option.wait_for(state="visible", timeout=5000)
+        option.click(timeout=5000)
+
         console.layout.page.wait_for_function(
-            f"!document.documentElement.classList.contains('{original_theme}')",
+            f"document.documentElement.classList.contains('{target_theme}')",
             timeout=5000,
         )
         new_theme = self._get_theme_class()
-        assert new_theme != original_theme, (
-            f"Theme should change. Before: '{original_theme}', After: '{new_theme}'"
+        assert new_theme == target_theme, (
+            f"Theme should change to '{target_theme}'. "
+            f"Before: '{original_theme}', After: '{new_theme}'"
         )

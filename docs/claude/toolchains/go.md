@@ -61,8 +61,8 @@ and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)
 If callers (including tests) will branch on an error condition, represent it as an
 exported package-level `var Err<Condition>` — never a one-off `errors.New` that forces
 substring matching. **Reuse existing sentinels first** by wrapping them
-(`query.ErrNotFound`, `validate.Error`, `freighter.EOF`) — this keeps `errors.Is`
-matching for both the specific and general shape:
+(`query.ErrNotFound`, `validate.ErrValidation`, `freighter.EOF`) — this keeps
+`errors.Is` matching for both the specific and general shape:
 
 ```go
 var ErrNotFound = errors.Wrap(query.ErrNotFound, "channel not found")
@@ -72,14 +72,34 @@ Create a new sentinel only when no existing one fits and the error is part of th
 package's public contract. Never speculatively. Message starts lowercase, no trailing
 period, doc comment says when it's returned.
 
-### Rule 4: No throwaway debug scripts
+### Rule 4: Validation errors wrap `validate.ErrValidation`
+
+Any error for caller-provided data failing a rule, format, or completeness check wraps
+`validate.ErrValidation` (`github.com/synnaxlabs/x/validate`), never a bare
+`errors.New`. Prefer its helpers: `validate.New(scope)` plus `Ternary`/`Ternaryf` join
+multiple field failures; `NotNil`, `Positive`, `InBounds`, `NonZero`, `NotEmptySlice`,
+`NotEmptyString` cover common checks; `PathedError` prefixes a field path for nested
+structs.
+
+```go
+v := validate.New("cert.SourceConfig")
+validate.NotEmptyString(v, "address", cfg.Address)
+return v.Error()
+```
+
+This generalizes: wrap the best-fitting existing general-purpose error
+(`validate.ErrValidation`, `query.ErrNotFound`, `freighter.EOF`, ...) instead of a fresh
+one-off. Introduce a new error type only when none fits, and justify it in conversation,
+not a comment.
+
+### Rule 5: No throwaway debug scripts
 
 Never create ad-hoc `main` packages or scratch files to explore behavior. Write a
 focused Ginkgo `It("reproduces ...")` in the package under investigation and iterate
 with `ginkgo --focus`. Temporary `fmt.Println` inside the test is fine (remove before
 committing).
 
-### Rule 5: Never edit generated code
+### Rule 6: Never edit generated code
 
 Identified by `Code generated ... DO NOT EDIT.` headers and `.gen.` / `_gen` suffixes.
 Edit the source `.oracle` schema in `/schemas/` instead, then run `oracle sync` — always
@@ -89,12 +109,12 @@ investigate the generator in `/oracle/` (`analyzer/`, `formatter/`, `resolution/
 `exec/`), describe the gap and blast radius, and wait for user approval before touching
 it.
 
-### Rule 6: `any`, never `interface{}`
+### Rule 7: `any`, never `interface{}`
 
 Everywhere — params, returns, map/slice elements, constraints, fields, assertions. Fix
 `interface{}` to `any` when editing existing code.
 
-### Rule 7: Use `any` with extreme caution
+### Rule 8: Use `any` with extreme caution
 
 Default answer is no. Prefer, in order: concrete type → focused interface → generic type
 parameter → sealed sum-like interface with one documented type switch → `any`.
@@ -103,12 +123,19 @@ reflective serialization boundaries (`json.Marshal`), truly heterogeneous framew
 containers (DI registry). Justify each use in conversation with the user, not in an
 inline comment.
 
-### Rule 8: `set.Set[T]` for set membership
+### Rule 9: `set.Set[T]` for set membership
 
 Use `set.Set[T]` from `github.com/synnaxlabs/x/set` — never hand-rolled `map[T]struct{}`
 or `map[T]bool`. Same performance, clear intent. A map-of-bool is legitimate only when
 the bool carries real tri-state/toggle meaning ("explicitly disabled" vs "not
 configured").
+
+### Rule 10: No `init()` functions, no ambient imports
+
+Never use `init()` to run package-load-time side effects, and never import a package
+solely for its `init()` (`import _ "pkg"`). Both hide behavior behind an import graph
+instead of an explicit call. Wire the setup explicitly at the call site (a constructor,
+an app-startup function) instead.
 
 ## Comments
 
@@ -151,11 +178,18 @@ frame, release := MustSucceed2(reader.Read(ctx))
 
 ### Rule 2: Assert errors inline with `Expect(fn()).Error().To(MatchError(...))`
 
-Never capture the error into a variable first. `.Error()` additionally asserts every
-other return value is zero-valued, catching partial-result bugs.
+Never capture the error into a variable first, not even the other return with `_`: that
+discard means the test can't catch a partial-result bug, where the function wrongly
+returns non-zero alongside the error. `.Error()` matches the error and asserts every
+other return value is zero-valued.
 
 ```go
-Expect(reader.Read(ctx)).Error().To(MatchError(myError))
+// Bad: discards the Source; a half-built Source on this error path would still pass.
+_, err := auto.Factory{}.NewSource(cfg)
+Expect(err).To(MatchError(myError))
+
+// Good: asserts the Source is zero-valued too.
+Expect(auto.Factory{}.NewSource(cfg)).Error().To(MatchError(myError))
 ```
 
 ### Rule 3: Unwrap `(T, bool)` with `MustBeOk`
