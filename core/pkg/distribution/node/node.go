@@ -15,19 +15,15 @@ package node
 import "github.com/synnaxlabs/aspen"
 
 type (
-	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
-	// network address. Nodes report a State that reflects their current reachability as
-	// observed by the host Core.
-	Node = aspen.Node
 	// Key is a 12-bit unsigned integer that uniquely identifies a Node within a
 	// cluster. Keys are assigned dynamically when a node joins the cluster (via
 	// distributed counter through aspen's pledge protocol). Two reserved values are
 	// defined: KeyFree and KeyBootstrapper.
 	Key = aspen.NodeKey
-	// State describes the reachability of a Node from the host's perspective. The
-	// concrete values (Healthy, Suspect, Dead, Left) live on aspen's node package and
-	// propagate through the cluster via SI gossip.
-	State = aspen.NodeState
+	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
+	// network address. Nodes report a State that reflects their current reachability as
+	// observed by the host Core.
+	Node = aspen.Node
 	// Change describes a single mutation to a Node's record (a node joining, leaving,
 	// or transitioning state). Changes are emitted by the cluster-membership view as
 	// part of a cluster.Change batch.
@@ -35,11 +31,11 @@ type (
 )
 
 const (
+	// KeyBootstrapper is the reserved Key assigned to the first node in a cluster (the
+	// node that bootstraps a new cluster rather than joining an existing one).
+	KeyBootstrapper = aspen.NodeKeyBootstrapper
 	// KeyFree is the reserved Key used for resources that are not leased to any
 	// specific node — most notably free (virtual / non-persisted) channels. It is never
 	// assigned to a real node.
 	KeyFree = aspen.NodeKeyFree
-	// KeyBootstrapper is the reserved Key assigned to the first node in a cluster (the
-	// node that bootstraps a new cluster rather than joining an existing one).
-	KeyBootstrapper = aspen.NodeKeyBootstrapper
 )

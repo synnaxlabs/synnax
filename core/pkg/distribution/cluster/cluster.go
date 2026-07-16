@@ -21,16 +21,13 @@ type (
 	// Change is a batch of node-level changes emitted by Cluster.OnChange when the
 	// gossip layer integrates new state from a peer.
 	Change = aspen.ClusterChange
-	// State is a point-in-time snapshot of the cluster as the host sees it, including
-	// the host's own node key and the group of all known nodes.
-	State = aspen.ClusterState
 	// Resolver maps a node key to the network address at which that node can be
 	// reached.
 	Resolver = aspen.Resolver
-	// HostResolver is a Resolver that also exposes information about the host node it
-	// is running on (its key and full node record).
-	HostResolver = aspen.HostResolver
 	// HostProvider exposes information about the host node — its key and full node
 	// record — without performing remote resolution.
 	HostProvider = aspen.HostProvider
+	// HostResolver is a Resolver that also exposes information about the host node it
+	// is running on (its key and full node record).
+	HostResolver = aspen.HostResolver
 )

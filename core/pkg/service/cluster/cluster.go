@@ -22,7 +22,4 @@ type (
 	// HostProvider exposes information about the host node without performing remote
 	// resolution.
 	HostProvider = cluster.HostProvider
-	// HostResolver resolves node keys to network addresses and exposes information
-	// about the host node.
-	HostResolver = cluster.HostResolver
 )

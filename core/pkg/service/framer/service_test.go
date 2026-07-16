@@ -82,7 +82,7 @@ var _ = Describe("Service", func() {
 					c.Status = nil
 				}, "status"),
 				Entry("host_resolver", func(c *framer.ServiceConfig) {
-					c.HostResolver = nil
+					c.HostProvider = nil
 				}, "host_resolver"),
 			)
 		})
@@ -93,14 +93,14 @@ var _ = Describe("Service", func() {
 				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
 				Expect(res.Status).To(Equal(statusSvc))
-				Expect(res.HostResolver).To(Equal(node.Cluster))
+				Expect(res.HostProvider).To(Equal(node.Cluster))
 			})
 			It("Should replace base values with non-nil overrides", func() {
 				res := framer.ServiceConfig{}.Override(validCfg)
 				Expect(res.Framer).To(Equal(node.Framer))
 				Expect(res.Channel).To(Equal(channelSvc))
 				Expect(res.Status).To(Equal(statusSvc))
-				Expect(res.HostResolver).To(Equal(node.Cluster))
+				Expect(res.HostProvider).To(Equal(node.Cluster))
 			})
 			It("Should override zero-value instrumentation", func() {
 				res := framer.ServiceConfig{}.Override(framer.ServiceConfig{
