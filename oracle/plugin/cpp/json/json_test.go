@@ -724,6 +724,183 @@ var _ = Describe("C++ JSON Plugin", func() {
 			})
 		})
 
+		Context("cross-namespace union references", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/scales", `
+					@cpp output "x/cpp/scales"
+
+					LinearScale struct { slope float64 }
+					NoneScale struct {}
+
+					Scale union on type {
+						linear LinearScale
+						none NoneScale
+					}
+				`)
+			})
+
+			It("Should qualify parse and to_json for a cross-namespace union field", func(ctx SpecContext) {
+				source := `
+					import "schemas/scales"
+
+					@cpp output "client/cpp/channel"
+
+					Channel struct {
+						custom_scale scales.Scale
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+
+				ExpectContent(resp, "channel/json.gen.h").
+					ToContain(
+						`#include "x/cpp/scales/json.gen.h"`,
+						`::x::scales::parse_scale(parser.child("custom_scale"))`,
+						`j["custom_scale"] = ::x::scales::to_json(this->custom_scale);`,
+					)
+			})
+
+			It("Should qualify parse and to_json for arrays of a cross-namespace union", func(ctx SpecContext) {
+				source := `
+					import "schemas/scales"
+
+					@cpp output "client/cpp/channel"
+
+					Channel struct {
+						all scales.Scale[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+
+				ExpectContent(resp, "channel/json.gen.h").
+					ToContain(
+						`#include "x/cpp/scales/json.gen.h"`,
+						`result.push_back(::x::scales::parse_scale(p));`,
+						`arr.push_back(::x::scales::to_json(item));`,
+					)
+			})
+
+			It("Should derive the namespace from the union in a union-only package", func(ctx SpecContext) {
+				source := `
+					import "schemas/scales"
+
+					@cpp output "client/cpp/task"
+
+					Config union on type {
+						linear scales.LinearScale
+						none scales.NoneScale
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "task/json.gen.h").
+					ToContain(`parse_config(x::json::Parser parser) {`)
+			})
+		})
+
+		Context("cross-namespace alias targets", func() {
+			It("Should include the target's json header for an alias to a cross-namespace struct", func(ctx SpecContext) {
+				loader.Add("schemas/common", `
+					@cpp output "client/cpp/common"
+
+					Info struct {
+						name string
+					}
+				`)
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+
+					InfoRef = common.Info
+
+					Task struct {
+						info InfoRef
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+				ExpectContent(resp, "task/json.gen.h").
+					ToContain(`#include "client/cpp/common/json.gen.h"`)
+			})
+		})
+
+		Context("invalid output paths", func() {
+			It("Should error when a struct's output path escapes the repository", func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+					@cpp output "../escape"
+
+					Bad struct { name string }
+				`, "types", loader)
+				Expect(jsonPlugin.Generate(req)).Error().
+					To(MatchError(ContainSubstring("path traversal")))
+			})
+
+			It("Should error when a distinct type's output path escapes the repository", func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+					@cpp output "../escape"
+
+					Key uint32
+				`, "types", loader)
+				Expect(jsonPlugin.Generate(req)).Error().
+					To(MatchError(ContainSubstring("path traversal")))
+			})
+
+			It("Should error when a union's output path escapes the repository", func(ctx SpecContext) {
+				loader.Add("schemas/scales", `
+					@cpp output "x/cpp/scales"
+
+					LinearScale struct { slope float64 }
+					NoneScale struct {}
+				`)
+				req := MustGenerateRequest(ctx, `
+					import "schemas/scales"
+
+					@cpp output "../escape"
+
+					Scale union on type {
+						linear scales.LinearScale
+						none scales.NoneScale
+					}
+				`, "types", loader)
+				Expect(jsonPlugin.Generate(req)).Error().
+					To(MatchError(ContainSubstring("path traversal")))
+			})
+
+			It("Should propagate collection errors from ContentPaths", func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+					@cpp output "../escape"
+
+					Bad struct { name string }
+				`, "types", loader)
+				Expect(json.ContentPaths(req)).Error().
+					To(MatchError(ContainSubstring("path traversal")))
+			})
+
+			It("Should skip deletions for output paths outside the repository", func(ctx SpecContext) {
+				loader.Add("schemas/outside", `
+					@cpp output "../outside"
+
+					TimeRange struct {
+						start uint64
+
+						@cpp omit
+					}
+				`)
+				source := `
+					import "schemas/outside"
+
+					@cpp output "client/cpp/channel"
+
+					Channel struct {
+						time_range outside.TimeRange
+					}
+				`
+				resp := MustGenerate(ctx, source, "channel", loader, jsonPlugin)
+
+				Expect(resp.Deletions).To(BeEmpty())
+			})
+		})
+
 		Context("plugin interface", func() {
 			It("Should return default options with json.gen.h filename", func() {
 				opts := json.DefaultOptions()
