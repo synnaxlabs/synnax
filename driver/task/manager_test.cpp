@@ -363,7 +363,8 @@ TEST_F(TaskManagerTest, DeployOnStart) {
                s.message == "configured";
     });
     ASSERT_EQ(s.details.task, task.key);
-    ASSERT_EQ(s.details.config_hash, synnax::task::hash_config(task.config));
+    ASSERT_FALSE(task.config_hash.empty());
+    ASSERT_EQ(s.details.config_hash, task.config_hash);
     ASSERT_EQ(s.details.rack, rack.key);
 }
 
