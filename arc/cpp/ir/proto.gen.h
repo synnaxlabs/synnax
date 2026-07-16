@@ -14,7 +14,6 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/pb/pb.h"
 
 #include "arc/cpp/ir/json.gen.h"
@@ -148,8 +147,8 @@ inline std::pair<::arc::ir::pb::Scope, x::errors::Error> Scope::to_proto() const
         if (err) return {{}, err};
         *pb.add_transitions() = v;
     }
-    for (const auto &item: this->reset_channels)
-        pb.add_reset_channels(item);
+    for (const auto &item: this->reset_nodes)
+        pb.add_reset_nodes(item);
     return {pb, x::errors::NIL};
 }
 
@@ -177,8 +176,8 @@ Scope::from_proto(const ::arc::ir::pb::Scope &pb) {
             pb.transitions()
         ))
         return {{}, err};
-    for (const auto &item: pb.reset_channels())
-        cpp.reset_channels.push_back(item);
+    for (const auto &item: pb.reset_nodes())
+        cpp.reset_nodes.push_back(item);
     return {cpp, x::errors::NIL};
 }
 
@@ -267,8 +266,6 @@ inline std::pair<::arc::ir::pb::Node, x::errors::Error> Node::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_channels() = v;
     }
-    pb.set_is_literal(this->is_literal);
-    pb.set_backs_internal_channel(this->backs_internal_channel);
     return {pb, x::errors::NIL};
 }
 
@@ -292,8 +289,6 @@ Node::from_proto(const ::arc::ir::pb::Node &pb) {
         if (err) return {{}, err};
         cpp.channels = v;
     }
-    cpp.is_literal = pb.is_literal();
-    cpp.backs_internal_channel = pb.backs_internal_channel();
     return {cpp, x::errors::NIL};
 }
 
@@ -312,31 +307,6 @@ Authorities::from_proto(const ::arc::ir::pb::Authorities &pb) {
     if (pb.has_default_()) cpp.default_ = pb.default_();
     for (const auto &[k, v]: pb.channels())
         cpp.channels[k] = v;
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::arc::ir::pb::VarSeed, x::errors::Error> VarSeed::to_proto() const {
-    ::arc::ir::pb::VarSeed pb;
-    pb.set_channel(this->channel);
-    {
-        auto [v, err] = this->type.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_type() = v;
-    }
-    pb.set_value(this->value.dump());
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<VarSeed, x::errors::Error>
-VarSeed::from_proto(const ::arc::ir::pb::VarSeed &pb) {
-    VarSeed cpp;
-    cpp.channel = pb.channel();
-    {
-        auto [v, err] = ::arc::types::Type::from_proto(pb.type());
-        if (err) return {{}, err};
-        cpp.type = v;
-    }
-    cpp.value = x::json::json::parse(pb.value(), nullptr, false);
     return {cpp, x::errors::NIL};
 }
 
@@ -367,13 +337,6 @@ inline std::pair<::arc::ir::pb::IR, x::errors::Error> IR::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_root() = v;
     }
-    for (const auto &item: this->var_channels)
-        pb.add_var_channels(item);
-    for (const auto &item: this->var_seeds) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_var_seeds() = v;
-    }
     return {pb, x::errors::NIL};
 }
 
@@ -395,10 +358,6 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
         if (err) return {{}, err};
         cpp.root = v;
     }
-    for (const auto &item: pb.var_channels())
-        cpp.var_channels.push_back(item);
-    if (auto err = x::pb::from_proto_repeated<VarSeed>(cpp.var_seeds, pb.var_seeds()))
-        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

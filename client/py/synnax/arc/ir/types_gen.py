@@ -12,7 +12,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, TypeAlias
+from typing import TypeAlias
 
 from pydantic import BaseModel, Field
 
@@ -68,8 +68,6 @@ class Node(BaseModel):
         inputs: Contains input parameter type signatures.
         outputs: Contains output parameter type signatures.
         channels: Contains channel read/write mappings.
-        is_literal: Reports whether the node's variable is a literal, so a source latches its newest value rather than streaming.
-        backs_internal_channel: Reports whether a sink loops back into a program-local channel rather than an external one.
     """
 
     key: str
@@ -77,8 +75,6 @@ class Node(BaseModel):
     inputs: types.Params = Field(default_factory=list)
     outputs: types.Params = Field(default_factory=list)
     channels: types.Channels
-    is_literal: bool
-    backs_internal_channel: bool
 
 
 class Authorities(BaseModel):
@@ -91,20 +87,6 @@ class Authorities(BaseModel):
 
     default: int | None = Field(default=None, ge=0, le=255)
     channels: dict[int, int] = Field(default_factory=dict)
-
-
-class VarSeed(BaseModel):
-    """Is the startup seed for a reactive value variable's channel.
-
-    Attributes:
-        channel: Is the key of the channel backing the value variable.
-        type: Is the variable's value type.
-        value: Is the literal value seeded into the channel at startup.
-    """
-
-    channel: int = Field(ge=0, le=4294967295)
-    type: types.Type
-    value: Any
 
 
 class Edge(BaseModel):
@@ -155,8 +137,6 @@ class Function(BaseModel):
 
 Nodes: TypeAlias = list[Node]
 
-VarSeeds: TypeAlias = list[VarSeed]
-
 Edges: TypeAlias = list[Edge]
 
 Functions: TypeAlias = list[Function]
@@ -193,7 +173,7 @@ class Scope(BaseModel):
             for sequential scopes. Stratum N depends only on strata 0 to N-1.
         steps: Contains ordered steps for sequential scopes. Empty for parallel scopes.
         transitions: Contains state-transition rules for sequential scopes. Empty for parallel scopes.
-        reset_channels: Variable channels re-seeded to their declared value on each entry into this scope.
+        resetNodes: Contains keys of variable nodes re-seeded each time this scope activates.
     """
 
     key: str
@@ -203,7 +183,7 @@ class Scope(BaseModel):
     strata: list[Members] = Field(default_factory=list)
     steps: Members = Field(default_factory=list)
     transitions: list[Transition] = Field(default_factory=list)
-    reset_channels: list[int] = Field(default_factory=list)
+    resetNodes: list[str] = Field(default_factory=list)
 
 
 class IR(BaseModel):
@@ -219,11 +199,6 @@ class IR(BaseModel):
         root: Is the top-level execution context. The root is always a
             parallel, always-live Scope whose strata mix module-scope
             reactive flow with top-level gated scopes.
-        var_channels: Lists the channel keys that back reactive value variables. These
-            channels live only in program-local state and are never read from
-            or written to Core.
-        var_seeds: Lists startup seeds applied to program-local state before execution
-            so a read preceding any write still observes the declared value.
     """
 
     functions: Functions = Field(default_factory=list)
@@ -231,8 +206,6 @@ class IR(BaseModel):
     edges: Edges = Field(default_factory=list)
     authorities: Authorities
     root: Scope
-    var_channels: list[int] = Field(default_factory=list)
-    var_seeds: VarSeeds = Field(default_factory=list)
 
 
 Members: TypeAlias = list[Member]

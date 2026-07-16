@@ -98,6 +98,8 @@ type shellBuilder struct {
 	varNodes map[*symbol.Symbol]*ir.Node
 	// varNodeOrder preserves registration order for deterministic emission.
 	varNodeOrder []*ir.Node
+	// varEdges feeds lifted expression input params from their variable nodes.
+	varEdges []ir.Edge
 }
 
 func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
@@ -315,7 +317,7 @@ func analyzeFlowNode(
 		return flowNodeResult{node: r}, ok
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		r, ok := analyzeExpression(acontext.Child(ctx, expr), kg)
+		r, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
 		return flowNodeResult{node: r}, ok
 	}
 	if ctx.AST.NEXT() != nil {
@@ -416,6 +418,22 @@ func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 	}
 }
 
+// scopeResetNodes returns the node keys of `:=` variables declared in scopeSym,
+// re-seeded on each entry; `$=` variables are omitted so they persist.
+func scopeResetNodes(scopeSym *symbol.Symbol, shell *shellBuilder) []string {
+	var out []string
+	for _, c := range scopeSym.Children() {
+		if c.Kind != symbol.KindVariable {
+			continue
+		}
+		if vn := shell.varNodes[c]; vn != nil {
+			out = append(out, vn.Key)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
 // buildVariableNode builds sym's variable node. The unedged f0 param seeds it;
 // each assignment appends an edge-fed feeder param.
 func buildVariableNode(sym *symbol.Symbol, kg *keyGenerator) *ir.Node {
@@ -469,7 +487,7 @@ func lowerAssignment(
 	if vn == nil || expr == nil {
 		return nil, nil, true
 	}
-	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg)
+	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
 	if !ok {
 		return nil, nil, false
 	}
@@ -733,6 +751,7 @@ func tryAnalyzeFmtStrLiteral(
 func analyzeExpression(
 	ctx acontext.Context[parser.IExpressionContext],
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) (nodeResult, bool) {
 	sym, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST)
 	if err != nil {
@@ -786,6 +805,20 @@ func analyzeExpression(
 		Channels: sym.Channels.Copy(),
 		Inputs:   freshType.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
+	}
+	// Lifted variable reads arrive as input params; feed each from its node.
+	for _, p := range freshType.Inputs {
+		vsym, verr := ctx.Scope.Resolve(ctx, p.Name)
+		if verr != nil {
+			continue
+		}
+		if vn := shell.varNodes[vsym]; vn != nil {
+			shell.varEdges = append(shell.varEdges, ir.Edge{
+				Source: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: key, Param: p.Name},
+				Kind:   ir.EdgeKindContinuous,
+			})
+		}
 	}
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
@@ -898,6 +931,7 @@ func Analyze(
 		i.Nodes = append(i.Nodes, *vn)
 		rootMembers = append(rootMembers, ir.Member{NodeKey: new(vn.Key)})
 	}
+	i.Edges = append(i.Edges, shell.varEdges...)
 
 	if len(rootMembers) > 0 {
 		i.Root.Strata = []ir.Members{rootMembers}
@@ -1517,9 +1551,10 @@ func analyzeSequence(
 		liveness = ir.LivenessGated
 	}
 	scope := ir.Scope{
-		Key:      seqName,
-		Mode:     ir.ScopeModeSequential,
-		Liveness: liveness,
+		Key:        seqName,
+		Mode:       ir.ScopeModeSequential,
+		Liveness:   liveness,
+		ResetNodes: scopeResetNodes(seqScope, shell),
 	}
 
 	items := ctx.AST.AllSequenceItem()
@@ -1614,6 +1649,7 @@ func analyzeSequence(
 			node, ok := analyzeSingleInvocation(
 				acontext.Child(ctx, single).WithScope(seqScope),
 				kg,
+				shell,
 			)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
@@ -1701,6 +1737,12 @@ func analyzeStage(
 		return scope, nodes, edges, true
 	}
 
+	// Body items resolve against the stage's own scope; top-level stages keep
+	// ctx.Scope (theirs is registered at the parent).
+	if stageScope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
+		ctx = ctx.WithScope(stageScope)
+		scope.ResetNodes = scopeResetNodes(stageScope, shell)
+	}
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
 			itemNodes, itemEdges, inlineMembers, _, ok := analyzeFlow(
@@ -1732,7 +1774,7 @@ func analyzeStage(
 			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
-			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg)
+			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg, shell)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -1741,16 +1783,9 @@ func analyzeStage(
 			continue
 		}
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
-			// The inline sequence is registered as a child of this stage's
-			// scope, not the parent sequence's scope. Look up the stage's own
-			// scope so analyzeSequence can resolve the nested seq via parser
-			// rule. Top-level stages don't have their own scope entry; in
-			// that case keep ctx.Scope.
-			seqCtx := acontext.Child(ctx, nestedSeqDecl)
-			if stageScope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
-				seqCtx = seqCtx.WithScope(stageScope)
-			}
-			subScope, subNodes, subEdges, ok := analyzeSequence(seqCtx, kg, shell)
+			subScope, subNodes, subEdges, ok := analyzeSequence(
+				acontext.Child(ctx, nestedSeqDecl), kg, shell,
+			)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -1770,6 +1805,7 @@ func analyzeStage(
 func analyzeSingleInvocation(
 	ctx acontext.Context[parser.ISingleInvocationContext],
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) (ir.Node, bool) {
 	if fn := ctx.AST.Function(); fn != nil {
 		result, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg)
@@ -1779,7 +1815,7 @@ func analyzeSingleInvocation(
 		return result.node, true
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		result, ok := analyzeExpression(acontext.Child(ctx, expr), kg)
+		result, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
 		if !ok {
 			return ir.Node{}, false
 		}

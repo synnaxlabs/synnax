@@ -106,6 +106,23 @@ func (s *ProgramState) Node(key string) *State {
 		}
 	}
 
+	// Variable reads re-arm on fresh values only; self-write feeders on Reset only.
+	rearm := make([]rearmRule, len(n.Inputs))
+	for i := range n.Inputs {
+		srcNode, found := s.ir.Nodes.Find(inputs[i].Source.Node)
+		if !found ||
+			(srcNode.Type != "variable" && srcNode.Type != "stateful_variable") {
+			continue
+		}
+		rearm[i] = rearmOnFresh
+		for _, e := range s.ir.Edges {
+			if e.Target.Node == srcNode.Key && e.Source.Node == key {
+				rearm[i] = rearmOnReset
+				break
+			}
+		}
+	}
+
 	outputCache := make([]*value, len(n.Outputs))
 	for i, p := range n.Outputs {
 		handle := ir.Handle{Node: key, Param: p.Name}
@@ -119,6 +136,7 @@ func (s *ProgramState) Node(key string) *State {
 
 	nd := &State{}
 	nd.ir.inputs = inputs
+	nd.rearm = rearm
 	nd.inputIndex = inputIndex
 	nd.ir.outputs = lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
 		return ir.Handle{Node: key, Param: item.Name}
@@ -140,6 +158,18 @@ type inputEntry struct {
 	consumed      bool
 }
 
+// rearmRule selects when a consumed input re-arms and fires again.
+type rearmRule uint8
+
+const (
+	// rearmAlways re-arms on scope Reset and on fresh data.
+	rearmAlways rearmRule = iota
+	// rearmOnFresh re-arms only on fresh data: reads fire on unseen values.
+	rearmOnFresh
+	// rearmOnReset re-arms only on scope Reset: self-writes fire once per entry.
+	rearmOnReset
+)
+
 // State provides node-specific access to state, handling input alignment and
 // output storage.
 type State struct {
@@ -152,6 +182,8 @@ type State struct {
 	// isReference marks inputs that are channel references rather than value
 	// streams. Reference inputs carry no data series and never gate execution.
 	isReference []bool
+	// rearm[i] selects when a consumed input i fires again.
+	rearm       []rearmRule
 	accumulated []inputEntry
 	aligned     struct {
 		data []telem.Series
@@ -166,6 +198,9 @@ type State struct {
 // whose gating inputs are all literal-valued re-runs instead of staying consumed.
 func (n *State) Reset() {
 	for i := range n.accumulated {
+		if n.rearm[i] == rearmOnFresh {
+			continue
+		}
 		n.accumulated[i].consumed = false
 		n.accumulated[i].lastTimestamp = 0
 	}
@@ -184,11 +219,15 @@ func (n *State) RefreshInputs() (recalculate bool) {
 		if src != nil && src.time.Len() > 0 {
 			ts := telem.ValueAt[telem.TimeStamp](src.time, -1)
 			if ts > n.accumulated[i].lastTimestamp {
+				consumed := false
+				if n.rearm[i] == rearmOnReset {
+					consumed = n.accumulated[i].consumed
+				}
 				n.accumulated[i] = inputEntry{
 					data:          src.data,
 					time:          src.time,
 					lastTimestamp: ts,
-					consumed:      false,
+					consumed:      consumed,
 				}
 			}
 		}
@@ -214,6 +253,30 @@ func (n *State) RefreshInputs() (recalculate bool) {
 		n.accumulated[i].consumed = true
 	}
 	return true
+}
+
+// AbsorbInputs marks every data input consumed at its current source timestamp,
+// so only writes after this call re-fire the node.
+func (n *State) AbsorbInputs() {
+	for i := range n.ir.inputs {
+		if n.isReference[i] {
+			continue
+		}
+		src := n.inputSources[i]
+		if src == nil {
+			continue
+		}
+		ts := telem.TimeStamp(0)
+		if src.time.Len() > 0 {
+			ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+		}
+		n.accumulated[i] = inputEntry{
+			data:          src.data,
+			time:          src.time,
+			lastTimestamp: ts,
+			consumed:      true,
+		}
+	}
 }
 
 // LastChanged returns the series of the most-recently-changed input, marking it

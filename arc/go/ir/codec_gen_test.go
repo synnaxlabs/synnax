@@ -369,30 +369,33 @@ var _ = Describe("Codec", func() {
 									Strata:      [][]ir.Member{{{}}},
 									Steps:       []ir.Member{{}},
 									Transitions: []ir.Transition{{}},
+									ResetNodes:  []string{"test_90"},
 								}),
 							},
 						},
 					},
 					Steps: []ir.Member{
 						{
-							NodeKey: new(string("test_91")),
+							NodeKey: new(string("test_92")),
 							Scope: new(ir.Scope{
-								Key:         "test_93",
+								Key:         "test_94",
 								Mode:        ir.ScopeMode(0),
 								Liveness:    ir.Liveness(0),
 								Activation:  new(ir.Handle{}),
 								Strata:      [][]ir.Member{{{}}},
 								Steps:       []ir.Member{{}},
 								Transitions: []ir.Transition{{}},
+								ResetNodes:  []string{"test_101"},
 							}),
 						},
 					},
 					Transitions: []ir.Transition{
 						{
-							On:        ir.Handle{Node: "test_102", Param: "test_103"},
-							TargetKey: new(string("test_104")),
+							On:        ir.Handle{Node: "test_104", Param: "test_105"},
+							TargetKey: new(string("test_106")),
 						},
 					},
+					ResetNodes: []string{"test_107"},
 				},
 			}),
 			Entry("zero values", ir.IR{
@@ -408,6 +411,7 @@ var _ = Describe("Codec", func() {
 					Strata:      nil,
 					Steps:       nil,
 					Transitions: nil,
+					ResetNodes:  nil,
 				},
 			}),
 			Entry("empty collections", ir.IR{
@@ -423,6 +427,7 @@ var _ = Describe("Codec", func() {
 					Strata:      [][]ir.Member{},
 					Steps:       []ir.Member{},
 					Transitions: []ir.Transition{},
+					ResetNodes:  []string{},
 				},
 			}),
 		)
@@ -457,30 +462,33 @@ var _ = Describe("Codec", func() {
 									Strata:      [][]ir.Member{{{}}},
 									Steps:       []ir.Member{{}},
 									Transitions: []ir.Transition{{}},
+									ResetNodes:  []string{"test_19"},
 								}),
 							},
 						},
 					},
 					Steps: []ir.Member{
 						{
-							NodeKey: new(string("test_20")),
+							NodeKey: new(string("test_21")),
 							Scope: new(ir.Scope{
-								Key:         "test_22",
+								Key:         "test_23",
 								Mode:        ir.ScopeMode(0),
 								Liveness:    ir.Liveness(0),
 								Activation:  new(ir.Handle{}),
 								Strata:      [][]ir.Member{{{}}},
 								Steps:       []ir.Member{{}},
 								Transitions: []ir.Transition{{}},
+								ResetNodes:  []string{"test_30"},
 							}),
 						},
 					},
 					Transitions: []ir.Transition{
 						{
-							On:        ir.Handle{Node: "test_31", Param: "test_32"},
-							TargetKey: new(string("test_33")),
+							On:        ir.Handle{Node: "test_33", Param: "test_34"},
+							TargetKey: new(string("test_35")),
 						},
 					},
+					ResetNodes: []string{"test_36"},
 				}),
 			}),
 			Entry("zero values", ir.Member{NodeKey: nil, Scope: nil}),
@@ -661,30 +669,33 @@ var _ = Describe("Codec", func() {
 								Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
 								Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
 								Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
+								ResetNodes:  []string{"test_25"},
 							}),
 						},
 					},
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: new(string("test_26")),
+						NodeKey: new(string("test_27")),
 						Scope: new(ir.Scope{
-							Key:         "test_28",
+							Key:         "test_29",
 							Mode:        ir.ScopeMode(0),
 							Liveness:    ir.Liveness(0),
-							Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
-							Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
-							Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
-							Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
+							Activation:  new(ir.Handle{Node: "test_33", Param: "test_34"}),
+							Strata:      [][]ir.Member{{{NodeKey: new(string("test_36")), Scope: new(ir.Scope{})}}},
+							Steps:       []ir.Member{{NodeKey: new(string("test_39")), Scope: new(ir.Scope{})}},
+							Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_43"))}},
+							ResetNodes:  []string{"test_44"},
 						}),
 					},
 				},
 				Transitions: []ir.Transition{
 					{
-						On:        ir.Handle{Node: "test_45", Param: "test_46"},
-						TargetKey: new(string("test_47")),
+						On:        ir.Handle{Node: "test_47", Param: "test_48"},
+						TargetKey: new(string("test_49")),
 					},
 				},
+				ResetNodes: []string{"test_50"},
 			}),
 			Entry("zero values", ir.Scope{
 				Key:         "",
@@ -694,6 +705,7 @@ var _ = Describe("Codec", func() {
 				Strata:      nil,
 				Steps:       nil,
 				Transitions: nil,
+				ResetNodes:  nil,
 			}),
 			Entry("empty collections", ir.Scope{
 				Key:         "test_1",
@@ -703,6 +715,7 @@ var _ = Describe("Codec", func() {
 				Strata:      [][]ir.Member{},
 				Steps:       []ir.Member{},
 				Transitions: []ir.Transition{},
+				ResetNodes:  []string{},
 			}),
 		)
 	})
@@ -1053,30 +1066,33 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 							Strata:      [][]ir.Member{{{}}},
 							Steps:       []ir.Member{{}},
 							Transitions: []ir.Transition{{}},
+							ResetNodes:  []string{"test_90"},
 						}),
 					},
 				},
 			},
 			Steps: []ir.Member{
 				{
-					NodeKey: new(string("test_91")),
+					NodeKey: new(string("test_92")),
 					Scope: new(ir.Scope{
-						Key:         "test_93",
+						Key:         "test_94",
 						Mode:        ir.ScopeMode(0),
 						Liveness:    ir.Liveness(0),
 						Activation:  new(ir.Handle{}),
 						Strata:      [][]ir.Member{{{}}},
 						Steps:       []ir.Member{{}},
 						Transitions: []ir.Transition{{}},
+						ResetNodes:  []string{"test_101"},
 					}),
 				},
 			},
 			Transitions: []ir.Transition{
 				{
-					On:        ir.Handle{Node: "test_102", Param: "test_103"},
-					TargetKey: new(string("test_104")),
+					On:        ir.Handle{Node: "test_104", Param: "test_105"},
+					TargetKey: new(string("test_106")),
 				},
 			},
+			ResetNodes: []string{"test_107"},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -1114,30 +1130,33 @@ func BenchmarkEncodeDecodeMember(b *testing.B) {
 							Strata:      [][]ir.Member{{{}}},
 							Steps:       []ir.Member{{}},
 							Transitions: []ir.Transition{{}},
+							ResetNodes:  []string{"test_19"},
 						}),
 					},
 				},
 			},
 			Steps: []ir.Member{
 				{
-					NodeKey: new(string("test_20")),
+					NodeKey: new(string("test_21")),
 					Scope: new(ir.Scope{
-						Key:         "test_22",
+						Key:         "test_23",
 						Mode:        ir.ScopeMode(0),
 						Liveness:    ir.Liveness(0),
 						Activation:  new(ir.Handle{}),
 						Strata:      [][]ir.Member{{{}}},
 						Steps:       []ir.Member{{}},
 						Transitions: []ir.Transition{{}},
+						ResetNodes:  []string{"test_30"},
 					}),
 				},
 			},
 			Transitions: []ir.Transition{
 				{
-					On:        ir.Handle{Node: "test_31", Param: "test_32"},
-					TargetKey: new(string("test_33")),
+					On:        ir.Handle{Node: "test_33", Param: "test_34"},
+					TargetKey: new(string("test_35")),
 				},
 			},
+			ResetNodes: []string{"test_36"},
 		}),
 	}
 	w := orc.NewWriter(0)
@@ -1309,30 +1328,33 @@ func BenchmarkEncodeDecodeScope(b *testing.B) {
 						Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
 						Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
 						Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
+						ResetNodes:  []string{"test_25"},
 					}),
 				},
 			},
 		},
 		Steps: []ir.Member{
 			{
-				NodeKey: new(string("test_26")),
+				NodeKey: new(string("test_27")),
 				Scope: new(ir.Scope{
-					Key:         "test_28",
+					Key:         "test_29",
 					Mode:        ir.ScopeMode(0),
 					Liveness:    ir.Liveness(0),
-					Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
-					Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
-					Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
-					Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
+					Activation:  new(ir.Handle{Node: "test_33", Param: "test_34"}),
+					Strata:      [][]ir.Member{{{NodeKey: new(string("test_36")), Scope: new(ir.Scope{})}}},
+					Steps:       []ir.Member{{NodeKey: new(string("test_39")), Scope: new(ir.Scope{})}},
+					Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_43"))}},
+					ResetNodes:  []string{"test_44"},
 				}),
 			},
 		},
 		Transitions: []ir.Transition{
 			{
-				On:        ir.Handle{Node: "test_45", Param: "test_46"},
-				TargetKey: new(string("test_47")),
+				On:        ir.Handle{Node: "test_47", Param: "test_48"},
+				TargetKey: new(string("test_49")),
 			},
 		},
+		ResetNodes: []string{"test_50"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1874,30 +1896,33 @@ func FuzzDecodeIR(f *testing.F) {
 								Strata:      [][]ir.Member{{{}}},
 								Steps:       []ir.Member{{}},
 								Transitions: []ir.Transition{{}},
+								ResetNodes:  []string{"test_90"},
 							}),
 						},
 					},
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: new(string("test_91")),
+						NodeKey: new(string("test_92")),
 						Scope: new(ir.Scope{
-							Key:         "test_93",
+							Key:         "test_94",
 							Mode:        ir.ScopeMode(0),
 							Liveness:    ir.Liveness(0),
 							Activation:  new(ir.Handle{}),
 							Strata:      [][]ir.Member{{{}}},
 							Steps:       []ir.Member{{}},
 							Transitions: []ir.Transition{{}},
+							ResetNodes:  []string{"test_101"},
 						}),
 					},
 				},
 				Transitions: []ir.Transition{
 					{
-						On:        ir.Handle{Node: "test_102", Param: "test_103"},
-						TargetKey: new(string("test_104")),
+						On:        ir.Handle{Node: "test_104", Param: "test_105"},
+						TargetKey: new(string("test_106")),
 					},
 				},
+				ResetNodes: []string{"test_107"},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1920,6 +1945,7 @@ func FuzzDecodeIR(f *testing.F) {
 				Strata:      nil,
 				Steps:       nil,
 				Transitions: nil,
+				ResetNodes:  nil,
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1942,6 +1968,7 @@ func FuzzDecodeIR(f *testing.F) {
 				Strata:      [][]ir.Member{},
 				Steps:       []ir.Member{},
 				Transitions: []ir.Transition{},
+				ResetNodes:  []string{},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -2000,30 +2027,33 @@ func FuzzDecodeMember(f *testing.F) {
 								Strata:      [][]ir.Member{{{}}},
 								Steps:       []ir.Member{{}},
 								Transitions: []ir.Transition{{}},
+								ResetNodes:  []string{"test_19"},
 							}),
 						},
 					},
 				},
 				Steps: []ir.Member{
 					{
-						NodeKey: new(string("test_20")),
+						NodeKey: new(string("test_21")),
 						Scope: new(ir.Scope{
-							Key:         "test_22",
+							Key:         "test_23",
 							Mode:        ir.ScopeMode(0),
 							Liveness:    ir.Liveness(0),
 							Activation:  new(ir.Handle{}),
 							Strata:      [][]ir.Member{{{}}},
 							Steps:       []ir.Member{{}},
 							Transitions: []ir.Transition{{}},
+							ResetNodes:  []string{"test_30"},
 						}),
 					},
 				},
 				Transitions: []ir.Transition{
 					{
-						On:        ir.Handle{Node: "test_31", Param: "test_32"},
-						TargetKey: new(string("test_33")),
+						On:        ir.Handle{Node: "test_33", Param: "test_34"},
+						TargetKey: new(string("test_35")),
 					},
 				},
+				ResetNodes: []string{"test_36"},
 			}),
 		}
 		w := orc.NewWriter(0)
@@ -2273,30 +2303,33 @@ func FuzzDecodeScope(f *testing.F) {
 							Strata:      [][]ir.Member{{{NodeKey: new(string("test_17")), Scope: new(ir.Scope{})}}},
 							Steps:       []ir.Member{{NodeKey: new(string("test_20")), Scope: new(ir.Scope{})}},
 							Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_24"))}},
+							ResetNodes:  []string{"test_25"},
 						}),
 					},
 				},
 			},
 			Steps: []ir.Member{
 				{
-					NodeKey: new(string("test_26")),
+					NodeKey: new(string("test_27")),
 					Scope: new(ir.Scope{
-						Key:         "test_28",
+						Key:         "test_29",
 						Mode:        ir.ScopeMode(0),
 						Liveness:    ir.Liveness(0),
-						Activation:  new(ir.Handle{Node: "test_32", Param: "test_33"}),
-						Strata:      [][]ir.Member{{{NodeKey: new(string("test_35")), Scope: new(ir.Scope{})}}},
-						Steps:       []ir.Member{{NodeKey: new(string("test_38")), Scope: new(ir.Scope{})}},
-						Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_42"))}},
+						Activation:  new(ir.Handle{Node: "test_33", Param: "test_34"}),
+						Strata:      [][]ir.Member{{{NodeKey: new(string("test_36")), Scope: new(ir.Scope{})}}},
+						Steps:       []ir.Member{{NodeKey: new(string("test_39")), Scope: new(ir.Scope{})}},
+						Transitions: []ir.Transition{{On: ir.Handle{}, TargetKey: new(string("test_43"))}},
+						ResetNodes:  []string{"test_44"},
 					}),
 				},
 			},
 			Transitions: []ir.Transition{
 				{
-					On:        ir.Handle{Node: "test_45", Param: "test_46"},
-					TargetKey: new(string("test_47")),
+					On:        ir.Handle{Node: "test_47", Param: "test_48"},
+					TargetKey: new(string("test_49")),
 				},
 			},
+			ResetNodes: []string{"test_50"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2313,6 +2346,7 @@ func FuzzDecodeScope(f *testing.F) {
 			Strata:      nil,
 			Steps:       nil,
 			Transitions: nil,
+			ResetNodes:  nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2329,6 +2363,7 @@ func FuzzDecodeScope(f *testing.F) {
 			Strata:      [][]ir.Member{},
 			Steps:       []ir.Member{},
 			Transitions: []ir.Transition{},
+			ResetNodes:  []string{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

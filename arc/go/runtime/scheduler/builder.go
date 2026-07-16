@@ -99,6 +99,7 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 	s := &Scheduler{
 		changedFlags:     make([]uint8, len(prog.Nodes)),
 		selfChangedFlags: make([]uint8, len(prog.Nodes)),
+		visitedFlags:     make([]uint8, len(prog.Nodes)),
 		tolerance:        tolerance,
 	}
 	// Build the scope state tree rooted at prog.Root. buildScopeState
@@ -128,6 +129,11 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 	state := &scope{
 		ir:         sc,
 		activeStep: -1,
+	}
+	for _, key := range sc.ResetNodes {
+		if n, ok := b.nodes[key]; ok {
+			state.resetNodes = append(state.resetNodes, n)
+		}
 	}
 	appendMember := func(m ir.Member) {
 		ms := member{key: m.Key()}

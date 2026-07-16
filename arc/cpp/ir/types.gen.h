@@ -32,7 +32,6 @@ struct Handle;
 struct Body;
 struct Node;
 struct Authorities;
-struct VarSeed;
 struct Transition;
 struct Function;
 struct Edge;
@@ -103,13 +102,6 @@ struct Node {
     ::arc::types::Params outputs;
     /// @brief channels contains channel read/write mappings.
     ::arc::types::Channels channels;
-    /// @brief is_literal reports whether the node's variable is a literal, so a source
-    /// latches its newest value rather than streaming.
-    bool is_literal = false;
-    /// @brief backs_internal_channel reports whether a sink loops back into a
-    /// program-local
-    /// channel rather than an external one.
-    bool backs_internal_channel = false;
 
     static Node parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -140,24 +132,6 @@ struct Authorities {
     to_proto() const;
     static std::pair<Authorities, x::errors::Error>
     from_proto(const ::arc::ir::pb::Authorities &pb);
-};
-
-/// @brief VarSeed is the startup seed for a reactive value variable's channel.
-struct VarSeed {
-    /// @brief channel is the key of the channel backing the value variable.
-    std::uint32_t channel = 0;
-    /// @brief type is the variable's value type.
-    ::arc::types::Type type;
-    /// @brief value is the literal value seeded into the channel at startup.
-    x::json::json value;
-
-    static VarSeed parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::VarSeed;
-    [[nodiscard]] std::pair<::arc::ir::pb::VarSeed, x::errors::Error> to_proto() const;
-    static std::pair<VarSeed, x::errors::Error>
-    from_proto(const ::arc::ir::pb::VarSeed &pb);
 };
 
 /// @brief Transition is a declarative state-transition rule on a sequential Scope.
@@ -257,60 +231,6 @@ struct Nodes : private std::vector<Node> {
     using Base::swap;
 
     static Nodes parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct VarSeeds : private std::vector<VarSeed> {
-    using Base = std::vector<VarSeed>;
-
-    // Inherit constructors - these are instantiated at point of use, not declaration
-    using Base::Base;
-    // The default constructor is defined out-of-line below so it instantiates the
-    // element type's destructor only after the element type is complete; the element
-    // may be forward-declared here to break a reference cycle.
-    VarSeeds();
-
-    // Container interface
-    using Base::begin;
-    using Base::capacity;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::const_iterator;
-    using Base::const_reference;
-    using Base::const_reverse_iterator;
-    using Base::crbegin;
-    using Base::crend;
-    using Base::difference_type;
-    using Base::empty;
-    using Base::end;
-    using Base::iterator;
-    using Base::max_size;
-    using Base::rbegin;
-    using Base::reference;
-    using Base::rend;
-    using Base::reserve;
-    using Base::reverse_iterator;
-    using Base::shrink_to_fit;
-    using Base::size;
-    using Base::size_type;
-    using Base::value_type;
-    using Base::operator[];
-    using Base::assign;
-    using Base::at;
-    using Base::back;
-    using Base::clear;
-    using Base::data;
-    using Base::emplace;
-    using Base::emplace_back;
-    using Base::erase;
-    using Base::front;
-    using Base::insert;
-    using Base::pop_back;
-    using Base::push_back;
-    using Base::resize;
-    using Base::swap;
-
-    static VarSeeds parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -494,10 +414,10 @@ struct Scope {
     /// for
     /// parallel scopes.
     std::vector<Transition> transitions;
-    /// @brief reset_channels variable channels re-seeded to their declared value on
-    /// each
-    /// entry into this scope.
-    std::vector<std::uint32_t> reset_channels = {};
+    /// @brief reset_nodes contains keys of variable nodes re-seeded each time this
+    /// scope
+    /// activates.
+    std::vector<std::string> reset_nodes;
 
     static Scope parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -526,15 +446,6 @@ struct IR {
     /// always-live Scope whose strata mix module-scope reactive flow with top-level
     /// gated scopes.
     Scope root;
-    /// @brief var_channels lists the channel keys that back reactive value variables.
-    /// These
-    /// channels live only in program-local state and are never read from or written to
-    /// Core.
-    std::vector<std::uint32_t> var_channels = {};
-    /// @brief var_seeds lists startup seeds applied to program-local state before
-    /// execution
-    /// so a read preceding any write still observes the declared value.
-    VarSeeds var_seeds;
 
     static IR parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -554,8 +465,6 @@ struct IR {
 };
 
 inline Nodes::Nodes() = default;
-
-inline VarSeeds::VarSeeds() = default;
 
 inline Functions::Functions() = default;
 

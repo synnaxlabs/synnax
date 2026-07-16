@@ -482,7 +482,9 @@ type Scope struct {
 	Steps []*Member `protobuf:"bytes,6,rep,name=steps,proto3" json:"steps,omitempty"`
 	// transitions contains state-transition rules for sequential scopes. Empty for parallel
 	// scopes.
-	Transitions   []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	Transitions []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	// reset_nodes contains keys of variable nodes re-seeded each time this scope activates.
+	ResetNodes    []string `protobuf:"bytes,8,rep,name=reset_nodes,json=resetNodes,proto3" json:"reset_nodes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -562,6 +564,13 @@ func (x *Scope) GetSteps() []*Member {
 func (x *Scope) GetTransitions() []*Transition {
 	if x != nil {
 		return x.Transitions
+	}
+	return nil
+}
+
+func (x *Scope) GetResetNodes() []string {
+	if x != nil {
+		return x.ResetNodes
 	}
 	return nil
 }
@@ -940,7 +949,7 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\t_node_keyB\b\n" +
 	"\x06_scope\";\n" +
 	"\x0eMembersWrapper\x12)\n" +
-	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\xd0\x02\n" +
+	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\xf1\x02\n" +
 	"\x05Scope\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\x14.arc.ir.pb.ScopeModeR\x04mode\x12/\n" +
@@ -950,7 +959,9 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"activation\x88\x01\x01\x121\n" +
 	"\x06strata\x18\x05 \x03(\v2\x19.arc.ir.pb.MembersWrapperR\x06strata\x12'\n" +
 	"\x05steps\x18\x06 \x03(\v2\x11.arc.ir.pb.MemberR\x05steps\x127\n" +
-	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitionsB\r\n" +
+	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitions\x12\x1f\n" +
+	"\vreset_nodes\x18\b \x03(\tR\n" +
+	"resetNodesB\r\n" +
 	"\v_activation\"\x18\n" +
 	"\x04Body\x12\x10\n" +
 	"\x03raw\x18\x01 \x01(\tR\x03raw\"\xd1\x01\n" +

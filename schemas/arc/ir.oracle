@@ -134,6 +134,9 @@ Scope struct {
     transitions Transition[] {
         @doc value "contains state-transition rules for sequential scopes. Empty for parallel scopes."
     }
+    resetNodes  string[]     {
+        @doc value "contains keys of variable nodes re-seeded each time this scope activates."
+    }
 
     @doc value   """
         is the unified Layer 2 execution primitive. Parameterized by mode

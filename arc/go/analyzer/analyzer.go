@@ -34,6 +34,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 	collectImports(ctx)
 	collectDeclarations(ctx)
 	analyzeDeclarations(ctx)
+	liftReassignedVarReads(ctx)
 	propagateCallChannels(ctx.CallEdges)
 	detectCallCycles(ctx.CallEdges, ctx.Diagnostics)
 	reportUnusedImports(ctx)
@@ -44,6 +45,19 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 		}
 		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
 		substituteTypeMap(ctx)
+	}
+}
+
+// liftReassignedVarReads lifts reassigned-variable reads in synth expressions
+// into input params. Literal ASTs (fmt strings) take no params and are skipped.
+func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
+	for _, c := range ctx.Scope.Root().Children() {
+		if c.Kind != symbol.KindFunction || c.AST == nil {
+			continue
+		}
+		if expr, ok := c.AST.(parser.IExpressionContext); ok && !parser.IsLiteral(expr) {
+			flow.LiftVarReads(ctx, c, expr)
+		}
 	}
 }
 

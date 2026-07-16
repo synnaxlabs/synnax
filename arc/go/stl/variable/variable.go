@@ -68,11 +68,14 @@ type variable struct {
 var _ node.Node = (*variable)(nil)
 
 // Reset re-seeds a `:=` variable on scope entry. A `$=` variable persists.
+// The seed is emitted immediately, superseding any pending feeder value.
 func (v *variable) Reset() {
 	if v.persistent {
 		return
 	}
-	v.State.Reset()
+	v.AbsorbInputs()
+	*v.Output(0) = v.Input(0).DeepCopy()
+	*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
 }
 
 func (v *variable) Next(ctx node.Context) {
@@ -80,8 +83,8 @@ func (v *variable) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
-	d := v.Output(0)
-	*d = data
+	// Feeders reuse their output buffers in place; the held value must not alias them.
+	*v.Output(0) = data.DeepCopy()
 	*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
 	ctx.MarkChanged(0)
 }

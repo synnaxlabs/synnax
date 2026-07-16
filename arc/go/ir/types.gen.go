@@ -122,6 +122,8 @@ type Scope struct {
 	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
 	// scopes.
 	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
+	// ResetNodes contains keys of variable nodes re-seeded each time this scope activates.
+	ResetNodes []string `json:"reset_nodes,omitzero" msgpack:"reset_nodes,omitzero"`
 }
 
 // Body is raw function body source code with optional parsed AST.

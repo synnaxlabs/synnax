@@ -21,7 +21,7 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	head, tail string,
 ) (types.Type, error) {
-	scope, err := ctx.Scope.Resolve(ctx, head)
+	scope, err := ctx.Scope.Resolve(ctx, head, symbol.IncludeInternal)
 	if err != nil {
 		return types.Type{}, err
 	}

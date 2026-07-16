@@ -101,6 +101,8 @@ message Scope {
   // transitions contains state-transition rules for sequential scopes. Empty for parallel
   // scopes.
   repeated Transition transitions = 7;
+  // reset_nodes contains keys of variable nodes re-seeded each time this scope activates.
+  repeated string reset_nodes = 8;
 }
 
 // Body is raw function body source code with optional parsed AST.

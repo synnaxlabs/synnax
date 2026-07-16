@@ -84,6 +84,8 @@ type scope struct {
 	// members are flattened in execution order: stratum-major for parallel
 	// scopes, sequence order for sequential.
 	members []member
+	// resetNodes are variable nodes re-seeded each time this scope activates.
+	resetNodes []*node
 	// memberByKey resolves `=> name` transition targets to member indices.
 	memberByKey map[string]int
 	// transitionOwner[i] is the step index that owns transition i's
@@ -137,6 +139,12 @@ type Scheduler struct {
 	currNode *node
 	// root is the program's parallel + always-live root scope.
 	root *scope
+	// visitedFlags[i] is set when node i has had its execution opportunity
+	// in the current pass. Cleared at the start of each pass.
+	visitedFlags []uint8
+	// settled is cleared when a change lands on a node that already ran
+	// this pass; Next keeps running settle passes until it stays true.
+	settled bool
 	// tolerance is how early a timer-based node may fire relative to its
 	// deadline.
 	tolerance telem.TimeSpan
@@ -168,16 +176,24 @@ func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
 // has work to do.
 func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
 
-// Next executes one cycle of the reactive computation. Nodes with pending
-// changes execute in stratum order; sequential scopes advance via their
-// transitions; gated scopes activate when their activation handle fires.
+// Next executes one cycle of the reactive computation, re-walking until changes
+// settle. Nodes with pending changes execute in stratum order; sequential scopes
+// advance via their transitions; gated scopes activate when their handle fires.
 func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rnode.RunReason) {
 	s.nextDeadline = telem.TimeSpanMax
 	s.nodeCtx.Context = ctx
 	s.nodeCtx.Elapsed = elapsed
 	s.nodeCtx.Tolerance = s.tolerance
 	s.nodeCtx.Reason = reason
-	s.walk(s.root)
+	// Re-pass until no change lands on an already-run node, bounded against cycles.
+	for range len(s.changedFlags) + 1 {
+		s.settled = true
+		clear(s.visitedFlags)
+		s.walk(s.root)
+		if s.settled {
+			break
+		}
+	}
 	clear(s.changedFlags)
 	clear(s.markedFlags)
 }
@@ -236,6 +252,7 @@ func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 		return
 	}
 	idx := m.node.idx
+	s.visitedFlags[idx] = 1
 	wasSelfChanged := s.selfChangedFlags[idx] != 0
 	if wasSelfChanged {
 		s.selfChangedFlags[idx] = 0
@@ -307,6 +324,10 @@ func (s *Scheduler) clearLeafNodeSelfChanged(m *member) {
 // stay inert (used for named top-level scopes awaiting an external trigger).
 func (s *Scheduler) activateScope(ss *scope) {
 	ss.active = true
+	for _, n := range ss.resetNodes {
+		s.selfChangedFlags[n.idx] = 0
+		n.Reset()
+	}
 	if ss.ir.Mode == ir.ScopeModeSequential {
 		if len(ss.members) > 0 {
 			s.activateSequentialStep(ss, 0)
@@ -379,6 +400,11 @@ func (s *Scheduler) markChanged(outputIdx int) {
 	for _, edge := range out.edges {
 		if !edge.conditional || truthy {
 			s.changedFlags[edge.targetIdx] = 1
+			// A self-mark never unsettles its own pass; it would loop forever.
+			if edge.targetIdx != s.currNode.idx &&
+				s.visitedFlags[edge.targetIdx] != 0 {
+				s.settled = false
+			}
 		}
 	}
 	for _, sc := range out.activates {

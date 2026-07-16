@@ -10,6 +10,7 @@
 package flow
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -102,4 +103,33 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 		return
 	}
 	expression.Analyze(ctx.WithScope(blockScope))
+}
+
+// LiftVarReads lifts reassigned-variable reads in a synth expression into input
+// params fed from the variable's node. Run after Reassigned flags are final.
+func LiftVarReads[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	fn *symbol.Symbol,
+	expr parser.IExpressionContext,
+) {
+	for _, name := range parser.CollectIdentifiers(expr) {
+		if _, ok := fn.Type.Inputs.Get(name); ok {
+			continue
+		}
+		sym, err := fn.Resolve(ctx, name)
+		if err != nil || !sym.Reassigned {
+			continue
+		}
+		if _, err = fn.Add(ctx, symbol.Symbol{
+			Name:     name,
+			Kind:     symbol.KindInput,
+			Type:     sym.Type,
+			Internal: true,
+			AST:      expr,
+		}); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+			return
+		}
+		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: sym.Type})
+	}
 }

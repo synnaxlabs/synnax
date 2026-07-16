@@ -63,10 +63,6 @@ export const nodeZ = z.object({
   outputs: types.paramsZ,
   /** channels contains channel read/write mappings. */
   channels: types.channelsZ,
-  /** isLiteral reports whether the node's variable is a literal, so a source latches its newest value rather than streaming. */
-  isLiteral: z.boolean(),
-  /** backsInternalChannel reports whether a sink loops back into a program-local channel rather than an external one. */
-  backsInternalChannel: z.boolean(),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
@@ -78,17 +74,6 @@ export const authoritiesZ = z.object({
   channels: z.record(z.uint32(), zod.uint8).default(() => ({})),
 });
 export interface Authorities extends z.infer<typeof authoritiesZ> {}
-
-/** VarSeed is the startup seed for a reactive value variable's channel. */
-export const varSeedZ = z.object({
-  /** channel is the key of the channel backing the value variable. */
-  channel: z.uint32(),
-  /** type is the variable's value type. */
-  type: types.typeZ,
-  /** value is the literal value seeded into the channel at startup. */
-  value: z.unknown(),
-});
-export interface VarSeed extends z.infer<typeof varSeedZ> {}
 
 /** Edge is a dataflow connection between node parameters in the Arc graph. */
 export const edgeZ = z.object({
@@ -134,9 +119,6 @@ export interface Function extends z.infer<typeof functionZ> {}
 export const nodesZ = nodeZ.array().default(() => []);
 export type Nodes = z.infer<typeof nodesZ>;
 
-export const varSeedsZ = varSeedZ.array().default(() => []);
-export type VarSeeds = z.infer<typeof varSeedsZ>;
-
 export const edgesZ = edgeZ.array().default(() => []);
 export type Edges = z.infer<typeof edgesZ>;
 
@@ -179,7 +161,7 @@ export interface Scope {
   strata: Members[];
   steps: Members;
   transitions: Transition[];
-  resetChannels: number[];
+  resetNodes: string[];
 }
 export const scopeZ: z.ZodType<Scope> = z.object({
   /** key is the scope identifier. */
@@ -203,9 +185,9 @@ export const scopeZ: z.ZodType<Scope> = z.object({
   },
   /** transitions contains state-transition rules for sequential scopes. Empty for parallel scopes. */
   transitions: transitionZ.array().default(() => []),
-  /** resetChannels variable channels re-seeded to their declared value on each entry into this scope. */
-  resetChannels: z
-    .uint32()
+  /** resetNodes contains keys of variable nodes re-seeded each time this scope activates. */
+  resetNodes: z
+    .string()
     .array()
     .default(() => []),
 });
@@ -230,20 +212,6 @@ export const irZ = z.object({
    * reactive flow with top-level gated scopes.
    */
   root: scopeZ,
-  /**
-   * varChannels lists the channel keys that back reactive value variables. These
-   * channels live only in program-local state and are never read from
-   * or written to Core.
-   */
-  varChannels: z
-    .uint32()
-    .array()
-    .default(() => []),
-  /**
-   * varSeeds lists startup seeds applied to program-local state before execution
-   * so a read preceding any write still observes the declared value.
-   */
-  varSeeds: varSeedsZ,
 });
 export interface IR extends z.infer<typeof irZ> {}
 

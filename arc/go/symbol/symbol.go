@@ -364,14 +364,15 @@ const maxProgramLocalChannelKey = 1 << 20
 // Add creates a new child Symbol from sym and appends it to s.children.
 //
 // If sym has a non-empty Name, Add checks for naming conflicts in the lexical
-// chain. Built-in symbols (AST == nil) can be shadowed. Returns an error if a
-// locally-defined symbol with the same name already exists.
+// chain. Built-in symbols (AST == nil) can be shadowed; Internal symbols are
+// compiler-emitted and skip the check. Returns an error if a locally-defined
+// symbol with the same name already exists.
 //
 // Functions and sequences receive a new ID counter so their slot IDs are
 // independent. Slot-allocating Kinds (variables, channels, params) receive an
 // ID from the nearest ancestor counter.
 func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
-	if sym.Name != "" {
+	if sym.Name != "" && !sym.Internal {
 		existing, err := s.Resolve(ctx, sym.Name)
 		if err == nil && existing.AST != nil {
 			tok := existing.AST.GetStart()
