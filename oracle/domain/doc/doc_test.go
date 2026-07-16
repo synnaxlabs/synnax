@@ -280,8 +280,7 @@ var _ = Describe("FormatPyDocstringGoogle", func() {
 			{Name: "leaseholder", Doc: "is the node that holds the lease for this channel. Mostly for internal use."},
 		}
 		result := doc.FormatPyDocstringGoogle("", fields)
-		lines := strings.Split(result, "\n")
-		for _, line := range lines {
+		for line := range strings.SplitSeq(result, "\n") {
 			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 		Expect(result).To(ContainSubstring("        leaseholder: Is the node"))

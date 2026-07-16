@@ -127,8 +127,11 @@ func FormatGo(name, doc string) string {
 }
 
 // FormatTS formats documentation for TypeScript JSDoc comments.
+//
 // Single-line: "/** Name doc text */"
+//
 // Multi-line: "/**\n * Name line1\n * line2\n */"
+//
 // Text is wrapped to 88 characters including the comment prefix and the indentation
 // the comment is emitted at (Prettier re-indents continuation lines to match).
 func FormatTS(name, doc string, indent ...int) string {
@@ -168,8 +171,11 @@ func FormatTS(name, doc string, indent ...int) string {
 }
 
 // FormatPyDocstring formats documentation for Python class/function docstrings.
+//
 // Single-line: `"""Name doc text"""`
+//
 // Multi-line: `"""Name line1\nline2\nline3"""`
+//
 // Text is wrapped to 88 characters including the docstring markers.
 func FormatPyDocstring(name, doc string) string {
 	if doc == "" {
@@ -195,8 +201,11 @@ func FormatPyDocstring(name, doc string) string {
 }
 
 // FormatPyComment formats documentation for Python line comments.
+//
 // Single-line: "# Name doc text"
+//
 // Multi-line: "# Name line1\n# line2\n# line3"
+//
 // Text is wrapped to 88 characters including the comment prefix.
 func FormatPyComment(name, doc string) string {
 	if doc == "" {
@@ -219,8 +228,11 @@ func FormatPyComment(name, doc string) string {
 }
 
 // FormatCpp formats documentation for C++ Doxygen-style comments.
+//
 // Single-line: "/// @brief Name doc text"
+//
 // Multi-line: "/// @brief Name line1\n/// line2\n/// line3"
+//
 // Text is wrapped to 88 characters including the comment prefix.
 func FormatCpp(name, doc string) string {
 	if doc == "" {
@@ -252,7 +264,9 @@ func FormatCpp(name, doc string) string {
 }
 
 // FormatProto formats documentation for Protobuf comments (same as Go style).
+//
 // Single-line: "// Name doc text"
+//
 // Multi-line: "// Name line1\n// line2\n// line3"
 func FormatProto(name, doc string) string {
 	return FormatGo(name, doc)

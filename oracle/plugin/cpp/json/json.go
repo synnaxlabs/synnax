@@ -162,8 +162,8 @@ func collect(req *plugin.Request) (collection, error) {
 	return c, nil
 }
 
-// isVariableLengthArray reports whether t is a distinct type wrapping a
-// variable-length array, the only distinct form that needs JSON serialization.
+// isVariableLengthArray reports whether t is a distinct type wrapping a variable-length
+// array, the only distinct form that needs JSON serialization.
 func isVariableLengthArray(t resolution.Type) bool {
 	form, ok := t.Form.(resolution.DistinctForm)
 	return ok && form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 &&
