@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/arc/ir"
-import "schemas/arc/compiler"
-
-@ts output  "client/ts/src/arc/program"
-@go output  "arc/go/program"
-@cpp output "arc/cpp/program"
+@ts output  "x/ts/src/notation"
+@go output  "x/go/notation"
+@py output  "x/py/x/notation"
+@cpp output "x/cpp/notation"
 @pb
 
-Program struct extends ir.IR, compiler.Output {
-    @doc value """
-        is a compiled Arc program combining the intermediate representation with
-        WebAssembly bytecode, ready for execution.
-    """
+Notation enum {
+    standard    = "standard"
+    scientific  = "scientific"
+    engineering = "engineering"
+
+    @doc value "is the numeric notation used to render samples."
+    @py omit
+    @cpp omit
 }

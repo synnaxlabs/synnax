@@ -29,6 +29,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+// errSnapshotAnalysis is returned when a snapshot's schemas no longer
+// analyze under the current grammar.
+var errSnapshotAnalysis = errors.New("snapshot analysis failed")
+
 func newMigrateCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate",
@@ -107,8 +111,10 @@ func runMigrate(cmd *cobra.Command) error {
 		}
 		t, diag := analyzer.Analyze(ctx, normalized, snapshotLoader)
 		if diag != nil && !diag.Ok() {
-			printDiagnostics(diag.String())
-			return nil, errors.Newf("failed to analyze snapshot v%d", version)
+			if verbose {
+				printDiagnostics(diag.String())
+			}
+			return nil, errors.Wrapf(errSnapshotAnalysis, "v%d", version)
 		}
 		return t, nil
 	}
@@ -121,15 +127,30 @@ func runMigrate(cmd *cobra.Command) error {
 		LoadSnapshot:    loadSnapshot,
 	}
 
-	// If we have a previous snapshot, load it for diffing.
+	// If we have a previous snapshot, load it for diffing. A snapshot the
+	// current grammar can no longer analyze is historical text, not a
+	// baseline — migrate proceeds without diffing rather than failing.
 	if latestVersion > 0 {
 		oldTable, err := loadSnapshot(latestVersion)
-		if err != nil {
+		if err != nil && !errors.Is(err, errSnapshotAnalysis) {
 			return errors.Wrap(err, "failed to load latest snapshot")
 		}
-		if oldTable != nil {
+		switch {
+		case err != nil:
+			printDim(fmt.Sprintf(
+				"snapshot v%d no longer parses under the current grammar; "+
+					"migration diffing resumes at the next snapshot",
+				latestVersion,
+			))
+		case oldTable != nil:
 			req.OldResolutions = oldTable
 			req.SnapshotVersion = latestVersion
+			if gomigrate.SnapshotPreVersioning(oldTable) {
+				printDim(fmt.Sprintf(
+					"snapshot v%d predates @go version; migration diffing resumes at the next snapshot",
+					latestVersion,
+				))
+			}
 		}
 	}
 

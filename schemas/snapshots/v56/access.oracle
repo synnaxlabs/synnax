@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/arc/ir"
-import "schemas/arc/compiler"
-
-@ts output  "client/ts/src/arc/program"
-@go output  "arc/go/program"
-@cpp output "arc/cpp/program"
+@ts output "client/ts/src/access/action"
+@go output "core/pkg/service/access"
+@py output "client/py/synnax/access/action"
 @pb
 
-Program struct extends ir.IR, compiler.Output {
+Action enum {
+    create   = "create"
+    delete   = "delete"
+    retrieve = "retrieve"
+    update   = "update"
+
     @doc value """
-        is a compiled Arc program combining the intermediate representation with
-        WebAssembly bytecode, ready for execution.
+        is the fundamental operations that are controlled by the permission system.
+        Actions define what operations a subject can perform on resources.
     """
 }

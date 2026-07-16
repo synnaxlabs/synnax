@@ -38,6 +38,18 @@ func Version(t resolution.Type) (int, bool) {
 	return int(expr.Values[0].IntValue), true
 }
 
+// PreVersioning reports whether no type in the table declares a @go version.
+// Snapshots taken before per-resource versioning existed satisfy this and
+// cannot serve as a version-diffing baseline.
+func PreVersioning(table *resolution.Table) bool {
+	for _, t := range table.TypesWithDomain("go") {
+		if _, ok := Version(t); ok {
+			return false
+		}
+	}
+	return true
+}
+
 // Dir returns the version sub-directory name for version n ("v3").
 func Dir(n int) string { return fmt.Sprintf("v%d", n) }
 

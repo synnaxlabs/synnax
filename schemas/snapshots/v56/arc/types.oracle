@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @ts output  "client/ts/src/arc/types"
-@py output  "client/py/synnax/arc/types"
 @go output  "arc/go/types"
-@go version 1
 @cpp output "arc/cpp/types"
 @pb
 
@@ -49,38 +47,41 @@ ChanDirection enum {
     read  = 1
     write = 2
 
-    @doc value "indicates read/write direction for channel-typed parameters."
+    @doc value "indicates read/write direction for channel-typed config parameters."
 }
 
 FunctionProperties struct {
-    inputs  Params = [] {
+    inputs  Params? {
         @doc value "contains input parameter definitions."
     }
-    outputs Params = [] {
+    outputs Params? {
         @doc value "contains output parameter definitions."
+    }
+    config  Params? {
+        @doc value "contains configuration parameter definitions."
     }
 
     @doc value "contains common parameter definitions for function-like types."
 }
 
 Type struct extends FunctionProperties {
-    kind           Kind          {
+    kind           Kind           {
         @doc value "is the type category (primitive, compound, or meta-type)."
     }
-    name           string        {
+    name           string         {
         @doc value "is the type name for variables and user-defined types."
     }
-    elem           Type?         {
+    elem           Type??         {
         @doc value "is the element type for compound types (chan, series)."
     }
-    unit           Unit?         {
+    unit           Unit??         {
         @doc value "is the physical unit metadata for dimensional analysis."
     }
-    constraint     Type?         {
+    constraint     Type??         {
         @doc value "is the type constraint for type variables."
     }
-    chan_direction ChanDirection {
-        @doc value "indicates read/write direction for channel-typed parameters."
+    chan_direction  ChanDirection? {
+        @doc value "indicates read/write direction for channel-typed config parameters."
     }
 
     @doc value           """
@@ -93,25 +94,26 @@ Type struct extends FunctionProperties {
 }
 
 Param struct {
-    name  string {
+    name        string  {
         @doc value "is the parameter name."
     }
-    type  Type   {
+    type        Type    {
         @doc value "is the parameter type."
     }
-    value any    {
+    value       any?    {
         @doc value "is an optional default value."
     }
 
-    @doc value   "is a named, typed parameter with optional default value."
-    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Param& p)"
+    @doc value    "is a named, typed parameter with optional default value."
+    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Param& p)"
 }
 
 Params Param[] {
-    @doc value   """
-        is a collection of named, typed parameters for function inputs or outputs.
+    @doc value """
+        is a collection of named, typed parameters for function inputs, outputs,
+        or configuration.
     """
-    @cpp methods "[[nodiscard]] const Param& operator[](const std::string& name) const" "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Params& p)"
+    @cpp methods  "[[nodiscard]] const Param& operator[](const std::string& name) const" "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Params& p)"
 }
 
 Channels struct {
@@ -122,10 +124,10 @@ Channels struct {
         @doc value "contains writable channel indices mapped to parameter names."
     }
 
-    @doc value   """
+    @doc value    """
         contains channel declarations for reading from and writing to Synnax channels.
     """
-    @cpp methods "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Channels& c)"
+    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Channels& c)"
 }
 
 Dimensions struct {

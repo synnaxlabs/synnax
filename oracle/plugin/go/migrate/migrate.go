@@ -46,6 +46,13 @@ func (p *Plugin) Domains() []string           { return []string{"go"} }
 func (p *Plugin) Requires() []string          { return []string{"go/types", "go/marshal"} }
 func (p *Plugin) Check(*plugin.Request) error { return nil }
 
+// SnapshotPreVersioning reports whether the snapshot table predates
+// per-resource @go version declarations and therefore cannot drive migration
+// diffing.
+func SnapshotPreVersioning(table *resolution.Table) bool {
+	return versioning.PreVersioning(table)
+}
+
 // bump records one path's version transition between the snapshot and the
 // working schemas.
 type bump struct {
@@ -78,10 +85,16 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if g.newVersions, err = versioning.PathVersions(req.Resolutions); err != nil {
 		return nil, err
 	}
-	if g.oldVersions, err = versioning.PathVersions(req.OldResolutions); err != nil {
+	if g.newLaidOut, err = versioning.EntryPaths(req.Resolutions); err != nil {
 		return nil, err
 	}
-	if g.newLaidOut, err = versioning.EntryPaths(req.Resolutions); err != nil {
+	// A snapshot cut before per-resource versioning existed carries no @go
+	// version tags, so it cannot anchor bump detection or freezing. Version
+	// diffing resumes once a post-versioning snapshot is cut.
+	if versioning.PreVersioning(req.OldResolutions) {
+		return resp, nil
+	}
+	if g.oldVersions, err = versioning.PathVersions(req.OldResolutions); err != nil {
 		return nil, err
 	}
 	if g.oldLaidOut, err = versioning.EntryPaths(req.OldResolutions); err != nil {

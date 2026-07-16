@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @ts output  "client/ts/src/arc/compiler"
-@py output  "client/py/synnax/arc/compiler"
 @go output  "arc/go/compiler"
-@go version 0
 @cpp output "arc/cpp/compiler"
 @pb
 

@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/x/spatial"
+import "schemas/spatial"
 import "schemas/arc/ir"
 
 @ts output  "client/ts/src/arc/graph"
-@py output  "client/py/synnax/arc/graph"
 @go output  "arc/go/graph"
-@go version 2
 @cpp output "arc/cpp/graph"
 @pb
 
@@ -21,15 +19,19 @@ Node struct {
     key      string     {
         @doc value "is the unique identifier for this node instance."
     }
+    type     string     {
+        @doc value "is the function type being instantiated."
+    }
+    config   record       {
+        @doc value "contains configuration parameter values as a JSON object."
+    }
     position spatial.XY {
         @doc value "is the canvas position (x, y) for visual layout."
     }
 
     @doc value """
         is a visual node in the Arc graph editor representing a function
-        instantiation with position data. The function type and input
-        parameter values are stored in the graph's inputs map, keyed by the
-        node key.
+        instantiation with position data.
     """
 }
 
@@ -37,40 +39,29 @@ Nodes Node[] {
     @doc value "is a collection of visual nodes in an Arc graph."
 }
 
-Edge struct extends ir.Edge {
-    key string {
-        @doc value "is the stable identifier for this edge within the graph."
+Viewport struct {
+    position spatial.XY {
+        @doc value "is the camera pan offset (x, y)."
+    }
+    zoom     float64    {
+        @doc value "is the zoom level where 1.0 equals 100%."
     }
 
-    @doc value """
-        is a dataflow connection between node parameters carrying a stable
-        identifier. The key persists across endpoint edits, distinguishing the
-        editable graph edge from the keyless ir.Edge consumed by the compiler.
-    """
-}
-
-Edges Edge[] {
-    @doc value "is a collection of graph edges in an Arc graph."
+    @doc value "is the camera state for viewing the Arc graph editor canvas."
 }
 
 Graph struct {
-    functions ir.Functions = [] {
+    viewport  Viewport     {
+        @doc value "is the current camera state for the graph view."
+    }
+    functions ir.Functions {
         @doc value "contains function definitions available in this graph."
     }
-    edges     Edges = [] {
+    edges     ir.Edges     {
         @doc value "contains dataflow connections between node parameters."
     }
-    nodes     Nodes = [] {
+    nodes     Nodes        {
         @doc value "contains visual nodes with canvas positions."
-    }
-    inputs    map<string, record> = {} {
-        @doc value        """
-            contains per-node inputs keyed by node key. Each value is a JSON
-            object holding the node's function type under "type" plus its input
-            parameter values. The wire format stores it as an opaque record; the
-            client types it per function.
-        """
-        @ts preserve_case
     }
 
     @doc value """

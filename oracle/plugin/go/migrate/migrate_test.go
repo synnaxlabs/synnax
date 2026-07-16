@@ -120,6 +120,33 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 		})
 
+		Context("pre-versioning snapshot", func() {
+			It("Should generate no files against a snapshot with no @go version", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					@go version 1
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						email string
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
+				Expect(resp.Files).To(BeEmpty())
+			})
+		})
+
 		Context("no old resolutions", func() {
 			It("Should generate no files with no old resolutions", func() {
 				schema := `
