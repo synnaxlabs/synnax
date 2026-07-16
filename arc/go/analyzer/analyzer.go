@@ -49,13 +49,17 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 }
 
 // liftReassignedVarReads lifts reassigned-variable reads in synth expressions
-// into input params. Literal ASTs (fmt strings) take no params and are skipped.
+// into input params. Format-string placeholders lift from their parsed bodies.
 func liftReassignedVarReads(ctx acontext.Context[parser.IProgramContext]) {
 	for _, c := range ctx.Scope.Root().Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
 			continue
 		}
-		if expr, ok := c.AST.(parser.IExpressionContext); ok && !parser.IsLiteral(expr) {
+		if expr, ok := c.AST.(parser.IExpressionContext); ok {
+			if parser.IsLiteral(expr) {
+				flow.LiftFmtStrVarReads(ctx, c, expr)
+				continue
+			}
 			flow.LiftVarReads(ctx, c, expr)
 		}
 	}

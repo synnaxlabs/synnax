@@ -211,8 +211,9 @@ func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
 	return err
 }
 
-// compileFmtStrSynthetic emits a zero-param WASM body returning the
-// formatted string handle for an analyzer-synthesized backtick Function.
+// compileFmtStrSynthetic emits a WASM body returning the formatted string
+// handle for an analyzer-synthesized Function. Lifted variable reads arrive
+// as params.
 func compileFmtStrSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
@@ -226,7 +227,12 @@ func compileFmtStrSynthetic(
 		return compiledFunction{}, err
 	}
 	ctx := rootCtx.WithScope(scope).WithNewWriter()
+	params := make([]wasm.ValueType, 0, len(fn.Inputs))
+	for _, p := range fn.Inputs {
+		params = append(params, wasm.ConvertType(p.Type))
+	}
 	funcT := wasm.FunctionType{
+		Params:  params,
 		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
 	}
 	typeIdx := ctx.Module.AddType(funcT)

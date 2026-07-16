@@ -702,6 +702,7 @@ func tryAnalyzeFmtStrLiteral(
 	ctx acontext.Context[parser.IExpressionContext],
 	sym *symbol.Symbol,
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) (nodeResult, bool, bool) {
 	literalCtx := parser.GetLiteral(ctx.AST)
 	if literalCtx == nil {
@@ -732,10 +733,12 @@ func tryAnalyzeFmtStrLiteral(
 	}
 	key := kg.generate("fmt", "")
 	synthKey := compiler.FmtStrSyntheticPrefix + key
+	// Renamed so the compiler resolves the synthetic's scope by function key.
+	sym.Name = synthKey
 	*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 		Key:      synthKey,
 		Body:     ir.Body{Raw: body},
-		Inputs:   types.Params{},
+		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 		Channels: sym.Channels.Copy(),
 	})
@@ -743,8 +746,10 @@ func tryAnalyzeFmtStrLiteral(
 		Key:      key,
 		Type:     synthKey,
 		Channels: sym.Channels.Copy(),
+		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
+	wireVarEdges(ctx, shell, key, sym.Type.Inputs)
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true, true
 }
 
@@ -760,7 +765,7 @@ func analyzeExpression(
 	}
 
 	if sym.Kind == symbol.KindFunction && parser.IsLiteral(ctx.AST) {
-		if n, handled, ok := tryAnalyzeFmtStrLiteral(ctx, sym, kg); handled {
+		if n, handled, ok := tryAnalyzeFmtStrLiteral(ctx, sym, kg, shell); handled {
 			return n, ok
 		}
 	}
@@ -806,21 +811,30 @@ func analyzeExpression(
 		Inputs:   freshType.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	// Lifted variable reads arrive as input params; feed each from its node.
-	for _, p := range freshType.Inputs {
-		vsym, verr := ctx.Scope.Resolve(ctx, p.Name)
-		if verr != nil {
+	wireVarEdges(ctx, shell, key, freshType.Inputs)
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
+}
+
+// wireVarEdges feeds each lifted variable-read param from its variable node.
+func wireVarEdges(
+	ctx acontext.Context[parser.IExpressionContext],
+	shell *shellBuilder,
+	nodeKey string,
+	inputs types.Params,
+) {
+	for _, p := range inputs {
+		vsym, err := ctx.Scope.Resolve(ctx, p.Name)
+		if err != nil {
 			continue
 		}
 		if vn := shell.varNodes[vsym]; vn != nil {
 			shell.varEdges = append(shell.varEdges, ir.Edge{
 				Source: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: key, Param: p.Name},
+				Target: ir.Handle{Node: nodeKey, Param: p.Name},
 				Kind:   ir.EdgeKindContinuous,
 			})
 		}
 	}
-	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
 // Analyze performs semantic analysis on parsed Arc code and builds the IR.
@@ -848,6 +862,10 @@ func Analyze(
 
 	for _, c := range i.Symbols.Children() {
 		if c.Kind != symbol.KindFunction || c.AST == nil {
+			continue
+		}
+		// Format-string fns compile from their raw body as fmt$ synthetics.
+		if expr, ok := c.AST.(parser.IExpressionContext); ok && parser.IsLiteral(expr) {
 			continue
 		}
 		fnDecl, ok := c.AST.(parser.IFunctionDeclarationContext)

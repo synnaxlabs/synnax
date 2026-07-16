@@ -105,6 +105,41 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	expression.Analyze(ctx.WithScope(blockScope))
 }
 
+// LiftFmtStrVarReads lifts reassigned-variable reads in a format string's
+// placeholders into input params. No-op for non-format literals.
+func LiftFmtStrVarReads[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	fn *symbol.Symbol,
+	expr parser.IExpressionContext,
+) {
+	lit := parser.GetLiteral(expr)
+	if lit == nil {
+		return
+	}
+	strTerm := parser.StringTerminal(lit)
+	if strTerm == nil {
+		return
+	}
+	body, flags, ok := literal.StripQuotes(strTerm.GetText())
+	if !ok || !flags.Format {
+		return
+	}
+	segments, err := literal.FmtStrParse(body)
+	if err != nil {
+		return
+	}
+	for _, seg := range segments {
+		if !seg.IsPlaceholder || seg.Text == "" {
+			continue
+		}
+		phExpr, diags := parser.ParseExpression(seg.Text, ctx.Config)
+		if diags != nil && !diags.Ok() {
+			continue
+		}
+		LiftVarReads(ctx, fn, phExpr)
+	}
+}
+
 // LiftVarReads lifts reassigned-variable reads in a synth expression into input
 // params fed from the variable's node. Run after Reassigned flags are final.
 func LiftVarReads[T antlr.ParserRuleContext](
