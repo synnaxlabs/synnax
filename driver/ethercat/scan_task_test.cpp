@@ -32,7 +32,7 @@ protected:
 
 TEST_F(EtherCATScanTest, ScannerCreation) {
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -147,7 +147,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandSuccess) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -202,7 +202,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandWithMultipleSlaves) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
@@ -233,7 +233,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     auto pool = std::make_shared<engine::Pool>(std::move(manager));
 
     synnax::task::Task task{
-        .key = this->rack.key,
+        .rack = this->rack.key,
         .name = "EtherCAT Scanner",
         .type = SCAN_TASK_TYPE,
         .internal = true
