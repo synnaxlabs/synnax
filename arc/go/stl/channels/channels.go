@@ -120,6 +120,16 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if !isSource && !isSink {
 		return nil, query.ErrNotFound
 	}
+	targetIdx := -1
+	if isSink {
+		if idx, terr := cfg.State.ResolveInput("channel"); terr == nil {
+			targetIdx = idx
+		}
+	}
+	schema := valueFedSchema
+	if isSink && cfg.State.RefSourced(targetIdx) {
+		schema = edgeFedSinkSchema
+	}
 	var inputs nodeInputs
 	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
@@ -135,11 +145,23 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &sink{State: cfg.State, state: h.state, key: inputs.Channel, inputIdx: inputIdx}, nil
+	return &sink{
+		State:     cfg.State,
+		state:     h.state,
+		key:       inputs.Channel,
+		inputIdx:  inputIdx,
+		targetIdx: targetIdx,
+	}, nil
 }
 
-var schema = zyn.Object(map[string]zyn.Schema{
+// A source or unbound sink requires its channel key as an input value.
+var valueFedSchema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Uint32().Coerce(),
+})
+
+// An alias-bound sink takes its key from the binding edge at runtime.
+var edgeFedSinkSchema = zyn.Object(map[string]zyn.Schema{
+	"channel": zyn.Uint32().Coerce().Optional(),
 })
 
 type nodeInputs struct {
@@ -206,9 +228,10 @@ func (s *source) Next(ctx node.Context) {
 
 type sink struct {
 	*node.State
-	state    *ProgramState
-	key      uint32
-	inputIdx int
+	state     *ProgramState
+	key       uint32
+	inputIdx  int
+	targetIdx int
 }
 
 func (s *sink) Next(ctx node.Context) {
@@ -220,7 +243,11 @@ func (s *sink) Next(ctx node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	s.state.writeChannel(s.key, data, time)
+	key := s.key
+	if t := s.RefInput(s.targetIdx); t.Len() > 0 {
+		key = telem.ValueAt[uint32](t, -1)
+	}
+	s.state.writeChannel(key, data, time)
 	lastTS := telem.ValueAt[telem.TimeStamp](time, -1)
 	out := s.Output(0)
 	out.Resize(1)

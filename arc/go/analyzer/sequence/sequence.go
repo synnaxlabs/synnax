@@ -77,7 +77,17 @@ func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
 			"cannot rebind channel read/write variable %s of type %s to a channel of type %s",
 			name, channelReadWrite.Type.Unwrap(), target.Type.Unwrap()))
+		return
 	}
+	channelReadWrite.Reassigned = true
+	if channelReadWrite.Channels.Write == nil {
+		channelReadWrite.Channels = types.NewChannels()
+	}
+	key := uint32(target.ID)
+	if target.SourceID != nil {
+		key = uint32(*target.SourceID)
+	}
+	channelReadWrite.Channels.Write[key] = target.Name
 }
 
 // channelRebindTarget resolves expr to the global channel a channel read/write rebind targets,

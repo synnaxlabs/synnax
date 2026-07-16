@@ -255,6 +255,16 @@ var _ = Describe("Channel", func() {
 				}
 				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
 			})
+			It("Should return error for a sink with neither a channel key nor a binding edge", func(ctx SpecContext) {
+				cfg := rnode.Config{
+					Node: ir.Node{
+						Type:   "write",
+						Inputs: types.Params{},
+					},
+					State: rtState.Node("test"),
+				}
+				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+			})
 		})
 	})
 

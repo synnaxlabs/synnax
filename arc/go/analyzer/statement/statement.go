@@ -817,7 +817,42 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	}
 }
 
+// analyzeAliasRebind re-points a channel alias at rhs, recording the candidate
+// for write routing.
+func analyzeAliasRebind(
+	ctx context.Context[parser.IAssignmentContext],
+	alias, rhs *symbol.Symbol,
+) {
+	if !types.StructuralMatch(alias.Type.Unwrap(), rhs.Type.Unwrap()) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"type mismatch: cannot rebind '%s' (%s) to '%s' (%s)",
+			alias.Name, alias.Type, rhs.Name, rhs.Type))
+		return
+	}
+	alias.Reassigned = true
+	if alias.Channels.Write == nil {
+		alias.Channels = types.NewChannels()
+	}
+	key := uint32(rhs.ID)
+	if rhs.SourceID != nil {
+		key = uint32(*rhs.SourceID)
+	}
+	alias.Channels.Write[key] = rhs.Name
+}
+
 func analyzeChannelAssignment(ctx context.Context[parser.IAssignmentContext], channelSym *symbol.Symbol) {
+	// A bare-channel RHS on an alias variable rebinds it rather than writing a value.
+	if channelSym.Kind == symbol.KindVariable {
+		if expr := ctx.AST.Expression(); expr != nil {
+			if p := parser.GetPrimaryExpression(expr); p != nil && p.IDENTIFIER() != nil {
+				if rhs, rerr := ctx.Resolve(p.IDENTIFIER().GetText()); rerr == nil &&
+					rhs.Kind == symbol.KindChannel {
+					analyzeAliasRebind(ctx, channelSym, rhs)
+					return
+				}
+			}
+		}
+	}
 	// Validate we're in a function context (channel writes only allowed in imperative context)
 	fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if errors.Skip(fnErr, query.ErrNotFound) != nil {

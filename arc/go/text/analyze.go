@@ -380,7 +380,7 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
-		if vn := shell.varNodes[sym]; vn != nil {
+		if vn := shell.varNodes[sym]; vn != nil && sym.Type.Kind != types.KindChan {
 			if isSink {
 				return flowNodeResult{node: varFeederRef(vn)}, true
 			}
@@ -391,10 +391,26 @@ func analyzeIdentifierByRole(
 		}
 		if isSink {
 			r, ok := buildChannelWriteNode(name, sym, kg)
+			if vn := shell.varNodes[sym]; ok && vn != nil {
+				bindWriteToAlias(shell, vn, &r.node, sym)
+			}
 			return flowNodeResult{node: r}, ok
 		}
 		r, ok := buildChannelReadNode(name, sym, kg)
 		return flowNodeResult{node: r}, ok
+	}
+}
+
+// bindWriteToAlias feeds a write node's channel param from the alias's binding
+// node and declares every rebind candidate for dependency streaming.
+func bindWriteToAlias(shell *shellBuilder, vn, w *ir.Node, sym *symbol.Symbol) {
+	shell.varEdges = append(shell.varEdges, ir.Edge{
+		Source: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
+		Target: ir.Handle{Node: w.Key, Param: "channel"},
+		Kind:   ir.EdgeKindContinuous,
+	})
+	for k, name := range sym.Channels.Write {
+		w.Channels.Write[k] = name
 	}
 }
 
@@ -406,7 +422,7 @@ func isSeededVar(sym *symbol.Symbol) bool {
 }
 
 // collectVarNodes registers a variable node per reassigned seeded value
-// variable under s; reads and feeders wire to it instead of collapsing.
+// variable or channel alias under s; reads and feeders wire to it.
 func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 	for _, c := range s.Children() {
 		if c.Reassigned && isSeededVar(c) {
@@ -414,7 +430,25 @@ func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 			shell.varNodes[c] = n
 			shell.varNodeOrder = append(shell.varNodeOrder, n)
 		}
+		if c.Reassigned && c.Kind == symbol.KindVariable &&
+			c.Type.Kind == types.KindChan {
+			n := buildAliasBindingNode(c, kg)
+			shell.varNodes[c] = n
+			shell.varNodeOrder = append(shell.varNodeOrder, n)
+		}
 		collectVarNodes(c, kg, shell)
+	}
+}
+
+// buildAliasBindingNode builds a variable node holding an alias's bound channel
+// key, seeded with the declared channel.
+func buildAliasBindingNode(sym *symbol.Symbol, kg *keyGenerator) *ir.Node {
+	return &ir.Node{
+		Key:      kg.generate("var", sym.Name),
+		Type:     "variable",
+		Channels: types.NewChannels(),
+		Inputs:   types.Params{{Name: "f0", Type: types.U32(), Value: channelKey(sym)}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
 	}
 }
 
@@ -487,6 +521,9 @@ func lowerAssignment(
 	if vn == nil || expr == nil {
 		return nil, nil, true
 	}
+	if sym.Type.Kind == types.KindChan {
+		return lowerAliasRebind(ctx, sym, vn, expr, kg)
+	}
 	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell)
 	if !ok {
 		return nil, nil, false
@@ -494,6 +531,39 @@ func lowerAssignment(
 	ref := varFeederRef(vn)
 	return []ir.Node{res.node}, []ir.Edge{{
 		Source: res.output,
+		Target: ref.input,
+		Kind:   ir.EdgeKindContinuous,
+	}}, true
+}
+
+// lowerAliasRebind lowers `alias = chan` to a constant-key feeder on the
+// alias's binding node.
+func lowerAliasRebind(
+	ctx acontext.Context[parser.IAssignmentContext],
+	sym *symbol.Symbol,
+	vn *ir.Node,
+	expr parser.IExpressionContext,
+	kg *keyGenerator,
+) ([]ir.Node, []ir.Edge, bool) {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return nil, nil, true
+	}
+	rhs, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
+		return nil, nil, false
+	}
+	n := ir.Node{
+		Key:      kg.generate("const", sym.Name),
+		Type:     "constant",
+		Channels: types.NewChannels(),
+		Inputs:   types.Params{{Name: "value", Type: types.U32(), Value: channelKey(rhs)}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: types.U32()}},
+	}
+	ref := varFeederRef(vn)
+	return []ir.Node{n}, []ir.Edge{{
+		Source: ir.Handle{Node: n.Key, Param: ir.DefaultOutputParam},
 		Target: ref.input,
 		Kind:   ir.EdgeKindContinuous,
 	}}, true

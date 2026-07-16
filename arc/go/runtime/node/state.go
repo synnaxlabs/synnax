@@ -29,7 +29,7 @@ type ProgramState struct {
 	outputs map[ir.Handle]*value
 }
 
-// New creates a state manager from the given configuration.
+// New creates a state manager for the given program IR.
 // It initializes output storage for all node outputs and maps channel keys
 // to their indexes.
 func New(inter ir.IR) *ProgramState {
@@ -69,6 +69,12 @@ func (s *ProgramState) Node(key string) *State {
 		// a value stream. It carries no data series and never gates execution.
 		if p.Type.Kind == types.KindChan {
 			isReference[i] = true
+			if edge, found := s.ir.Edges.FindByTarget(
+				ir.Handle{Node: key, Param: p.Name},
+			); found {
+				inputs[i] = edge
+				inputSources[i] = s.outputs[edge.Source]
+			}
 			continue
 		}
 		edge, found := s.ir.Edges.FindByTarget(
@@ -253,6 +259,23 @@ func (n *State) RefreshInputs() (recalculate bool) {
 		n.accumulated[i].consumed = true
 	}
 	return true
+}
+
+// RefSourced reports whether the reference input at paramIndex is edge-fed.
+func (n *State) RefSourced(paramIndex int) bool {
+	return paramIndex >= 0 && paramIndex < len(n.inputSources) &&
+		n.isReference[paramIndex] && n.inputSources[paramIndex] != nil
+}
+
+// RefInput returns the current data of an edge-fed reference input, or an
+// empty series when the input is unedged.
+func (n *State) RefInput(paramIndex int) telem.Series {
+	if paramIndex >= 0 && paramIndex < len(n.inputSources) && n.isReference[paramIndex] {
+		if src := n.inputSources[paramIndex]; src != nil {
+			return src.data
+		}
+	}
+	return telem.Series{}
 }
 
 // AbsorbInputs marks every data input consumed at its current source timestamp,
