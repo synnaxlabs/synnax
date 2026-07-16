@@ -32,6 +32,9 @@ enum class Concurrency : std::uint8_t {
     Shared = 1,
 };
 
+/// @brief Authority is a numeric value (0-255) representing the level of control
+/// authority a subject has over a resource. Higher values indicate greater authority.
+/// The maximum value of 255 represents absolute authority.
 using Authority = std::uint8_t;
 
 /// @brief Subject is an entity that can hold control authority over a resource.
