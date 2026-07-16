@@ -40,6 +40,9 @@ constexpr const char *OPERATION_TYPE_AVG = "avg";
 constexpr const char *OPERATION_TYPE_NONE = "none";
 constexpr const char *OPERATION_TYPE_DERIVATIVE = "derivative";
 
+/// @brief Key is a unique identifier for a channel in the Synnax database. Composed of
+/// a cluster node key (first 12 bits) and a local key (last 20 bits), enabling
+/// distributed assignment while maintaining global uniqueness.
 using Key = std::uint32_t;
 
 using Name = std::string;

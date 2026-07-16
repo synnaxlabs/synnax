@@ -21,17 +21,16 @@ export const nodeZ = z.object({
   /** position is the top-left position of the node. */
   position: spatial.xyZ,
   /**
-   * zIndex is the stacking order of the node within the schematic. Higher
-   * values render above lower values. Set by the user via
-   * send-to-back / bring-to-front actions.
+   * zIndex is the stacking order of the node within the schematic. Higher values render
+   * above lower values. Set by the user via send-to-back / bring-to-front actions.
    */
   zIndex: zod.int16.default(0),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
 /**
- * Handle is a reference to a specific connection point on a specific node.
- * For schematics, param is the symbol handle key (e.g. inlet, outlet).
+ * Handle is a reference to a specific connection point on a specific node. For
+ * schematics, param is the symbol handle key (e.g. inlet, outlet).
  */
 export const handleZ = z.object({
   /** node is the node identifier. */
@@ -56,9 +55,9 @@ export const edgeZ = z.object({
 export interface Edge extends z.infer<typeof edgeZ> {}
 
 /**
- * Schematic is a visual diagram editor component for drawing system schematics,
- * control flows, and process diagrams. Schematics support interactive
- * symbols, connection handles, and dynamic state visualization.
+ * Schematic is a visual diagram editor component for drawing system schematics, control
+ * flows, and process diagrams. Schematics support interactive symbols, connection
+ * handles, and dynamic state visualization.
  */
 export const schematicZ = z.object({
   /** key is the unique identifier for this schematic. */
@@ -72,9 +71,9 @@ export const schematicZ = z.object({
   /** edges contains all connections between nodes. */
   edges: edgeZ.array().default(() => []),
   /**
-   * configs contains per-element configuration keyed by node or edge key. The
-   * shape of each value is determined by the element's variant; the
-   * wire format intentionally stores it as an opaque record.
+   * configs contains per-element configuration keyed by node or edge key. The shape of
+   * each value is determined by the element's variant; the wire format intentionally
+   * stores it as an opaque record.
    */
   configs: caseconv.preserveCase(
     z.record(z.string(), record.unknownZ()).default(() => ({})),

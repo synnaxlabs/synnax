@@ -17,36 +17,34 @@ import { ontology } from "@/ontology";
 /** TabBase carries the identity shared by every tab variant. */
 export const tabBaseZ = z.object({
   /**
-   * key is the stable unique identifier of this tab within the panel. It is
-   * independent of the tab's content, so a tab's content may be swapped
-   * without changing the tab's identity or position.
+   * key is the stable unique identifier of this tab within the panel. It is independent
+   * of the tab's content, so a tab's content may be swapped without changing the tab's
+   * identity or position.
    */
   key: z.uuid(),
 });
 export interface TabBase extends z.infer<typeof tabBaseZ> {}
 
 /**
- * View is an inline, self-describing view: a Console-owned type plus an
- * opaque configuration payload, with no backing core document. Used
- * for app-views and tools (docs, explorers, about, the visualization
- * picker).
+ * View is an inline, self-describing view: a Console-owned type plus an opaque
+ * configuration payload, with no backing core document. Used for app-views and tools
+ * (docs, explorers, about, the visualization picker).
  */
 export const viewZ = z.object({
   /**
-   * type is the Console-owned view type identifier (e.g., 'docs',
-   * 'about') used to select a renderer.
+   * type is the Console-owned view type identifier (e.g., 'docs', 'about') used to
+   * select a renderer.
    */
   type: z.string(),
   /**
-   * name is the human-readable tab name for the view. A view has no
-   * backing resource to derive a name from, so it carries its own.
-   * May be renamed via SetTabView; when empty the Console falls
-   * back to a type-derived default.
+   * name is the human-readable tab name for the view. A view has no backing resource to
+   * derive a name from, so it carries its own. May be renamed via SetTabView; when
+   * empty the Console falls back to a type-derived default.
    */
   name: z.string().default(""),
   /**
-   * args is an opaque, Console-owned configuration payload for the
-   * view. Core never interprets it; it round-trips as-is.
+   * args is an opaque, Console-owned configuration payload for the view. Core never
+   * interprets it; it round-trips as-is.
    */
   args: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
@@ -67,10 +65,9 @@ export const tabResourceZ = tabBaseZ.extend({
 export interface TabResource extends z.infer<typeof tabResourceZ> {}
 
 /**
- * TabView is a tab displaying an inline, self-describing view. Unlike a
- * resource, a view has no backing core document: it carries its own
- * type and opaque args. Used for app-views and tools (docs,
- * explorers, about, the visualization picker).
+ * TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
+ * view has no backing core document: it carries its own type and opaque args. Used for
+ * app-views and tools (docs, explorers, about, the visualization picker).
  */
 export const tabViewZ = tabBaseZ.extend(viewZ.shape).extend({
   variant: z.literal("view"),
@@ -78,9 +75,8 @@ export const tabViewZ = tabBaseZ.extend(viewZ.shape).extend({
 export interface TabView extends z.infer<typeof tabViewZ> {}
 
 /**
- * TabEmpty is a tab with no content yet. An empty tab renders the
- * visualization selector at render time; SetTabResource or
- * SetTabView fills it in place.
+ * TabEmpty is a tab with no content yet. An empty tab renders the visualization
+ * selector at render time; SetTabResource or SetTabView fills it in place.
  */
 export const tabEmptyZ = tabBaseZ.extend({
   variant: z.literal("empty"),
@@ -92,13 +88,11 @@ export const tabTypeZ = z.enum(TAB_TYPES);
 export type TabType = z.infer<typeof tabTypeZ>;
 
 /**
- * Tab is a single tab in a leaf. Tab content is a discriminated union:
- * a resource (a backing core document, e.g. a line plot), a view
- * (an inline, self-describing app-view, e.g. docs), or empty (the
- * visualization selector). Display attributes (name, icon,
- * closability) are resolved at render time from the content. The
- * same content may be referenced by multiple tabs in the same or
- * other panels.
+ * Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
+ * backing core document, e.g. a line plot), a view (an inline, self-describing
+ * app-view, e.g. docs), or empty (the visualization selector). Display attributes
+ * (name, icon, closability) are resolved at render time from the content. The same
+ * content may be referenced by multiple tabs in the same or other panels.
  */
 export const tabZ = z.discriminatedUnion("variant", [
   tabResourceZ,
@@ -127,8 +121,8 @@ export const splitZ = z.object({
   /** direction is the axis along which this node is split. */
   direction: spatial.directionZ,
   /**
-   * size is the fraction in [0, 1] of the parent area allocated to first.
-   * The remainder is allocated to last.
+   * size is the fraction in [0, 1] of the parent area allocated to first. The remainder
+   * is allocated to last.
    */
   size: spatial.decimalZ,
   /** first is the first child (left for x, top for y). */
@@ -143,9 +137,9 @@ export const splitZ = z.object({
 export interface Split extends z.infer<typeof splitZ> {}
 
 /**
- * Panel is a tab in a project owning a tree of visualization tabs. A panel
- * is owned by a project (project panel) or by a user (draft);
- * renaming a draft promotes it to project ownership.
+ * Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
+ * a project (project panel) or by a user (draft); renaming a draft promotes it to
+ * project ownership.
  */
 export const panelZ = z.object({
   /** key is the unique identifier for this panel. */
@@ -157,11 +151,10 @@ export const panelZ = z.object({
     return nodeZ.prefault({ variant: "leaf", tabs: [] });
   },
   /**
-   * parent is an optional parent resource for the panel in the ontology.
-   * When absent on create, the panel is parented to the creating
-   * user as a draft. Parenthood lives in the ontology graph, so the
-   * field is not persisted on the panel record and is absent on
-   * retrieve.
+   * parent is an optional parent resource for the panel in the ontology. When absent on
+   * create, the panel is parented to the creating user as a draft. Parenthood lives in
+   * the ontology graph, so the field is not persisted on the panel record and is absent
+   * on retrieve.
    */
   parent: ontology.idZ.optional(),
 });
@@ -183,9 +176,9 @@ export const nodeTypeZ = z.enum(NODE_TYPES);
 export type NodeType = z.infer<typeof nodeTypeZ>;
 
 /**
- * Node is a node in the panel tree: either a leaf displaying a tab strip
- * or an interior split. Nodes are identified by path-derived numeric
- * keys during traversal (1 = root, 2k = first child, 2k+1 = last child).
+ * Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
+ * split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
+ * 2k = first child, 2k+1 = last child).
  */
 export const nodeZ = z.discriminatedUnion("variant", [nodeLeafZ, nodeSplitZ]);
 export type Node = NodeLeaf | NodeSplit;

@@ -127,25 +127,43 @@ func FormatGo(name, doc string) string {
 }
 
 // FormatTS formats documentation for TypeScript JSDoc comments.
+//
 // Single-line: "/** Name doc text */"
+//
 // Multi-line: "/**\n * Name line1\n * line2\n */"
-func FormatTS(name, doc string) string {
+//
+// Text is wrapped to 88 characters including the comment prefix and the indentation the
+// comment is emitted at (Prettier re-indents continuation lines to match).
+func FormatTS(name, doc string, indent ...int) string {
 	if doc == "" {
 		return ""
 	}
-	lines := strings.Split(doc, "\n")
-	if len(lines) == 1 {
-		return "/** " + name + " " + doc + " */"
+
+	width := maxLineWidth
+	if len(indent) > 0 {
+		width -= indent[0]
 	}
-	var result []string
-	result = append(result, "/**")
+	firstPrefix := " * " + name + " "
+	subsequentPrefix := " * "
+	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
+	if len(lines) == 0 {
+		return ""
+	}
+
+	if len(lines) == 1 {
+		if single := "/** " + name + " " + lines[0] + " */"; len(single) <= width {
+			return single
+		}
+	}
+
+	result := []string{"/**"}
 	for i, line := range lines {
 		if i == 0 {
-			result = append(result, " * "+name+" "+line)
+			result = append(result, firstPrefix+line)
 		} else if line == "" {
 			result = append(result, " *")
 		} else {
-			result = append(result, " * "+line)
+			result = append(result, subsequentPrefix+line)
 		}
 	}
 	result = append(result, " */")
@@ -153,22 +171,29 @@ func FormatTS(name, doc string) string {
 }
 
 // FormatPyDocstring formats documentation for Python class/function docstrings.
+//
 // Single-line: `"""Name doc text"""`
+//
 // Multi-line: `"""Name line1\nline2\nline3"""`
+//
+// Text is wrapped to 88 characters including the docstring markers.
 func FormatPyDocstring(name, doc string) string {
 	if doc == "" {
 		return ""
 	}
-	lines := strings.Split(doc, "\n")
-	if len(lines) == 1 {
-		return `"""` + name + " " + doc + `"""`
+	// Reserve room for the closing quotes, which land on the last wrapped line.
+	firstPrefix := `"""` + name + " "
+	closing := len(`"""`)
+	lines := wrapText(doc, maxLineWidth-len(firstPrefix)-closing, maxLineWidth-closing)
+	if len(lines) == 0 {
+		return ""
 	}
-	var result []string
+	result := make([]string, len(lines))
 	for i, line := range lines {
 		if i == 0 {
-			result = append(result, `"""`+name+" "+line)
+			result[i] = firstPrefix + line
 		} else {
-			result = append(result, line)
+			result[i] = line
 		}
 	}
 	result[len(result)-1] = result[len(result)-1] + `"""`
@@ -176,27 +201,38 @@ func FormatPyDocstring(name, doc string) string {
 }
 
 // FormatPyComment formats documentation for Python line comments.
+//
 // Single-line: "# Name doc text"
+//
 // Multi-line: "# Name line1\n# line2\n# line3"
+//
+// Text is wrapped to 88 characters including the comment prefix.
 func FormatPyComment(name, doc string) string {
 	if doc == "" {
 		return ""
 	}
-	lines := strings.Split(doc, "\n")
+	firstPrefix := "# " + name + " "
+	subsequentPrefix := "# "
+	lines := wrapText(doc, maxLineWidth-len(firstPrefix), maxLineWidth-len(subsequentPrefix))
 	var result []string
 	for i, line := range lines {
 		if i == 0 {
-			result = append(result, "# "+name+" "+line)
+			result = append(result, firstPrefix+line)
+		} else if line == "" {
+			result = append(result, "#")
 		} else {
-			result = append(result, "# "+line)
+			result = append(result, subsequentPrefix+line)
 		}
 	}
 	return strings.Join(result, "\n")
 }
 
 // FormatCpp formats documentation for C++ Doxygen-style comments.
+//
 // Single-line: "/// @brief Name doc text"
+//
 // Multi-line: "/// @brief Name line1\n/// line2\n/// line3"
+//
 // Text is wrapped to 88 characters including the comment prefix.
 func FormatCpp(name, doc string) string {
 	if doc == "" {
@@ -228,10 +264,40 @@ func FormatCpp(name, doc string) string {
 }
 
 // FormatProto formats documentation for Protobuf comments (same as Go style).
+//
 // Single-line: "// Name doc text"
+//
 // Multi-line: "// Name line1\n// line2\n// line3"
-func FormatProto(name, doc string) string {
-	return FormatGo(name, doc)
+//
+// Text is wrapped to 88 characters including the comment prefix and the indentation
+// the comment is emitted at (buf format re-indents continuation lines to match).
+func FormatProto(name, doc string, indent ...int) string {
+	if doc == "" {
+		return ""
+	}
+
+	width := maxLineWidth
+	if len(indent) > 0 {
+		width -= indent[0]
+	}
+	firstPrefix := "// " + name + " "
+	subsequentPrefix := "// "
+	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
+	if len(lines) == 0 {
+		return ""
+	}
+
+	var result []string
+	for i, line := range lines {
+		if i == 0 {
+			result = append(result, firstPrefix+line)
+		} else if line == "" {
+			result = append(result, "//")
+		} else {
+			result = append(result, subsequentPrefix+line)
+		}
+	}
+	return strings.Join(result, "\n")
 }
 
 func capitalize(s string) string {
@@ -248,6 +314,9 @@ type FieldDoc struct {
 	Doc  string
 }
 
+// FormatPyDocstringGoogle formats a Google-style class docstring with an Attributes
+// section, indented for a class body. Text is wrapped to 88 characters including
+// indentation.
 func FormatPyDocstringGoogle(classDoc string, fields []FieldDoc) string {
 	var fieldsWithDocs []FieldDoc
 	for _, f := range fields {
@@ -263,35 +332,56 @@ func FormatPyDocstringGoogle(classDoc string, fields []FieldDoc) string {
 		return ""
 	}
 
+	const bodyIndent = "    "
 	var lines []string
 
 	if hasClassDoc {
-		classDocCapitalized := capitalize(classDoc)
-		classLines := strings.Split(classDocCapitalized, "\n")
-		lines = append(lines, `    """`+classLines[0])
-		for i := 1; i < len(classLines); i++ {
-			lines = append(lines, "    "+classLines[i])
+		firstPrefix := bodyIndent + `"""`
+		classLines := wrapText(
+			capitalize(classDoc),
+			maxLineWidth-len(firstPrefix),
+			maxLineWidth-len(bodyIndent),
+		)
+		for i, line := range classLines {
+			if i == 0 {
+				lines = append(lines, firstPrefix+line)
+			} else if line == "" {
+				lines = append(lines, "")
+			} else {
+				lines = append(lines, bodyIndent+line)
+			}
 		}
 	} else {
-		lines = append(lines, `    """`)
+		lines = append(lines, bodyIndent+`"""`)
 	}
 
 	if hasFieldDocs {
 		if hasClassDoc {
 			lines = append(lines, "")
 		}
-		lines = append(lines, "    Attributes:")
+		const fieldIndent = "        "
+		const contIndent = "            "
+		lines = append(lines, bodyIndent+"Attributes:")
 		for _, f := range fieldsWithDocs {
-			fieldDocCapitalized := capitalize(f.Doc)
-			fieldLines := strings.Split(fieldDocCapitalized, "\n")
-			lines = append(lines, "        "+f.Name+": "+fieldLines[0])
-			for i := 1; i < len(fieldLines); i++ {
-				lines = append(lines, "            "+fieldLines[i])
+			firstPrefix := fieldIndent + f.Name + ": "
+			fieldLines := wrapText(
+				capitalize(f.Doc),
+				maxLineWidth-len(firstPrefix),
+				maxLineWidth-len(contIndent),
+			)
+			for i, line := range fieldLines {
+				if i == 0 {
+					lines = append(lines, firstPrefix+line)
+				} else if line == "" {
+					lines = append(lines, "")
+				} else {
+					lines = append(lines, contIndent+line)
+				}
 			}
 		}
 	}
 
-	lines = append(lines, `    """`)
+	lines = append(lines, bodyIndent+`"""`)
 
 	return strings.Join(lines, "\n")
 }

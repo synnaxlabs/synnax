@@ -88,12 +88,12 @@ func (x *TabBase) GetKey() string {
 // (docs, explorers, about, the visualization picker).
 type View struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-	// a renderer.
+	// type is the Console-owned view type identifier (e.g., 'docs', 'about') used to
+	// select a renderer.
 	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
 	// name is the human-readable tab name for the view. A view has no backing resource to
-	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-	// the Console falls back to a type-derived default.
+	// derive a name from, so it carries its own. May be renamed via SetTabView; when
+	// empty the Console falls back to a type-derived default.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// args is an opaque, Console-owned configuration payload for the view. Core never
 	// interprets it; it round-trips as-is.
@@ -353,7 +353,8 @@ func (x *Panel) GetParent() *pb1.ID {
 
 type TabResourcePayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// resource is the visualization resource displayed by this tab, set via SetTabResource.
+	// resource is the visualization resource displayed by this tab, set via
+	// SetTabResource.
 	Resource      *pb1.ID `protobuf:"bytes,1,opt,name=resource,proto3" json:"resource,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

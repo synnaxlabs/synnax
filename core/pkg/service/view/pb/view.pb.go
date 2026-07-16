@@ -43,8 +43,8 @@ type View struct {
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	// type is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
 	Type string `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
-	// query is a type-agnostic JSON object containing view-specific configuration and query
-	// parameters.
+	// query is a type-agnostic JSON object containing view-specific configuration and
+	// query parameters.
 	Query         *structpb.Struct `protobuf:"bytes,4,opt,name=query,proto3" json:"query,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
