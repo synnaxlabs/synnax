@@ -40,12 +40,12 @@ var _ = Describe("MultiListener", func() {
 		portB := MustSucceed(net.FindOpenPort())
 		addrA := address.Newf("localhost:%d", portA)
 		addrB := address.Newf("localhost:%d", portB)
-		srcA := MustSucceed(auto.Factory{}.NewSource(cert.SourceConfig{
-			FS: fs, Address: "hostA:1", KeySize: mock.SmallKeySize,
+		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
+			LoaderConfig: cert.LoaderConfig{FS: fs},
+			KeySize:      mock.SmallKeySize,
 		}))
-		srcB := MustSucceed(auto.Factory{}.NewSource(cert.SourceConfig{
-			FS: fs, Address: "hostB:1", KeySize: mock.SmallKeySize,
-		}))
+		srcA := MustSucceed(auto.NewSource(ca, "hostA:1"))
+		srcB := MustSucceed(auto.NewSource(ca, "hostB:1"))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{
 				{Address: addrA, TLS: prov.TLSConfigFor(srcA)},

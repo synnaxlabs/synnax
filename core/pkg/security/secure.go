@@ -78,8 +78,8 @@ func (p *secureProvider) NodeClientConfig() *tls.Config {
 	return p.baseTLSConfig(p.getNodeCert)
 }
 
-// VerifyClusterCert implements TLSProvider.
-func (p *secureProvider) VerifyClusterCert(src cert.Source, host string) error {
+// VerifyCoreCert implements TLSProvider.
+func (p *secureProvider) VerifyCoreCert(src cert.Source, host string) error {
 	c, err := src.GetCertificate(&tls.ClientHelloInfo{})
 	if err != nil {
 		return err

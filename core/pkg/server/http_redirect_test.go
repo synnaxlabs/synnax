@@ -33,11 +33,10 @@ var _ = Describe("HttpRedirect", func() {
 			KeySize:      mock.SmallKeySize,
 			Insecure:     new(false),
 		}))
-		src := MustSucceed(file.Factory{}.NewSource(cert.SourceConfig{
-			FS:   fs,
-			Cert: "/usr/local/synnax/certs/node.crt",
-			Key:  "/usr/local/synnax/certs/node.key",
-		}))
+		src := MustSucceed(file.NewSource(fs,
+			"/usr/local/synnax/certs/node.crt",
+			"/usr/local/synnax/certs/node.key",
+		))
 		received := false
 		b := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{{

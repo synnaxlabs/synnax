@@ -24,45 +24,22 @@ import (
 // SourceType is the configuration token selecting the auto source.
 const SourceType = "auto"
 
-// Factory builds auto sources.
-type Factory struct{}
-
-var _ cert.SourceFactory = Factory{}
-
-// Type implements cert.SourceFactory.
-func (Factory) Type() string { return SourceType }
-
-// NewSource implements cert.SourceFactory.
-func (Factory) NewSource(cfg cert.SourceConfig) (cert.Source, error) {
-	if cfg.Address == "" {
-		return nil, errors.Wrap(validate.ErrValidation, "[cert] - auto source requires a listener address")
+// NewSource builds an auto source that self-signs a certificate for host from ca's built-in
+// CA. It returns validate.ErrValidation if host is empty.
+func NewSource(ca *cert.Factory, host address.Address) (cert.Source, error) {
+	if host == "" {
+		return nil, errors.Wrap(validate.ErrValidation, "auto source requires a listener address")
 	}
-	if cfg.Cert != "" || cfg.Key != "" {
-		return nil, errors.Wrap(validate.ErrValidation, "[cert] - auto source must not set cert or key")
-	}
-	f, err := cert.NewFactory(cert.FactoryConfig{
-		LoaderConfig: cert.LoaderConfig{
-			FS:         cfg.FS,
-			CertsDir:   cfg.CertsDir,
-			CAKeyPath:  cfg.CAKeyPath,
-			CACertPath: cfg.CACertPath,
-		},
-		Hosts:         []address.Address{cfg.Address},
-		KeySize:       cfg.KeySize,
-		AllowKeyReuse: new(true),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &source{factory: f}, nil
+	return &source{ca: ca, host: host}, nil
 }
 
-// source self-signs a certificate from the built-in CA, deriving its SANs from the
-// listener address. It generates once and caches for the node's lifetime.
+// source self-signs a certificate for its listener's address from the built-in CA. It
+// signs once and caches for the node's lifetime.
 type source struct {
-	factory *cert.Factory
-	mu      sync.Mutex
-	cached  *tls.Certificate
+	ca     *cert.Factory
+	host   address.Address
+	mu     sync.Mutex
+	cached *tls.Certificate
 }
 
 // GetCertificate implements cert.Source.
@@ -72,10 +49,10 @@ func (s *source) GetCertificate(*tls.ClientHelloInfo) (*tls.Certificate, error) 
 	if s.cached != nil {
 		return s.cached, nil
 	}
-	if err := s.factory.CreateCAPairIfMissing(); err != nil {
+	if err := s.ca.CreateCAPairIfMissing(); err != nil {
 		return nil, err
 	}
-	c, err := s.factory.CreateNodeTLS()
+	c, err := s.ca.SignNodeCert([]address.Address{s.host})
 	if err != nil {
 		return nil, err
 	}

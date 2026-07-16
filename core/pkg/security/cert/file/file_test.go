@@ -54,20 +54,17 @@ var _ = Describe("File", func() {
 
 	It("Should serve the certificate from disk", func() {
 		mock.GenerateCerts(fs)
-		src := MustSucceed(file.Factory{}.NewSource(cert.SourceConfig{
-			FS:   fs,
-			Cert: "/usr/local/synnax/certs/node.crt",
-			Key:  "/usr/local/synnax/certs/node.key",
-		}))
+		src := MustSucceed(file.NewSource(fs,
+			"/usr/local/synnax/certs/node.crt",
+			"/usr/local/synnax/certs/node.key",
+		))
 		c := MustSucceed(src.GetCertificate(&tls.ClientHelloInfo{}))
 		Expect(c.Certificate).To(HaveLen(1))
 	})
 
 	It("Should require both a cert and a key", func() {
-		Expect(file.Factory{}.NewSource(cert.SourceConfig{
-			FS:   fs,
-			Cert: "node.crt",
-		})).Error().To(MatchError(ContainSubstring("requires both a cert and a key")))
+		Expect(file.NewSource(fs, "node.crt", "")).
+			Error().To(MatchError(ContainSubstring("requires both a cert and a key")))
 	})
 
 	It("Should reload the certificate when the files change", func() {
@@ -75,11 +72,7 @@ var _ = Describe("File", func() {
 		createNodePairIn(fs, "b", "hostB:9090")
 		copyFile(fs, "a/node.crt", "node.crt")
 		copyFile(fs, "a/node.key", "node.key")
-		src := MustSucceed(file.Factory{}.NewSource(cert.SourceConfig{
-			FS:   fs,
-			Cert: "node.crt",
-			Key:  "node.key",
-		}))
+		src := MustSucceed(file.NewSource(fs, "node.crt", "node.key"))
 		first := leafOf(MustSucceed(src.GetCertificate(&tls.ClientHelloInfo{})))
 		Expect(first.DNSNames).To(ContainElement("hostA"))
 

@@ -15,15 +15,16 @@ import (
 	"github.com/spf13/viper"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/listener"
+	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/tailscale"
+	"github.com/synnaxlabs/synnax/pkg/security/mock"
 	"github.com/synnaxlabs/x/address"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-var factoryCfg = cert.FactoryConfig{LoaderConfig: cert.DefaultLoaderConfig}
 
 func listenerObj(address string, source string) map[string]any {
 	return map[string]any{
@@ -41,13 +42,13 @@ var _ = Describe("Listener", func() {
 	Describe("Parse", func() {
 		It("Should parse a scalar address into a single file-source listener", func() {
 			viper.Set(listener.FlagListen, "localhost:9091")
-			configs := MustSucceed(listener.Parse(factoryCfg))
+			configs := MustSucceed(listener.Parse())
 			Expect(configs).To(HaveLen(1))
 			Expect(configs[0].Address).To(Equal(address.Address("localhost:9091")))
 			Expect(configs[0].Advertise).To(BeTrue())
 			Expect(configs[0].Cert.Source).To(Equal(file.SourceType))
-			Expect(configs[0].Cert.Cert).To(Equal(factoryCfg.AbsoluteNodeCertPath()))
-			Expect(configs[0].Cert.Key).To(Equal(factoryCfg.AbsoluteNodeKeyPath()))
+			Expect(configs[0].Cert.Cert).To(BeEmpty())
+			Expect(configs[0].Cert.Key).To(BeEmpty())
 		})
 
 		It("Should parse a list of listener objects", func() {
@@ -59,7 +60,7 @@ var _ = Describe("Listener", func() {
 				},
 				listenerObj("node01:9091", "tailscale"),
 			})
-			configs := MustSucceed(listener.Parse(factoryCfg))
+			configs := MustSucceed(listener.Parse())
 			Expect(configs).To(HaveLen(2))
 			Expect(configs[0].Address).To(Equal(address.Address("core01:9090")))
 			Expect(configs[0].Cert.Cert).To(Equal("d.crt"))
@@ -71,7 +72,7 @@ var _ = Describe("Listener", func() {
 		It("Should reject a list combined with --auto-cert", func() {
 			viper.Set(cmdcert.FlagAutoCert, true)
 			viper.Set(listener.FlagListen, []any{listenerObj("core01:9090", "auto")})
-			Expect(listener.Parse(factoryCfg)).
+			Expect(listener.Parse()).
 				Error().To(MatchError(ContainSubstring("cannot be combined with a listen list")))
 		})
 	})
@@ -107,6 +108,25 @@ var _ = Describe("Listener", func() {
 				{Address: "a:9090"},
 			}.Validate()).To(MatchError(ContainSubstring("duplicate listener address")))
 		})
+
+		DescribeTable("Should reject a cert or key path on a source that ignores them",
+			func(source, certPath, keyPath string) {
+				Expect(listener.Configs{{
+					Address: "a:9090",
+					Cert:    listener.CertConfig{Source: source, Cert: certPath, Key: keyPath},
+				}}.Validate()).To(MatchError(ContainSubstring("does not read a cert or key path")))
+			},
+			Entry("auto with cert path", auto.SourceType, "n.crt", ""),
+			Entry("auto with key path", auto.SourceType, "", "n.key"),
+			Entry("tailscale with cert path", tailscale.SourceType, "n.crt", ""),
+		)
+
+		It("Should accept a cert and key path on the file source", func() {
+			Expect(listener.Configs{{
+				Address: "a:9090",
+				Cert:    listener.CertConfig{Source: file.SourceType, Cert: "n.crt", Key: "n.key"},
+			}}.Validate()).To(Succeed())
+		})
 	})
 
 	Describe("ValidateAdvertiseSource", func() {
@@ -115,7 +135,7 @@ var _ = Describe("Listener", func() {
 				{Address: "a:9090", Cert: listener.CertConfig{Source: tailscale.SourceType}, Advertise: true},
 				{Address: "b:9091", Cert: listener.CertConfig{Source: auto.SourceType}},
 			}.ValidateAdvertiseSource()).
-				To(MatchError(ContainSubstring("advertised listener cannot use the tailscale source")))
+				To(MatchError(ContainSubstring("advertised listener cannot use the Tailscale source")))
 		})
 
 		It("Should reject a tailscale source on the implicit first listener", func() {
@@ -123,7 +143,7 @@ var _ = Describe("Listener", func() {
 				{Address: "a:9090", Cert: listener.CertConfig{Source: tailscale.SourceType}},
 				{Address: "b:9091", Cert: listener.CertConfig{Source: auto.SourceType}},
 			}.ValidateAdvertiseSource()).
-				To(MatchError(ContainSubstring("advertised listener cannot use the tailscale source")))
+				To(MatchError(ContainSubstring("advertised listener cannot use the Tailscale source")))
 		})
 
 		It("Should accept a tailscale source on a non-advertised listener", func() {
@@ -147,6 +167,26 @@ var _ = Describe("Listener", func() {
 				{Address: "a:1"},
 				{Address: "b:2", Advertise: true},
 			}.AdvertiseAddress()).To(Equal(address.Address("b:2")))
+		})
+	})
+
+	Describe("Resolve", func() {
+		It("Should reject an unknown certificate source", func() {
+			fs := xfs.NewMem()
+			mock.GenerateCerts(fs)
+			prov := MustSucceed(security.NewProvider(security.ProviderConfig{
+				LoaderConfig: cert.LoaderConfig{FS: fs},
+				KeySize:      mock.SmallKeySize,
+				Insecure:     new(false),
+			}))
+			fc := cert.FactoryConfig{
+				LoaderConfig: cert.LoaderConfig{FS: fs},
+				KeySize:      mock.SmallKeySize,
+			}
+			Expect(listener.Configs{
+				{Address: "localhost:9090", Cert: listener.CertConfig{Source: "bogus"}},
+			}.Resolve(prov, fc, false)).
+				Error().To(MatchError(ContainSubstring("unknown certificate source")))
 		})
 	})
 })

@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package tailscale provides a certificate source backed by the local tailscaled daemon.
-// It lives in its own package so its dependency never enters the base cert package; add
-// tailscale.Factory to the source factory list to enable it.
+// It lives in its own package so its dependency never enters the base cert package.
 package tailscale
 
 import (
@@ -21,46 +20,24 @@ import (
 	"tailscale.com/client/local"
 )
 
-// SourceType is the configuration token selecting the tailscale source.
+// SourceType is the configuration token selecting the Tailscale source.
 const SourceType = "tailscale"
 
-// Factory builds tailscale sources.
-type Factory struct {
-	// NewClient creates a new tailscale client for accessing
-	// certificates from the local tailscaled daemon.
-	//
-	// [OPTIONAL] - if nil, a default local.Client is used.
-	NewClient func() cert.Source
-}
+// DefaultClient returns a client backed by the local tailscaled daemon. It is the client
+// NewSource expects in production; tests substitute their own.
+func DefaultClient() cert.Source { return &local.Client{} }
 
-var _ cert.SourceFactory = Factory{}
-
-// Type implements cert.SourceFactory.
-func (Factory) Type() string { return SourceType }
-
-func (f Factory) newClient() cert.Source {
-	if f.NewClient != nil {
-		return f.NewClient()
-	}
-	return &local.Client{}
-}
-
-// NewSource implements cert.SourceFactory.
-func (f Factory) NewSource(cfg cert.SourceConfig) (cert.Source, error) {
-	if cfg.Cert != "" || cfg.Key != "" {
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"tailscale certificate source must not set cert or key",
-		)
-	}
-	host := cfg.Address.Host()
+// NewSource builds a Tailscale source that resolves certificates for host through client. It
+// returns validate.ErrValidation if host is empty, since tailscaled resolves
+// certificates by FQDN.
+func NewSource(client cert.Source, host string) (cert.Source, error) {
 	if host == "" {
 		return nil, errors.Wrap(
 			validate.ErrValidation,
-			"tailscale certificate source requires a listener host; tailscaled resolves certificates by FQDN",
+			"Tailscale certificate source requires a listener host; tailscaled resolves certificates by FQDN",
 		)
 	}
-	return &source{client: f.newClient(), host: host}, nil
+	return &source{client: client, host: host}, nil
 }
 
 // source serves certificates from the local tailscaled daemon. The daemon fetches and

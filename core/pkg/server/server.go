@@ -147,7 +147,7 @@ func (s *Server) start() (err error) {
 			// Closing the opened listeners unblocks their serve goroutines; cancel then
 			// tears down the signal context so a partial bind leaves nothing running.
 			for _, o := range opened {
-				_ = o.Close()
+				err = errors.Combine(err, o.Close())
 			}
 			cancel()
 			return err

@@ -107,7 +107,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		return address.Address(peer)
 	})
 	factoryCfg := cert.BuildCertFactoryConfig(ins)
-	listeners, err := listener.Parse(factoryCfg)
+	listeners, err := listener.Parse()
 	if err != nil {
 		return CoreConfig{}, err
 	}

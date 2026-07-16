@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -44,26 +45,39 @@ type Config struct {
 	Name      string
 }
 
-// Validate implements config.Config. Per-source certificate rules are enforced when the
-// source is built, not here.
+// Validate implements config.Config with the per-listener rules: a non-empty address
+// and PEM paths only on the file source. Setting a cert or key path on any other source
+// is a silent misconfiguration; remaining per-source rules are enforced at build time.
 func (c Config) Validate() error {
 	v := validate.New("listener")
 	validate.NotEmptyString(v, "address", c.Address)
+	v.Ternaryf(
+		"cert",
+		c.Cert.Source != file.SourceType && (c.Cert.Cert != "" || c.Cert.Key != ""),
+		"the %q certificate source does not read a cert or key path",
+		c.Cert.Source,
+	)
 	return v.Error()
 }
 
-// sourceConfig builds the cert.SourceConfig for the listener, drawing CA material from
-// the node's cert factory configuration.
-func (c Config) sourceConfig(fc cert.FactoryConfig) cert.SourceConfig {
-	return cert.SourceConfig{
-		Type:       c.Cert.Source,
-		Cert:       c.Cert.Cert,
-		Key:        c.Cert.Key,
-		Address:    c.Address,
-		CertsDir:   fc.CertsDir,
-		CAKeyPath:  fc.CAKeyPath,
-		CACertPath: fc.CACertPath,
-		KeySize:    fc.KeySize,
+// source builds the certificate source this listener selects, handing each strategy only
+// its own inputs: file gets the PEM paths (falling back to the node certificate when the
+// listener sets none), auto and tailscale get the listener host. The node-wide filesystem
+// and CA authority are injected, not read from the listener config.
+func (c Config) source(fs xfs.FS, ca *cert.Factory) (cert.Source, error) {
+	switch c.Cert.Source {
+	case file.SourceType:
+		certPath, keyPath := c.Cert.Cert, c.Cert.Key
+		if certPath == "" && keyPath == "" {
+			certPath, keyPath = ca.AbsoluteNodeCertPath(), ca.AbsoluteNodeKeyPath()
+		}
+		return file.NewSource(fs, certPath, keyPath)
+	case auto.SourceType:
+		return auto.NewSource(ca, c.Address)
+	case tailscale.SourceType:
+		return tailscale.NewSource(tailscale.DefaultClient(), c.Address.Host())
+	default:
+		return nil, errors.Newf("unknown certificate source %q", c.Cert.Source)
 	}
 }
 
@@ -82,7 +96,7 @@ func (cs Configs) Validate() error {
 	seen := make(set.Set[address.Address], len(cs))
 	for i, c := range cs {
 		field := fmt.Sprintf("listeners[%d]", i)
-		validate.NotEmptyString(v, field+".address", c.Address)
+		v.Exec(func() error { return validate.PathedError(c.Validate(), field) })
 		v.Ternaryf(field+".address", seen.Contains(c.Address), "duplicate listener address %q", c.Address)
 		seen.Add(c.Address)
 		if c.Advertise {
@@ -93,9 +107,9 @@ func (cs Configs) Validate() error {
 	return v.Error()
 }
 
-// ValidateAdvertiseSource rejects a tailscale source on the advertised listener. Peers
-// dial the advertised address and verify the certificate against the cluster CA, which a
-// public-CA tailscale certificate cannot satisfy. It applies only in secure mode, so the
+// ValidateAdvertiseSource rejects a Tailscale source on the advertised listener. Peers
+// dial the advertised address and verify the certificate against the Core CA, which a
+// public-CA Tailscale certificate cannot satisfy. It applies only in secure mode, so the
 // caller gates it on the insecure flag.
 func (cs Configs) ValidateAdvertiseSource() error {
 	v := validate.New("listeners")
@@ -105,7 +119,7 @@ func (cs Configs) ValidateAdvertiseSource() error {
 	v.Ternary(
 		"advertise",
 		cs.advertised().Cert.Source == tailscale.SourceType,
-		"advertised listener cannot use the tailscale source; peers verify certificates against the cluster CA",
+		"advertised listener cannot use the Tailscale source; peers verify certificates against the Core CA",
 	)
 	return v.Error()
 }
@@ -124,67 +138,65 @@ func (cs Configs) advertised() Config {
 // AdvertiseAddress returns the address peers use to reach this node.
 func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Address }
 
-// sourceFactories is the set of certificate sources a listener may select. This package
-// owns the list so implementation-specific sources (tailscale) never enter the base cert
-// package.
-var sourceFactories = []cert.SourceFactory{
-	file.Factory{},
-	auto.Factory{},
-	tailscale.Factory{},
-}
-
 // Resolve resolves each listener config into a server.Listener, backing every secure
-// listener with a TLS config from its certificate source.
+// listener with a TLS config from its certificate source. fc supplies the node-wide
+// filesystem and CA authority that the file and auto sources draw on.
 func (cs Configs) Resolve(
 	p security.Provider,
 	fc cert.FactoryConfig,
 	insecure bool,
 ) ([]server.Listener, error) {
 	out := make([]server.Listener, len(cs))
+	if insecure {
+		for i, c := range cs {
+			out[i] = server.Listener{Address: c.Address}
+		}
+		return out, nil
+	}
+	fs := fc.FS
+	if fs == nil {
+		fs = xfs.Default
+	}
+	ca, err := cert.NewFactory(fc)
+	if err != nil {
+		return nil, err
+	}
 	advertised := cs.advertised().Address
 	for i, c := range cs {
-		l := server.Listener{Address: c.Address}
-		if !insecure {
-			src, err := cert.Resolve(sourceFactories, c.sourceConfig(fc))
-			if err != nil {
-				return nil, err
-			}
-			if c.Address == advertised {
-				if err = p.VerifyClusterCert(src, advertised.Host()); err != nil {
-					return nil, errors.Wrapf(err, "[listener] - advertised listener %q must serve a certificate the cluster CA signs for that host; peers cannot verify it otherwise", c.Address)
-				}
-			}
-			l.TLS = p.TLSConfigFor(src)
+		src, err := c.source(fs, ca)
+		if err != nil {
+			return nil, err
 		}
-		out[i] = l
+		if c.Address == advertised {
+			if err = p.VerifyCoreCert(src, advertised.Host()); err != nil {
+				return nil, errors.Wrapf(err, "advertised listener %q must serve a certificate the Core CA signs for that host; peers cannot verify it otherwise", c.Address)
+			}
+		}
+		out[i] = server.Listener{Address: c.Address, TLS: p.TLSConfigFor(src)}
 	}
 	return out, nil
 }
 
 // Parse reads the polymorphic listen configuration. A scalar address yields a single
-// file-source listener over the node certificate paths, identical to the
+// file-source listener serving the node certificate, identical to the
 // pre-multi-listener behavior. A list yields one listener per entry.
-func Parse(fc cert.FactoryConfig) (Configs, error) {
+func Parse() (Configs, error) {
 	switch v := viper.Get(FlagListen).(type) {
 	case string:
-		return Configs{scalar(v, fc)}, nil
+		return Configs{scalar(v)}, nil
 	case nil:
-		return Configs{scalar(viper.GetString(FlagListen), fc)}, nil
+		return Configs{scalar(viper.GetString(FlagListen))}, nil
 	case []any:
 		return parseList(v)
 	default:
-		return nil, errors.Newf("[listener] - invalid listen configuration of type %T", v)
+		return nil, errors.Newf("invalid listen configuration of type %T", v)
 	}
 }
 
-func scalar(addr string, fc cert.FactoryConfig) Config {
+func scalar(addr string) Config {
 	return Config{
-		Address: address.Address(addr),
-		Cert: CertConfig{
-			Source: file.SourceType,
-			Cert:   fc.AbsoluteNodeCertPath(),
-			Key:    fc.AbsoluteNodeKeyPath(),
-		},
+		Address:   address.Address(addr),
+		Cert:      CertConfig{Source: file.SourceType},
 		Advertise: true,
 	}
 }
@@ -197,7 +209,7 @@ func parseList(items []any) (Configs, error) {
 	for i, item := range items {
 		m, ok := item.(map[string]any)
 		if !ok {
-			return nil, errors.Newf("[listener] - listen[%d] must be an object", i)
+			return nil, errors.Newf("listen[%d] must be an object", i)
 		}
 		c := asMap(m, "cert")
 		configs[i] = Config{
@@ -216,7 +228,7 @@ func parseList(items []any) (Configs, error) {
 
 // rejectGlobalCertFlags enforces that a listen list is not combined with a global flag
 // that configures the single node certificate. --certs-dir and the CA flags stay legal:
-// they locate the cluster CA and node outbound identity, which every listener still
+// they locate the Core CA and node outbound identity, which every listener still
 // needs for gossip.
 func rejectGlobalCertFlags() error {
 	var offenders []string
@@ -233,7 +245,7 @@ func rejectGlobalCertFlags() error {
 		return nil
 	}
 	return errors.Newf(
-		"[listener] - %v cannot be combined with a listen list; set each listener's cert block instead",
+		"%v cannot be combined with a listen list; set each listener's cert block instead",
 		offenders,
 	)
 }

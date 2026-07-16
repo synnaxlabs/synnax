@@ -27,24 +27,16 @@ import (
 // SourceType is the configuration token selecting the file source.
 const SourceType = "file"
 
-// Factory builds file sources.
-type Factory struct{}
-
-var _ cert.SourceFactory = Factory{}
-
-// Type implements cert.SourceFactory.
-func (Factory) Type() string { return SourceType }
-
-// NewSource implements cert.SourceFactory.
-func (Factory) NewSource(cfg cert.SourceConfig) (cert.Source, error) {
-	if cfg.Cert == "" || cfg.Key == "" {
-		return nil, errors.Wrap(validate.ErrValidation, "[cert] - file source requires both a cert and a key path")
+// NewSource builds a file source serving the PEM pair at certPath and keyPath, reading them
+// through fs. It returns validate.ErrValidation if either path is empty.
+func NewSource(fs xfs.FS, certPath, keyPath string) (cert.Source, error) {
+	if certPath == "" || keyPath == "" {
+		return nil, errors.Wrap(validate.ErrValidation, "file source requires both a cert and a key path")
 	}
-	fs := cfg.FS
 	if fs == nil {
 		fs = xfs.Default
 	}
-	return &source{fs: fs, certPath: cfg.Cert, keyPath: cfg.Key}, nil
+	return &source{fs: fs, certPath: certPath, keyPath: keyPath}, nil
 }
 
 // source serves a certificate from PEM files, reloading them when they change so
@@ -106,11 +98,11 @@ func (s *source) load() (*tls.Certificate, error) {
 	return &c, nil
 }
 
-func (s *source) readAll(path string) ([]byte, error) {
+func (s *source) readAll(path string) (b []byte, err error) {
 	f, err := s.fs.Open(path, os.O_RDONLY)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = f.Close() }()
+	defer func() { err = errors.Combine(err, f.Close()) }()
 	return io.ReadAll(f)
 }

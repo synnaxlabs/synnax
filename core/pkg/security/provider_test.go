@@ -34,11 +34,10 @@ var _ = Describe("OtelProvider", func() {
 					KeySize:      mock.SmallKeySize,
 					Insecure:     new(false),
 				}))
-				src := MustSucceed(file.Factory{}.NewSource(cert.SourceConfig{
-					FS:   fs,
-					Cert: "/usr/local/synnax/certs/node.crt",
-					Key:  "/usr/local/synnax/certs/node.key",
-				}))
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
 				config := prov.TLSConfigFor(src)
 				Expect(config).ToNot(BeNil())
 				Expect(config.GetCertificate).ToNot(BeNil())
@@ -75,8 +74,8 @@ var _ = Describe("OtelProvider", func() {
 			})
 
 		})
-		Describe("VerifyClusterCert", func() {
-			It("Should accept a certificate signed by the cluster CA", func() {
+		Describe("VerifyCoreCert", func() {
+			It("Should accept a certificate signed by the Core CA", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
@@ -84,12 +83,11 @@ var _ = Describe("OtelProvider", func() {
 					KeySize:      mock.SmallKeySize,
 					Insecure:     new(false),
 				}))
-				src := MustSucceed(file.Factory{}.NewSource(cert.SourceConfig{
-					FS:   fs,
-					Cert: "/usr/local/synnax/certs/node.crt",
-					Key:  "/usr/local/synnax/certs/node.key",
-				}))
-				Expect(prov.VerifyClusterCert(src, "localhost")).To(Succeed())
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCoreCert(src, "localhost")).To(Succeed())
 			})
 			It("Should reject a certificate that is not valid for the host", func() {
 				fs := xfs.NewMem()
@@ -99,12 +97,11 @@ var _ = Describe("OtelProvider", func() {
 					KeySize:      mock.SmallKeySize,
 					Insecure:     new(false),
 				}))
-				src := MustSucceed(file.Factory{}.NewSource(cert.SourceConfig{
-					FS:   fs,
-					Cert: "/usr/local/synnax/certs/node.crt",
-					Key:  "/usr/local/synnax/certs/node.key",
-				}))
-				Expect(prov.VerifyClusterCert(src, "other-host")).ToNot(Succeed())
+				src := MustSucceed(file.NewSource(fs,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCoreCert(src, "other-host")).ToNot(Succeed())
 			})
 			It("Should reject a certificate signed by a foreign CA", func() {
 				fs := xfs.NewMem()
@@ -116,12 +113,11 @@ var _ = Describe("OtelProvider", func() {
 				}))
 				foreignFS := xfs.NewMem()
 				mock.GenerateCerts(foreignFS)
-				foreign := MustSucceed(file.Factory{}.NewSource(cert.SourceConfig{
-					FS:   foreignFS,
-					Cert: "/usr/local/synnax/certs/node.crt",
-					Key:  "/usr/local/synnax/certs/node.key",
-				}))
-				Expect(prov.VerifyClusterCert(foreign, "localhost")).ToNot(Succeed())
+				foreign := MustSucceed(file.NewSource(foreignFS,
+					"/usr/local/synnax/certs/node.crt",
+					"/usr/local/synnax/certs/node.key",
+				))
+				Expect(prov.VerifyCoreCert(foreign, "localhost")).ToNot(Succeed())
 			})
 		})
 	})
@@ -144,13 +140,13 @@ var _ = Describe("OtelProvider", func() {
 				Expect(prov.NodePrivate()).ToNot(BeNil())
 			})
 		})
-		Describe("VerifyClusterCert", func() {
+		Describe("VerifyCoreCert", func() {
 			It("Should be a no-op", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					Insecure: new(true),
 					KeySize:  mock.SmallKeySize,
 				}))
-				Expect(prov.VerifyClusterCert(nil, "")).To(Succeed())
+				Expect(prov.VerifyCoreCert(nil, "")).To(Succeed())
 			})
 		})
 	})

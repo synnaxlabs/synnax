@@ -14,7 +14,9 @@ import (
 	"net/http"
 
 	"github.com/cockroachdb/cmux"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 )
 
 // SimpleHTTPBranch is a single handler Branch that serves HTTP requests.
@@ -22,6 +24,7 @@ type SimpleHTTPBranch struct {
 	server  *http.Server
 	handler http.Handler
 	policy  RoutingPolicy
+	ins     alamos.Instrumentation
 }
 
 func NewSimpleHTTPBranch(
@@ -47,7 +50,8 @@ func (h *SimpleHTTPBranch) Routing() (i BranchRouting) {
 }
 
 // Init implements Branch.
-func (h *SimpleHTTPBranch) Init(BranchContext) {
+func (h *SimpleHTTPBranch) Init(ctx BranchContext) {
+	h.ins = ctx.Instrumentation
 	h.server = &http.Server{Handler: h.handler}
 }
 
@@ -61,8 +65,11 @@ func (h *SimpleHTTPBranch) Serve(ctx BranchContext) error {
 
 // Stop implements Branch.
 func (h *SimpleHTTPBranch) Stop() {
-	if h.server != nil {
-		_ = h.server.Shutdown(context.TODO())
+	if h.server == nil {
+		return
+	}
+	if err := h.server.Shutdown(context.TODO()); err != nil {
+		h.ins.L.Error("failed to shut down http redirect server", zap.Error(err))
 	}
 }
 

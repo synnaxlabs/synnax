@@ -23,32 +23,27 @@ import (
 )
 
 var _ = Describe("Auto", func() {
-	var fs xfs.FS
-	BeforeEach(func() { fs = xfs.NewMem() })
+	var (
+		fs xfs.FS
+		ca *cert.Factory
+	)
+	BeforeEach(func() {
+		fs = xfs.NewMem()
+		ca = MustSucceed(cert.NewFactory(cert.FactoryConfig{
+			LoaderConfig: cert.LoaderConfig{FS: fs},
+			KeySize:      mock.SmallKeySize,
+		}))
+	})
 
 	It("Should self-sign a certificate with SANs from the listener address", func() {
-		src := MustSucceed(auto.Factory{}.NewSource(cert.SourceConfig{
-			FS:      fs,
-			Address: "console.example.com:9091",
-			KeySize: mock.SmallKeySize,
-		}))
+		src := MustSucceed(auto.NewSource(ca, "console.example.com:9091"))
 		c := MustSucceed(src.GetCertificate(&tls.ClientHelloInfo{}))
 		leaf := MustSucceed(x509.ParseCertificate(c.Certificate[0]))
 		Expect(leaf.DNSNames).To(ContainElement("console.example.com"))
 	})
 
 	It("Should require a listener address", func() {
-		Expect(auto.Factory{}.NewSource(cert.SourceConfig{
-			FS:      fs,
-			KeySize: mock.SmallKeySize,
-		})).Error().To(MatchError(ContainSubstring("requires a listener address")))
-	})
-
-	It("Should reject a cert or key", func() {
-		Expect(auto.Factory{}.NewSource(cert.SourceConfig{
-			FS:      fs,
-			Address: "a:9090",
-			Cert:    "node.crt",
-		})).Error().To(MatchError(ContainSubstring("must not set cert or key")))
+		Expect(auto.NewSource(ca, "")).
+			Error().To(MatchError(ContainSubstring("requires a listener address")))
 	})
 })
