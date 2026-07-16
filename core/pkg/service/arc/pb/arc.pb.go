@@ -137,8 +137,8 @@ type Arc struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the module.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// mode specifies the representation mode for this module. Either "text" for text-based
-	// Arc code or "graph" for visual dataflow.
+	// mode specifies the representation mode for this module. Either "text" for
+	// text-based Arc code or "graph" for visual dataflow.
 	Mode Mode `protobuf:"varint,3,opt,name=mode,proto3,enum=service.arc.pb.Mode" json:"mode,omitempty"`
 	// graph is the visual dataflow graph representation of the module.
 	Graph *pb.Graph `protobuf:"bytes,4,opt,name=graph,proto3" json:"graph,omitempty"`

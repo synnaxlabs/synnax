@@ -31,9 +31,9 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
- * SetNode inserts the node if no node with the same key exists, otherwise
- * replaces the existing node in place. If config is non-empty it is
- * stored under the node's key in the schematic configs map.
+ * SetNode inserts the node if no node with the same key exists, otherwise replaces the
+ * existing node in place. If config is non-empty it is stored under the node's key in
+ * the schematic configs map.
  */
 export const setNodePayloadZ = z.object({
   node: nodeZ,
@@ -50,8 +50,8 @@ export const removeNodePayloadZ = z.object({
 export type RemoveNodePayload = z.infer<typeof removeNodePayloadZ>;
 
 /**
- * AddEdge appends the edge to the schematic. No-op when an edge with the
- * same key already exists.
+ * AddEdge appends the edge to the schematic. No-op when an edge with the same key
+ * already exists.
  */
 export const addEdgePayloadZ = z.object({
   edge: edgeZ,
@@ -67,11 +67,10 @@ export const removeEdgePayloadZ = z.object({
 export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
 
 /**
- * SetConfig merges the given config fields into the existing config entry for
- * the given node or edge key. Top-level fields present in the payload
- * overwrite existing fields; fields absent from the payload are
- * preserved. When no entry exists yet and the key matches an edge
- * whose source node carries a color, the source color overrides
+ * SetConfig merges the given config fields into the existing config entry for the given
+ * node or edge key. Top-level fields present in the payload overwrite existing fields;
+ * fields absent from the payload are preserved. When no entry exists yet and the key
+ * matches an edge whose source node carries a color, the source color overrides
  * whatever color (if any) was in the payload.
  */
 export const setConfigPayloadZ = z.object({

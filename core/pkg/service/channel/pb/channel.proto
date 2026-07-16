@@ -51,19 +51,20 @@ message Channel {
   uint32 leaseholder = 2;
   // data_type is the data type of samples stored in this channel.
   string data_type = 3;
-  // is_index is true if this channel is an index channel. Index channels must have int64
-  // values (TIMESTAMP data type) written in ascending order, and are most commonly unix
-  // nanosecond timestamps.
+  // is_index is true if this channel is an index channel. Index channels must have
+  // int64 values (TIMESTAMP data type) written in ascending order, and are most
+  // commonly unix nanosecond timestamps.
   bool is_index = 4;
   // local_key is the locally-unique portion of this channel's key.
   uint32 local_key = 5;
   // local_index is the channel used to index this channel's values, associating each
   // value with a timestamp.
   uint32 local_index = 6;
-  // virtual is true if this channel does not persist data and is used only for streaming.
+  // virtual is true if this channel does not persist data and is used only for
+  // streaming.
   bool virtual = 7;
-  // concurrency sets the policy for concurrent writes to the channel's data. Only virtual
-  // channels can have a policy of shared concurrency.
+  // concurrency sets the policy for concurrent writes to the channel's data. Only
+  // virtual channels can have a policy of shared concurrency.
   .x.control.pb.Concurrency concurrency = 8;
   // internal is true if this is a system channel hidden from normal user queries.
   bool internal = 9;
