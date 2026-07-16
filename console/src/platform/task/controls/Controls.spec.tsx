@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
 import { id, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ComponentProps } from "react";
@@ -39,16 +38,20 @@ const errorStatus: FormStatus = {
 };
 
 const CONFIG = { channels: [] };
+// The server assigns config hashes; overrides.configHash is what the driver reports
+// as deployed, so leaving it unset means the running instance matches the task.
+const CONFIG_HASH = "2de66015b3bdded8";
 
 const runningValues = (overrides: { configHash?: string; rack?: number } = {}) => ({
   key: "1",
   rack: 2,
   config: CONFIG,
+  configHash: CONFIG_HASH,
   status: createTaskStatus({
     details: {
       task: "1",
       running: true,
-      configHash: overrides.configHash ?? task.hashConfig(CONFIG),
+      configHash: overrides.configHash ?? CONFIG_HASH,
       rack: overrides.rack ?? 2,
     },
   }),

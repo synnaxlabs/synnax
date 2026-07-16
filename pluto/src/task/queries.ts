@@ -217,6 +217,7 @@ const createFormSchema = <S extends task.Schemas = task.Schemas>(
     type: schemas.type,
     snapshot: z.boolean(),
     config: schemas.config,
+    configHash: z.string(),
     status: task.statusZ(schemas.statusData).optional().nullable(),
   }) as unknown as FormSchema<S>;
 
@@ -227,6 +228,7 @@ export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.Zod
   type: z.infer<S["type"]>;
   snapshot: boolean;
   config: z.infer<S["config"]>;
+  configHash: string;
   status?: task.Status<S["statusData"]>;
 }> {}
 
@@ -239,7 +241,7 @@ export interface InitialValues<
   S extends task.Schemas = task.Schemas,
 > extends optional.Optional<
   task.Payload<S>,
-  "key" | "rack" | "internal" | "snapshot"
+  "key" | "rack" | "internal" | "snapshot" | "configHash"
 > {}
 
 export type FormQuery = {
@@ -254,6 +256,7 @@ const taskToFormValues = <S extends task.Schemas = task.Schemas>(
   rack: t.rack ?? 0,
   type: t.type,
   config: t.config,
+  configHash: t.configHash ?? "",
   status: t.status,
   snapshot: t.snapshot ?? false,
 });
@@ -294,9 +297,10 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
         schemas,
       );
       store.tasks.set(created as unknown as Omit<task.Task, "status">);
-      // Only the key is reset from the response: resetting other fields would
-      // clobber edits typed while this save was in flight.
+      // Only server-assigned fields are reset from the response: resetting an
+      // edited field would clobber edits typed while this save was in flight.
       form.set("key", created.key, RESET_OPTIONS);
+      form.set("configHash", created.configHash, RESET_OPTIONS);
       form.setCurrentStateAsInitialValues();
     },
     mountListeners: ({ store, get, set }) => [
@@ -308,6 +312,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
         set("name", task.name, RESET_OPTIONS);
         set("rack", task.rack, RESET_OPTIONS);
         set("snapshot", task.snapshot, RESET_OPTIONS);
+        set("configHash", task.configHash, RESET_OPTIONS);
       }),
       store.statuses.onSet((status) => {
         const prevKey = get<string>("key", { optional: true })?.value;
