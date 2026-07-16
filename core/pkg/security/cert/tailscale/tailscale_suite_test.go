@@ -7,29 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package server_test
+package tailscale_test
 
 import (
-	"time"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/server"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Grpc", func() {
-	It("Should start a grpc server", func() {
-		b := MustSucceed(server.Serve(server.Config{
-			Listeners: []server.Listener{{Address: "localhost:26260"}},
-			Security: server.SecurityConfig{
-				Insecure: new(true),
-			},
-			Branches: []server.Branch{
-				&server.GRPCBranch{},
-			},
-		}))
-		time.Sleep(10 * time.Millisecond)
-		Expect(b.Close()).To(Succeed())
-	})
-})
+func TestTailscale(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Cert Tailscale Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
