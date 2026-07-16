@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -121,7 +121,7 @@ type Layer struct {
 	DB *gorp.DB
 	// Cluster provides information about the cluster topology. Nodes, keys, addresses,
 	// states, etc.
-	Cluster node.Cluster
+	Cluster cluster.Cluster
 	// Channel is the distribution-layer channel allocator: it assigns local keys and
 	// creates, renames, and deletes storage channels across the cluster.
 	Channel *channel.Service

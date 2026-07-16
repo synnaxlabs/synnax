@@ -90,7 +90,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	channelSvc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      node.Channel,
 		DB:           node.DB,
-		HostResolver: node.Cluster,
+		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Search:       searchIdx,

@@ -9,16 +9,15 @@
 
 @go output  "core/pkg/service/node"
 @go version 0
-@py output  "client/py/synnax/cluster"
-@ts output  "client/ts/src/cluster"
-@cpp output "client/cpp/cluster"
+@py output  "client/py/synnax/node"
+@ts output  "client/ts/src/node"
+@cpp output "client/cpp/node"
 
-NodeKey uint12 {
+Key uint12 {
     @doc value """
         is a 12-bit unsigned integer uniquely identifying a node within a Synnax
-        cluster. Assigned dynamically when nodes join via distributed counter.
-        Range: 0-4095, where 0 is reserved for 'free' and 1 for the bootstrapper.
+        cluster. Assigned dynamically when nodes join via distributed counter. Range:
+        0-4095, where 4095 is reserved for 'free' and 1 for the bootstrapper.
     """
     @go omit
-    @go name   "Key"
 }

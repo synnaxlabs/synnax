@@ -73,8 +73,8 @@ func (o Operation) Validate() error {
 type Channel struct {
 	// Name is the human-readable channel name.
 	Name Name `json:"name" msgpack:"name"`
-	// Leaseholder is the cluster node that holds the lease for this channel and is
-	// authorized to accept writes.
+	// Leaseholder is the node that holds the lease for this channel and is authorized to
+	// accept writes.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`

@@ -14,28 +14,24 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
 )
 
-// Re-exports of the cluster-membership primitives defined in pkg/distribution/node.
-// Consumers in the service and API layers should reach for these aliases so they only
-// depend on a single node package.
+// Re-exports of the node domain primitives defined in pkg/distribution/node. Consumers
+// in the service and API layers should reach for these aliases so they only depend on a
+// single node package.
 type (
-	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
-	// network address.
-	Node = node.Node
 	// Key is a 12-bit unsigned integer that uniquely identifies a Node within a
 	// cluster.
 	Key = v0.Key
+	// Node is a single Core of a Synnax cluster, identified by a Key and reachable at a
+	// network address.
+	Node = node.Node
 	// Change describes a single mutation to a Node's record.
 	Change = node.Change
-	// Cluster is the cluster-membership view as observed by the host node.
-	Cluster = node.Cluster
-	// ClusterChange is a batch of node-level Changes emitted by Cluster.OnChange.
-	ClusterChange = node.ClusterChange
-	// HostProvider exposes information about the host node without performing remote
-	// resolution.
-	HostProvider = node.HostProvider
 )
 
 const (
+	// KeyBootstrapper is the reserved Key assigned to the first node in a cluster (the
+	// node that bootstraps a new cluster rather than joining an existing one).
+	KeyBootstrapper = node.KeyBootstrapper
 	// KeyFree is the reserved Key used for resources that are not leased to any
 	// specific node — most notably free (virtual / non-persisted) channels. It is never
 	// assigned to a real node.

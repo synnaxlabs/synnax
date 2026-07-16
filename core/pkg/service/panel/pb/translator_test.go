@@ -25,37 +25,29 @@ import (
 
 func TestPanelPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Panel PB Suite")
+	RunSpecs(t, "Panel PB Suite")
 }
 
-// viewVariant builds a non-trivial view member, including an opaque Args map
-// whose string and bool values survive the structpb round-trip unchanged.
-func viewVariant() panel.TabView {
-	return panel.TabView{
-		TabBase: panel.TabBase{Key: uuid.New()},
-		View: panel.View{
-			Type: "docs",
-			Name: "Docs",
-			Args: msgpack.EncodedJSON{"path": "/intro", "pinned": true},
-		},
-	}
-}
-
+// resourceTab builds a core-backed tab referencing a backing document.
 func resourceTab() panel.Tab {
-	id := ontology.ID{Type: ontology.ResourceTypeSchematic, Key: uuid.New().String()}
 	return panel.Tab{Variant: panel.TabResource{
-		TabBase:  panel.TabBase{Key: uuid.New()},
-		Resource: id,
+		TabBase: panel.TabBase{Key: uuid.New()},
+		Resource: ontology.ID{
+			Type: ontology.ResourceTypeSchematic,
+			Key:  uuid.New().String(),
+		},
 	}}
 }
 
+// viewTab builds an inline tab with an opaque args map whose string and bool values
+// survive the structpb round-trip unchanged.
 func viewTab() panel.Tab {
-	return panel.Tab{Variant: viewVariant()}
-}
-
-func emptyTab() panel.Tab {
-	return panel.Tab{Variant: panel.TabEmpty{
+	return panel.Tab{Variant: panel.TabView{
 		TabBase: panel.TabBase{Key: uuid.New()},
+		View: panel.View{
+			Type: "docs",
+			Args: msgpack.EncodedJSON{"path": "/intro", "pinned": true},
+		},
 	}}
 }
 
@@ -75,7 +67,7 @@ func nestedPanel() panel.Panel {
 			Direction: spatial.DirectionX,
 			Size:      0.4,
 			First:     leafNode(resourceTab()),
-			Last:      leafNode(viewTab(), emptyTab()),
+			Last:      leafNode(viewTab()),
 		}}},
 	}
 }
@@ -120,42 +112,23 @@ var _ = Describe("Translator", func() {
 		})
 	})
 
-	Describe("Tab and View", func() {
+	Describe("Tab", func() {
 		It("Should round-trip a resource-backed tab", func() {
 			t := resourceTab()
 			back := MustSucceed(pb.TabFromPB(MustSucceed(pb.TabToPB(t))))
 			Expect(back).To(Equal(t))
 		})
 
-		It("Should round-trip a view-backed tab with opaque args", func() {
+		It("Should round-trip an inline tab with opaque args", func() {
 			t := viewTab()
 			back := MustSucceed(pb.TabFromPB(MustSucceed(pb.TabToPB(t))))
 			Expect(back).To(Equal(t))
 		})
 
-		It("Should round-trip an empty tab", func() {
-			t := emptyTab()
-			back := MustSucceed(pb.TabFromPB(MustSucceed(pb.TabToPB(t))))
-			Expect(back).To(Equal(t))
-		})
-
 		It("Should round-trip a slice of tabs", func() {
-			ts := []panel.Tab{resourceTab(), viewTab(), emptyTab()}
+			ts := []panel.Tab{resourceTab(), viewTab()}
 			back := MustSucceed(pb.TabsFromPB(MustSucceed(pb.TabsToPB(ts))))
 			Expect(back).To(Equal(ts))
-		})
-
-		It("Should round-trip a slice of view members without the wrapper-owned base", func() {
-			vs := []panel.View{
-				{Type: "docs", Name: "Docs", Args: msgpack.EncodedJSON{"path": "/intro"}},
-				{Type: "about", Args: msgpack.EncodedJSON{}},
-			}
-			back := MustSucceed(pb.ViewsFromPB(MustSucceed(pb.ViewsToPB(vs))))
-			Expect(back).To(Equal(vs))
-		})
-
-		It("Should return a zero view member when decoding nil", func() {
-			Expect(pb.ViewFromPB(nil)).To(Equal(panel.View{}))
 		})
 	})
 

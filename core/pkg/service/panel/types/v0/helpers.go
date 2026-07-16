@@ -36,8 +36,6 @@ func (t Tab) Key() uuid.UUID {
 		return v.Key
 	case TabView:
 		return v.Key
-	case TabEmpty:
-		return v.Key
 	default:
 		return uuid.Nil
 	}

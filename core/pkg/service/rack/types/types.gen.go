@@ -13,10 +13,10 @@ package types
 
 import "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 
-// Key is a composite identifier for a rack. The high 16 bits contain the core node key,
-// and the low 16 bits contain the local sequential key. Racks are leased to specific
-// nodes because task configuration signals are passed through gossip operations, which
-// can take 15s+ to propagate through a large cluster. This structure minimizes hops and
+// Key is a composite identifier for a rack. The high 16 bits contain the node key, and
+// the low 16 bits contain the local sequential key. Racks are leased to specific nodes
+// because task configuration signals are passed through gossip operations, which can
+// take 15s+ to propagate through a large cluster. This structure minimizes hops and
 // configuration latency.
 type Key = v2.Key
 

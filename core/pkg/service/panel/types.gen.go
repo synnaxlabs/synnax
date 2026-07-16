@@ -13,19 +13,22 @@ package panel
 
 import "github.com/synnaxlabs/synnax/pkg/service/panel/types"
 
+type TabKey = types.TabKey
+
 // TabBase carries the identity shared by every tab variant.
 type TabBase = types.TabBase
 
 // View is an inline, self-describing view: a Console-owned type plus an opaque
 // configuration payload, with no backing core document. Used for app-views and tools
-// (docs, explorers, about, the visualization picker).
+// (docs, explorers, task forms, and the selector pickers).
 type View = types.View
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot), a view (an inline, self-describing
-// app-view, e.g. docs), or empty (the visualization selector). Display attributes
-// (name, icon, closability) are resolved at render time from the content. The same
-// content may be referenced by multiple tabs in the same or other panels.
+// backing core document, e.g. a line plot) or a view (an inline, self-describing
+// app-view, e.g. docs). A freshly created tab is a view whose type is a selector
+// picker; SetTabResource or SetTabView swaps content in place. Display attributes
+// (name, icon, closability) are resolved at render time from the content. A resource
+// may back at most one tab per panel; views may repeat.
 type Tab = types.Tab
 type TabVariant = types.TabVariant
 type TabType = types.TabType
@@ -35,11 +38,8 @@ const (
 	TabTypeResource TabType = types.TabTypeResource
 	// TabTypeView is a tab displaying an inline, self-describing view. Unlike a resource, a
 	// view has no backing core document: it carries its own type and opaque args. Used for
-	// app-views and tools (docs, explorers, about, the visualization picker).
+	// app-views and tools (docs, explorers, task forms, and the selector pickers).
 	TabTypeView TabType = types.TabTypeView
-	// TabTypeEmpty is a tab with no content yet. An empty tab renders the visualization
-	// selector at render time; SetTabResource or SetTabView fills it in place.
-	TabTypeEmpty TabType = types.TabTypeEmpty
 )
 
 // TabResource is a tab displaying a backing core document.
@@ -47,12 +47,8 @@ type TabResource = types.TabResource
 
 // TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
 // view has no backing core document: it carries its own type and opaque args. Used for
-// app-views and tools (docs, explorers, about, the visualization picker).
+// app-views and tools (docs, explorers, task forms, and the selector pickers).
 type TabView = types.TabView
-
-// TabEmpty is a tab with no content yet. An empty tab renders the visualization
-// selector at render time; SetTabResource or SetTabView fills it in place.
-type TabEmpty = types.TabEmpty
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.
 type Leaf = types.Leaf

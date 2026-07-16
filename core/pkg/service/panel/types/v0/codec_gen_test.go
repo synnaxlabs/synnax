@@ -41,11 +41,7 @@ var (
 		Last:      v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: []v0.Tab{{Variant: v0.TabResource{}}}}}},
 	}
 	fullyPopulatedTabBase = v0.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}
-	fullyPopulatedView    = v0.View{
-		Type: "test_1",
-		Name: "test_2",
-		Args: msgpack.EncodedJSON{"key_3": "value_3"},
-	}
+	fullyPopulatedView    = v0.View{Type: "test_1", Args: msgpack.EncodedJSON{"key_2": "value_2"}}
 )
 
 var _ = Describe("Codec", func() {
@@ -139,7 +135,6 @@ var _ = Describe("Codec", func() {
 				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
 			}}),
 			Entry("view variant", v0.Tab{Variant: v0.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}),
-			Entry("empty variant", v0.Tab{Variant: v0.TabEmpty{TabBase: fullyPopulatedTabBase}}),
 		)
 	})
 	Describe("TabBase", func() {
@@ -169,11 +164,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedView),
-			Entry("zero values", v0.View{
-				Type: "",
-				Name: "",
-				Args: nil,
-			}),
+			Entry("zero values", v0.View{Type: "", Args: nil}),
 		)
 	})
 })
@@ -529,14 +520,6 @@ func FuzzDecodeTab(f *testing.F) {
 		}
 		f.Add(w.Bytes())
 	}
-	{
-		seed := v0.Tab{Variant: v0.TabEmpty{TabBase: fullyPopulatedTabBase}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded v0.Tab
 		r := orc.NewReader(nil)
@@ -622,11 +605,7 @@ func FuzzDecodeView(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.View{
-			Type: "",
-			Name: "",
-			Args: nil,
-		}
+		seed := v0.View{Type: "", Args: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

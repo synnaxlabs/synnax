@@ -11,6 +11,7 @@ package panel
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/spatial"
@@ -47,14 +48,15 @@ var errIndexOutOfRange = errors.New("index out of range")
 var errInvalidSize = errors.Wrap(validate.ErrValidation, "split size must be in [0, 1]")
 
 // validateTree checks the structural invariants every persisted panel tree must
-// uphold: every node has a variant, split sizes are within [0, 1], and tab keys
-// are unique across the tree. Called before any tree is persisted, both for
-// caller-provided trees on create and for reduced trees on dispatch.
+// uphold: every node has a variant, split sizes are within [0, 1], tab keys are
+// unique across the tree, and every resource backs at most one tab. Called
+// before any tree is persisted, both for caller-provided trees on create and
+// for reduced trees on dispatch.
 func validateTree(root Node) error {
-	return validateNode(root, set.New[uuid.UUID]())
+	return validateNode(root, set.New[uuid.UUID](), set.New[ontology.ID]())
 }
 
-func validateNode(n Node, seen set.Set[uuid.UUID]) error {
+func validateNode(n Node, seen set.Set[uuid.UUID], seenResources set.Set[ontology.ID]) error {
 	switch v := n.Variant.(type) {
 	case NodeLeaf:
 		for _, t := range v.Tabs {
@@ -63,16 +65,22 @@ func validateNode(n Node, seen set.Set[uuid.UUID]) error {
 				return errors.Wrap(validate.ErrValidation, "duplicate tab key in panel tree")
 			}
 			seen.Add(key)
+			if r, ok := t.Variant.(TabResource); ok {
+				if seenResources.Contains(r.Resource) {
+					return errors.Wrap(validate.ErrValidation, "duplicate resource in panel tree")
+				}
+				seenResources.Add(r.Resource)
+			}
 		}
 		return nil
 	case NodeSplit:
 		if v.Size < 0 || v.Size > 1 {
 			return errInvalidSize
 		}
-		if err := validateNode(v.First, seen); err != nil {
+		if err := validateNode(v.First, seen, seenResources); err != nil {
 			return err
 		}
-		return validateNode(v.Last, seen)
+		return validateNode(v.Last, seen, seenResources)
 	default:
 		return errors.Wrap(validate.ErrValidation, "node has no variant")
 	}
@@ -205,12 +213,54 @@ func findTabAt(n Node, path int32, tabKey uuid.UUID) (int32, int, bool) {
 	}
 }
 
+// findTabByResource walks the tree to find the tab whose resource variant
+// displays the given ontology ID. Returns the tab and ok=true when present.
+func findTabByResource(root Node, resource ontology.ID) (Tab, bool) {
+	switch v := root.Variant.(type) {
+	case NodeLeaf:
+		for _, t := range v.Tabs {
+			if r, ok := t.Variant.(TabResource); ok && r.Resource == resource {
+				return t, true
+			}
+		}
+		return Tab{}, false
+	case NodeSplit:
+		if t, ok := findTabByResource(v.First, resource); ok {
+			return t, true
+		}
+		return findTabByResource(v.Last, resource)
+	default:
+		return Tab{}, false
+	}
+}
+
+// firstLeafPath returns the path-derived key of the first leaf in traversal
+// order (first child before last). ok is false only for a tree containing no
+// leaf, which cannot occur for a well-formed tree.
+func firstLeafPath(root Node) (path int32, ok bool) {
+	return firstLeafPathAt(root, rootPathKey)
+}
+
+func firstLeafPathAt(n Node, path int32) (int32, bool) {
+	switch v := n.Variant.(type) {
+	case NodeLeaf:
+		return path, true
+	case NodeSplit:
+		if p, ok := firstLeafPathAt(v.First, path*2); ok {
+			return p, true
+		}
+		return firstLeafPathAt(v.Last, path*2+1)
+	default:
+		return 0, false
+	}
+}
+
 // removeTab removes the tab with the given key from the tree, leaving any
 // emptied leaf in place. Collapsing empty leaves is the caller's responsibility
-// (collapseEmptyLeaves), deferred so that a composed action sequence (e.g.
-// SplitLeaf followed by MoveTab) can target a freshly created empty sibling
-// before the tree is tidied. Returns the removed tab and ok=true; ok=false when
-// the tab is not present.
+// (collapseEmptyLeaves), deferred so that a split-then-move sequence (MoveTab
+// with an edge location, or SplitTab) can target the freshly created empty
+// sibling before the tree is tidied. Returns the removed tab and ok=true;
+// ok=false when the tab is not present.
 func removeTab(root *Node, tabKey uuid.UUID) (Tab, bool) {
 	path, idx, ok := findTab(*root, tabKey)
 	if !ok {

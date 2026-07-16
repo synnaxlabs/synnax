@@ -15,7 +15,7 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
-from synnax import cluster
+from synnax import node
 from synnax import status as status_
 from synnax.ontology.payload import ID
 from x import control, telem
@@ -67,8 +67,8 @@ class Payload(BaseModel):
         key: Is the unique identifier for this channel, automatically assigned by
             Synnax.
         name: Is the human-readable channel name.
-        leaseholder: Is the cluster node that holds the lease for this channel. Mostly
-            for internal use.
+        leaseholder: Is the node that holds the lease for this channel. Mostly for
+            internal use.
         data_type: Is the data type of samples stored in this channel (e.g., Float64,
             Int32, TimeStamp).
         is_index: Is true if this is an index channel. Index channels must have int64
@@ -91,7 +91,7 @@ class Payload(BaseModel):
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
     name: Name
-    leaseholder: cluster.NodeKey = Field(default=cluster.NodeKey(0), ge=0, le=4095)
+    leaseholder: node.Key = Field(default=node.Key(0), ge=0, le=4095)
     data_type: telem.DataType
     is_index: bool = False
     index: Key = Field(default=Key(0), ge=0, le=4294967295)

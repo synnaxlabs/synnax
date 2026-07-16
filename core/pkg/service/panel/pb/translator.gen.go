@@ -36,10 +36,11 @@ func TabBaseFromPB(pb *TabBase) (panel.TabBase, error) {
 		return r, nil
 	}
 	var err error
-	r.Key, err = uuid.Parse(pb.Key)
+	parsedKey, err := uuid.Parse(pb.Key)
 	if err != nil {
 		return panel.TabBase{}, err
 	}
+	r.Key = panel.TabKey(parsedKey)
 	return r, nil
 }
 
@@ -77,7 +78,6 @@ func ViewToPB(r panel.View) (*View, error) {
 	}
 	pb := &View{
 		Type: r.Type,
-		Name: r.Name,
 		Args: argsVal,
 	}
 	return pb, nil
@@ -91,7 +91,6 @@ func ViewFromPB(pb *View) (panel.View, error) {
 	}
 	r.Args = pb.Args.AsMap()
 	r.Type = pb.Type
-	r.Name = pb.Name
 	return r, nil
 }
 
@@ -371,47 +370,6 @@ func TabResourcesFromPB(pbs []*TabResourcePayload) ([]panel.TabResource, error) 
 	return result, nil
 }
 
-// TabEmptyToPB converts TabEmpty to TabEmptyPayload.
-func TabEmptyToPB(r panel.TabEmpty) (*TabEmptyPayload, error) {
-	pb := &TabEmptyPayload{}
-	return pb, nil
-}
-
-// TabEmptyFromPB converts TabEmptyPayload to TabEmpty.
-func TabEmptyFromPB(pb *TabEmptyPayload) (panel.TabEmpty, error) {
-	var r panel.TabEmpty
-	if pb == nil {
-		return r, nil
-	}
-	return r, nil
-}
-
-// TabEmptiesToPB converts a slice of TabEmpty to TabEmptyPayload.
-func TabEmptiesToPB(rs []panel.TabEmpty) ([]*TabEmptyPayload, error) {
-	result := make([]*TabEmptyPayload, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = TabEmptyToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// TabEmptiesFromPB converts a slice of TabEmptyPayload to TabEmpty.
-func TabEmptiesFromPB(pbs []*TabEmptyPayload) ([]panel.TabEmpty, error) {
-	result := make([]panel.TabEmpty, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = TabEmptyFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // TabToPB converts Tab to Tab.
 func TabToPB(r panel.Tab) (*Tab, error) {
 	if r.Variant == nil {
@@ -439,16 +397,6 @@ func TabToPB(r panel.Tab) (*Tab, error) {
 			return nil, err
 		}
 		pb.Variant = &Tab_View{View: inner}
-	case panel.TabEmpty:
-		inner, err := TabEmptyToPB(v)
-		if err != nil {
-			return nil, err
-		}
-		pb.TabBase, err = TabBaseToPB(v.TabBase)
-		if err != nil {
-			return nil, err
-		}
-		pb.Variant = &Tab_Empty{Empty: inner}
 	default:
 		return nil, errors.Newf("Tab: unknown variant %T", r.Variant)
 	}
@@ -479,17 +427,6 @@ func TabFromPB(pb *Tab) (panel.Tab, error) {
 			return r, err
 		}
 		m := panel.TabView{View: inner}
-		m.TabBase, err = TabBaseFromPB(pb.TabBase)
-		if err != nil {
-			return r, err
-		}
-		r.Variant = m
-	case *Tab_Empty:
-		inner, err := TabEmptyFromPB(v.Empty)
-		if err != nil {
-			return r, err
-		}
-		m := inner
 		m.TabBase, err = TabBaseFromPB(pb.TabBase)
 		if err != nil {
 			return r, err

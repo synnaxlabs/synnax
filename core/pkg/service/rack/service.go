@@ -15,8 +15,8 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
@@ -42,7 +42,7 @@ type ServiceConfig struct {
 	// HostProvider is used to assign keys to racks.
 	//
 	// [REQUIRED]
-	HostProvider node.HostProvider
+	HostProvider cluster.HostProvider
 	// DB is the gorp database that racks will be stored in.
 	//
 	// [REQUIRED]

@@ -12,10 +12,10 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { Cluster } from "@/cluster";
+import { Node } from "@/node";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-describe("Cluster queries", () => {
+describe("Node queries", () => {
   let controller: AbortController;
   const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;
@@ -36,7 +36,7 @@ describe("Cluster queries", () => {
     it("should retrieve connection state for valid connection", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -55,7 +55,7 @@ describe("Cluster queries", () => {
     it("should return all expected connection state properties", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -77,7 +77,7 @@ describe("Cluster queries", () => {
     it("should handle connection state for connected cluster", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -97,7 +97,7 @@ describe("Cluster queries", () => {
     it("should handle invalid connection parameters gracefully", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "invalid-host-that-does-not-exist",
             port: 99999,
             secure: false,
@@ -115,7 +115,7 @@ describe("Cluster queries", () => {
     it("should include error information when connection fails", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "unreachable-host",
             port: 12345,
             secure: false,
@@ -134,7 +134,7 @@ describe("Cluster queries", () => {
       const customName = "my-custom-cluster";
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -152,7 +152,7 @@ describe("Cluster queries", () => {
     it("should allow disconnected queries without error", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "offline-server",
             port: 1234,
             secure: false,
@@ -169,7 +169,7 @@ describe("Cluster queries", () => {
     it("should handle secure connection parameter", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: true,
@@ -186,7 +186,7 @@ describe("Cluster queries", () => {
     it("should properly unmount and cleanup connection checker", async () => {
       const { result, unmount } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -204,7 +204,7 @@ describe("Cluster queries", () => {
     it("should maintain state consistency across multiple checks", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -227,7 +227,7 @@ describe("Cluster queries", () => {
     it("should handle multiple simultaneous connection state queries", async () => {
       const { result: result1 } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -237,7 +237,7 @@ describe("Cluster queries", () => {
 
       const { result: result2 } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -258,7 +258,7 @@ describe("Cluster queries", () => {
     it("should include client version in connection state", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -277,7 +277,7 @@ describe("Cluster queries", () => {
     it("should handle client-server compatibility check", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,
@@ -294,7 +294,7 @@ describe("Cluster queries", () => {
     it("should provide node version when connected", async () => {
       const { result } = renderHook(
         () =>
-          Cluster.useConnectionState({
+          Node.useConnectionState({
             host: "localhost",
             port: 9090,
             secure: false,

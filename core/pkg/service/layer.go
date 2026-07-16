@@ -282,7 +282,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Instrumentation:  cfg.Child("channel"),
 		Channel:          cfg.Distribution.Channel,
 		DB:               cfg.Distribution.DB,
-		HostResolver:     cfg.Distribution.Cluster,
+		HostProvider:     cfg.Distribution.Cluster,
 		Ontology:         l.Ontology,
 		Group:            l.Group,
 		Search:           l.Search,
@@ -307,7 +307,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			Framer:          cfg.Distribution.Framer,
 			Channel:         l.Channel,
 			Status:          l.Status,
-			HostResolver:    cfg.Distribution.Cluster,
+			HostProvider:    cfg.Distribution.Cluster,
 		},
 	); !ok(err, l.Framer) {
 		return nil, err
