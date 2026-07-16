@@ -23,7 +23,11 @@ export const useDrifted = <Schema extends z.ZodType>(
 ): boolean => {
   const configHash = Form.useFieldValue<string>("configHash", { ctx, optional: true });
   const rackKey = Form.useFieldValue<rack.Key>("rack", { ctx, optional: true });
-  const { running, configHash: deployedHash, rack: deployedRack } = useStatus(ctx).details;
+  const {
+    running,
+    configHash: deployedHash,
+    rack: deployedRack,
+  } = useStatus(ctx).details;
   if (!running || configHash == null) return false;
   return configHash !== deployedHash || (rackKey ?? 0) !== deployedRack;
 };
