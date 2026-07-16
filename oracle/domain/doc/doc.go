@@ -268,8 +268,36 @@ func FormatCpp(name, doc string) string {
 // Single-line: "// Name doc text"
 //
 // Multi-line: "// Name line1\n// line2\n// line3"
-func FormatProto(name, doc string) string {
-	return FormatGo(name, doc)
+//
+// Text is wrapped to 88 characters including the comment prefix and the indentation
+// the comment is emitted at (buf format re-indents continuation lines to match).
+func FormatProto(name, doc string, indent ...int) string {
+	if doc == "" {
+		return ""
+	}
+
+	width := maxLineWidth
+	if len(indent) > 0 {
+		width -= indent[0]
+	}
+	firstPrefix := "// " + name + " "
+	subsequentPrefix := "// "
+	lines := wrapText(doc, width-len(firstPrefix), width-len(subsequentPrefix))
+	if len(lines) == 0 {
+		return ""
+	}
+
+	var result []string
+	for i, line := range lines {
+		if i == 0 {
+			result = append(result, firstPrefix+line)
+		} else if line == "" {
+			result = append(result, "//")
+		} else {
+			result = append(result, subsequentPrefix+line)
+		}
+	}
+	return strings.Join(result, "\n")
 }
 
 func capitalize(s string) string {
