@@ -30,4 +30,3 @@ export const ZERO_PRIMITIVES = {
   boolean: false,
   null: null,
 } as const satisfies Record<PrimitiveType, Primitive>;
-
