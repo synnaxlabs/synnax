@@ -101,13 +101,22 @@ var _ = Describe("FormatTS", func() {
 	It("should format single-line doc", func() {
 		Expect(doc.FormatTS("Name", "doc text")).To(Equal("/** Name doc text */"))
 	})
-	It("should format multi-line doc", func() {
+	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatTS("Name", "line1\nline2\nline3")
-		Expect(result).To(Equal("/**\n * Name line1\n * line2\n * line3\n */"))
+		Expect(result).To(Equal("/** Name line1 line2 line3 */"))
 	})
-	It("should handle empty lines in multi-line doc", func() {
+	It("should handle paragraph breaks in multi-line doc", func() {
 		result := doc.FormatTS("Name", "line1\n\nline3")
 		Expect(result).To(Equal("/**\n * Name line1\n *\n * line3\n */"))
+	})
+	It("should wrap long text to 88 characters", func() {
+		longDoc := "is the node that holds the lease for this channel. Mostly for internal use and other purposes."
+		result := doc.FormatTS("leaseholder", longDoc)
+		lines := strings.Split(result, "\n")
+		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
 	})
 })
 
@@ -118,9 +127,18 @@ var _ = Describe("FormatPyDocstring", func() {
 	It("should format single-line doc", func() {
 		Expect(doc.FormatPyDocstring("Name", "doc text")).To(Equal(`"""Name doc text"""`))
 	})
-	It("should format multi-line doc", func() {
+	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatPyDocstring("Name", "line1\nline2\nline3")
-		Expect(result).To(Equal(`"""Name line1` + "\nline2\nline3" + `"""`))
+		Expect(result).To(Equal(`"""Name line1 line2 line3"""`))
+	})
+	It("should wrap long text to 88 characters", func() {
+		longDoc := "is the node that holds the lease for this channel. Mostly for internal use and other purposes."
+		result := doc.FormatPyDocstring("leaseholder", longDoc)
+		lines := strings.Split(result, "\n")
+		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
 	})
 })
 
@@ -131,9 +149,18 @@ var _ = Describe("FormatPyComment", func() {
 	It("should format single-line doc", func() {
 		Expect(doc.FormatPyComment("Name", "doc text")).To(Equal("# Name doc text"))
 	})
-	It("should format multi-line doc", func() {
+	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatPyComment("Name", "line1\nline2\nline3")
-		Expect(result).To(Equal("# Name line1\n# line2\n# line3"))
+		Expect(result).To(Equal("# Name line1 line2 line3"))
+	})
+	It("should wrap long text to 88 characters", func() {
+		longDoc := "is the node that holds the lease for this channel. Mostly for internal use and other purposes."
+		result := doc.FormatPyComment("leaseholder", longDoc)
+		lines := strings.Split(result, "\n")
+		Expect(len(lines)).To(BeNumerically(">", 1), "expected multiple lines")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
 	})
 })
 
@@ -231,24 +258,33 @@ var _ = Describe("FormatPyDocstringGoogle", func() {
     """`
 		Expect(result).To(Equal(expected))
 	})
-	It("should handle multi-line class doc", func() {
+	It("should normalize newlines in multi-line class doc", func() {
 		result := doc.FormatPyDocstringGoogle("first line.\nsecond line.", nil)
-		expected := `    """First line.
-    second line.
+		expected := `    """First line. second line.
     """`
 		Expect(result).To(Equal(expected))
 	})
-	It("should handle multi-line field doc", func() {
+	It("should normalize newlines in multi-line field doc", func() {
 		fields := []doc.FieldDoc{
 			{Name: "key", Doc: "first line.\nsecond line."},
 		}
 		result := doc.FormatPyDocstringGoogle("", fields)
 		expected := `    """
     Attributes:
-        key: First line.
-            second line.
+        key: First line. second line.
     """`
 		Expect(result).To(Equal(expected))
+	})
+	It("should wrap long field docs to 88 characters including indentation", func() {
+		fields := []doc.FieldDoc{
+			{Name: "leaseholder", Doc: "is the node that holds the lease for this channel. Mostly for internal use."},
+		}
+		result := doc.FormatPyDocstringGoogle("", fields)
+		for line := range strings.SplitSeq(result, "\n") {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
+		Expect(result).To(ContainSubstring("        leaseholder: Is the node"))
+		Expect(result).To(ContainSubstring("\n            "))
 	})
 	It("should skip fields with empty docs", func() {
 		fields := []doc.FieldDoc{

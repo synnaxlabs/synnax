@@ -17,9 +17,8 @@ import { ontology } from "@/ontology";
 import { keyZ, type Panel, tabZ, viewZ } from "@/panel/types.gen";
 
 /**
- * Rename renames the panel. When the panel is owned by a user (draft),
- * the writer promotes it to project ownership in the same
- * transaction.
+ * Rename renames the panel. When the panel is owned by a user (draft), the writer
+ * promotes it to project ownership in the same transaction.
  */
 export const renamePayloadZ = z.object({
   name: z.string(),
@@ -28,11 +27,10 @@ export const renamePayloadZ = z.object({
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
 /**
- * InsertTab inserts a tab into the leaf with the given path-derived key at
- * the given index. Appends when index is absent. When location is
- * an edge, the target leaf is first split at that location and the
- * tab is inserted into the new empty leaf; a center location places
- * the tab directly in the target leaf, equivalent to absent.
+ * InsertTab inserts a tab into the leaf with the given path-derived key at the given
+ * index. Appends when index is absent. When location is an edge, the target leaf is
+ * first split at that location and the tab is inserted into the new empty leaf; a
+ * center location places the tab directly in the target leaf, equivalent to absent.
  */
 export const insertTabPayloadZ = z.object({
   tab: tabZ,
@@ -44,9 +42,8 @@ export const insertTabPayloadZ = z.object({
 export type InsertTabPayload = z.infer<typeof insertTabPayloadZ>;
 
 /**
- * RemoveTab removes the tab with the given key. If the containing leaf
- * becomes empty and has a sibling, the reducer collapses the
- * parent split.
+ * RemoveTab removes the tab with the given key. If the containing leaf becomes empty
+ * and has a sibling, the reducer collapses the parent split.
  */
 export const removeTabPayloadZ = z.object({
   key: z.uuid(),
@@ -55,13 +52,12 @@ export const removeTabPayloadZ = z.object({
 export type RemoveTabPayload = z.infer<typeof removeTabPayloadZ>;
 
 /**
- * MoveTab moves a tab to a position within the panel. When location is an
- * edge, the target leaf is first split at that location and the
- * tab moves into the new empty leaf; moving a leaf's only tab to
- * an edge of its own leaf is a no-op. A center location places the
- * tab directly in the target leaf, equivalent to absent.
- * Cross-panel moves are RemoveTab on the source plus InsertTab on
- * the destination (two dispatches; not atomic).
+ * MoveTab moves a tab to a position within the panel. When location is an edge, the
+ * target leaf is first split at that location and the tab moves into the new empty
+ * leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. A center
+ * location places the tab directly in the target leaf, equivalent to absent.
+ * Cross-panel moves are RemoveTab on the source plus InsertTab on the destination (two
+ * dispatches; not atomic).
  */
 export const moveTabPayloadZ = z.object({
   key: z.uuid(),
@@ -73,11 +69,10 @@ export const moveTabPayloadZ = z.object({
 export type MoveTabPayload = z.infer<typeof moveTabPayloadZ>;
 
 /**
- * SplitLeaf splits the given leaf into a parent split with two children:
- * the original leaf and a new empty leaf. location determines on
- * which side ("left", "right", "top", "bottom") the new empty leaf
- * sits. size is the initial ratio in [0, 1] for the original leaf;
- * defaults to 0.5 when absent.
+ * SplitLeaf splits the given leaf into a parent split with two children: the original
+ * leaf and a new empty leaf. location determines on which side ("left", "right", "top",
+ * "bottom") the new empty leaf sits. size is the initial ratio in [0, 1] for the
+ * original leaf; defaults to 0.5 when absent.
  */
 export const splitLeafPayloadZ = z.object({
   leaf: z.int32(),
@@ -96,10 +91,9 @@ export const resizeSplitPayloadZ = z.object({
 export type ResizeSplitPayload = z.infer<typeof resizeSplitPayloadZ>;
 
 /**
- * SetTabResource sets the visualization resource displayed by the tab with the
- * given key, swapping it in place without changing the tab's
- * identity or position. Clears any view set on the tab. Used to
- * fill a freshly inserted empty tab once the user picks a
+ * SetTabResource sets the visualization resource displayed by the tab with the given
+ * key, swapping it in place without changing the tab's identity or position. Clears any
+ * view set on the tab. Used to fill a freshly inserted empty tab once the user picks a
  * visualization.
  */
 export const setTabResourcePayloadZ = z.object({
@@ -110,9 +104,9 @@ export const setTabResourcePayloadZ = z.object({
 export type SetTabResourcePayload = z.infer<typeof setTabResourcePayloadZ>;
 
 /**
- * SetTabView sets the inline view displayed by the tab with the given key,
- * swapping it in place without changing the tab's identity or
- * position. Clears any resource set on the tab.
+ * SetTabView sets the inline view displayed by the tab with the given key, swapping it
+ * in place without changing the tab's identity or position. Clears any resource set on
+ * the tab.
  */
 export const setTabViewPayloadZ = z.object({
   key: z.uuid(),

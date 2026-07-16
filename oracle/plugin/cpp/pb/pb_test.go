@@ -981,6 +981,61 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 		})
 
+		Context("packages without JSON content", func() {
+			It("Should include its own types.gen.h instead of json.gen.h", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/ontology"
+					@pb output "core/pkg/ontology/pb"
+
+					ResourceType enum {
+						channel = "channel"
+						device = "device"
+					}
+				`
+				resp := MustGenerate(ctx, source, "ontology", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(`#include "client/cpp/ontology/types.gen.h"`).
+					ToNotContain(`#include "client/cpp/ontology/json.gen.h"`)
+			})
+
+			It("Should include types.gen.h for references into packages with only omitted structs", func(ctx SpecContext) {
+				loader.Add("schemas/telem", `
+					@cpp output "x/cpp/telem"
+					@pb output "x/go/telem/pb"
+
+					TimeRange struct {
+						start uint64
+						end   uint64
+
+						@cpp omit
+					}
+				`)
+
+				source := `
+					import "schemas/telem"
+
+					@cpp output "client/cpp/ranger"
+					@pb output "core/pkg/service/ranger/pb"
+
+					Range struct {
+						name       string
+						time_range telem.TimeRange
+					}
+				`
+				resp := MustGenerate(ctx, source, "ranger", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(`#include "x/cpp/telem/types.gen.h"`).
+					ToNotContain(
+						`#include "x/cpp/telem/json.gen.h"`,
+						// The target emits no proto.gen.h either: its conversions are
+						// hand-written next to the type.
+						`#include "x/cpp/telem/proto.gen.h"`,
+					)
+			})
+		})
+
 		Context("cross-namespace string enum reference", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/geo", `

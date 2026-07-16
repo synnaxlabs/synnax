@@ -55,7 +55,9 @@ export const setLegendHiddenPayloadZ = z.object({
 
 export type SetLegendHiddenPayload = z.infer<typeof setLegendHiddenPayloadZ>;
 
-/** SetLegendPosition sets the anchor position of the plot legend within the container. */
+/**
+ * SetLegendPosition sets the anchor position of the plot legend within the container.
+ */
 export const setLegendPositionPayloadZ = z.object({
   position: spatial.stickyXYZ,
 });
@@ -63,8 +65,8 @@ export const setLegendPositionPayloadZ = z.object({
 export type SetLegendPositionPayload = z.infer<typeof setLegendPositionPayloadZ>;
 
 /**
- * AddChannel appends the channel to the channels array bound to the y-axis
- * named by axis_key. No-op when the channel is already present.
+ * AddChannel appends the channel to the channels array bound to the y-axis named by
+ * axis_key. No-op when the channel is already present.
  */
 export const addChannelPayloadZ = z.object({
   axisKey: yAxisKeyZ,
@@ -74,8 +76,8 @@ export const addChannelPayloadZ = z.object({
 export type AddChannelPayload = z.infer<typeof addChannelPayloadZ>;
 
 /**
- * RemoveChannel removes the channel from the y-axis named by axis_key. No-op
- * when the channel is not present.
+ * RemoveChannel removes the channel from the y-axis named by axis_key. No-op when the
+ * channel is not present.
  */
 export const removeChannelPayloadZ = z.object({
   axisKey: yAxisKeyZ,
@@ -85,10 +87,9 @@ export const removeChannelPayloadZ = z.object({
 export type RemoveChannelPayload = z.infer<typeof removeChannelPayloadZ>;
 
 /**
- * SetChannels replaces the entire set of channels bound to the y-axis named by
- * axis_key with channels. Channels absent from the new set are
- * removed and their lines dropped; channels not previously present
- * are added. Existing channels keep their line styling.
+ * SetChannels replaces the entire set of channels bound to the y-axis named by axis_key
+ * with channels. Channels absent from the new set are removed and their lines dropped;
+ * channels not previously present are added. Existing channels keep their line styling.
  */
 export const setChannelsPayloadZ = z.object({
   axisKey: yAxisKeyZ,
@@ -97,10 +98,7 @@ export const setChannelsPayloadZ = z.object({
 
 export type SetChannelsPayload = z.infer<typeof setChannelsPayloadZ>;
 
-/**
- * SetXChannel replaces the single channel bound to the x-axis named by
- * axis_key.
- */
+/** SetXChannel replaces the single channel bound to the x-axis named by axis_key. */
 export const setXChannelPayloadZ = z.object({
   axisKey: xAxisKeyZ,
   channel: channel.keyZ,
@@ -109,8 +107,8 @@ export const setXChannelPayloadZ = z.object({
 export type SetXChannelPayload = z.infer<typeof setXChannelPayloadZ>;
 
 /**
- * AddRange appends the range key to the ranges array bound to the x-axis
- * named by axis_key. No-op when the range is already present.
+ * AddRange appends the range key to the ranges array bound to the x-axis named by
+ * axis_key. No-op when the range is already present.
  */
 export const addRangePayloadZ = z.object({
   axisKey: xAxisKeyZ,
@@ -120,8 +118,8 @@ export const addRangePayloadZ = z.object({
 export type AddRangePayload = z.infer<typeof addRangePayloadZ>;
 
 /**
- * RemoveRange removes the range key from the x-axis named by axis_key. No-op
- * when the range is not present.
+ * RemoveRange removes the range key from the x-axis named by axis_key. No-op when the
+ * range is not present.
  */
 export const removeRangePayloadZ = z.object({
   axisKey: xAxisKeyZ,
@@ -131,10 +129,9 @@ export const removeRangePayloadZ = z.object({
 export type RemoveRangePayload = z.infer<typeof removeRangePayloadZ>;
 
 /**
- * SetRanges replaces the entire set of range keys bound to the x-axis named by
- * axis_key with ranges. Ranges absent from the new set are removed
- * and their lines dropped; ranges not previously present are added.
- * Existing ranges keep their line styling.
+ * SetRanges replaces the entire set of range keys bound to the x-axis named by axis_key
+ * with ranges. Ranges absent from the new set are removed and their lines dropped;
+ * ranges not previously present are added. Existing ranges keep their line styling.
  */
 export const setRangesPayloadZ = z.object({
   axisKey: xAxisKeyZ,
@@ -174,8 +171,8 @@ export type SetAxisLabelLevelPayload = z.infer<typeof setAxisLabelLevelPayloadZ>
 
 /**
  * SetAxisBounds sets the axis value-space window together with its per-edge manual
- * override flags. The two travel together: fixing a bound enables the
- * manual override for that edge, so callers set both at once.
+ * override flags. The two travel together: fixing a bound enables the manual override
+ * for that edge, so callers set both at once.
  */
 export const setAxisBoundsPayloadZ = z.object({
   key: axisKeyZ,
@@ -194,9 +191,8 @@ export const setAxisTickSpacingPayloadZ = z.object({
 export type SetAxisTickSpacingPayload = z.infer<typeof setAxisTickSpacingPayloadZ>;
 
 /**
- * SetAxisType sets the axis tick label style. Null resets it to the default,
- * which the Console derives (linear, or time for a timestamp-bound
- * x-axis) at render time.
+ * SetAxisType sets the axis tick label style. Null resets it to the default, which the
+ * Console derives (linear, or time for a timestamp-bound x-axis) at render time.
  */
 export const setAxisTypePayloadZ = z.object({
   key: axisKeyZ,
@@ -206,8 +202,8 @@ export const setAxisTypePayloadZ = z.object({
 export type SetAxisTypePayload = z.infer<typeof setAxisTypePayloadZ>;
 
 /**
- * SetLineLabel sets the label of the line identified by key. Null resets it to
- * derive from the channel name at render time.
+ * SetLineLabel sets the label of the line identified by key. Null resets it to derive
+ * from the channel name at render time.
  */
 export const setLineLabelPayloadZ = z.object({
   key: z.string(),
@@ -227,7 +223,9 @@ export const setLineColorPayloadZ = z.object({
 
 export type SetLineColorPayload = z.infer<typeof setLineColorPayloadZ>;
 
-/** SetLineStrokeWidth sets the stroke width, in pixels, of the line identified by key. */
+/**
+ * SetLineStrokeWidth sets the stroke width, in pixels, of the line identified by key.
+ */
 export const setLineStrokeWidthPayloadZ = z.object({
   key: z.string(),
   strokeWidth: z.number(),
@@ -243,7 +241,10 @@ export const setLineDownsamplePayloadZ = z.object({
 
 export type SetLineDownsamplePayload = z.infer<typeof setLineDownsamplePayloadZ>;
 
-/** SetLineDownsampleMode sets how the downsample factor is applied for the line identified by key. */
+/**
+ * SetLineDownsampleMode sets how the downsample factor is applied for the line
+ * identified by key.
+ */
 export const setLineDownsampleModePayloadZ = z.object({
   key: z.string(),
   downsampleMode: downsampleModeZ,
@@ -254,9 +255,9 @@ export type SetLineDownsampleModePayload = z.infer<
 >;
 
 /**
- * SetLine replaces the line with line.key in place, inserting it when no such
- * line exists. The fine-grained setLine* actions cover per-field edits;
- * this full-object form restores a line dropped by reconciliation.
+ * SetLine replaces the line with line.key in place, inserting it when no such line
+ * exists. The fine-grained setLine* actions cover per-field edits; this full-object
+ * form restores a line dropped by reconciliation.
  */
 export const setLinePayloadZ = z.object({
   line: lineZ,
@@ -265,10 +266,10 @@ export const setLinePayloadZ = z.object({
 export type SetLinePayload = z.infer<typeof setLinePayloadZ>;
 
 /**
- * SetRule inserts the rule if no rule with rule.key exists, otherwise
- * replaces the existing entry in place. The fine-grained setRule*
- * actions cover per-field edits; this full-object form creates a rule
- * or restores one removed by another action's inverse.
+ * SetRule inserts the rule if no rule with rule.key exists, otherwise replaces the
+ * existing entry in place. The fine-grained setRule* actions cover per-field edits;
+ * this full-object form creates a rule or restores one removed by another action's
+ * inverse.
  */
 export const setRulePayloadZ = z.object({
   rule: ruleZ,
