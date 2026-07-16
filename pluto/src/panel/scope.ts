@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/panel/Mosaic";
-export * from "@/panel/queries";
-export * from "@/panel/scope";
-export * from "@/panel/Suspended";
+import { type panel } from "@synnaxlabs/client";
+
+import { Scope as ScopeFactory } from "@/scope";
+
+export const Scope = ScopeFactory.create<panel.Key>("Panel");
+
+export const TabScope = ScopeFactory.create<panel.TabKey>("PanelTab");

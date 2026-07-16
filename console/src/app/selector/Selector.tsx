@@ -33,10 +33,10 @@ export const create = (
   type: LAYOUT_TYPE,
   icon: "Visualize",
   location: "mosaic",
-  name: "New Component",
+  name: "New Tab",
   key: uuid.create(),
 });
 
 export const Selector: Layout.Renderer = (props) => (
-  <Base.Selector selectables={SELECTABLES} text="Select a Component Type" {...props} />
+  <Base.Selector selectables={SELECTABLES} text="Select a Tab Type" {...props} />
 );

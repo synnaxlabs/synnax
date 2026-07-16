@@ -301,7 +301,7 @@ describe("mosaicTree", () => {
               {
                 closable: true,
                 icon: "Visualize",
-                name: "New Component",
+                name: "New Tab",
                 tabKey: "ff989ff2-9bdb-49fe-b6fc-d71c8f933309",
               },
             ],
@@ -314,7 +314,7 @@ describe("mosaicTree", () => {
               {
                 closable: true,
                 icon: "Visualize",
-                name: "New Component",
+                name: "New Tab",
                 tabKey: "dbca1c5e-7d69-4ac6-bb59-22c9d2bf3ee3",
               },
             ],
