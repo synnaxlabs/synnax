@@ -63,6 +63,7 @@ struct Edge : public ::arc::ir::Edge {
     from_proto(const ::arc::graph::pb::Edge &pb);
 };
 
+/// @brief Nodes is a collection of visual nodes in an Arc graph.
 struct Nodes : private std::vector<Node> {
     using Base = std::vector<Node>;
 
@@ -117,6 +118,7 @@ struct Nodes : private std::vector<Node> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Edges is a collection of graph edges in an Arc graph.
 struct Edges : private std::vector<Edge> {
     using Base = std::vector<Edge>;
 

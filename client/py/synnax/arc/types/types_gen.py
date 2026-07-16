@@ -61,7 +61,8 @@ class Channels(BaseModel):
 
 
 class Dimensions(BaseModel):
-    """Contains physical dimension exponents for dimensional analysis (SI base quantities).
+    """Contains physical dimension exponents for dimensional analysis (SI base
+    quantities).
 
     Attributes:
         length: Is the length dimension exponent (meters).
@@ -111,8 +112,8 @@ class FunctionProperties(BaseModel):
 
 
 class Type(FunctionProperties):
-    """Is a type in Arc's type system with optional element type for compounds,
-    physical units, and constraints.
+    """Is a type in Arc's type system with optional element type for compounds, physical
+    units, and constraints.
 
     Attributes:
         kind: Is the type category (primitive, compound, or meta-type).

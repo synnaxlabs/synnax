@@ -10,11 +10,8 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
-    name = "cluster",
-    hdrs = [
-        "json.gen.h",
-        "types.gen.h",
-    ],
+    name = "node",
+    hdrs = ["types.gen.h"],
     visibility = ["//visibility:public"],
     deps = [],
 )

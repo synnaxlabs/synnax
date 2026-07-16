@@ -12,5 +12,5 @@
 import { zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-export const nodeKeyZ = zod.uint12;
-export type NodeKey = z.infer<typeof nodeKeyZ>;
+export const keyZ = zod.uint12;
+export type Key = z.infer<typeof keyZ>;

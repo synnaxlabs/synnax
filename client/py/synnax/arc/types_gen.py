@@ -46,15 +46,14 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Payload(BaseModel):
-    """Is an Arc module combining visual graph representation and text-based
-    source code for reactive control systems. Compiles to WebAssembly for
-    sandboxed execution.
+    """Is an Arc module combining visual graph representation and text-based source code
+    for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 
     Attributes:
         key: Is the unique identifier for this module.
         name: Is a human-readable name for the module.
-        mode: Specifies the representation mode for this module.
-            Either "text" for text-based Arc code or "graph" for visual dataflow.
+        mode: Specifies the representation mode for this module. Either "text" for
+            text-based Arc code or "graph" for visual dataflow.
         graph: Is the visual dataflow graph representation of the module.
         text: Is the text-based Arc source code.
         program: Is the compiled module output including IR and WebAssembly bytecode.
