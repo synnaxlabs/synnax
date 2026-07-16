@@ -81,9 +81,9 @@ var _ = Describe("Service", func() {
 				Entry("status", func(c *framer.ServiceConfig) {
 					c.Status = nil
 				}, "status"),
-				Entry("host_resolver", func(c *framer.ServiceConfig) {
+				Entry("host_provider", func(c *framer.ServiceConfig) {
 					c.HostProvider = nil
-				}, "host_resolver"),
+				}, "host_provider"),
 			)
 		})
 

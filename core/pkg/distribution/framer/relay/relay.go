@@ -113,7 +113,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "transport", c.Transport)
-	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "free_writes", c.FreeWrites)
 	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
