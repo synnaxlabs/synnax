@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 @go output  "x/go/telem"
-@go version 1
+@go version 0
 @ts output  "x/ts/src/telem"
 @py output  "x/py/x/telem"
 @cpp output "x/cpp/telem"

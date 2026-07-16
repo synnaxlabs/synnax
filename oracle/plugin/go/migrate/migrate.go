@@ -176,15 +176,13 @@ func (g *generation) detectBumps() error {
 	return nil
 }
 
-// pathChanged reports whether any type at path changed shape between the
-// snapshot and working tables. Types added to or removed from the path count
-// as changes.
+// pathChanged reports whether any type present in the snapshot changed shape
+// or was removed at path. Brand-new types never count: no frozen shape can
+// reference a type that didn't exist yet, so they fold into the current
+// version without a bump.
 func (g *generation) pathChanged(path string) bool {
 	oldByName := typesAtPath(g.req.OldResolutions, path)
 	newByName := typesAtPath(g.req.Resolutions, path)
-	if len(oldByName) != len(newByName) {
-		return true
-	}
 	for name, oldType := range oldByName {
 		newType, ok := newByName[name]
 		if !ok {
@@ -360,7 +358,6 @@ func (g *generation) scaffoldIncoming(
 		// Paths without @go migrate entries (value types, hand-migrated
 		// resources) get dep-style scaffolding: per-type Migrate wrappers over
 		// the generated auto-copies.
-		fmt.Printf("DEBUG scaffold %s types=%d diff=%d needs=%v\n", path, len(oldEntryTypes), len(diff), needsAutoMigrate(oldEntryTypes, diff))
 		if !needsAutoMigrate(oldEntryTypes, diff) {
 			return nil
 		}

@@ -16,7 +16,7 @@ import (
 	node "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	control "github.com/synnaxlabs/x/control/types/v0"
-	telem "github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 	"github.com/synnaxlabs/x/validate"
 	gotypes "go/types"
 	"strconv"

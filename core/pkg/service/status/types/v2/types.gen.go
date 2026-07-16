@@ -13,7 +13,7 @@ package v2
 
 import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	telem "github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 // Variant is the severity or type of a status message.

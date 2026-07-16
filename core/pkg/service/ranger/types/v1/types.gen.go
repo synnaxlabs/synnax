@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	color "github.com/synnaxlabs/x/color/types/v0"
-	telem "github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 

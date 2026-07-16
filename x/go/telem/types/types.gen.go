@@ -11,64 +11,64 @@
 
 package types
 
-import "github.com/synnaxlabs/x/telem/types/v1"
+import "github.com/synnaxlabs/x/telem/types/v0"
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
 // (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency telemetry
 // timestamps.
-type TimeStamp = v1.TimeStamp
+type TimeStamp = v0.TimeStamp
 
 // TimeSpan is a 64-bit signed integer representing a duration in nanoseconds. Used for
 // expressing time intervals, sampling periods, and durations throughout the telemetry
 // system.
-type TimeSpan = v1.TimeSpan
+type TimeSpan = v0.TimeSpan
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
 // frequencies and calculate sample counts over time intervals.
-type Rate = v1.Rate
+type Rate = v0.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
-type Size = v1.Size
+type Size = v0.Size
 
 // TimeRange is a time interval defined by a start and end timestamp. The range is
 // start-inclusive and end-exclusive, following standard interval conventions for
 // predictable boundary handling.
-type TimeRange = v1.TimeRange
+type TimeRange = v0.TimeRange
 
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
-type DataType = v1.DataType
+type DataType = v0.DataType
 
 // Alignment is a 64-bit index for positioning samples within multi-array structures.
 // Packs a domain index (which array) and sample index (position within array) into a
 // single value for efficient multi-dimensional data access.
-type Alignment = v1.Alignment
+type Alignment = v0.Alignment
 
 // TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
-type TimestampFormat = v1.TimestampFormat
+type TimestampFormat = v0.TimestampFormat
 
 const (
-	TimestampFormatISO         TimestampFormat = v1.TimestampFormatISO
-	TimestampFormatISODate     TimestampFormat = v1.TimestampFormatISODate
-	TimestampFormatTime        TimestampFormat = v1.TimestampFormatTime
-	TimestampFormatPreciseTime TimestampFormat = v1.TimestampFormatPreciseTime
-	TimestampFormatDate        TimestampFormat = v1.TimestampFormatDate
-	TimestampFormatPreciseDate TimestampFormat = v1.TimestampFormatPreciseDate
-	TimestampFormatDateTime    TimestampFormat = v1.TimestampFormatDateTime
+	TimestampFormatISO         TimestampFormat = v0.TimestampFormatISO
+	TimestampFormatISODate     TimestampFormat = v0.TimestampFormatISODate
+	TimestampFormatTime        TimestampFormat = v0.TimestampFormatTime
+	TimestampFormatPreciseTime TimestampFormat = v0.TimestampFormatPreciseTime
+	TimestampFormatDate        TimestampFormat = v0.TimestampFormatDate
+	TimestampFormatPreciseDate TimestampFormat = v0.TimestampFormatPreciseDate
+	TimestampFormatDateTime    TimestampFormat = v0.TimestampFormatDateTime
 )
 
 // TimeZone is the time zone used when rendering timestamps.
-type TimeZone = v1.TimeZone
+type TimeZone = v0.TimeZone
 
 const (
-	TimeZoneLocal TimeZone = v1.TimeZoneLocal
-	TimeZoneUTC   TimeZone = v1.TimeZoneUTC
+	TimeZoneLocal TimeZone = v0.TimeZoneLocal
+	TimeZoneUTC   TimeZone = v0.TimeZoneUTC
 )
 
 // Series is a strongly-typed array of telemetry samples backed by a binary buffer.
 // Supports both fixed-density primitive types and variable-density types (strings,
 // JSON). Designed for high-performance, memory-efficient storage and streaming of
 // time-series data.
-type Series = v1.Series
+type Series = v0.Series

@@ -12,7 +12,7 @@ package telem
 import (
 	"time"
 
-	latest "github.com/synnaxlabs/x/telem/types/v1"
+	latest "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 // Density represents a density in bytes per value.

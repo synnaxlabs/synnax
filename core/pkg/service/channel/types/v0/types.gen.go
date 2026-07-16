@@ -14,7 +14,7 @@ package v0
 import (
 	node "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
 	control "github.com/synnaxlabs/x/control/types/v0"
-	telem "github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )

@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
-	telem "github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 var _ = Describe("Codec", func() {

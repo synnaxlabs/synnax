@@ -406,7 +406,7 @@ var _ = Describe("SeriesFactory", func() {
 			}).To(PanicWith(ContainSubstring(msg)))
 		},
 			Entry("string → Int64T", "not a number", telem.Int64T, "cannot cast string to int64"),
-			Entry("string → TimeStampT", "2024-01-01", telem.TimeStampT, "cannot cast string to v1.TimeStamp"),
+			Entry("string → TimeStampT", "2024-01-01", telem.TimeStampT, "cannot cast string to v0.TimeStamp"),
 			Entry("int → UUIDT", 42, telem.UUIDT, "cannot cast int to uuid.UUID"),
 			Entry("invalid string → UUIDT", "not-a-uuid", telem.UUIDT, "invalid UUID"),
 			Entry("short []byte → UUIDT", []byte{1, 2, 3}, telem.UUIDT, "invalid UUID (got 3 bytes)"),

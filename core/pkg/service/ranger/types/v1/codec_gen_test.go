@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	telem "github.com/synnaxlabs/x/telem/types/v1"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 var _ = Describe("Codec", func() {

@@ -193,6 +193,66 @@ var _ = Describe("Go Migrate Plugin", func() {
 				)))
 			})
 
+			It("Should not require a bump when a new type is added", func() {
+				oldSchema := `
+					@go output "out"
+					@go version 1
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					@go version 1
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						@go migrate
+					}
+					Format enum {
+						iso  = "ISO"
+						date = "date"
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
+				Expect(resp.Files).To(BeEmpty())
+			})
+
+			It("Should error when a type is removed without a version bump", func() {
+				oldSchema := `
+					@go output "out"
+					@go version 1
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						@go migrate
+					}
+					Format enum {
+						iso  = "ISO"
+						date = "date"
+					}
+				`
+				newSchema := `
+					@go output "out"
+					@go version 1
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						@go migrate
+					}
+				`
+				Expect(generate(ctx, oldSchema, newSchema, "test", loader, p)).
+					Error().To(MatchError(ContainSubstring(
+					"changed but @go version is still 1",
+				)))
+			})
+
 			It("Should error when the version jumps by more than one", func() {
 				oldSchema := `
 					@go output "out"

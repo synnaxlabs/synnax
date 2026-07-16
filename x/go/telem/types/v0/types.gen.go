@@ -29,6 +29,16 @@ type Rate float64
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
 type Size int64
 
+// TimeRange is a time interval defined by a start and end timestamp. The range is
+// start-inclusive and end-exclusive, following standard interval conventions for
+// predictable boundary handling.
+type TimeRange struct {
+	// Start is the inclusive start of the time range.
+	Start TimeStamp `json:"start" msgpack:"start"`
+	// End is the exclusive end of the time range.
+	End TimeStamp `json:"end" msgpack:"end"`
+}
+
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
@@ -39,14 +49,45 @@ type DataType string
 // single value for efficient multi-dimensional data access.
 type Alignment uint64
 
-// TimeRange is a time interval defined by a start and end timestamp. The range is
-// start-inclusive and end-exclusive, following standard interval conventions for
-// predictable boundary handling.
-type TimeRange struct {
-	// Start is the inclusive start of the time range.
-	Start TimeStamp `json:"start" msgpack:"start"`
-	// End is the exclusive end of the time range.
-	End TimeStamp `json:"end" msgpack:"end"`
+// TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
+type TimestampFormat string
+
+const (
+	TimestampFormatISO         TimestampFormat = "ISO"
+	TimestampFormatISODate     TimestampFormat = "ISODate"
+	TimestampFormatTime        TimestampFormat = "time"
+	TimestampFormatPreciseTime TimestampFormat = "preciseTime"
+	TimestampFormatDate        TimestampFormat = "date"
+	TimestampFormatPreciseDate TimestampFormat = "preciseDate"
+	TimestampFormatDateTime    TimestampFormat = "dateTime"
+)
+
+// IsValid reports whether t is one of the defined TimestampFormat values.
+func (t TimestampFormat) IsValid() bool {
+	switch t {
+	case TimestampFormatISO, TimestampFormatISODate, TimestampFormatTime, TimestampFormatPreciseTime, TimestampFormatDate, TimestampFormatPreciseDate, TimestampFormatDateTime:
+		return true
+	default:
+		return false
+	}
+}
+
+// TimeZone is the time zone used when rendering timestamps.
+type TimeZone string
+
+const (
+	TimeZoneLocal TimeZone = "local"
+	TimeZoneUTC   TimeZone = "UTC"
+)
+
+// IsValid reports whether t is one of the defined TimeZone values.
+func (t TimeZone) IsValid() bool {
+	switch t {
+	case TimeZoneLocal, TimeZoneUTC:
+		return true
+	default:
+		return false
+	}
 }
 
 // Series is a strongly-typed array of telemetry samples backed by a binary buffer.

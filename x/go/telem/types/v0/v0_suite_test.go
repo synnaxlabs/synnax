@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1_test
+package v0_test
 
 import (
 	"testing"
@@ -19,7 +19,7 @@ import (
 
 func TestTelemV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Telem v1 Suite")
+	RunSpecs(t, "Telem v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

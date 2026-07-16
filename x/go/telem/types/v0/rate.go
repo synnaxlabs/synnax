@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1
+package v0
 
 // Period returns a TimeSpan representing the period of the Rate.
 func (r Rate) Period() TimeSpan { return TimeSpan(float64(Second) / float64(r)) }
