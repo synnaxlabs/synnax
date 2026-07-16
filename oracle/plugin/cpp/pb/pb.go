@@ -248,7 +248,7 @@ func (p *Plugin) generateProto(
 			continue
 		}
 
-		translator := p.processStructForTranslation(s, form, data, req)
+		translator := p.processStructForTranslation(s, form, data)
 		if translator != nil {
 			data.Translators = append(data.Translators, *translator)
 		}
@@ -360,7 +360,6 @@ func (p *Plugin) processStructForTranslation(
 	s resolution.Type,
 	form resolution.StructForm,
 	data *templateData,
-	req *plugin.Request,
 ) *translatorData {
 	cppName := domain.GetName(s, "cpp")
 
@@ -406,16 +405,16 @@ func (p *Plugin) processStructForTranslation(
 			})
 		}
 		for _, field := range form.Fields {
-			fieldData := p.processFieldForTranslation(field, form, data)
+			fieldData := p.processFieldForTranslation(field, data)
 			translator.Fields = append(translator.Fields, fieldData)
 		}
 		for _, field := range resolution.UnifiedFields(s, data.table) {
-			fieldData := p.processFieldForTranslation(field, form, data)
+			fieldData := p.processFieldForTranslation(field, data)
 			translator.AllFields = append(translator.AllFields, fieldData)
 		}
 	} else {
 		for _, field := range resolution.UnifiedFields(s, data.table) {
-			fieldData := p.processFieldForTranslation(field, form, data)
+			fieldData := p.processFieldForTranslation(field, data)
 			translator.Fields = append(translator.Fields, fieldData)
 		}
 	}
@@ -425,7 +424,6 @@ func (p *Plugin) processStructForTranslation(
 
 func (p *Plugin) processFieldForTranslation(
 	field resolution.Field,
-	form resolution.StructForm,
 	data *templateData,
 ) fieldTranslatorData {
 	pbFieldName := casing.FieldSnake(field.Name)
@@ -449,7 +447,7 @@ func (p *Plugin) processFieldForTranslation(
 	forwardJSONExpr, backwardJSONExpr := "", ""
 	if isGenericField {
 		pbAccessorName := keywords.Escape(pbFieldName)
-		forwardJSONExpr, backwardJSONExpr = p.generateJSONFieldConversion(field, cppFieldName, pbAccessorName, data)
+		forwardJSONExpr, backwardJSONExpr = p.generateJSONFieldConversion(field, cppFieldName, pbAccessorName)
 	}
 
 	return fieldTranslatorData{
@@ -498,7 +496,7 @@ func (p *Plugin) generateFieldConversion(
 			substitutedField.Type = *typeRef.TypeParam.Default
 			return p.generateFieldConversion(substitutedField, cppFieldName, data)
 		}
-		return p.generateTypeParamConversion(field, data, cppFieldName, pbAccessorName)
+		return p.generateTypeParamConversion(field, cppFieldName, pbAccessorName)
 	}
 
 	resolved, ok := typeRef.Resolve(data.table)
@@ -524,9 +522,8 @@ func (p *Plugin) generateFieldConversion(
 
 func (p *Plugin) generateJSONFieldConversion(
 	field resolution.Field,
-	cppFieldName string,
+	cppFieldName,
 	pbAccessorName string,
-	data *templateData,
 ) (forward, backward string) {
 	if field.Optional {
 		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)", cppFieldName, pbAccessorName, cppFieldName)
@@ -719,7 +716,6 @@ func (p *Plugin) typeRefToCppForTranslator(typeRef resolution.TypeRef, data *tem
 
 func (p *Plugin) generateTypeParamConversion(
 	field resolution.Field,
-	data *templateData,
 	cppFieldName, pbAccessorName string,
 ) (forward, backward string) {
 	typeParamName := field.Type.TypeParam.Name

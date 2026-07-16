@@ -122,7 +122,7 @@ const requirePanel = (store: FluxSubStore, key: panel.Key): panel.Panel => {
 // useSelectRoot selects the panel's stored tree root. The reference only
 // changes when the document changes, so consumers can memoize derivations on
 // it directly.
-export const useSelectRoot = Flux.createSelector<
+export const [useSelectRoot] = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
   panel.Node
@@ -136,7 +136,7 @@ export interface SelectTabContentArgs {
   tabKey: string;
 }
 
-export const useSelectTab = Flux.createSelector<
+export const [useSelectTab] = Flux.createSelector<
   FluxSubStore,
   SelectTabContentArgs,
   panel.Tab

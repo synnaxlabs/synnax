@@ -958,6 +958,8 @@ var _ = Describe("C++ PB Plugin", func() {
 						name string
 						description string
 					}
+
+					Infos = Info[]
 				`)
 			})
 
@@ -978,6 +980,165 @@ var _ = Describe("C++ PB Plugin", func() {
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("to_proto()").
 					ToContain("from_proto")
+			})
+
+			It("Should include the base's proto header for cross-namespace extends", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct extends common.Info {
+						key uuid
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(`#include "client/cpp/common/proto.gen.h"`)
+			})
+
+			It("Should convert alias fields targeting cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					InfoRef = common.Info
+
+					Task struct {
+						info InfoRef
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						`#include "client/cpp/common/proto.gen.h"`,
+						`#include "client/cpp/common/json.gen.h"`,
+						"this->info.to_proto()",
+					)
+			})
+
+			It("Should convert optional alias fields targeting cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					InfoRef = common.Info
+
+					Task struct {
+						info InfoRef?
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						"if (this->info.has_value())",
+						"this->info->to_proto()",
+						"if (pb.has_info())",
+					)
+			})
+
+			It("Should convert optional arrays of cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						infos common.Info[]?
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						"if (this->infos.has_value())",
+						"wrapper->add_values()",
+						"cpp.infos.emplace();",
+					)
+			})
+
+			It("Should convert arrays of cross-namespace structs", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						infos common.Info[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						`#include "client/cpp/common/proto.gen.h"`,
+						`#include "client/cpp/common/json.gen.h"`,
+						"pb.add_infos()",
+					)
+			})
+
+			It("Should convert maps with cross-namespace struct values", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						infos map<string, common.Info>
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						`#include "client/cpp/common/proto.gen.h"`,
+						`#include "client/cpp/common/json.gen.h"`,
+						"mutable_infos()",
+					)
+			})
+
+			It("Should convert nested arrays with cross-namespace struct elements", func(ctx SpecContext) {
+				source := `
+					import "schemas/common"
+
+					@cpp output "client/cpp/task"
+					@pb output "core/pkg/service/task/pb"
+
+					Task struct {
+						groups common.Infos[]
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "task/proto.gen.h").
+					ToContain(
+						`#include "client/cpp/common/proto.gen.h"`,
+						`#include "client/cpp/common/json.gen.h"`,
+						"wrapper->add_values()",
+					)
+			})
+		})
+
+		Context("invalid output paths", func() {
+			It("Should propagate json collection errors", func(ctx SpecContext) {
+				req := MustGenerateRequest(ctx, `
+					@cpp output "../escape"
+
+					Bad struct { name string }
+				`, "types", loader)
+				Expect(pbPlugin.Generate(req)).Error().
+					To(MatchError(ContainSubstring("path traversal")))
 			})
 		})
 

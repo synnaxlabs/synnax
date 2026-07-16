@@ -401,11 +401,12 @@ export interface RenameParams extends Pick<status.Status, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     const stat = await retrieveSingle({ client, store, query: { key } });
     const renamed = { ...stat, name };
     rollbacks.push(store.statuses.set(renamed));
+    await onOptimisticComplete(data);
     await client.statuses.set(renamed);
     return data;
   },
