@@ -99,6 +99,11 @@ struct Task {
     /// @brief config is task-specific configuration stored as JSON. Structure varies by
     /// task type.
     x::json::json::object_t config;
+    /// @brief config_hash is the server-assigned hash of config, rewritten on every
+    /// write
+    /// and ignored on writes from clients. Compare against a status's config_hash to
+    /// detect drift.
+    std::string config_hash = "";
     /// @brief internal is true if this is an internal system task.
     bool internal = false;
     /// @brief snapshot indicates whether to persist this task's configuration.

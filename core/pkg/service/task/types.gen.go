@@ -58,6 +58,10 @@ type Task struct {
 	Type string `json:"type" msgpack:"type"`
 	// Config is task-specific configuration stored as JSON. Structure varies by task type.
 	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
+	// ConfigHash is the server-assigned hash of config, rewritten on every write and
+	// ignored on writes from clients. Compare against a status's config_hash to detect
+	// drift.
+	ConfigHash string `json:"config_hash" msgpack:"config_hash"`
 	// Internal is true if this is an internal system task.
 	Internal bool `json:"internal" msgpack:"internal"`
 	// Snapshot indicates whether to persist this task's configuration.

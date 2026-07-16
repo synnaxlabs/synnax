@@ -58,43 +58,50 @@ Task struct<
     Config extends record = record,
     StatusData? = record
 > {
-    key      Key = create {
+    key         Key = create {
         @doc value "is the unique identifier for this task."
         @key
     }
-    rack     rack.Key = 0 {
+    rack        rack.Key = 0 {
         @doc value """
             is the key of the rack this task deploys to. Zero for a draft that
             has not been assigned a rack; required to start.
         """
         @filter
     }
-    name     string              {
+    name        string              {
         @doc value "is a human-readable name for the task."
         @filter
     }
-    type     Type                {
+    type        Type                {
         @doc value """
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
         @filter
     }
-    config   Config              {
+    config      Config              {
         @doc value """
             is task-specific configuration stored as JSON. Structure varies by
             task type.
         """
     }
-    internal bool = false {
+    config_hash string = "" {
+        @doc value """
+            is the server-assigned hash of config, rewritten on every write and
+            ignored on writes from clients. Compare against a status's
+            config_hash to detect drift.
+        """
+    }
+    internal    bool = false {
         @doc value "is true if this is an internal system task."
         @filter
     }
-    snapshot bool = false {
+    snapshot    bool = false {
         @doc value "indicates whether to persist this task's configuration."
         @filter
     }
-    status   Status<StatusData>? {
+    status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
     }

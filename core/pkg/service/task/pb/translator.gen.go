@@ -166,13 +166,14 @@ func TaskToPB(
 		return nil, err
 	}
 	pb := &Task{
-		Rack:     uint32(r.Rack),
-		Name:     r.Name,
-		Type:     r.Type,
-		Internal: r.Internal,
-		Snapshot: r.Snapshot,
-		Key:      r.Key.String(),
-		Config:   configVal,
+		Rack:       uint32(r.Rack),
+		Name:       r.Name,
+		Type:       r.Type,
+		ConfigHash: r.ConfigHash,
+		Internal:   r.Internal,
+		Snapshot:   r.Snapshot,
+		Key:        r.Key.String(),
+		Config:     configVal,
 	}
 	if r.Status != nil {
 		var err error
@@ -202,6 +203,7 @@ func TaskFromPB(
 	r.Rack = rack.Key(pb.Rack)
 	r.Name = pb.Name
 	r.Type = pb.Type
+	r.ConfigHash = pb.ConfigHash
 	r.Internal = pb.Internal
 	r.Snapshot = pb.Snapshot
 	if pb.Status != nil {
