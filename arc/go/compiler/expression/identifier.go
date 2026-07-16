@@ -64,6 +64,9 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:
+		if !scope.Reassigned && scope.DefaultValue != nil {
+			return emitSeedConst(ctx, scope)
+		}
 		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil
 	case symbol.KindChannel:

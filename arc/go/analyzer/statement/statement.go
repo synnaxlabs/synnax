@@ -817,6 +817,27 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 	}
 }
 
+// analyzeExprReadReassignment re-points an expression-read variable at a new
+// derivation, validating the RHS produces the variable's value type.
+func analyzeExprReadReassignment(
+	ctx context.Context[parser.IAssignmentContext],
+	sym *symbol.Symbol,
+) {
+	expr := ctx.AST.Expression()
+	if expr == nil {
+		return
+	}
+	expression.Analyze(context.Child(ctx, expr))
+	exprType := atypes.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
+	if exprType.IsValid() && !types.StructuralMatch(sym.Type.Unwrap(), exprType) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"type mismatch: cannot reassign '%s' (%s) from a %s expression",
+			sym.Name, sym.Type.Unwrap(), exprType))
+		return
+	}
+	sym.Reassigned = true
+}
+
 // analyzeAliasRebind re-points a channel alias at rhs, recording the candidate
 // for read and write routing.
 func analyzeAliasRebind(
@@ -1215,6 +1236,10 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	}
 
 	if varScope.Type.Kind == types.KindChan {
+		if varScope.Kind == symbol.KindVariable && varScope.SourceID == nil {
+			analyzeExprReadReassignment(ctx, varScope)
+			return
+		}
 		analyzeChannelAssignment(ctx, varScope)
 		return
 	}

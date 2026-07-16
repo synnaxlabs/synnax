@@ -302,6 +302,35 @@ func (n *State) AbsorbInputs() {
 	}
 }
 
+// ConsumeInput returns input i's unconsumed data, marking it consumed. ok is
+// false when input i is a reference or has no new data.
+func (n *State) ConsumeInput(i int) (telem.Series, bool) {
+	if i < 0 || i >= len(n.ir.inputs) || n.isReference[i] {
+		return telem.Series{}, false
+	}
+	src := n.inputSources[i]
+	if src == nil || src.data.Len() == 0 {
+		return telem.Series{}, false
+	}
+	ts := telem.TimeStamp(0)
+	if src.time.Len() > 0 {
+		ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+	}
+	if ts <= n.accumulated[i].lastTimestamp && n.accumulated[i].consumed {
+		return telem.Series{}, false
+	}
+	n.accumulated[i] = inputEntry{
+		data:          src.data,
+		time:          src.time,
+		lastTimestamp: ts,
+		consumed:      true,
+	}
+	return src.data, true
+}
+
+// InputCount returns the number of declared inputs.
+func (n *State) InputCount() int { return len(n.ir.inputs) }
+
 // LastChanged returns the series of the most-recently-changed input, marking it
 // consumed for last-write-wins. ok is false when no input has new data.
 func (n *State) LastChanged() (telem.Series, bool) {

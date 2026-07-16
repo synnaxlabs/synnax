@@ -35,23 +35,17 @@ func Stratify(
 	if prog == nil || prog.Root.IsZero() {
 		return diag
 	}
-	// A seeded variable holds a value, so its edges impose no ordering,
-	// mirroring channel state. Reactive vars order as normal dataflow.
-	seeded := set.New[string]()
+	// A variable holds its value across passes, so its edges impose no
+	// ordering, mirroring channel state.
+	vars := set.New[string]()
 	for _, n := range prog.Nodes {
-		if n.Type != "variable" && n.Type != "stateful_variable" {
-			continue
-		}
-		for _, p := range n.Inputs {
-			if p.Value != nil {
-				seeded.Add(n.Key)
-				break
-			}
+		if n.Type == "variable" || n.Type == "stateful_variable" {
+			vars.Add(n.Key)
 		}
 	}
 	ordering := make([]ir.Edge, 0, len(prog.Edges))
 	for _, e := range prog.Edges {
-		if !seeded.Contains(e.Source.Node) && !seeded.Contains(e.Target.Node) {
+		if !vars.Contains(e.Source.Node) && !vars.Contains(e.Target.Node) {
 			ordering = append(ordering, e)
 		}
 	}

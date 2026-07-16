@@ -10,6 +10,7 @@
 package variable
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -50,27 +51,39 @@ type Host struct{}
 // NewHost constructs a variable Host.
 func NewHost() *Host { return &Host{} }
 
+// Create dispatches on shape: a seeded f0 makes a register; an edge-fed f0 an
+// exprRead deref that demuxes derivations.
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
 	}
-	return &variable{State: cfg.State, persistent: cfg.Node.Type == statefulSymbolName}, nil
+	if len(cfg.Node.Inputs) > 0 && cfg.Node.Inputs[0].Value == nil {
+		selIdx := -1
+		if idx, err := cfg.State.ResolveInput("sel"); err == nil {
+			selIdx = idx
+		}
+		return &exprRead{State: cfg.State, selIdx: selIdx}, nil
+	}
+	return &register{
+		State:    cfg.State,
+		stateful: cfg.Node.Type == statefulSymbolName,
+	}, nil
 }
 
-// variable holds the value of its most-recently-fired feeder input,
-// last-write-wins. The unedged f0 param carries the declaration seed.
-type variable struct {
+// register holds what its variable is mapped to: a value, a channel key, or a
+// derivation index. Writes are last-wins; the unedged f0 carries the seed.
+type register struct {
 	*node.State
-	clock      telem.MonoClock
-	persistent bool
+	clock    telem.MonoClock
+	stateful bool
 }
 
-var _ node.Node = (*variable)(nil)
+var _ node.Node = (*register)(nil)
 
 // Reset re-seeds a `:=` variable on scope entry. A `$=` variable persists.
 // The seed is emitted immediately, superseding any pending feeder value.
-func (v *variable) Reset() {
-	if v.persistent {
+func (v *register) Reset() {
+	if v.stateful {
 		return
 	}
 	v.AbsorbInputs()
@@ -78,13 +91,49 @@ func (v *variable) Reset() {
 	*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
 }
 
-func (v *variable) Next(ctx node.Context) {
+func (v *register) Next(ctx node.Context) {
 	data, ok := v.LastChanged()
 	if !ok {
 		return
 	}
-	// Feeders reuse their output buffers in place; the held value must not alias them.
+	// Feeders reuse their output buffers in place; the register value must not alias them.
 	*v.Output(0) = data.DeepCopy()
 	*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
 	ctx.MarkChanged(0)
+}
+
+// exprRead derefs its variable's register: sel carries the active derivation's
+// index, and only that feeder's value changes emit.
+type exprRead struct {
+	*node.State
+	clock  telem.MonoClock
+	selIdx int
+	active int
+}
+
+var _ node.Node = (*exprRead)(nil)
+
+// Next re-points on sel first: a re-point is not itself a value, and inactive
+// feeders drain silently.
+func (v *exprRead) Next(ctx node.Context) {
+	if s, ok := v.ConsumeInput(v.selIdx); ok && s.Len() > 0 {
+		v.active = int(telem.ValueAt[uint32](s, -1))
+	}
+	for i := range v.InputCount() {
+		if i == v.selIdx {
+			continue
+		}
+		data, ok := v.ConsumeInput(i)
+		if !ok || i != v.active {
+			continue
+		}
+		// A derivation only changes when its value does; recomputes are not events.
+		if data.DataType == v.Output(0).DataType &&
+			bytes.Equal(data.Data, v.Output(0).Data) {
+			continue
+		}
+		*v.Output(0) = data.DeepCopy()
+		*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
+		ctx.MarkChanged(0)
+	}
 }

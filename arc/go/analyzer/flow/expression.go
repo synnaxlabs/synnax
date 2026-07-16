@@ -152,19 +152,28 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			continue
 		}
 		sym, err := fn.Resolve(ctx, name)
-		if err != nil || !sym.Reassigned {
+		if err != nil {
 			continue
+		}
+		exprRead := sym.IsReactive() && sym.SourceID == nil
+		if !sym.Reassigned && !exprRead {
+			continue
+		}
+		// An expression-read var lifts as its value type; the node feeds it data.
+		t := sym.Type
+		if exprRead {
+			t = t.Unwrap()
 		}
 		if _, err = fn.Add(ctx, symbol.Symbol{
 			Name:     name,
 			Kind:     symbol.KindInput,
-			Type:     sym.Type,
+			Type:     t,
 			Internal: true,
 			AST:      expr,
 		}); err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 			return
 		}
-		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: sym.Type})
+		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})
 	}
 }
