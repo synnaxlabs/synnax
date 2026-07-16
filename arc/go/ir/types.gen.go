@@ -13,17 +13,9 @@ package ir
 
 import "github.com/synnaxlabs/arc/ir/types"
 
-// Edges is a collection of dataflow edges in an Arc graph.
-type Edges = types.Edges
-
-// Functions is a collection of function definitions in an Arc module.
-type Functions = types.Functions
-
-// Nodes is a collection of node instantiations in an Arc module.
-type Nodes = types.Nodes
-
-// Members is an ordered collection of Scope members, one per position.
-type Members = types.Members
+// Handle is a reference to a specific parameter on a specific node in the dataflow
+// graph.
+type Handle = types.Handle
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind = types.EdgeKind
@@ -33,6 +25,12 @@ const (
 	EdgeKindContinuous  EdgeKind = types.EdgeKindContinuous
 	EdgeKindConditional EdgeKind = types.EdgeKindConditional
 )
+
+// Edge is a dataflow connection between node parameters in the Arc graph.
+type Edge = types.Edge
+
+// Edges is a collection of dataflow edges in an Arc graph.
+type Edges = types.Edges
 
 // ScopeMode defines the concurrency model of a Scope.
 type ScopeMode = types.ScopeMode
@@ -52,13 +50,6 @@ const (
 	LivenessGated       Liveness = types.LivenessGated
 )
 
-// Handle is a reference to a specific parameter on a specific node in the dataflow
-// graph.
-type Handle = types.Handle
-
-// Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge = types.Edge
-
 // Transition is a declarative state-transition rule on a sequential Scope.
 type Transition = types.Transition
 
@@ -66,6 +57,9 @@ type Transition = types.Transition
 // nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
 // transitions) is derived from the set variant via Member.key().
 type Member = types.Member
+
+// Members is an ordered collection of Scope members, one per position.
+type Members = types.Members
 
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members
@@ -79,8 +73,14 @@ type Body = types.Body
 // blueprint for node instantiation.
 type Function = types.Function
 
+// Functions is a collection of function definitions in an Arc module.
+type Functions = types.Functions
+
 // Node is a concrete instantiation of a function with typed parameters and values.
 type Node = types.Node
+
+// Nodes is a collection of node instantiations in an Arc module.
+type Nodes = types.Nodes
 
 // Authorities holds the static authority declarations from an Arc program.
 type Authorities = types.Authorities

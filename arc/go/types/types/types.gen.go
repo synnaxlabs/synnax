@@ -13,9 +13,6 @@ package types
 
 import "github.com/synnaxlabs/arc/types/types/v1"
 
-// Params is a collection of named, typed parameters for function inputs or outputs.
-type Params = v1.Params
-
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
 type Kind = v1.Kind
@@ -63,6 +60,9 @@ type Type = v1.Type
 
 // Param is a named, typed parameter with optional default value.
 type Param = v1.Param
+
+// Params is a collection of named, typed parameters for function inputs or outputs.
+type Params = v1.Params
 
 // Channels contains channel declarations for reading from and writing to Synnax
 // channels.

@@ -13,17 +13,9 @@ package types
 
 import "github.com/synnaxlabs/arc/ir/types/v2"
 
-// Edges is a collection of dataflow edges in an Arc graph.
-type Edges = v2.Edges
-
-// Functions is a collection of function definitions in an Arc module.
-type Functions = v2.Functions
-
-// Nodes is a collection of node instantiations in an Arc module.
-type Nodes = v2.Nodes
-
-// Members is an ordered collection of Scope members, one per position.
-type Members = v2.Members
+// Handle is a reference to a specific parameter on a specific node in the dataflow
+// graph.
+type Handle = v2.Handle
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind = v2.EdgeKind
@@ -33,6 +25,12 @@ const (
 	EdgeKindContinuous  EdgeKind = v2.EdgeKindContinuous
 	EdgeKindConditional EdgeKind = v2.EdgeKindConditional
 )
+
+// Edge is a dataflow connection between node parameters in the Arc graph.
+type Edge = v2.Edge
+
+// Edges is a collection of dataflow edges in an Arc graph.
+type Edges = v2.Edges
 
 // ScopeMode defines the concurrency model of a Scope.
 type ScopeMode = v2.ScopeMode
@@ -52,13 +50,6 @@ const (
 	LivenessGated       Liveness = v2.LivenessGated
 )
 
-// Handle is a reference to a specific parameter on a specific node in the dataflow
-// graph.
-type Handle = v2.Handle
-
-// Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge = v2.Edge
-
 // Transition is a declarative state-transition rule on a sequential Scope.
 type Transition = v2.Transition
 
@@ -66,6 +57,9 @@ type Transition = v2.Transition
 // nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
 // transitions) is derived from the set variant via Member.key().
 type Member = v2.Member
+
+// Members is an ordered collection of Scope members, one per position.
+type Members = v2.Members
 
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members
@@ -79,8 +73,14 @@ type Body = v2.Body
 // blueprint for node instantiation.
 type Function = v2.Function
 
+// Functions is a collection of function definitions in an Arc module.
+type Functions = v2.Functions
+
 // Node is a concrete instantiation of a function with typed parameters and values.
 type Node = v2.Node
+
+// Nodes is a collection of node instantiations in an Arc module.
+type Nodes = v2.Nodes
 
 // Authorities holds the static authority declarations from an Arc program.
 type Authorities = v2.Authorities

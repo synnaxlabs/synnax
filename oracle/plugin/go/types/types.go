@@ -11,7 +11,10 @@ package types
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
+	"math"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -186,9 +189,6 @@ func GenerateGoFile(
 		Package:    pkg,
 		OutputPath: outputPath,
 		Namespace:  namespace,
-		Structs:    make([]structData, 0, len(structs)),
-		Enums:      make([]enumData, 0, len(enums)),
-		TypeDefs:   make([]typeDefData, 0, len(typeDefs)),
 		imports:    imports,
 		table:      table,
 		repoRoot:   repoRoot,
@@ -196,30 +196,26 @@ func GenerateGoFile(
 		ctx:        ctx,
 	}
 
-	for _, td := range typeDefs {
-		if !omit.IsType(td, "go") {
-			data.TypeDefs = append(data.TypeDefs, processTypeDef(td, data))
-		}
-	}
-
-	for _, e := range enums {
-		if e.Namespace == namespace && !omit.IsType(e, "go") {
-			data.Enums = append(data.Enums, processEnum(e))
-		}
-	}
-
-	for _, entry := range structs {
-		if omit.IsType(entry, "go") {
+	for _, d := range orderDecls(table, typeDefs, enums, structs, unions) {
+		if omit.IsType(d.typ, "go") {
 			continue
 		}
-		data.Structs = append(data.Structs, processStruct(entry, data))
-	}
-
-	for _, entry := range unions {
-		if omit.IsType(entry, "go") {
-			continue
+		switch d.kind {
+		case declTypeDef:
+			td := processTypeDef(d.typ, data)
+			data.Decls = append(data.Decls, declData{TypeDef: &td})
+		case declEnum:
+			if d.typ.Namespace == namespace {
+				e := processEnum(d.typ)
+				data.Decls = append(data.Decls, declData{Enum: &e})
+			}
+		case declStruct:
+			s := processStruct(d.typ, data)
+			data.Decls = append(data.Decls, declData{Struct: &s})
+		case declUnion:
+			u := processUnion(d.typ, data)
+			data.Decls = append(data.Decls, declData{Union: &u})
 		}
-		data.Unions = append(data.Unions, processUnion(entry, data))
 	}
 
 	var buf bytes.Buffer
@@ -231,6 +227,57 @@ func GenerateGoFile(
 
 func resolveGoImportPath(outputPath, repoRoot string) string {
 	return gomod.ResolveImportPath(outputPath, repoRoot, goModulePrefix)
+}
+
+type declKind int
+
+const (
+	declTypeDef declKind = iota
+	declEnum
+	declStruct
+	declUnion
+)
+
+type orderedDecl struct {
+	kind declKind
+	typ  resolution.Type
+}
+
+// orderDecls merges the kind-grouped type lists into schema declaration
+// order, using the table's registration order as the source position.
+func orderDecls(
+	table *resolution.Table,
+	typeDefs, enums, structs, unions []resolution.Type,
+) []orderedDecl {
+	index := make(map[string]int, len(table.Types))
+	for i, t := range table.Types {
+		index[t.QualifiedName] = i
+	}
+	pos := func(t resolution.Type) int {
+		if i, ok := index[t.QualifiedName]; ok {
+			return i
+		}
+		return math.MaxInt
+	}
+	decls := make(
+		[]orderedDecl, 0, len(typeDefs)+len(enums)+len(structs)+len(unions),
+	)
+	for _, t := range typeDefs {
+		decls = append(decls, orderedDecl{kind: declTypeDef, typ: t})
+	}
+	for _, t := range enums {
+		decls = append(decls, orderedDecl{kind: declEnum, typ: t})
+	}
+	for _, t := range structs {
+		decls = append(decls, orderedDecl{kind: declStruct, typ: t})
+	}
+	for _, t := range unions {
+		decls = append(decls, orderedDecl{kind: declUnion, typ: t})
+	}
+	slices.SortStableFunc(decls, func(a, b orderedDecl) int {
+		return cmp.Compare(pos(a.typ), pos(b.typ))
+	})
+	return decls
 }
 
 func processEnum(e resolution.Type) enumData {
@@ -524,10 +571,16 @@ type templateData struct {
 	OutputPath string
 	Namespace  string
 	repoRoot   string
-	Structs    []structData
-	Enums      []enumData
-	TypeDefs   []typeDefData
-	Unions     []unionData
+	Decls      []declData
+}
+
+// declData wraps one processed declaration in schema order; exactly one field
+// is non-nil.
+type declData struct {
+	TypeDef *typeDefData
+	Enum    *enumData
+	Struct  *structData
+	Union   *unionData
 }
 
 // HasImports returns true if any imports are needed.
@@ -638,7 +691,8 @@ import (
 {{- end}}
 )
 {{- end}}
-{{- range .TypeDefs}}
+{{- range .Decls}}
+{{- with .TypeDef}}
 {{- if .Doc}}
 
 {{formatDoc .Name .Doc}}
@@ -649,7 +703,8 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} {{.BaseType}}
 {{- end}}
 {{- end}}
-{{- range $enum := .Enums}}
+{{- with .Enum}}
+{{- $enum := .}}
 
 {{- if $enum.Doc}}
 {{formatDoc $enum.Name $enum.Doc}}
@@ -696,9 +751,8 @@ func ({{$enum.Receiver}} {{$enum.Name}}) IsValid() bool {
 {{- end}}
 {{- end}}
 {{- end}}
-{{range .Structs}}
-{{- if .Doc}}
-{{formatDoc .Name .Doc}}
+{{- with .Struct}}
+{{if .Doc}}{{formatDoc .Name .Doc}}
 {{end -}}
 {{if .IsAlias -}}
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} = {{.AliasOf}}
@@ -804,8 +858,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	return v.Error()
 }
 {{- end}}
-{{end -}}
-{{- range .Unions}}
+{{- end}}
+{{- with .Union}}
 {{- $u := .}}
 
 type {{.DiscType}} string
@@ -986,5 +1040,6 @@ func (u {{.Name}}) Validate() error {
 	return nil
 }
 {{- end}}
-{{end -}}
+{{- end}}
+{{- end}}
 `))

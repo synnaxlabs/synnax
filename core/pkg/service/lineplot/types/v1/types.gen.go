@@ -24,28 +24,6 @@ import (
 // Key is a unique identifier for a line plot, represented as a UUID.
 type Key = uuid.UUID
 
-// AxisKey names one of the six fixed plot axes.
-type AxisKey string
-
-const (
-	AxisKeyX1 AxisKey = "x1"
-	AxisKeyX2 AxisKey = "x2"
-	AxisKeyY1 AxisKey = "y1"
-	AxisKeyY2 AxisKey = "y2"
-	AxisKeyY3 AxisKey = "y3"
-	AxisKeyY4 AxisKey = "y4"
-)
-
-// IsValid reports whether a is one of the defined AxisKey values.
-func (a AxisKey) IsValid() bool {
-	switch a {
-	case AxisKeyX1, AxisKeyX2, AxisKeyY1, AxisKeyY2, AxisKeyY3, AxisKeyY4:
-		return true
-	default:
-		return false
-	}
-}
-
 // TickType selects how an axis renders its tick labels.
 type TickType string
 
@@ -114,6 +92,28 @@ const (
 func (y YAxisKey) IsValid() bool {
 	switch y {
 	case YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4:
+		return true
+	default:
+		return false
+	}
+}
+
+// AxisKey names one of the six fixed plot axes.
+type AxisKey string
+
+const (
+	AxisKeyX1 AxisKey = "x1"
+	AxisKeyX2 AxisKey = "x2"
+	AxisKeyY1 AxisKey = "y1"
+	AxisKeyY2 AxisKey = "y2"
+	AxisKeyY3 AxisKey = "y3"
+	AxisKeyY4 AxisKey = "y4"
+)
+
+// IsValid reports whether a is one of the defined AxisKey values.
+func (a AxisKey) IsValid() bool {
+	switch a {
+	case AxisKeyX1, AxisKeyX2, AxisKeyY1, AxisKeyY2, AxisKeyY3, AxisKeyY4:
 		return true
 	default:
 		return false

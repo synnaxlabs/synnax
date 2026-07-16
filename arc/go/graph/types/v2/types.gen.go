@@ -17,12 +17,6 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
-// Nodes is a collection of visual nodes in an Arc graph.
-type Nodes []Node
-
-// Edges is a collection of graph edges in an Arc graph.
-type Edges []Edge
-
 // Node is a visual node in the Arc graph editor representing a function instantiation
 // with position data. The function type and input parameter values are stored in the
 // graph's inputs map, keyed by the node key.
@@ -33,6 +27,9 @@ type Node struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
+// Nodes is a collection of visual nodes in an Arc graph.
+type Nodes []Node
+
 // Edge is a dataflow connection between node parameters carrying a stable identifier.
 // The key persists across endpoint edits, distinguishing the editable graph edge from
 // the keyless ir.Edge consumed by the compiler.
@@ -41,6 +38,9 @@ type Edge struct {
 	// Key is the stable identifier for this edge within the graph.
 	Key string `json:"key" msgpack:"key"`
 }
+
+// Edges is a collection of graph edges in an Arc graph.
+type Edges []Edge
 
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.

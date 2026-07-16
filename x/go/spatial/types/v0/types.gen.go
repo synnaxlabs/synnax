@@ -13,9 +13,53 @@ package v0
 
 import "github.com/synnaxlabs/x/validate"
 
-// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
-// such as a container's extent.
-type Decimal = float64
+// OuterLocation is a position indicator for elements anchored to the outer edge of a
+// container. Used for orientation and positioning of UI elements.
+type OuterLocation string
+
+const (
+	OuterLocationTop    OuterLocation = "top"
+	OuterLocationRight  OuterLocation = "right"
+	OuterLocationBottom OuterLocation = "bottom"
+	OuterLocationLeft   OuterLocation = "left"
+)
+
+// IsValid reports whether o is one of the defined OuterLocation values.
+func (o OuterLocation) IsValid() bool {
+	switch o {
+	case OuterLocationTop, OuterLocationRight, OuterLocationBottom, OuterLocationLeft:
+		return true
+	default:
+		return false
+	}
+}
+
+// XY is a 2D coordinate point with x and y values. Used for positioning elements in
+// two-dimensional space.
+type XY struct {
+	// X is the horizontal coordinate.
+	X float64 `json:"x" msgpack:"x"`
+	// Y is the vertical coordinate.
+	Y float64 `json:"y" msgpack:"y"`
+}
+
+// Direction is a 2D axis direction.
+type Direction string
+
+const (
+	DirectionX Direction = "x"
+	DirectionY Direction = "y"
+)
+
+// IsValid reports whether d is one of the defined Direction values.
+func (d Direction) IsValid() bool {
+	switch d {
+	case DirectionX, DirectionY:
+		return true
+	default:
+		return false
+	}
+}
 
 // XLocation is a horizontal-axis location at the left or right edge.
 type XLocation string
@@ -72,42 +116,98 @@ func (s StickyUnit) IsValid() bool {
 	}
 }
 
-// OuterLocation is a position indicator for elements anchored to the outer edge of a
-// container. Used for orientation and positioning of UI elements.
-type OuterLocation string
+// CornerLocation is an anchor corner for positioning.
+type CornerLocation struct {
+	// X is the horizontal anchor.
+	X XLocation `json:"x" msgpack:"x"`
+	// Y is the vertical anchor.
+	Y YLocation `json:"y" msgpack:"y"`
+}
 
-const (
-	OuterLocationTop    OuterLocation = "top"
-	OuterLocationRight  OuterLocation = "right"
-	OuterLocationBottom OuterLocation = "bottom"
-	OuterLocationLeft   OuterLocation = "left"
-)
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
+func (c CornerLocation) Validate() error {
+	v := validate.New("CornerLocation")
+	v.Ternaryf("x", !c.X.IsValid(), "invalid x: %v", c.X)
+	v.Ternaryf("y", !c.Y.IsValid(), "invalid y: %v", c.Y)
+	return v.Error()
+}
 
-// IsValid reports whether o is one of the defined OuterLocation values.
-func (o OuterLocation) IsValid() bool {
-	switch o {
-	case OuterLocationTop, OuterLocationRight, OuterLocationBottom, OuterLocationLeft:
-		return true
-	default:
-		return false
+// StickyUnits specifies the measurement units for sticky positioning.
+type StickyUnits struct {
+	// X is the horizontal unit.
+	X StickyUnit `json:"x" msgpack:"x"`
+	// Y is the vertical unit.
+	Y StickyUnit `json:"y" msgpack:"y"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
+func (s StickyUnits) Validate() error {
+	v := validate.New("StickyUnits")
+	v.Ternaryf("x", !s.X.IsValid(), "invalid x: %v", s.X)
+	v.Ternaryf("y", !s.Y.IsValid(), "invalid y: %v", s.Y)
+	return v.Error()
+}
+
+// StickyXY is a position that can be anchored to different corners of a container with
+// configurable units (pixels or decimal fractions).
+type StickyXY struct {
+	// X is the horizontal coordinate.
+	X float64 `json:"x" msgpack:"x"`
+	// Y is the vertical coordinate.
+	Y float64 `json:"y" msgpack:"y"`
+	// Root is the anchor corner for the position.
+	Root CornerLocation `json:"root" msgpack:"root"`
+	// Units is the unit specification for the coordinates.
+	Units StickyUnits `json:"units" msgpack:"units"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *StickyXY) ApplyDefaults() {
+	if s.Root.X == "" {
+		s.Root.X = XLocationLeft
+	}
+	if s.Root.Y == "" {
+		s.Root.Y = YLocationTop
+	}
+	if s.Units.X == "" {
+		s.Units.X = StickyUnitPx
+	}
+	if s.Units.Y == "" {
+		s.Units.Y = StickyUnitPx
 	}
 }
 
-// Direction is a 2D axis direction.
-type Direction string
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
+func (s StickyXY) Validate() error {
+	v := validate.New("StickyXY")
+	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })
+	v.Exec(func() error { return validate.PathedError(s.Units.Validate(), "units") })
+	return v.Error()
+}
 
-const (
-	DirectionX Direction = "x"
-	DirectionY Direction = "y"
-)
+// Dimensions is a 2D size with width and height values.
+type Dimensions struct {
+	// Width is the width in pixels.
+	Width float64 `json:"width" msgpack:"width"`
+	// Height is the height in pixels.
+	Height float64 `json:"height" msgpack:"height"`
+}
 
-// IsValid reports whether d is one of the defined Direction values.
-func (d Direction) IsValid() bool {
-	switch d {
-	case DirectionX, DirectionY:
-		return true
-	default:
-		return false
+// Viewport is the camera state of a viewport.
+type Viewport struct {
+	// Zoom is the zoom level where 1.0 equals 100%.
+	Zoom float64 `json:"zoom" msgpack:"zoom"`
+	// Position is the (x, y) pan offset of the viewport.
+	Position XY `json:"position" msgpack:"position"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (v *Viewport) ApplyDefaults() {
+	if v.Zoom == 0 {
+		v.Zoom = 1
 	}
 }
 
@@ -242,110 +342,6 @@ func (s SignedDimension) IsValid() bool {
 	}
 }
 
-// XY is a 2D coordinate point with x and y values. Used for positioning elements in
-// two-dimensional space.
-type XY struct {
-	// X is the horizontal coordinate.
-	X float64 `json:"x" msgpack:"x"`
-	// Y is the vertical coordinate.
-	Y float64 `json:"y" msgpack:"y"`
-}
-
-// CornerLocation is an anchor corner for positioning.
-type CornerLocation struct {
-	// X is the horizontal anchor.
-	X XLocation `json:"x" msgpack:"x"`
-	// Y is the vertical anchor.
-	Y YLocation `json:"y" msgpack:"y"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
-func (c CornerLocation) Validate() error {
-	v := validate.New("CornerLocation")
-	v.Ternaryf("x", !c.X.IsValid(), "invalid x: %v", c.X)
-	v.Ternaryf("y", !c.Y.IsValid(), "invalid y: %v", c.Y)
-	return v.Error()
-}
-
-// StickyUnits specifies the measurement units for sticky positioning.
-type StickyUnits struct {
-	// X is the horizontal unit.
-	X StickyUnit `json:"x" msgpack:"x"`
-	// Y is the vertical unit.
-	Y StickyUnit `json:"y" msgpack:"y"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
-func (s StickyUnits) Validate() error {
-	v := validate.New("StickyUnits")
-	v.Ternaryf("x", !s.X.IsValid(), "invalid x: %v", s.X)
-	v.Ternaryf("y", !s.Y.IsValid(), "invalid y: %v", s.Y)
-	return v.Error()
-}
-
-// StickyXY is a position that can be anchored to different corners of a container with
-// configurable units (pixels or decimal fractions).
-type StickyXY struct {
-	// X is the horizontal coordinate.
-	X float64 `json:"x" msgpack:"x"`
-	// Y is the vertical coordinate.
-	Y float64 `json:"y" msgpack:"y"`
-	// Root is the anchor corner for the position.
-	Root CornerLocation `json:"root" msgpack:"root"`
-	// Units is the unit specification for the coordinates.
-	Units StickyUnits `json:"units" msgpack:"units"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (s *StickyXY) ApplyDefaults() {
-	if s.Root.X == "" {
-		s.Root.X = XLocationLeft
-	}
-	if s.Root.Y == "" {
-		s.Root.Y = YLocationTop
-	}
-	if s.Units.X == "" {
-		s.Units.X = StickyUnitPx
-	}
-	if s.Units.Y == "" {
-		s.Units.Y = StickyUnitPx
-	}
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
-func (s StickyXY) Validate() error {
-	v := validate.New("StickyXY")
-	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })
-	v.Exec(func() error { return validate.PathedError(s.Units.Validate(), "units") })
-	return v.Error()
-}
-
-// Dimensions is a 2D size with width and height values.
-type Dimensions struct {
-	// Width is the width in pixels.
-	Width float64 `json:"width" msgpack:"width"`
-	// Height is the height in pixels.
-	Height float64 `json:"height" msgpack:"height"`
-}
-
-// Viewport is the camera state of a viewport.
-type Viewport struct {
-	// Zoom is the zoom level where 1.0 equals 100%.
-	Zoom float64 `json:"zoom" msgpack:"zoom"`
-	// Position is the (x, y) pan offset of the viewport.
-	Position XY `json:"position" msgpack:"position"`
-}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (v *Viewport) ApplyDefaults() {
-	if v.Zoom == 0 {
-		v.Zoom = 1
-	}
-}
-
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing
 // negative values to express direction.
 type SignedDimensions struct {
@@ -363,6 +359,10 @@ type ClientXY struct {
 	// ClientY is the vertical coordinate in client (viewport) space.
 	ClientY float64 `json:"client_y" msgpack:"client_y"`
 }
+
+// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
+// such as a container's extent.
+type Decimal = float64
 
 // Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
 // The TypeScript binding is generic over T so callers can express bounds over either

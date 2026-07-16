@@ -13,9 +13,28 @@ package types
 
 import "github.com/synnaxlabs/x/spatial/types/v0"
 
-// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
-// such as a container's extent.
-type Decimal = v0.Decimal
+// OuterLocation is a position indicator for elements anchored to the outer edge of a
+// container. Used for orientation and positioning of UI elements.
+type OuterLocation = v0.OuterLocation
+
+const (
+	OuterLocationTop    OuterLocation = v0.OuterLocationTop
+	OuterLocationRight  OuterLocation = v0.OuterLocationRight
+	OuterLocationBottom OuterLocation = v0.OuterLocationBottom
+	OuterLocationLeft   OuterLocation = v0.OuterLocationLeft
+)
+
+// XY is a 2D coordinate point with x and y values. Used for positioning elements in
+// two-dimensional space.
+type XY = v0.XY
+
+// Direction is a 2D axis direction.
+type Direction = v0.Direction
+
+const (
+	DirectionX Direction = v0.DirectionX
+	DirectionY Direction = v0.DirectionY
+)
 
 // XLocation is a horizontal-axis location at the left or right edge.
 type XLocation = v0.XLocation
@@ -42,24 +61,21 @@ const (
 	StickyUnitDecimal StickyUnit = v0.StickyUnitDecimal
 )
 
-// OuterLocation is a position indicator for elements anchored to the outer edge of a
-// container. Used for orientation and positioning of UI elements.
-type OuterLocation = v0.OuterLocation
+// CornerLocation is an anchor corner for positioning.
+type CornerLocation = v0.CornerLocation
 
-const (
-	OuterLocationTop    OuterLocation = v0.OuterLocationTop
-	OuterLocationRight  OuterLocation = v0.OuterLocationRight
-	OuterLocationBottom OuterLocation = v0.OuterLocationBottom
-	OuterLocationLeft   OuterLocation = v0.OuterLocationLeft
-)
+// StickyUnits specifies the measurement units for sticky positioning.
+type StickyUnits = v0.StickyUnits
 
-// Direction is a 2D axis direction.
-type Direction = v0.Direction
+// StickyXY is a position that can be anchored to different corners of a container with
+// configurable units (pixels or decimal fractions).
+type StickyXY = v0.StickyXY
 
-const (
-	DirectionX Direction = v0.DirectionX
-	DirectionY Direction = v0.DirectionY
-)
+// Dimensions is a 2D size with width and height values.
+type Dimensions = v0.Dimensions
+
+// Viewport is the camera state of a viewport.
+type Viewport = v0.Viewport
 
 // AngularDirection is a rotational direction in 2D space.
 type AngularDirection = v0.AngularDirection
@@ -122,26 +138,6 @@ const (
 	SignedDimensionSignedHeight SignedDimension = v0.SignedDimensionSignedHeight
 )
 
-// XY is a 2D coordinate point with x and y values. Used for positioning elements in
-// two-dimensional space.
-type XY = v0.XY
-
-// CornerLocation is an anchor corner for positioning.
-type CornerLocation = v0.CornerLocation
-
-// StickyUnits specifies the measurement units for sticky positioning.
-type StickyUnits = v0.StickyUnits
-
-// StickyXY is a position that can be anchored to different corners of a container with
-// configurable units (pixels or decimal fractions).
-type StickyXY = v0.StickyXY
-
-// Dimensions is a 2D size with width and height values.
-type Dimensions = v0.Dimensions
-
-// Viewport is the camera state of a viewport.
-type Viewport = v0.Viewport
-
 // SignedDimensions is a 2D size whose width and height components carry sign, allowing
 // negative values to express direction.
 type SignedDimensions = v0.SignedDimensions
@@ -149,6 +145,10 @@ type SignedDimensions = v0.SignedDimensions
 // ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
 // shape of DOM mouse events.
 type ClientXY = v0.ClientXY
+
+// Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
+// such as a container's extent.
+type Decimal = v0.Decimal
 
 // Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
 // The TypeScript binding is generic over T so callers can express bounds over either

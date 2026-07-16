@@ -20,11 +20,11 @@ import "github.com/synnaxlabs/synnax/pkg/service/rack/types"
 // configuration latency.
 type Key = types.Key
 
-// Status is rack-specific status information including operational state.
-type Status = types.Status
-
 // StatusDetails contains rack-specific status details.
 type StatusDetails = types.StatusDetails
+
+// Status is rack-specific status information including operational state.
+type Status = types.Status
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // cluster node. Racks serve as the integration point between the Synnax server and

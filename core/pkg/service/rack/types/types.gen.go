@@ -20,11 +20,11 @@ import "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 // configuration latency.
 type Key = v2.Key
 
-// Status is rack-specific status information including operational state.
-type Status = v2.Status
-
 // StatusDetails contains rack-specific status details.
 type StatusDetails = v2.StatusDetails
+
+// Status is rack-specific status information including operational state.
+type Status = v2.Status
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // cluster node. Racks serve as the integration point between the Synnax server and

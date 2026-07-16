@@ -23,14 +23,14 @@ import (
 // configuration latency.
 type Key uint32
 
-// Status is rack-specific status information including operational state.
-type Status = status.Status[StatusDetails]
-
 // StatusDetails contains rack-specific status details.
 type StatusDetails struct {
 	// Rack is the key of the rack this status pertains to.
 	Rack Key `json:"rack" msgpack:"rack"`
 }
+
+// Status is rack-specific status information including operational state.
+type Status = status.Status[StatusDetails]
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // cluster node. Racks serve as the integration point between the Synnax server and

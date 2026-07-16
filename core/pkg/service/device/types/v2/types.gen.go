@@ -22,10 +22,6 @@ import (
 // Key is a unique identifier for the device
 type Key = string
 
-// Status is device-specific status information including operational state and device
-// identification.
-type Status = status.Status[StatusDetails]
-
 // StatusDetails contains device-specific status details identifying the device and its
 // associated rack.
 type StatusDetails struct {
@@ -34,6 +30,10 @@ type StatusDetails struct {
 	// Device is the device identifier.
 	Device Key `json:"device" msgpack:"device"`
 }
+
+// Status is device-specific status information including operational state and device
+// identification.
+type Status = status.Status[StatusDetails]
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
 // Devices represent external equipment like LabJack, National Instruments, OPC UA

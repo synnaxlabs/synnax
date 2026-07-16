@@ -13,9 +13,6 @@ package types
 
 import "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 
-// Key is a unique identifier for a panel, represented as a UUID.
-type Key = v0.Key
-
 // TabBase carries the identity shared by every tab variant.
 type TabBase = v0.TabBase
 
@@ -23,17 +20,6 @@ type TabBase = v0.TabBase
 // configuration payload, with no backing core document. Used for app-views and tools
 // (docs, explorers, about, the visualization picker).
 type View = v0.View
-
-// Leaf is a leaf node in the panel tree displaying a tab strip.
-type Leaf = v0.Leaf
-
-// Split is an interior split node dividing its area between two children.
-type Split = v0.Split
-
-// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
-// a project (project panel) or by a user (draft); renaming a draft promotes it to
-// project ownership.
-type Panel = v0.Panel
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
 // backing core document, e.g. a line plot), a view (an inline, self-describing
@@ -68,6 +54,12 @@ type TabView = v0.TabView
 // selector at render time; SetTabResource or SetTabView fills it in place.
 type TabEmpty = v0.TabEmpty
 
+// Leaf is a leaf node in the panel tree displaying a tab strip.
+type Leaf = v0.Leaf
+
+// Split is an interior split node dividing its area between two children.
+type Split = v0.Split
+
 // Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
 // split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
 // 2k = first child, 2k+1 = last child).
@@ -82,3 +74,11 @@ const (
 
 type NodeLeaf = v0.NodeLeaf
 type NodeSplit = v0.NodeSplit
+
+// Key is a unique identifier for a panel, represented as a UUID.
+type Key = v0.Key
+
+// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
+// a project (project panel) or by a user (draft); renaming a draft promotes it to
+// project ownership.
+type Panel = v0.Panel

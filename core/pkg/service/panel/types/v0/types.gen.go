@@ -22,9 +22,6 @@ import (
 	"strconv"
 )
 
-// Key is a unique identifier for a panel, represented as a UUID.
-type Key = uuid.UUID
-
 // TabBase carries the identity shared by every tab variant.
 type TabBase struct {
 	// Key is the stable unique identifier of this tab within the panel. It is independent
@@ -47,74 +44,6 @@ type View struct {
 	// Args is an opaque, Console-owned configuration payload for the view. Core never
 	// interprets it; it round-trips as-is.
 	Args msgpack.EncodedJSON `json:"args,omitzero" msgpack:"args,omitzero"`
-}
-
-// Leaf is a leaf node in the panel tree displaying a tab strip.
-type Leaf struct {
-	// Tabs is the ordered list of tabs in this leaf.
-	Tabs []Tab `json:"tabs,omitzero" msgpack:"tabs,omitzero"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
-func (l Leaf) Validate() error {
-	v := validate.New("Leaf")
-	for i := range l.Tabs {
-		v.Exec(func() error { return validate.PathedError(l.Tabs[i].Validate(), "tabs", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
-
-// Split is an interior split node dividing its area between two children.
-type Split struct {
-	// Direction is the axis along which this node is split.
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Size is the fraction in [0, 1] of the parent area allocated to first. The remainder
-	// is allocated to last.
-	Size spatial.Decimal `json:"size" msgpack:"size"`
-	// First is the first child (left for x, top for y).
-	First Node `json:"first" msgpack:"first"`
-	// Last is the second child (right for x, bottom for y).
-	Last Node `json:"last" msgpack:"last"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
-func (s Split) Validate() error {
-	v := validate.New("Split")
-	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
-	v.Exec(func() error { return validate.PathedError(s.First.Validate(), "first") })
-	v.Exec(func() error { return validate.PathedError(s.Last.Validate(), "last") })
-	return v.Error()
-}
-
-// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
-// a project (project panel) or by a user (draft); renaming a draft promotes it to
-// project ownership.
-type Panel struct {
-	// Key is the unique identifier for this panel.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the panel.
-	Name string `json:"name" msgpack:"name"`
-	// Root is the root of the panel tree.
-	Root Node `json:"root" msgpack:"root"`
-	// Parent is an optional parent resource for the panel in the ontology. When absent on
-	// create, the panel is parented to the creating user as a draft. Parenthood lives in
-	// the ontology graph, so the field is not persisted on the panel record and is absent
-	// on retrieve.
-	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
-func (p Panel) Validate() error {
-	v := validate.New("Panel")
-	validate.NotEmptyString(v, "name", p.Name)
-	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
-	if p.Parent != nil {
-		v.Exec(func() error { return validate.PathedError(p.Parent.Validate(), "parent") })
-	}
-	return v.Error()
 }
 
 type TabType string
@@ -252,6 +181,45 @@ func (u Tab) Validate() error {
 	return nil
 }
 
+// Leaf is a leaf node in the panel tree displaying a tab strip.
+type Leaf struct {
+	// Tabs is the ordered list of tabs in this leaf.
+	Tabs []Tab `json:"tabs,omitzero" msgpack:"tabs,omitzero"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
+func (l Leaf) Validate() error {
+	v := validate.New("Leaf")
+	for i := range l.Tabs {
+		v.Exec(func() error { return validate.PathedError(l.Tabs[i].Validate(), "tabs", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// Split is an interior split node dividing its area between two children.
+type Split struct {
+	// Direction is the axis along which this node is split.
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
+	// Size is the fraction in [0, 1] of the parent area allocated to first. The remainder
+	// is allocated to last.
+	Size spatial.Decimal `json:"size" msgpack:"size"`
+	// First is the first child (left for x, top for y).
+	First Node `json:"first" msgpack:"first"`
+	// Last is the second child (right for x, bottom for y).
+	Last Node `json:"last" msgpack:"last"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
+func (s Split) Validate() error {
+	v := validate.New("Split")
+	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
+	v.Exec(func() error { return validate.PathedError(s.First.Validate(), "first") })
+	v.Exec(func() error { return validate.PathedError(s.Last.Validate(), "last") })
+	return v.Error()
+}
+
 type NodeType string
 
 const (
@@ -369,4 +337,36 @@ func (u Node) Validate() error {
 		return variant.Validate()
 	}
 	return nil
+}
+
+// Key is a unique identifier for a panel, represented as a UUID.
+type Key = uuid.UUID
+
+// Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
+// a project (project panel) or by a user (draft); renaming a draft promotes it to
+// project ownership.
+type Panel struct {
+	// Key is the unique identifier for this panel.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the panel.
+	Name string `json:"name" msgpack:"name"`
+	// Root is the root of the panel tree.
+	Root Node `json:"root" msgpack:"root"`
+	// Parent is an optional parent resource for the panel in the ontology. When absent on
+	// create, the panel is parented to the creating user as a draft. Parenthood lives in
+	// the ontology graph, so the field is not persisted on the panel record and is absent
+	// on retrieve.
+	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field
+// violates its schema constraints.
+func (p Panel) Validate() error {
+	v := validate.New("Panel")
+	validate.NotEmptyString(v, "name", p.Name)
+	v.Exec(func() error { return validate.PathedError(p.Root.Validate(), "root") })
+	if p.Parent != nil {
+		v.Exec(func() error { return validate.PathedError(p.Parent.Validate(), "parent") })
+	}
+	return v.Error()
 }

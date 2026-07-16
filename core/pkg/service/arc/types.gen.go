@@ -13,6 +13,9 @@ package arc
 
 import "github.com/synnaxlabs/synnax/pkg/service/arc/types"
 
+// StatusDetails contains Arc-specific status details for execution state.
+type StatusDetails = types.StatusDetails
+
 // Status is the status of an Arc module including execution state.
 type Status = types.Status
 
@@ -26,9 +29,6 @@ const (
 	ModeText  Mode = types.ModeText
 	ModeGraph Mode = types.ModeGraph
 )
-
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = types.StatusDetails
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.

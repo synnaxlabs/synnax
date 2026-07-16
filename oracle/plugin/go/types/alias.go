@@ -127,73 +127,64 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		ad.Types = append(ad.Types, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
 	}
 
-	for _, td := range ctx.TypeDefs {
-		if omit.IsType(td, "go") {
+	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
+		if omit.IsType(d.typ, "go") {
 			continue
 		}
-		switch form := td.Form.(type) {
-		case resolution.DistinctForm:
-			addType(naming.GetGoName(td), doc.Get(td.Domains), form.TypeParams)
-		case resolution.AliasForm:
-			addType(naming.GetGoName(td), doc.Get(td.Domains), form.TypeParams)
-		default:
-			addType(naming.GetGoName(td), doc.Get(td.Domains), nil)
-		}
-	}
-
-	for _, e := range ctx.Enums {
-		if e.Namespace != namespace || omit.IsType(e, "go") {
-			continue
-		}
-		name := naming.GetGoName(e)
-		addType(name, doc.Get(e.Domains), nil)
-		form := e.Form.(resolution.EnumForm)
-		decl := &ad.Types[len(ad.Types)-1]
-		for _, v := range form.Values {
-			member := name + naming.ToPascalCase(v.Name)
-			decl.Consts = append(decl.Consts, aliasConst{
-				Name:   member,
-				Type:   name,
-				Target: prefix + "." + member,
-				Doc:    doc.Get(v.Domains),
-			})
-		}
-	}
-
-	for _, s := range ctx.Structs {
-		if omit.IsType(s, "go") {
-			continue
-		}
-		form, ok := s.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		addType(naming.GetGoName(s), doc.Get(s.Domains), form.TypeParams)
-	}
-
-	for _, u := range ctx.Unions {
-		if omit.IsType(u, "go") {
-			continue
-		}
-		form, ok := u.Form.(resolution.UnionForm)
-		if !ok {
-			continue
-		}
-		name := naming.GetGoName(u)
-		addType(name, doc.Get(u.Domains), nil)
-		addType(name+"Variant", "", nil)
-		discType := name + "Type"
-		addType(discType, "", nil)
-		discDecl := len(ad.Types) - 1
-		for _, v := range form.Variants {
-			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
-			constName := discType + casing.PascalAcronym(v.Name)
-			ad.Types[discDecl].Consts = append(ad.Types[discDecl].Consts, aliasConst{
-				Name:   constName,
-				Type:   discType,
-				Target: prefix + "." + constName,
-				Doc:    doc.Get(v.Domains),
-			})
+		switch d.kind {
+		case declTypeDef:
+			switch form := d.typ.Form.(type) {
+			case resolution.DistinctForm:
+				addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+			case resolution.AliasForm:
+				addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+			default:
+				addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), nil)
+			}
+		case declEnum:
+			if d.typ.Namespace != namespace {
+				continue
+			}
+			name := naming.GetGoName(d.typ)
+			addType(name, doc.Get(d.typ.Domains), nil)
+			form := d.typ.Form.(resolution.EnumForm)
+			decl := &ad.Types[len(ad.Types)-1]
+			for _, v := range form.Values {
+				member := name + naming.ToPascalCase(v.Name)
+				decl.Consts = append(decl.Consts, aliasConst{
+					Name:   member,
+					Type:   name,
+					Target: prefix + "." + member,
+					Doc:    doc.Get(v.Domains),
+				})
+			}
+		case declStruct:
+			form, ok := d.typ.Form.(resolution.StructForm)
+			if !ok {
+				continue
+			}
+			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+		case declUnion:
+			form, ok := d.typ.Form.(resolution.UnionForm)
+			if !ok {
+				continue
+			}
+			name := naming.GetGoName(d.typ)
+			addType(name, doc.Get(d.typ.Domains), nil)
+			addType(name+"Variant", "", nil)
+			discType := name + "Type"
+			addType(discType, "", nil)
+			discDecl := len(ad.Types) - 1
+			for _, v := range form.Variants {
+				addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
+				constName := discType + casing.PascalAcronym(v.Name)
+				ad.Types[discDecl].Consts = append(ad.Types[discDecl].Consts, aliasConst{
+					Name:   constName,
+					Type:   discType,
+					Target: prefix + "." + constName,
+					Doc:    doc.Get(v.Domains),
+				})
+			}
 		}
 	}
 

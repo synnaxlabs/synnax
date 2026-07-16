@@ -17,12 +17,12 @@ import "github.com/synnaxlabs/synnax/pkg/service/task/types"
 // the low 32 bits contain the local task key within that rack.
 type Key = types.Key
 
+// StatusDetails contains task-specific status details including execution state.
+type StatusDetails = types.StatusDetails
+
 // Status is task-specific status information including execution state and
 // task-specific data.
 type Status = types.Status
-
-// StatusDetails contains task-specific status details including execution state.
-type StatusDetails = types.StatusDetails
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning

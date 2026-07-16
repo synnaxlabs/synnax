@@ -16,13 +16,13 @@ import "github.com/synnaxlabs/synnax/pkg/service/device/types"
 // Key is a unique identifier for the device
 type Key = types.Key
 
-// Status is device-specific status information including operational state and device
-// identification.
-type Status = types.Status
-
 // StatusDetails contains device-specific status details identifying the device and its
 // associated rack.
 type StatusDetails = types.StatusDetails
+
+// Status is device-specific status information including operational state and device
+// identification.
+type Status = types.Status
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
 // Devices represent external equipment like LabJack, National Instruments, OPC UA

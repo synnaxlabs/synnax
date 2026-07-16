@@ -29,6 +29,16 @@ type Rate float64
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
 type Size int64
 
+// TimeRange is a time interval defined by a start and end timestamp. The range is
+// start-inclusive and end-exclusive, following standard interval conventions for
+// predictable boundary handling.
+type TimeRange struct {
+	// Start is the inclusive start of the time range.
+	Start TimeStamp `json:"start" msgpack:"start"`
+	// End is the exclusive end of the time range.
+	End TimeStamp `json:"end" msgpack:"end"`
+}
+
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
@@ -78,16 +88,6 @@ func (t TimeZone) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// TimeRange is a time interval defined by a start and end timestamp. The range is
-// start-inclusive and end-exclusive, following standard interval conventions for
-// predictable boundary handling.
-type TimeRange struct {
-	// Start is the inclusive start of the time range.
-	Start TimeStamp `json:"start" msgpack:"start"`
-	// End is the exclusive end of the time range.
-	End TimeStamp `json:"end" msgpack:"end"`
 }
 
 // Series is a strongly-typed array of telemetry samples backed by a binary buffer.

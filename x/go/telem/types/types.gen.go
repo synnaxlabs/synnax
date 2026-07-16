@@ -31,6 +31,11 @@ type Rate = v1.Rate
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
 type Size = v1.Size
 
+// TimeRange is a time interval defined by a start and end timestamp. The range is
+// start-inclusive and end-exclusive, following standard interval conventions for
+// predictable boundary handling.
+type TimeRange = v1.TimeRange
+
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
@@ -61,11 +66,6 @@ const (
 	TimeZoneLocal TimeZone = v1.TimeZoneLocal
 	TimeZoneUTC   TimeZone = v1.TimeZoneUTC
 )
-
-// TimeRange is a time interval defined by a start and end timestamp. The range is
-// start-inclusive and end-exclusive, following standard interval conventions for
-// predictable boundary handling.
-type TimeRange = v1.TimeRange
 
 // Series is a strongly-typed array of telemetry samples backed by a binary buffer.
 // Supports both fixed-density primitive types and variable-density types (strings,

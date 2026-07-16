@@ -11,9 +11,6 @@
 
 package v1
 
-// Params is a collection of named, typed parameters for function inputs or outputs.
-type Params []Param
-
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
 type Kind uint8
@@ -91,6 +88,9 @@ type Param struct {
 	// Value is an optional default value.
 	Value any `json:"value" msgpack:"value"`
 }
+
+// Params is a collection of named, typed parameters for function inputs or outputs.
+type Params []Param
 
 // Channels contains channel declarations for reading from and writing to Synnax
 // channels.

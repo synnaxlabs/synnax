@@ -20,10 +20,6 @@ import (
 // the low 32 bits contain the local task key within that rack.
 type Key uint64
 
-// Status is task-specific status information including execution state and
-// task-specific data.
-type Status = status.Status[StatusDetails]
-
 // StatusDetails contains task-specific status details including execution state.
 type StatusDetails struct {
 	// Task is the key of the task this status pertains to.
@@ -35,6 +31,10 @@ type StatusDetails struct {
 	// Data contains task-specific status data.
 	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitzero"`
 }
+
+// Status is task-specific status information including execution state and
+// task-specific data.
+type Status = status.Status[StatusDetails]
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning

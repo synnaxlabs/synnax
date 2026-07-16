@@ -20,6 +20,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// StatusDetails contains Arc-specific status details for execution state.
+type StatusDetails struct {
+	// Running indicates whether the Arc module is currently executing.
+	Running bool `json:"running" msgpack:"running"`
+}
+
 // Status is the status of an Arc module including execution state.
 type Status = status.Status[StatusDetails]
 
@@ -42,12 +48,6 @@ func (m Mode) IsValid() bool {
 	default:
 		return false
 	}
-}
-
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails struct {
-	// Running indicates whether the Arc module is currently executing.
-	Running bool `json:"running" msgpack:"running"`
 }
 
 // Arc is an Arc module combining visual graph representation and text-based source code

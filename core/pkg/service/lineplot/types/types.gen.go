@@ -16,18 +16,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
 // Key is a unique identifier for a line plot, represented as a UUID.
 type Key = v1.Key
 
-// AxisKey names one of the six fixed plot axes.
-type AxisKey = v1.AxisKey
-
-const (
-	AxisKeyX1 AxisKey = v1.AxisKeyX1
-	AxisKeyX2 AxisKey = v1.AxisKeyX2
-	AxisKeyY1 AxisKey = v1.AxisKeyY1
-	AxisKeyY2 AxisKey = v1.AxisKeyY2
-	AxisKeyY3 AxisKey = v1.AxisKeyY3
-	AxisKeyY4 AxisKey = v1.AxisKeyY4
-)
-
 // TickType selects how an axis renders its tick labels.
 type TickType = v1.TickType
 
@@ -60,6 +48,18 @@ const (
 	YAxisKeyY2 YAxisKey = v1.YAxisKeyY2
 	YAxisKeyY3 YAxisKey = v1.YAxisKeyY3
 	YAxisKeyY4 YAxisKey = v1.YAxisKeyY4
+)
+
+// AxisKey names one of the six fixed plot axes.
+type AxisKey = v1.AxisKey
+
+const (
+	AxisKeyX1 AxisKey = v1.AxisKeyX1
+	AxisKeyX2 AxisKey = v1.AxisKeyX2
+	AxisKeyY1 AxisKey = v1.AxisKeyY1
+	AxisKeyY2 AxisKey = v1.AxisKeyY2
+	AxisKeyY3 AxisKey = v1.AxisKeyY3
+	AxisKeyY4 AxisKey = v1.AxisKeyY4
 )
 
 // Title is the plot title configuration.
