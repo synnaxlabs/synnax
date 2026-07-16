@@ -397,7 +397,23 @@ func analyzeIdentifierByRole(
 			return flowNodeResult{node: r}, ok
 		}
 		r, ok := buildChannelReadNode(name, sym, kg)
+		if vn := shell.varNodes[sym]; ok && vn != nil {
+			bindReadToAlias(shell, vn, &r.node, sym)
+		}
 		return flowNodeResult{node: r}, ok
+	}
+}
+
+// bindReadToAlias feeds a read node's channel param from the alias's binding
+// node and declares every rebind candidate for dependency streaming.
+func bindReadToAlias(shell *shellBuilder, vn, r *ir.Node, sym *symbol.Symbol) {
+	shell.varEdges = append(shell.varEdges, ir.Edge{
+		Source: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
+		Target: ir.Handle{Node: r.Key, Param: "channel"},
+		Kind:   ir.EdgeKindContinuous,
+	})
+	for k, name := range sym.Channels.Read {
+		r.Channels.Read[k] = name
 	}
 }
 
@@ -1147,6 +1163,9 @@ func (p *flowChainProcessor) injectImplicitTriggers(expr parser.IExpressionConte
 		result, ok := buildChannelReadNode(chName, chanSym, p.kg)
 		if !ok {
 			return false
+		}
+		if vn := p.shell.varNodes[chanSym]; vn != nil {
+			bindReadToAlias(p.shell, vn, &result.node, chanSym)
 		}
 		p.nodes = append(p.nodes, result.node)
 

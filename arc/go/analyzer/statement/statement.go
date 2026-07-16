@@ -818,7 +818,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 }
 
 // analyzeAliasRebind re-points a channel alias at rhs, recording the candidate
-// for write routing.
+// for read and write routing.
 func analyzeAliasRebind(
 	ctx context.Context[parser.IAssignmentContext],
 	alias, rhs *symbol.Symbol,
@@ -837,6 +837,7 @@ func analyzeAliasRebind(
 	if rhs.SourceID != nil {
 		key = uint32(*rhs.SourceID)
 	}
+	alias.Channels.Read[key] = rhs.Name
 	alias.Channels.Write[key] = rhs.Name
 }
 

@@ -54,6 +54,7 @@ type nodeImpl struct {
 	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
+	refInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
 }
@@ -104,10 +105,22 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		return
 	}
 
+	// A channel-reference param carries its bound key, resolved fresh each pass.
+	for i := range n.ir.Inputs {
+		if !n.refInputs[i] || n.ir.Inputs[i].Value != nil {
+			continue
+		}
+		t := n.RefInput(i)
+		if t.Len() == 0 {
+			return
+		}
+		n.params[i] = uint64(telem.ValueAt[uint32](t, -1))
+	}
+
 	maxLength := int64(0)
 	longestInputIdx := -1
 	for i := range n.ir.Inputs {
-		if n.ir.Inputs[i].Value != nil {
+		if n.ir.Inputs[i].Value != nil || n.refInputs[i] {
 			continue
 		}
 		dataLen := n.Input(i).Len()
@@ -147,7 +160,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	var alignmentSum telem.Alignment
 	var timeRange telem.TimeRange
 	for i := range n.ir.Inputs {
-		if n.ir.Inputs[i].Value != nil {
+		if n.ir.Inputs[i].Value != nil || n.refInputs[i] {
 			continue
 		}
 		input := n.Input(i)
@@ -174,7 +187,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
-			if n.ir.Inputs[j].Value != nil {
+			if n.ir.Inputs[j].Value != nil || n.refInputs[j] {
 				continue
 			}
 			inputLen := n.Input(j).Len()

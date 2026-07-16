@@ -87,6 +87,7 @@ func analyzeChannelReadWriteRebind[T antlr.ParserRuleContext](
 	if target.SourceID != nil {
 		key = uint32(*target.SourceID)
 	}
+	channelReadWrite.Channels.Read[key] = target.Name
 	channelReadWrite.Channels.Write[key] = target.Name
 }
 
