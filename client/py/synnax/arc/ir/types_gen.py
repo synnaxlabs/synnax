@@ -108,8 +108,8 @@ class Transition(BaseModel):
 
     Attributes:
         on: Is the dataflow handle whose truthy value fires this transition.
-        targetKey: Is the sibling step key to activate. Null when the transition
-            exits the scope, yielding to the parent.
+        targetKey: Is the sibling step key to activate. Null when the transition exits
+            the scope, yielding to the parent.
     """
 
     on: Handle
@@ -117,8 +117,8 @@ class Transition(BaseModel):
 
 
 class Function(BaseModel):
-    """Is a function template definition with typed parameters, serving as a
-    blueprint for node instantiation.
+    """Is a function template definition with typed parameters, serving as a blueprint
+    for node instantiation.
 
     Attributes:
         key: Is the function identifier (template name).
@@ -143,14 +143,13 @@ Functions: TypeAlias = list[Function]
 
 
 class Member(BaseModel):
-    """Is a tagged union representing a single child of a Scope. Exactly one
-    of nodeKey or scope is set. The member's lookup key (used as the
-    target of `=> name` transitions) is derived from the set variant via
-    Member.key().
+    """Is a tagged union representing a single child of a Scope. Exactly one of nodeKey
+    or scope is set. The member's lookup key (used as the target of `=> name`
+    transitions) is derived from the set variant via Member.key().
 
     Attributes:
-        nodeKey: Is the key of the referenced node in IR.nodes. Null when this
-            member is a nested scope.
+        nodeKey: Is the key of the referenced node in IR.nodes. Null when this member is
+            a nested scope.
         scope: Is set when this member is a nested scope.
     """
 
@@ -159,20 +158,22 @@ class Member(BaseModel):
 
 
 class Scope(BaseModel):
-    """Is the unified Layer 2 execution primitive. Parameterized by mode
-    (parallel or sequential) and liveness (always-live or gated). Parallel
-    scopes organize members into strata; sequential scopes run one step
-    at a time and advance via transitions.
+    """Is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
+    sequential) and liveness (always-live or gated). Parallel scopes organize members
+    into strata; sequential scopes run one step at a time and advance via transitions.
 
     Attributes:
         key: Is the scope identifier.
         mode: Defines whether this scope runs steps in parallel or sequentially.
-        liveness: Defines whether this scope is continuously active or must be activated.
-        activation: Is the handle whose truthy value activates a gated scope. Unset for always-live scopes.
-        strata: Contains stratified execution layers for parallel scopes. Empty
-            for sequential scopes. Stratum N depends only on strata 0 to N-1.
+        liveness: Defines whether this scope is continuously active or must be
+            activated.
+        activation: Is the handle whose truthy value activates a gated scope. Unset for
+            always-live scopes.
+        strata: Contains stratified execution layers for parallel scopes. Empty for
+            sequential scopes. Stratum N depends only on strata 0 to N-1.
         steps: Contains ordered steps for sequential scopes. Empty for parallel scopes.
-        transitions: Contains state-transition rules for sequential scopes. Empty for parallel scopes.
+        transitions: Contains state-transition rules for sequential scopes. Empty for
+            parallel scopes.
     """
 
     key: str
@@ -185,18 +186,17 @@ class Scope(BaseModel):
 
 
 class IR(BaseModel):
-    """Is the intermediate representation of an Arc program as a dataflow graph
-    with stratified execution, bridging semantic analysis and WebAssembly
-    compilation.
+    """Is the intermediate representation of an Arc program as a dataflow graph with
+    stratified execution, bridging semantic analysis and WebAssembly compilation.
 
     Attributes:
         functions: Contains function template definitions.
         nodes: Contains node instantiations.
         edges: Contains dataflow connections.
         authorities: Contains the static authority declarations for this program.
-        root: Is the top-level execution context. The root is always a
-            parallel, always-live Scope whose strata mix module-scope
-            reactive flow with top-level gated scopes.
+        root: Is the top-level execution context. The root is always a parallel,
+            always-live Scope whose strata mix module-scope reactive flow with top-level
+            gated scopes.
     """
 
     functions: Functions = Field(default_factory=list)

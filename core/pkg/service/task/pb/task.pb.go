@@ -43,8 +43,8 @@ type StatusDetails struct {
 	Running bool `protobuf:"varint,2,opt,name=running,proto3" json:"running,omitempty"`
 	// cmd is the last command executed on this task.
 	Cmd string `protobuf:"bytes,3,opt,name=cmd,proto3" json:"cmd,omitempty"`
-	// config_hash is the hash of the config the running task instance was built from. Empty
-	// when no instance exists.
+	// config_hash is the hash of the config the running task instance was built from.
+	// Empty when no instance exists.
 	ConfigHash string `protobuf:"bytes,4,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// rack is the key of the rack running the task instance.
 	Rack uint32 `protobuf:"varint,5,opt,name=rack,proto3" json:"rack,omitempty"`
@@ -133,15 +133,16 @@ type Task struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this task.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// rack is the key of the rack this task deploys to. Zero for a draft that has not been
-	// assigned a rack; required to start.
+	// rack is the key of the rack this task deploys to. Zero for a draft that has not
+	// been assigned a rack; required to start.
 	Rack uint32 `protobuf:"varint,2,opt,name=rack,proto3" json:"rack,omitempty"`
 	// name is a human-readable name for the task.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	// type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
-	// which hardware integration handles the task.
+	// type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+	// Determines which hardware integration handles the task.
 	Type string `protobuf:"bytes,4,opt,name=type,proto3" json:"type,omitempty"`
-	// config is task-specific configuration stored as JSON. Structure varies by task type.
+	// config is task-specific configuration stored as JSON. Structure varies by task
+	// type.
 	Config *structpb.Struct `protobuf:"bytes,5,opt,name=config,proto3" json:"config,omitempty"`
 	// internal is true if this is an internal system task.
 	Internal bool `protobuf:"varint,6,opt,name=internal,proto3" json:"internal,omitempty"`

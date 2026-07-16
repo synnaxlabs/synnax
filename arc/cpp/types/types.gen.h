@@ -139,6 +139,8 @@ struct Unit {
     [[nodiscard]] bool is_timestamp() const;
 };
 
+/// @brief Params is a collection of named, typed parameters for function inputs or
+/// outputs.
 struct Params : private std::vector<Param> {
     using Base = std::vector<Param>;
 

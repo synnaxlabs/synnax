@@ -33,8 +33,8 @@ type Channel struct {
 	Key servicechannel.Key `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
 	Name servicechannel.Name `json:"name" msgpack:"name"`
-	// Leaseholder is the cluster node that holds the lease for this channel. Mostly for
-	// internal use.
+	// Leaseholder is the node that holds the lease for this channel. Mostly for internal
+	// use.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel (e.g., Float64, Int32,
 	// TimeStamp).

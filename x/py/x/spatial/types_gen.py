@@ -113,8 +113,8 @@ Decimal: TypeAlias = float
 
 
 class XY(BaseModel):
-    """Is a 2D coordinate point with x and y values. Used for positioning
-    elements in two-dimensional space.
+    """Is a 2D coordinate point with x and y values. Used for positioning elements in
+    two-dimensional space.
 
     Attributes:
         x: Is the horizontal coordinate.
@@ -162,8 +162,8 @@ class Dimensions(BaseModel):
 
 
 class SignedDimensions(BaseModel):
-    """Is a 2D size whose width and height components carry sign, allowing
-    negative values to express direction.
+    """Is a 2D size whose width and height components carry sign, allowing negative
+    values to express direction.
 
     Attributes:
         signedWidth: Is the signed width.
@@ -175,8 +175,8 @@ class SignedDimensions(BaseModel):
 
 
 class ClientXY(BaseModel):
-    """Is a 2D coordinate point expressed in client (viewport) space, matching
-    the shape of DOM mouse events.
+    """Is a 2D coordinate point expressed in client (viewport) space, matching the shape
+    of DOM mouse events.
 
     Attributes:
         clientX: Is the horizontal coordinate in client (viewport) space.
@@ -188,10 +188,9 @@ class ClientXY(BaseModel):
 
 
 class Bounds(BaseModel):
-    """Is a closed-open interval [lower, upper) over an ordered numeric value
-    space. The TypeScript binding is generic over T so callers can express
-    bounds over either number or bigint values; other languages emit a
-    concrete float64-based type.
+    """Is a closed-open interval [lower, upper) over an ordered numeric value space. The
+    TypeScript binding is generic over T so callers can express bounds over either
+    number or bigint values; other languages emit a concrete float64-based type.
 
     Attributes:
         lower: Is the inclusive lower bound.
@@ -215,8 +214,8 @@ class Viewport(BaseModel):
 
 
 class StickyXY(BaseModel):
-    """Is a position that can be anchored to different corners of a
-    container with configurable units (pixels or decimal fractions).
+    """Is a position that can be anchored to different corners of a container with
+    configurable units (pixels or decimal fractions).
 
     Attributes:
         x: Is the horizontal coordinate.

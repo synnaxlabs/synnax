@@ -12,12 +12,12 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Access } from "@/feature/access";
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
-import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
 import { Label } from "@/feature/label";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
+import { Node } from "@/feature/node";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
@@ -33,12 +33,12 @@ const TREE_ITEMS: Tree.Items = {
   ...Access.TREE_ITEMS,
   ...Arc.TREE_ITEMS,
   ...Channel.TREE_ITEMS,
-  ...Cluster.TREE_ITEMS,
   ...Device.TREE_ITEMS,
   ...Group.TREE_ITEMS,
   ...Label.TREE_ITEMS,
   ...LinePlot.TREE_ITEMS,
   ...Log.TREE_ITEMS,
+  ...Node.TREE_ITEMS,
   ...Panel.TREE_ITEMS,
   ...Project.TREE_ITEMS,
   ...Rack.TREE_ITEMS,

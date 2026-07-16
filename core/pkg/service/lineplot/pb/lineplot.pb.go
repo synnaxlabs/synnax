@@ -619,8 +619,8 @@ type Axis struct {
 	// label_level is the typography level of the label.
 	LabelLevel pb.Level `protobuf:"varint,4,opt,name=label_level,json=labelLevel,proto3,enum=x.text.pb.Level" json:"label_level,omitempty"`
 	// bounds is the value-space window of the axis. When the matching entry in
-	// manual_bounds is false the field is overwritten locally on every render; otherwise it
-	// is the user-set fixed bound.
+	// manual_bounds is false the field is overwritten locally on every render; otherwise
+	// it is the user-set fixed bound.
 	Bounds *pb1.Bounds `protobuf:"bytes,5,opt,name=bounds,proto3" json:"bounds,omitempty"`
 	// manual_bounds controls per-edge manual bound override.
 	ManualBounds *ManualBounds `protobuf:"bytes,6,opt,name=manual_bounds,json=manualBounds,proto3" json:"manual_bounds,omitempty"`

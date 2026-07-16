@@ -342,7 +342,8 @@ func (x *Panel) GetParent() *pb1.ID {
 
 type TabResourcePayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// resource is the visualization resource displayed by this tab, set via SetTabResource.
+	// resource is the visualization resource displayed by this tab, set via
+	// SetTabResource.
 	Resource      *pb1.ID `protobuf:"bytes,1,opt,name=resource,proto3" json:"resource,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
