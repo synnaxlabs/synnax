@@ -25,9 +25,9 @@ interface SelectParams {
 
 const select = ({ key, suffix = "" }: SelectParams): string => `${key}${suffix}`;
 
-const selector: Scope.SelectorHooks<SelectArgs, string> = [
+const selector: Scope.SelectorHooks<SelectParams, string> = [
   (args) => select(args),
-  () => useCallback((args: SelectArgs) => select(args), []),
+  () => useCallback((args: SelectParams) => select(args), []),
 ];
 
 describe("Scope", () => {

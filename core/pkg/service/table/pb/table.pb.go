@@ -38,12 +38,12 @@ type Cell struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the unique identifier for this cell within the table.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-	// the shape of props and which Pluto cell component renders the cell.
+	// variant is the cell variant identifier (e.g. "text", "value"). The variant
+	// determines the shape of props and which Pluto cell component renders the cell.
 	Variant string `protobuf:"bytes,2,opt,name=variant,proto3" json:"variant,omitempty"`
 	// props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new variants
-	// can be added without a schema migration.
+	// variant; the wire format intentionally stores it as an opaque record so new
+	// variants can be added without a schema migration.
 	Props         *structpb.Struct `protobuf:"bytes,3,opt,name=props,proto3" json:"props,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -105,12 +105,12 @@ func (x *Cell) GetProps() *structpb.Struct {
 // place (EraseCells), where the target cell's key is provided separately.
 type CellTemplate struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-	// the shape of props and which Pluto cell component renders the cell.
+	// variant is the cell variant identifier (e.g. "text", "value"). The variant
+	// determines the shape of props and which Pluto cell component renders the cell.
 	Variant string `protobuf:"bytes,1,opt,name=variant,proto3" json:"variant,omitempty"`
 	// props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new variants
-	// can be added without a schema migration.
+	// variant; the wire format intentionally stores it as an opaque record so new
+	// variants can be added without a schema migration.
 	Props         *structpb.Struct `protobuf:"bytes,2,opt,name=props,proto3" json:"props,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -275,9 +275,9 @@ type Table struct {
 	Rows []*Row `protobuf:"bytes,3,rep,name=rows,proto3" json:"rows,omitempty"`
 	// columns are the table columns in display order, left to right.
 	Columns []*Column `protobuf:"bytes,4,rep,name=columns,proto3" json:"columns,omitempty"`
-	// cells contains all cells in the table, keyed by cell key. Cell positions are derived
-	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
-	// will be pruned on the next structural edit.
+	// cells contains all cells in the table, keyed by cell key. Cell positions are
+	// derived from rows[*].cells[*] references; cells not referenced by any row are
+	// orphaned and will be pruned on the next structural edit.
 	Cells         map[string]*Cell `protobuf:"bytes,5,rep,name=cells,proto3" json:"cells,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

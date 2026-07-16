@@ -15,20 +15,19 @@ import { z } from "zod";
 import { ontology } from "@/ontology";
 
 /**
- * View is an inline, self-describing view: a Console-owned type plus an
- * opaque configuration payload, with no backing core document. Used
- * for app-views and tools (docs, explorers, task forms, and the
- * selector pickers).
+ * View is an inline, self-describing view: a Console-owned type plus an opaque
+ * configuration payload, with no backing core document. Used for app-views and tools
+ * (docs, explorers, task forms, and the selector pickers).
  */
 export const viewZ = z.object({
   /**
-   * type is the Console-owned view type identifier (e.g., 'docs',
-   * 'selector') used to select a renderer.
+   * type is the Console-owned view type identifier (e.g., 'docs', 'selector') used to
+   * select a renderer.
    */
   type: z.string(),
   /**
-   * args is an opaque, Console-owned configuration payload for the
-   * view. Core never interprets it; it round-trips as-is.
+   * args is an opaque, Console-owned configuration payload for the view. Core never
+   * interprets it; it round-trips as-is.
    */
   args: caseconv.preserveCase(record.unknownZ().default(() => ({}))),
 });
@@ -43,9 +42,9 @@ export type Key = z.infer<typeof keyZ>;
 /** TabBase carries the identity shared by every tab variant. */
 export const tabBaseZ = z.object({
   /**
-   * key is the stable unique identifier of this tab within the panel. It is
-   * independent of the tab's content, so a tab's content may be swapped
-   * without changing the tab's identity or position.
+   * key is the stable unique identifier of this tab within the panel. It is independent
+   * of the tab's content, so a tab's content may be swapped without changing the tab's
+   * identity or position.
    */
   key: tabKeyZ.default(uuid.create),
 });
@@ -63,10 +62,9 @@ export const tabResourceZ = tabBaseZ.extend({
 export interface TabResource extends z.infer<typeof tabResourceZ> {}
 
 /**
- * TabView is a tab displaying an inline, self-describing view. Unlike a
- * resource, a view has no backing core document: it carries its own
- * type and opaque args. Used for app-views and tools (docs,
- * explorers, task forms, and the selector pickers).
+ * TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
+ * view has no backing core document: it carries its own type and opaque args. Used for
+ * app-views and tools (docs, explorers, task forms, and the selector pickers).
  */
 export const tabViewZ = tabBaseZ.extend(viewZ.shape).extend({
   variant: z.literal("view"),
@@ -78,13 +76,12 @@ export const tabTypeZ = z.enum(TAB_TYPES);
 export type TabType = z.infer<typeof tabTypeZ>;
 
 /**
- * Tab is a single tab in a leaf. Tab content is a discriminated union:
- * a resource (a backing core document, e.g. a line plot) or a view
- * (an inline, self-describing app-view, e.g. docs). A freshly created
- * tab is a view whose type is a selector picker; SetTabResource or
- * SetTabView swaps content in place. Display attributes (name, icon,
- * closability) are resolved at render time from the content. A
- * resource may back at most one tab per panel; views may repeat.
+ * Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
+ * backing core document, e.g. a line plot) or a view (an inline, self-describing
+ * app-view, e.g. docs). A freshly created tab is a view whose type is a selector
+ * picker; SetTabResource or SetTabView swaps content in place. Display attributes
+ * (name, icon, closability) are resolved at render time from the content. A resource
+ * may back at most one tab per panel; views may repeat.
  */
 export const tabZ = z.discriminatedUnion("variant", [tabResourceZ, tabViewZ]);
 export type Tab = TabResource | TabView;
@@ -109,8 +106,8 @@ export const splitZ = z.object({
   /** direction is the axis along which this node is split. */
   direction: spatial.directionZ,
   /**
-   * size is the fraction in [0, 1] of the parent area allocated to first.
-   * The remainder is allocated to last.
+   * size is the fraction in [0, 1] of the parent area allocated to first. The remainder
+   * is allocated to last.
    */
   size: spatial.decimalZ,
   /** first is the first child (left for x, top for y). */
@@ -125,9 +122,9 @@ export const splitZ = z.object({
 export interface Split extends z.infer<typeof splitZ> {}
 
 /**
- * Panel is a tab in a project owning a tree of visualization tabs. A panel
- * is owned by a project (project panel) or by a user (draft);
- * renaming a draft promotes it to project ownership.
+ * Panel is a tab in a project owning a tree of visualization tabs. A panel is owned by
+ * a project (project panel) or by a user (draft); renaming a draft promotes it to
+ * project ownership.
  */
 export const panelZ = z.object({
   /** key is the unique identifier for this panel. */
@@ -139,11 +136,10 @@ export const panelZ = z.object({
     return nodeZ.prefault({ variant: "leaf", tabs: [] });
   },
   /**
-   * parent is an optional parent resource for the panel in the ontology.
-   * When absent on create, the panel is parented to the creating
-   * user as a draft. Parenthood lives in the ontology graph, so the
-   * field is not persisted on the panel record and is absent on
-   * retrieve.
+   * parent is an optional parent resource for the panel in the ontology. When absent on
+   * create, the panel is parented to the creating user as a draft. Parenthood lives in
+   * the ontology graph, so the field is not persisted on the panel record and is absent
+   * on retrieve.
    */
   parent: ontology.idZ.optional(),
 });
@@ -165,9 +161,9 @@ export const nodeTypeZ = z.enum(NODE_TYPES);
 export type NodeType = z.infer<typeof nodeTypeZ>;
 
 /**
- * Node is a node in the panel tree: either a leaf displaying a tab strip
- * or an interior split. Nodes are identified by path-derived numeric
- * keys during traversal (1 = root, 2k = first child, 2k+1 = last child).
+ * Node is a node in the panel tree: either a leaf displaying a tab strip or an interior
+ * split. Nodes are identified by path-derived numeric keys during traversal (1 = root,
+ * 2k = first child, 2k+1 = last child).
  */
 export const nodeZ = z.discriminatedUnion("variant", [nodeLeafZ, nodeSplitZ]);
 export type Node = NodeLeaf | NodeSplit;

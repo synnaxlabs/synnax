@@ -15,10 +15,10 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/cluster/json.gen.h"
+#include "client/cpp/node/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/json.gen.h"
+#include "x/cpp/telem/types.gen.h"
 
 namespace synnax::channel {
 
@@ -43,7 +43,7 @@ inline Channel Channel::parse(x::json::Parser parser) {
     return Channel{
         .key = parser.field<Key>("key", 0),
         .name = parser.field<Name>("name"),
-        .leaseholder = parser.field<::synnax::cluster::NodeKey>("leaseholder", 0),
+        .leaseholder = parser.field<::synnax::node::Key>("leaseholder", 0),
         .data_type = parser.field<::x::telem::DataType>("data_type"),
         .is_index = parser.field<bool>("is_index", false),
         .index = parser.field<Key>("index", 0),

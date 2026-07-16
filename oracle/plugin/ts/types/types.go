@@ -2667,7 +2667,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
   z.object({
 {{- range .Fields }}
 {{- if .Doc }}
-  {{ formatDoc .TSName .Doc }}
+  {{ formatDoc .TSName .Doc 2 }}
 {{- end }}
     {{ .TSName }}: {{ .ZodType }},
 {{- end }}
@@ -2919,7 +2919,7 @@ export interface {{ .TSName }} {
 export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
 {{- range .Fields }}
 {{- if .Doc }}
-  {{ formatDoc .TSName .Doc }}
+  {{ formatDoc .TSName .Doc 2 }}
 {{- end }}
 {{- if .IsSelfRef }}
   get {{ .TSName }}() {
@@ -2934,7 +2934,7 @@ export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
 export const {{ camelCase .TSName }}Z = z.object({
 {{- range .Fields }}
 {{- if .Doc }}
-  {{ formatDoc .TSName .Doc }}
+  {{ formatDoc .TSName .Doc 2 }}
 {{- end }}
 {{- if .IsSelfRef }}
   get {{ .TSName }}(): {{ .ZodSchemaType }} {
@@ -2964,7 +2964,7 @@ export const {{ .SchemaName }} = {{ if .ParentSchemas }}{{ range $i, $p := .Pare
   {{ $disc }}: z.literal("{{ .Value }}"),
 {{- range .Fields }}
 {{- if .Doc }}
-  {{ formatDoc .TSName .Doc }}
+  {{ formatDoc .TSName .Doc 2 }}
 {{- end }}
   {{ .TSName }}: {{ .ZodType }},
 {{- end }}

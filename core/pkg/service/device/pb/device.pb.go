@@ -108,16 +108,16 @@ type Device struct {
 	Model string `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
 	// name is a human-readable name for the device.
 	Name string `protobuf:"bytes,6,opt,name=name,proto3" json:"name,omitempty"`
-	// configured indicates whether the device has been successfully configured and is ready
-	// for use.
+	// configured indicates whether the device has been successfully configured and is
+	// ready for use.
 	Configured bool `protobuf:"varint,7,opt,name=configured,proto3" json:"configured,omitempty"`
 	// properties contains device-specific configuration properties stored as JSON.
 	// Structure varies by device make and model.
 	Properties *structpb.Struct `protobuf:"bytes,8,opt,name=properties,proto3" json:"properties,omitempty"`
 	// status is the current operational status of the device.
 	Status *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
-	// parent is an optional parent resource ID for hierarchical device organization (e.g.,
-	// NI chassis containing modules).
+	// parent is an optional parent resource ID for hierarchical device organization
+	// (e.g., NI chassis containing modules).
 	Parent        *pb1.ID `protobuf:"bytes,10,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

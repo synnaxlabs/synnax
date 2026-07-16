@@ -122,8 +122,8 @@ message Axis {
   // label_level is the typography level of the label.
   .x.text.pb.Level label_level = 4;
   // bounds is the value-space window of the axis. When the matching entry in
-  // manual_bounds is false the field is overwritten locally on every render; otherwise it
-  // is the user-set fixed bound.
+  // manual_bounds is false the field is overwritten locally on every render; otherwise
+  // it is the user-set fixed bound.
   .x.spatial.pb.Bounds bounds = 5;
   // manual_bounds controls per-edge manual bound override.
   ManualBounds manual_bounds = 6;

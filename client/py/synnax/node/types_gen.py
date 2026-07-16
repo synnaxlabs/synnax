@@ -13,4 +13,4 @@ from __future__ import annotations
 
 from typing import TypeAlias
 
-NodeKey: TypeAlias = int
+Key: TypeAlias = int

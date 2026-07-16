@@ -64,19 +64,19 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Payload(BaseModel):
-    """Is an executable unit of work in the Driver system. Tasks represent
-    specific hardware operations such as reading sensor data, writing
-    control signals, or scanning for devices.
+    """Is an executable unit of work in the Driver system. Tasks represent specific
+    hardware operations such as reading sensor data, writing control signals, or
+    scanning for devices.
 
     Attributes:
         key: Is the unique identifier for this task.
-        rack: Is the key of the rack this task deploys to. Zero for a draft that
-            has not been assigned a rack; required to start.
+        rack: Is the key of the rack this task deploys to. Zero for a draft that has not
+            been assigned a rack; required to start.
         name: Is a human-readable name for the task.
         type: Is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
-        config: Is task-specific configuration stored as JSON. Structure varies by
-            task type.
+        config: Is task-specific configuration stored as JSON. Structure varies by task
+            type.
         internal: Is true if this is an internal system task.
         snapshot: Indicates whether to persist this task's configuration.
         status: Is the current execution status of the task.

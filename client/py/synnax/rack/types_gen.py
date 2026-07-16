@@ -35,17 +35,18 @@ Status: TypeAlias = status_.Status[StatusDetails]
 
 
 class Base(BaseModel):
-    """Is a collection container for hardware devices and tasks running on a
-    specific cluster node. Racks serve as the integration point between the
-    Synnax server and physical hardware via the Driver system.
+    """Is a collection container for hardware devices and tasks running on a specific
+    cluster node. Racks serve as the integration point between the Synnax server and
+    physical hardware via the Driver system.
 
     Attributes:
         key: Is the composite identifier for this rack.
         name: Is a human-readable name for the rack.
         embedded: Is true if this rack is embedded within the Synnax server process.
         status: Is the current operational status of the rack.
-        integrations: Is the list of hardware integrations this rack supports (e.g., "ni", "opc",
-            "labjack"). An empty or nil list means the rack supports no integrations.
+        integrations: Is the list of hardware integrations this rack supports (e.g.,
+            "ni", "opc", "labjack"). An empty or nil list means the rack supports no
+            integrations.
     """
 
     key: Key = Field(ge=0, le=4294967295)
