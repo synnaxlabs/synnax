@@ -15,18 +15,20 @@ import (
 
 	"github.com/cespare/xxhash/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 )
 
-// hashConfig returns the xxhash64 of config as 16 lowercase hex characters, or an
-// empty string when config cannot be encoded. encoding/json sorts map keys, so equal
-// configs hash equally and an edit that is undone restores the original hash.
-func hashConfig(config msgpack.EncodedJSON) string {
+// hashConfig returns the xxhash64 of config as 16 lowercase hex characters. It returns
+// an error when config cannot be JSON encoded, as would happen for a NaN or infinite
+// float arriving over msgpack. encoding/json sorts map keys, so equal configs hash
+// equally and an edit that is undone restores the original hash.
+func hashConfig(config msgpack.EncodedJSON) (string, error) {
 	if config == nil {
 		config = msgpack.EncodedJSON{}
 	}
 	b, err := json.Marshal(map[string]any(config))
 	if err != nil {
-		return ""
+		return "", errors.Wrap(err, "failed to hash task config")
 	}
-	return fmt.Sprintf("%016x", xxhash.Sum64(b))
+	return fmt.Sprintf("%016x", xxhash.Sum64(b)), nil
 }
