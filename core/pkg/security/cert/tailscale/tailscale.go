@@ -40,6 +40,8 @@ func NewSource(client cert.Source, host string) (cert.Source, error) {
 	return &source{client: client, host: host}, nil
 }
 
+var _ cert.Source = (*source)(nil)
+
 // source serves certificates from the local tailscaled daemon. The daemon fetches and
 // caches them, so GetCertificate defers entirely to it.
 type source struct {

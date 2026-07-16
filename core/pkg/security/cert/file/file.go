@@ -39,6 +39,8 @@ func NewSource(fs xfs.FS, certPath, keyPath string) (cert.Source, error) {
 	return &source{fs: fs, certPath: certPath, keyPath: keyPath}, nil
 }
 
+var _ cert.Source = (*source)(nil)
+
 // source serves a certificate from PEM files, reloading them when they change so
 // certificate rotation needs no restart.
 type source struct {

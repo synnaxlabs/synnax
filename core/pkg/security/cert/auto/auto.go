@@ -33,6 +33,8 @@ func NewSource(ca *cert.Factory, host address.Address) (cert.Source, error) {
 	return &source{ca: ca, host: host}, nil
 }
 
+var _ cert.Source = (*source)(nil)
+
 // source self-signs a certificate for its listener's address from the built-in CA. It
 // signs once and caches for the node's lifetime.
 type source struct {
