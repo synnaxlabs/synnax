@@ -69,7 +69,10 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil {
 		t.Key = uuid.New()
 	}
-	t.ConfigHash = hashConfig(t.Config)
+	var err error
+	if t.ConfigHash, err = hashConfig(t.Config); err != nil {
+		return err
+	}
 	providedStatus := (*status.Status[StatusDetails])(t.Status) // Preserve before clearing for gorp
 	t.Status = nil                                              // Status stored separately, not in gorp
 	if err := w.table.NewCreate().
