@@ -17,7 +17,6 @@ cc_library(
     ],
     hdrs = [
         "id.h",
-        "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
     ],

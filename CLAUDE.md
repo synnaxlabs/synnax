@@ -157,7 +157,7 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
    to `main`.
 2. **Use `gh pr create`** with `--base`, `--title`, and
    `--body "$(cat <<'EOF' ... EOF)"`.
-3. **Match the title convention**: `SY-####: Title Case Description` (Linear issue),
+3. **Match the title convention**: `SY-####: Sentence case description` (Linear issue),
    prefixes like `[docs]`/`[rc]` for non-issue work. Check
    `gh pr list --state all --limit 20 --json title,baseRefName` and match — don't invent
    a format.
