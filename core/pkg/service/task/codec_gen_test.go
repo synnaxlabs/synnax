@@ -64,18 +64,20 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", task.Task{
-				Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-				Rack:     rack.Key(3),
-				Name:     "test_3",
-				Internal: false,
-				Snapshot: true,
+				Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				Rack:       rack.Key(3),
+				Name:       "test_3",
+				ConfigHash: "test_4",
+				Internal:   true,
+				Snapshot:   false,
 			}),
 			Entry("zero values", task.Task{
-				Key:      uuid.Nil,
-				Rack:     rack.Key(0),
-				Name:     "",
-				Internal: false,
-				Snapshot: false,
+				Key:        uuid.Nil,
+				Rack:       rack.Key(0),
+				Name:       "",
+				ConfigHash: "",
+				Internal:   false,
+				Snapshot:   false,
 			}),
 		)
 	})
@@ -106,11 +108,12 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 
 func BenchmarkEncodeDecodeTask(b *testing.B) {
 	t := task.Task{
-		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-		Rack:     rack.Key(3),
-		Name:     "test_3",
-		Internal: false,
-		Snapshot: true,
+		Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		Rack:       rack.Key(3),
+		Name:       "test_3",
+		ConfigHash: "test_4",
+		Internal:   true,
+		Snapshot:   false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -188,11 +191,12 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 func FuzzDecodeTask(f *testing.F) {
 	{
 		seed := task.Task{
-			Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
-			Rack:     rack.Key(3),
-			Name:     "test_3",
-			Internal: false,
-			Snapshot: true,
+			Key:        uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			Rack:       rack.Key(3),
+			Name:       "test_3",
+			ConfigHash: "test_4",
+			Internal:   true,
+			Snapshot:   false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -202,11 +206,12 @@ func FuzzDecodeTask(f *testing.F) {
 	}
 	{
 		seed := task.Task{
-			Key:      uuid.Nil,
-			Rack:     rack.Key(0),
-			Name:     "",
-			Internal: false,
-			Snapshot: false,
+			Key:        uuid.Nil,
+			Rack:       rack.Key(0),
+			Name:       "",
+			ConfigHash: "",
+			Internal:   false,
+			Snapshot:   false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

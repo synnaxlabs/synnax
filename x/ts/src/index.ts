@@ -22,7 +22,6 @@ export * from "@/deep";
 export * from "@/destructor";
 export * from "@/errors";
 export * from "@/fmt";
-export * from "@/hash";
 export * from "@/id";
 export * from "@/instance";
 export * from "@/json";

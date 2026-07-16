@@ -65,6 +65,7 @@ inline std::pair<::service::task::pb::Task, x::errors::Error> Task::to_proto() c
     pb.set_name(this->name);
     pb.set_type(this->type);
     *pb.mutable_config() = x::json::to_struct(this->config).first;
+    pb.set_config_hash(this->config_hash);
     pb.set_internal(this->internal);
     pb.set_snapshot(this->snapshot);
     if (this->status.has_value()) {
@@ -91,6 +92,7 @@ Task::from_proto(const ::service::task::pb::Task &pb) {
         if (err) return {{}, err};
         cpp.config = v;
     }
+    cpp.config_hash = pb.config_hash();
     cpp.internal = pb.internal();
     cpp.snapshot = pb.snapshot();
     if (pb.has_status()) {

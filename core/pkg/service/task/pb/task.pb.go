@@ -144,12 +144,16 @@ type Task struct {
 	// config is task-specific configuration stored as JSON. Structure varies by task
 	// type.
 	Config *structpb.Struct `protobuf:"bytes,5,opt,name=config,proto3" json:"config,omitempty"`
+	// config_hash is the server-assigned hash of config, rewritten on every write and
+	// ignored on writes from clients. Compare against a status's config_hash to detect
+	// drift.
+	ConfigHash string `protobuf:"bytes,6,opt,name=config_hash,json=configHash,proto3" json:"config_hash,omitempty"`
 	// internal is true if this is an internal system task.
-	Internal bool `protobuf:"varint,6,opt,name=internal,proto3" json:"internal,omitempty"`
+	Internal bool `protobuf:"varint,7,opt,name=internal,proto3" json:"internal,omitempty"`
 	// snapshot indicates whether to persist this task's configuration.
-	Snapshot bool `protobuf:"varint,7,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	Snapshot bool `protobuf:"varint,8,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
 	// status is the current execution status of the task.
-	Status        *pb.Status `protobuf:"bytes,8,opt,name=status,proto3,oneof" json:"status,omitempty"`
+	Status        *pb.Status `protobuf:"bytes,9,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -217,6 +221,13 @@ func (x *Task) GetConfig() *structpb.Struct {
 		return x.Config
 	}
 	return nil
+}
+
+func (x *Task) GetConfigHash() string {
+	if x != nil {
+		return x.ConfigHash
+	}
+	return ""
 }
 
 func (x *Task) GetInternal() bool {
@@ -326,16 +337,18 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"configHash\x12\x12\n" +
 	"\x04rack\x18\x05 \x01(\rR\x04rack\x120\n" +
 	"\x04data\x18\x06 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
-	"\x05_data\"\x80\x02\n" +
+	"\x05_data\"\xa1\x02\n" +
 	"\x04Task\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x04 \x01(\tR\x04type\x12/\n" +
-	"\x06config\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x06config\x12\x1a\n" +
-	"\binternal\x18\x06 \x01(\bR\binternal\x12\x1a\n" +
-	"\bsnapshot\x18\a \x01(\bR\bsnapshot\x126\n" +
-	"\x06status\x18\b \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
+	"\x06config\x18\x05 \x01(\v2\x17.google.protobuf.StructR\x06config\x12\x1f\n" +
+	"\vconfig_hash\x18\x06 \x01(\tR\n" +
+	"configHash\x12\x1a\n" +
+	"\binternal\x18\a \x01(\bR\binternal\x12\x1a\n" +
+	"\bsnapshot\x18\b \x01(\bR\bsnapshot\x126\n" +
+	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
 	"\a_status\"p\n" +
 	"\aCommand\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\tR\x04task\x12\x12\n" +

@@ -153,6 +153,95 @@ var _ = Describe("Task", Ordered, func() {
 		})
 	})
 
+	Describe("ConfigHash", func() {
+		create := func(ctx context.Context, config msgpack.EncodedJSON) string {
+			t := &task.Task{Rack: testRack.Key, Name: "Test Task", Config: config}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			return t.ConfigHash
+		}
+		It("Should assign a hash on create", func(ctx SpecContext) {
+			Expect(create(ctx, msgpack.EncodedJSON{"rate": 10})).ToNot(BeEmpty())
+		})
+		It("Should hash equal configs equally regardless of key order", func(ctx SpecContext) {
+			first := create(ctx, msgpack.EncodedJSON{"rate": 10, "port": "COM1"})
+			second := create(ctx, msgpack.EncodedJSON{"port": "COM1", "rate": 10})
+			Expect(first).To(Equal(second))
+		})
+		It("Should hash differing configs differently", func(ctx SpecContext) {
+			first := create(ctx, msgpack.EncodedJSON{"rate": 10})
+			second := create(ctx, msgpack.EncodedJSON{"rate": 20})
+			Expect(first).ToNot(Equal(second))
+		})
+		It("Should hash a nil and an empty config identically", func(ctx SpecContext) {
+			Expect(create(ctx, nil)).To(Equal(create(ctx, msgpack.EncodedJSON{})))
+		})
+		// msgpack clients send integers where JSON clients send floats, so the two
+		// encodings of one config must not read as drift.
+		It("Should hash integer and integral float values identically", func(ctx SpecContext) {
+			Expect(create(ctx, msgpack.EncodedJSON{"rate": 50})).
+				To(Equal(create(ctx, msgpack.EncodedJSON{"rate": 50.0})))
+		})
+		It("Should restore the original hash when an edit is undone", func(ctx SpecContext) {
+			t := &task.Task{
+				Rack:   testRack.Key,
+				Name:   "Test Task",
+				Config: msgpack.EncodedJSON{"rate": 10},
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			original := t.ConfigHash
+			t.Config = msgpack.EncodedJSON{"rate": 20}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			Expect(t.ConfigHash).ToNot(Equal(original))
+			t.Config = msgpack.EncodedJSON{"rate": 10}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			Expect(t.ConfigHash).To(Equal(original))
+		})
+		It("Should ignore a client-provided hash", func(ctx SpecContext) {
+			t := &task.Task{
+				Rack:       testRack.Key,
+				Name:       "Test Task",
+				Config:     msgpack.EncodedJSON{"rate": 10},
+				ConfigHash: "deadbeefdeadbeef",
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			Expect(t.ConfigHash).ToNot(Equal("deadbeefdeadbeef"))
+			Expect(t.ConfigHash).To(Equal(create(ctx, msgpack.EncodedJSON{"rate": 10})))
+		})
+		It("Should persist the hash alongside the task", func(ctx SpecContext) {
+			t := &task.Task{
+				Rack:   testRack.Key,
+				Name:   "Test Task",
+				Config: msgpack.EncodedJSON{"rate": 10},
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			var retrieved task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(t.Key)).
+				Entry(&retrieved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
+		})
+		It("Should keep the existing hash when a snapshot's config is retained", func(ctx SpecContext) {
+			t := &task.Task{
+				Rack:   testRack.Key,
+				Name:   "Test Task",
+				Config: msgpack.EncodedJSON{"rate": 10},
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+			snap := MustSucceed(w.Copy(ctx, t.Key, "Snapshot", true))
+			Expect(snap.ConfigHash).To(Equal(t.ConfigHash))
+			edited := snap
+			edited.Config = msgpack.EncodedJSON{"rate": 999}
+			Expect(w.Create(ctx, &edited)).To(Succeed())
+			var retrieved task.Task
+			Expect(svc.NewRetrieve().
+				Where(task.MatchKeys(snap.Key)).
+				Entry(&retrieved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(retrieved.ConfigHash).To(Equal(t.ConfigHash))
+		})
+	})
+
 	Describe("CreateMany", func() {
 		It("Should create multiple tasks", func(ctx SpecContext) {
 			tasks := []task.Task{

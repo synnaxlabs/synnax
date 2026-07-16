@@ -36,3 +36,15 @@ func (t Task) String() string {
 func (c Command) String() string {
 	return fmt.Sprintf("%s (key=%s, task=%s)", c.Type, c.Key, c.Task)
 }
+
+// NewStatusDetails builds StatusDetails for a status reported by the live instance of
+// t, echoing the config hash the instance was built from and the rack it runs on. t
+// must be the task the instance was built from, not a later revision.
+func NewStatusDetails(t Task, running bool) StatusDetails {
+	return StatusDetails{
+		Task:       t.Key,
+		Running:    running,
+		ConfigHash: t.ConfigHash,
+		Rack:       t.Rack,
+	}
+}

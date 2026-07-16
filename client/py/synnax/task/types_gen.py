@@ -77,6 +77,9 @@ class Payload(BaseModel):
             Determines which hardware integration handles the task.
         config: Is task-specific configuration stored as JSON. Structure varies by task
             type.
+        config_hash: Is the server-assigned hash of config, rewritten on every write and
+            ignored on writes from clients. Compare against a status's config_hash to
+            detect drift.
         internal: Is true if this is an internal system task.
         snapshot: Indicates whether to persist this task's configuration.
         status: Is the current execution status of the task.
@@ -87,6 +90,7 @@ class Payload(BaseModel):
     name: str
     type: str
     config: dict[str, Any] = Field(default_factory=dict)
+    config_hash: str = ""
     internal: bool = False
     snapshot: bool = False
     status: Status | None = None

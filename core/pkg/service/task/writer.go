@@ -69,12 +69,14 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Key == uuid.Nil {
 		t.Key = uuid.New()
 	}
+	t.ConfigHash = hashConfig(t.Config)
 	providedStatus := (*status.Status[StatusDetails])(t.Status) // Preserve before clearing for gorp
 	t.Status = nil                                              // Status stored separately, not in gorp
 	if err := w.table.NewCreate().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {
 				creating.Config = existing.Config
+				creating.ConfigHash = existing.ConfigHash
 			}
 			return creating, nil
 		}).

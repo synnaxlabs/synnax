@@ -49,6 +49,7 @@ inline Task Task::parse(x::json::Parser parser) {
         .name = parser.field<std::string>("name"),
         .type = parser.field<std::string>("type"),
         .config = parser.field<x::json::json::object_t>("config"),
+        .config_hash = parser.field<std::string>("config_hash", ""),
         .internal = parser.field<bool>("internal", false),
         .snapshot = parser.field<bool>("snapshot", false),
         .status = parser.field<std::optional<Status>>("status"),
@@ -62,6 +63,7 @@ inline x::json::json Task::to_json() const {
     j["name"] = this->name;
     j["type"] = this->type;
     j["config"] = this->config;
+    j["config_hash"] = this->config_hash;
     j["internal"] = this->internal;
     j["snapshot"] = this->snapshot;
     if (this->status.has_value()) j["status"] = this->status->to_json();

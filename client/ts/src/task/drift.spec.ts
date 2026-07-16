@@ -10,36 +10,25 @@
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { drifted, hashConfig } from "@/task/drift";
+import { drifted } from "@/task/drift";
 import { type Payload, statusZ } from "@/task/types.gen";
 
-describe("hashConfig", () => {
-  it("should produce the shared cross-language golden hashes", () => {
-    expect(hashConfig({})).toEqual("2e1472b57af294d1");
-    expect(hashConfig({ rate: 50, port: 8080, host: "localhost" })).toEqual(
-      "2de66015b3bdded8",
-    );
-  });
-
-  it("should hash camelCase keys as their snake_case wire form", () => {
-    expect(hashConfig({ dataSaving: true, sampleRate: 5.5 })).toEqual(
-      hashConfig({ data_saving: true, sample_rate: 5.5 }),
-    );
-  });
-});
-
 describe("drifted", () => {
-  const config = { rate: 50, port: 8080, host: "localhost" };
+  // Both hashes are server-assigned and opaque here; the client only compares them.
+  const DEPLOYED = "2de66015b3bdded8";
+  const EDITED = "0000000000000000";
   const newPayload = (overrides: {
     running?: boolean;
-    configHash?: string;
+    taskHash?: string;
+    statusHash?: string;
     statusRack?: number;
     hasStatus?: boolean;
   }): Payload => {
     const key = uuid.create();
     const {
       running = true,
-      configHash = hashConfig(config),
+      taskHash = DEPLOYED,
+      statusHash = DEPLOYED,
       statusRack = 1,
       hasStatus = true,
     } = overrides;
@@ -48,25 +37,26 @@ describe("drifted", () => {
       rack: 1,
       name: "test",
       type: "test",
-      config,
+      config: { rate: 50, port: 8080, host: "localhost" },
+      configHash: taskHash,
       internal: false,
       snapshot: false,
       status: hasStatus
         ? statusZ().parse({
             message: "running",
             variant: "success",
-            details: { task: key, running, configHash, rack: statusRack },
+            details: { task: key, running, configHash: statusHash, rack: statusRack },
           })
         : undefined,
     };
   };
 
-  it("should not drift when the deployed hash and rack match the row", () => {
+  it("should not drift when the deployed hash and rack match the task", () => {
     expect(drifted(newPayload({}))).toBe(false);
   });
 
-  it("should drift when the stored config differs from the deployed hash", () => {
-    expect(drifted(newPayload({ configHash: "0000000000000000" }))).toBe(true);
+  it("should drift when the stored hash differs from the deployed hash", () => {
+    expect(drifted(newPayload({ taskHash: EDITED }))).toBe(true);
   });
 
   it("should drift when the task moved racks while running", () => {
@@ -74,9 +64,7 @@ describe("drifted", () => {
   });
 
   it("should never drift when the task is not running", () => {
-    expect(
-      drifted(newPayload({ running: false, configHash: "0000000000000000" })),
-    ).toBe(false);
+    expect(drifted(newPayload({ running: false, taskHash: EDITED }))).toBe(false);
   });
 
   it("should never drift without a status", () => {
