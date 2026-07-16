@@ -18,9 +18,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/address"
@@ -40,10 +40,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// HostProvider is for identify the current host for channel naming.
+	// HostProvider identifies the current host for channel naming.
 	//
 	// [REQUIRED]
-	HostProvider node.HostProvider
+	HostProvider cluster.HostProvider
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]

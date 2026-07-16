@@ -13,10 +13,10 @@
 
 #include <cstdint>
 
-namespace synnax::cluster {
+namespace synnax::node {
 
-/// @brief NodeKey is a 12-bit unsigned integer uniquely identifying a node within a
-/// Synnax cluster. Assigned dynamically when nodes join via distributed counter. Range:
-/// 0-4095, where 0 is reserved for 'free' and 1 for the bootstrapper.
-using NodeKey = std::uint16_t;
+/// @brief Key is a 12-bit unsigned integer uniquely identifying a node within a Synnax
+/// cluster. Assigned dynamically when nodes join via distributed counter. Range:
+/// 0-4095, where 4095 is reserved for 'free' and 1 for the bootstrapper.
+using Key = std::uint16_t;
 }

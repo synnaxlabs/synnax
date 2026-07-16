@@ -10,6 +10,7 @@
 package rack
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -19,7 +20,7 @@ type Retrieve struct {
 	baseTX       gorp.Tx
 	search       *search.Index
 	gorp         gorp.Retrieve[Key, Rack]
-	hostProvider node.HostProvider
+	hostProvider cluster.HostProvider
 	searchTerm   string
 }
 
