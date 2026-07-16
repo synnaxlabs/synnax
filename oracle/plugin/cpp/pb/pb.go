@@ -356,7 +356,11 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 	return name
 }
 
-func (p *Plugin) processStructForTranslation(s resolution.Type, form resolution.StructForm, data *templateData) *translatorData {
+func (p *Plugin) processStructForTranslation(
+	s resolution.Type,
+	form resolution.StructForm,
+	data *templateData,
+) *translatorData {
 	cppName := domain.GetName(s, "cpp")
 
 	pbName := getPBName(s)
@@ -418,7 +422,10 @@ func (p *Plugin) processStructForTranslation(s resolution.Type, form resolution.
 	return translator
 }
 
-func (p *Plugin) processFieldForTranslation(field resolution.Field, data *templateData) fieldTranslatorData {
+func (p *Plugin) processFieldForTranslation(
+	field resolution.Field,
+	data *templateData,
+) fieldTranslatorData {
 	pbFieldName := casing.FieldSnake(field.Name)
 
 	cppFieldName := domain.GetFieldName(field, "cpp")
@@ -513,7 +520,11 @@ func (p *Plugin) generateFieldConversion(
 	}
 }
 
-func (p *Plugin) generateJSONFieldConversion(field resolution.Field, cppFieldName, pbAccessorName string) (forward, backward string) {
+func (p *Plugin) generateJSONFieldConversion(
+	field resolution.Field,
+	cppFieldName,
+	pbAccessorName string,
+) (forward, backward string) {
 	if field.Optional {
 		forward = fmt.Sprintf("if (this->%s.has_value()) *pb.mutable_%s() = x::json::to_any(*this->%s)", cppFieldName, pbAccessorName, cppFieldName)
 		backward = fmt.Sprintf(`if (pb.has_%s()) {
@@ -703,7 +714,10 @@ func (p *Plugin) typeRefToCppForTranslator(typeRef resolution.TypeRef, data *tem
 	return name
 }
 
-func (p *Plugin) generateTypeParamConversion(field resolution.Field, cppFieldName, pbAccessorName string) (forward, backward string) {
+func (p *Plugin) generateTypeParamConversion(
+	field resolution.Field,
+	cppFieldName, pbAccessorName string,
+) (forward, backward string) {
 	typeParamName := field.Type.TypeParam.Name
 	// Always use JSON serialization for generic type parameters.
 	// This ensures compatibility with the Go server which stores details as JSON.

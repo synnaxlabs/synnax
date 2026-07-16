@@ -85,8 +85,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		})
 	}
 
-	// Request deletion for every other C++ output path so stale files from schemas
-	// that no longer have anything to serialize get cleaned up.
+	// Request deletion for every other C++ output path so stale files from schemas that
+	// no longer have anything to serialize get cleaned up.
 	deletions := make(set.Set[string])
 	for _, t := range req.Resolutions.TypesWithDomain("cpp") {
 		outputPath := output.GetPath(t, "cpp")
@@ -126,8 +126,8 @@ func IncludeFor(jsonPaths set.Set[string], outputPath string) string {
 	return outputPath + "/types.gen.h"
 }
 
-// collection holds the per-path type collectors and the set of paths with JSON
-// content. Collectors exclude cpp-omitted types.
+// collection holds the per-path type collectors and the set of paths with JSON content.
+// Collectors exclude cpp-omitted types.
 type collection struct {
 	structs, distinct, unions *framework.Collector
 	jsonPaths                 set.Set[string]
@@ -270,7 +270,10 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 	return name
 }
 
-func (p *Plugin) processStruct(s resolution.Type, data *templateData) (*serializerData, error) {
+func (p *Plugin) processStruct(
+	s resolution.Type,
+	data *templateData,
+) (*serializerData, error) {
 	form, ok := s.Form.(resolution.StructForm)
 	if !ok {
 		return nil, nil
