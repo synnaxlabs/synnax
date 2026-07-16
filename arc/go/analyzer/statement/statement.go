@@ -100,13 +100,6 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		if statefulRHSTracksChannel(ctx, expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"channels and channel-read expressions cannot be assigned to stateful variables"))
-			return
-		}
-		// Supporting a computed seed would require folding it to a compile-time value,
-		// which is a lot of machinery, so require a plain literal.
-		if expr != nil && sym.Type.IsValid() && sym.DefaultValue == nil {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-				"stateful variable initializer must be a literal value"))
 		}
 		return
 	}

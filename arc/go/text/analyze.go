@@ -442,9 +442,18 @@ func isRootLevelScope(sym *symbol.Symbol) bool {
 	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
 }
 
+// channelKey returns the external channel key sym targets: its source channel
+// when sym is an alias, otherwise its own key.
+func channelKey(sym *symbol.Symbol) uint32 {
+	if sym.SourceID != nil {
+		return uint32(*sym.SourceID)
+	}
+	return uint32(sym.ID)
+}
+
 func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("on", name)
-	chKey := uint32(sym.ID)
+	chKey := channelKey(sym)
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "on",
@@ -458,7 +467,7 @@ func buildChannelReadNode(name string, sym *symbol.Symbol, kg *keyGenerator) (no
 
 func buildChannelWriteNode(name string, sym *symbol.Symbol, kg *keyGenerator) (nodeResult, bool) {
 	nodeKey := kg.generate("write", name)
-	chKey := uint32(sym.ID)
+	chKey := channelKey(sym)
 	n := ir.Node{
 		Key:      nodeKey,
 		Type:     "write",

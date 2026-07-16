@@ -35,7 +35,27 @@ func Stratify(
 	if prog == nil || prog.Root.IsZero() {
 		return diag
 	}
-	return stratifyScope(&prog.Root, prog.Edges, diag)
+	// A seeded variable holds a value readable without this tick's writers,
+	// breaking read+write cycles; a reactive one orders as normal dataflow.
+	seeded := set.New[string]()
+	for _, n := range prog.Nodes {
+		if n.Type != "variable" && n.Type != "stateful_variable" {
+			continue
+		}
+		for _, p := range n.Inputs {
+			if p.Value != nil {
+				seeded.Add(n.Key)
+				break
+			}
+		}
+	}
+	ordering := make([]ir.Edge, 0, len(prog.Edges))
+	for _, e := range prog.Edges {
+		if !seeded.Contains(e.Source.Node) {
+			ordering = append(ordering, e)
+		}
+	}
+	return stratifyScope(&prog.Root, ordering, diag)
 }
 
 // stratifyScope dispatches on a scope's mode: parallel scopes are re-stratified
