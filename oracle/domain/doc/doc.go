@@ -132,8 +132,8 @@ func FormatGo(name, doc string) string {
 //
 // Multi-line: "/**\n * Name line1\n * line2\n */"
 //
-// Text is wrapped to 88 characters including the comment prefix and the indentation
-// the comment is emitted at (Prettier re-indents continuation lines to match).
+// Text is wrapped to 88 characters including the comment prefix and the indentation the
+// comment is emitted at (Prettier re-indents continuation lines to match).
 func FormatTS(name, doc string, indent ...int) string {
 	if doc == "" {
 		return ""
