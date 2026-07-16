@@ -26,8 +26,8 @@ message StatusDetails {
   bool running = 2;
   // cmd is the last command executed on this task.
   string cmd = 3;
-  // config_hash is the hash of the config the running task instance was built from. Empty
-  // when no instance exists.
+  // config_hash is the hash of the config the running task instance was built from.
+  // Empty when no instance exists.
   string config_hash = 4;
   // rack is the key of the rack running the task instance.
   uint32 rack = 5;
@@ -41,15 +41,16 @@ message StatusDetails {
 message Task {
   // key is the unique identifier for this task.
   string key = 1;
-  // rack is the key of the rack this task deploys to. Zero for a draft that has not been
-  // assigned a rack; required to start.
+  // rack is the key of the rack this task deploys to. Zero for a draft that has not
+  // been assigned a rack; required to start.
   uint32 rack = 2;
   // name is a human-readable name for the task.
   string name = 3;
-  // type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
-  // which hardware integration handles the task.
+  // type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+  // Determines which hardware integration handles the task.
   string type = 4;
-  // config is task-specific configuration stored as JSON. Structure varies by task type.
+  // config is task-specific configuration stored as JSON. Structure varies by task
+  // type.
   google.protobuf.Struct config = 5;
   // internal is true if this is an internal system task.
   bool internal = 6;

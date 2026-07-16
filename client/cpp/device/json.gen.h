@@ -14,7 +14,7 @@
 #include <string>
 
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/json.gen.h"
+#include "client/cpp/ontology/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"

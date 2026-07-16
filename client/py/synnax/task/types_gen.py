@@ -70,8 +70,8 @@ class Payload(BaseModel):
 
     Attributes:
         key: Is the unique identifier for this task.
-        rack: Is the key of the rack this task deploys to. Zero for a draft that
-            has not been assigned a rack; required to start.
+        rack: Is the key of the rack this task deploys to. Zero for a draft that has not
+            been assigned a rack; required to start.
         name: Is a human-readable name for the task.
         type: Is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
