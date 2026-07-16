@@ -52,12 +52,16 @@ message Task {
   // config is task-specific configuration stored as JSON. Structure varies by task
   // type.
   google.protobuf.Struct config = 5;
+  // config_hash is the server-assigned hash of config, rewritten on every write and
+  // ignored on writes from clients. Compare against a status's config_hash to detect
+  // drift.
+  string config_hash = 6;
   // internal is true if this is an internal system task.
-  bool internal = 6;
+  bool internal = 7;
   // snapshot indicates whether to persist this task's configuration.
-  bool snapshot = 7;
+  bool snapshot = 8;
   // status is the current execution status of the task.
-  optional .service.status.pb.Status status = 8;
+  optional .service.status.pb.Status status = 9;
 }
 
 // Command is a command to execute on a task in the Driver system.

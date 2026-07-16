@@ -92,6 +92,7 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 		}
 		w.WriteWithLen(b)
 	}
+	w.String(t.ConfigHash)
 	w.Bool(t.Internal)
 	w.Bool(t.Snapshot)
 	return nil
@@ -123,6 +124,9 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 		if err = json.Unmarshal(b, &t.Config); err != nil {
 			return err
 		}
+	}
+	if t.ConfigHash, err = r.String(); err != nil {
+		return err
 	}
 	if t.Internal, err = r.Bool(); err != nil {
 		return err

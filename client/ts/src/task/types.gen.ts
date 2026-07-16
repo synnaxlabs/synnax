@@ -96,6 +96,7 @@ export const payloadZ = <
     name: z.string(),
     type: type ?? z.string(),
     config: config ?? record.unknownZ().default(() => ({})),
+    configHash: z.string().default(""),
     internal: z.boolean().default(false),
     snapshot: z.boolean().default(false),
     status: status.statusZ({ details: statusDetailsZ(statusData) }).optional(),
@@ -106,13 +107,14 @@ export interface Payload<S extends PayloadSchemas = PayloadSchemas> {
   name: string;
   type: z.infer<S["type"]>;
   config: z.infer<S["config"]>;
+  configHash: string;
   internal: boolean;
   snapshot: boolean;
   status?: Status<S["statusData"]>;
 }
 export type New<S extends PayloadSchemas = PayloadSchemas> = optional.Optional<
   Omit<Payload<S>, "status">,
-  "key" | "rack" | "internal" | "snapshot"
+  "key" | "rack" | "configHash" | "internal" | "snapshot"
 > & {
   status?: status.New<ReturnType<typeof statusDetailsZ>>;
 };
