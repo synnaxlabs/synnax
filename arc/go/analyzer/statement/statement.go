@@ -1183,6 +1183,12 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		return
 	}
 
+	if varScope.IsValueVariable() && !varScope.IsReactive() {
+		if _, fnErr := varScope.ClosestAncestorOfKind(symbol.KindFunction); errors.Is(fnErr, query.ErrNotFound) {
+			varScope.Reassigned = true
+		}
+	}
+
 	expr := ctx.AST.Expression()
 	if expr == nil {
 		return

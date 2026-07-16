@@ -216,6 +216,42 @@ func (n *State) RefreshInputs() (recalculate bool) {
 	return true
 }
 
+// LastChanged returns the series of the most-recently-changed input, marking it
+// consumed for last-write-wins. ok is false when no input has new data.
+func (n *State) LastChanged() (telem.Series, bool) {
+	best, bestTS, found := -1, telem.TimeStamp(0), false
+	for i := range n.ir.inputs {
+		if n.isReference[i] {
+			continue
+		}
+		src := n.inputSources[i]
+		if src == nil || src.data.Len() == 0 {
+			continue
+		}
+		ts := telem.TimeStamp(0)
+		if src.time.Len() > 0 {
+			ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+		}
+		if ts <= n.accumulated[i].lastTimestamp && n.accumulated[i].consumed {
+			continue
+		}
+		if !found || ts > bestTS {
+			best, bestTS, found = i, ts, true
+		}
+	}
+	if !found {
+		return telem.Series{}, false
+	}
+	src := n.inputSources[best]
+	n.accumulated[best] = inputEntry{
+		data:          src.data,
+		time:          src.time,
+		lastTimestamp: bestTS,
+		consumed:      true,
+	}
+	return src.data, true
+}
+
 // InputTime returns the timestamp series for the input at the given parameter
 // index.
 func (n *State) InputTime(paramIndex int) telem.Series {

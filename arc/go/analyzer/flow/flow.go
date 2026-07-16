@@ -285,6 +285,9 @@ func analyzeIdentifier(
 				"cannot write to channel-read variable %s; it is read-only", name))
 			return
 		}
+		if isValueVarSink {
+			sym.Reassigned = true
+		}
 	}
 
 	if isLastNode && prevNode != nil && (sym.Kind == symbol.KindChannel || isValueVarSink) {

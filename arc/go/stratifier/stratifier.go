@@ -35,8 +35,8 @@ func Stratify(
 	if prog == nil || prog.Root.IsZero() {
 		return diag
 	}
-	// A seeded variable holds a value readable without this tick's writers,
-	// breaking read+write cycles; a reactive one orders as normal dataflow.
+	// A seeded variable holds a value, so its edges impose no ordering,
+	// mirroring channel state. Reactive vars order as normal dataflow.
 	seeded := set.New[string]()
 	for _, n := range prog.Nodes {
 		if n.Type != "variable" && n.Type != "stateful_variable" {
@@ -51,7 +51,7 @@ func Stratify(
 	}
 	ordering := make([]ir.Edge, 0, len(prog.Edges))
 	for _, e := range prog.Edges {
-		if !seeded.Contains(e.Source.Node) {
+		if !seeded.Contains(e.Source.Node) && !seeded.Contains(e.Target.Node) {
 			ordering = append(ordering, e)
 		}
 	}

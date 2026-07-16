@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 )
 
 const (
@@ -56,9 +57,11 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	return &variable{State: cfg.State, persistent: cfg.Node.Type == statefulSymbolName}, nil
 }
 
-// variable backs := and $= declarations. Next is not yet implemented.
+// variable holds the value of its most-recently-fired feeder input,
+// last-write-wins. The unedged f0 param carries the declaration seed.
 type variable struct {
 	*node.State
+	clock      telem.MonoClock
 	persistent bool
 }
 
@@ -72,4 +75,13 @@ func (v *variable) Reset() {
 	v.State.Reset()
 }
 
-func (v *variable) Next(node.Context) {}
+func (v *variable) Next(ctx node.Context) {
+	data, ok := v.LastChanged()
+	if !ok {
+		return
+	}
+	d := v.Output(0)
+	*d = data
+	*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
+	ctx.MarkChanged(0)
+}

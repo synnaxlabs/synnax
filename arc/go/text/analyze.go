@@ -94,12 +94,17 @@ type shellBuilder struct {
 	// synthByAST maps each inline-body declaration to its synth scope, keyed by
 	// the declaration's parser node.
 	synthByAST map[antlr.ParserRuleContext]*symbol.Symbol
+	// varNodes maps a reassigned variable's symbol to its variable node.
+	varNodes map[*symbol.Symbol]*ir.Node
+	// varNodeOrder preserves registration order for deterministic emission.
+	varNodeOrder []*ir.Node
 }
 
 func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *shellBuilder {
 	return &shellBuilder{
 		activations: map[string]ir.Handle{},
 		synthByAST:  synthByAST,
+		varNodes:    map[*symbol.Symbol]*ir.Node{},
 	}
 }
 
@@ -373,6 +378,15 @@ func analyzeIdentifierByRole(
 		}
 		return flowNodeResult{transition: &intent}, true
 	default:
+		if vn := shell.varNodes[sym]; vn != nil {
+			if isSink {
+				return flowNodeResult{node: varFeederRef(vn)}, true
+			}
+			return flowNodeResult{node: varReadRef(vn)}, true
+		}
+		if !isSink && isSeededVar(sym) {
+			return flowNodeResult{node: buildVarConstNode(sym, kg)}, true
+		}
 		if isSink {
 			r, ok := buildChannelWriteNode(name, sym, kg)
 			return flowNodeResult{node: r}, ok
@@ -380,6 +394,102 @@ func analyzeIdentifierByRole(
 		r, ok := buildChannelReadNode(name, sym, kg)
 		return flowNodeResult{node: r}, ok
 	}
+}
+
+// isSeededVar reports whether sym is a value variable holding a compile-time
+// value, so a read of it collapses to a constant.
+func isSeededVar(sym *symbol.Symbol) bool {
+	return sym.IsValueVariable() && !sym.IsReactive() && sym.SourceID == nil &&
+		sym.DefaultValue != nil
+}
+
+// collectVarNodes registers a variable node per reassigned seeded value
+// variable under s; reads and feeders wire to it instead of collapsing.
+func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
+	for _, c := range s.Children() {
+		if c.Reassigned && isSeededVar(c) {
+			n := buildVariableNode(c, kg)
+			shell.varNodes[c] = n
+			shell.varNodeOrder = append(shell.varNodeOrder, n)
+		}
+		collectVarNodes(c, kg, shell)
+	}
+}
+
+// buildVariableNode builds sym's variable node. The unedged f0 param seeds it;
+// each assignment appends an edge-fed feeder param.
+func buildVariableNode(sym *symbol.Symbol, kg *keyGenerator) *ir.Node {
+	nodeType := "variable"
+	if sym.Kind == symbol.KindStatefulVariable {
+		nodeType = "stateful_variable"
+	}
+	return &ir.Node{
+		Key:      kg.generate("var", sym.Name),
+		Type:     nodeType,
+		Channels: types.NewChannels(),
+		Inputs:   types.Params{{Name: "f0", Type: sym.Type, Value: sym.DefaultValue}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
+	}
+}
+
+// varReadRef references vn's held value. The empty node Key tells the flow
+// processor to wire the handle without re-appending the node.
+func varReadRef(vn *ir.Node) nodeResult {
+	return nodeResult{
+		node:   ir.Node{Outputs: vn.Outputs},
+		output: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
+	}
+}
+
+// varFeederRef appends a fresh feeder param to vn and returns a reference
+// targeting it, so each write gets its own last-write-wins input.
+func varFeederRef(vn *ir.Node) nodeResult {
+	param := fmt.Sprintf("f%d", len(vn.Inputs))
+	vn.Inputs = append(vn.Inputs, types.Param{Name: param, Type: vn.Inputs[0].Type})
+	return nodeResult{
+		node:   ir.Node{Outputs: vn.Outputs},
+		input:  ir.Handle{Node: vn.Key, Param: param},
+		output: ir.Handle{Node: vn.Key, Param: ir.DefaultOutputParam},
+	}
+}
+
+// lowerAssignment lowers `x = <rhs>` to a feeder: the RHS subgraph edged into
+// a fresh input param on x's variable node.
+func lowerAssignment(
+	ctx acontext.Context[parser.IAssignmentContext],
+	kg *keyGenerator,
+	shell *shellBuilder,
+) ([]ir.Node, []ir.Edge, bool) {
+	sym, err := ctx.Scope.Resolve(ctx, ctx.AST.IDENTIFIER().GetText())
+	if err != nil {
+		return nil, nil, true
+	}
+	vn := shell.varNodes[sym]
+	expr := ctx.AST.Expression()
+	if vn == nil || expr == nil {
+		return nil, nil, true
+	}
+	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg)
+	if !ok {
+		return nil, nil, false
+	}
+	ref := varFeederRef(vn)
+	return []ir.Node{res.node}, []ir.Edge{{
+		Source: res.output,
+		Target: ref.input,
+		Kind:   ir.EdgeKindContinuous,
+	}}, true
+}
+
+func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
+	n := ir.Node{
+		Key:      kg.generate("const", sym.Name),
+		Type:     "constant",
+		Channels: types.NewChannels(),
+		Inputs:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
+	}
+	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam)
 }
 
 // analyzeNamedRef builds a transition intent for `=> X` where X is a named
@@ -726,6 +836,7 @@ func Analyze(
 	}
 	kg := newKeyGenerator(&i.Functions)
 	shell := newShellBuilder(collectSynthByAST(aCtx.Scope.Root()))
+	collectVarNodes(aCtx.Scope.Root(), kg, shell)
 
 	// The root scope is always parallel and always-live.
 	i.Root = ir.Scope{
@@ -780,6 +891,13 @@ func Analyze(
 	// still registers in the program's global node and edge lists.
 	i.Nodes = append(i.Nodes, shell.inlineNodes...)
 	i.Edges = append(i.Edges, shell.inlineEdges...)
+
+	// Variable nodes are always-live root members so they outlive the scopes
+	// that declared or feed them.
+	for _, vn := range shell.varNodeOrder {
+		i.Nodes = append(i.Nodes, *vn)
+		rootMembers = append(rootMembers, ir.Member{NodeKey: new(vn.Key)})
+	}
 
 	if len(rootMembers) > 0 {
 		i.Root.Strata = []ir.Members{rootMembers}
@@ -1314,6 +1432,9 @@ type stepInfo struct {
 func collectStepKeys(items []parser.ISequenceItemContext) []stepInfo {
 	steps := make([]stepInfo, 0, len(items))
 	for i, item := range items {
+		if item.VariableDeclaration() != nil {
+			continue
+		}
 		key := fmt.Sprintf("step_%d", i)
 		if stageDecl := item.StageDeclaration(); stageDecl != nil {
 			if id := stageDecl.IDENTIFIER(); id != nil {
@@ -1470,6 +1591,25 @@ func analyzeSequence(
 			continue
 		}
 
+		if assign := item.Assignment(); assign != nil {
+			aNodes, aEdges, ok := lowerAssignment(
+				acontext.Child(ctx, assign).WithScope(seqScope),
+				kg,
+				shell,
+			)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			child := flowScope(si.key, aNodes)
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
+			allNodes = append(allNodes, aNodes...)
+			allEdges = append(allEdges, aEdges...)
+			if len(aNodes) > 0 {
+				autoWireTransition(shell, aNodes[len(aNodes)-1], nextKey)
+			}
+			continue
+		}
+
 		if single := item.SingleInvocation(); single != nil {
 			node, ok := analyzeSingleInvocation(
 				acontext.Child(ctx, single).WithScope(seqScope),
@@ -1577,6 +1717,18 @@ func analyzeStage(
 				members = append(members, ir.Member{NodeKey: new(n.Key)})
 			}
 			members = append(members, inlineMembers...)
+			continue
+		}
+		if assign := item.Assignment(); assign != nil {
+			aNodes, aEdges, ok := lowerAssignment(acontext.Child(ctx, assign), kg, shell)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			nodes = append(nodes, aNodes...)
+			edges = append(edges, aEdges...)
+			for _, n := range aNodes {
+				members = append(members, ir.Member{NodeKey: new(n.Key)})
+			}
 			continue
 		}
 		if single := item.SingleInvocation(); single != nil {

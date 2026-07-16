@@ -45,6 +45,15 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
+		// A flow-level variable has no local in this unit: fold its seed.
+		if scope.Kind == symbol.KindVariable && !sameFunction(ctx.Scope, scope) {
+			if !scope.Reassigned && scope.DefaultValue != nil {
+				return emitSeedConst(ctx, scope)
+			}
+			return types.Type{}, errors.Newf(
+				"cannot read reassigned variable '%s' inside an expression yet", name,
+			)
+		}
 		ctx.Writer.WriteLocalGet(scope.ID)
 		if scope.Type.Kind == types.KindChan {
 			if chanRef {
@@ -83,6 +92,91 @@ func sameFunction(a, b *symbol.Symbol) bool {
 	af, _ := a.ClosestAncestorOfKind(symbol.KindFunction)
 	bf, _ := b.ClosestAncestorOfKind(symbol.KindFunction)
 	return af == bf
+}
+
+// emitSeedConst compiles a read of a never-reassigned seeded variable as its
+// compile-time seed value.
+func emitSeedConst[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	sym *symbol.Symbol,
+) (types.Type, error) {
+	t := sym.Type
+	v := sym.DefaultValue
+	switch t.Kind {
+	case types.KindString:
+		s, ok := v.(string)
+		if !ok {
+			return types.Type{}, errors.Newf("seed for '%s' is not a string: %T", sym.Name, v)
+		}
+		emitLiteralSegment(ctx, s)
+	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16,
+		types.KindU32:
+		n, ok := seedInt(v)
+		if !ok {
+			return types.Type{}, errors.Newf("seed for '%s' is not an integer: %T", sym.Name, v)
+		}
+		ctx.Writer.WriteI32Const(int32(n))
+	case types.KindI64, types.KindU64:
+		n, ok := seedInt(v)
+		if !ok {
+			return types.Type{}, errors.Newf("seed for '%s' is not an integer: %T", sym.Name, v)
+		}
+		ctx.Writer.WriteI64Const(n)
+	case types.KindF32:
+		f, ok := seedFloat(v)
+		if !ok {
+			return types.Type{}, errors.Newf("seed for '%s' is not numeric: %T", sym.Name, v)
+		}
+		ctx.Writer.WriteF32Const(float32(f))
+	case types.KindF64:
+		f, ok := seedFloat(v)
+		if !ok {
+			return types.Type{}, errors.Newf("seed for '%s' is not numeric: %T", sym.Name, v)
+		}
+		ctx.Writer.WriteF64Const(f)
+	default:
+		return types.Type{}, errors.Newf("cannot fold seed of type %s for '%s'", t, sym.Name)
+	}
+	return t, nil
+}
+
+// seedInt widens any integer seed value to int64.
+func seedInt(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int:
+		return int64(n), true
+	case int8:
+		return int64(n), true
+	case int16:
+		return int64(n), true
+	case int32:
+		return int64(n), true
+	case int64:
+		return n, true
+	case uint8:
+		return int64(n), true
+	case uint16:
+		return int64(n), true
+	case uint32:
+		return int64(n), true
+	case uint64:
+		return int64(n), true
+	}
+	return 0, false
+}
+
+// seedFloat widens any numeric seed value to float64.
+func seedFloat(v any) (float64, bool) {
+	switch n := v.(type) {
+	case float32:
+		return float64(n), true
+	case float64:
+		return n, true
+	}
+	if n, ok := seedInt(v); ok {
+		return float64(n), true
+	}
+	return 0, false
 }
 
 func emitStatefulLoad[ASTNode antlr.ParserRuleContext](

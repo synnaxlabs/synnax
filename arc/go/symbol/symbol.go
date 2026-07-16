@@ -214,6 +214,9 @@ type Symbol struct {
 	// reference them, but remain visible to the compiler's resolve.Resolver
 	// which passes IncludeInternal to bypass the filter.
 	Internal bool
+	// Reassigned marks a flow-level value variable written after declaration
+	// (`x = v` or `-> x`), which lowers to a variable node instead of a constant.
+	Reassigned bool
 	// Renameable marks symbols whose backing resource the host can rename via an
 	// out-of-band side effect. Source-defined symbols (AST != nil) are renameable
 	// by source-text edits alone and do not need this flag; resolver-supplied

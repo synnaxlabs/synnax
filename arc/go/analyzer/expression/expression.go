@@ -29,8 +29,8 @@ func isBool(t basetypes.Type) bool            { return t.IsBool() }
 func isNumeric(t basetypes.Type) bool         { return t.IsNumeric() }
 func isNumericOrString(t basetypes.Type) bool { return t.IsNumeric() || t.Kind == basetypes.KindString }
 
-// tracksChannelRead reports whether reading resolved reads from a channel: a channel
-// symbol, a chan-typed param, a channel read/write, or a channel read value variable.
+// tracksChannelRead reports whether reading resolved reads from a channel: a
+// channel symbol, a chan-typed param, or a channel alias. Value vars are not.
 func tracksChannelRead(resolved *symbol.Symbol) bool {
 	switch {
 	case resolved.Kind == symbol.KindChannel:
@@ -41,18 +41,8 @@ func tracksChannelRead(resolved *symbol.Symbol) bool {
 	case resolved.Type.Kind == basetypes.KindChan && resolved.SourceID != nil:
 		return true
 	default:
-		return isReactiveValueVar(resolved)
-	}
-}
-
-// isReactiveValueVar reports whether resolved is a value variable backed by a
-// program-local channel rather than a WASM local declared in a function body.
-func isReactiveValueVar(resolved *symbol.Symbol) bool {
-	if !resolved.BacksInternalChannel() {
 		return false
 	}
-	_, err := resolved.ClosestAncestorOfKind(symbol.KindFunction)
-	return errors.Is(err, query.ErrNotFound)
 }
 func isAny(basetypes.Type) bool { return true }
 
