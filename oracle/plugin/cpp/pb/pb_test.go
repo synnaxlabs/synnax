@@ -1027,7 +1027,12 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain(`#include "x/cpp/telem/types.gen.h"`).
-					ToNotContain(`#include "x/cpp/telem/json.gen.h"`)
+					ToNotContain(
+						`#include "x/cpp/telem/json.gen.h"`,
+						// The target emits no proto.gen.h either: its conversions are
+						// hand-written next to the type.
+						`#include "x/cpp/telem/proto.gen.h"`,
+					)
 			})
 		})
 

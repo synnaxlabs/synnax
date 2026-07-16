@@ -21,7 +21,6 @@ cc_library(
         "clock_skew.h",
         "frame.h",
         "mono_clock.h",
-        "proto.gen.h",
         "series.h",
         "telem.h",
         "types.gen.h",
