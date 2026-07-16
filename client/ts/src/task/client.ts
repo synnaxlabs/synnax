@@ -87,6 +87,7 @@ export class Task<S extends Schemas = Schemas> {
   type: z.infer<S["type"]>;
   snapshot: boolean;
   config: z.infer<S["config"]>;
+  readonly configHash: string;
   status?: Status<S["statusData"]>;
 
   readonly schemas: S;
@@ -116,6 +117,7 @@ export class Task<S extends Schemas = Schemas> {
       type,
       name,
       config,
+      configHash = "",
       internal = false,
       snapshot = false,
       status,
@@ -130,6 +132,7 @@ export class Task<S extends Schemas = Schemas> {
     this.name = name;
     this.type = type;
     this.config = config;
+    this.configHash = configHash;
     this.schemas =
       schemas ??
       ({
@@ -152,6 +155,7 @@ export class Task<S extends Schemas = Schemas> {
       name: this.name,
       type: this.type,
       config: this.config,
+      configHash: this.configHash,
       status: this.status,
       internal: this.internal,
       snapshot: this.snapshot,
@@ -369,7 +373,7 @@ export class Client {
   ): Task<S>[] | Task<S> {
     const isSingle = !Array.isArray(payloads);
     const res = array.toArray(payloads).map(
-      ({ key, rack, name, type, config, status, internal, snapshot }) =>
+      ({ key, rack, name, type, config, configHash, status, internal, snapshot }) =>
         new Task(
           {
             key,
@@ -377,6 +381,7 @@ export class Client {
             name,
             type,
             config,
+            configHash,
             internal,
             snapshot,
             status,
