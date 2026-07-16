@@ -12,7 +12,7 @@
 import { control, telem, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cluster } from "@/cluster";
+import { node } from "@/node";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
 
@@ -68,10 +68,10 @@ export const payloadZ = z.object({
   /** name is the human-readable channel name. */
   name: nameZ,
   /**
-   * leaseholder is the cluster node that holds the lease for this channel. Mostly for
-   * internal use.
+   * leaseholder is the node that holds the lease for this channel. Mostly for internal
+   * use.
    */
-  leaseholder: cluster.nodeKeyZ.default(0),
+  leaseholder: node.keyZ.default(0),
   /**
    * dataType is the data type of samples stored in this channel (e.g., Float64, Int32,
    * TimeStamp).
