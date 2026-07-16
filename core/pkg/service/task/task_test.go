@@ -172,6 +172,15 @@ var _ = Describe("Task", Ordered, func() {
 			second := create(ctx, msgpack.EncodedJSON{"rate": 20})
 			Expect(first).ToNot(Equal(second))
 		})
+		It("Should hash a nil and an empty config identically", func(ctx SpecContext) {
+			Expect(create(ctx, nil)).To(Equal(create(ctx, msgpack.EncodedJSON{})))
+		})
+		// msgpack clients send integers where JSON clients send floats, so the two
+		// encodings of one config must not read as drift.
+		It("Should hash integer and integral float values identically", func(ctx SpecContext) {
+			Expect(create(ctx, msgpack.EncodedJSON{"rate": 50})).
+				To(Equal(create(ctx, msgpack.EncodedJSON{"rate": 50.0})))
+		})
 		It("Should restore the original hash when an edit is undone", func(ctx SpecContext) {
 			t := &task.Task{
 				Rack:   testRack.Key,
