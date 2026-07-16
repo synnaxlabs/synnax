@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -44,6 +44,16 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, p)).To(Succeed())
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
+		})
+
+		It("Should return a validation error when an object has an invalid type", func(ctx SpecContext) {
+			p := &policy.Policy{
+				Name:    "test-policy",
+				Objects: []ontology.ID{{Type: "not-a-real-type", Key: "ch1"}},
+				Actions: []access.Action{access.ActionRetrieve},
+			}
+			Expect(w.Create(ctx, p)).
+				To(MatchError(ContainSubstring("objects.0.type: invalid type")))
 		})
 
 		It("Should create a policy with provided UUID", func(ctx SpecContext) {
@@ -348,8 +358,8 @@ var _ = Describe("Retriever", func() {
 
 			subject1 = ontology.ID{Type: "user", Key: uuid.New().String()}
 			subject2 = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject1)).To(Succeed())
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject2)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject1)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject2)).To(Succeed())
 			Expect(rw.AssignRole(ctx, subject1, r.Key)).To(Succeed())
 		})
 
@@ -547,13 +557,6 @@ var _ = Describe("Ontology Integration", func() {
 	Describe("Type", func() {
 		It("Should return correct ontology type", func(ctx SpecContext) {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypePolicy))
-		})
-	})
-
-	Describe("Schema", func() {
-		It("Should return a valid schema", func(ctx SpecContext) {
-			schema := svc.Schema()
-			Expect(schema).ToNot(BeNil())
 		})
 	})
 

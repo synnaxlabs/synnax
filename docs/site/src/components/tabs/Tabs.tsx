@@ -10,40 +10,36 @@
 import { Tabs as Base } from "@synnaxlabs/pluto/tabs";
 import { type ReactElement, useEffect, useState } from "react";
 
+export interface TabEntry {
+  tabKey: string;
+  name: string;
+  icon?: ReactElement;
+}
+
 export interface TabsProps extends Record<string, ReactElement | any> {
-  tabs: Base.Tab[];
+  tabs: TabEntry[];
   queryParamKey?: string;
 }
 
 export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement => {
-  tabs = tabs.map((tab) => ({
-    ...tab,
-    icon: tab.icon ?? rest[`${tab.tabKey}-icon`],
-  }));
   const [selected, setSelected] = useState<string>(tabs[0].tabKey);
 
   const handleSelect = (tabKey: string) => {
-    if (queryParamKey == null) return setSelected(tabKey);
+    setSelected(tabKey);
+    if (queryParamKey == null) return;
     const url = new URL(window.location.href);
     url.searchParams.set(queryParamKey, tabKey);
     window.history.pushState({}, "", url.toString());
     window.dispatchEvent(new CustomEvent("urlchange"));
-    setSelected(tabKey);
-  };
-
-  const getSelected = (): string => {
-    if (queryParamKey == null) return selected;
-    const url = new URL(window.location.href);
-    return url.searchParams.get(queryParamKey) ?? selected;
   };
 
   useEffect(() => {
+    if (queryParamKey == null) return;
     const updateFromURL = () => {
-      if (queryParamKey == null) return;
       const url = new URL(window.location.href);
       setSelected(url.searchParams.get(queryParamKey) ?? tabs[0].tabKey);
     };
-    handleSelect(getSelected());
+    updateFromURL();
     window.addEventListener("popstate", updateFromURL);
     window.addEventListener("urlchange", updateFromURL);
     return () => {
@@ -52,15 +48,21 @@ export const Tabs = ({ tabs, queryParamKey, ...rest }: TabsProps): ReactElement 
     };
   }, [queryParamKey]);
 
-  const staticProps = Base.useStatic({
-    selected,
-    onSelect: handleSelect,
-    tabs,
-  });
-
   return (
-    <Base.Tabs {...staticProps}>
-      {(tab) => <div key={tab.tabKey}>{rest[tab.tabKey]}</div>}
-    </Base.Tabs>
+    <Base.Frame value={selected} onChange={handleSelect}>
+      <Base.Selector>
+        {tabs.map(({ tabKey, name, icon }) => (
+          <Base.Tab key={tabKey} itemKey={tabKey}>
+            {icon ?? rest[`${tabKey}-icon`]}
+            {name}
+          </Base.Tab>
+        ))}
+      </Base.Selector>
+      {tabs.map(({ tabKey }) => (
+        <Base.Content key={tabKey} itemKey={tabKey}>
+          {rest[tabKey]}
+        </Base.Content>
+      ))}
+    </Base.Frame>
   );
 };

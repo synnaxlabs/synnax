@@ -46,7 +46,6 @@ func AutoMigrateNode(_ context.Context, old schematicv56.Node) (Node, error) {
 		Key:      old.Key,
 		Position: spatial.XY(old.Position),
 		ZIndex:   old.ZIndex,
-		Measured: spatial.Dimensions(old.Measured),
 	}, nil
 }
 

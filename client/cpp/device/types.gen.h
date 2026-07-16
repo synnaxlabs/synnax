@@ -18,9 +18,9 @@
 
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/types.gen.h"
+#include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/types.gen.h"
 
 #include "core/pkg/service/device/pb/device.pb.h"
 
@@ -48,7 +48,7 @@ struct StatusDetails {
     from_proto(const ::service::device::pb::StatusDetails &pb);
 };
 
-using Status = ::x::status::Status<StatusDetails>;
+using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief Device is a physical piece of hardware connected to Synnax through the Driver
 /// system. Devices represent external equipment like LabJack, National Instruments, OPC

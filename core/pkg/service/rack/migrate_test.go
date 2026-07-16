@@ -12,17 +12,16 @@ package rack_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -31,7 +30,7 @@ var _ = Describe("Migration v0", func() {
 	It("Should read a status whose rack key was stored as float64", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -62,7 +61,7 @@ var _ = Describe("Migration v0", func() {
 		legacyStatus := status.Status[any]{
 			Key:     rack.OntologyID(rackKey).String(),
 			Name:    "Legacy Rack Status",
-			Variant: xstatus.VariantSuccess,
+			Variant: status.VariantSuccess,
 			Message: "Started",
 			Time:    telem.Now(),
 			Details: map[string]any{
@@ -79,7 +78,7 @@ var _ = Describe("Migration v0", func() {
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
-			HostProvider:        mock.StaticHostKeyProvider(1),
+			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,

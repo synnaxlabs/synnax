@@ -17,9 +17,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -34,9 +34,9 @@ const (
 var _ = Describe("Signals", func() {
 	openStreamer := func(ctx context.Context, name string) confluence.Outlet[framer.StreamerResponse] {
 		var ch channel.Channel
-		Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
+		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 			Exec(ctx, nil)).To(Succeed())
-		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
 		}))
 		requests, responses := confluence.Attach(streamer, 2)
@@ -55,7 +55,7 @@ var _ = Describe("Signals", func() {
 	It("Should create the set and delete signal channels", func(ctx SpecContext) {
 		for _, name := range []string{setChannelName, deleteChannelName} {
 			var ch channel.Channel
-			Expect(dist.Channel.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
+			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
@@ -65,9 +65,11 @@ var _ = Describe("Signals", func() {
 	It("Should broadcast a dispatched action vector on the set channel", func(ctx SpecContext) {
 		responses := openStreamer(ctx, setChannelName)
 		p := panel.Panel{Name: "sig", Parent: &parentID}
-		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) { Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed()) })
-		Expect(svc.NewWriter(nil).Dispatch(ctx, p.Key, "dk-1", []panel.Action{
+		Expect(writer.Create(ctx, &p)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+		})
+		Expect(writer.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
 			panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
 		})).To(Succeed())
 		var res framer.StreamerResponse
@@ -89,8 +91,8 @@ var _ = Describe("Signals", func() {
 	It("Should emit the deleted panel key on the delete channel", func(ctx SpecContext) {
 		responses := openStreamer(ctx, deleteChannelName)
 		p := panel.Panel{Name: "sig-del", Parent: &parentID}
-		Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
-		Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
+		Expect(writer.Create(ctx, &p)).To(Succeed())
+		Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 		var keys []uuid.UUID

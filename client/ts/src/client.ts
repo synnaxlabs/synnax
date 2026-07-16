@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, TimeSpan, TimeStamp, URL, zod } from "@synnaxlabs/x";
+import { breaker, TimeSpan, TimeStamp, url, uuid, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -20,6 +20,7 @@ import { device } from "@/device";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
+import { imex } from "@/imex";
 import { label } from "@/label";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
@@ -64,6 +65,7 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
  * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax extends framer.Client {
+  readonly key: string;
   readonly createdAt: TimeStamp;
   readonly params: ParsedSynnaxParams;
   readonly ranges: ranger.Client;
@@ -88,6 +90,7 @@ export default class Synnax extends framer.Client {
   readonly logs: log.Client;
   readonly tables: table.Client;
   readonly groups: group.Client;
+  readonly imex: imex.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -124,7 +127,7 @@ export default class Synnax extends framer.Client {
       retry: breaker,
     } = parsedParams;
     const transport = new Transport(
-      new URL({ host, port: Number(port) }),
+      new url.URL({ host, port: Number(port) }),
       breaker,
       secure,
     );
@@ -136,6 +139,7 @@ export default class Synnax extends framer.Client {
     this.auth = new auth.Client(transport.unary, { username, password });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary, chRetriever);
+    this.key = uuid.create();
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
     this.transport = transport;
@@ -181,10 +185,7 @@ export default class Synnax extends framer.Client {
     this.logs = new log.Client(this.transport.unary);
     this.tables = new table.Client(this.transport.unary);
     this.groups = new group.Client(this.transport.unary);
-  }
-
-  get key(): string {
-    return this.createdAt.valueOf().toString();
+    this.imex = new imex.Client(this.transport.file);
   }
 
   close(): void {
@@ -203,7 +204,7 @@ export const checkConnection = async (params: CheckConnectionParams) =>
 export const newConnectionChecker = (params: CheckConnectionParams) => {
   const { host, port, secure, name, retry } = params;
   const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
-  const url = new URL({ host, port: Number(port) });
-  const transport = new Transport(url, retryConfig, secure);
+  const endpoint = new url.URL({ host, port: Number(port) });
+  const transport = new Transport(endpoint, retryConfig, secure);
   return new connection.Checker(transport.unary, undefined, __VERSION__, name);
 };

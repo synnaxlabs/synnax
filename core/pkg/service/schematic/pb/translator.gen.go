@@ -13,7 +13,7 @@ package pb
 
 import (
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	borderpb "github.com/synnaxlabs/x/border/pb"
 	colorpb "github.com/synnaxlabs/x/color/pb"
@@ -31,15 +31,10 @@ func NodeToPB(r schematic.Node) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	measuredVal, err := spatialpb.DimensionsToPB(r.Measured)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Node{
 		Key:      r.Key,
 		ZIndex:   int32(r.ZIndex),
 		Position: positionVal,
-		Measured: measuredVal,
 	}
 	return pb, nil
 }
@@ -52,10 +47,6 @@ func NodeFromPB(pb *Node) (schematic.Node, error) {
 	}
 	var err error
 	r.Position, err = spatialpb.XYFromPB(pb.Position)
-	if err != nil {
-		return schematic.Node{}, err
-	}
-	r.Measured, err = spatialpb.DimensionsFromPB(pb.Measured)
 	if err != nil {
 		return schematic.Node{}, err
 	}
@@ -321,8 +312,9 @@ func SegmentedEdgeConfigsFromPB(pbs []*SegmentedEdgeConfig) ([]schematic.Segment
 
 // LabelConfigToPB converts LabelConfig to LabelConfig.
 func LabelConfigToPB(r schematic.LabelConfig) (*LabelConfig, error) {
-	pb := &LabelConfig{
-		Label: r.Label,
+	pb := &LabelConfig{}
+	if r.Label != nil {
+		pb.Label = r.Label
 	}
 	if r.Level != nil {
 		val, err := textpb.LevelToPB(*r.Level)
@@ -364,7 +356,9 @@ func LabelConfigFromPB(pb *LabelConfig) (schematic.LabelConfig, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Label = pb.Label
+	if pb.Label != nil {
+		r.Label = pb.Label
+	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
@@ -502,14 +496,19 @@ func LabeledConfigsFromPB(pbs []*LabeledConfig) ([]schematic.LabeledConfig, erro
 
 // ControlStateConfigToPB converts ControlStateConfig to ControlStateConfig.
 func ControlStateConfigToPB(r schematic.ControlStateConfig) (*ControlStateConfig, error) {
-	pb := &ControlStateConfig{
-		Show:          r.Show,
-		ShowChip:      r.ShowChip,
-		ShowIndicator: r.ShowIndicator,
-	}
+	pb := &ControlStateConfig{}
 	if r.Authority != nil {
 		v := uint32(*r.Authority)
 		pb.Authority = &v
+	}
+	if r.Show != nil {
+		pb.Show = r.Show
+	}
+	if r.ShowChip != nil {
+		pb.ShowChip = r.ShowChip
+	}
+	if r.ShowIndicator != nil {
+		pb.ShowIndicator = r.ShowIndicator
 	}
 	if r.Orientation != nil {
 		val, err := spatialpb.LocationToPB(*r.Orientation)
@@ -527,12 +526,18 @@ func ControlStateConfigFromPB(pb *ControlStateConfig) (schematic.ControlStateCon
 	if pb == nil {
 		return r, nil
 	}
-	r.Show = pb.Show
-	r.ShowChip = pb.ShowChip
-	r.ShowIndicator = pb.ShowIndicator
 	if pb.Authority != nil {
 		v := uint8(*pb.Authority)
 		r.Authority = &v
+	}
+	if pb.Show != nil {
+		r.Show = pb.Show
+	}
+	if pb.ShowChip != nil {
+		r.ShowChip = pb.ShowChip
+	}
+	if pb.ShowIndicator != nil {
+		r.ShowIndicator = pb.ShowIndicator
 	}
 	if pb.Orientation != nil {
 		val, err := spatialpb.LocationFromPB(*pb.Orientation)
@@ -572,9 +577,7 @@ func ControlStateConfigsFromPB(pbs []*ControlStateConfig) ([]schematic.ControlSt
 
 // ToggleConfigToPB converts ToggleConfig to ToggleConfig.
 func ToggleConfigToPB(r schematic.ToggleConfig) (*ToggleConfig, error) {
-	pb := &ToggleConfig{
-		OnClickDelay: r.OnClickDelay,
-	}
+	pb := &ToggleConfig{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -607,6 +610,9 @@ func ToggleConfigToPB(r schematic.ToggleConfig) (*ToggleConfig, error) {
 			return nil, err
 		}
 	}
+	if r.OnClickDelay != nil {
+		pb.OnClickDelay = r.OnClickDelay
+	}
 	return pb, nil
 }
 
@@ -616,7 +622,6 @@ func ToggleConfigFromPB(pb *ToggleConfig) (schematic.ToggleConfig, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.OnClickDelay = pb.OnClickDelay
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -648,6 +653,9 @@ func ToggleConfigFromPB(pb *ToggleConfig) (schematic.ToggleConfig, error) {
 			return schematic.ToggleConfig{}, err
 		}
 		r.Control = &val
+	}
+	if pb.OnClickDelay != nil {
+		r.OnClickDelay = pb.OnClickDelay
 	}
 	return r, nil
 }
@@ -769,9 +777,7 @@ func StaticSymbolConfigsFromPB(pbs []*StaticSymbolConfig) ([]schematic.StaticSym
 
 // ToggleSymbolConfigToPB converts ToggleSymbolConfig to ToggleSymbolConfig.
 func ToggleSymbolConfigToPB(r schematic.ToggleSymbolConfig) (*ToggleSymbolConfig, error) {
-	pb := &ToggleSymbolConfig{
-		OnClickDelay: r.OnClickDelay,
-	}
+	pb := &ToggleSymbolConfig{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -804,6 +810,9 @@ func ToggleSymbolConfigToPB(r schematic.ToggleSymbolConfig) (*ToggleSymbolConfig
 			return nil, err
 		}
 	}
+	if r.OnClickDelay != nil {
+		pb.OnClickDelay = r.OnClickDelay
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
@@ -820,7 +829,6 @@ func ToggleSymbolConfigFromPB(pb *ToggleSymbolConfig) (schematic.ToggleSymbolCon
 	if pb == nil {
 		return r, nil
 	}
-	r.OnClickDelay = pb.OnClickDelay
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -852,6 +860,9 @@ func ToggleSymbolConfigFromPB(pb *ToggleSymbolConfig) (schematic.ToggleSymbolCon
 			return schematic.ToggleSymbolConfig{}, err
 		}
 		r.Control = &val
+	}
+	if pb.OnClickDelay != nil {
+		r.OnClickDelay = pb.OnClickDelay
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -891,10 +902,7 @@ func ToggleSymbolConfigsFromPB(pbs []*ToggleSymbolConfig) ([]schematic.ToggleSym
 
 // DummyToggleSymbolConfigToPB converts DummyToggleSymbolConfig to DummyToggleSymbolConfig.
 func DummyToggleSymbolConfigToPB(r schematic.DummyToggleSymbolConfig) (*DummyToggleSymbolConfig, error) {
-	pb := &DummyToggleSymbolConfig{
-		Enabled:   r.Enabled,
-		Clickable: r.Clickable,
-	}
+	pb := &DummyToggleSymbolConfig{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -912,6 +920,12 @@ func DummyToggleSymbolConfigToPB(r schematic.DummyToggleSymbolConfig) (*DummyTog
 	if r.Scale != nil {
 		pb.Scale = r.Scale
 	}
+	if r.Enabled != nil {
+		pb.Enabled = r.Enabled
+	}
+	if r.Clickable != nil {
+		pb.Clickable = r.Clickable
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
@@ -928,8 +942,6 @@ func DummyToggleSymbolConfigFromPB(pb *DummyToggleSymbolConfig) (schematic.Dummy
 	if pb == nil {
 		return r, nil
 	}
-	r.Enabled = pb.Enabled
-	r.Clickable = pb.Clickable
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -946,6 +958,12 @@ func DummyToggleSymbolConfigFromPB(pb *DummyToggleSymbolConfig) (schematic.Dummy
 	}
 	if pb.Scale != nil {
 		r.Scale = pb.Scale
+	}
+	if pb.Enabled != nil {
+		r.Enabled = pb.Enabled
+	}
+	if pb.Clickable != nil {
+		r.Clickable = pb.Clickable
 	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
@@ -1322,9 +1340,7 @@ func NodeConfigBoxesFromPB(pbs []*NodeConfigBoxPayload) ([]schematic.NodeConfigB
 
 // NodeConfigButtonToPB converts NodeConfigButton to NodeConfigButtonPayload.
 func NodeConfigButtonToPB(r schematic.NodeConfigButton) (*NodeConfigButtonPayload, error) {
-	pb := &NodeConfigButtonPayload{
-		OnClickDelay: r.OnClickDelay,
-	}
+	pb := &NodeConfigButtonPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -1355,6 +1371,9 @@ func NodeConfigButtonToPB(r schematic.NodeConfigButton) (*NodeConfigButtonPayloa
 			return nil, err
 		}
 		pb.Level = &val
+	}
+	if r.OnClickDelay != nil {
+		pb.OnClickDelay = r.OnClickDelay
 	}
 	if r.CommandChannel != nil {
 		v := uint32(*r.CommandChannel)
@@ -1390,7 +1409,6 @@ func NodeConfigButtonFromPB(pb *NodeConfigButtonPayload) (schematic.NodeConfigBu
 	if pb == nil {
 		return r, nil
 	}
-	r.OnClickDelay = pb.OnClickDelay
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -1421,6 +1439,9 @@ func NodeConfigButtonFromPB(pb *NodeConfigButtonPayload) (schematic.NodeConfigBu
 			return schematic.NodeConfigButton{}, err
 		}
 		r.Level = &val
+	}
+	if pb.OnClickDelay != nil {
+		r.OnClickDelay = pb.OnClickDelay
 	}
 	if pb.CommandChannel != nil {
 		v := channel.Key(*pb.CommandChannel)
@@ -1590,9 +1611,7 @@ func NodeConfigCirclesFromPB(pbs []*NodeConfigCirclePayload) ([]schematic.NodeCo
 
 // NodeConfigGaugeToPB converts NodeConfigGauge to NodeConfigGaugePayload.
 func NodeConfigGaugeToPB(r schematic.NodeConfigGauge) (*NodeConfigGaugePayload, error) {
-	pb := &NodeConfigGaugePayload{
-		Units: r.Units,
-	}
+	pb := &NodeConfigGaugePayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -1664,6 +1683,9 @@ func NodeConfigGaugeToPB(r schematic.NodeConfigGauge) (*NodeConfigGaugePayload, 
 			return nil, err
 		}
 	}
+	if r.Units != nil {
+		pb.Units = r.Units
+	}
 	if r.Level != nil {
 		val, err := textpb.LevelToPB(*r.Level)
 		if err != nil {
@@ -1680,7 +1702,6 @@ func NodeConfigGaugeFromPB(pb *NodeConfigGaugePayload) (schematic.NodeConfigGaug
 	if pb == nil {
 		return r, nil
 	}
-	r.Units = pb.Units
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -1752,6 +1773,9 @@ func NodeConfigGaugeFromPB(pb *NodeConfigGaugePayload) (schematic.NodeConfigGaug
 		}
 		r.Location = &val
 	}
+	if pb.Units != nil {
+		r.Units = pb.Units
+	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
@@ -1790,9 +1814,7 @@ func NodeConfigGaugesFromPB(pbs []*NodeConfigGaugePayload) ([]schematic.NodeConf
 
 // NodeConfigInputToPB converts NodeConfigInput to NodeConfigInputPayload.
 func NodeConfigInputToPB(r schematic.NodeConfigInput) (*NodeConfigInputPayload, error) {
-	pb := &NodeConfigInputPayload{
-		Disabled: r.Disabled,
-	}
+	pb := &NodeConfigInputPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -1835,6 +1857,9 @@ func NodeConfigInputToPB(r schematic.NodeConfigInput) (*NodeConfigInputPayload, 
 			return nil, err
 		}
 	}
+	if r.Disabled != nil {
+		pb.Disabled = r.Disabled
+	}
 	if r.Control != nil {
 		var err error
 		pb.Control, err = ControlStateConfigToPB(*r.Control)
@@ -1851,7 +1876,6 @@ func NodeConfigInputFromPB(pb *NodeConfigInputPayload) (schematic.NodeConfigInpu
 	if pb == nil {
 		return r, nil
 	}
-	r.Disabled = pb.Disabled
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -1893,6 +1917,9 @@ func NodeConfigInputFromPB(pb *NodeConfigInputPayload) (schematic.NodeConfigInpu
 			return schematic.NodeConfigInput{}, err
 		}
 		r.Color = &val
+	}
+	if pb.Disabled != nil {
+		r.Disabled = pb.Disabled
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -2048,9 +2075,7 @@ func NodeConfigOffPageReferenceToPB(r schematic.NodeConfigOffPageReference) (*No
 		return nil, err
 	}
 	pb := &NodeConfigOffPageReferencePayload{
-		Page:        r.Page,
-		DblClickNav: r.DblClickNav,
-		Label:       labelVal,
+		Label: labelVal,
 	}
 	if r.Orientation != nil {
 		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
@@ -2073,6 +2098,12 @@ func NodeConfigOffPageReferenceToPB(r schematic.NodeConfigOffPageReference) (*No
 			return nil, err
 		}
 	}
+	if r.Page != nil {
+		pb.Page = r.Page
+	}
+	if r.DblClickNav != nil {
+		pb.DblClickNav = r.DblClickNav
+	}
 	return pb, nil
 }
 
@@ -2087,8 +2118,6 @@ func NodeConfigOffPageReferenceFromPB(pb *NodeConfigOffPageReferencePayload) (sc
 	if err != nil {
 		return schematic.NodeConfigOffPageReference{}, err
 	}
-	r.Page = pb.Page
-	r.DblClickNav = pb.DblClickNav
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
@@ -2109,6 +2138,12 @@ func NodeConfigOffPageReferenceFromPB(pb *NodeConfigOffPageReferencePayload) (sc
 			return schematic.NodeConfigOffPageReference{}, err
 		}
 		r.Color = &val
+	}
+	if pb.Page != nil {
+		r.Page = pb.Page
+	}
+	if pb.DblClickNav != nil {
+		r.DblClickNav = pb.DblClickNav
 	}
 	return r, nil
 }
@@ -2272,8 +2307,7 @@ func NodeConfigSelectToPB(r schematic.NodeConfigSelect) (*NodeConfigSelectPayloa
 		return nil, err
 	}
 	pb := &NodeConfigSelectPayload{
-		Disabled: r.Disabled,
-		Options:  optionsVal,
+		Options: optionsVal,
 	}
 	if r.Label != nil {
 		var err error
@@ -2313,6 +2347,9 @@ func NodeConfigSelectToPB(r schematic.NodeConfigSelect) (*NodeConfigSelectPayloa
 	if r.InlineSize != nil {
 		pb.InlineSize = r.InlineSize
 	}
+	if r.Disabled != nil {
+		pb.Disabled = r.Disabled
+	}
 	if r.Control != nil {
 		var err error
 		pb.Control, err = ControlStateConfigToPB(*r.Control)
@@ -2334,7 +2371,6 @@ func NodeConfigSelectFromPB(pb *NodeConfigSelectPayload) (schematic.NodeConfigSe
 	if err != nil {
 		return schematic.NodeConfigSelect{}, err
 	}
-	r.Disabled = pb.Disabled
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -2372,6 +2408,9 @@ func NodeConfigSelectFromPB(pb *NodeConfigSelectPayload) (schematic.NodeConfigSe
 	}
 	if pb.InlineSize != nil {
 		r.InlineSize = pb.InlineSize
+	}
+	if pb.Disabled != nil {
+		r.Disabled = pb.Disabled
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -2411,10 +2450,7 @@ func NodeConfigSelectsFromPB(pbs []*NodeConfigSelectPayload) ([]schematic.NodeCo
 
 // NodeConfigSetpointToPB converts NodeConfigSetpoint to NodeConfigSetpointPayload.
 func NodeConfigSetpointToPB(r schematic.NodeConfigSetpoint) (*NodeConfigSetpointPayload, error) {
-	pb := &NodeConfigSetpointPayload{
-		Units:    r.Units,
-		Disabled: r.Disabled,
-	}
+	pb := &NodeConfigSetpointPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -2461,6 +2497,12 @@ func NodeConfigSetpointToPB(r schematic.NodeConfigSetpoint) (*NodeConfigSetpoint
 			return nil, err
 		}
 	}
+	if r.Units != nil {
+		pb.Units = r.Units
+	}
+	if r.Disabled != nil {
+		pb.Disabled = r.Disabled
+	}
 	if r.Control != nil {
 		var err error
 		pb.Control, err = ControlStateConfigToPB(*r.Control)
@@ -2477,8 +2519,6 @@ func NodeConfigSetpointFromPB(pb *NodeConfigSetpointPayload) (schematic.NodeConf
 	if pb == nil {
 		return r, nil
 	}
-	r.Units = pb.Units
-	r.Disabled = pb.Disabled
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -2524,6 +2564,12 @@ func NodeConfigSetpointFromPB(pb *NodeConfigSetpointPayload) (schematic.NodeConf
 			return schematic.NodeConfigSetpoint{}, err
 		}
 		r.Color = &val
+	}
+	if pb.Units != nil {
+		r.Units = pb.Units
+	}
+	if pb.Disabled != nil {
+		r.Disabled = pb.Disabled
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -2677,10 +2723,7 @@ func NodeConfigStateIndicatorsFromPB(pbs []*NodeConfigStateIndicatorPayload) ([]
 
 // NodeConfigTextBoxToPB converts NodeConfigTextBox to NodeConfigTextBoxPayload.
 func NodeConfigTextBoxToPB(r schematic.NodeConfigTextBox) (*NodeConfigTextBoxPayload, error) {
-	pb := &NodeConfigTextBoxPayload{
-		AutoFit: r.AutoFit,
-		Value:   r.Value,
-	}
+	pb := &NodeConfigTextBoxPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -2715,12 +2758,18 @@ func NodeConfigTextBoxToPB(r schematic.NodeConfigTextBox) (*NodeConfigTextBoxPay
 		}
 		pb.Align = &val
 	}
+	if r.AutoFit != nil {
+		pb.AutoFit = r.AutoFit
+	}
 	if r.Level != nil {
 		val, err := textpb.LevelToPB(*r.Level)
 		if err != nil {
 			return nil, err
 		}
 		pb.Level = &val
+	}
+	if r.Value != nil {
+		pb.Value = r.Value
 	}
 	return pb, nil
 }
@@ -2731,8 +2780,6 @@ func NodeConfigTextBoxFromPB(pb *NodeConfigTextBoxPayload) (schematic.NodeConfig
 	if pb == nil {
 		return r, nil
 	}
-	r.AutoFit = pb.AutoFit
-	r.Value = pb.Value
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -2767,12 +2814,18 @@ func NodeConfigTextBoxFromPB(pb *NodeConfigTextBoxPayload) (schematic.NodeConfig
 		}
 		r.Align = &val
 	}
+	if pb.AutoFit != nil {
+		r.AutoFit = pb.AutoFit
+	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
 			return schematic.NodeConfigTextBox{}, err
 		}
 		r.Level = &val
+	}
+	if pb.Value != nil {
+		r.Value = pb.Value
 	}
 	return r, nil
 }
@@ -2805,11 +2858,7 @@ func NodeConfigTextBoxesFromPB(pbs []*NodeConfigTextBoxPayload) ([]schematic.Nod
 
 // NodeConfigValueToPB converts NodeConfigValue to NodeConfigValuePayload.
 func NodeConfigValueToPB(r schematic.NodeConfigValue) (*NodeConfigValuePayload, error) {
-	pb := &NodeConfigValuePayload{
-		Tooltip:               r.Tooltip,
-		Units:                 r.Units,
-		UseWidthForBackground: r.UseWidthForBackground,
-	}
+	pb := &NodeConfigValuePayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -2848,12 +2897,18 @@ func NodeConfigValueToPB(r schematic.NodeConfigValue) (*NodeConfigValuePayload, 
 			return nil, err
 		}
 	}
+	if r.Tooltip != nil {
+		pb.Tooltip = &StringList{Values: r.Tooltip}
+	}
 	if r.Redline != nil {
 		var err error
 		pb.Redline, err = RedlineToPB(*r.Redline)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if r.Units != nil {
+		pb.Units = r.Units
 	}
 	if r.InlineSize != nil {
 		pb.InlineSize = r.InlineSize
@@ -2902,6 +2957,9 @@ func NodeConfigValueToPB(r schematic.NodeConfigValue) (*NodeConfigValuePayload, 
 			return nil, err
 		}
 	}
+	if r.UseWidthForBackground != nil {
+		pb.UseWidthForBackground = r.UseWidthForBackground
+	}
 	if r.ValueBackgroundShift != nil {
 		var err error
 		pb.ValueBackgroundShift, err = spatialpb.XYToPB(*r.ValueBackgroundShift)
@@ -2925,9 +2983,6 @@ func NodeConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.NodeConfigValu
 	if pb == nil {
 		return r, nil
 	}
-	r.Tooltip = pb.Tooltip
-	r.Units = pb.Units
-	r.UseWidthForBackground = pb.UseWidthForBackground
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -2966,12 +3021,18 @@ func NodeConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.NodeConfigValu
 		}
 		r.TextColor = &val
 	}
+	if pb.Tooltip != nil {
+		r.Tooltip = pb.Tooltip.Values
+	}
 	if pb.Redline != nil {
 		val, err := RedlineFromPB(pb.Redline)
 		if err != nil {
 			return schematic.NodeConfigValue{}, err
 		}
 		r.Redline = &val
+	}
+	if pb.Units != nil {
+		r.Units = pb.Units
 	}
 	if pb.InlineSize != nil {
 		r.InlineSize = pb.InlineSize
@@ -3020,6 +3081,9 @@ func NodeConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.NodeConfigValu
 		}
 		r.Location = &val
 	}
+	if pb.UseWidthForBackground != nil {
+		r.UseWidthForBackground = pb.UseWidthForBackground
+	}
 	if pb.ValueBackgroundShift != nil {
 		val, err := spatialpb.XYFromPB(pb.ValueBackgroundShift)
 		if err != nil {
@@ -3065,10 +3129,7 @@ func NodeConfigValuesFromPB(pbs []*NodeConfigValuePayload) ([]schematic.NodeConf
 
 // NodeConfigSolenoidValveToPB converts NodeConfigSolenoidValve to NodeConfigSolenoidValvePayload.
 func NodeConfigSolenoidValveToPB(r schematic.NodeConfigSolenoidValve) (*NodeConfigSolenoidValvePayload, error) {
-	pb := &NodeConfigSolenoidValvePayload{
-		OnClickDelay: r.OnClickDelay,
-		NormallyOpen: r.NormallyOpen,
-	}
+	pb := &NodeConfigSolenoidValvePayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -3101,12 +3162,18 @@ func NodeConfigSolenoidValveToPB(r schematic.NodeConfigSolenoidValve) (*NodeConf
 			return nil, err
 		}
 	}
+	if r.OnClickDelay != nil {
+		pb.OnClickDelay = r.OnClickDelay
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if r.NormallyOpen != nil {
+		pb.NormallyOpen = r.NormallyOpen
 	}
 	return pb, nil
 }
@@ -3117,8 +3184,6 @@ func NodeConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schemati
 	if pb == nil {
 		return r, nil
 	}
-	r.OnClickDelay = pb.OnClickDelay
-	r.NormallyOpen = pb.NormallyOpen
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -3151,12 +3216,18 @@ func NodeConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schemati
 		}
 		r.Control = &val
 	}
+	if pb.OnClickDelay != nil {
+		r.OnClickDelay = pb.OnClickDelay
+	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return schematic.NodeConfigSolenoidValve{}, err
 		}
 		r.Color = &val
+	}
+	if pb.NormallyOpen != nil {
+		r.NormallyOpen = pb.NormallyOpen
 	}
 	return r, nil
 }
@@ -3451,14 +3522,8 @@ func NodeConfigTanksFromPB(pbs []*NodeConfigTankPayload) ([]schematic.NodeConfig
 
 // NodeConfigCustomActuatorToPB converts NodeConfigCustomActuator to NodeConfigCustomActuatorPayload.
 func NodeConfigCustomActuatorToPB(r schematic.NodeConfigCustomActuator) (*NodeConfigCustomActuatorPayload, error) {
-	stateOverridesVal, err := recordsToPB(r.StateOverrides)
-	if err != nil {
-		return nil, err
-	}
 	pb := &NodeConfigCustomActuatorPayload{
-		OnClickDelay:   r.OnClickDelay,
-		SpecKey:        r.SpecKey,
-		StateOverrides: stateOverridesVal,
+		SpecKey: r.SpecKey,
 	}
 	if r.Label != nil {
 		var err error
@@ -3492,12 +3557,22 @@ func NodeConfigCustomActuatorToPB(r schematic.NodeConfigCustomActuator) (*NodeCo
 			return nil, err
 		}
 	}
+	if r.OnClickDelay != nil {
+		pb.OnClickDelay = r.OnClickDelay
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if r.StateOverrides != nil {
+		vals, err := recordsToPB(r.StateOverrides)
+		if err != nil {
+			return nil, err
+		}
+		pb.StateOverrides = &RecordList{Values: vals}
 	}
 	return pb, nil
 }
@@ -3508,8 +3583,6 @@ func NodeConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (schema
 	if pb == nil {
 		return r, nil
 	}
-	r.StateOverrides = recordsFromPB(pb.StateOverrides)
-	r.OnClickDelay = pb.OnClickDelay
 	r.SpecKey = pb.SpecKey
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
@@ -3543,12 +3616,18 @@ func NodeConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (schema
 		}
 		r.Control = &val
 	}
+	if pb.OnClickDelay != nil {
+		r.OnClickDelay = pb.OnClickDelay
+	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return schematic.NodeConfigCustomActuator{}, err
 		}
 		r.Color = &val
+	}
+	if pb.StateOverrides != nil {
+		r.StateOverrides = recordsFromPB(pb.StateOverrides.Values)
 	}
 	return r, nil
 }
@@ -3581,13 +3660,8 @@ func NodeConfigCustomActuatorsFromPB(pbs []*NodeConfigCustomActuatorPayload) ([]
 
 // NodeConfigCustomStaticToPB converts NodeConfigCustomStatic to NodeConfigCustomStaticPayload.
 func NodeConfigCustomStaticToPB(r schematic.NodeConfigCustomStatic) (*NodeConfigCustomStaticPayload, error) {
-	stateOverridesVal, err := recordsToPB(r.StateOverrides)
-	if err != nil {
-		return nil, err
-	}
 	pb := &NodeConfigCustomStaticPayload{
-		SpecKey:        r.SpecKey,
-		StateOverrides: stateOverridesVal,
+		SpecKey: r.SpecKey,
 	}
 	if r.Label != nil {
 		var err error
@@ -3613,6 +3687,13 @@ func NodeConfigCustomStaticToPB(r schematic.NodeConfigCustomStatic) (*NodeConfig
 			return nil, err
 		}
 	}
+	if r.StateOverrides != nil {
+		vals, err := recordsToPB(r.StateOverrides)
+		if err != nil {
+			return nil, err
+		}
+		pb.StateOverrides = &RecordList{Values: vals}
+	}
 	return pb, nil
 }
 
@@ -3622,7 +3703,6 @@ func NodeConfigCustomStaticFromPB(pb *NodeConfigCustomStaticPayload) (schematic.
 	if pb == nil {
 		return r, nil
 	}
-	r.StateOverrides = recordsFromPB(pb.StateOverrides)
 	r.SpecKey = pb.SpecKey
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
@@ -3647,6 +3727,9 @@ func NodeConfigCustomStaticFromPB(pb *NodeConfigCustomStaticPayload) (schematic.
 			return schematic.NodeConfigCustomStatic{}, err
 		}
 		r.Color = &val
+	}
+	if pb.StateOverrides != nil {
+		r.StateOverrides = recordsFromPB(pb.StateOverrides.Values)
 	}
 	return r, nil
 }
@@ -3802,9 +3885,7 @@ func ElementConfigBoxesFromPB(pbs []*NodeConfigBoxPayload) ([]schematic.ElementC
 
 // ElementConfigButtonToPB converts ElementConfigButton to NodeConfigButtonPayload.
 func ElementConfigButtonToPB(r schematic.ElementConfigButton) (*NodeConfigButtonPayload, error) {
-	pb := &NodeConfigButtonPayload{
-		OnClickDelay: r.OnClickDelay,
-	}
+	pb := &NodeConfigButtonPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -3835,6 +3916,9 @@ func ElementConfigButtonToPB(r schematic.ElementConfigButton) (*NodeConfigButton
 			return nil, err
 		}
 		pb.Level = &val
+	}
+	if r.OnClickDelay != nil {
+		pb.OnClickDelay = r.OnClickDelay
 	}
 	if r.CommandChannel != nil {
 		v := uint32(*r.CommandChannel)
@@ -3870,7 +3954,6 @@ func ElementConfigButtonFromPB(pb *NodeConfigButtonPayload) (schematic.ElementCo
 	if pb == nil {
 		return r, nil
 	}
-	r.OnClickDelay = pb.OnClickDelay
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -3901,6 +3984,9 @@ func ElementConfigButtonFromPB(pb *NodeConfigButtonPayload) (schematic.ElementCo
 			return schematic.ElementConfigButton{}, err
 		}
 		r.Level = &val
+	}
+	if pb.OnClickDelay != nil {
+		r.OnClickDelay = pb.OnClickDelay
 	}
 	if pb.CommandChannel != nil {
 		v := channel.Key(*pb.CommandChannel)
@@ -4070,9 +4156,7 @@ func ElementConfigCirclesFromPB(pbs []*NodeConfigCirclePayload) ([]schematic.Ele
 
 // ElementConfigGaugeToPB converts ElementConfigGauge to NodeConfigGaugePayload.
 func ElementConfigGaugeToPB(r schematic.ElementConfigGauge) (*NodeConfigGaugePayload, error) {
-	pb := &NodeConfigGaugePayload{
-		Units: r.Units,
-	}
+	pb := &NodeConfigGaugePayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -4144,6 +4228,9 @@ func ElementConfigGaugeToPB(r schematic.ElementConfigGauge) (*NodeConfigGaugePay
 			return nil, err
 		}
 	}
+	if r.Units != nil {
+		pb.Units = r.Units
+	}
 	if r.Level != nil {
 		val, err := textpb.LevelToPB(*r.Level)
 		if err != nil {
@@ -4160,7 +4247,6 @@ func ElementConfigGaugeFromPB(pb *NodeConfigGaugePayload) (schematic.ElementConf
 	if pb == nil {
 		return r, nil
 	}
-	r.Units = pb.Units
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -4232,6 +4318,9 @@ func ElementConfigGaugeFromPB(pb *NodeConfigGaugePayload) (schematic.ElementConf
 		}
 		r.Location = &val
 	}
+	if pb.Units != nil {
+		r.Units = pb.Units
+	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
@@ -4270,9 +4359,7 @@ func ElementConfigGaugesFromPB(pbs []*NodeConfigGaugePayload) ([]schematic.Eleme
 
 // ElementConfigInputToPB converts ElementConfigInput to NodeConfigInputPayload.
 func ElementConfigInputToPB(r schematic.ElementConfigInput) (*NodeConfigInputPayload, error) {
-	pb := &NodeConfigInputPayload{
-		Disabled: r.Disabled,
-	}
+	pb := &NodeConfigInputPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -4315,6 +4402,9 @@ func ElementConfigInputToPB(r schematic.ElementConfigInput) (*NodeConfigInputPay
 			return nil, err
 		}
 	}
+	if r.Disabled != nil {
+		pb.Disabled = r.Disabled
+	}
 	if r.Control != nil {
 		var err error
 		pb.Control, err = ControlStateConfigToPB(*r.Control)
@@ -4331,7 +4421,6 @@ func ElementConfigInputFromPB(pb *NodeConfigInputPayload) (schematic.ElementConf
 	if pb == nil {
 		return r, nil
 	}
-	r.Disabled = pb.Disabled
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -4373,6 +4462,9 @@ func ElementConfigInputFromPB(pb *NodeConfigInputPayload) (schematic.ElementConf
 			return schematic.ElementConfigInput{}, err
 		}
 		r.Color = &val
+	}
+	if pb.Disabled != nil {
+		r.Disabled = pb.Disabled
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -4528,9 +4620,7 @@ func ElementConfigOffPageReferenceToPB(r schematic.ElementConfigOffPageReference
 		return nil, err
 	}
 	pb := &NodeConfigOffPageReferencePayload{
-		Page:        r.Page,
-		DblClickNav: r.DblClickNav,
-		Label:       labelVal,
+		Label: labelVal,
 	}
 	if r.Orientation != nil {
 		val, err := spatialpb.OuterLocationToPB(*r.Orientation)
@@ -4553,6 +4643,12 @@ func ElementConfigOffPageReferenceToPB(r schematic.ElementConfigOffPageReference
 			return nil, err
 		}
 	}
+	if r.Page != nil {
+		pb.Page = r.Page
+	}
+	if r.DblClickNav != nil {
+		pb.DblClickNav = r.DblClickNav
+	}
 	return pb, nil
 }
 
@@ -4567,8 +4663,6 @@ func ElementConfigOffPageReferenceFromPB(pb *NodeConfigOffPageReferencePayload) 
 	if err != nil {
 		return schematic.ElementConfigOffPageReference{}, err
 	}
-	r.Page = pb.Page
-	r.DblClickNav = pb.DblClickNav
 	if pb.Orientation != nil {
 		val, err := spatialpb.OuterLocationFromPB(*pb.Orientation)
 		if err != nil {
@@ -4589,6 +4683,12 @@ func ElementConfigOffPageReferenceFromPB(pb *NodeConfigOffPageReferencePayload) 
 			return schematic.ElementConfigOffPageReference{}, err
 		}
 		r.Color = &val
+	}
+	if pb.Page != nil {
+		r.Page = pb.Page
+	}
+	if pb.DblClickNav != nil {
+		r.DblClickNav = pb.DblClickNav
 	}
 	return r, nil
 }
@@ -4752,8 +4852,7 @@ func ElementConfigSelectToPB(r schematic.ElementConfigSelect) (*NodeConfigSelect
 		return nil, err
 	}
 	pb := &NodeConfigSelectPayload{
-		Disabled: r.Disabled,
-		Options:  optionsVal,
+		Options: optionsVal,
 	}
 	if r.Label != nil {
 		var err error
@@ -4793,6 +4892,9 @@ func ElementConfigSelectToPB(r schematic.ElementConfigSelect) (*NodeConfigSelect
 	if r.InlineSize != nil {
 		pb.InlineSize = r.InlineSize
 	}
+	if r.Disabled != nil {
+		pb.Disabled = r.Disabled
+	}
 	if r.Control != nil {
 		var err error
 		pb.Control, err = ControlStateConfigToPB(*r.Control)
@@ -4814,7 +4916,6 @@ func ElementConfigSelectFromPB(pb *NodeConfigSelectPayload) (schematic.ElementCo
 	if err != nil {
 		return schematic.ElementConfigSelect{}, err
 	}
-	r.Disabled = pb.Disabled
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -4852,6 +4953,9 @@ func ElementConfigSelectFromPB(pb *NodeConfigSelectPayload) (schematic.ElementCo
 	}
 	if pb.InlineSize != nil {
 		r.InlineSize = pb.InlineSize
+	}
+	if pb.Disabled != nil {
+		r.Disabled = pb.Disabled
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -4891,10 +4995,7 @@ func ElementConfigSelectsFromPB(pbs []*NodeConfigSelectPayload) ([]schematic.Ele
 
 // ElementConfigSetpointToPB converts ElementConfigSetpoint to NodeConfigSetpointPayload.
 func ElementConfigSetpointToPB(r schematic.ElementConfigSetpoint) (*NodeConfigSetpointPayload, error) {
-	pb := &NodeConfigSetpointPayload{
-		Units:    r.Units,
-		Disabled: r.Disabled,
-	}
+	pb := &NodeConfigSetpointPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -4941,6 +5042,12 @@ func ElementConfigSetpointToPB(r schematic.ElementConfigSetpoint) (*NodeConfigSe
 			return nil, err
 		}
 	}
+	if r.Units != nil {
+		pb.Units = r.Units
+	}
+	if r.Disabled != nil {
+		pb.Disabled = r.Disabled
+	}
 	if r.Control != nil {
 		var err error
 		pb.Control, err = ControlStateConfigToPB(*r.Control)
@@ -4957,8 +5064,6 @@ func ElementConfigSetpointFromPB(pb *NodeConfigSetpointPayload) (schematic.Eleme
 	if pb == nil {
 		return r, nil
 	}
-	r.Units = pb.Units
-	r.Disabled = pb.Disabled
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -5004,6 +5109,12 @@ func ElementConfigSetpointFromPB(pb *NodeConfigSetpointPayload) (schematic.Eleme
 			return schematic.ElementConfigSetpoint{}, err
 		}
 		r.Color = &val
+	}
+	if pb.Units != nil {
+		r.Units = pb.Units
+	}
+	if pb.Disabled != nil {
+		r.Disabled = pb.Disabled
 	}
 	if pb.Control != nil {
 		val, err := ControlStateConfigFromPB(pb.Control)
@@ -5157,10 +5268,7 @@ func ElementConfigStateIndicatorsFromPB(pbs []*NodeConfigStateIndicatorPayload) 
 
 // ElementConfigTextBoxToPB converts ElementConfigTextBox to NodeConfigTextBoxPayload.
 func ElementConfigTextBoxToPB(r schematic.ElementConfigTextBox) (*NodeConfigTextBoxPayload, error) {
-	pb := &NodeConfigTextBoxPayload{
-		AutoFit: r.AutoFit,
-		Value:   r.Value,
-	}
+	pb := &NodeConfigTextBoxPayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -5195,12 +5303,18 @@ func ElementConfigTextBoxToPB(r schematic.ElementConfigTextBox) (*NodeConfigText
 		}
 		pb.Align = &val
 	}
+	if r.AutoFit != nil {
+		pb.AutoFit = r.AutoFit
+	}
 	if r.Level != nil {
 		val, err := textpb.LevelToPB(*r.Level)
 		if err != nil {
 			return nil, err
 		}
 		pb.Level = &val
+	}
+	if r.Value != nil {
+		pb.Value = r.Value
 	}
 	return pb, nil
 }
@@ -5211,8 +5325,6 @@ func ElementConfigTextBoxFromPB(pb *NodeConfigTextBoxPayload) (schematic.Element
 	if pb == nil {
 		return r, nil
 	}
-	r.AutoFit = pb.AutoFit
-	r.Value = pb.Value
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -5247,12 +5359,18 @@ func ElementConfigTextBoxFromPB(pb *NodeConfigTextBoxPayload) (schematic.Element
 		}
 		r.Align = &val
 	}
+	if pb.AutoFit != nil {
+		r.AutoFit = pb.AutoFit
+	}
 	if pb.Level != nil {
 		val, err := textpb.LevelFromPB(*pb.Level)
 		if err != nil {
 			return schematic.ElementConfigTextBox{}, err
 		}
 		r.Level = &val
+	}
+	if pb.Value != nil {
+		r.Value = pb.Value
 	}
 	return r, nil
 }
@@ -5285,11 +5403,7 @@ func ElementConfigTextBoxesFromPB(pbs []*NodeConfigTextBoxPayload) ([]schematic.
 
 // ElementConfigValueToPB converts ElementConfigValue to NodeConfigValuePayload.
 func ElementConfigValueToPB(r schematic.ElementConfigValue) (*NodeConfigValuePayload, error) {
-	pb := &NodeConfigValuePayload{
-		Tooltip:               r.Tooltip,
-		Units:                 r.Units,
-		UseWidthForBackground: r.UseWidthForBackground,
-	}
+	pb := &NodeConfigValuePayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -5328,12 +5442,18 @@ func ElementConfigValueToPB(r schematic.ElementConfigValue) (*NodeConfigValuePay
 			return nil, err
 		}
 	}
+	if r.Tooltip != nil {
+		pb.Tooltip = &StringList{Values: r.Tooltip}
+	}
 	if r.Redline != nil {
 		var err error
 		pb.Redline, err = RedlineToPB(*r.Redline)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if r.Units != nil {
+		pb.Units = r.Units
 	}
 	if r.InlineSize != nil {
 		pb.InlineSize = r.InlineSize
@@ -5382,6 +5502,9 @@ func ElementConfigValueToPB(r schematic.ElementConfigValue) (*NodeConfigValuePay
 			return nil, err
 		}
 	}
+	if r.UseWidthForBackground != nil {
+		pb.UseWidthForBackground = r.UseWidthForBackground
+	}
 	if r.ValueBackgroundShift != nil {
 		var err error
 		pb.ValueBackgroundShift, err = spatialpb.XYToPB(*r.ValueBackgroundShift)
@@ -5405,9 +5528,6 @@ func ElementConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.ElementConf
 	if pb == nil {
 		return r, nil
 	}
-	r.Tooltip = pb.Tooltip
-	r.Units = pb.Units
-	r.UseWidthForBackground = pb.UseWidthForBackground
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -5446,12 +5566,18 @@ func ElementConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.ElementConf
 		}
 		r.TextColor = &val
 	}
+	if pb.Tooltip != nil {
+		r.Tooltip = pb.Tooltip.Values
+	}
 	if pb.Redline != nil {
 		val, err := RedlineFromPB(pb.Redline)
 		if err != nil {
 			return schematic.ElementConfigValue{}, err
 		}
 		r.Redline = &val
+	}
+	if pb.Units != nil {
+		r.Units = pb.Units
 	}
 	if pb.InlineSize != nil {
 		r.InlineSize = pb.InlineSize
@@ -5500,6 +5626,9 @@ func ElementConfigValueFromPB(pb *NodeConfigValuePayload) (schematic.ElementConf
 		}
 		r.Location = &val
 	}
+	if pb.UseWidthForBackground != nil {
+		r.UseWidthForBackground = pb.UseWidthForBackground
+	}
 	if pb.ValueBackgroundShift != nil {
 		val, err := spatialpb.XYFromPB(pb.ValueBackgroundShift)
 		if err != nil {
@@ -5545,10 +5674,7 @@ func ElementConfigValuesFromPB(pbs []*NodeConfigValuePayload) ([]schematic.Eleme
 
 // ElementConfigSolenoidValveToPB converts ElementConfigSolenoidValve to NodeConfigSolenoidValvePayload.
 func ElementConfigSolenoidValveToPB(r schematic.ElementConfigSolenoidValve) (*NodeConfigSolenoidValvePayload, error) {
-	pb := &NodeConfigSolenoidValvePayload{
-		OnClickDelay: r.OnClickDelay,
-		NormallyOpen: r.NormallyOpen,
-	}
+	pb := &NodeConfigSolenoidValvePayload{}
 	if r.Label != nil {
 		var err error
 		pb.Label, err = LabelConfigToPB(*r.Label)
@@ -5581,12 +5707,18 @@ func ElementConfigSolenoidValveToPB(r schematic.ElementConfigSolenoidValve) (*No
 			return nil, err
 		}
 	}
+	if r.OnClickDelay != nil {
+		pb.OnClickDelay = r.OnClickDelay
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if r.NormallyOpen != nil {
+		pb.NormallyOpen = r.NormallyOpen
 	}
 	return pb, nil
 }
@@ -5597,8 +5729,6 @@ func ElementConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schem
 	if pb == nil {
 		return r, nil
 	}
-	r.OnClickDelay = pb.OnClickDelay
-	r.NormallyOpen = pb.NormallyOpen
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
 		if err != nil {
@@ -5631,12 +5761,18 @@ func ElementConfigSolenoidValveFromPB(pb *NodeConfigSolenoidValvePayload) (schem
 		}
 		r.Control = &val
 	}
+	if pb.OnClickDelay != nil {
+		r.OnClickDelay = pb.OnClickDelay
+	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return schematic.ElementConfigSolenoidValve{}, err
 		}
 		r.Color = &val
+	}
+	if pb.NormallyOpen != nil {
+		r.NormallyOpen = pb.NormallyOpen
 	}
 	return r, nil
 }
@@ -5931,14 +6067,8 @@ func ElementConfigTanksFromPB(pbs []*NodeConfigTankPayload) ([]schematic.Element
 
 // ElementConfigCustomActuatorToPB converts ElementConfigCustomActuator to NodeConfigCustomActuatorPayload.
 func ElementConfigCustomActuatorToPB(r schematic.ElementConfigCustomActuator) (*NodeConfigCustomActuatorPayload, error) {
-	stateOverridesVal, err := recordsToPB(r.StateOverrides)
-	if err != nil {
-		return nil, err
-	}
 	pb := &NodeConfigCustomActuatorPayload{
-		OnClickDelay:   r.OnClickDelay,
-		SpecKey:        r.SpecKey,
-		StateOverrides: stateOverridesVal,
+		SpecKey: r.SpecKey,
 	}
 	if r.Label != nil {
 		var err error
@@ -5972,12 +6102,22 @@ func ElementConfigCustomActuatorToPB(r schematic.ElementConfigCustomActuator) (*
 			return nil, err
 		}
 	}
+	if r.OnClickDelay != nil {
+		pb.OnClickDelay = r.OnClickDelay
+	}
 	if r.Color != nil {
 		var err error
 		pb.Color, err = colorpb.ColorToPB(*r.Color)
 		if err != nil {
 			return nil, err
 		}
+	}
+	if r.StateOverrides != nil {
+		vals, err := recordsToPB(r.StateOverrides)
+		if err != nil {
+			return nil, err
+		}
+		pb.StateOverrides = &RecordList{Values: vals}
 	}
 	return pb, nil
 }
@@ -5988,8 +6128,6 @@ func ElementConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (sch
 	if pb == nil {
 		return r, nil
 	}
-	r.StateOverrides = recordsFromPB(pb.StateOverrides)
-	r.OnClickDelay = pb.OnClickDelay
 	r.SpecKey = pb.SpecKey
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
@@ -6023,12 +6161,18 @@ func ElementConfigCustomActuatorFromPB(pb *NodeConfigCustomActuatorPayload) (sch
 		}
 		r.Control = &val
 	}
+	if pb.OnClickDelay != nil {
+		r.OnClickDelay = pb.OnClickDelay
+	}
 	if pb.Color != nil {
 		val, err := colorpb.ColorFromPB(pb.Color)
 		if err != nil {
 			return schematic.ElementConfigCustomActuator{}, err
 		}
 		r.Color = &val
+	}
+	if pb.StateOverrides != nil {
+		r.StateOverrides = recordsFromPB(pb.StateOverrides.Values)
 	}
 	return r, nil
 }
@@ -6061,13 +6205,8 @@ func ElementConfigCustomActuatorsFromPB(pbs []*NodeConfigCustomActuatorPayload) 
 
 // ElementConfigCustomStaticToPB converts ElementConfigCustomStatic to NodeConfigCustomStaticPayload.
 func ElementConfigCustomStaticToPB(r schematic.ElementConfigCustomStatic) (*NodeConfigCustomStaticPayload, error) {
-	stateOverridesVal, err := recordsToPB(r.StateOverrides)
-	if err != nil {
-		return nil, err
-	}
 	pb := &NodeConfigCustomStaticPayload{
-		SpecKey:        r.SpecKey,
-		StateOverrides: stateOverridesVal,
+		SpecKey: r.SpecKey,
 	}
 	if r.Label != nil {
 		var err error
@@ -6093,6 +6232,13 @@ func ElementConfigCustomStaticToPB(r schematic.ElementConfigCustomStatic) (*Node
 			return nil, err
 		}
 	}
+	if r.StateOverrides != nil {
+		vals, err := recordsToPB(r.StateOverrides)
+		if err != nil {
+			return nil, err
+		}
+		pb.StateOverrides = &RecordList{Values: vals}
+	}
 	return pb, nil
 }
 
@@ -6102,7 +6248,6 @@ func ElementConfigCustomStaticFromPB(pb *NodeConfigCustomStaticPayload) (schemat
 	if pb == nil {
 		return r, nil
 	}
-	r.StateOverrides = recordsFromPB(pb.StateOverrides)
 	r.SpecKey = pb.SpecKey
 	if pb.Label != nil {
 		val, err := LabelConfigFromPB(pb.Label)
@@ -6127,6 +6272,9 @@ func ElementConfigCustomStaticFromPB(pb *NodeConfigCustomStaticPayload) (schemat
 			return schematic.ElementConfigCustomStatic{}, err
 		}
 		r.Color = &val
+	}
+	if pb.StateOverrides != nil {
+		r.StateOverrides = recordsFromPB(pb.StateOverrides.Values)
 	}
 	return r, nil
 }

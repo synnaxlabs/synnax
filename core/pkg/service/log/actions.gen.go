@@ -12,20 +12,29 @@
 package log
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/union"
 )
 
 const (
-	ActionTypeRename                  = "rename"
-	ActionTypeAddChannel              = "add_channel"
-	ActionTypeRemoveChannel           = "remove_channel"
-	ActionTypeSetChannelEntry         = "set_channel_entry"
-	ActionTypeSetChannels             = "set_channels"
-	ActionTypeSwapChannel             = "swap_channel"
-	ActionTypeSetTimestampPrecision   = "set_timestamp_precision"
-	ActionTypeSetShowChannelNames     = "set_show_channel_names"
-	ActionTypeSetShowReceiptTimestamp = "set_show_receipt_timestamp"
+	ActionTypeRename                    = "rename"
+	ActionTypeAddChannel                = "add_channel"
+	ActionTypeRemoveChannel             = "remove_channel"
+	ActionTypeSetChannelEntry           = "set_channel_entry"
+	ActionTypeSetChannelColor           = "set_channel_color"
+	ActionTypeSetChannelNotation        = "set_channel_notation"
+	ActionTypeSetChannelPrecision       = "set_channel_precision"
+	ActionTypeSetChannelAlias           = "set_channel_alias"
+	ActionTypeSetChannelTimestampFormat = "set_channel_timestamp_format"
+	ActionTypeSetChannelTimestampTz     = "set_channel_timestamp_tz"
+	ActionTypeSetChannels               = "set_channels"
+	ActionTypeSwapChannel               = "swap_channel"
+	ActionTypeSetTimestampPrecision     = "set_timestamp_precision"
+	ActionTypeSetHideChannelNames       = "set_hide_channel_names"
+	ActionTypeSetHideReceiptTimestamp   = "set_hide_receipt_timestamp"
 )
 
 // RenamePayload renames the log.
@@ -46,10 +55,56 @@ type RemoveChannelPayload struct {
 }
 
 // SetChannelEntryPayload inserts the channel entry if no entry with the same channel
-// exists, otherwise replaces the existing entry in place. Used both when a channel is
-// added and when the user edits an existing channel's display configuration.
+// exists, otherwise replaces the existing entry in place. The fine-grained setChannel*
+// actions cover per-field edits; this full-object form inserts new entries and restores
+// an entry dropped by reconciliation.
 type SetChannelEntryPayload struct {
 	Entry ChannelEntry `json:"entry" msgpack:"entry"`
+}
+
+// SetChannelColorPayload sets the display color of the entry identified by channel. The
+// zero color resets it to a palette color assigned at render time. No-op when no entry
+// references the channel.
+type SetChannelColorPayload struct {
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	Color   color.Color `json:"color" msgpack:"color"`
+}
+
+// SetChannelNotationPayload sets the numeric notation of the entry identified by
+// channel. No-op when no entry references the channel.
+type SetChannelNotationPayload struct {
+	Channel  channel.Key       `json:"channel" msgpack:"channel"`
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
+}
+
+// SetChannelPrecisionPayload sets the number of decimal digits displayed for the entry
+// identified by channel. -1 means "use the log-level precision". No-op when no entry
+// references the channel.
+type SetChannelPrecisionPayload struct {
+	Channel   channel.Key `json:"channel" msgpack:"channel"`
+	Precision int32       `json:"precision" msgpack:"precision"`
+}
+
+// SetChannelAliasPayload sets the human-readable alias of the entry identified by
+// channel. An empty alias falls back to the channel name. No-op when no entry
+// references the channel.
+type SetChannelAliasPayload struct {
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	Alias   string      `json:"alias" msgpack:"alias"`
+}
+
+// SetChannelTimestampFormatPayload sets the timestamp render format of the entry
+// identified by channel. No-op when no entry references the channel.
+type SetChannelTimestampFormatPayload struct {
+	Channel channel.Key           `json:"channel" msgpack:"channel"`
+	Format  telem.TimestampFormat `json:"format" msgpack:"format"`
+}
+
+// SetChannelTimestampTzPayload sets the timestamp time zone of the entry identified by
+// channel. No-op when no entry references the channel.
+type SetChannelTimestampTzPayload struct {
+	Channel channel.Key    `json:"channel" msgpack:"channel"`
+	Tz      telem.TimeZone `json:"tz" msgpack:"tz"`
 }
 
 // SetChannelsPayload replaces the entire ordered list of channel entries. Used for bulk
@@ -71,30 +126,36 @@ type SetTimestampPrecisionPayload struct {
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 }
 
-// SetShowChannelNamesPayload controls whether channel names are displayed.
-type SetShowChannelNamesPayload struct {
-	ShowChannelNames bool `json:"show_channel_names" msgpack:"show_channel_names"`
+// SetHideChannelNamesPayload controls whether channel names are hidden.
+type SetHideChannelNamesPayload struct {
+	HideChannelNames bool `json:"hide_channel_names" msgpack:"hide_channel_names"`
 }
 
-// SetShowReceiptTimestampPayload controls whether the receipt timestamp column is
-// displayed.
-type SetShowReceiptTimestampPayload struct {
-	ShowReceiptTimestamp bool `json:"show_receipt_timestamp" msgpack:"show_receipt_timestamp"`
+// SetHideReceiptTimestampPayload controls whether the receipt timestamp column is
+// hidden.
+type SetHideReceiptTimestampPayload struct {
+	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
 }
 
 // Action is a discriminated union for all Log mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
-	Type                    string                          `json:"type" msgpack:"type"`
-	Rename                  *RenamePayload                  `json:"rename,omitempty" msgpack:"rename,omitempty"`
-	AddChannel              *AddChannelPayload              `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
-	RemoveChannel           *RemoveChannelPayload           `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
-	SetChannelEntry         *SetChannelEntryPayload         `json:"set_channel_entry,omitempty" msgpack:"set_channel_entry,omitempty"`
-	SetChannels             *SetChannelsPayload             `json:"set_channels,omitempty" msgpack:"set_channels,omitempty"`
-	SwapChannel             *SwapChannelPayload             `json:"swap_channel,omitempty" msgpack:"swap_channel,omitempty"`
-	SetTimestampPrecision   *SetTimestampPrecisionPayload   `json:"set_timestamp_precision,omitempty" msgpack:"set_timestamp_precision,omitempty"`
-	SetShowChannelNames     *SetShowChannelNamesPayload     `json:"set_show_channel_names,omitempty" msgpack:"set_show_channel_names,omitempty"`
-	SetShowReceiptTimestamp *SetShowReceiptTimestampPayload `json:"set_show_receipt_timestamp,omitempty" msgpack:"set_show_receipt_timestamp,omitempty"`
+	Type                      string                            `json:"type" msgpack:"type"`
+	Rename                    *RenamePayload                    `json:"rename,omitempty" msgpack:"rename,omitempty"`
+	AddChannel                *AddChannelPayload                `json:"add_channel,omitempty" msgpack:"add_channel,omitempty"`
+	RemoveChannel             *RemoveChannelPayload             `json:"remove_channel,omitempty" msgpack:"remove_channel,omitempty"`
+	SetChannelEntry           *SetChannelEntryPayload           `json:"set_channel_entry,omitempty" msgpack:"set_channel_entry,omitempty"`
+	SetChannelColor           *SetChannelColorPayload           `json:"set_channel_color,omitempty" msgpack:"set_channel_color,omitempty"`
+	SetChannelNotation        *SetChannelNotationPayload        `json:"set_channel_notation,omitempty" msgpack:"set_channel_notation,omitempty"`
+	SetChannelPrecision       *SetChannelPrecisionPayload       `json:"set_channel_precision,omitempty" msgpack:"set_channel_precision,omitempty"`
+	SetChannelAlias           *SetChannelAliasPayload           `json:"set_channel_alias,omitempty" msgpack:"set_channel_alias,omitempty"`
+	SetChannelTimestampFormat *SetChannelTimestampFormatPayload `json:"set_channel_timestamp_format,omitempty" msgpack:"set_channel_timestamp_format,omitempty"`
+	SetChannelTimestampTz     *SetChannelTimestampTzPayload     `json:"set_channel_timestamp_tz,omitempty" msgpack:"set_channel_timestamp_tz,omitempty"`
+	SetChannels               *SetChannelsPayload               `json:"set_channels,omitempty" msgpack:"set_channels,omitempty"`
+	SwapChannel               *SwapChannelPayload               `json:"swap_channel,omitempty" msgpack:"swap_channel,omitempty"`
+	SetTimestampPrecision     *SetTimestampPrecisionPayload     `json:"set_timestamp_precision,omitempty" msgpack:"set_timestamp_precision,omitempty"`
+	SetHideChannelNames       *SetHideChannelNamesPayload       `json:"set_hide_channel_names,omitempty" msgpack:"set_hide_channel_names,omitempty"`
+	SetHideReceiptTimestamp   *SetHideReceiptTimestampPayload   `json:"set_hide_receipt_timestamp,omitempty" msgpack:"set_hide_receipt_timestamp,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -126,6 +187,36 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelEntry.Handle(state)
+		case ActionTypeSetChannelColor:
+			if a.SetChannelColor == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetChannelColor.Handle(state)
+		case ActionTypeSetChannelNotation:
+			if a.SetChannelNotation == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetChannelNotation.Handle(state)
+		case ActionTypeSetChannelPrecision:
+			if a.SetChannelPrecision == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetChannelPrecision.Handle(state)
+		case ActionTypeSetChannelAlias:
+			if a.SetChannelAlias == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetChannelAlias.Handle(state)
+		case ActionTypeSetChannelTimestampFormat:
+			if a.SetChannelTimestampFormat == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetChannelTimestampFormat.Handle(state)
+		case ActionTypeSetChannelTimestampTz:
+			if a.SetChannelTimestampTz == nil {
+				return state, union.MissingPayload(a.Type)
+			}
+			state, err = a.SetChannelTimestampTz.Handle(state)
 		case ActionTypeSetChannels:
 			if a.SetChannels == nil {
 				return state, union.MissingPayload(a.Type)
@@ -141,16 +232,16 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTimestampPrecision.Handle(state)
-		case ActionTypeSetShowChannelNames:
-			if a.SetShowChannelNames == nil {
+		case ActionTypeSetHideChannelNames:
+			if a.SetHideChannelNames == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetShowChannelNames.Handle(state)
-		case ActionTypeSetShowReceiptTimestamp:
-			if a.SetShowReceiptTimestamp == nil {
+			state, err = a.SetHideChannelNames.Handle(state)
+		case ActionTypeSetHideReceiptTimestamp:
+			if a.SetHideReceiptTimestamp == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetShowReceiptTimestamp.Handle(state)
+			state, err = a.SetHideReceiptTimestamp.Handle(state)
 		default:
 			continue
 		}
@@ -181,6 +272,36 @@ func NewSetChannelEntryAction(p SetChannelEntryPayload) Action {
 	return Action{Type: ActionTypeSetChannelEntry, SetChannelEntry: &p}
 }
 
+// NewSetChannelColorAction wraps a SetChannelColorPayload in an Action envelope.
+func NewSetChannelColorAction(p SetChannelColorPayload) Action {
+	return Action{Type: ActionTypeSetChannelColor, SetChannelColor: &p}
+}
+
+// NewSetChannelNotationAction wraps a SetChannelNotationPayload in an Action envelope.
+func NewSetChannelNotationAction(p SetChannelNotationPayload) Action {
+	return Action{Type: ActionTypeSetChannelNotation, SetChannelNotation: &p}
+}
+
+// NewSetChannelPrecisionAction wraps a SetChannelPrecisionPayload in an Action envelope.
+func NewSetChannelPrecisionAction(p SetChannelPrecisionPayload) Action {
+	return Action{Type: ActionTypeSetChannelPrecision, SetChannelPrecision: &p}
+}
+
+// NewSetChannelAliasAction wraps a SetChannelAliasPayload in an Action envelope.
+func NewSetChannelAliasAction(p SetChannelAliasPayload) Action {
+	return Action{Type: ActionTypeSetChannelAlias, SetChannelAlias: &p}
+}
+
+// NewSetChannelTimestampFormatAction wraps a SetChannelTimestampFormatPayload in an Action envelope.
+func NewSetChannelTimestampFormatAction(p SetChannelTimestampFormatPayload) Action {
+	return Action{Type: ActionTypeSetChannelTimestampFormat, SetChannelTimestampFormat: &p}
+}
+
+// NewSetChannelTimestampTzAction wraps a SetChannelTimestampTzPayload in an Action envelope.
+func NewSetChannelTimestampTzAction(p SetChannelTimestampTzPayload) Action {
+	return Action{Type: ActionTypeSetChannelTimestampTz, SetChannelTimestampTz: &p}
+}
+
 // NewSetChannelsAction wraps a SetChannelsPayload in an Action envelope.
 func NewSetChannelsAction(p SetChannelsPayload) Action {
 	return Action{Type: ActionTypeSetChannels, SetChannels: &p}
@@ -196,12 +317,12 @@ func NewSetTimestampPrecisionAction(p SetTimestampPrecisionPayload) Action {
 	return Action{Type: ActionTypeSetTimestampPrecision, SetTimestampPrecision: &p}
 }
 
-// NewSetShowChannelNamesAction wraps a SetShowChannelNamesPayload in an Action envelope.
-func NewSetShowChannelNamesAction(p SetShowChannelNamesPayload) Action {
-	return Action{Type: ActionTypeSetShowChannelNames, SetShowChannelNames: &p}
+// NewSetHideChannelNamesAction wraps a SetHideChannelNamesPayload in an Action envelope.
+func NewSetHideChannelNamesAction(p SetHideChannelNamesPayload) Action {
+	return Action{Type: ActionTypeSetHideChannelNames, SetHideChannelNames: &p}
 }
 
-// NewSetShowReceiptTimestampAction wraps a SetShowReceiptTimestampPayload in an Action envelope.
-func NewSetShowReceiptTimestampAction(p SetShowReceiptTimestampPayload) Action {
-	return Action{Type: ActionTypeSetShowReceiptTimestamp, SetShowReceiptTimestamp: &p}
+// NewSetHideReceiptTimestampAction wraps a SetHideReceiptTimestampPayload in an Action envelope.
+func NewSetHideReceiptTimestampAction(p SetHideReceiptTimestampPayload) Action {
+	return Action{Type: ActionTypeSetHideReceiptTimestamp, SetHideReceiptTimestamp: &p}
 }

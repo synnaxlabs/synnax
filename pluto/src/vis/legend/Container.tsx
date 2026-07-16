@@ -13,12 +13,11 @@ import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type OptionalControl } from "@/input/types";
 import { state } from "@/state";
-import { preventDefault } from "@/util/event";
 
 export interface ContainerProps
   extends Omit<Flex.BoxProps, "onChange">, Partial<OptionalControl<sticky.XY>> {
@@ -48,7 +47,7 @@ export const Container = memo(
     const [position, setPosition] = state.usePurePassthrough<sticky.XY>({
       value,
       onChange,
-      initial,
+      initialValue: initial,
     });
     const positionRef = useRef<sticky.XY>(position);
     const disabled = useSyncedRef(draggable === false);
@@ -84,17 +83,21 @@ export const Container = memo(
       });
     }, []);
 
-    const handleCursorDragStart = useCursorDrag({
+    const handleCursorDragStart = Cursor.useDrag({
       onStart: useCallback(() => {
         // When we start dragging, we need to re-calculate the sticky position of the
         // element based on the new dimensions of the parent. This removes strange
         // 'jumping' behavior when starting to drag.
         if (ref.current == null || ref.current.parentElement == null) return;
-        positionRef.current = sticky.toDecimal({
-          position: positionRef.current,
-          element: box.construct(ref.current),
-          container: box.construct(ref.current.parentElement),
-        });
+        positionRef.current = {
+          ...sticky.toDecimal({
+            position: positionRef.current,
+            element: box.construct(ref.current),
+            container: box.construct(ref.current.parentElement),
+          }),
+          root: location.TOP_LEFT,
+          units: { x: "decimal", y: "decimal" },
+        };
       }, []),
       onMove: useCallback(
         (box: box.Box) => {
@@ -116,15 +119,12 @@ export const Container = memo(
 
     return (
       <Flex.Box
-        className={CSS(className, CSS.B("legend"))}
+        className={CSS(className, CSS.B("legend"), Cursor.DRAG_CLASS)}
         bordered
         style={style}
-        onDragStart={handleCursorDragStart}
-        draggable={draggable}
+        onPointerDown={draggable ? handleCursorDragStart : undefined}
         borderColor={5}
         ref={ref}
-        onDrag={preventDefault}
-        onDragEnd={preventDefault}
         background={1}
         rounded={1}
         {...rest}

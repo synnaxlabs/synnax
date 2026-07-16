@@ -58,7 +58,9 @@ func setupMiniRepo(version string, schemas map[string]string) (string, func()) {
 	schemasDir := filepath.Join(repoDir, "schemas")
 	Expect(os.MkdirAll(schemasDir, 0755)).To(Succeed())
 	for name, content := range schemas {
-		Expect(os.WriteFile(filepath.Join(schemasDir, name), []byte(content), 0644)).To(Succeed())
+		path := filepath.Join(schemasDir, name)
+		Expect(os.MkdirAll(filepath.Dir(path), 0755)).To(Succeed())
+		Expect(os.WriteFile(path, []byte(content), 0644)).To(Succeed())
 	}
 
 	// Create a minimal license template so format.Default can build a
@@ -141,6 +143,7 @@ var _ = Describe("check command", Ordered, func() {
 	var cleanup func()
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
 			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 		})
@@ -160,6 +163,7 @@ var _ = Describe("check command with no schemas", Ordered, func() {
 	)
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		_, cleanup = setupMiniRepo("0.53.4", map[string]string{})
 	})
 
@@ -176,6 +180,7 @@ var _ = Describe("fmt command", Ordered, func() {
 	var cleanup func()
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
 			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 		})
@@ -194,10 +199,117 @@ var _ = Describe("fmt command", Ordered, func() {
 	})
 })
 
+var _ = Describe("fmt command with nested schema folders", Ordered, func() {
+
+	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
+		// Schemas live in subdirectories (arc/synnax/x); the no-arg fmt default must
+		// recurse to find all of them.
+		_, cleanup := setupMiniRepo("0.53.4", map[string]string{
+			// Intentionally unformatted in a nested folder.
+			"synnax/user.oracle": "User struct {key uuid\nname   string}",
+			"x/telem.oracle":     "Rate struct {\n    hz float64\n}\n",
+		})
+		DeferCleanup(func() { cleanup() })
+	})
+
+	It("discovers and flags unformatted schemas in subdirectories", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "fmt", "--check")).Error().
+			To(MatchError(ContainSubstring("files need formatting")))
+	})
+
+	It("formats nested schemas in place", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "fmt")).To(Equal(""))
+
+		cmd = NewRootCmd()
+		Expect(executeCommand(cmd, "fmt", "--check")).To(Equal(""))
+	})
+})
+
+var _ = Describe("fmt command with explicit file arguments", Ordered, func() {
+
+	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
+		// Two unformatted schemas in different subfolders. Passing an explicit path
+		// must format only that file and must not trigger recursive discovery of the
+		// other.
+		_, cleanup := setupMiniRepo("0.53.4", map[string]string{
+			"synnax/user.oracle": "User struct {key uuid\nname   string}",
+			"x/other.oracle":     "Other struct {a uuid\nb   string}",
+		})
+		DeferCleanup(func() { cleanup() })
+	})
+
+	It("formats only the explicitly named file", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "fmt", "schemas/synnax/user.oracle")).
+			To(Equal(""))
+
+		cmd = NewRootCmd()
+		Expect(executeCommand(cmd, "fmt", "--check", "schemas/synnax/user.oracle")).
+			To(Equal(""))
+	})
+
+	It("leaves files not named in the arguments untouched", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "fmt", "--check", "schemas/x/other.oracle")).Error().
+			To(MatchError(ContainSubstring("files need formatting")))
+	})
+})
+
+var _ = Describe("fmt command discovery error", Ordered, func() {
+	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
+		if os.Geteuid() == 0 {
+			Skip("filesystem permissions are bypassed when running as root")
+		}
+		repoDir, cleanup := setupMiniRepo("0.53.4", map[string]string{
+			"synnax/user.oracle": "User struct {\n    key uuid\n}\n",
+		})
+		locked := filepath.Join(repoDir, "schemas", "locked")
+		Expect(os.MkdirAll(locked, 0755)).To(Succeed())
+		Expect(os.Chmod(locked, 0000)).To(Succeed())
+		DeferCleanup(func() {
+			if locked != "" {
+				Expect(os.Chmod(locked, 0755)).To(Succeed())
+			}
+			if cleanup != nil {
+				cleanup()
+			}
+		})
+	})
+
+	It("propagates the recursive-discovery error when no arguments are given", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "fmt")).Error().
+			To(MatchError(ContainSubstring("walk schema directory")))
+	})
+})
+
+var _ = Describe("fmt command argument error", Ordered, func() {
+
+	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
+		_, cleanup := setupMiniRepo("0.53.4", map[string]string{
+			"synnax/user.oracle": "User struct {\n    key uuid\n}\n",
+		})
+		DeferCleanup(func() { cleanup() })
+	})
+
+	It("propagates the glob error for a malformed pattern argument", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "fmt", "schemas/[")).Error().
+			To(MatchError(ContainSubstring("invalid glob pattern")))
+	})
+})
+
 var _ = Describe("fmt command with unformatted schemas", Ordered, func() {
 	var cleanup func()
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
 			// Intentionally poorly formatted (extra spaces, no newline).
 			"user.oracle": "User struct {key uuid\nname   string}",
@@ -220,6 +332,7 @@ var _ = Describe("snapshot command", Ordered, func() {
 	)
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
 			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 		})
@@ -246,6 +359,7 @@ var _ = Describe("migrate create command", Ordered, func() {
 	)
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		repoDir, cleanup = setupMiniRepo("0.53.4", map[string]string{
 			"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 		})
@@ -279,6 +393,42 @@ var _ = Describe("migrate create command", Ordered, func() {
 	})
 })
 
+var _ = Describe("migrate command with nested schema folders", Ordered, func() {
+	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
+		// Schemas live in subdirectories (synnax/x) after the folder restructure. The
+		// bare migrate command must recurse to discover them rather than relying on a
+		// flat schemas/*.oracle glob, which would find nothing and fail.
+		repoDir, cleanup := setupMiniRepo("0.53.4", map[string]string{
+			"synnax/user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
+			"x/telem.oracle":     "Rate struct {\n    hz float64\n}\n",
+		})
+		svcDir := filepath.Join(repoDir, "core", "pkg", "service", "user")
+		Expect(os.MkdirAll(svcDir, 0755)).To(Succeed())
+		DeferCleanup(func() { cleanup() })
+	})
+
+	It("discovers schemas in subdirectories instead of failing the flat glob", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "migrate")).Error().
+			NotTo(MatchError(ContainSubstring("no schema files found")))
+	})
+})
+
+var _ = Describe("migrate command with no schemas", Ordered, func() {
+	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
+		_, cleanup := setupMiniRepo("0.53.4", map[string]string{})
+		DeferCleanup(func() { cleanup() })
+	})
+
+	It("errors when no schema files exist", func() {
+		cmd := NewRootCmd()
+		Expect(executeCommand(cmd, "migrate")).Error().
+			To(MatchError(ContainSubstring("no schema files found")))
+	})
+})
+
 var _ = Describe("migrate create with existing migrations", Ordered, func() {
 	var (
 		repoDir string
@@ -286,6 +436,7 @@ var _ = Describe("migrate create with existing migrations", Ordered, func() {
 	)
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		repoDir, cleanup = setupMiniRepo("0.54.0", map[string]string{
 			"user.oracle": "User struct {\n    key uuid\n}\n",
 		})
@@ -354,6 +505,7 @@ var _ = Describe("snapshot command without schemas", Ordered, func() {
 	var cleanup func()
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		_, cleanup = setupMiniRepo("0.53.4", map[string]string{})
 	})
 
@@ -371,6 +523,7 @@ var _ = Describe("fmt --diff flag", Ordered, func() {
 	var cleanup func()
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
 			"user.oracle": "User struct {key uuid\nname   string}",
 		})
@@ -388,6 +541,7 @@ var _ = Describe("check command with bad schema", Ordered, func() {
 	var cleanup func()
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		_, cleanup = setupMiniRepo("0.53.4", map[string]string{
 			"bad.oracle": "this is not valid oracle syntax {{{{",
 		})

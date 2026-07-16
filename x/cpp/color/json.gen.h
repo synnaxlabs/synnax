@@ -42,7 +42,7 @@ inline Stop Stop::parse(x::json::Parser parser) {
         .key = parser.field<std::string>("key"),
         .color = parser.field<Color>("color"),
         .position = parser.field<double>("position"),
-        .switched = parser.field<bool>("switched", false),
+        .switched = parser.field<std::optional<bool>>("switched"),
     };
 }
 

@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 [project]
 name = "alamos"
 version = "0.56.0"
@@ -13,8 +22,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "mypy>=2.1.0,<3",
-    "ruff>=0.15.13,<1",
-    "pytest>=9.0.3,<10",
+    "ruff>=0.15.18,<1",
+    "pytest>=9.1.1,<10",
     "pytest-cov>=7.1.0,<8",
 ]
 

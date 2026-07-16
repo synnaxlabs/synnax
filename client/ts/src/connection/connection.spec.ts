@@ -8,19 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { TEST_CLIENT_PARAMS } from "@/testutil/client";
+import { TEST_CLIENT_PARAMS } from "@/testutil";
 import { Transport } from "@/transport";
 
 describe("connectivity", () => {
   it("should connect to the server", async () => {
     const transport = new Transport(
-      new URL({
+      new url.URL({
         host: TEST_CLIENT_PARAMS.host,
         port: Number(TEST_CLIENT_PARAMS.port),
       }),
@@ -39,7 +39,7 @@ describe("connectivity", () => {
   describe("version compatibility", () => {
     it("should pull the server and client versions", async () => {
       const transport = new Transport(
-        new URL({
+        new url.URL({
           host: TEST_CLIENT_PARAMS.host,
           port: Number(TEST_CLIENT_PARAMS.port),
         }),
@@ -57,7 +57,7 @@ describe("connectivity", () => {
     });
     it("should adjust state if the server is too old", async () => {
       const transport = new Transport(
-        new URL({
+        new url.URL({
           host: TEST_CLIENT_PARAMS.host,
           port: Number(TEST_CLIENT_PARAMS.port),
         }),
@@ -75,7 +75,7 @@ describe("connectivity", () => {
     });
     it("should adjust state if the server is too new", async () => {
       const transport = new Transport(
-        new URL({
+        new url.URL({
           host: TEST_CLIENT_PARAMS.host,
           port: Number(TEST_CLIENT_PARAMS.port),
         }),

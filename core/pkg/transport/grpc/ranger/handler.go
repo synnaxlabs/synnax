@@ -18,7 +18,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
-	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
+	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -47,6 +48,12 @@ type (
 		types.Nil,
 		*emptypb.Empty,
 	]
+	setEndServer = grpc.UnaryServer[
+		ranger.SetEndRequest,
+		*SetEndRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
 )
 
 type (
@@ -56,6 +63,7 @@ type (
 	retrieveResponseTranslator struct{}
 	deleteRequestTranslator    struct{}
 	renameRequestTranslator    struct{}
+	setEndRequestTranslator    struct{}
 )
 
 var (
@@ -65,6 +73,7 @@ var (
 	_ grpc.Translator[ranger.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(nil)
 	_ grpc.Translator[ranger.DeleteRequest, *DeleteRequest]       = (*deleteRequestTranslator)(nil)
 	_ grpc.Translator[ranger.RenameRequest, *RenameRequest]       = (*renameRequestTranslator)(nil)
+	_ grpc.Translator[ranger.SetEndRequest, *SetEndRequest]       = (*setEndRequestTranslator)(nil)
 )
 
 func (createRequestTranslator) Forward(
@@ -193,6 +202,24 @@ func (renameRequestTranslator) Backward(
 	return ranger.RenameRequest{Key: key, Name: r.Name}, nil
 }
 
+func (setEndRequestTranslator) Forward(
+	_ context.Context,
+	r ranger.SetEndRequest,
+) (*SetEndRequest, error) {
+	return &SetEndRequest{Key: r.Key.String(), End: int64(r.End)}, nil
+}
+
+func (setEndRequestTranslator) Backward(
+	_ context.Context,
+	r *SetEndRequest,
+) (ranger.SetEndRequest, error) {
+	key, err := uuid.Parse(r.Key)
+	if err != nil {
+		return ranger.SetEndRequest{}, err
+	}
+	return ranger.SetEndRequest{Key: key, End: telem.TimeStamp(r.End)}, nil
+}
+
 func New(t *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
@@ -218,10 +245,17 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ServiceDesc:        &RangeRenameService_ServiceDesc,
 	}
 	t.RangeRename = rename
+	setEnd := &setEndServer{
+		RequestTranslator:  setEndRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &RangeSetEndService_ServiceDesc,
+	}
+	t.RangeSetEnd = setEnd
 	return grpc.CompoundBindableTransport{
 		create,
 		retrieve,
 		rangeDelete,
 		rename,
+		setEnd,
 	}
 }

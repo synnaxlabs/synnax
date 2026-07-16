@@ -15,7 +15,6 @@ import {
   type Key,
   keyZ,
   type New,
-  newZ,
   type Policy,
   policyZ,
 } from "@/access/policy/types.gen";
@@ -53,12 +52,14 @@ const retrieveArgsZ = z.union([keyRetrieveRequestZ, listRetrieveArgsZ]);
 
 export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 
-const retrieveResZ = z.object({ policies: array.nullishToEmpty(policyZ) });
+const retrieveResZ = z.object({ policies: policyZ.array().default(() => []) });
 
-const singleCreateArgsZ = newZ.transform((p) => ({ policies: [p] }));
+const singleCreateArgsZ = policyZ.transform((p) => ({ policies: [p] }));
 export type SingleCreateArgs = z.input<typeof singleCreateArgsZ>;
 
-export const multipleCreateArgsZ = newZ.array().transform((policies) => ({ policies }));
+export const multipleCreateArgsZ = policyZ
+  .array()
+  .transform((policies) => ({ policies }));
 
 export const createArgsZ = z.union([singleCreateArgsZ, multipleCreateArgsZ]);
 export type CreateArgs = z.input<typeof createArgsZ>;

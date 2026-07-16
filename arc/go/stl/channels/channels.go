@@ -11,6 +11,7 @@ package channels
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -55,18 +56,22 @@ func NewSymbols() []*symbol.Symbol {
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
-				Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
+				Inputs:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
 			}),
+			Trigger: symbol.TriggerOnly,
 		},
 		{
 			Name: "write",
 			Kind: symbol.KindFunction,
 			Exec: symbol.ExecFlow,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
+				Inputs: types.Params{
+					{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+					{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))},
+				},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-				Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
 			}),
+			Trigger: symbol.TriggerInput(ir.DefaultInputParam),
 		},
 	}
 }
@@ -116,25 +121,29 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if !isSource && !isSink {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg config
-	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
+	var inputs nodeInputs
+	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
 	}
 	if isSource {
 		return &source{
 			State: cfg.State,
-			key:   nodeCfg.Channel,
+			key:   inputs.Channel,
 			state: h.state,
 		}, nil
 	}
-	return &sink{State: cfg.State, state: h.state, key: nodeCfg.Channel}, nil
+	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
+	if err != nil {
+		return nil, err
+	}
+	return &sink{State: cfg.State, state: h.state, key: inputs.Channel, inputIdx: inputIdx}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Uint32().Coerce(),
 })
 
-type config struct {
+type nodeInputs struct {
 	Channel uint32 `json:"channel"`
 }
 
@@ -168,46 +177,51 @@ func (s *source) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
-	for i, ser := range data.Series {
+	for _, ser := range data.Series {
 		ab := ser.AlignmentBounds()
-		if ab.Lower >= s.highWaterMark {
-			var timeSeries telem.Series
-			if indexData.DataType() == telem.UnknownT {
-				timeSeries = telem.Arrange(
-					s.clock.Now(),
-					int(ser.Len()),
-					1*telem.NanosecondTS,
-				)
-				timeSeries.Alignment = ser.Alignment
-			} else if len(indexData.Series) > i {
-				timeSeries = indexData.Series[i]
-			} else {
-				return
-			}
-			if timeSeries.Alignment != ser.Alignment {
-				return
-			}
-			*s.Output(0) = ser
-			*s.OutputTime(0) = timeSeries
-			s.highWaterMark = ab.Upper
-			ctx.MarkChanged(0)
-			return
+		if ab.Lower < s.highWaterMark {
+			continue
 		}
+		var timeSeries telem.Series
+		if indexData.DataType() == telem.UnknownT {
+			timeSeries = telem.Arrange(
+				s.clock.Now(),
+				int(ser.Len()),
+				1*telem.NanosecondTS,
+			)
+			timeSeries.Alignment = ser.Alignment
+		} else {
+			// Match by alignment, not position: a shared index also buffers other
+			// channels' series, so position i no longer pairs to the right timestamp.
+			i := slices.IndexFunc(indexData.Series, func(idx telem.Series) bool {
+				return idx.Alignment == ser.Alignment
+			})
+			if i == -1 {
+				continue
+			}
+			timeSeries = indexData.Series[i]
+		}
+		*s.Output(0) = ser
+		*s.OutputTime(0) = timeSeries
+		s.highWaterMark = ab.Upper
+		ctx.MarkChanged(0)
+		return
 	}
 }
 
 type sink struct {
 	*node.State
-	state *ProgramState
-	key   uint32
+	state    *ProgramState
+	key      uint32
+	inputIdx int
 }
 
 func (s *sink) Next(ctx node.Context) {
 	if !s.RefreshInputs() {
 		return
 	}
-	data := s.Input(0)
-	time := s.InputTime(0)
+	data := s.Input(s.inputIdx)
+	time := s.InputTime(s.inputIdx)
 	if data.Len() == 0 {
 		return
 	}

@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -35,10 +35,13 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 	if p.Internal && !w.allowInternal {
 		return errors.Wrap(validate.ErrValidation, "cannot create internal policy")
 	}
+	if err := p.Validate(); err != nil {
+		return err
+	}
 	if err := w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otg.DefineResource(ctx, OntologyID(p.Key))
+	return w.otg.DefineResources(ctx, OntologyID(p.Key))
 }
 
 // CreateMany creates the given policies. If policies with the same key already exist,
@@ -63,11 +66,10 @@ func (w Writer) SetOnRole(
 	roleKey role.Key,
 	policies ...Key,
 ) error {
-	policyIDs := OntologyIDs(policies)
-	for _, p := range policyIDs {
-		if err := w.otg.DefineRelationship(ctx, role.OntologyID(roleKey), ontology.RelationshipTypeParentOf, p); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DefineRelationships(
+		ctx,
+		role.OntologyID(roleKey),
+		ontology.RelationshipTypeParentOf,
+		OntologyIDs(policies)...,
+	)
 }

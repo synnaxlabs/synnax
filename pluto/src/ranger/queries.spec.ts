@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -136,13 +137,11 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "childRange",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "childRange",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useList(), {
         wrapper,
@@ -400,20 +399,16 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
-      const child1 = await client.ranges.create(
-        {
-          name: "child1",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        },
-        { parent: parentRange.ontologyID },
-      );
-      const child2 = await client.ranges.create(
-        {
-          name: "child2",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(3)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const child1 = await client.ranges.create({
+        name: "child1",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        parent: parentRange,
+      });
+      const child2 = await client.ranges.create({
+        name: "child2",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(3)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
@@ -435,14 +430,12 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "testChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-          color: "#00FF00",
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "testChild",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        color: "#00FF00",
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
@@ -501,13 +494,11 @@ describe("queries", () => {
       const initialLength = result.current.data.length;
       expect(initialLength).toEqual(0);
 
-      const newChild = await client.ranges.create(
-        {
-          name: "newChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const newChild = await client.ranges.create({
+        name: "newChild",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        parent: parentRange,
+      });
 
       await waitFor(() => {
         expect(result.current.data.length).toBeGreaterThan(initialLength);
@@ -520,13 +511,11 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "originalChild",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "originalChild",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
@@ -554,13 +543,11 @@ describe("queries", () => {
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "childToDelete",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "childToDelete",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(() => Ranger.useListChildren(), {
         wrapper,
@@ -588,20 +575,16 @@ describe("queries", () => {
         name: "grandparent",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(20)),
       });
-      const parentRange = await client.ranges.create(
-        {
-          name: "parent",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
-        },
-        { parent: grandparentRange.ontologyID },
-      );
-      const childRange = await client.ranges.create(
-        {
-          name: "child",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const parentRange = await client.ranges.create({
+        name: "parent",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(10)),
+        parent: grandparentRange,
+      });
+      const childRange = await client.ranges.create({
+        name: "child",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(5)),
+        parent: parentRange,
+      });
 
       // Test grandparent's children
       const { result: grandparentResult } = renderHook(() => Ranger.useListChildren(), {
@@ -641,13 +624,11 @@ describe("queries", () => {
       // Create multiple children at the same level
       const children = [];
       for (let i = 0; i < 3; i++) {
-        const child = await client.ranges.create(
-          {
-            name: `level1_child_${i}`,
-            timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(10)),
-          },
-          { parent: rootRange.ontologyID },
-        );
+        const child = await client.ranges.create({
+          name: `level1_child_${i}`,
+          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(10)),
+          parent: rootRange,
+        });
         children.push(child);
       }
 
@@ -811,13 +792,11 @@ describe("queries", () => {
         name: "parentForRetrieval",
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "childForRetrieval",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(15)),
-        },
-        { parent: parentRange.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "childForRetrieval",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(15)),
+        parent: parentRange,
+      });
 
       const { result } = renderHook(
         () => Ranger.useForm({ query: { key: childRange.key } }),
@@ -933,13 +912,11 @@ describe("queries", () => {
         name: "newParent",
         timeRange: TimeStamp.now().spanRange(TimeSpan.hours(2)),
       });
-      const childRange = await client.ranges.create(
-        {
-          name: "childForParentChange",
-          timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(30)),
-        },
-        { parent: originalParent.ontologyID },
-      );
+      const childRange = await client.ranges.create({
+        name: "childForParentChange",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.minutes(30)),
+        parent: originalParent,
+      });
 
       const { result } = renderHook(
         () => Ranger.useForm({ query: { key: childRange.key } }),

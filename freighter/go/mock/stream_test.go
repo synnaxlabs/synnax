@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Stream", Ordered, Serial, func() {
@@ -24,6 +25,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
 		server, client = mock.NewStreamPair[test.Request, test.Response](11, 11)
 	})
 

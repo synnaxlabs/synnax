@@ -107,8 +107,8 @@ var _ = Describe("Go Types Plugin", func() {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring("Labels []uuid.UUID `json:\"labels\" msgpack:\"labels\"`"))
-				Expect(content).To(ContainSubstring("Tags []string `json:\"tags\" msgpack:\"tags\"`"))
+				Expect(content).To(ContainSubstring("Labels []uuid.UUID `json:\"labels,omitzero\" msgpack:\"labels,omitzero\"`"))
+				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
 			})
 
 		})
@@ -808,7 +808,7 @@ var _ = Describe("Go Types Plugin", func() {
 				User struct {
 					key uuid
 					name string
-					address Address?
+					address Address
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -844,7 +844,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Task struct {
 					key uuid
 					name string
-					status status.Status?
+					status status.Status
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
@@ -1312,16 +1312,16 @@ var _ = Describe("Go Types Plugin", func() {
 			})
 		})
 
-		Context("hard optional fields", func() {
-			It("Should generate pointer type with omitempty for hard optional fields", func(ctx SpecContext) {
+		Context("optional fields", func() {
+			It("Should generate pointer type with omitempty for optional fields", func(ctx SpecContext) {
 				source := `
 				@go output "core/user"
 
 				User struct {
 					key uuid
 					name string
-					nickname string??
-					age int32??
+					nickname string?
+					age int32?
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
@@ -1337,18 +1337,18 @@ var _ = Describe("Go Types Plugin", func() {
 				// Required fields should not have omitempty
 				Expect(content).To(ContainSubstring("Key uuid.UUID `json:\"key\" msgpack:\"key\"`"))
 				Expect(content).To(ContainSubstring("Name string `json:\"name\" msgpack:\"name\"`"))
-				// Hard optional fields should have pointer type and omitempty
+				// Optional fields should have pointer type and omitempty
 				Expect(content).To(ContainSubstring("Nickname *string `json:\"nickname,omitempty\" msgpack:\"nickname,omitempty\"`"))
 				Expect(content).To(ContainSubstring("Age *int32 `json:\"age,omitempty\" msgpack:\"age,omitempty\"`"))
 			})
 
-			It("Should not use pointer for hard optional arrays", func(ctx SpecContext) {
+			It("Should keep slices plain and tag them omitzero", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
 				Config struct {
-					tags string[]??
-					counts int32[]??
+					tags string[]?
+					counts int32[]?
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -1361,17 +1361,18 @@ var _ = Describe("Go Types Plugin", func() {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Arrays should not be pointers but should still have omitempty
-				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitempty\" msgpack:\"tags,omitempty\"`"))
-				Expect(content).To(ContainSubstring("Counts []int32 `json:\"counts,omitempty\" msgpack:\"counts,omitempty\"`"))
+				// Slices stay plain (no pointer) and carry omitzero so a nil slice is
+				// omitted while a present empty slice still serializes as [].
+				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
+				Expect(content).To(ContainSubstring("Counts []int32 `json:\"counts,omitzero\" msgpack:\"counts,omitzero\"`"))
 			})
 
-			It("Should not use pointer for hard optional maps", func(ctx SpecContext) {
+			It("Should keep maps plain and tag them omitzero", func(ctx SpecContext) {
 				source := `
 				@go output "core/config"
 
 				Config struct {
-					settings map<string, string>??
+					settings map<string, string>?
 				}
 			`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
@@ -1384,8 +1385,32 @@ var _ = Describe("Go Types Plugin", func() {
 				resp := MustSucceed(goPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				// Maps should not be pointers but should still have omitempty
-				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings,omitempty\" msgpack:\"settings,omitempty\"`"))
+				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitzero\"`"))
+			})
+
+			It("Should tag required slices and maps with omitzero but leave bytes untagged", func(ctx SpecContext) {
+				source := `
+				@go output "core/config"
+
+				Config struct {
+					tags string[]
+					settings map<string, string>
+					blob bytes
+				}
+			`
+				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				Expect(diag.Ok()).To(BeTrue())
+
+				req := &plugin.Request{
+					Resolutions: table,
+				}
+
+				resp := MustSucceed(goPlugin.Generate(req))
+
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring("Tags []string `json:\"tags,omitzero\" msgpack:\"tags,omitzero\"`"))
+				Expect(content).To(ContainSubstring("Settings map[string]string `json:\"settings,omitzero\" msgpack:\"settings,omitzero\"`"))
+				Expect(content).To(ContainSubstring("Blob []byte `json:\"blob\" msgpack:\"blob\"`"))
 			})
 
 		})
@@ -1422,7 +1447,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`json:"wasm"`))
-				Expect(content).To(ContainSubstring(`json:"output_memory_bases"`))
+				Expect(content).To(ContainSubstring(`json:"output_memory_bases,omitzero"`))
 				Expect(content).To(ContainSubstring(`json:"camel_case_field"`))
 				Expect(content).To(ContainSubstring(`json:"pascal_case_field"`))
 				Expect(content).To(ContainSubstring(`json:"already_snake_case"`))
@@ -2087,7 +2112,7 @@ var _ = Describe("Go Union Field & Variant Coverage", func() {
 	It("Should resolve an array-of-union field to a slice of the interface", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
 		ExpectContent(resp, "types.gen.go").
-			ToContain("Scales []Scale `" + `json:"scales" msgpack:"scales"` + "`")
+			ToContain("Scales []Scale `" + `json:"scales,omitzero" msgpack:"scales,omitzero"` + "`")
 	})
 })
 
@@ -2228,3 +2253,5 @@ var _ = Describe("Union codec round trip", func() {
 		Expect(got.Scale.Variant.(rtScaleLinear).Slope).To(Equal(1.5))
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

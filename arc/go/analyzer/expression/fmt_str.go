@@ -85,7 +85,7 @@ func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 				"placeholder '{}' must contain an expression"))
 			continue
 		}
-		expr, diags := parser.ParseExpression(seg.Text)
+		expr, diags := parser.ParseExpression(seg.Text, ctx.Config)
 		if diags != nil && !diags.Ok() {
 			emit(diagnostics.Errorf(anchor,
 				"invalid placeholder expression %q: %s", seg.Text, diags.String()))

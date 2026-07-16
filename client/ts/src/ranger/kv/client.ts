@@ -15,7 +15,7 @@ import { type Pair, pairZ } from "@/ranger/kv/types.gen";
 import { type Key, keyZ } from "@/ranger/types.gen";
 
 const getReqZ = z.object({ range: keyZ, keys: z.string().array() });
-const getResZ = z.object({ pairs: array.nullishToEmpty(pairZ) });
+const getResZ = z.object({ pairs: pairZ.array().default(() => []) });
 const setReqZ = z.object({ range: keyZ, pairs: pairZ.array() });
 const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 

@@ -21,8 +21,10 @@ import (
 
 var _ = Describe("Tx", Ordered, func() {
 	var db kv.DB
-	BeforeAll(func() { db = memkv.New() })
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+	BeforeAll(func() {
+		ShouldNotLeakGoroutines()
+		db = DeferClose(memkv.New())
+	})
 	Describe("WithTx", func() {
 		It("Should commit the transaction if the returned error is nil", func(ctx SpecContext) {
 			k := []byte("test-1")

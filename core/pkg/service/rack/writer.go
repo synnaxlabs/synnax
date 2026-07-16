@@ -12,11 +12,10 @@ package rack
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -46,7 +45,7 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 			Key:     OntologyID(r.Key).String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.VariantWarning,
+			Variant: status.VariantWarning,
 			Message: "Status unknown",
 			Details: StatusDetails{Rack: r.Key},
 		}
@@ -56,6 +55,22 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 	stat.Details.Rack = r.Key
 	stat.Name = r.Name
 	return &stat
+}
+
+// healStatus restores a rack's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Racks are re-created on every scan cycle,
+// so on a no-op update the default "unknown" status must not overwrite a status the
+// driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *status.Status[StatusDetails],
+) error {
+	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+		Exists(ctx, w.tx); err != nil || exists {
+		return err
+	}
+	return w.status.Set(ctx, stat)
 }
 
 // Create creates or updates a rack. If the rack key is zero or a rack with the key
@@ -76,14 +91,20 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 		return err
 	}
 	otgID := OntologyID(r.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	stat := resolveStatus(r)
-	if err = w.status.Set(ctx, stat); err != nil {
+	if r.Status != nil {
+		if err = w.status.Set(ctx, stat); err != nil {
+			return err
+		}
+	} else if err = w.healStatus(ctx, stat); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID)
+	return w.otg.DefineRelationships(
+		ctx, w.group.OntologyID(), ontology.RelationshipTypeParentOf, otgID,
+	)
 }
 
 // CreateMany creates the given racks. If racks with the same key already exist, they

@@ -13,7 +13,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -50,7 +50,7 @@ func (w Writer) Create(
 		return err
 	}
 	otgID := OntologyID(s.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	// Symbol already exists = delete incoming relationships and define new parent
@@ -60,7 +60,9 @@ func (w Writer) Create(
 			return err
 		}
 	}
-	return w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID)
+	return w.otgWriter.DefineRelationships(
+		ctx, parent, ontology.RelationshipTypeParentOf, otgID,
+	)
 }
 
 // CreateMany creates the given symbols as children of the ontology.Resource with the
@@ -91,10 +93,5 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 	if err := w.table.NewDelete().Where(MatchKeys(keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

@@ -11,7 +11,6 @@ import { color, type record } from "@synnaxlabs/x";
 
 import { actions } from "@/actions";
 import {
-  type Action,
   addEdge,
   createReduceAll,
   type Handlers,
@@ -42,17 +41,6 @@ const handlers: Handlers = {
       inverse: [setNodePosition({ key: payload.key, position: oldPosition })],
       targets: [payload.key],
     };
-  },
-
-  // set_node_measured carries layout-derived dimensions, not user intent.
-  // Both the inverse and the target list are empty so it neither contributes
-  // to the undo stack nor invalidates undoables targeting the same node when
-  // a remote session emits it.
-  setNodeMeasured: (state, payload) => {
-    const node = state.nodes.find((n) => n.key === payload.key);
-    if (node == null) return actions.NO_OP_RESULT;
-    node.measured = payload.measured;
-    return { inverse: [], targets: [] };
   },
   setNode: (state, payload) => {
     const idx = state.nodes.findIndex((n) => n.key === payload.node.key);
@@ -151,8 +139,7 @@ const handlers: Handlers = {
     const edge = state.edges.find((e) => e.key === payload.key);
     if (edge != null) {
       const srcCfg = state.configs[edge.source.node] as
-        | { color?: color.Crude }
-        | undefined;
+        { color?: color.Crude } | undefined;
       if (srcCfg?.color != null && !color.isZero(srcCfg.color))
         cfg = { ...cfg, color: srcCfg.color };
     }
@@ -162,6 +149,3 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
-
-export const isUndoable = (action: Action): boolean =>
-  action.type !== "set_node_measured";

@@ -24,7 +24,7 @@ import {
 import { direction as dir, type direction } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
 
-export { type ClientXY as Client, clientXYZ, type XY, xyZ };
+export { type ClientXY as Client, clientXYZ, NumberCouple as Couple, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
@@ -213,6 +213,23 @@ export const sub = (a: Crude, b: Crude): XY => {
   const xy = construct(a);
   const xy_ = construct(b);
   return { x: xy.x - xy_.x, y: xy.y - xy_.y };
+};
+
+/** @returns the dot product of the two coordinates interpreted as vectors. */
+export const dot = (ca: Crude, cb: Crude): number => {
+  const a = construct(ca);
+  const b = construct(cb);
+  return a.x * b.x + a.y * b.y;
+};
+
+/**
+ * @returns the linear interpolation between the two coordinates at factor t, where t = 0
+ * yields the first coordinate and t = 1 yields the second.
+ */
+export const lerp = (ca: Crude, cb: Crude, t: number): XY => {
+  const a = construct(ca);
+  const b = construct(cb);
+  return { x: a.x * (1 - t) + b.x * t, y: a.y * (1 - t) + b.y * t };
 };
 
 /**

@@ -15,9 +15,9 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -89,7 +89,7 @@ type (
 		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
 	}
 	RetrieveResponse struct {
-		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
+		Tasks []task.Task `json:"tasks,omitzero" msgpack:"tasks,omitzero"`
 	}
 )
 
@@ -146,7 +146,6 @@ func (s *Service) Retrieve(
 			Exec(ctx, nil); err != nil {
 			return RetrieveResponse{}, err
 		}
-		// TODO(SY-4247)
 		for i, stat := range statuses {
 			res.Tasks[i].Status = &stat
 		}

@@ -12,7 +12,7 @@ package lineplot
 import (
 	"slices"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
@@ -24,15 +24,21 @@ func (p RenamePayload) Handle(state LinePlot) (LinePlot, error) {
 	return state, nil
 }
 
-// Handle replaces the plot title configuration.
-func (p SetTitlePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Title = p.Title
+// Handle sets whether the plot title is shown above the plot.
+func (p SetTitleVisiblePayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Title.Visible = p.Visible
 	return state, nil
 }
 
-// Handle sets whether the plot legend is shown.
-func (p SetLegendVisiblePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Legend.Visible = p.Visible
+// Handle sets the typography level of the plot title.
+func (p SetTitleLevelPayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Title.Level = p.Level
+	return state, nil
+}
+
+// Handle sets whether the plot legend is hidden.
+func (p SetLegendHiddenPayload) Handle(state LinePlot) (LinePlot, error) {
+	state.Legend.Hidden = p.Hidden
 	return state, nil
 }
 
@@ -209,7 +215,7 @@ func (p SetAxisBoundsPayload) Handle(state LinePlot) (LinePlot, error) {
 		return LinePlot{}, unknownAxisKey(p.Key)
 	}
 	axis.Bounds = p.Bounds
-	axis.AutoBounds = p.AutoBounds
+	axis.ManualBounds = p.ManualBounds
 	return state, nil
 }
 
@@ -443,8 +449,8 @@ func xAxisRangeSlice(r *Ranges, k XAxisKey) *[]string {
 const lineKeySeparator = "---"
 
 // Default styling for a newly materialized line. These mirror the Oracle schema
-// defaults on Line. Oracle does not currently emit Go-side struct defaults, so
-// they are duplicated here and must be kept in sync with schemas/lineplot.oracle.
+// defaults on Line. Oracle does not currently emit Go-side struct defaults, so they are
+// duplicated here and must be kept in sync with schemas/synnax/lineplot.oracle.
 const (
 	defaultLineStrokeWidth    = 2
 	defaultLineDownsample     = 1

@@ -22,7 +22,6 @@ import {
   type LinePlot,
   linePlotZ,
   type New,
-  newZ,
 } from "@/lineplot/types.gen";
 import { project } from "@/project";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -41,9 +40,9 @@ export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
 export type RetrieveSingleParams = z.input<typeof singleRetrieveArgsZ>;
 export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
 
-const retrieveResZ = z.object({ linePlots: array.nullishToEmpty(linePlotZ) });
+const retrieveResZ = z.object({ linePlots: linePlotZ.array().default(() => []) });
 
-const createReqZ = z.object({ project: project.keyZ, linePlots: newZ.array() });
+const createReqZ = z.object({ project: project.keyZ, linePlots: linePlotZ.array() });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});

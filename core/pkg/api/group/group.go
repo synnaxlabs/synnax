@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -35,7 +35,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	}
 	return &Service{
 		access:   cfg.Service.RBAC,
-		internal: cfg.Distribution.Group,
+		internal: cfg.Service.Group,
 	}, nil
 }
 
@@ -67,6 +67,36 @@ func (s *Service) Create(
 		return CreateResponse{}, err
 	}
 	return CreateResponse{Group: g}, nil
+}
+
+type (
+	RetrieveRequest struct {
+		Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
+	}
+	RetrieveResponse struct {
+		Groups []group.Group `json:"groups" msgpack:"groups"`
+	}
+)
+
+func (s *Service) Retrieve(
+	ctx context.Context,
+	req RetrieveRequest,
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	if err := s.internal.NewRetrieve().
+		Where(group.MatchKeys(req.Keys...)).
+		Entries(&res.Groups).
+		Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: group.OntologyIDsFromGroups(res.Groups),
+	}); err != nil {
+		return RetrieveResponse{}, err
+	}
+	return res, nil
 }
 
 type DeleteRequest struct {

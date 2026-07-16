@@ -12,10 +12,9 @@ package rack
 import (
 	"strconv"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a rack. Each rack is leased to a particular
@@ -60,14 +59,6 @@ func (r Rack) GorpKey() Key { return r.Key }
 
 // SetOptions implements gorp.Entry.
 func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
-
-// Validate implements config.Config.
-func (r Rack) Validate() error {
-	v := validate.New("rack")
-	validate.NonZero(v, "key", r.Key)
-	validate.NotEmptyString(v, "name", r.Name)
-	return v.Error()
-}
 
 func StatusKey(k Key) string {
 	return OntologyID(k).String()

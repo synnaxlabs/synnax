@@ -89,23 +89,18 @@ var _ = Describe("Control", func() {
 
 	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, Ordered, func() {
-			var (
-				fs fs.FS
-			)
+			var fs fs.FS
+
 			BeforeAll(func() {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
 			})
-			AfterAll(func() {
-			})
-
 			Describe("Nominal", func() {
 				var db *cesium.DB
 				BeforeAll(func(ctx SpecContext) {
-					db = openDBOnFS(ctx, fs)
+					ShouldNotLeakGoroutines()
+					db = mustOpenDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32, "control")).To(Succeed())
-				})
-				AfterAll(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 
 				Describe("Single Channel, Two Writer Contention", func() {

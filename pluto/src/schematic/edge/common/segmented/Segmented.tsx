@@ -13,7 +13,6 @@ import { type schematic } from "@synnaxlabs/client";
 import { box, color, direction, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
-  type DragEvent,
   type FC,
   Fragment,
   type ReactElement,
@@ -24,20 +23,20 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Cursor } from "@/cursor";
 import { type Base } from "@/schematic/edge/common/base";
+import { Jumps } from "@/schematic/edge/common/jumps";
 import {
   type Config,
   createConfigZ,
   createDefaultConfig,
 } from "@/schematic/edge/common/segmented/config";
 import {
-  createConnector,
+  build,
   dragSegment,
   extractMiddle,
   type Segment,
   segmentsToPoints,
-  stitchEdge,
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
@@ -51,12 +50,14 @@ interface CurrentlyDragging {
 
 export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
   points: xy.XY[];
+  crossings: xy.XY[];
 }
 
 const create = <V extends schematic.EdgeConfigType>(
   Path: FC<PathProps>,
 ): Edge<Config<V>> => {
   const E: Edge<Config<V>> = ({
+    edgeKey,
     source,
     target,
     sourceNode,
@@ -66,32 +67,26 @@ const create = <V extends schematic.EdgeConfigType>(
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
-    const visualSegments = useMemo(() => {
-      if (middleSegments.length === 0)
-        return createConnector({
-          sourcePos: source.position,
-          targetPos: target.position,
-          sourceOrientation: source.orientation,
-          targetOrientation: target.orientation,
+    const crossings = Jumps.useCrossings(edgeKey);
+    const visualSegments = useMemo(
+      () =>
+        build({
+          source,
+          target,
           sourceBox: selectNodeBox(flow, sourceNode),
           targetBox: selectNodeBox(flow, targetNode),
-        });
-      return stitchEdge({
-        sourceOrientation: source.orientation,
-        targetOrientation: target.orientation,
-        sourcePos: source.position,
-        targetPos: target.position,
+          middleSegments,
+        }),
+      [
+        source.position.x,
+        source.position.y,
+        target.position.x,
+        target.position.y,
+        source.orientation,
+        target.orientation,
         middleSegments,
-      });
-    }, [
-      source.position.x,
-      source.position.y,
-      target.position.x,
-      target.position.y,
-      source.orientation,
-      target.orientation,
-      middleSegments,
-    ]);
+      ],
+    );
 
     const persistMiddle = useCallback(
       (segs: Segment[]) => {
@@ -109,11 +104,11 @@ const create = <V extends schematic.EdgeConfigType>(
     const segments = dragOverride ?? visualSegments;
     const dragRef = useRef<CurrentlyDragging | null>(null);
 
-    const dragStart = useCursorDrag({
+    const dragStart = Cursor.useDrag({
       onStart: useCallback(
-        (_: xy.XY, __: Key, e: DragEvent) => {
+        (_: xy.XY, __: Key, el: HTMLElement) => {
           dragRef.current = {
-            index: Number(e.currentTarget.id.split("-")[1]),
+            index: Number(el.id.split("-")[1]),
             segments: [...segments],
           };
         },
@@ -147,7 +142,7 @@ const create = <V extends schematic.EdgeConfigType>(
 
     return (
       <>
-        <Path points={points} color={edgeColor ?? color.ZERO} />
+        <Path points={points} crossings={crossings} color={edgeColor ?? color.ZERO} />
         {selected &&
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;
@@ -177,9 +172,9 @@ const create = <V extends schematic.EdgeConfigType>(
                     className={CSS(
                       CSS.BE("diagram-edge-handle", "dragger"),
                       CSS.dir(dir),
+                      Cursor.DRAG_CLASS,
                     )}
-                    draggable
-                    onDragStart={dragStart}
+                    onPointerDown={dragStart}
                   />
                 </foreignObject>
               </Fragment>

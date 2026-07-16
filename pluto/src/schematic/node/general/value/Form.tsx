@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type text } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
@@ -19,58 +19,50 @@ import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { Value } from "@/vis/value";
 
-const VALUE_FORM_TABS: Tabs.Tab[] = [
-  { tabKey: "style", name: "Style" },
-  { tabKey: "telemetry", name: "Telemetry" },
-  { tabKey: "redline", name: "Redline" },
-];
-
-export const ValueForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telemetry":
-        return (
-          <Form.Wrapper y empty>
-            <Value.TelemForm path="" />
-          </Form.Wrapper>
-        );
-      case "redline":
-        return (
-          <Form.Wrapper y empty>
-            <Value.RedlineForm path="redline" />
-          </Form.Wrapper>
-        );
-      default:
-        return (
-          <Form.Wrapper x>
-            <Flex.Box y grow>
-              <Label.Form path="label" />
-              <Flex.Box x>
-                <Form.ColorField path="color" />
-                <Form.UnitsField />
-                <Base.NumericField
-                  path="inlineSize"
-                  label="Value width"
-                  hideIfNull
-                  inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-                />
-                <Base.Field<text.Level>
-                  path="level"
-                  label="Size"
-                  hideIfNull
-                  padHelpText={false}
-                >
-                  {({ value, onChange }) => (
-                    <Select.Text.Level value={value} onChange={onChange} />
-                  )}
-                </Base.Field>
-              </Flex.Box>
-            </Flex.Box>
-            <Orientation.Field path="" hideInner />
-          </Form.Wrapper>
-        );
-    }
-  }, []);
-  const props = Tabs.useStatic({ tabs: VALUE_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
-};
+export const ValueForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
+      <Tabs.Tab itemKey="redline">Redline</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <Form.Wrapper x>
+        <Flex.Box y grow>
+          <Label.Form path="label" />
+          <Flex.Box x>
+            <Form.ColorField path="color" />
+            <Form.UnitsField />
+            <Base.NumericField
+              path="inlineSize"
+              label="Value width"
+              hideIfNull
+              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+            />
+            <Base.Field<text.Level>
+              path="level"
+              label="Size"
+              hideIfNull
+              padHelpText={false}
+            >
+              {({ value, onChange }) => (
+                <Select.Text.Level value={value} onChange={onChange} />
+              )}
+            </Base.Field>
+          </Flex.Box>
+        </Flex.Box>
+        <Orientation.Field path="" hideInner />
+      </Form.Wrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="telemetry">
+      <Form.Wrapper y empty>
+        <Value.TelemForm path="" />
+      </Form.Wrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="redline">
+      <Form.Wrapper y empty>
+        <Value.RedlineForm path="redline" />
+      </Form.Wrapper>
+    </Tabs.Content>
+  </Tabs.Frame>
+);

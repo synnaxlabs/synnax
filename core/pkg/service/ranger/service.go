@@ -15,12 +15,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -35,34 +35,40 @@ import (
 // ServiceConfig is the configuration for opening the ranger.Service.
 type ServiceConfig struct {
 	// DB is the underlying database that the service will use to store Ranges.
+	//
+	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology will be used to create relationships between ranges (parent-child) and
 	// with other resources within the Synnax cluster.
+	//
+	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create the top level "Ranges" group that will be the default
 	// parent of all ranges.
+	//
+	// [REQUIRED]
 	Group *group.Service
 	// Signals is used to publish signals on channels when ranges are created, updated,
 	// or deleted.
+	//
+	// [OPTIONAL] - Defaults to nil.
 	Signals *signals.Provider
 	// Label is the label service used to attach, remove, and query labels related to
 	// changes.
+	//
+	// [REQUIRED]
 	Label *label.Service
-	// ForceMigration will force all migrations to run, regardless of whether they have
-	// already been run.
-	ForceMigration *bool
 	// Search is the search index for fuzzy searching ranges.
+	//
 	// [REQUIRED]
 	Search *search.Index
 	// Instrumentation for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a range service.
-	DefaultServiceConfig = ServiceConfig{ForceMigration: new(false)}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
@@ -71,7 +77,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "label", c.Label)
-	validate.NotNil(v, "force_migration", c.ForceMigration)
 	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
@@ -85,7 +90,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Search = override.Nil(c.Search, other.Search)
-	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
 	return c
 }
 
@@ -101,7 +105,7 @@ type Service struct {
 // nil, the services is ready for use and must be closed by calling Close to prevent
 // resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -113,11 +117,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Instrumentation: cfg.Instrumentation,
 	})
-	if s.table, err = gorp.OpenTable[Key, Range](ctx, gorp.TableConfig[Key, Range]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Range]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[Key, Range]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[Key, v0.Range](codecMigrationKey, v0Mig.Key()),
+			colorNullableMigration(),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -132,7 +137,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Range](s.table.Observe()),
+		signals.GorpPublisherConfigUUID(s.table.Observe()),
 	); !ok(err, sig) {
 		return nil, err
 	}
@@ -152,6 +157,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:        gorp.OverrideTx(s.cfg.DB, tx),
 		otg:       s.cfg.Ontology,
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		label:     s.cfg.Label,
 		table:     s.table,
 	}
 }
@@ -166,8 +172,8 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-// RetrieveParentKey returns the parent range key for the given range key.
-// Returns query.ErrNotFound if the range has no parent.
+// RetrieveParentKey returns the parent range key for the given range key. Returns
+// query.ErrNotFound if the range has no parent.
 func (s *Service) RetrieveParentKey(
 	ctx context.Context,
 	key Key,

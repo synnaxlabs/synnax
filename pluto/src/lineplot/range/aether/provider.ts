@@ -11,7 +11,6 @@ import { ranger, type Synnax } from "@synnaxlabs/client";
 import {
   bounds,
   box,
-  clamp,
   color,
   type destructor,
   type scale,
@@ -99,6 +98,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     };
   }
 
+  afterDelete(): void {
+    this.internal.removeListener?.();
+  }
+
   private fetchInitial(timeRange: TimeRange): void {
     const { internal: i } = this;
     const { client, runAsync } = i;
@@ -141,7 +144,10 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       if (endPos < box.left(region) || startPos > box.right(region)) return;
       visibleCount++;
       if (!visible) return;
-      startPos = clamp(startPos, box.left(region) - 2, box.right(region) - 1);
+      startPos = bounds.clamp(
+        { lower: box.left(region) - 2, upper: box.right(region) - 1 },
+        startPos,
+      );
       let hovered = false;
       if (cursor != null)
         hovered = bounds.contains({ lower: startPos, upper: endPos }, cursor);

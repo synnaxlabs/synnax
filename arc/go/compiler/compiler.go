@@ -32,7 +32,6 @@ package compiler
 
 import (
 	"context"
-	"slices"
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
@@ -84,6 +83,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 	resolver := resolve.NewResolver()
 
 	compCtx := ccontext.NewRoot(ctx, program.Symbols, program.TypeMap, resolver)
+	compCtx.Config = o.config
 
 	for i, f := range program.Functions {
 		resolver.RegisterLocal(f.Key, uint32(i))
@@ -102,7 +102,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 			compiled = append(compiled, cf)
 			continue
 		}
-		params := slices.Concat(i.Config, i.Inputs)
+		params := i.Inputs
 		var returnType types.Type
 		defaultOutput, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
 		hasNamedOutputs := len(i.Outputs) > 1 || (len(i.Outputs) == 1 && !hasDefaultOutput)

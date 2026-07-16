@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -28,6 +28,11 @@ var _ = Describe("Writer", func() {
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
 			Expect(s.Key).ToNot(Equal(uuid.Nil))
+		})
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			s := schematic.Schematic{}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).
+				To(MatchError(ContainSubstring("name: required")))
 		})
 	})
 	Describe("CreateMany", func() {

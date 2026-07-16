@@ -10,6 +10,9 @@
 package graph
 
 import (
+	"maps"
+
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/ir"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -30,44 +33,13 @@ func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 	if len(n.Key) == 0 {
 		var legacy struct {
 			Key      string
-			Type     string
-			Config   xmsgpack.EncodedJSON
 			Position spatial.XY
 		}
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
 			return err
 		}
 		n.Key = legacy.Key
-		n.Type = legacy.Type
-		n.Config = legacy.Config
 		n.Position = legacy.Position
-	}
-	return nil
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
-func (v *Viewport) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias Viewport
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(v)); err != nil {
-		return err
-	}
-	// Always try legacy since Zoom=0 could indicate failed decode or valid value,
-	// but in practice zoom is never 0 for new data (defaults to 1.0).
-	var legacy struct {
-		Position spatial.XY
-		Zoom     float64
-	}
-	if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-		return err
-	}
-	if legacy.Zoom != 0 && v.Zoom == 0 {
-		v.Position = legacy.Position
-		v.Zoom = legacy.Zoom
 	}
 	return nil
 }
@@ -85,7 +57,6 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 	}
 	if g.Nodes == nil {
 		var legacy struct {
-			Viewport  Viewport
 			Functions ir.Functions
 			Edges     ir.Edges
 			Nodes     Nodes
@@ -93,10 +64,35 @@ func (g *Graph) DecodeMsgpack(dec *msgpack.Decoder) error {
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
 			return err
 		}
-		g.Viewport = legacy.Viewport
 		g.Functions = legacy.Functions
-		g.Edges = legacy.Edges
+		g.Edges = make(Edges, len(legacy.Edges))
+		for i, e := range legacy.Edges {
+			g.Edges[i] = Edge{Edge: e, Key: uuid.NewString()}
+		}
 		g.Nodes = legacy.Nodes
+	}
+	// Legacy graphs stored the function type and config inline on each node with
+	// no inputs map; lift them into Inputs keyed by node key.
+	if g.Inputs == nil {
+		var legacy struct {
+			Nodes []struct {
+				Key    string               `msgpack:"key"`
+				Type   string               `msgpack:"type"`
+				Config xmsgpack.EncodedJSON `msgpack:"config"`
+			} `msgpack:"nodes"`
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		if len(legacy.Nodes) > 0 {
+			g.Inputs = make(map[string]xmsgpack.EncodedJSON, len(legacy.Nodes))
+			for _, ln := range legacy.Nodes {
+				inputs := xmsgpack.EncodedJSON{}
+				maps.Copy(inputs, ln.Config)
+				inputs["type"] = ln.Type
+				g.Inputs[ln.Key] = inputs
+			}
+		}
 	}
 	return nil
 }

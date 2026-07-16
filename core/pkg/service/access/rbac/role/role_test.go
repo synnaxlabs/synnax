@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -192,7 +192,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
 		It("Should assign role to subject", func(ctx SpecContext) {
@@ -240,7 +240,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(w.Create(ctx, r)).To(Succeed())
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 			Expect(w.AssignRole(ctx, subject, r.Key)).To(Succeed())
 		})
 
@@ -425,13 +425,6 @@ var _ = Describe("Ontology Integration", func() {
 	Describe("Type", func() {
 		It("Should return correct ontology type", func(ctx SpecContext) {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypeRole))
-		})
-	})
-
-	Describe("Schema", func() {
-		It("Should return a valid schema", func(ctx SpecContext) {
-			schema := svc.Schema()
-			Expect(schema).ToNot(BeNil())
 		})
 	})
 

@@ -14,8 +14,8 @@
 #include <string>
 
 #include "client/cpp/arc/types.gen.h"
+#include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/json.gen.h"
 
 #include "arc/cpp/graph/json.gen.h"
 #include "arc/cpp/program/json.gen.h"

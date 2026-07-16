@@ -13,8 +13,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
@@ -36,6 +36,11 @@ var _ = Describe("Writer", func() {
 			plot := lineplot.LinePlot{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
 			Expect(plot.Key).ToNot(Equal(uuid.Nil))
+		})
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			plot := lineplot.LinePlot{}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).
+				To(MatchError(ContainSubstring("name: required")))
 		})
 		It("Should populate lines from channel and range bindings supplied at creation", func(ctx SpecContext) {
 			plot := lineplot.LinePlot{
@@ -160,18 +165,31 @@ var _ = Describe("Writer", func() {
 				Expect(res.Name).To(Equal("renamed"))
 			})
 
-			It("Should apply SetTitle", func(ctx SpecContext) {
+			It("Should apply SetTitleLevel", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-					lineplot.NewSetTitleAction(lineplot.SetTitlePayload{
-						Title: lineplot.Title{Level: text.LevelH2, Visible: true},
+					lineplot.NewSetTitleLevelAction(lineplot.SetTitleLevelPayload{
+						Level: text.LevelH2,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
 				Expect(res.Title.Level).To(Equal(text.LevelH2))
+			})
+
+			It("Should apply SetTitleVisible", func(ctx SpecContext) {
+				plot := lineplot.LinePlot{Name: "test"}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
+					lineplot.NewSetTitleVisibleAction(lineplot.SetTitleVisiblePayload{
+						Visible: true,
+					}),
+				})).To(Succeed())
+				var res lineplot.LinePlot
+				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
+					To(Succeed())
 				Expect(res.Title.Visible).To(BeTrue())
 			})
 
@@ -189,18 +207,18 @@ var _ = Describe("Writer", func() {
 				Expect(res.Legend.Position.X).To(Equal(10.0))
 			})
 
-			It("Should apply SetLegendVisible", func(ctx SpecContext) {
+			It("Should apply SetLegendHidden", func(ctx SpecContext) {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-					lineplot.NewSetLegendVisibleAction(lineplot.SetLegendVisiblePayload{
-						Visible: false,
+					lineplot.NewSetLegendHiddenAction(lineplot.SetLegendHiddenPayload{
+						Hidden: true,
 					}),
 				})).To(Succeed())
 				var res lineplot.LinePlot
 				Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).
 					To(Succeed())
-				Expect(res.Legend.Visible).To(BeFalse())
+				Expect(res.Legend.Hidden).To(BeTrue())
 			})
 
 			It("Should append a channel to a y-axis via AddChannel", func(ctx SpecContext) {

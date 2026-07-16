@@ -27,6 +27,35 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("Edge", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original graph.Edge) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded graph.Edge
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", graph.Edge{
+				Edge: ir.Edge{
+					Source: ir.Handle{Node: "test_2", Param: "test_3"},
+					Target: ir.Handle{Node: "test_5", Param: "test_6"},
+					Kind:   ir.EdgeKind(0),
+				},
+				Key: "test_8",
+			}),
+			Entry("zero values", graph.Edge{
+				Edge: ir.Edge{
+					Source: ir.Handle{Node: "", Param: ""},
+					Target: ir.Handle{Node: "", Param: ""},
+					Kind:   ir.EdgeKind(0),
+				},
+				Key: "",
+			}),
+		)
+	})
 	Describe("Graph", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original graph.Graph) {
@@ -39,101 +68,76 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", graph.Graph{
-				Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 				Functions: []ir.Function{
 					{
-						Key:  "test_7",
-						Body: ir.Body{Raw: "test_9"},
-						Config: []types.Param{
-							{
-								Name: "test_11",
-								Type: types.Type{
-									FunctionProperties: types.FunctionProperties{
-										Inputs:  []types.Param{{}},
-										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
-									},
-									Kind:          types.Kind(0),
-									Name:          "test_17",
-									Elem:          new(types.Type{}),
-									Unit:          new(types.Unit{}),
-									Constraint:    new(types.Type{}),
-									ChanDirection: types.ChanDirection(0),
-								},
-								Value: map[string]interface{}{"key_22": "value_22"},
-							},
-						},
+						Key:  "test_2",
+						Body: ir.Body{Raw: "test_4"},
 						Inputs: []types.Param{
 							{
-								Name: "test_24",
+								Name: "test_6",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
 										Inputs:  []types.Param{{}},
 										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
-									Name:          "test_30",
+									Name:          "test_11",
 									Elem:          new(types.Type{}),
 									Unit:          new(types.Unit{}),
 									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_35": "value_35"},
+								Value: map[string]interface{}{"key_16": "value_16"},
 							},
 						},
 						Outputs: []types.Param{
 							{
-								Name: "test_37",
+								Name: "test_18",
 								Type: types.Type{
 									FunctionProperties: types.FunctionProperties{
 										Inputs:  []types.Param{{}},
 										Outputs: []types.Param{{}},
-										Config:  []types.Param{{}},
 									},
 									Kind:          types.Kind(0),
-									Name:          "test_43",
+									Name:          "test_23",
 									Elem:          new(types.Type{}),
 									Unit:          new(types.Unit{}),
 									Constraint:    new(types.Type{}),
 									ChanDirection: types.ChanDirection(0),
 								},
-								Value: map[string]interface{}{"key_48": "value_48"},
+								Value: map[string]interface{}{"key_28": "value_28"},
 							},
 						},
 						Channels: types.Channels{
-							Read:  map[uint32]string{51: "test_50"},
-							Write: map[uint32]string{52: "test_51"},
+							Read:  map[uint32]string{31: "test_30"},
+							Write: map[uint32]string{32: "test_31"},
 						},
 					},
 				},
-				Edges: []ir.Edge{
+				Edges: []graph.Edge{
 					{
-						Source: ir.Handle{Node: "test_54", Param: "test_55"},
-						Target: ir.Handle{Node: "test_57", Param: "test_58"},
-						Kind:   ir.EdgeKind(0),
+						Edge: ir.Edge{
+							Source: ir.Handle{Node: "test_34", Param: "test_35"},
+							Target: ir.Handle{Node: "test_37", Param: "test_38"},
+							Kind:   ir.EdgeKind(0),
+						},
+						Key: "test_40",
 					},
 				},
-				Nodes: []graph.Node{
-					{
-						Key:      "test_61",
-						Type:     "test_62",
-						Config:   msgpack.EncodedJSON{"key_63": "value_63"},
-						Position: spatial.XY{X: 65.5, Y: 66.5},
-					},
-				},
+				Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+				Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 			}),
 			Entry("zero values", graph.Graph{
-				Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
 				Functions: nil,
 				Edges:     nil,
 				Nodes:     nil,
+				Inputs:    nil,
 			}),
 			Entry("empty collections", graph.Graph{
-				Viewport:  graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 				Functions: []ir.Function{},
-				Edges:     []ir.Edge{},
+				Edges:     []graph.Edge{},
 				Nodes:     []graph.Node{},
+				Inputs:    map[string]msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -148,122 +152,96 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", graph.Node{
-				Key:      "test_1",
-				Type:     "test_2",
-				Config:   msgpack.EncodedJSON{"key_3": "value_3"},
-				Position: spatial.XY{X: 5.5, Y: 6.5},
-			}),
-			Entry("zero values", graph.Node{
-				Key:      "",
-				Type:     "",
-				Config:   nil,
-				Position: spatial.XY{X: 0, Y: 0},
-			}),
-		)
-	})
-	Describe("Viewport", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original graph.Viewport) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded graph.Viewport
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}),
-			Entry("zero values", graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}),
+			Entry("fully populated", graph.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}),
+			Entry("zero values", graph.Node{Key: "", Position: spatial.XY{X: 0, Y: 0}}),
 		)
 	})
 })
 
+func BenchmarkEncodeDecodeEdge(b *testing.B) {
+	e := graph.Edge{
+		Edge: ir.Edge{
+			Source: ir.Handle{Node: "test_2", Param: "test_3"},
+			Target: ir.Handle{Node: "test_5", Param: "test_6"},
+			Kind:   ir.EdgeKind(0),
+		},
+		Key: "test_8",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := e.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded graph.Edge
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeGraph(b *testing.B) {
 	g := graph.Graph{
-		Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 		Functions: []ir.Function{
 			{
-				Key:  "test_7",
-				Body: ir.Body{Raw: "test_9"},
-				Config: []types.Param{
-					{
-						Name: "test_11",
-						Type: types.Type{
-							FunctionProperties: types.FunctionProperties{
-								Inputs:  []types.Param{{}},
-								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
-							},
-							Kind:          types.Kind(0),
-							Name:          "test_17",
-							Elem:          new(types.Type{}),
-							Unit:          new(types.Unit{}),
-							Constraint:    new(types.Type{}),
-							ChanDirection: types.ChanDirection(0),
-						},
-						Value: map[string]interface{}{"key_22": "value_22"},
-					},
-				},
+				Key:  "test_2",
+				Body: ir.Body{Raw: "test_4"},
 				Inputs: []types.Param{
 					{
-						Name: "test_24",
+						Name: "test_6",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
 								Inputs:  []types.Param{{}},
 								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
 							},
 							Kind:          types.Kind(0),
-							Name:          "test_30",
+							Name:          "test_11",
 							Elem:          new(types.Type{}),
 							Unit:          new(types.Unit{}),
 							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_35": "value_35"},
+						Value: map[string]interface{}{"key_16": "value_16"},
 					},
 				},
 				Outputs: []types.Param{
 					{
-						Name: "test_37",
+						Name: "test_18",
 						Type: types.Type{
 							FunctionProperties: types.FunctionProperties{
 								Inputs:  []types.Param{{}},
 								Outputs: []types.Param{{}},
-								Config:  []types.Param{{}},
 							},
 							Kind:          types.Kind(0),
-							Name:          "test_43",
+							Name:          "test_23",
 							Elem:          new(types.Type{}),
 							Unit:          new(types.Unit{}),
 							Constraint:    new(types.Type{}),
 							ChanDirection: types.ChanDirection(0),
 						},
-						Value: map[string]interface{}{"key_48": "value_48"},
+						Value: map[string]interface{}{"key_28": "value_28"},
 					},
 				},
 				Channels: types.Channels{
-					Read:  map[uint32]string{51: "test_50"},
-					Write: map[uint32]string{52: "test_51"},
+					Read:  map[uint32]string{31: "test_30"},
+					Write: map[uint32]string{32: "test_31"},
 				},
 			},
 		},
-		Edges: []ir.Edge{
+		Edges: []graph.Edge{
 			{
-				Source: ir.Handle{Node: "test_54", Param: "test_55"},
-				Target: ir.Handle{Node: "test_57", Param: "test_58"},
-				Kind:   ir.EdgeKind(0),
+				Edge: ir.Edge{
+					Source: ir.Handle{Node: "test_34", Param: "test_35"},
+					Target: ir.Handle{Node: "test_37", Param: "test_38"},
+					Kind:   ir.EdgeKind(0),
+				},
+				Key: "test_40",
 			},
 		},
-		Nodes: []graph.Node{
-			{
-				Key:      "test_61",
-				Type:     "test_62",
-				Config:   msgpack.EncodedJSON{"key_63": "value_63"},
-				Position: spatial.XY{X: 65.5, Y: 66.5},
-			},
-		},
+		Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+		Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -281,12 +259,7 @@ func BenchmarkEncodeDecodeGraph(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeNode(b *testing.B) {
-	nv := graph.Node{
-		Key:      "test_1",
-		Type:     "test_2",
-		Config:   msgpack.EncodedJSON{"key_3": "value_3"},
-		Position: spatial.XY{X: 5.5, Y: 6.5},
-	}
+	nv := graph.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for i := 0; i < b.N; i++ {
@@ -302,109 +275,127 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeViewport(b *testing.B) {
-	vv := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := vv.EncodeOrc(w); err != nil {
-			b.Fatal(err)
+func FuzzDecodeEdge(f *testing.F) {
+	{
+		seed := graph.Edge{
+			Edge: ir.Edge{
+				Source: ir.Handle{Node: "test_2", Param: "test_3"},
+				Target: ir.Handle{Node: "test_5", Param: "test_6"},
+				Kind:   ir.EdgeKind(0),
+			},
+			Key: "test_8",
 		}
-		var decoded graph.Viewport
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
 		}
+		f.Add(w.Bytes())
 	}
+	{
+		seed := graph.Edge{
+			Edge: ir.Edge{
+				Source: ir.Handle{Node: "", Param: ""},
+				Target: ir.Handle{Node: "", Param: ""},
+				Kind:   ir.EdgeKind(0),
+			},
+			Key: "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded graph.Edge
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded graph.Edge
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeGraph(f *testing.F) {
 	{
 		seed := graph.Graph{
-			Viewport: graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 			Functions: []ir.Function{
 				{
-					Key:  "test_7",
-					Body: ir.Body{Raw: "test_9"},
-					Config: []types.Param{
-						{
-							Name: "test_11",
-							Type: types.Type{
-								FunctionProperties: types.FunctionProperties{
-									Inputs:  []types.Param{{}},
-									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
-								},
-								Kind:          types.Kind(0),
-								Name:          "test_17",
-								Elem:          new(types.Type{}),
-								Unit:          new(types.Unit{}),
-								Constraint:    new(types.Type{}),
-								ChanDirection: types.ChanDirection(0),
-							},
-							Value: map[string]interface{}{"key_22": "value_22"},
-						},
-					},
+					Key:  "test_2",
+					Body: ir.Body{Raw: "test_4"},
 					Inputs: []types.Param{
 						{
-							Name: "test_24",
+							Name: "test_6",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
 									Inputs:  []types.Param{{}},
 									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
-								Name:          "test_30",
+								Name:          "test_11",
 								Elem:          new(types.Type{}),
 								Unit:          new(types.Unit{}),
 								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_35": "value_35"},
+							Value: map[string]interface{}{"key_16": "value_16"},
 						},
 					},
 					Outputs: []types.Param{
 						{
-							Name: "test_37",
+							Name: "test_18",
 							Type: types.Type{
 								FunctionProperties: types.FunctionProperties{
 									Inputs:  []types.Param{{}},
 									Outputs: []types.Param{{}},
-									Config:  []types.Param{{}},
 								},
 								Kind:          types.Kind(0),
-								Name:          "test_43",
+								Name:          "test_23",
 								Elem:          new(types.Type{}),
 								Unit:          new(types.Unit{}),
 								Constraint:    new(types.Type{}),
 								ChanDirection: types.ChanDirection(0),
 							},
-							Value: map[string]interface{}{"key_48": "value_48"},
+							Value: map[string]interface{}{"key_28": "value_28"},
 						},
 					},
 					Channels: types.Channels{
-						Read:  map[uint32]string{51: "test_50"},
-						Write: map[uint32]string{52: "test_51"},
+						Read:  map[uint32]string{31: "test_30"},
+						Write: map[uint32]string{32: "test_31"},
 					},
 				},
 			},
-			Edges: []ir.Edge{
+			Edges: []graph.Edge{
 				{
-					Source: ir.Handle{Node: "test_54", Param: "test_55"},
-					Target: ir.Handle{Node: "test_57", Param: "test_58"},
-					Kind:   ir.EdgeKind(0),
+					Edge: ir.Edge{
+						Source: ir.Handle{Node: "test_34", Param: "test_35"},
+						Target: ir.Handle{Node: "test_37", Param: "test_38"},
+						Kind:   ir.EdgeKind(0),
+					},
+					Key: "test_40",
 				},
 			},
-			Nodes: []graph.Node{
-				{
-					Key:      "test_61",
-					Type:     "test_62",
-					Config:   msgpack.EncodedJSON{"key_63": "value_63"},
-					Position: spatial.XY{X: 65.5, Y: 66.5},
-				},
-			},
+			Nodes:  []graph.Node{{Key: "test_42", Position: spatial.XY{X: 44.5, Y: 45.5}}},
+			Inputs: map[string]msgpack.EncodedJSON{"test_46": {"key_46": "value_46"}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -414,10 +405,10 @@ func FuzzDecodeGraph(f *testing.F) {
 	}
 	{
 		seed := graph.Graph{
-			Viewport:  graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0},
 			Functions: nil,
 			Edges:     nil,
 			Nodes:     nil,
+			Inputs:    nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -427,10 +418,10 @@ func FuzzDecodeGraph(f *testing.F) {
 	}
 	{
 		seed := graph.Graph{
-			Viewport:  graph.Viewport{Position: spatial.XY{X: 3.5, Y: 4.5}, Zoom: 5.5},
 			Functions: []ir.Function{},
-			Edges:     []ir.Edge{},
+			Edges:     []graph.Edge{},
 			Nodes:     []graph.Node{},
+			Inputs:    map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -469,12 +460,7 @@ func FuzzDecodeGraph(f *testing.F) {
 
 func FuzzDecodeNode(f *testing.F) {
 	{
-		seed := graph.Node{
-			Key:      "test_1",
-			Type:     "test_2",
-			Config:   msgpack.EncodedJSON{"key_3": "value_3"},
-			Position: spatial.XY{X: 5.5, Y: 6.5},
-		}
+		seed := graph.Node{Key: "test_1", Position: spatial.XY{X: 3.5, Y: 4.5}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -482,12 +468,7 @@ func FuzzDecodeNode(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := graph.Node{
-			Key:      "",
-			Type:     "",
-			Config:   nil,
-			Position: spatial.XY{X: 0, Y: 0},
-		}
+		seed := graph.Node{Key: "", Position: spatial.XY{X: 0, Y: 0}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -506,52 +487,6 @@ func FuzzDecodeNode(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded graph.Node
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeViewport(f *testing.F) {
-	{
-		seed := graph.Viewport{Position: spatial.XY{X: 2.5, Y: 3.5}, Zoom: 4.5}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := graph.Viewport{Position: spatial.XY{X: 0, Y: 0}, Zoom: 0}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded graph.Viewport
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded graph.Viewport
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

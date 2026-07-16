@@ -245,14 +245,6 @@ type XY struct {
 	Y float64 `json:"y" msgpack:"y"`
 }
 
-// Dimensions is a 2D size with width and height values.
-type Dimensions struct {
-	// Width is the width in pixels.
-	Width float64 `json:"width" msgpack:"width"`
-	// Height is the height in pixels.
-	Height float64 `json:"height" msgpack:"height"`
-}
-
 // CornerLocation is an anchor corner for positioning.
 type CornerLocation struct {
 	// X is the horizontal anchor.
@@ -280,6 +272,14 @@ type StickyXY struct {
 	Root *CornerLocation `json:"root,omitempty" msgpack:"root,omitempty"`
 	// Units is the optional unit specification for the coordinates.
 	Units *StickyUnits `json:"units,omitempty" msgpack:"units,omitempty"`
+}
+
+// Dimensions is a 2D size with width and height values.
+type Dimensions struct {
+	// Width is the width in pixels.
+	Width float64 `json:"width" msgpack:"width"`
+	// Height is the height in pixels.
+	Height float64 `json:"height" msgpack:"height"`
 }
 
 // Viewport is the camera state of a viewport.

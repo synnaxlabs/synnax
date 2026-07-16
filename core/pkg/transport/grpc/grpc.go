@@ -30,7 +30,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/schematic"
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
@@ -46,15 +45,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/view"
 )
 
-// Bind constructs the gRPC transport for every API service, binds the API
-// layer's handlers and middleware to it, and returns the bindable transports
-// for registration with the server's gRPC branch. channelSvc resolves channel
-// keys for the frame codec.
-func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTransport {
+// Bind constructs the gRPC transport for every API service, binds the API layer's
+// handlers and middleware to it, and returns the bindable transports for registration
+// with the server's gRPC branch. The framer codec resolves channel data types through
+// the API layer's channel service.
+func Bind(layer *api.Layer) []grpc.BindableTransport {
 	var t api.Transport
 	transports := grpc.CompoundBindableTransport{
 		channel.New(&t),
-		framer.New(&t, channelSvc),
+		framer.New(&t, layer.Channel),
 		connectivity.New(&t),
 		auth.New(&t),
 		ranger.New(&t),
@@ -92,6 +91,7 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.GroupCreate = noop.UnaryServer[group.CreateRequest, group.CreateResponse]{}
 	t.GroupDelete = noop.UnaryServer[group.DeleteRequest, types.Nil]{}
 	t.GroupRename = noop.UnaryServer[group.RenameRequest, types.Nil]{}
+	t.GroupRetrieve = noop.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]{}
 
 	// PROJECT
 	t.ProjectCreate = noop.UnaryServer[project.CreateRequest, project.CreateResponse]{}
@@ -159,7 +159,8 @@ func Bind(layer *api.Layer, channelSvc *distchannel.Service) []grpc.BindableTran
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}
 	t.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
 
-	// ARC LSP
+	// ARC
+	t.ArcDispatch = noop.UnaryServer[apiarc.DispatchRequest, types.Nil]{}
 	t.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
 
 	layer.BindTo(t)

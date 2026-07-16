@@ -13,11 +13,11 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -110,7 +110,7 @@ var _ = Describe("Service", func() {
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj1 = ontology.ID{Type: "channel", Key: "channel-1"}
 			obj2 = ontology.ID{Type: "channel", Key: "channel-2"}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
 		Describe("Enforce with role-based policies", func() {
@@ -286,7 +286,7 @@ var _ = Describe("Service", func() {
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj = ontology.ID{Type: "channel", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
 		It("Should deny when the matching policy's actions do not contain the requested action", func(ctx SpecContext) {
@@ -344,7 +344,7 @@ var _ = Describe("Service", func() {
 			policyWriter = rbacSvc.Policy.NewWriter(tx, true)
 			roleWriter = rbacSvc.Role.NewWriter(tx, true)
 			subject = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
 		It("Should retrieve policies from assigned roles", func(ctx SpecContext) {
@@ -390,7 +390,7 @@ var _ = Describe("Service", func() {
 
 			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj := ontology.ID{Type: "channel", Key: "ch1"}
-			Expect(otg.NewWriter(nil).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(nil).DefineResources(ctx, subject)).To(Succeed())
 			req := access.Request{
 				Subject: subject,
 				Objects: []ontology.ID{obj},
@@ -407,7 +407,7 @@ var _ = Describe("Service", func() {
 			roleWriter := rbacSvc.Role.NewWriter(tx, true)
 			subject := ontology.ID{Type: "user", Key: uuid.New().String()}
 			obj := ontology.ID{Type: "channel", Key: "ch1"}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 
 			r := &role.Role{Name: "test-role", Description: "Test role"}
 			Expect(roleWriter.Create(ctx, r)).To(Succeed())

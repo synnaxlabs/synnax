@@ -56,9 +56,6 @@ message Node {
   // z_index is the stacking order of the node within the schematic. Higher values render
   // above lower values. Set by the user via send-to-back / bring-to-front actions.
   int32 z_index = 3;
-  // measured is the rendered pixel size of the node. Populated by the renderer after the
-  // node is mounted and used to keep diagram measurements consistent across re-renders.
-  .x.spatial.pb.Dimensions measured = 4;
 }
 
 // Handle is a reference to a specific connection point on a specific node. For
@@ -100,7 +97,7 @@ message SegmentedEdgeConfig {
 // LabelConfig is the text label configuration shared by schematic symbols.
 message LabelConfig {
   // label is the text content of the label.
-  string label = 1;
+  optional string label = 1;
   // level is the typography level of the label text.
   optional .x.text.pb.Level level = 2;
   // orientation is the placement of the label relative to the symbol.
@@ -130,11 +127,11 @@ message ControlStateConfig {
   // channel. Defaults to absolute authority when unset.
   optional uint32 authority = 1;
   // show indicates whether the control state widget is visible.
-  bool show = 2;
+  optional bool show = 2;
   // show_chip indicates whether the authority chip is visible.
-  bool show_chip = 3;
+  optional bool show_chip = 3;
   // show_indicator indicates whether the state indicator is visible.
-  bool show_indicator = 4;
+  optional bool show_indicator = 4;
   // orientation is the placement of the control state widget relative to the symbol.
   optional .x.spatial.pb.Location orientation = 5;
 }
@@ -155,7 +152,7 @@ message ToggleConfig {
   // control is the control state display configuration.
   optional ControlStateConfig control = 6;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 7;
+  optional double on_click_delay = 7;
 }
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
@@ -185,7 +182,7 @@ message ToggleSymbolConfig {
   // control is the control state display configuration.
   optional ControlStateConfig control = 6;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 7;
+  optional double on_click_delay = 7;
   // color is the stroke color of the symbol.
   optional .x.color.pb.Color color = 8;
 }
@@ -200,9 +197,9 @@ message DummyToggleSymbolConfig {
   // scale is the rendered scale multiplier of the symbol.
   optional double scale = 3;
   // enabled indicates whether the symbol renders in its active state.
-  bool enabled = 4;
+  optional bool enabled = 4;
   // clickable indicates whether clicking the symbol toggles its state.
-  bool clickable = 5;
+  optional bool clickable = 5;
   // color is the stroke color of the symbol.
   optional .x.color.pb.Color color = 6;
 }
@@ -273,7 +270,7 @@ message NodeConfigButtonPayload {
   // level is the typography level of the button text.
   optional .x.text.pb.Level level = 5;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 6;
+  optional double on_click_delay = 6;
   // command_channel is the channel button presses are written to.
   optional uint32 command_channel = 7;
   // mode is the actuation behavior of the button.
@@ -329,7 +326,7 @@ message NodeConfigGaugePayload {
   // location is the anchor of the value within the gauge.
   optional .x.spatial.pb.LocationXY location = 14;
   // units is the unit suffix displayed after the value.
-  string units = 15;
+  optional string units = 15;
   // level is the typography level of the displayed value.
   optional .x.text.pb.Level level = 16;
 }
@@ -349,7 +346,7 @@ message NodeConfigInputPayload {
   // color is the accent color of the input.
   optional .x.color.pb.Color color = 7;
   // disabled indicates whether the input rejects interaction.
-  bool disabled = 8;
+  optional bool disabled = 8;
   // control is the control state display configuration.
   optional ControlStateConfig control = 9;
 }
@@ -377,9 +374,9 @@ message NodeConfigOffPageReferencePayload {
   // color is the fill color of the reference.
   optional .x.color.pb.Color color = 4;
   // page is the key of the schematic this reference links to.
-  string page = 5;
+  optional string page = 5;
   // dbl_click_nav indicates whether double-clicking navigates to the linked schematic.
-  bool dbl_click_nav = 6;
+  optional bool dbl_click_nav = 6;
 }
 message NodeConfigPolygonPayload {
   // label is the symbol's label configuration.
@@ -421,7 +418,7 @@ message NodeConfigSelectPayload {
   // options is the set of selectable states.
   repeated StateMapping options = 8;
   // disabled indicates whether the select rejects interaction.
-  bool disabled = 9;
+  optional bool disabled = 9;
   // control is the control state display configuration.
   optional ControlStateConfig control = 10;
 }
@@ -443,9 +440,9 @@ message NodeConfigSetpointPayload {
   // color is the accent color of the setpoint.
   optional .x.color.pb.Color color = 8;
   // units is the unit suffix displayed after the value.
-  string units = 9;
+  optional string units = 9;
   // disabled indicates whether the setpoint rejects interaction.
-  bool disabled = 10;
+  optional bool disabled = 10;
   // control is the control state display configuration.
   optional ControlStateConfig control = 11;
 }
@@ -479,11 +476,14 @@ message NodeConfigTextBoxPayload {
   // align is the alignment of the text within the box.
   optional FlexAlignment align = 6;
   // auto_fit indicates whether the box resizes to fit its content.
-  bool auto_fit = 7;
+  optional bool auto_fit = 7;
   // level is the typography level of the text.
   optional .x.text.pb.Level level = 8;
   // value is the text content of the box.
-  string value = 9;
+  optional string value = 9;
+}
+message StringList {
+  repeated string values = 1;
 }
 message NodeConfigValuePayload {
   // label is the symbol's label configuration.
@@ -499,11 +499,11 @@ message NodeConfigValuePayload {
   // text_color is the color of the displayed text.
   optional .x.color.pb.Color text_color = 6;
   // tooltip is the list of tooltip lines shown on hover.
-  repeated string tooltip = 7;
+  StringList tooltip = 7;
   // redline is the bounds-to-gradient mapping applied to the background.
   optional Redline redline = 8;
   // units is the unit suffix displayed after the value.
-  string units = 9;
+  optional string units = 9;
   // inline_size is the inline size of the value in pixels.
   optional double inline_size = 10;
   // channel is the channel whose value the symbol displays.
@@ -527,7 +527,7 @@ message NodeConfigValuePayload {
   optional .x.spatial.pb.LocationXY location = 19;
   // use_width_for_background indicates whether the background spans the full configured
   // width.
-  bool use_width_for_background = 20;
+  optional bool use_width_for_background = 20;
   // value_background_shift is the offset applied to the value background.
   optional .x.spatial.pb.XY value_background_shift = 21;
   // value_background_over_scan is the extra padding applied around the value background.
@@ -547,11 +547,11 @@ message NodeConfigSolenoidValvePayload {
   // control is the control state display configuration.
   optional ControlStateConfig control = 6;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 7;
+  optional double on_click_delay = 7;
   // color is the stroke color of the symbol.
   optional .x.color.pb.Color color = 8;
   // normally_open indicates whether the valve is open when unpowered.
-  bool normally_open = 9;
+  optional bool normally_open = 9;
 }
 message NodeConfigCylinderPayload {
   // label is the symbol's label configuration.
@@ -585,6 +585,9 @@ message NodeConfigTankPayload {
   // border_radius is the corner radius of the tank.
   optional .x.border.pb.Radius border_radius = 7;
 }
+message RecordList {
+  repeated google.protobuf.Struct values = 1;
+}
 message NodeConfigCustomActuatorPayload {
   // label is the symbol's label configuration.
   optional LabelConfig label = 1;
@@ -599,7 +602,7 @@ message NodeConfigCustomActuatorPayload {
   // control is the control state display configuration.
   optional ControlStateConfig control = 6;
   // on_click_delay is the debounce delay applied to clicks, in milliseconds.
-  double on_click_delay = 7;
+  optional double on_click_delay = 7;
   // spec_key is the key of the custom symbol spec this instance renders.
   string spec_key = 8;
   // color is the stroke color of the symbol.
@@ -607,7 +610,7 @@ message NodeConfigCustomActuatorPayload {
   // state_overrides contains per-instance overrides of the spec's visual states. Each
   // entry mirrors the symbol service's State shape; the wire format stores it opaquely,
   // consistent with how the symbol service stores specs.
-  repeated google.protobuf.Struct state_overrides = 10;
+  RecordList state_overrides = 10;
 }
 message NodeConfigCustomStaticPayload {
   // label is the symbol's label configuration.
@@ -623,7 +626,7 @@ message NodeConfigCustomStaticPayload {
   // state_overrides contains per-instance overrides of the spec's visual states. Each
   // entry mirrors the symbol service's State shape; the wire format stores it opaquely,
   // consistent with how the symbol service stores specs.
-  repeated google.protobuf.Struct state_overrides = 6;
+  RecordList state_overrides = 6;
 }
 
 // EdgeConfig is the per-edge configuration stored in the schematic configs map. The

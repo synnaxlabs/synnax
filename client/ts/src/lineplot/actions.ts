@@ -24,8 +24,8 @@ import {
   setAxisTickSpacing,
   setAxisType,
   setChannels,
+  setLegendHidden,
   setLegendPosition,
-  setLegendVisible,
   setLine,
   setLineColor,
   setLineDownsample,
@@ -41,7 +41,8 @@ import {
   setRuleLineWidth,
   setRulePosition,
   setRuleUnits,
-  setTitle,
+  setTitleLevel,
+  setTitleVisible,
   setXChannel,
 } from "@/lineplot/actions.gen";
 import { reconcileLines } from "@/lineplot/line";
@@ -59,17 +60,29 @@ const handlers: Handlers = {
     return { inverse: [rename({ name: oldName })], targets: [state.key] };
   },
 
-  setTitle: (state, payload) => {
-    const oldTitle = actions.snapshotDraft(state.title);
-    state.title = payload.title;
-    return { inverse: [setTitle({ title: oldTitle })], targets: [state.key] };
+  setTitleVisible: (state, payload) => {
+    const oldVisible = state.title.visible;
+    state.title.visible = payload.visible;
+    return {
+      inverse: [setTitleVisible({ visible: oldVisible })],
+      targets: [state.key],
+    };
   },
 
-  setLegendVisible: (state, payload) => {
-    const oldVisible = state.legend.visible;
-    state.legend.visible = payload.visible;
+  setTitleLevel: (state, payload) => {
+    const oldLevel = state.title.level;
+    state.title.level = payload.level;
     return {
-      inverse: [setLegendVisible({ visible: oldVisible })],
+      inverse: [setTitleLevel({ level: oldLevel })],
+      targets: [state.key],
+    };
+  },
+
+  setLegendHidden: (state, payload) => {
+    const oldHidden = state.legend.hidden;
+    state.legend.hidden = payload.hidden;
+    return {
+      inverse: [setLegendHidden({ hidden: oldHidden })],
       targets: [state.key],
     };
   },
@@ -276,11 +289,11 @@ const handlers: Handlers = {
       setAxisBounds({
         key: payload.key,
         bounds: actions.snapshotDraft(axis.bounds),
-        autoBounds: actions.snapshotDraft(axis.autoBounds),
+        manualBounds: actions.snapshotDraft(axis.manualBounds),
       }),
     ];
     axis.bounds = payload.bounds;
-    axis.autoBounds = payload.autoBounds;
+    axis.manualBounds = payload.manualBounds;
     return { inverse, targets: [`axis:${payload.key}`] };
   },
 

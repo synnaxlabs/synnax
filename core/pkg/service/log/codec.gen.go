@@ -12,7 +12,7 @@
 package log
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
@@ -76,8 +76,8 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 		}
 	}
 	w.Int32(int32(lv.TimestampPrecision))
-	w.Bool(lv.ShowChannelNames)
-	w.Bool(lv.ShowReceiptTimestamp)
+	w.Bool(lv.HideChannelNames)
+	w.Bool(lv.HideReceiptTimestamp)
 	return nil
 }
 
@@ -110,10 +110,10 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 	if lv.TimestampPrecision, err = r.Int32(); err != nil {
 		return err
 	}
-	if lv.ShowChannelNames, err = r.Bool(); err != nil {
+	if lv.HideChannelNames, err = r.Bool(); err != nil {
 		return err
 	}
-	if lv.ShowReceiptTimestamp, err = r.Bool(); err != nil {
+	if lv.HideReceiptTimestamp, err = r.Bool(); err != nil {
 		return err
 	}
 	return nil

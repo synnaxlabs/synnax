@@ -68,7 +68,7 @@ var _ = Describe("Codec", func() {
 					A: 6.5,
 				},
 				Position: 7.5,
-				Switched: false,
+				Switched: new(bool(false)),
 			}),
 			Entry("zero values", color.Stop{
 				Key: "",
@@ -79,7 +79,7 @@ var _ = Describe("Codec", func() {
 					A: 0,
 				},
 				Position: 0,
-				Switched: false,
+				Switched: nil,
 			}),
 		)
 	})
@@ -117,7 +117,7 @@ func BenchmarkEncodeDecodeStop(b *testing.B) {
 			A: 6.5,
 		},
 		Position: 7.5,
-		Switched: false,
+		Switched: new(bool(false)),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -201,7 +201,7 @@ func FuzzDecodeStop(f *testing.F) {
 				A: 6.5,
 			},
 			Position: 7.5,
-			Switched: false,
+			Switched: new(bool(false)),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -219,7 +219,7 @@ func FuzzDecodeStop(f *testing.F) {
 				A: 0,
 			},
 			Position: 0,
-			Switched: false,
+			Switched: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

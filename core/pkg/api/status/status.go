@@ -15,15 +15,14 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -98,7 +97,7 @@ type SetByKeyOrNameRequest struct {
 	// Message is the new status message.
 	Message string `json:"message" msgpack:"message"`
 	// Variant is the new status variant.
-	Variant xstatus.Variant `json:"variant" msgpack:"variant"`
+	Variant status.Variant `json:"variant" msgpack:"variant"`
 }
 
 // SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
@@ -152,7 +151,7 @@ type RetrieveRequest struct {
 	// given keys.
 	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
 	// Variants filters for statuses with the given variants.
-	Variants []xstatus.Variant `json:"variants" msgpack:"variants"`
+	Variants []status.Variant `json:"variants" msgpack:"variants"`
 	// Limit is the maximum number of statuses to retrieve.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset is the number of statuses to skip.
@@ -163,7 +162,7 @@ type RetrieveRequest struct {
 
 type RetrieveResponse struct {
 	// Statuses are the statuses that were retrieved.
-	Statuses []status.Status[any] `json:"statuses" msgpack:"statuses"`
+	Statuses []status.Status[any] `json:"statuses,omitzero" msgpack:"statuses,omitzero"`
 }
 
 func (s *Service) Retrieve(

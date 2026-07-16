@@ -13,11 +13,11 @@ package pb
 
 import (
 	"encoding/json"
-	ontologypb "github.com/synnaxlabs/synnax/pkg/distribution/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	ontologypb "github.com/synnaxlabs/synnax/pkg/service/ontology/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/status"
-	statuspb "github.com/synnaxlabs/x/status/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"

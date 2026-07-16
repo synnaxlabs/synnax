@@ -38,16 +38,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
-// layer's handlers and middleware to them. ch resolves channel keys for the frame
-// codec.
-func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
-	framerServerOption := framer.WithCodec(ch)
+// layer's handlers and middleware to them. The frame codec resolves channel keys
+// through the API layer's channel service.
+func Bind(layer *api.Layer, router *http.Router) {
+	framerServerOption := framer.WithCodec(layer.Channel)
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin:          http.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),
@@ -83,15 +82,17 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		OntologyMoveChildren:   http.NewUnaryServer[ontology.MoveChildrenRequest, types.Nil](router, "/api/v1/ontology/move-children"),
 
 		// GROUP
-		GroupCreate: http.NewUnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
-		GroupDelete: http.NewUnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
-		GroupRename: http.NewUnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupCreate:   http.NewUnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
+		GroupDelete:   http.NewUnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
+		GroupRename:   http.NewUnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupRetrieve: http.NewUnaryServer[group.RetrieveRequest, group.RetrieveResponse](router, "/api/v1/ontology/retrieve-group"),
 
 		// RANGE
 		RangeRetrieve: http.NewUnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](router, "/api/v1/range/retrieve"),
 		RangeCreate:   http.NewUnaryServer[ranger.CreateRequest, ranger.CreateResponse](router, "/api/v1/range/create"),
 		RangeDelete:   http.NewUnaryServer[ranger.DeleteRequest, types.Nil](router, "/api/v1/range/delete"),
 		RangeRename:   http.NewUnaryServer[ranger.RenameRequest, types.Nil](router, "/api/v1/range/rename"),
+		RangeSetEnd:   http.NewUnaryServer[ranger.SetEndRequest, types.Nil](router, "/api/v1/range/set-end"),
 
 		// KV
 		KVGet:    http.NewUnaryServer[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),
@@ -187,6 +188,7 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		ArcCreate:   http.NewUnaryServer[arc.CreateRequest, arc.CreateResponse](router, "/api/v1/arc/create"),
 		ArcDelete:   http.NewUnaryServer[arc.DeleteRequest, types.Nil](router, "/api/v1/arc/delete"),
 		ArcRetrieve: http.NewUnaryServer[arc.RetrieveRequest, arc.RetrieveResponse](router, "/api/v1/arc/retrieve"),
+		ArcDispatch: http.NewUnaryServer[arc.DispatchRequest, types.Nil](router, "/api/v1/arc/dispatch"),
 		ArcLSP:      http.NewStreamServer[arc.LSPMessage, arc.LSPMessage](router, "/api/v1/arc/lsp"),
 
 		// STATUS
@@ -201,7 +203,7 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		ViewDelete:   http.NewUnaryServer[view.DeleteRequest, types.Nil](router, "/api/v1/view/delete"),
 
 		// IMPORT/EXPORT
-		ImExImport: http.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/import", http.WithRequestDecoders(json.Codec)),
-		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/export", http.WithResponseEncoders(json.Codec)),
+		ImExImport: http.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/imex/import", http.WithRequestDecoders(json.Codec)),
+		ImExExport: http.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/imex/export", http.WithResponseEncoders(json.Codec)),
 	})
 }

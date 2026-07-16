@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, lineplot, panel, project } from "@synnaxlabs/client";
+import { lineplot, panel, project } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
@@ -384,12 +385,13 @@ describe("Panel queries", () => {
           ],
         });
       });
-      const root = result.current.retrieve.data?.root;
-      expect(root?.variant).toEqual("leaf");
-      expect(leafTabKeys(root)).toEqual([tab.key]);
-
-      const fresh = await client.panels.retrieve(created.key);
-      expect(fresh.root).toEqual(root);
+      await waitFor(async () => {
+        const root = result.current.retrieve.data?.root;
+        expect(root?.variant).toEqual("leaf");
+        expect(leafTabKeys(root)).toEqual([tab.key]);
+        const fresh = await client.panels.retrieve(created.key);
+        expect(fresh.root).toEqual(root);
+      });
     });
 
     it("collapses the emptied leaf after remove_tab", async () => {
@@ -475,9 +477,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });
@@ -691,9 +691,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tab.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });
@@ -733,9 +731,7 @@ describe("Panel queries", () => {
           actions: [
             panel.setTabView({
               key: tabB.key,
-              type: "docs",
-              name: "Docs",
-              args: {},
+              view: { type: "docs", name: "Docs", args: {} },
             }),
           ],
         });
@@ -755,7 +751,9 @@ describe("Panel queries", () => {
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       expect(result.current.data?.name).toEqual("reactive-before");
 
-      await client.panels.rename(target.key, "reactive-after");
+      await act(async () => {
+        await client.panels.rename(target.key, "reactive-after");
+      });
 
       await waitFor(() => expect(result.current.data?.name).toEqual("reactive-after"));
     });
@@ -775,13 +773,15 @@ describe("Panel queries", () => {
       expect(leafTabKeys(result.current)).toEqual([seed.key]);
 
       const tab = newTab();
-      await client.panels.dispatch(created.key, "", [
-        panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" }),
-        panel.insertTab({
-          tab,
-          targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
-        }),
-      ]);
+      await act(async () => {
+        await client.panels.dispatch(created.key, "", [
+          panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right" }),
+          panel.insertTab({
+            tab,
+            targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
+          }),
+        ]);
+      });
 
       await waitFor(() => {
         const root = asSplit(result.current);

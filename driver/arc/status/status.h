@@ -9,14 +9,13 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 
+#include "client/cpp/status/status.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/status/status.h"
 #include "x/cpp/telem/telem.h"
 
 #include "arc/cpp/runtime/node/node.h"
@@ -24,14 +23,9 @@
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
+#include "driver/arc/reporter.h"
 
 namespace driver::arc::status {
-
-/// @brief Reporter surfaces an stdlib-originated failure as a task-level status.
-/// Mirrors the Go-side taskreporter.Reporter so set failures land as visible
-/// task statuses (warnings) rather than silent log lines.
-using Reporter = std::function<
-    void(const std::string &variant, const std::string &message)>;
 
 // Reporter message templates. Keep in sync with
 // core/pkg/service/arc/status/status.go.
@@ -58,11 +52,10 @@ inline std::string dispatch_set(
     if (err) {
         LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                    << " error=" << err.data;
-        report(x::status::VARIANT_WARNING, set_failure_msg(err.data));
+        report(set_failure_msg(err.data));
         return "";
     }
-    if (res.multiple_matches)
-        report(x::status::VARIANT_WARNING, set_multi_match_msg(key_or_name, res.key));
+    if (res.multiple_matches) report(set_multi_match_msg(key_or_name, res.key));
     return res.key;
 }
 
@@ -159,7 +152,7 @@ public:
     create(::arc::runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         const auto get_str = [&](const std::string &key) -> std::string {
-            const auto &p = cfg.node.config[key];
+            const auto &p = cfg.node.inputs[key];
             auto sv = ::arc::types::to_sample_value(p.value, p.type);
             if (!sv.has_value()) return "";
             const auto *s = std::get_if<std::string>(&*sv);

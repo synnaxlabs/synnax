@@ -12,8 +12,8 @@ import { box, direction } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { CSS } from "@/css";
+import { Cursor } from "@/cursor";
 import { useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Menu } from "@/menu";
 import { Text } from "@/text";
 import { stopPropagation } from "@/util/event";
@@ -112,7 +112,7 @@ export const Indicator = ({
 }: IndicatorProps): ReactElement => {
   const valueRef = useSyncedRef(value);
   const sizeRef = useRef(value);
-  const onDragStart = useCursorDrag({
+  const onDragStart = Cursor.useDrag({
     onStart: useCallback(() => {
       sizeRef.current = valueRef.current;
     }, []),
@@ -139,7 +139,11 @@ export const Indicator = ({
         {dir === "x" ? ALPHABET[index] : index + 1}
       </Text.Text>
       {editable && (
-        <button onClick={stopPropagation} onDragStart={onDragStart} draggable />
+        <button
+          className={Cursor.DRAG_CLASS}
+          onClick={stopPropagation}
+          onPointerDown={onDragStart}
+        />
       )}
     </td>
   );

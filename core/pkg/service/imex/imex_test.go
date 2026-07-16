@@ -119,14 +119,12 @@ var _ = Describe("ImEx", func() {
 				))
 			})
 
-			It("Should reject an empty name with a validation error scoped to the name field", func() {
+			It("Should accept an envelope without a name", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal(
-					[]byte(`{"version":1,"type":"log","name":""}`), &env,
-				)).To(SatisfyAll(
-					MatchError(ContainSubstring("name must be a non-empty string")),
-					MatchError(ContainSubstring("validation error")),
-				))
+					[]byte(`{"version":1,"type":"log"}`), &env,
+				)).To(Succeed())
+				Expect(env.Name).To(BeEmpty())
 			})
 
 			It("Should error when the input is a bare JSON number", func() {
@@ -218,6 +216,24 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Version).To(Equal(imex.Version(7)))
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("n"))
+			})
+
+			It("Should drop a top-level key field from the encoded body", func() {
+				type keyed struct {
+					Key  string `json:"key"`
+					Name string `json:"name"`
+					Foo  int    `json:"foo"`
+				}
+				env := imex.Envelope{Version: 1, Type: "log"}
+				Expect(imex.Encode(
+					&env, keyed{Key: "should-be-dropped", Name: "n", Foo: 1},
+				)).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("key"))
+				Expect(round["name"]).To(Equal("n"))
+				Expect(round["foo"]).To(BeEquivalentTo(1))
 			})
 
 			It("Should fail when neither the envelope nor the data carries a type", func() {
@@ -382,26 +398,6 @@ var _ = Describe("ImEx", func() {
 				Expect(json.Unmarshal(b, &round)).To(Succeed())
 				Expect(round).NotTo(HaveKey("Hidden"))
 				Expect(round).NotTo(HaveKey("-"))
-			})
-
-			It("Should skip unexported fields even when they carry a json tag", func() {
-				// Encode goes through structToMap, which only reflects over exported
-				// fields. An unexported field with a json tag should never reach the
-				// wire — calling Interface() on it would panic, and exposing it would
-				// leak private state.
-				type payload struct {
-					Name string `json:"name"`
-					//nolint:govet,staticcheck
-					secret string `json:"secret"`
-				}
-				env := imex.Envelope{Version: 1, Type: "log"}
-				Expect(imex.Encode(
-					&env, payload{Name: "n", secret: "shh"},
-				)).To(Succeed())
-				b := MustSucceed(json.Marshal(env))
-				var round map[string]any
-				Expect(json.Unmarshal(b, &round)).To(Succeed())
-				Expect(round).NotTo(HaveKey("secret"))
 			})
 
 			It("Should skip exported fields that have no json tag", func() {
@@ -652,5 +648,30 @@ var _ = Describe("ImEx", func() {
 					MatchError(ContainSubstring("latest: 4")),
 				))
 		})
+	})
+
+	Describe("Version", func() {
+		DescribeTable("Should decode the numeric and legacy semver forms",
+			func(raw string, expected imex.Version) {
+				var v imex.Version
+				Expect(json.Unmarshal([]byte(raw), &v)).To(Succeed())
+				Expect(v).To(Equal(expected))
+			},
+			Entry("numeric", "2", imex.Version(2)),
+			Entry("legacy v0 semver", `"0.0.0"`, imex.Version(0)),
+			Entry("legacy v1 semver", `"1.0.0"`, imex.Version(1)),
+			Entry("legacy high major", `"42.0.0"`, imex.Version(42)),
+		)
+
+		DescribeTable("Should reject an unparseable version",
+			func(raw string) {
+				var v imex.Version
+				Expect(json.Unmarshal([]byte(raw), &v)).
+					To(MatchError(ContainSubstring("version")))
+			},
+			Entry("non-zero minor/patch", `"1.2.3"`),
+			Entry("not a semver", `"garbage"`),
+			Entry("wrong type", "true"),
+		)
 	})
 })

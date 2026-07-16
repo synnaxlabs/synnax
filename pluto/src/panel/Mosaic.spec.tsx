@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type ontology, panel } from "@synnaxlabs/client";
+import { type ontology, panel } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import {
   act,
@@ -132,6 +133,8 @@ describe("Panel.Mosaic", () => {
         variant: "view",
         key: uuid.create(),
         type: "docs",
+        name: "",
+        args: {},
       };
       const emptyTab: panel.TabEmpty = { variant: "empty", key: uuid.create() };
       const p = await createPanel(resourceTab, viewTab, emptyTab);
@@ -256,6 +259,37 @@ describe("Panel.Mosaic", () => {
   });
 
   describe("gestures", () => {
+    it("should call onSelect when an unselected tab is clicked", async () => {
+      const a: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const b: panel.TabResource = {
+        variant: "resource",
+        key: uuid.create(),
+        resource: resourceID(),
+      };
+      const p = await createPanel(a, b);
+      const onSelect = vi.fn();
+      const tabName = vi.fn(({ tabKey }: Panel.MosaicTabNameProps) => (
+        <span>{`name:${tabKey}`}</span>
+      ));
+      const { utils } = await renderMosaic({
+        panelKey: p.key,
+        selected: [a.key],
+        onSelect,
+        tabName,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+
+      await act(async () => {
+        fireEvent.click(utils.getByText(`name:${b.key}`));
+      });
+
+      expect(onSelect).toHaveBeenCalledWith(b.key);
+    });
+
     it("should remove a tab from the document when its close button is clicked", async () => {
       const a: panel.TabResource = {
         variant: "resource",
@@ -271,7 +305,7 @@ describe("Panel.Mosaic", () => {
       const { utils } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
-      const closeButtons = utils.getAllByLabelText("pluto-tabs__close");
+      const closeButtons = utils.getAllByLabelText("Close");
       expect(closeButtons).toHaveLength(2);
       await act(async () => {
         fireEvent.click(closeButtons[0]);
@@ -379,12 +413,12 @@ describe("Panel.Mosaic", () => {
       const p = await createPanel(a, b);
       const { utils } = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
-      expect(utils.getAllByLabelText("pluto-tabs__close")).toHaveLength(2);
+      expect(utils.getAllByLabelText("Close")).toHaveLength(2);
 
       await client.panels.dispatch(p.key, "", [panel.removeTab({ key: b.key })]);
 
       await waitFor(
-        () => expect(utils.getAllByLabelText("pluto-tabs__close")).toHaveLength(1),
+        () => expect(utils.getAllByLabelText("Close")).toHaveLength(1),
         ROUND_TRIP,
       );
       expect(utils.getByText(contentText(a))).toBeTruthy();

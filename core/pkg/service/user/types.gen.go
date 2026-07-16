@@ -13,6 +13,7 @@ package user
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a user, represented as a UUID.
@@ -32,4 +33,10 @@ type User struct {
 	// RootUser is true if this is a root/admin user with full system access. Root users
 	// cannot be deleted.
 	RootUser bool `json:"root_user" msgpack:"root_user"`
+}
+
+func (u User) Validate() error {
+	v := validate.New("User")
+	validate.NotEmptyString(v, "username", u.Username)
+	return v.Error()
 }

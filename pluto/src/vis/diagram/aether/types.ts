@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type box, dimensions, id, type location, xy } from "@synnaxlabs/x";
+import { type box, id, type location, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 import type React from "react";
@@ -37,7 +37,6 @@ export const nodeZ = z.object({
   position: xy.xyZ,
   zIndex: z.number().optional(),
   type: z.string().optional(),
-  measured: dimensions.dimensionsZ.optional(),
 });
 export type Node = z.infer<typeof nodeZ>;
 
@@ -64,7 +63,6 @@ export const translateNodesForward = (
     id: node.key,
     type: "custom",
     zIndex: node.zIndex,
-    measured: node.measured,
     position: node.position,
     selected: selected.has(node.key),
     data: EMPTY_DATA,
@@ -86,14 +84,7 @@ export const translateEdgesForward = (
   }));
 
 export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
-  nodes.map(({ id: key, measured, ...rest }) => ({
-    ...rest,
-    key,
-    measured:
-      measured?.width != null && measured?.height != null
-        ? { width: measured.width, height: measured.height }
-        : undefined,
-  }));
+  nodes.map(({ id: key, measured, ...rest }) => ({ ...rest, key }));
 
 export const translateViewportForward = (viewport: Viewport): rf.Viewport => ({
   ...viewport.position,
@@ -113,13 +104,7 @@ export const nodeConverter = (
 export type NodeChange =
   | { type: "position"; key: string; position: xy.XY; dragging: boolean }
   | { type: "remove"; key: string }
-  | { type: "select"; key: string; selected: boolean }
-  | {
-      type: "dimensions";
-      key: string;
-      dimensions: { width: number; height: number };
-      resizing?: boolean;
-    };
+  | { type: "select"; key: string; selected: boolean };
 
 export const translateNodeChangeForward = (
   change: rf.NodeChange,
@@ -137,14 +122,6 @@ export const translateNodeChangeForward = (
       return { type: "remove", key: change.id };
     case "select":
       return { type: "select", key: change.id, selected: change.selected };
-    case "dimensions":
-      if (change.dimensions == null) return null;
-      return {
-        type: "dimensions",
-        key: change.id,
-        dimensions: change.dimensions,
-        resizing: change.resizing ?? false,
-      };
     default:
       return null;
   }
@@ -153,6 +130,7 @@ export const translateNodeChangeForward = (
 export type EdgeChange =
   | { type: "add"; edge: Edge }
   | { type: "remove"; key: string }
+  | { type: "reconnect"; key: string; source: Handle; target: Handle }
   | { type: "select"; key: string; selected: boolean };
 
 export const translateEdgeChangeForward = (
@@ -215,6 +193,18 @@ export const createEndpoint = (
 
 export const createEdgeFromConnection = (connection: rf.Connection): Edge => ({
   key: id.create(),
+  source: { node: connection.source, param: connection.sourceHandle ?? "" },
+  target: { node: connection.target, param: connection.targetHandle ?? "" },
+});
+
+// createReconnect builds a reconnect change repointing the edge with the given key
+// onto the new connection's endpoints, preserving the edge's identity.
+export const createReconnect = (
+  key: string,
+  connection: rf.Connection,
+): EdgeChange => ({
+  type: "reconnect",
+  key,
   source: { node: connection.source, param: connection.sourceHandle ?? "" },
   target: { node: connection.target, param: connection.targetHandle ?? "" },
 });

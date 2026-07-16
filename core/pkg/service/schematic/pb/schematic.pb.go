@@ -207,10 +207,7 @@ type Node struct {
 	Position *pb.XY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
 	// z_index is the stacking order of the node within the schematic. Higher values render
 	// above lower values. Set by the user via send-to-back / bring-to-front actions.
-	ZIndex int32 `protobuf:"varint,3,opt,name=z_index,json=zIndex,proto3" json:"z_index,omitempty"`
-	// measured is the rendered pixel size of the node. Populated by the renderer after the
-	// node is mounted and used to keep diagram measurements consistent across re-renders.
-	Measured      *pb.Dimensions `protobuf:"bytes,4,opt,name=measured,proto3" json:"measured,omitempty"`
+	ZIndex        int32 `protobuf:"varint,3,opt,name=z_index,json=zIndex,proto3" json:"z_index,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -264,13 +261,6 @@ func (x *Node) GetZIndex() int32 {
 		return x.ZIndex
 	}
 	return 0
-}
-
-func (x *Node) GetMeasured() *pb.Dimensions {
-	if x != nil {
-		return x.Measured
-	}
-	return nil
 }
 
 // Handle is a reference to a specific connection point on a specific node. For
@@ -508,7 +498,7 @@ func (x *SegmentedEdgeConfig) GetSegments() []*Segment {
 type LabelConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the text content of the label.
-	Label string `protobuf:"bytes,1,opt,name=label,proto3" json:"label,omitempty"`
+	Label *string `protobuf:"bytes,1,opt,name=label,proto3,oneof" json:"label,omitempty"`
 	// level is the typography level of the label text.
 	Level *pb2.Level `protobuf:"varint,2,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// orientation is the placement of the label relative to the symbol.
@@ -554,8 +544,8 @@ func (*LabelConfig) Descriptor() ([]byte, []int) {
 }
 
 func (x *LabelConfig) GetLabel() string {
-	if x != nil {
-		return x.Label
+	if x != nil && x.Label != nil {
+		return *x.Label
 	}
 	return ""
 }
@@ -667,11 +657,11 @@ type ControlStateConfig struct {
 	// channel. Defaults to absolute authority when unset.
 	Authority *uint32 `protobuf:"varint,1,opt,name=authority,proto3,oneof" json:"authority,omitempty"`
 	// show indicates whether the control state widget is visible.
-	Show bool `protobuf:"varint,2,opt,name=show,proto3" json:"show,omitempty"`
+	Show *bool `protobuf:"varint,2,opt,name=show,proto3,oneof" json:"show,omitempty"`
 	// show_chip indicates whether the authority chip is visible.
-	ShowChip bool `protobuf:"varint,3,opt,name=show_chip,json=showChip,proto3" json:"show_chip,omitempty"`
+	ShowChip *bool `protobuf:"varint,3,opt,name=show_chip,json=showChip,proto3,oneof" json:"show_chip,omitempty"`
 	// show_indicator indicates whether the state indicator is visible.
-	ShowIndicator bool `protobuf:"varint,4,opt,name=show_indicator,json=showIndicator,proto3" json:"show_indicator,omitempty"`
+	ShowIndicator *bool `protobuf:"varint,4,opt,name=show_indicator,json=showIndicator,proto3,oneof" json:"show_indicator,omitempty"`
 	// orientation is the placement of the control state widget relative to the symbol.
 	Orientation   *pb.Location `protobuf:"varint,5,opt,name=orientation,proto3,enum=x.spatial.pb.Location,oneof" json:"orientation,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -716,22 +706,22 @@ func (x *ControlStateConfig) GetAuthority() uint32 {
 }
 
 func (x *ControlStateConfig) GetShow() bool {
-	if x != nil {
-		return x.Show
+	if x != nil && x.Show != nil {
+		return *x.Show
 	}
 	return false
 }
 
 func (x *ControlStateConfig) GetShowChip() bool {
-	if x != nil {
-		return x.ShowChip
+	if x != nil && x.ShowChip != nil {
+		return *x.ShowChip
 	}
 	return false
 }
 
 func (x *ControlStateConfig) GetShowIndicator() bool {
-	if x != nil {
-		return x.ShowIndicator
+	if x != nil && x.ShowIndicator != nil {
+		return *x.ShowIndicator
 	}
 	return false
 }
@@ -760,7 +750,7 @@ type ToggleConfig struct {
 	// control is the control state display configuration.
 	Control *ControlStateConfig `protobuf:"bytes,6,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay  float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	OnClickDelay  *float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3,oneof" json:"on_click_delay,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -838,8 +828,8 @@ func (x *ToggleConfig) GetControl() *ControlStateConfig {
 }
 
 func (x *ToggleConfig) GetOnClickDelay() float64 {
-	if x != nil {
-		return x.OnClickDelay
+	if x != nil && x.OnClickDelay != nil {
+		return *x.OnClickDelay
 	}
 	return 0
 }
@@ -933,7 +923,7 @@ type ToggleSymbolConfig struct {
 	// control is the control state display configuration.
 	Control *ControlStateConfig `protobuf:"bytes,6,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	OnClickDelay *float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3,oneof" json:"on_click_delay,omitempty"`
 	// color is the stroke color of the symbol.
 	Color         *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1013,8 +1003,8 @@ func (x *ToggleSymbolConfig) GetControl() *ControlStateConfig {
 }
 
 func (x *ToggleSymbolConfig) GetOnClickDelay() float64 {
-	if x != nil {
-		return x.OnClickDelay
+	if x != nil && x.OnClickDelay != nil {
+		return *x.OnClickDelay
 	}
 	return 0
 }
@@ -1037,9 +1027,9 @@ type DummyToggleSymbolConfig struct {
 	// scale is the rendered scale multiplier of the symbol.
 	Scale *float64 `protobuf:"fixed64,3,opt,name=scale,proto3,oneof" json:"scale,omitempty"`
 	// enabled indicates whether the symbol renders in its active state.
-	Enabled bool `protobuf:"varint,4,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Enabled *bool `protobuf:"varint,4,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
 	// clickable indicates whether clicking the symbol toggles its state.
-	Clickable bool `protobuf:"varint,5,opt,name=clickable,proto3" json:"clickable,omitempty"`
+	Clickable *bool `protobuf:"varint,5,opt,name=clickable,proto3,oneof" json:"clickable,omitempty"`
 	// color is the stroke color of the symbol.
 	Color         *pb1.Color `protobuf:"bytes,6,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1098,15 +1088,15 @@ func (x *DummyToggleSymbolConfig) GetScale() float64 {
 }
 
 func (x *DummyToggleSymbolConfig) GetEnabled() bool {
-	if x != nil {
-		return x.Enabled
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
 	}
 	return false
 }
 
 func (x *DummyToggleSymbolConfig) GetClickable() bool {
-	if x != nil {
-		return x.Clickable
+	if x != nil && x.Clickable != nil {
+		return *x.Clickable
 	}
 	return false
 }
@@ -1452,7 +1442,7 @@ type NodeConfigButtonPayload struct {
 	// level is the typography level of the button text.
 	Level *pb2.Level `protobuf:"varint,5,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	OnClickDelay *float64 `protobuf:"fixed64,6,opt,name=on_click_delay,json=onClickDelay,proto3,oneof" json:"on_click_delay,omitempty"`
 	// command_channel is the channel button presses are written to.
 	CommandChannel *uint32 `protobuf:"varint,7,opt,name=command_channel,json=commandChannel,proto3,oneof" json:"command_channel,omitempty"`
 	// mode is the actuation behavior of the button.
@@ -1531,8 +1521,8 @@ func (x *NodeConfigButtonPayload) GetLevel() pb2.Level {
 }
 
 func (x *NodeConfigButtonPayload) GetOnClickDelay() float64 {
-	if x != nil {
-		return x.OnClickDelay
+	if x != nil && x.OnClickDelay != nil {
+		return *x.OnClickDelay
 	}
 	return 0
 }
@@ -1695,7 +1685,7 @@ type NodeConfigGaugePayload struct {
 	// location is the anchor of the value within the gauge.
 	Location *pb.LocationXY `protobuf:"bytes,14,opt,name=location,proto3,oneof" json:"location,omitempty"`
 	// units is the unit suffix displayed after the value.
-	Units string `protobuf:"bytes,15,opt,name=units,proto3" json:"units,omitempty"`
+	Units *string `protobuf:"bytes,15,opt,name=units,proto3,oneof" json:"units,omitempty"`
 	// level is the typography level of the displayed value.
 	Level         *pb2.Level `protobuf:"varint,16,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1831,8 +1821,8 @@ func (x *NodeConfigGaugePayload) GetLocation() *pb.LocationXY {
 }
 
 func (x *NodeConfigGaugePayload) GetUnits() string {
-	if x != nil {
-		return x.Units
+	if x != nil && x.Units != nil {
+		return *x.Units
 	}
 	return ""
 }
@@ -1861,7 +1851,7 @@ type NodeConfigInputPayload struct {
 	// color is the accent color of the input.
 	Color *pb1.Color `protobuf:"bytes,7,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// disabled indicates whether the input rejects interaction.
-	Disabled bool `protobuf:"varint,8,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	Disabled *bool `protobuf:"varint,8,opt,name=disabled,proto3,oneof" json:"disabled,omitempty"`
 	// control is the control state display configuration.
 	Control       *ControlStateConfig `protobuf:"bytes,9,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1948,8 +1938,8 @@ func (x *NodeConfigInputPayload) GetColor() *pb1.Color {
 }
 
 func (x *NodeConfigInputPayload) GetDisabled() bool {
-	if x != nil {
-		return x.Disabled
+	if x != nil && x.Disabled != nil {
+		return *x.Disabled
 	}
 	return false
 }
@@ -2062,9 +2052,9 @@ type NodeConfigOffPageReferencePayload struct {
 	// color is the fill color of the reference.
 	Color *pb1.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// page is the key of the schematic this reference links to.
-	Page string `protobuf:"bytes,5,opt,name=page,proto3" json:"page,omitempty"`
+	Page *string `protobuf:"bytes,5,opt,name=page,proto3,oneof" json:"page,omitempty"`
 	// dbl_click_nav indicates whether double-clicking navigates to the linked schematic.
-	DblClickNav   bool `protobuf:"varint,6,opt,name=dbl_click_nav,json=dblClickNav,proto3" json:"dbl_click_nav,omitempty"`
+	DblClickNav   *bool `protobuf:"varint,6,opt,name=dbl_click_nav,json=dblClickNav,proto3,oneof" json:"dbl_click_nav,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2128,15 +2118,15 @@ func (x *NodeConfigOffPageReferencePayload) GetColor() *pb1.Color {
 }
 
 func (x *NodeConfigOffPageReferencePayload) GetPage() string {
-	if x != nil {
-		return x.Page
+	if x != nil && x.Page != nil {
+		return *x.Page
 	}
 	return ""
 }
 
 func (x *NodeConfigOffPageReferencePayload) GetDblClickNav() bool {
-	if x != nil {
-		return x.DblClickNav
+	if x != nil && x.DblClickNav != nil {
+		return *x.DblClickNav
 	}
 	return false
 }
@@ -2286,7 +2276,7 @@ type NodeConfigSelectPayload struct {
 	// options is the set of selectable states.
 	Options []*StateMapping `protobuf:"bytes,8,rep,name=options,proto3" json:"options,omitempty"`
 	// disabled indicates whether the select rejects interaction.
-	Disabled bool `protobuf:"varint,9,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	Disabled *bool `protobuf:"varint,9,opt,name=disabled,proto3,oneof" json:"disabled,omitempty"`
 	// control is the control state display configuration.
 	Control       *ControlStateConfig `protobuf:"bytes,10,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2380,8 +2370,8 @@ func (x *NodeConfigSelectPayload) GetOptions() []*StateMapping {
 }
 
 func (x *NodeConfigSelectPayload) GetDisabled() bool {
-	if x != nil {
-		return x.Disabled
+	if x != nil && x.Disabled != nil {
+		return *x.Disabled
 	}
 	return false
 }
@@ -2412,9 +2402,9 @@ type NodeConfigSetpointPayload struct {
 	// color is the accent color of the setpoint.
 	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// units is the unit suffix displayed after the value.
-	Units string `protobuf:"bytes,9,opt,name=units,proto3" json:"units,omitempty"`
+	Units *string `protobuf:"bytes,9,opt,name=units,proto3,oneof" json:"units,omitempty"`
 	// disabled indicates whether the setpoint rejects interaction.
-	Disabled bool `protobuf:"varint,10,opt,name=disabled,proto3" json:"disabled,omitempty"`
+	Disabled *bool `protobuf:"varint,10,opt,name=disabled,proto3,oneof" json:"disabled,omitempty"`
 	// control is the control state display configuration.
 	Control       *ControlStateConfig `protobuf:"bytes,11,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -2508,15 +2498,15 @@ func (x *NodeConfigSetpointPayload) GetColor() *pb1.Color {
 }
 
 func (x *NodeConfigSetpointPayload) GetUnits() string {
-	if x != nil {
-		return x.Units
+	if x != nil && x.Units != nil {
+		return *x.Units
 	}
 	return ""
 }
 
 func (x *NodeConfigSetpointPayload) GetDisabled() bool {
-	if x != nil {
-		return x.Disabled
+	if x != nil && x.Disabled != nil {
+		return *x.Disabled
 	}
 	return false
 }
@@ -2642,11 +2632,11 @@ type NodeConfigTextBoxPayload struct {
 	// align is the alignment of the text within the box.
 	Align *FlexAlignment `protobuf:"varint,6,opt,name=align,proto3,enum=service.schematic.pb.FlexAlignment,oneof" json:"align,omitempty"`
 	// auto_fit indicates whether the box resizes to fit its content.
-	AutoFit bool `protobuf:"varint,7,opt,name=auto_fit,json=autoFit,proto3" json:"auto_fit,omitempty"`
+	AutoFit *bool `protobuf:"varint,7,opt,name=auto_fit,json=autoFit,proto3,oneof" json:"auto_fit,omitempty"`
 	// level is the typography level of the text.
 	Level *pb2.Level `protobuf:"varint,8,opt,name=level,proto3,enum=x.text.pb.Level,oneof" json:"level,omitempty"`
 	// value is the text content of the box.
-	Value         string `protobuf:"bytes,9,opt,name=value,proto3" json:"value,omitempty"`
+	Value         *string `protobuf:"bytes,9,opt,name=value,proto3,oneof" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2724,8 +2714,8 @@ func (x *NodeConfigTextBoxPayload) GetAlign() FlexAlignment {
 }
 
 func (x *NodeConfigTextBoxPayload) GetAutoFit() bool {
-	if x != nil {
-		return x.AutoFit
+	if x != nil && x.AutoFit != nil {
+		return *x.AutoFit
 	}
 	return false
 }
@@ -2738,10 +2728,54 @@ func (x *NodeConfigTextBoxPayload) GetLevel() pb2.Level {
 }
 
 func (x *NodeConfigTextBoxPayload) GetValue() string {
-	if x != nil {
-		return x.Value
+	if x != nil && x.Value != nil {
+		return *x.Value
 	}
 	return ""
+}
+
+type StringList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringList) Reset() {
+	*x = StringList{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringList) ProtoMessage() {}
+
+func (x *StringList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringList.ProtoReflect.Descriptor instead.
+func (*StringList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *StringList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
 }
 
 type NodeConfigValuePayload struct {
@@ -2759,11 +2793,11 @@ type NodeConfigValuePayload struct {
 	// text_color is the color of the displayed text.
 	TextColor *pb1.Color `protobuf:"bytes,6,opt,name=text_color,json=textColor,proto3,oneof" json:"text_color,omitempty"`
 	// tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `protobuf:"bytes,7,rep,name=tooltip,proto3" json:"tooltip,omitempty"`
+	Tooltip *StringList `protobuf:"bytes,7,opt,name=tooltip,proto3" json:"tooltip,omitempty"`
 	// redline is the bounds-to-gradient mapping applied to the background.
 	Redline *Redline `protobuf:"bytes,8,opt,name=redline,proto3,oneof" json:"redline,omitempty"`
 	// units is the unit suffix displayed after the value.
-	Units string `protobuf:"bytes,9,opt,name=units,proto3" json:"units,omitempty"`
+	Units *string `protobuf:"bytes,9,opt,name=units,proto3,oneof" json:"units,omitempty"`
 	// inline_size is the inline size of the value in pixels.
 	InlineSize *float64 `protobuf:"fixed64,10,opt,name=inline_size,json=inlineSize,proto3,oneof" json:"inline_size,omitempty"`
 	// channel is the channel whose value the symbol displays.
@@ -2787,7 +2821,7 @@ type NodeConfigValuePayload struct {
 	Location *pb.LocationXY `protobuf:"bytes,19,opt,name=location,proto3,oneof" json:"location,omitempty"`
 	// use_width_for_background indicates whether the background spans the full configured
 	// width.
-	UseWidthForBackground bool `protobuf:"varint,20,opt,name=use_width_for_background,json=useWidthForBackground,proto3" json:"use_width_for_background,omitempty"`
+	UseWidthForBackground *bool `protobuf:"varint,20,opt,name=use_width_for_background,json=useWidthForBackground,proto3,oneof" json:"use_width_for_background,omitempty"`
 	// value_background_shift is the offset applied to the value background.
 	ValueBackgroundShift *pb.XY `protobuf:"bytes,21,opt,name=value_background_shift,json=valueBackgroundShift,proto3,oneof" json:"value_background_shift,omitempty"`
 	// value_background_over_scan is the extra padding applied around the value background.
@@ -2798,7 +2832,7 @@ type NodeConfigValuePayload struct {
 
 func (x *NodeConfigValuePayload) Reset() {
 	*x = NodeConfigValuePayload{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[27]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2810,7 +2844,7 @@ func (x *NodeConfigValuePayload) String() string {
 func (*NodeConfigValuePayload) ProtoMessage() {}
 
 func (x *NodeConfigValuePayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[27]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2823,7 +2857,7 @@ func (x *NodeConfigValuePayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigValuePayload.ProtoReflect.Descriptor instead.
 func (*NodeConfigValuePayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{27}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *NodeConfigValuePayload) GetLabel() *LabelConfig {
@@ -2868,7 +2902,7 @@ func (x *NodeConfigValuePayload) GetTextColor() *pb1.Color {
 	return nil
 }
 
-func (x *NodeConfigValuePayload) GetTooltip() []string {
+func (x *NodeConfigValuePayload) GetTooltip() *StringList {
 	if x != nil {
 		return x.Tooltip
 	}
@@ -2883,8 +2917,8 @@ func (x *NodeConfigValuePayload) GetRedline() *Redline {
 }
 
 func (x *NodeConfigValuePayload) GetUnits() string {
-	if x != nil {
-		return x.Units
+	if x != nil && x.Units != nil {
+		return *x.Units
 	}
 	return ""
 }
@@ -2960,8 +2994,8 @@ func (x *NodeConfigValuePayload) GetLocation() *pb.LocationXY {
 }
 
 func (x *NodeConfigValuePayload) GetUseWidthForBackground() bool {
-	if x != nil {
-		return x.UseWidthForBackground
+	if x != nil && x.UseWidthForBackground != nil {
+		return *x.UseWidthForBackground
 	}
 	return false
 }
@@ -2995,18 +3029,18 @@ type NodeConfigSolenoidValvePayload struct {
 	// control is the control state display configuration.
 	Control *ControlStateConfig `protobuf:"bytes,6,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	OnClickDelay *float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3,oneof" json:"on_click_delay,omitempty"`
 	// color is the stroke color of the symbol.
 	Color *pb1.Color `protobuf:"bytes,8,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// normally_open indicates whether the valve is open when unpowered.
-	NormallyOpen  bool `protobuf:"varint,9,opt,name=normally_open,json=normallyOpen,proto3" json:"normally_open,omitempty"`
+	NormallyOpen  *bool `protobuf:"varint,9,opt,name=normally_open,json=normallyOpen,proto3,oneof" json:"normally_open,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *NodeConfigSolenoidValvePayload) Reset() {
 	*x = NodeConfigSolenoidValvePayload{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[28]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3018,7 +3052,7 @@ func (x *NodeConfigSolenoidValvePayload) String() string {
 func (*NodeConfigSolenoidValvePayload) ProtoMessage() {}
 
 func (x *NodeConfigSolenoidValvePayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[28]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3031,7 +3065,7 @@ func (x *NodeConfigSolenoidValvePayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigSolenoidValvePayload.ProtoReflect.Descriptor instead.
 func (*NodeConfigSolenoidValvePayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{28}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *NodeConfigSolenoidValvePayload) GetLabel() *LabelConfig {
@@ -3077,8 +3111,8 @@ func (x *NodeConfigSolenoidValvePayload) GetControl() *ControlStateConfig {
 }
 
 func (x *NodeConfigSolenoidValvePayload) GetOnClickDelay() float64 {
-	if x != nil {
-		return x.OnClickDelay
+	if x != nil && x.OnClickDelay != nil {
+		return *x.OnClickDelay
 	}
 	return 0
 }
@@ -3091,8 +3125,8 @@ func (x *NodeConfigSolenoidValvePayload) GetColor() *pb1.Color {
 }
 
 func (x *NodeConfigSolenoidValvePayload) GetNormallyOpen() bool {
-	if x != nil {
-		return x.NormallyOpen
+	if x != nil && x.NormallyOpen != nil {
+		return *x.NormallyOpen
 	}
 	return false
 }
@@ -3119,7 +3153,7 @@ type NodeConfigCylinderPayload struct {
 
 func (x *NodeConfigCylinderPayload) Reset() {
 	*x = NodeConfigCylinderPayload{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[29]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3131,7 +3165,7 @@ func (x *NodeConfigCylinderPayload) String() string {
 func (*NodeConfigCylinderPayload) ProtoMessage() {}
 
 func (x *NodeConfigCylinderPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[29]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3144,7 +3178,7 @@ func (x *NodeConfigCylinderPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigCylinderPayload.ProtoReflect.Descriptor instead.
 func (*NodeConfigCylinderPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{29}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *NodeConfigCylinderPayload) GetLabel() *LabelConfig {
@@ -3218,7 +3252,7 @@ type NodeConfigTankPayload struct {
 
 func (x *NodeConfigTankPayload) Reset() {
 	*x = NodeConfigTankPayload{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[30]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3230,7 +3264,7 @@ func (x *NodeConfigTankPayload) String() string {
 func (*NodeConfigTankPayload) ProtoMessage() {}
 
 func (x *NodeConfigTankPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[30]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3243,7 +3277,7 @@ func (x *NodeConfigTankPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigTankPayload.ProtoReflect.Descriptor instead.
 func (*NodeConfigTankPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{30}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *NodeConfigTankPayload) GetLabel() *LabelConfig {
@@ -3295,6 +3329,50 @@ func (x *NodeConfigTankPayload) GetBorderRadius() *pb4.Radius {
 	return nil
 }
 
+type RecordList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*structpb.Struct     `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecordList) Reset() {
+	*x = RecordList{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecordList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecordList) ProtoMessage() {}
+
+func (x *RecordList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecordList.ProtoReflect.Descriptor instead.
+func (*RecordList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *RecordList) GetValues() []*structpb.Struct {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 type NodeConfigCustomActuatorPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// label is the symbol's label configuration.
@@ -3310,7 +3388,7 @@ type NodeConfigCustomActuatorPayload struct {
 	// control is the control state display configuration.
 	Control *ControlStateConfig `protobuf:"bytes,6,opt,name=control,proto3,oneof" json:"control,omitempty"`
 	// on_click_delay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3" json:"on_click_delay,omitempty"`
+	OnClickDelay *float64 `protobuf:"fixed64,7,opt,name=on_click_delay,json=onClickDelay,proto3,oneof" json:"on_click_delay,omitempty"`
 	// spec_key is the key of the custom symbol spec this instance renders.
 	SpecKey string `protobuf:"bytes,8,opt,name=spec_key,json=specKey,proto3" json:"spec_key,omitempty"`
 	// color is the stroke color of the symbol.
@@ -3318,14 +3396,14 @@ type NodeConfigCustomActuatorPayload struct {
 	// state_overrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
-	StateOverrides []*structpb.Struct `protobuf:"bytes,10,rep,name=state_overrides,json=stateOverrides,proto3" json:"state_overrides,omitempty"`
+	StateOverrides *RecordList `protobuf:"bytes,10,opt,name=state_overrides,json=stateOverrides,proto3" json:"state_overrides,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *NodeConfigCustomActuatorPayload) Reset() {
 	*x = NodeConfigCustomActuatorPayload{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[31]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3337,7 +3415,7 @@ func (x *NodeConfigCustomActuatorPayload) String() string {
 func (*NodeConfigCustomActuatorPayload) ProtoMessage() {}
 
 func (x *NodeConfigCustomActuatorPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[31]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3350,7 +3428,7 @@ func (x *NodeConfigCustomActuatorPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigCustomActuatorPayload.ProtoReflect.Descriptor instead.
 func (*NodeConfigCustomActuatorPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{31}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *NodeConfigCustomActuatorPayload) GetLabel() *LabelConfig {
@@ -3396,8 +3474,8 @@ func (x *NodeConfigCustomActuatorPayload) GetControl() *ControlStateConfig {
 }
 
 func (x *NodeConfigCustomActuatorPayload) GetOnClickDelay() float64 {
-	if x != nil {
-		return x.OnClickDelay
+	if x != nil && x.OnClickDelay != nil {
+		return *x.OnClickDelay
 	}
 	return 0
 }
@@ -3416,7 +3494,7 @@ func (x *NodeConfigCustomActuatorPayload) GetColor() *pb1.Color {
 	return nil
 }
 
-func (x *NodeConfigCustomActuatorPayload) GetStateOverrides() []*structpb.Struct {
+func (x *NodeConfigCustomActuatorPayload) GetStateOverrides() *RecordList {
 	if x != nil {
 		return x.StateOverrides
 	}
@@ -3438,14 +3516,14 @@ type NodeConfigCustomStaticPayload struct {
 	// state_overrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
-	StateOverrides []*structpb.Struct `protobuf:"bytes,6,rep,name=state_overrides,json=stateOverrides,proto3" json:"state_overrides,omitempty"`
+	StateOverrides *RecordList `protobuf:"bytes,6,opt,name=state_overrides,json=stateOverrides,proto3" json:"state_overrides,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
 func (x *NodeConfigCustomStaticPayload) Reset() {
 	*x = NodeConfigCustomStaticPayload{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[32]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3457,7 +3535,7 @@ func (x *NodeConfigCustomStaticPayload) String() string {
 func (*NodeConfigCustomStaticPayload) ProtoMessage() {}
 
 func (x *NodeConfigCustomStaticPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[32]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3470,7 +3548,7 @@ func (x *NodeConfigCustomStaticPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfigCustomStaticPayload.ProtoReflect.Descriptor instead.
 func (*NodeConfigCustomStaticPayload) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{32}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *NodeConfigCustomStaticPayload) GetLabel() *LabelConfig {
@@ -3508,7 +3586,7 @@ func (x *NodeConfigCustomStaticPayload) GetColor() *pb1.Color {
 	return nil
 }
 
-func (x *NodeConfigCustomStaticPayload) GetStateOverrides() []*structpb.Struct {
+func (x *NodeConfigCustomStaticPayload) GetStateOverrides() *RecordList {
 	if x != nil {
 		return x.StateOverrides
 	}
@@ -3535,7 +3613,7 @@ type EdgeConfig struct {
 
 func (x *EdgeConfig) Reset() {
 	*x = EdgeConfig{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3547,7 +3625,7 @@ func (x *EdgeConfig) String() string {
 func (*EdgeConfig) ProtoMessage() {}
 
 func (x *EdgeConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3560,7 +3638,7 @@ func (x *EdgeConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EdgeConfig.ProtoReflect.Descriptor instead.
 func (*EdgeConfig) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{33}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *EdgeConfig) GetVariant() isEdgeConfig_Variant {
@@ -3792,7 +3870,7 @@ type NodeConfig struct {
 
 func (x *NodeConfig) Reset() {
 	*x = NodeConfig{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3804,7 +3882,7 @@ func (x *NodeConfig) String() string {
 func (*NodeConfig) ProtoMessage() {}
 
 func (x *NodeConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3817,7 +3895,7 @@ func (x *NodeConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeConfig.ProtoReflect.Descriptor instead.
 func (*NodeConfig) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{34}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *NodeConfig) GetVariant() isNodeConfig_Variant {
@@ -5451,7 +5529,7 @@ type ElementConfig struct {
 
 func (x *ElementConfig) Reset() {
 	*x = ElementConfig{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5463,7 +5541,7 @@ func (x *ElementConfig) String() string {
 func (*ElementConfig) ProtoMessage() {}
 
 func (x *ElementConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5476,7 +5554,7 @@ func (x *ElementConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ElementConfig.ProtoReflect.Descriptor instead.
 func (*ElementConfig) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{35}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ElementConfig) GetVariant() isElementConfig_Variant {
@@ -7099,12 +7177,11 @@ var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescript
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/border/pb/border.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1fx/go/notation/pb/notation.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"\x95\x01\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/border/pb/border.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1fx/go/notation/pb/notation.proto\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x17x/go/text/pb/text.proto\"_\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x17\n" +
-	"\az_index\x18\x03 \x01(\x05R\x06zIndex\x124\n" +
-	"\bmeasured\x18\x04 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\"2\n" +
+	"\az_index\x18\x03 \x01(\x05R\x06zIndex\"2\n" +
 	"\x06Handle\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x14\n" +
 	"\x05param\x18\x02 \x01(\tR\x05param\"\x84\x01\n" +
@@ -7118,14 +7195,15 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x13SegmentedEdgeConfig\x12,\n" +
 	"\x05color\x18\x01 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x129\n" +
 	"\bsegments\x18\x02 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegmentsB\b\n" +
-	"\x06_color\"\xfe\x02\n" +
-	"\vLabelConfig\x12\x14\n" +
-	"\x05label\x18\x01 \x01(\tR\x05label\x12+\n" +
-	"\x05level\x18\x02 \x01(\x0e2\x10.x.text.pb.LevelH\x00R\x05level\x88\x01\x01\x12=\n" +
-	"\vorientation\x18\x03 \x01(\x0e2\x16.x.spatial.pb.LocationH\x01R\vorientation\x88\x01\x01\x12:\n" +
-	"\tdirection\x18\x04 \x01(\x0e2\x17.x.spatial.pb.DirectionH\x02R\tdirection\x88\x01\x01\x12+\n" +
-	"\x0fmax_inline_size\x18\x05 \x01(\x01H\x03R\rmaxInlineSize\x88\x01\x01\x12>\n" +
-	"\x05align\x18\x06 \x01(\x0e2#.service.schematic.pb.FlexAlignmentH\x04R\x05align\x88\x01\x01B\b\n" +
+	"\x06_color\"\x8d\x03\n" +
+	"\vLabelConfig\x12\x19\n" +
+	"\x05label\x18\x01 \x01(\tH\x00R\x05label\x88\x01\x01\x12+\n" +
+	"\x05level\x18\x02 \x01(\x0e2\x10.x.text.pb.LevelH\x01R\x05level\x88\x01\x01\x12=\n" +
+	"\vorientation\x18\x03 \x01(\x0e2\x16.x.spatial.pb.LocationH\x02R\vorientation\x88\x01\x01\x12:\n" +
+	"\tdirection\x18\x04 \x01(\x0e2\x17.x.spatial.pb.DirectionH\x03R\tdirection\x88\x01\x01\x12+\n" +
+	"\x0fmax_inline_size\x18\x05 \x01(\x01H\x04R\rmaxInlineSize\x88\x01\x01\x12>\n" +
+	"\x05align\x18\x06 \x01(\x0e2#.service.schematic.pb.FlexAlignmentH\x05R\x05align\x88\x01\x01B\b\n" +
+	"\x06_labelB\b\n" +
 	"\x06_levelB\x0e\n" +
 	"\f_orientationB\f\n" +
 	"\n" +
@@ -7138,31 +7216,36 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
-	"\x06_scale\"\xec\x01\n" +
+	"\x06_scale\"\xa5\x02\n" +
 	"\x12ControlStateConfig\x12!\n" +
-	"\tauthority\x18\x01 \x01(\rH\x00R\tauthority\x88\x01\x01\x12\x12\n" +
-	"\x04show\x18\x02 \x01(\bR\x04show\x12\x1b\n" +
-	"\tshow_chip\x18\x03 \x01(\bR\bshowChip\x12%\n" +
-	"\x0eshow_indicator\x18\x04 \x01(\bR\rshowIndicator\x12=\n" +
-	"\vorientation\x18\x05 \x01(\x0e2\x16.x.spatial.pb.LocationH\x01R\vorientation\x88\x01\x01B\f\n" +
+	"\tauthority\x18\x01 \x01(\rH\x00R\tauthority\x88\x01\x01\x12\x17\n" +
+	"\x04show\x18\x02 \x01(\bH\x01R\x04show\x88\x01\x01\x12 \n" +
+	"\tshow_chip\x18\x03 \x01(\bH\x02R\bshowChip\x88\x01\x01\x12*\n" +
+	"\x0eshow_indicator\x18\x04 \x01(\bH\x03R\rshowIndicator\x88\x01\x01\x12=\n" +
+	"\vorientation\x18\x05 \x01(\x0e2\x16.x.spatial.pb.LocationH\x04R\vorientation\x88\x01\x01B\f\n" +
 	"\n" +
-	"_authorityB\x0e\n" +
-	"\f_orientation\"\xc8\x03\n" +
+	"_authorityB\a\n" +
+	"\x05_showB\f\n" +
+	"\n" +
+	"_show_chipB\x11\n" +
+	"\x0f_show_indicatorB\x0e\n" +
+	"\f_orientation\"\xe0\x03\n" +
 	"\fToggleConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
 	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12(\n" +
 	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
 	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\a \x01(\x01R\fonClickDelayB\b\n" +
+	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12)\n" +
+	"\x0eon_click_delay\x18\a \x01(\x01H\x06R\fonClickDelay\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\n" +
 	"\n" +
-	"\b_control\"\x8d\x02\n" +
+	"\b_controlB\x11\n" +
+	"\x0f_on_click_delay\"\x8d\x02\n" +
 	"\x12StaticSymbolConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
@@ -7171,34 +7254,39 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\b\n" +
-	"\x06_color\"\x86\x04\n" +
+	"\x06_color\"\x9e\x04\n" +
 	"\x12ToggleSymbolConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
 	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12(\n" +
 	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
 	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\a \x01(\x01R\fonClickDelay\x12,\n" +
-	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01B\b\n" +
+	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12)\n" +
+	"\x0eon_click_delay\x18\a \x01(\x01H\x06R\fonClickDelay\x88\x01\x01\x12,\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\aR\x05color\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\n" +
 	"\n" +
-	"\b_controlB\b\n" +
-	"\x06_color\"\xca\x02\n" +
+	"\b_controlB\x11\n" +
+	"\x0f_on_click_delayB\b\n" +
+	"\x06_color\"\xee\x02\n" +
 	"\x17DummyToggleSymbolConfig\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
-	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x18\n" +
-	"\aenabled\x18\x04 \x01(\bR\aenabled\x12\x1c\n" +
-	"\tclickable\x18\x05 \x01(\bR\tclickable\x12,\n" +
-	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01B\b\n" +
+	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x1d\n" +
+	"\aenabled\x18\x04 \x01(\bH\x03R\aenabled\x88\x01\x01\x12!\n" +
+	"\tclickable\x18\x05 \x01(\bH\x04R\tclickable\x88\x01\x01\x12,\n" +
+	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
-	"\x06_scaleB\b\n" +
+	"\x06_scaleB\n" +
+	"\n" +
+	"\b_enabledB\f\n" +
+	"\n" +
+	"_clickableB\b\n" +
 	"\x06_color\"\x82\x01\n" +
 	"\fStateMapping\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
@@ -7235,24 +7323,25 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x11_background_colorB\r\n" +
 	"\v_dimensionsB\x10\n" +
 	"\x0e_border_radiusB\x0f\n" +
-	"\r_stroke_width\"\x91\x05\n" +
+	"\r_stroke_width\"\xa9\x05\n" +
 	"\x17NodeConfigButtonPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
 	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12<\n" +
 	"\x04size\x18\x04 \x01(\x0e2#.service.schematic.pb.ComponentSizeH\x03R\x04size\x88\x01\x01\x12+\n" +
-	"\x05level\x18\x05 \x01(\x0e2\x10.x.text.pb.LevelH\x04R\x05level\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\x06 \x01(\x01R\fonClickDelay\x12,\n" +
-	"\x0fcommand_channel\x18\a \x01(\rH\x05R\x0ecommandChannel\x88\x01\x01\x129\n" +
-	"\x04mode\x18\b \x01(\x0e2 .service.schematic.pb.ButtonModeH\x06R\x04mode\x88\x01\x01\x12,\n" +
-	"\x05color\x18\t \x01(\v2\x11.x.color.pb.ColorH\aR\x05color\x88\x01\x01\x12G\n" +
+	"\x05level\x18\x05 \x01(\x0e2\x10.x.text.pb.LevelH\x04R\x05level\x88\x01\x01\x12)\n" +
+	"\x0eon_click_delay\x18\x06 \x01(\x01H\x05R\fonClickDelay\x88\x01\x01\x12,\n" +
+	"\x0fcommand_channel\x18\a \x01(\rH\x06R\x0ecommandChannel\x88\x01\x01\x129\n" +
+	"\x04mode\x18\b \x01(\x0e2 .service.schematic.pb.ButtonModeH\aR\x04mode\x88\x01\x01\x12,\n" +
+	"\x05color\x18\t \x01(\v2\x11.x.color.pb.ColorH\bR\x05color\x88\x01\x01\x12G\n" +
 	"\acontrol\x18\n" +
-	" \x01(\v2(.service.schematic.pb.ControlStateConfigH\bR\acontrol\x88\x01\x01B\b\n" +
+	" \x01(\v2(.service.schematic.pb.ControlStateConfigH\tR\acontrol\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\a\n" +
 	"\x05_sizeB\b\n" +
-	"\x06_levelB\x12\n" +
+	"\x06_levelB\x11\n" +
+	"\x0f_on_click_delayB\x12\n" +
 	"\x10_command_channelB\a\n" +
 	"\x05_modeB\b\n" +
 	"\x06_colorB\n" +
@@ -7271,7 +7360,7 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06_scaleB\b\n" +
 	"\x06_colorB\x13\n" +
 	"\x11_background_colorB\x0f\n" +
-	"\r_stroke_width\"\x8e\a\n" +
+	"\r_stroke_width\"\x9d\a\n" +
 	"\x16NodeConfigGaugePayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
@@ -7288,9 +7377,9 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"R\bminWidth\x88\x01\x01\x12\x19\n" +
 	"\x05width\x18\f \x01(\x01H\vR\x05width\x88\x01\x01\x128\n" +
 	"\bnotation\x18\r \x01(\x0e2\x17.x.notation.pb.NotationH\fR\bnotation\x88\x01\x01\x129\n" +
-	"\blocation\x18\x0e \x01(\v2\x18.x.spatial.pb.LocationXYH\rR\blocation\x88\x01\x01\x12\x14\n" +
-	"\x05units\x18\x0f \x01(\tR\x05units\x12+\n" +
-	"\x05level\x18\x10 \x01(\x0e2\x10.x.text.pb.LevelH\x0eR\x05level\x88\x01\x01B\b\n" +
+	"\blocation\x18\x0e \x01(\v2\x18.x.spatial.pb.LocationXYH\rR\blocation\x88\x01\x01\x12\x19\n" +
+	"\x05units\x18\x0f \x01(\tH\x0eR\x05units\x88\x01\x01\x12+\n" +
+	"\x05level\x18\x10 \x01(\x0e2\x10.x.text.pb.LevelH\x0fR\x05level\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\v\n" +
@@ -7309,7 +7398,8 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06_widthB\v\n" +
 	"\t_notationB\v\n" +
 	"\t_locationB\b\n" +
-	"\x06_level\"\xd9\x04\n" +
+	"\x06_unitsB\b\n" +
+	"\x06_level\"\xeb\x04\n" +
 	"\x16NodeConfigInputPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
@@ -7319,16 +7409,17 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
 	"dimensions\x18\x06 \x01(\v2\x18.x.spatial.pb.DimensionsH\x05R\n" +
 	"dimensions\x88\x01\x01\x12,\n" +
-	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12\x1a\n" +
-	"\bdisabled\x18\b \x01(\bR\bdisabled\x12G\n" +
-	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigH\aR\acontrol\x88\x01\x01B\b\n" +
+	"\x05color\x18\a \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12\x1f\n" +
+	"\bdisabled\x18\b \x01(\bH\aR\bdisabled\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\t \x01(\v2(.service.schematic.pb.ControlStateConfigH\bR\acontrol\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\a\n" +
 	"\x05_sizeB\x12\n" +
 	"\x10_command_channelB\r\n" +
 	"\v_dimensionsB\b\n" +
-	"\x06_colorB\n" +
+	"\x06_colorB\v\n" +
+	"\t_disabledB\n" +
 	"\n" +
 	"\b_control\"\x83\x03\n" +
 	"\x16NodeConfigLightPayload\x12<\n" +
@@ -7345,17 +7436,19 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\b_channelB\f\n" +
 	"\n" +
 	"_thresholdB\b\n" +
-	"\x06_color\"\xd7\x02\n" +
+	"\x06_color\"\xfc\x02\n" +
 	"!NodeConfigOffPageReferencePayload\x12B\n" +
 	"\vorientation\x18\x01 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x00R\vorientation\x88\x01\x01\x127\n" +
 	"\x05label\x18\x02 \x01(\v2!.service.schematic.pb.LabelConfigR\x05label\x12+\n" +
 	"\x05level\x18\x03 \x01(\x0e2\x10.x.text.pb.LevelH\x01R\x05level\x88\x01\x01\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x12\n" +
-	"\x04page\x18\x05 \x01(\tR\x04page\x12\"\n" +
-	"\rdbl_click_nav\x18\x06 \x01(\bR\vdblClickNavB\x0e\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x02R\x05color\x88\x01\x01\x12\x17\n" +
+	"\x04page\x18\x05 \x01(\tH\x03R\x04page\x88\x01\x01\x12'\n" +
+	"\rdbl_click_nav\x18\x06 \x01(\bH\x04R\vdblClickNav\x88\x01\x01B\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_levelB\b\n" +
-	"\x06_color\"\xd2\x04\n" +
+	"\x06_colorB\a\n" +
+	"\x05_pageB\x10\n" +
+	"\x0e_dbl_click_nav\"\xd2\x04\n" +
 	"\x18NodeConfigPolygonPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
@@ -7376,7 +7469,7 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x10_corner_roundingB\b\n" +
 	"\x06_colorB\x13\n" +
 	"\x11_background_colorB\x0f\n" +
-	"\r_stroke_width\"\x80\x05\n" +
+	"\r_stroke_width\"\x92\x05\n" +
 	"\x17NodeConfigSelectPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
@@ -7386,19 +7479,20 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x05color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\x05color\x88\x01\x01\x12$\n" +
 	"\vinline_size\x18\a \x01(\x01H\x06R\n" +
 	"inlineSize\x88\x01\x01\x12<\n" +
-	"\aoptions\x18\b \x03(\v2\".service.schematic.pb.StateMappingR\aoptions\x12\x1a\n" +
-	"\bdisabled\x18\t \x01(\bR\bdisabled\x12G\n" +
+	"\aoptions\x18\b \x03(\v2\".service.schematic.pb.StateMappingR\aoptions\x12\x1f\n" +
+	"\bdisabled\x18\t \x01(\bH\aR\bdisabled\x88\x01\x01\x12G\n" +
 	"\acontrol\x18\n" +
-	" \x01(\v2(.service.schematic.pb.ControlStateConfigH\aR\acontrol\x88\x01\x01B\b\n" +
+	" \x01(\v2(.service.schematic.pb.ControlStateConfigH\bR\acontrol\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\a\n" +
 	"\x05_sizeB\x12\n" +
 	"\x10_command_channelB\b\n" +
 	"\x06_colorB\x0e\n" +
-	"\f_inline_sizeB\n" +
+	"\f_inline_sizeB\v\n" +
+	"\t_disabledB\n" +
 	"\n" +
-	"\b_control\"\xae\x05\n" +
+	"\b_control\"\xcf\x05\n" +
 	"\x19NodeConfigSetpointPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
@@ -7409,11 +7503,12 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
 	"dimensions\x18\a \x01(\v2\x18.x.spatial.pb.DimensionsH\x06R\n" +
 	"dimensions\x88\x01\x01\x12,\n" +
-	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\aR\x05color\x88\x01\x01\x12\x14\n" +
-	"\x05units\x18\t \x01(\tR\x05units\x12\x1a\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\aR\x05color\x88\x01\x01\x12\x19\n" +
+	"\x05units\x18\t \x01(\tH\bR\x05units\x88\x01\x01\x12\x1f\n" +
 	"\bdisabled\x18\n" +
-	" \x01(\bR\bdisabled\x12G\n" +
-	"\acontrol\x18\v \x01(\v2(.service.schematic.pb.ControlStateConfigH\bR\acontrol\x88\x01\x01B\b\n" +
+	" \x01(\bH\tR\bdisabled\x88\x01\x01\x12G\n" +
+	"\acontrol\x18\v \x01(\v2(.service.schematic.pb.ControlStateConfigH\n" +
+	"R\acontrol\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\a\n" +
@@ -7421,7 +7516,9 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\r\n" +
 	"\v_dimensionsB\b\n" +
-	"\x06_colorB\n" +
+	"\x06_colorB\b\n" +
+	"\x06_unitsB\v\n" +
+	"\t_disabledB\n" +
 	"\n" +
 	"\b_control\"\xb9\x03\n" +
 	"\x1fNodeConfigStateIndicatorPayload\x12<\n" +
@@ -7439,24 +7536,29 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
 	"\b_channelB\b\n" +
 	"\x06_colorB\x0e\n" +
-	"\f_inline_size\"\xea\x03\n" +
+	"\f_inline_size\"\x8b\x04\n" +
 	"\x18NodeConfigTextBoxPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
 	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12,\n" +
 	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12\x19\n" +
 	"\x05width\x18\x05 \x01(\x01H\x04R\x05width\x88\x01\x01\x12>\n" +
-	"\x05align\x18\x06 \x01(\x0e2#.service.schematic.pb.FlexAlignmentH\x05R\x05align\x88\x01\x01\x12\x19\n" +
-	"\bauto_fit\x18\a \x01(\bR\aautoFit\x12+\n" +
-	"\x05level\x18\b \x01(\x0e2\x10.x.text.pb.LevelH\x06R\x05level\x88\x01\x01\x12\x14\n" +
-	"\x05value\x18\t \x01(\tR\x05valueB\b\n" +
+	"\x05align\x18\x06 \x01(\x0e2#.service.schematic.pb.FlexAlignmentH\x05R\x05align\x88\x01\x01\x12\x1e\n" +
+	"\bauto_fit\x18\a \x01(\bH\x06R\aautoFit\x88\x01\x01\x12+\n" +
+	"\x05level\x18\b \x01(\x0e2\x10.x.text.pb.LevelH\aR\x05level\x88\x01\x01\x12\x19\n" +
+	"\x05value\x18\t \x01(\tH\bR\x05value\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\b\n" +
 	"\x06_colorB\b\n" +
 	"\x06_widthB\b\n" +
-	"\x06_alignB\b\n" +
-	"\x06_level\"\x8c\v\n" +
+	"\x06_alignB\v\n" +
+	"\t_auto_fitB\b\n" +
+	"\x06_levelB\b\n" +
+	"\x06_value\"$\n" +
+	"\n" +
+	"StringList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xdf\v\n" +
 	"\x16NodeConfigValuePayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
@@ -7464,26 +7566,26 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\bposition\x18\x04 \x01(\v2\x10.x.spatial.pb.XYH\x03R\bposition\x88\x01\x01\x12,\n" +
 	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x04R\x05color\x88\x01\x01\x125\n" +
 	"\n" +
-	"text_color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\ttextColor\x88\x01\x01\x12\x18\n" +
-	"\atooltip\x18\a \x03(\tR\atooltip\x12<\n" +
-	"\aredline\x18\b \x01(\v2\x1d.service.schematic.pb.RedlineH\x06R\aredline\x88\x01\x01\x12\x14\n" +
-	"\x05units\x18\t \x01(\tR\x05units\x12$\n" +
+	"text_color\x18\x06 \x01(\v2\x11.x.color.pb.ColorH\x05R\ttextColor\x88\x01\x01\x12:\n" +
+	"\atooltip\x18\a \x01(\v2 .service.schematic.pb.StringListR\atooltip\x12<\n" +
+	"\aredline\x18\b \x01(\v2\x1d.service.schematic.pb.RedlineH\x06R\aredline\x88\x01\x01\x12\x19\n" +
+	"\x05units\x18\t \x01(\tH\aR\x05units\x88\x01\x01\x12$\n" +
 	"\vinline_size\x18\n" +
-	" \x01(\x01H\aR\n" +
+	" \x01(\x01H\bR\n" +
 	"inlineSize\x88\x01\x01\x12\x1d\n" +
-	"\achannel\x18\v \x01(\rH\bR\achannel\x88\x01\x01\x12,\n" +
-	"\x0frolling_average\x18\f \x01(\x05H\tR\x0erollingAverage\x88\x01\x01\x12+\n" +
-	"\x05level\x18\r \x01(\x0e2\x10.x.text.pb.LevelH\n" +
-	"R\x05level\x88\x01\x01\x12!\n" +
-	"\tprecision\x18\x0e \x01(\x01H\vR\tprecision\x88\x01\x01\x120\n" +
-	"\x11staleness_timeout\x18\x0f \x01(\x01H\fR\x10stalenessTimeout\x88\x01\x01\x12?\n" +
-	"\x0fstaleness_color\x18\x10 \x01(\v2\x11.x.color.pb.ColorH\rR\x0estalenessColor\x88\x01\x01\x12 \n" +
-	"\tmin_width\x18\x11 \x01(\x01H\x0eR\bminWidth\x88\x01\x01\x128\n" +
-	"\bnotation\x18\x12 \x01(\x0e2\x17.x.notation.pb.NotationH\x0fR\bnotation\x88\x01\x01\x129\n" +
-	"\blocation\x18\x13 \x01(\v2\x18.x.spatial.pb.LocationXYH\x10R\blocation\x88\x01\x01\x127\n" +
-	"\x18use_width_for_background\x18\x14 \x01(\bR\x15useWidthForBackground\x12K\n" +
-	"\x16value_background_shift\x18\x15 \x01(\v2\x10.x.spatial.pb.XYH\x11R\x14valueBackgroundShift\x88\x01\x01\x12R\n" +
-	"\x1avalue_background_over_scan\x18\x16 \x01(\v2\x10.x.spatial.pb.XYH\x12R\x17valueBackgroundOverScan\x88\x01\x01B\b\n" +
+	"\achannel\x18\v \x01(\rH\tR\achannel\x88\x01\x01\x12,\n" +
+	"\x0frolling_average\x18\f \x01(\x05H\n" +
+	"R\x0erollingAverage\x88\x01\x01\x12+\n" +
+	"\x05level\x18\r \x01(\x0e2\x10.x.text.pb.LevelH\vR\x05level\x88\x01\x01\x12!\n" +
+	"\tprecision\x18\x0e \x01(\x01H\fR\tprecision\x88\x01\x01\x120\n" +
+	"\x11staleness_timeout\x18\x0f \x01(\x01H\rR\x10stalenessTimeout\x88\x01\x01\x12?\n" +
+	"\x0fstaleness_color\x18\x10 \x01(\v2\x11.x.color.pb.ColorH\x0eR\x0estalenessColor\x88\x01\x01\x12 \n" +
+	"\tmin_width\x18\x11 \x01(\x01H\x0fR\bminWidth\x88\x01\x01\x128\n" +
+	"\bnotation\x18\x12 \x01(\x0e2\x17.x.notation.pb.NotationH\x10R\bnotation\x88\x01\x01\x129\n" +
+	"\blocation\x18\x13 \x01(\v2\x18.x.spatial.pb.LocationXYH\x11R\blocation\x88\x01\x01\x12<\n" +
+	"\x18use_width_for_background\x18\x14 \x01(\bH\x12R\x15useWidthForBackground\x88\x01\x01\x12K\n" +
+	"\x16value_background_shift\x18\x15 \x01(\v2\x10.x.spatial.pb.XYH\x13R\x14valueBackgroundShift\x88\x01\x01\x12R\n" +
+	"\x1avalue_background_over_scan\x18\x16 \x01(\v2\x10.x.spatial.pb.XYH\x14R\x17valueBackgroundOverScan\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\v\n" +
@@ -7491,7 +7593,8 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06_colorB\r\n" +
 	"\v_text_colorB\n" +
 	"\n" +
-	"\b_redlineB\x0e\n" +
+	"\b_redlineB\b\n" +
+	"\x06_unitsB\x0e\n" +
 	"\f_inline_sizeB\n" +
 	"\n" +
 	"\b_channelB\x12\n" +
@@ -7504,27 +7607,30 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
 	"_min_widthB\v\n" +
 	"\t_notationB\v\n" +
-	"\t_locationB\x19\n" +
+	"\t_locationB\x1b\n" +
+	"\x19_use_width_for_backgroundB\x19\n" +
 	"\x17_value_background_shiftB\x1d\n" +
-	"\x1b_value_background_over_scan\"\xb7\x04\n" +
+	"\x1b_value_background_over_scan\"\xe6\x04\n" +
 	"\x1eNodeConfigSolenoidValvePayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
 	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12(\n" +
 	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
 	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\a \x01(\x01R\fonClickDelay\x12,\n" +
-	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12#\n" +
-	"\rnormally_open\x18\t \x01(\bR\fnormallyOpenB\b\n" +
+	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12)\n" +
+	"\x0eon_click_delay\x18\a \x01(\x01H\x06R\fonClickDelay\x88\x01\x01\x12,\n" +
+	"\x05color\x18\b \x01(\v2\x11.x.color.pb.ColorH\aR\x05color\x88\x01\x01\x12(\n" +
+	"\rnormally_open\x18\t \x01(\bH\bR\fnormallyOpen\x88\x01\x01B\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\n" +
 	"\n" +
-	"\b_controlB\b\n" +
-	"\x06_color\"\x8b\x04\n" +
+	"\b_controlB\x11\n" +
+	"\x0f_on_click_delayB\b\n" +
+	"\x06_colorB\x10\n" +
+	"\x0e_normally_open\"\x8b\x04\n" +
 	"\x19NodeConfigCylinderPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
@@ -7558,34 +7664,38 @@ const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\x06_colorB\x13\n" +
 	"\x11_background_colorB\r\n" +
 	"\v_dimensionsB\x10\n" +
-	"\x0e_border_radius\"\xf0\x04\n" +
+	"\x0e_border_radius\"=\n" +
+	"\n" +
+	"RecordList\x12/\n" +
+	"\x06values\x18\x01 \x03(\v2\x17.google.protobuf.StructR\x06values\"\x91\x05\n" +
 	"\x1fNodeConfigCustomActuatorPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
 	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12(\n" +
 	"\rstate_channel\x18\x04 \x01(\rH\x03R\fstateChannel\x88\x01\x01\x12,\n" +
 	"\x0fcommand_channel\x18\x05 \x01(\rH\x04R\x0ecommandChannel\x88\x01\x01\x12G\n" +
-	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12$\n" +
-	"\x0eon_click_delay\x18\a \x01(\x01R\fonClickDelay\x12\x19\n" +
+	"\acontrol\x18\x06 \x01(\v2(.service.schematic.pb.ControlStateConfigH\x05R\acontrol\x88\x01\x01\x12)\n" +
+	"\x0eon_click_delay\x18\a \x01(\x01H\x06R\fonClickDelay\x88\x01\x01\x12\x19\n" +
 	"\bspec_key\x18\b \x01(\tR\aspecKey\x12,\n" +
-	"\x05color\x18\t \x01(\v2\x11.x.color.pb.ColorH\x06R\x05color\x88\x01\x01\x12@\n" +
+	"\x05color\x18\t \x01(\v2\x11.x.color.pb.ColorH\aR\x05color\x88\x01\x01\x12I\n" +
 	"\x0fstate_overrides\x18\n" +
-	" \x03(\v2\x17.google.protobuf.StructR\x0estateOverridesB\b\n" +
+	" \x01(\v2 .service.schematic.pb.RecordListR\x0estateOverridesB\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\x10\n" +
 	"\x0e_state_channelB\x12\n" +
 	"\x10_command_channelB\n" +
 	"\n" +
-	"\b_controlB\b\n" +
-	"\x06_color\"\xf5\x02\n" +
+	"\b_controlB\x11\n" +
+	"\x0f_on_click_delayB\b\n" +
+	"\x06_color\"\xfe\x02\n" +
 	"\x1dNodeConfigCustomStaticPayload\x12<\n" +
 	"\x05label\x18\x01 \x01(\v2!.service.schematic.pb.LabelConfigH\x00R\x05label\x88\x01\x01\x12B\n" +
 	"\vorientation\x18\x02 \x01(\x0e2\x1b.x.spatial.pb.OuterLocationH\x01R\vorientation\x88\x01\x01\x12\x19\n" +
 	"\x05scale\x18\x03 \x01(\x01H\x02R\x05scale\x88\x01\x01\x12\x19\n" +
 	"\bspec_key\x18\x04 \x01(\tR\aspecKey\x12,\n" +
-	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12@\n" +
-	"\x0fstate_overrides\x18\x06 \x03(\v2\x17.google.protobuf.StructR\x0estateOverridesB\b\n" +
+	"\x05color\x18\x05 \x01(\v2\x11.x.color.pb.ColorH\x03R\x05color\x88\x01\x01\x12I\n" +
+	"\x0fstate_overrides\x18\x06 \x01(\v2 .service.schematic.pb.RecordListR\x0estateOverridesB\b\n" +
 	"\x06_labelB\x0e\n" +
 	"\f_orientationB\b\n" +
 	"\x06_scaleB\b\n" +
@@ -7869,7 +7979,7 @@ func file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_schematic_pb_schematic_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
+var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
 var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	(FlexAlignment)(0),                        // 0: service.schematic.pb.FlexAlignment
 	(ComponentSize)(0),                        // 1: service.schematic.pb.ComponentSize
@@ -7901,384 +8011,387 @@ var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
 	(*NodeConfigSetpointPayload)(nil),         // 27: service.schematic.pb.NodeConfigSetpointPayload
 	(*NodeConfigStateIndicatorPayload)(nil),   // 28: service.schematic.pb.NodeConfigStateIndicatorPayload
 	(*NodeConfigTextBoxPayload)(nil),          // 29: service.schematic.pb.NodeConfigTextBoxPayload
-	(*NodeConfigValuePayload)(nil),            // 30: service.schematic.pb.NodeConfigValuePayload
-	(*NodeConfigSolenoidValvePayload)(nil),    // 31: service.schematic.pb.NodeConfigSolenoidValvePayload
-	(*NodeConfigCylinderPayload)(nil),         // 32: service.schematic.pb.NodeConfigCylinderPayload
-	(*NodeConfigTankPayload)(nil),             // 33: service.schematic.pb.NodeConfigTankPayload
-	(*NodeConfigCustomActuatorPayload)(nil),   // 34: service.schematic.pb.NodeConfigCustomActuatorPayload
-	(*NodeConfigCustomStaticPayload)(nil),     // 35: service.schematic.pb.NodeConfigCustomStaticPayload
-	(*EdgeConfig)(nil),                        // 36: service.schematic.pb.EdgeConfig
-	(*NodeConfig)(nil),                        // 37: service.schematic.pb.NodeConfig
-	(*ElementConfig)(nil),                     // 38: service.schematic.pb.ElementConfig
-	nil,                                       // 39: service.schematic.pb.Schematic.ConfigsEntry
-	(*pb.XY)(nil),                             // 40: x.spatial.pb.XY
-	(*pb.Dimensions)(nil),                     // 41: x.spatial.pb.Dimensions
-	(pb.Direction)(0),                         // 42: x.spatial.pb.Direction
-	(*pb1.Color)(nil),                         // 43: x.color.pb.Color
-	(pb2.Level)(0),                            // 44: x.text.pb.Level
-	(pb.Location)(0),                          // 45: x.spatial.pb.Location
-	(pb.OuterLocation)(0),                     // 46: x.spatial.pb.OuterLocation
-	(*pb.Bounds)(nil),                         // 47: x.spatial.pb.Bounds
-	(*pb1.Stop)(nil),                          // 48: x.color.pb.Stop
-	(pb3.Notation)(0),                         // 49: x.notation.pb.Notation
-	(*pb.LocationXY)(nil),                     // 50: x.spatial.pb.LocationXY
-	(*pb4.Radius)(nil),                        // 51: x.border.pb.Radius
-	(*structpb.Struct)(nil),                   // 52: google.protobuf.Struct
+	(*StringList)(nil),                        // 30: service.schematic.pb.StringList
+	(*NodeConfigValuePayload)(nil),            // 31: service.schematic.pb.NodeConfigValuePayload
+	(*NodeConfigSolenoidValvePayload)(nil),    // 32: service.schematic.pb.NodeConfigSolenoidValvePayload
+	(*NodeConfigCylinderPayload)(nil),         // 33: service.schematic.pb.NodeConfigCylinderPayload
+	(*NodeConfigTankPayload)(nil),             // 34: service.schematic.pb.NodeConfigTankPayload
+	(*RecordList)(nil),                        // 35: service.schematic.pb.RecordList
+	(*NodeConfigCustomActuatorPayload)(nil),   // 36: service.schematic.pb.NodeConfigCustomActuatorPayload
+	(*NodeConfigCustomStaticPayload)(nil),     // 37: service.schematic.pb.NodeConfigCustomStaticPayload
+	(*EdgeConfig)(nil),                        // 38: service.schematic.pb.EdgeConfig
+	(*NodeConfig)(nil),                        // 39: service.schematic.pb.NodeConfig
+	(*ElementConfig)(nil),                     // 40: service.schematic.pb.ElementConfig
+	nil,                                       // 41: service.schematic.pb.Schematic.ConfigsEntry
+	(*pb.XY)(nil),                             // 42: x.spatial.pb.XY
+	(pb.Direction)(0),                         // 43: x.spatial.pb.Direction
+	(*pb1.Color)(nil),                         // 44: x.color.pb.Color
+	(pb2.Level)(0),                            // 45: x.text.pb.Level
+	(pb.Location)(0),                          // 46: x.spatial.pb.Location
+	(pb.OuterLocation)(0),                     // 47: x.spatial.pb.OuterLocation
+	(*pb.Bounds)(nil),                         // 48: x.spatial.pb.Bounds
+	(*pb1.Stop)(nil),                          // 49: x.color.pb.Stop
+	(*pb.Dimensions)(nil),                     // 50: x.spatial.pb.Dimensions
+	(pb3.Notation)(0),                         // 51: x.notation.pb.Notation
+	(*pb.LocationXY)(nil),                     // 52: x.spatial.pb.LocationXY
+	(*pb4.Radius)(nil),                        // 53: x.border.pb.Radius
+	(*structpb.Struct)(nil),                   // 54: google.protobuf.Struct
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
-	40,  // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
-	41,  // 1: service.schematic.pb.Node.measured:type_name -> x.spatial.pb.Dimensions
-	4,   // 2: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
-	4,   // 3: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
-	42,  // 4: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
-	43,  // 5: service.schematic.pb.SegmentedEdgeConfig.color:type_name -> x.color.pb.Color
-	6,   // 6: service.schematic.pb.SegmentedEdgeConfig.segments:type_name -> service.schematic.pb.Segment
-	44,  // 7: service.schematic.pb.LabelConfig.level:type_name -> x.text.pb.Level
-	45,  // 8: service.schematic.pb.LabelConfig.orientation:type_name -> x.spatial.pb.Location
-	42,  // 9: service.schematic.pb.LabelConfig.direction:type_name -> x.spatial.pb.Direction
-	0,   // 10: service.schematic.pb.LabelConfig.align:type_name -> service.schematic.pb.FlexAlignment
-	8,   // 11: service.schematic.pb.LabeledConfig.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 12: service.schematic.pb.LabeledConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	45,  // 13: service.schematic.pb.ControlStateConfig.orientation:type_name -> x.spatial.pb.Location
-	8,   // 14: service.schematic.pb.ToggleConfig.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 15: service.schematic.pb.ToggleConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	10,  // 16: service.schematic.pb.ToggleConfig.control:type_name -> service.schematic.pb.ControlStateConfig
-	8,   // 17: service.schematic.pb.StaticSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 18: service.schematic.pb.StaticSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 19: service.schematic.pb.StaticSymbolConfig.color:type_name -> x.color.pb.Color
-	8,   // 20: service.schematic.pb.ToggleSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 21: service.schematic.pb.ToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	10,  // 22: service.schematic.pb.ToggleSymbolConfig.control:type_name -> service.schematic.pb.ControlStateConfig
-	43,  // 23: service.schematic.pb.ToggleSymbolConfig.color:type_name -> x.color.pb.Color
-	8,   // 24: service.schematic.pb.DummyToggleSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 25: service.schematic.pb.DummyToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 26: service.schematic.pb.DummyToggleSymbolConfig.color:type_name -> x.color.pb.Color
-	43,  // 27: service.schematic.pb.StateMapping.color:type_name -> x.color.pb.Color
-	47,  // 28: service.schematic.pb.Redline.bounds:type_name -> x.spatial.pb.Bounds
-	48,  // 29: service.schematic.pb.Redline.gradient:type_name -> x.color.pb.Stop
-	3,   // 30: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
-	5,   // 31: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
-	39,  // 32: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
-	8,   // 33: service.schematic.pb.NodeConfigBoxPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 34: service.schematic.pb.NodeConfigBoxPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 35: service.schematic.pb.NodeConfigBoxPayload.color:type_name -> x.color.pb.Color
-	43,  // 36: service.schematic.pb.NodeConfigBoxPayload.background_color:type_name -> x.color.pb.Color
-	41,  // 37: service.schematic.pb.NodeConfigBoxPayload.dimensions:type_name -> x.spatial.pb.Dimensions
-	8,   // 38: service.schematic.pb.NodeConfigButtonPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 39: service.schematic.pb.NodeConfigButtonPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	1,   // 40: service.schematic.pb.NodeConfigButtonPayload.size:type_name -> service.schematic.pb.ComponentSize
-	44,  // 41: service.schematic.pb.NodeConfigButtonPayload.level:type_name -> x.text.pb.Level
-	2,   // 42: service.schematic.pb.NodeConfigButtonPayload.mode:type_name -> service.schematic.pb.ButtonMode
-	43,  // 43: service.schematic.pb.NodeConfigButtonPayload.color:type_name -> x.color.pb.Color
-	10,  // 44: service.schematic.pb.NodeConfigButtonPayload.control:type_name -> service.schematic.pb.ControlStateConfig
-	8,   // 45: service.schematic.pb.NodeConfigCirclePayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 46: service.schematic.pb.NodeConfigCirclePayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 47: service.schematic.pb.NodeConfigCirclePayload.color:type_name -> x.color.pb.Color
-	43,  // 48: service.schematic.pb.NodeConfigCirclePayload.background_color:type_name -> x.color.pb.Color
-	8,   // 49: service.schematic.pb.NodeConfigGaugePayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 50: service.schematic.pb.NodeConfigGaugePayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	40,  // 51: service.schematic.pb.NodeConfigGaugePayload.position:type_name -> x.spatial.pb.XY
-	43,  // 52: service.schematic.pb.NodeConfigGaugePayload.color:type_name -> x.color.pb.Color
-	47,  // 53: service.schematic.pb.NodeConfigGaugePayload.bounds:type_name -> x.spatial.pb.Bounds
-	49,  // 54: service.schematic.pb.NodeConfigGaugePayload.notation:type_name -> x.notation.pb.Notation
-	50,  // 55: service.schematic.pb.NodeConfigGaugePayload.location:type_name -> x.spatial.pb.LocationXY
-	44,  // 56: service.schematic.pb.NodeConfigGaugePayload.level:type_name -> x.text.pb.Level
-	8,   // 57: service.schematic.pb.NodeConfigInputPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 58: service.schematic.pb.NodeConfigInputPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	1,   // 59: service.schematic.pb.NodeConfigInputPayload.size:type_name -> service.schematic.pb.ComponentSize
-	41,  // 60: service.schematic.pb.NodeConfigInputPayload.dimensions:type_name -> x.spatial.pb.Dimensions
-	43,  // 61: service.schematic.pb.NodeConfigInputPayload.color:type_name -> x.color.pb.Color
-	10,  // 62: service.schematic.pb.NodeConfigInputPayload.control:type_name -> service.schematic.pb.ControlStateConfig
-	8,   // 63: service.schematic.pb.NodeConfigLightPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 64: service.schematic.pb.NodeConfigLightPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	47,  // 65: service.schematic.pb.NodeConfigLightPayload.threshold:type_name -> x.spatial.pb.Bounds
-	43,  // 66: service.schematic.pb.NodeConfigLightPayload.color:type_name -> x.color.pb.Color
-	46,  // 67: service.schematic.pb.NodeConfigOffPageReferencePayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	8,   // 68: service.schematic.pb.NodeConfigOffPageReferencePayload.label:type_name -> service.schematic.pb.LabelConfig
-	44,  // 69: service.schematic.pb.NodeConfigOffPageReferencePayload.level:type_name -> x.text.pb.Level
-	43,  // 70: service.schematic.pb.NodeConfigOffPageReferencePayload.color:type_name -> x.color.pb.Color
-	8,   // 71: service.schematic.pb.NodeConfigPolygonPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 72: service.schematic.pb.NodeConfigPolygonPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 73: service.schematic.pb.NodeConfigPolygonPayload.color:type_name -> x.color.pb.Color
-	43,  // 74: service.schematic.pb.NodeConfigPolygonPayload.background_color:type_name -> x.color.pb.Color
-	8,   // 75: service.schematic.pb.NodeConfigSelectPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 76: service.schematic.pb.NodeConfigSelectPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	1,   // 77: service.schematic.pb.NodeConfigSelectPayload.size:type_name -> service.schematic.pb.ComponentSize
-	43,  // 78: service.schematic.pb.NodeConfigSelectPayload.color:type_name -> x.color.pb.Color
-	15,  // 79: service.schematic.pb.NodeConfigSelectPayload.options:type_name -> service.schematic.pb.StateMapping
-	10,  // 80: service.schematic.pb.NodeConfigSelectPayload.control:type_name -> service.schematic.pb.ControlStateConfig
-	8,   // 81: service.schematic.pb.NodeConfigSetpointPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 82: service.schematic.pb.NodeConfigSetpointPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	1,   // 83: service.schematic.pb.NodeConfigSetpointPayload.size:type_name -> service.schematic.pb.ComponentSize
-	41,  // 84: service.schematic.pb.NodeConfigSetpointPayload.dimensions:type_name -> x.spatial.pb.Dimensions
-	43,  // 85: service.schematic.pb.NodeConfigSetpointPayload.color:type_name -> x.color.pb.Color
-	10,  // 86: service.schematic.pb.NodeConfigSetpointPayload.control:type_name -> service.schematic.pb.ControlStateConfig
-	8,   // 87: service.schematic.pb.NodeConfigStateIndicatorPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 88: service.schematic.pb.NodeConfigStateIndicatorPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 89: service.schematic.pb.NodeConfigStateIndicatorPayload.color:type_name -> x.color.pb.Color
-	15,  // 90: service.schematic.pb.NodeConfigStateIndicatorPayload.options:type_name -> service.schematic.pb.StateMapping
-	8,   // 91: service.schematic.pb.NodeConfigTextBoxPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 92: service.schematic.pb.NodeConfigTextBoxPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 93: service.schematic.pb.NodeConfigTextBoxPayload.color:type_name -> x.color.pb.Color
-	0,   // 94: service.schematic.pb.NodeConfigTextBoxPayload.align:type_name -> service.schematic.pb.FlexAlignment
-	44,  // 95: service.schematic.pb.NodeConfigTextBoxPayload.level:type_name -> x.text.pb.Level
-	8,   // 96: service.schematic.pb.NodeConfigValuePayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 97: service.schematic.pb.NodeConfigValuePayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	40,  // 98: service.schematic.pb.NodeConfigValuePayload.position:type_name -> x.spatial.pb.XY
-	43,  // 99: service.schematic.pb.NodeConfigValuePayload.color:type_name -> x.color.pb.Color
-	43,  // 100: service.schematic.pb.NodeConfigValuePayload.text_color:type_name -> x.color.pb.Color
+	42,  // 0: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
+	4,   // 1: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
+	4,   // 2: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
+	43,  // 3: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
+	44,  // 4: service.schematic.pb.SegmentedEdgeConfig.color:type_name -> x.color.pb.Color
+	6,   // 5: service.schematic.pb.SegmentedEdgeConfig.segments:type_name -> service.schematic.pb.Segment
+	45,  // 6: service.schematic.pb.LabelConfig.level:type_name -> x.text.pb.Level
+	46,  // 7: service.schematic.pb.LabelConfig.orientation:type_name -> x.spatial.pb.Location
+	43,  // 8: service.schematic.pb.LabelConfig.direction:type_name -> x.spatial.pb.Direction
+	0,   // 9: service.schematic.pb.LabelConfig.align:type_name -> service.schematic.pb.FlexAlignment
+	8,   // 10: service.schematic.pb.LabeledConfig.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 11: service.schematic.pb.LabeledConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	46,  // 12: service.schematic.pb.ControlStateConfig.orientation:type_name -> x.spatial.pb.Location
+	8,   // 13: service.schematic.pb.ToggleConfig.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 14: service.schematic.pb.ToggleConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	10,  // 15: service.schematic.pb.ToggleConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	8,   // 16: service.schematic.pb.StaticSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 17: service.schematic.pb.StaticSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 18: service.schematic.pb.StaticSymbolConfig.color:type_name -> x.color.pb.Color
+	8,   // 19: service.schematic.pb.ToggleSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 20: service.schematic.pb.ToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	10,  // 21: service.schematic.pb.ToggleSymbolConfig.control:type_name -> service.schematic.pb.ControlStateConfig
+	44,  // 22: service.schematic.pb.ToggleSymbolConfig.color:type_name -> x.color.pb.Color
+	8,   // 23: service.schematic.pb.DummyToggleSymbolConfig.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 24: service.schematic.pb.DummyToggleSymbolConfig.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 25: service.schematic.pb.DummyToggleSymbolConfig.color:type_name -> x.color.pb.Color
+	44,  // 26: service.schematic.pb.StateMapping.color:type_name -> x.color.pb.Color
+	48,  // 27: service.schematic.pb.Redline.bounds:type_name -> x.spatial.pb.Bounds
+	49,  // 28: service.schematic.pb.Redline.gradient:type_name -> x.color.pb.Stop
+	3,   // 29: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
+	5,   // 30: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
+	41,  // 31: service.schematic.pb.Schematic.configs:type_name -> service.schematic.pb.Schematic.ConfigsEntry
+	8,   // 32: service.schematic.pb.NodeConfigBoxPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 33: service.schematic.pb.NodeConfigBoxPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 34: service.schematic.pb.NodeConfigBoxPayload.color:type_name -> x.color.pb.Color
+	44,  // 35: service.schematic.pb.NodeConfigBoxPayload.background_color:type_name -> x.color.pb.Color
+	50,  // 36: service.schematic.pb.NodeConfigBoxPayload.dimensions:type_name -> x.spatial.pb.Dimensions
+	8,   // 37: service.schematic.pb.NodeConfigButtonPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 38: service.schematic.pb.NodeConfigButtonPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	1,   // 39: service.schematic.pb.NodeConfigButtonPayload.size:type_name -> service.schematic.pb.ComponentSize
+	45,  // 40: service.schematic.pb.NodeConfigButtonPayload.level:type_name -> x.text.pb.Level
+	2,   // 41: service.schematic.pb.NodeConfigButtonPayload.mode:type_name -> service.schematic.pb.ButtonMode
+	44,  // 42: service.schematic.pb.NodeConfigButtonPayload.color:type_name -> x.color.pb.Color
+	10,  // 43: service.schematic.pb.NodeConfigButtonPayload.control:type_name -> service.schematic.pb.ControlStateConfig
+	8,   // 44: service.schematic.pb.NodeConfigCirclePayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 45: service.schematic.pb.NodeConfigCirclePayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 46: service.schematic.pb.NodeConfigCirclePayload.color:type_name -> x.color.pb.Color
+	44,  // 47: service.schematic.pb.NodeConfigCirclePayload.background_color:type_name -> x.color.pb.Color
+	8,   // 48: service.schematic.pb.NodeConfigGaugePayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 49: service.schematic.pb.NodeConfigGaugePayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	42,  // 50: service.schematic.pb.NodeConfigGaugePayload.position:type_name -> x.spatial.pb.XY
+	44,  // 51: service.schematic.pb.NodeConfigGaugePayload.color:type_name -> x.color.pb.Color
+	48,  // 52: service.schematic.pb.NodeConfigGaugePayload.bounds:type_name -> x.spatial.pb.Bounds
+	51,  // 53: service.schematic.pb.NodeConfigGaugePayload.notation:type_name -> x.notation.pb.Notation
+	52,  // 54: service.schematic.pb.NodeConfigGaugePayload.location:type_name -> x.spatial.pb.LocationXY
+	45,  // 55: service.schematic.pb.NodeConfigGaugePayload.level:type_name -> x.text.pb.Level
+	8,   // 56: service.schematic.pb.NodeConfigInputPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 57: service.schematic.pb.NodeConfigInputPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	1,   // 58: service.schematic.pb.NodeConfigInputPayload.size:type_name -> service.schematic.pb.ComponentSize
+	50,  // 59: service.schematic.pb.NodeConfigInputPayload.dimensions:type_name -> x.spatial.pb.Dimensions
+	44,  // 60: service.schematic.pb.NodeConfigInputPayload.color:type_name -> x.color.pb.Color
+	10,  // 61: service.schematic.pb.NodeConfigInputPayload.control:type_name -> service.schematic.pb.ControlStateConfig
+	8,   // 62: service.schematic.pb.NodeConfigLightPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 63: service.schematic.pb.NodeConfigLightPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	48,  // 64: service.schematic.pb.NodeConfigLightPayload.threshold:type_name -> x.spatial.pb.Bounds
+	44,  // 65: service.schematic.pb.NodeConfigLightPayload.color:type_name -> x.color.pb.Color
+	47,  // 66: service.schematic.pb.NodeConfigOffPageReferencePayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	8,   // 67: service.schematic.pb.NodeConfigOffPageReferencePayload.label:type_name -> service.schematic.pb.LabelConfig
+	45,  // 68: service.schematic.pb.NodeConfigOffPageReferencePayload.level:type_name -> x.text.pb.Level
+	44,  // 69: service.schematic.pb.NodeConfigOffPageReferencePayload.color:type_name -> x.color.pb.Color
+	8,   // 70: service.schematic.pb.NodeConfigPolygonPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 71: service.schematic.pb.NodeConfigPolygonPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 72: service.schematic.pb.NodeConfigPolygonPayload.color:type_name -> x.color.pb.Color
+	44,  // 73: service.schematic.pb.NodeConfigPolygonPayload.background_color:type_name -> x.color.pb.Color
+	8,   // 74: service.schematic.pb.NodeConfigSelectPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 75: service.schematic.pb.NodeConfigSelectPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	1,   // 76: service.schematic.pb.NodeConfigSelectPayload.size:type_name -> service.schematic.pb.ComponentSize
+	44,  // 77: service.schematic.pb.NodeConfigSelectPayload.color:type_name -> x.color.pb.Color
+	15,  // 78: service.schematic.pb.NodeConfigSelectPayload.options:type_name -> service.schematic.pb.StateMapping
+	10,  // 79: service.schematic.pb.NodeConfigSelectPayload.control:type_name -> service.schematic.pb.ControlStateConfig
+	8,   // 80: service.schematic.pb.NodeConfigSetpointPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 81: service.schematic.pb.NodeConfigSetpointPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	1,   // 82: service.schematic.pb.NodeConfigSetpointPayload.size:type_name -> service.schematic.pb.ComponentSize
+	50,  // 83: service.schematic.pb.NodeConfigSetpointPayload.dimensions:type_name -> x.spatial.pb.Dimensions
+	44,  // 84: service.schematic.pb.NodeConfigSetpointPayload.color:type_name -> x.color.pb.Color
+	10,  // 85: service.schematic.pb.NodeConfigSetpointPayload.control:type_name -> service.schematic.pb.ControlStateConfig
+	8,   // 86: service.schematic.pb.NodeConfigStateIndicatorPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 87: service.schematic.pb.NodeConfigStateIndicatorPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 88: service.schematic.pb.NodeConfigStateIndicatorPayload.color:type_name -> x.color.pb.Color
+	15,  // 89: service.schematic.pb.NodeConfigStateIndicatorPayload.options:type_name -> service.schematic.pb.StateMapping
+	8,   // 90: service.schematic.pb.NodeConfigTextBoxPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 91: service.schematic.pb.NodeConfigTextBoxPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 92: service.schematic.pb.NodeConfigTextBoxPayload.color:type_name -> x.color.pb.Color
+	0,   // 93: service.schematic.pb.NodeConfigTextBoxPayload.align:type_name -> service.schematic.pb.FlexAlignment
+	45,  // 94: service.schematic.pb.NodeConfigTextBoxPayload.level:type_name -> x.text.pb.Level
+	8,   // 95: service.schematic.pb.NodeConfigValuePayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 96: service.schematic.pb.NodeConfigValuePayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	42,  // 97: service.schematic.pb.NodeConfigValuePayload.position:type_name -> x.spatial.pb.XY
+	44,  // 98: service.schematic.pb.NodeConfigValuePayload.color:type_name -> x.color.pb.Color
+	44,  // 99: service.schematic.pb.NodeConfigValuePayload.text_color:type_name -> x.color.pb.Color
+	30,  // 100: service.schematic.pb.NodeConfigValuePayload.tooltip:type_name -> service.schematic.pb.StringList
 	16,  // 101: service.schematic.pb.NodeConfigValuePayload.redline:type_name -> service.schematic.pb.Redline
-	44,  // 102: service.schematic.pb.NodeConfigValuePayload.level:type_name -> x.text.pb.Level
-	43,  // 103: service.schematic.pb.NodeConfigValuePayload.staleness_color:type_name -> x.color.pb.Color
-	49,  // 104: service.schematic.pb.NodeConfigValuePayload.notation:type_name -> x.notation.pb.Notation
-	50,  // 105: service.schematic.pb.NodeConfigValuePayload.location:type_name -> x.spatial.pb.LocationXY
-	40,  // 106: service.schematic.pb.NodeConfigValuePayload.value_background_shift:type_name -> x.spatial.pb.XY
-	40,  // 107: service.schematic.pb.NodeConfigValuePayload.value_background_over_scan:type_name -> x.spatial.pb.XY
+	45,  // 102: service.schematic.pb.NodeConfigValuePayload.level:type_name -> x.text.pb.Level
+	44,  // 103: service.schematic.pb.NodeConfigValuePayload.staleness_color:type_name -> x.color.pb.Color
+	51,  // 104: service.schematic.pb.NodeConfigValuePayload.notation:type_name -> x.notation.pb.Notation
+	52,  // 105: service.schematic.pb.NodeConfigValuePayload.location:type_name -> x.spatial.pb.LocationXY
+	42,  // 106: service.schematic.pb.NodeConfigValuePayload.value_background_shift:type_name -> x.spatial.pb.XY
+	42,  // 107: service.schematic.pb.NodeConfigValuePayload.value_background_over_scan:type_name -> x.spatial.pb.XY
 	8,   // 108: service.schematic.pb.NodeConfigSolenoidValvePayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 109: service.schematic.pb.NodeConfigSolenoidValvePayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	47,  // 109: service.schematic.pb.NodeConfigSolenoidValvePayload.orientation:type_name -> x.spatial.pb.OuterLocation
 	10,  // 110: service.schematic.pb.NodeConfigSolenoidValvePayload.control:type_name -> service.schematic.pb.ControlStateConfig
-	43,  // 111: service.schematic.pb.NodeConfigSolenoidValvePayload.color:type_name -> x.color.pb.Color
+	44,  // 111: service.schematic.pb.NodeConfigSolenoidValvePayload.color:type_name -> x.color.pb.Color
 	8,   // 112: service.schematic.pb.NodeConfigCylinderPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 113: service.schematic.pb.NodeConfigCylinderPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	41,  // 114: service.schematic.pb.NodeConfigCylinderPayload.dimensions:type_name -> x.spatial.pb.Dimensions
-	51,  // 115: service.schematic.pb.NodeConfigCylinderPayload.border_radius:type_name -> x.border.pb.Radius
-	43,  // 116: service.schematic.pb.NodeConfigCylinderPayload.color:type_name -> x.color.pb.Color
-	43,  // 117: service.schematic.pb.NodeConfigCylinderPayload.background_color:type_name -> x.color.pb.Color
+	47,  // 113: service.schematic.pb.NodeConfigCylinderPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	50,  // 114: service.schematic.pb.NodeConfigCylinderPayload.dimensions:type_name -> x.spatial.pb.Dimensions
+	53,  // 115: service.schematic.pb.NodeConfigCylinderPayload.border_radius:type_name -> x.border.pb.Radius
+	44,  // 116: service.schematic.pb.NodeConfigCylinderPayload.color:type_name -> x.color.pb.Color
+	44,  // 117: service.schematic.pb.NodeConfigCylinderPayload.background_color:type_name -> x.color.pb.Color
 	8,   // 118: service.schematic.pb.NodeConfigTankPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 119: service.schematic.pb.NodeConfigTankPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 120: service.schematic.pb.NodeConfigTankPayload.color:type_name -> x.color.pb.Color
-	43,  // 121: service.schematic.pb.NodeConfigTankPayload.background_color:type_name -> x.color.pb.Color
-	41,  // 122: service.schematic.pb.NodeConfigTankPayload.dimensions:type_name -> x.spatial.pb.Dimensions
-	51,  // 123: service.schematic.pb.NodeConfigTankPayload.border_radius:type_name -> x.border.pb.Radius
-	8,   // 124: service.schematic.pb.NodeConfigCustomActuatorPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 125: service.schematic.pb.NodeConfigCustomActuatorPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	10,  // 126: service.schematic.pb.NodeConfigCustomActuatorPayload.control:type_name -> service.schematic.pb.ControlStateConfig
-	43,  // 127: service.schematic.pb.NodeConfigCustomActuatorPayload.color:type_name -> x.color.pb.Color
-	52,  // 128: service.schematic.pb.NodeConfigCustomActuatorPayload.state_overrides:type_name -> google.protobuf.Struct
-	8,   // 129: service.schematic.pb.NodeConfigCustomStaticPayload.label:type_name -> service.schematic.pb.LabelConfig
-	46,  // 130: service.schematic.pb.NodeConfigCustomStaticPayload.orientation:type_name -> x.spatial.pb.OuterLocation
-	43,  // 131: service.schematic.pb.NodeConfigCustomStaticPayload.color:type_name -> x.color.pb.Color
-	52,  // 132: service.schematic.pb.NodeConfigCustomStaticPayload.state_overrides:type_name -> google.protobuf.Struct
-	7,   // 133: service.schematic.pb.EdgeConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 134: service.schematic.pb.EdgeConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 135: service.schematic.pb.EdgeConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 136: service.schematic.pb.EdgeConfig.jacketed:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 137: service.schematic.pb.EdgeConfig.hydraulic:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 138: service.schematic.pb.EdgeConfig.pneumatic:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 139: service.schematic.pb.EdgeConfig.data:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	12,  // 140: service.schematic.pb.NodeConfig.cap:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 141: service.schematic.pb.NodeConfig.filter:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 142: service.schematic.pb.NodeConfig.flow_straightener:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 143: service.schematic.pb.NodeConfig.heater_element:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 144: service.schematic.pb.NodeConfig.iso_cap:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 145: service.schematic.pb.NodeConfig.iso_filter:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 146: service.schematic.pb.NodeConfig.nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 147: service.schematic.pb.NodeConfig.orifice:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 148: service.schematic.pb.NodeConfig.orifice_plate:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 149: service.schematic.pb.NodeConfig.strainer:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 150: service.schematic.pb.NodeConfig.strainer_cone:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 151: service.schematic.pb.NodeConfig.thruster:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 152: service.schematic.pb.NodeConfig.vent:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 153: service.schematic.pb.NodeConfig.flowmeter_general:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 154: service.schematic.pb.NodeConfig.flowmeter_electromagnetic:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 155: service.schematic.pb.NodeConfig.flowmeter_variable_area:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 156: service.schematic.pb.NodeConfig.flowmeter_coriolis:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 157: service.schematic.pb.NodeConfig.flowmeter_nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 158: service.schematic.pb.NodeConfig.flowmeter_venturi:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 159: service.schematic.pb.NodeConfig.flowmeter_ring_piston:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 160: service.schematic.pb.NodeConfig.flowmeter_positive_displacement:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 161: service.schematic.pb.NodeConfig.flowmeter_turbine:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 162: service.schematic.pb.NodeConfig.flowmeter_pulse:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 163: service.schematic.pb.NodeConfig.flowmeter_float_sensor:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 164: service.schematic.pb.NodeConfig.flowmeter_orifice:type_name -> service.schematic.pb.StaticSymbolConfig
-	18,  // 165: service.schematic.pb.NodeConfig.box:type_name -> service.schematic.pb.NodeConfigBoxPayload
-	19,  // 166: service.schematic.pb.NodeConfig.button:type_name -> service.schematic.pb.NodeConfigButtonPayload
-	20,  // 167: service.schematic.pb.NodeConfig.circle:type_name -> service.schematic.pb.NodeConfigCirclePayload
-	21,  // 168: service.schematic.pb.NodeConfig.gauge:type_name -> service.schematic.pb.NodeConfigGaugePayload
-	22,  // 169: service.schematic.pb.NodeConfig.input:type_name -> service.schematic.pb.NodeConfigInputPayload
-	23,  // 170: service.schematic.pb.NodeConfig.light:type_name -> service.schematic.pb.NodeConfigLightPayload
-	24,  // 171: service.schematic.pb.NodeConfig.off_page_reference:type_name -> service.schematic.pb.NodeConfigOffPageReferencePayload
-	25,  // 172: service.schematic.pb.NodeConfig.polygon:type_name -> service.schematic.pb.NodeConfigPolygonPayload
-	26,  // 173: service.schematic.pb.NodeConfig.select:type_name -> service.schematic.pb.NodeConfigSelectPayload
-	27,  // 174: service.schematic.pb.NodeConfig.setpoint:type_name -> service.schematic.pb.NodeConfigSetpointPayload
-	28,  // 175: service.schematic.pb.NodeConfig.state_indicator:type_name -> service.schematic.pb.NodeConfigStateIndicatorPayload
-	13,  // 176: service.schematic.pb.NodeConfig.switch:type_name -> service.schematic.pb.ToggleSymbolConfig
-	29,  // 177: service.schematic.pb.NodeConfig.text_box:type_name -> service.schematic.pb.NodeConfigTextBoxPayload
-	30,  // 178: service.schematic.pb.NodeConfig.value:type_name -> service.schematic.pb.NodeConfigValuePayload
-	13,  // 179: service.schematic.pb.NodeConfig.agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 180: service.schematic.pb.NodeConfig.cross_beam_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 181: service.schematic.pb.NodeConfig.flat_blade_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 182: service.schematic.pb.NodeConfig.heat_exchanger_general:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 183: service.schematic.pb.NodeConfig.heat_exchanger_m:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 184: service.schematic.pb.NodeConfig.heat_exchanger_straight_tube:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 185: service.schematic.pb.NodeConfig.helical_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 186: service.schematic.pb.NodeConfig.paddle_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 187: service.schematic.pb.NodeConfig.propeller_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 188: service.schematic.pb.NodeConfig.rotary_mixer:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 189: service.schematic.pb.NodeConfig.static_mixer:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 190: service.schematic.pb.NodeConfig.cavity_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 191: service.schematic.pb.NodeConfig.centrifugal_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 192: service.schematic.pb.NodeConfig.compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 193: service.schematic.pb.NodeConfig.diaphragm_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 194: service.schematic.pb.NodeConfig.ejection_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 195: service.schematic.pb.NodeConfig.ejector_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 196: service.schematic.pb.NodeConfig.liquid_ring_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 197: service.schematic.pb.NodeConfig.piston_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 198: service.schematic.pb.NodeConfig.pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 199: service.schematic.pb.NodeConfig.roller_vane_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 200: service.schematic.pb.NodeConfig.screw_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 201: service.schematic.pb.NodeConfig.turbo_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 202: service.schematic.pb.NodeConfig.vacuum_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 203: service.schematic.pb.NodeConfig.burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 204: service.schematic.pb.NodeConfig.flame_arrestor:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 205: service.schematic.pb.NodeConfig.flame_arrestor_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 206: service.schematic.pb.NodeConfig.flame_arrestor_explosion:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 207: service.schematic.pb.NodeConfig.flame_arrestor_fire_res:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 208: service.schematic.pb.NodeConfig.flame_arrestor_fire_res_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 209: service.schematic.pb.NodeConfig.iso_burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 210: service.schematic.pb.NodeConfig.angled_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	14,  // 211: service.schematic.pb.NodeConfig.angled_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	14,  // 212: service.schematic.pb.NodeConfig.angled_spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	13,  // 213: service.schematic.pb.NodeConfig.ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	14,  // 214: service.schematic.pb.NodeConfig.breather_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	13,  // 215: service.schematic.pb.NodeConfig.butterfly_valve_one:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 216: service.schematic.pb.NodeConfig.butterfly_valve_two:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 217: service.schematic.pb.NodeConfig.check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 218: service.schematic.pb.NodeConfig.check_valve_with_arrow:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 219: service.schematic.pb.NodeConfig.electric_regulator:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 220: service.schematic.pb.NodeConfig.electric_regulator_motorized:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 221: service.schematic.pb.NodeConfig.four_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 222: service.schematic.pb.NodeConfig.gate_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 223: service.schematic.pb.NodeConfig.iso_check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
-	14,  // 224: service.schematic.pb.NodeConfig.manual_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	14,  // 225: service.schematic.pb.NodeConfig.needle_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	12,  // 226: service.schematic.pb.NodeConfig.regulator:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 227: service.schematic.pb.NodeConfig.regulator_manual:type_name -> service.schematic.pb.StaticSymbolConfig
-	14,  // 228: service.schematic.pb.NodeConfig.relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	31,  // 229: service.schematic.pb.NodeConfig.solenoid_valve:type_name -> service.schematic.pb.NodeConfigSolenoidValvePayload
-	14,  // 230: service.schematic.pb.NodeConfig.spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	13,  // 231: service.schematic.pb.NodeConfig.three_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 232: service.schematic.pb.NodeConfig.three_way_ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 233: service.schematic.pb.NodeConfig.valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 234: service.schematic.pb.NodeConfig.cross_junction:type_name -> service.schematic.pb.StaticSymbolConfig
-	32,  // 235: service.schematic.pb.NodeConfig.cylinder:type_name -> service.schematic.pb.NodeConfigCylinderPayload
-	33,  // 236: service.schematic.pb.NodeConfig.tank:type_name -> service.schematic.pb.NodeConfigTankPayload
-	12,  // 237: service.schematic.pb.NodeConfig.t_junction:type_name -> service.schematic.pb.StaticSymbolConfig
-	34,  // 238: service.schematic.pb.NodeConfig.custom_actuator:type_name -> service.schematic.pb.NodeConfigCustomActuatorPayload
-	35,  // 239: service.schematic.pb.NodeConfig.custom_static:type_name -> service.schematic.pb.NodeConfigCustomStaticPayload
-	12,  // 240: service.schematic.pb.ElementConfig.cap:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 241: service.schematic.pb.ElementConfig.filter:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 242: service.schematic.pb.ElementConfig.flow_straightener:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 243: service.schematic.pb.ElementConfig.heater_element:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 244: service.schematic.pb.ElementConfig.iso_cap:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 245: service.schematic.pb.ElementConfig.iso_filter:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 246: service.schematic.pb.ElementConfig.nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 247: service.schematic.pb.ElementConfig.orifice:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 248: service.schematic.pb.ElementConfig.orifice_plate:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 249: service.schematic.pb.ElementConfig.strainer:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 250: service.schematic.pb.ElementConfig.strainer_cone:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 251: service.schematic.pb.ElementConfig.thruster:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 252: service.schematic.pb.ElementConfig.vent:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 253: service.schematic.pb.ElementConfig.flowmeter_general:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 254: service.schematic.pb.ElementConfig.flowmeter_electromagnetic:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 255: service.schematic.pb.ElementConfig.flowmeter_variable_area:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 256: service.schematic.pb.ElementConfig.flowmeter_coriolis:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 257: service.schematic.pb.ElementConfig.flowmeter_nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 258: service.schematic.pb.ElementConfig.flowmeter_venturi:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 259: service.schematic.pb.ElementConfig.flowmeter_ring_piston:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 260: service.schematic.pb.ElementConfig.flowmeter_positive_displacement:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 261: service.schematic.pb.ElementConfig.flowmeter_turbine:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 262: service.schematic.pb.ElementConfig.flowmeter_pulse:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 263: service.schematic.pb.ElementConfig.flowmeter_float_sensor:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 264: service.schematic.pb.ElementConfig.flowmeter_orifice:type_name -> service.schematic.pb.StaticSymbolConfig
-	18,  // 265: service.schematic.pb.ElementConfig.box:type_name -> service.schematic.pb.NodeConfigBoxPayload
-	19,  // 266: service.schematic.pb.ElementConfig.button:type_name -> service.schematic.pb.NodeConfigButtonPayload
-	20,  // 267: service.schematic.pb.ElementConfig.circle:type_name -> service.schematic.pb.NodeConfigCirclePayload
-	21,  // 268: service.schematic.pb.ElementConfig.gauge:type_name -> service.schematic.pb.NodeConfigGaugePayload
-	22,  // 269: service.schematic.pb.ElementConfig.input:type_name -> service.schematic.pb.NodeConfigInputPayload
-	23,  // 270: service.schematic.pb.ElementConfig.light:type_name -> service.schematic.pb.NodeConfigLightPayload
-	24,  // 271: service.schematic.pb.ElementConfig.off_page_reference:type_name -> service.schematic.pb.NodeConfigOffPageReferencePayload
-	25,  // 272: service.schematic.pb.ElementConfig.polygon:type_name -> service.schematic.pb.NodeConfigPolygonPayload
-	26,  // 273: service.schematic.pb.ElementConfig.select:type_name -> service.schematic.pb.NodeConfigSelectPayload
-	27,  // 274: service.schematic.pb.ElementConfig.setpoint:type_name -> service.schematic.pb.NodeConfigSetpointPayload
-	28,  // 275: service.schematic.pb.ElementConfig.state_indicator:type_name -> service.schematic.pb.NodeConfigStateIndicatorPayload
-	13,  // 276: service.schematic.pb.ElementConfig.switch:type_name -> service.schematic.pb.ToggleSymbolConfig
-	29,  // 277: service.schematic.pb.ElementConfig.text_box:type_name -> service.schematic.pb.NodeConfigTextBoxPayload
-	30,  // 278: service.schematic.pb.ElementConfig.value:type_name -> service.schematic.pb.NodeConfigValuePayload
-	13,  // 279: service.schematic.pb.ElementConfig.agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 280: service.schematic.pb.ElementConfig.cross_beam_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 281: service.schematic.pb.ElementConfig.flat_blade_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 282: service.schematic.pb.ElementConfig.heat_exchanger_general:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 283: service.schematic.pb.ElementConfig.heat_exchanger_m:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 284: service.schematic.pb.ElementConfig.heat_exchanger_straight_tube:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 285: service.schematic.pb.ElementConfig.helical_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 286: service.schematic.pb.ElementConfig.paddle_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 287: service.schematic.pb.ElementConfig.propeller_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 288: service.schematic.pb.ElementConfig.rotary_mixer:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 289: service.schematic.pb.ElementConfig.static_mixer:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 290: service.schematic.pb.ElementConfig.cavity_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 291: service.schematic.pb.ElementConfig.centrifugal_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 292: service.schematic.pb.ElementConfig.compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 293: service.schematic.pb.ElementConfig.diaphragm_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 294: service.schematic.pb.ElementConfig.ejection_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 295: service.schematic.pb.ElementConfig.ejector_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 296: service.schematic.pb.ElementConfig.liquid_ring_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 297: service.schematic.pb.ElementConfig.piston_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 298: service.schematic.pb.ElementConfig.pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 299: service.schematic.pb.ElementConfig.roller_vane_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 300: service.schematic.pb.ElementConfig.screw_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 301: service.schematic.pb.ElementConfig.turbo_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 302: service.schematic.pb.ElementConfig.vacuum_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 303: service.schematic.pb.ElementConfig.burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 304: service.schematic.pb.ElementConfig.flame_arrestor:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 305: service.schematic.pb.ElementConfig.flame_arrestor_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 306: service.schematic.pb.ElementConfig.flame_arrestor_explosion:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 307: service.schematic.pb.ElementConfig.flame_arrestor_fire_res:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 308: service.schematic.pb.ElementConfig.flame_arrestor_fire_res_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 309: service.schematic.pb.ElementConfig.iso_burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 310: service.schematic.pb.ElementConfig.angled_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	14,  // 311: service.schematic.pb.ElementConfig.angled_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	14,  // 312: service.schematic.pb.ElementConfig.angled_spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	13,  // 313: service.schematic.pb.ElementConfig.ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	14,  // 314: service.schematic.pb.ElementConfig.breather_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	13,  // 315: service.schematic.pb.ElementConfig.butterfly_valve_one:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 316: service.schematic.pb.ElementConfig.butterfly_valve_two:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 317: service.schematic.pb.ElementConfig.check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 318: service.schematic.pb.ElementConfig.check_valve_with_arrow:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 319: service.schematic.pb.ElementConfig.electric_regulator:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 320: service.schematic.pb.ElementConfig.electric_regulator_motorized:type_name -> service.schematic.pb.StaticSymbolConfig
-	13,  // 321: service.schematic.pb.ElementConfig.four_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 322: service.schematic.pb.ElementConfig.gate_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 323: service.schematic.pb.ElementConfig.iso_check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
-	14,  // 324: service.schematic.pb.ElementConfig.manual_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	14,  // 325: service.schematic.pb.ElementConfig.needle_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	12,  // 326: service.schematic.pb.ElementConfig.regulator:type_name -> service.schematic.pb.StaticSymbolConfig
-	12,  // 327: service.schematic.pb.ElementConfig.regulator_manual:type_name -> service.schematic.pb.StaticSymbolConfig
-	14,  // 328: service.schematic.pb.ElementConfig.relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	31,  // 329: service.schematic.pb.ElementConfig.solenoid_valve:type_name -> service.schematic.pb.NodeConfigSolenoidValvePayload
-	14,  // 330: service.schematic.pb.ElementConfig.spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
-	13,  // 331: service.schematic.pb.ElementConfig.three_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 332: service.schematic.pb.ElementConfig.three_way_ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	13,  // 333: service.schematic.pb.ElementConfig.valve:type_name -> service.schematic.pb.ToggleSymbolConfig
-	12,  // 334: service.schematic.pb.ElementConfig.cross_junction:type_name -> service.schematic.pb.StaticSymbolConfig
-	32,  // 335: service.schematic.pb.ElementConfig.cylinder:type_name -> service.schematic.pb.NodeConfigCylinderPayload
-	33,  // 336: service.schematic.pb.ElementConfig.tank:type_name -> service.schematic.pb.NodeConfigTankPayload
-	12,  // 337: service.schematic.pb.ElementConfig.t_junction:type_name -> service.schematic.pb.StaticSymbolConfig
-	34,  // 338: service.schematic.pb.ElementConfig.custom_actuator:type_name -> service.schematic.pb.NodeConfigCustomActuatorPayload
-	35,  // 339: service.schematic.pb.ElementConfig.custom_static:type_name -> service.schematic.pb.NodeConfigCustomStaticPayload
-	7,   // 340: service.schematic.pb.ElementConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 341: service.schematic.pb.ElementConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 342: service.schematic.pb.ElementConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 343: service.schematic.pb.ElementConfig.jacketed:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 344: service.schematic.pb.ElementConfig.hydraulic:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 345: service.schematic.pb.ElementConfig.pneumatic:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	7,   // 346: service.schematic.pb.ElementConfig.data:type_name -> service.schematic.pb.SegmentedEdgeConfig
-	38,  // 347: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> service.schematic.pb.ElementConfig
-	348, // [348:348] is the sub-list for method output_type
-	348, // [348:348] is the sub-list for method input_type
-	348, // [348:348] is the sub-list for extension type_name
-	348, // [348:348] is the sub-list for extension extendee
-	0,   // [0:348] is the sub-list for field type_name
+	47,  // 119: service.schematic.pb.NodeConfigTankPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 120: service.schematic.pb.NodeConfigTankPayload.color:type_name -> x.color.pb.Color
+	44,  // 121: service.schematic.pb.NodeConfigTankPayload.background_color:type_name -> x.color.pb.Color
+	50,  // 122: service.schematic.pb.NodeConfigTankPayload.dimensions:type_name -> x.spatial.pb.Dimensions
+	53,  // 123: service.schematic.pb.NodeConfigTankPayload.border_radius:type_name -> x.border.pb.Radius
+	54,  // 124: service.schematic.pb.RecordList.values:type_name -> google.protobuf.Struct
+	8,   // 125: service.schematic.pb.NodeConfigCustomActuatorPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 126: service.schematic.pb.NodeConfigCustomActuatorPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	10,  // 127: service.schematic.pb.NodeConfigCustomActuatorPayload.control:type_name -> service.schematic.pb.ControlStateConfig
+	44,  // 128: service.schematic.pb.NodeConfigCustomActuatorPayload.color:type_name -> x.color.pb.Color
+	35,  // 129: service.schematic.pb.NodeConfigCustomActuatorPayload.state_overrides:type_name -> service.schematic.pb.RecordList
+	8,   // 130: service.schematic.pb.NodeConfigCustomStaticPayload.label:type_name -> service.schematic.pb.LabelConfig
+	47,  // 131: service.schematic.pb.NodeConfigCustomStaticPayload.orientation:type_name -> x.spatial.pb.OuterLocation
+	44,  // 132: service.schematic.pb.NodeConfigCustomStaticPayload.color:type_name -> x.color.pb.Color
+	35,  // 133: service.schematic.pb.NodeConfigCustomStaticPayload.state_overrides:type_name -> service.schematic.pb.RecordList
+	7,   // 134: service.schematic.pb.EdgeConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 135: service.schematic.pb.EdgeConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 136: service.schematic.pb.EdgeConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 137: service.schematic.pb.EdgeConfig.jacketed:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 138: service.schematic.pb.EdgeConfig.hydraulic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 139: service.schematic.pb.EdgeConfig.pneumatic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 140: service.schematic.pb.EdgeConfig.data:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	12,  // 141: service.schematic.pb.NodeConfig.cap:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 142: service.schematic.pb.NodeConfig.filter:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 143: service.schematic.pb.NodeConfig.flow_straightener:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 144: service.schematic.pb.NodeConfig.heater_element:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 145: service.schematic.pb.NodeConfig.iso_cap:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 146: service.schematic.pb.NodeConfig.iso_filter:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 147: service.schematic.pb.NodeConfig.nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 148: service.schematic.pb.NodeConfig.orifice:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 149: service.schematic.pb.NodeConfig.orifice_plate:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 150: service.schematic.pb.NodeConfig.strainer:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 151: service.schematic.pb.NodeConfig.strainer_cone:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 152: service.schematic.pb.NodeConfig.thruster:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 153: service.schematic.pb.NodeConfig.vent:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 154: service.schematic.pb.NodeConfig.flowmeter_general:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 155: service.schematic.pb.NodeConfig.flowmeter_electromagnetic:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 156: service.schematic.pb.NodeConfig.flowmeter_variable_area:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 157: service.schematic.pb.NodeConfig.flowmeter_coriolis:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 158: service.schematic.pb.NodeConfig.flowmeter_nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 159: service.schematic.pb.NodeConfig.flowmeter_venturi:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 160: service.schematic.pb.NodeConfig.flowmeter_ring_piston:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 161: service.schematic.pb.NodeConfig.flowmeter_positive_displacement:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 162: service.schematic.pb.NodeConfig.flowmeter_turbine:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 163: service.schematic.pb.NodeConfig.flowmeter_pulse:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 164: service.schematic.pb.NodeConfig.flowmeter_float_sensor:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 165: service.schematic.pb.NodeConfig.flowmeter_orifice:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 166: service.schematic.pb.NodeConfig.box:type_name -> service.schematic.pb.NodeConfigBoxPayload
+	19,  // 167: service.schematic.pb.NodeConfig.button:type_name -> service.schematic.pb.NodeConfigButtonPayload
+	20,  // 168: service.schematic.pb.NodeConfig.circle:type_name -> service.schematic.pb.NodeConfigCirclePayload
+	21,  // 169: service.schematic.pb.NodeConfig.gauge:type_name -> service.schematic.pb.NodeConfigGaugePayload
+	22,  // 170: service.schematic.pb.NodeConfig.input:type_name -> service.schematic.pb.NodeConfigInputPayload
+	23,  // 171: service.schematic.pb.NodeConfig.light:type_name -> service.schematic.pb.NodeConfigLightPayload
+	24,  // 172: service.schematic.pb.NodeConfig.off_page_reference:type_name -> service.schematic.pb.NodeConfigOffPageReferencePayload
+	25,  // 173: service.schematic.pb.NodeConfig.polygon:type_name -> service.schematic.pb.NodeConfigPolygonPayload
+	26,  // 174: service.schematic.pb.NodeConfig.select:type_name -> service.schematic.pb.NodeConfigSelectPayload
+	27,  // 175: service.schematic.pb.NodeConfig.setpoint:type_name -> service.schematic.pb.NodeConfigSetpointPayload
+	28,  // 176: service.schematic.pb.NodeConfig.state_indicator:type_name -> service.schematic.pb.NodeConfigStateIndicatorPayload
+	13,  // 177: service.schematic.pb.NodeConfig.switch:type_name -> service.schematic.pb.ToggleSymbolConfig
+	29,  // 178: service.schematic.pb.NodeConfig.text_box:type_name -> service.schematic.pb.NodeConfigTextBoxPayload
+	31,  // 179: service.schematic.pb.NodeConfig.value:type_name -> service.schematic.pb.NodeConfigValuePayload
+	13,  // 180: service.schematic.pb.NodeConfig.agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 181: service.schematic.pb.NodeConfig.cross_beam_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 182: service.schematic.pb.NodeConfig.flat_blade_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 183: service.schematic.pb.NodeConfig.heat_exchanger_general:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 184: service.schematic.pb.NodeConfig.heat_exchanger_m:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 185: service.schematic.pb.NodeConfig.heat_exchanger_straight_tube:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 186: service.schematic.pb.NodeConfig.helical_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 187: service.schematic.pb.NodeConfig.paddle_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 188: service.schematic.pb.NodeConfig.propeller_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 189: service.schematic.pb.NodeConfig.rotary_mixer:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 190: service.schematic.pb.NodeConfig.static_mixer:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 191: service.schematic.pb.NodeConfig.cavity_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 192: service.schematic.pb.NodeConfig.centrifugal_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 193: service.schematic.pb.NodeConfig.compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 194: service.schematic.pb.NodeConfig.diaphragm_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 195: service.schematic.pb.NodeConfig.ejection_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 196: service.schematic.pb.NodeConfig.ejector_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 197: service.schematic.pb.NodeConfig.liquid_ring_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 198: service.schematic.pb.NodeConfig.piston_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 199: service.schematic.pb.NodeConfig.pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 200: service.schematic.pb.NodeConfig.roller_vane_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 201: service.schematic.pb.NodeConfig.screw_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 202: service.schematic.pb.NodeConfig.turbo_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 203: service.schematic.pb.NodeConfig.vacuum_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 204: service.schematic.pb.NodeConfig.burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 205: service.schematic.pb.NodeConfig.flame_arrestor:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 206: service.schematic.pb.NodeConfig.flame_arrestor_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 207: service.schematic.pb.NodeConfig.flame_arrestor_explosion:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 208: service.schematic.pb.NodeConfig.flame_arrestor_fire_res:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 209: service.schematic.pb.NodeConfig.flame_arrestor_fire_res_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 210: service.schematic.pb.NodeConfig.iso_burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 211: service.schematic.pb.NodeConfig.angled_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	14,  // 212: service.schematic.pb.NodeConfig.angled_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	14,  // 213: service.schematic.pb.NodeConfig.angled_spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	13,  // 214: service.schematic.pb.NodeConfig.ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	14,  // 215: service.schematic.pb.NodeConfig.breather_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	13,  // 216: service.schematic.pb.NodeConfig.butterfly_valve_one:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 217: service.schematic.pb.NodeConfig.butterfly_valve_two:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 218: service.schematic.pb.NodeConfig.check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 219: service.schematic.pb.NodeConfig.check_valve_with_arrow:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 220: service.schematic.pb.NodeConfig.electric_regulator:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 221: service.schematic.pb.NodeConfig.electric_regulator_motorized:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 222: service.schematic.pb.NodeConfig.four_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 223: service.schematic.pb.NodeConfig.gate_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 224: service.schematic.pb.NodeConfig.iso_check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
+	14,  // 225: service.schematic.pb.NodeConfig.manual_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	14,  // 226: service.schematic.pb.NodeConfig.needle_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	12,  // 227: service.schematic.pb.NodeConfig.regulator:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 228: service.schematic.pb.NodeConfig.regulator_manual:type_name -> service.schematic.pb.StaticSymbolConfig
+	14,  // 229: service.schematic.pb.NodeConfig.relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	32,  // 230: service.schematic.pb.NodeConfig.solenoid_valve:type_name -> service.schematic.pb.NodeConfigSolenoidValvePayload
+	14,  // 231: service.schematic.pb.NodeConfig.spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	13,  // 232: service.schematic.pb.NodeConfig.three_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 233: service.schematic.pb.NodeConfig.three_way_ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 234: service.schematic.pb.NodeConfig.valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 235: service.schematic.pb.NodeConfig.cross_junction:type_name -> service.schematic.pb.StaticSymbolConfig
+	33,  // 236: service.schematic.pb.NodeConfig.cylinder:type_name -> service.schematic.pb.NodeConfigCylinderPayload
+	34,  // 237: service.schematic.pb.NodeConfig.tank:type_name -> service.schematic.pb.NodeConfigTankPayload
+	12,  // 238: service.schematic.pb.NodeConfig.t_junction:type_name -> service.schematic.pb.StaticSymbolConfig
+	36,  // 239: service.schematic.pb.NodeConfig.custom_actuator:type_name -> service.schematic.pb.NodeConfigCustomActuatorPayload
+	37,  // 240: service.schematic.pb.NodeConfig.custom_static:type_name -> service.schematic.pb.NodeConfigCustomStaticPayload
+	12,  // 241: service.schematic.pb.ElementConfig.cap:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 242: service.schematic.pb.ElementConfig.filter:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 243: service.schematic.pb.ElementConfig.flow_straightener:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 244: service.schematic.pb.ElementConfig.heater_element:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 245: service.schematic.pb.ElementConfig.iso_cap:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 246: service.schematic.pb.ElementConfig.iso_filter:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 247: service.schematic.pb.ElementConfig.nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 248: service.schematic.pb.ElementConfig.orifice:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 249: service.schematic.pb.ElementConfig.orifice_plate:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 250: service.schematic.pb.ElementConfig.strainer:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 251: service.schematic.pb.ElementConfig.strainer_cone:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 252: service.schematic.pb.ElementConfig.thruster:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 253: service.schematic.pb.ElementConfig.vent:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 254: service.schematic.pb.ElementConfig.flowmeter_general:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 255: service.schematic.pb.ElementConfig.flowmeter_electromagnetic:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 256: service.schematic.pb.ElementConfig.flowmeter_variable_area:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 257: service.schematic.pb.ElementConfig.flowmeter_coriolis:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 258: service.schematic.pb.ElementConfig.flowmeter_nozzle:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 259: service.schematic.pb.ElementConfig.flowmeter_venturi:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 260: service.schematic.pb.ElementConfig.flowmeter_ring_piston:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 261: service.schematic.pb.ElementConfig.flowmeter_positive_displacement:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 262: service.schematic.pb.ElementConfig.flowmeter_turbine:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 263: service.schematic.pb.ElementConfig.flowmeter_pulse:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 264: service.schematic.pb.ElementConfig.flowmeter_float_sensor:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 265: service.schematic.pb.ElementConfig.flowmeter_orifice:type_name -> service.schematic.pb.StaticSymbolConfig
+	18,  // 266: service.schematic.pb.ElementConfig.box:type_name -> service.schematic.pb.NodeConfigBoxPayload
+	19,  // 267: service.schematic.pb.ElementConfig.button:type_name -> service.schematic.pb.NodeConfigButtonPayload
+	20,  // 268: service.schematic.pb.ElementConfig.circle:type_name -> service.schematic.pb.NodeConfigCirclePayload
+	21,  // 269: service.schematic.pb.ElementConfig.gauge:type_name -> service.schematic.pb.NodeConfigGaugePayload
+	22,  // 270: service.schematic.pb.ElementConfig.input:type_name -> service.schematic.pb.NodeConfigInputPayload
+	23,  // 271: service.schematic.pb.ElementConfig.light:type_name -> service.schematic.pb.NodeConfigLightPayload
+	24,  // 272: service.schematic.pb.ElementConfig.off_page_reference:type_name -> service.schematic.pb.NodeConfigOffPageReferencePayload
+	25,  // 273: service.schematic.pb.ElementConfig.polygon:type_name -> service.schematic.pb.NodeConfigPolygonPayload
+	26,  // 274: service.schematic.pb.ElementConfig.select:type_name -> service.schematic.pb.NodeConfigSelectPayload
+	27,  // 275: service.schematic.pb.ElementConfig.setpoint:type_name -> service.schematic.pb.NodeConfigSetpointPayload
+	28,  // 276: service.schematic.pb.ElementConfig.state_indicator:type_name -> service.schematic.pb.NodeConfigStateIndicatorPayload
+	13,  // 277: service.schematic.pb.ElementConfig.switch:type_name -> service.schematic.pb.ToggleSymbolConfig
+	29,  // 278: service.schematic.pb.ElementConfig.text_box:type_name -> service.schematic.pb.NodeConfigTextBoxPayload
+	31,  // 279: service.schematic.pb.ElementConfig.value:type_name -> service.schematic.pb.NodeConfigValuePayload
+	13,  // 280: service.schematic.pb.ElementConfig.agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 281: service.schematic.pb.ElementConfig.cross_beam_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 282: service.schematic.pb.ElementConfig.flat_blade_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 283: service.schematic.pb.ElementConfig.heat_exchanger_general:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 284: service.schematic.pb.ElementConfig.heat_exchanger_m:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 285: service.schematic.pb.ElementConfig.heat_exchanger_straight_tube:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 286: service.schematic.pb.ElementConfig.helical_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 287: service.schematic.pb.ElementConfig.paddle_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 288: service.schematic.pb.ElementConfig.propeller_agitator:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 289: service.schematic.pb.ElementConfig.rotary_mixer:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 290: service.schematic.pb.ElementConfig.static_mixer:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 291: service.schematic.pb.ElementConfig.cavity_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 292: service.schematic.pb.ElementConfig.centrifugal_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 293: service.schematic.pb.ElementConfig.compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 294: service.schematic.pb.ElementConfig.diaphragm_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 295: service.schematic.pb.ElementConfig.ejection_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 296: service.schematic.pb.ElementConfig.ejector_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 297: service.schematic.pb.ElementConfig.liquid_ring_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 298: service.schematic.pb.ElementConfig.piston_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 299: service.schematic.pb.ElementConfig.pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 300: service.schematic.pb.ElementConfig.roller_vane_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 301: service.schematic.pb.ElementConfig.screw_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 302: service.schematic.pb.ElementConfig.turbo_compressor:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 303: service.schematic.pb.ElementConfig.vacuum_pump:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 304: service.schematic.pb.ElementConfig.burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 305: service.schematic.pb.ElementConfig.flame_arrestor:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 306: service.schematic.pb.ElementConfig.flame_arrestor_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 307: service.schematic.pb.ElementConfig.flame_arrestor_explosion:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 308: service.schematic.pb.ElementConfig.flame_arrestor_fire_res:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 309: service.schematic.pb.ElementConfig.flame_arrestor_fire_res_detonation:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 310: service.schematic.pb.ElementConfig.iso_burst_disc:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 311: service.schematic.pb.ElementConfig.angled_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	14,  // 312: service.schematic.pb.ElementConfig.angled_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	14,  // 313: service.schematic.pb.ElementConfig.angled_spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	13,  // 314: service.schematic.pb.ElementConfig.ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	14,  // 315: service.schematic.pb.ElementConfig.breather_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	13,  // 316: service.schematic.pb.ElementConfig.butterfly_valve_one:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 317: service.schematic.pb.ElementConfig.butterfly_valve_two:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 318: service.schematic.pb.ElementConfig.check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 319: service.schematic.pb.ElementConfig.check_valve_with_arrow:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 320: service.schematic.pb.ElementConfig.electric_regulator:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 321: service.schematic.pb.ElementConfig.electric_regulator_motorized:type_name -> service.schematic.pb.StaticSymbolConfig
+	13,  // 322: service.schematic.pb.ElementConfig.four_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 323: service.schematic.pb.ElementConfig.gate_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 324: service.schematic.pb.ElementConfig.iso_check_valve:type_name -> service.schematic.pb.StaticSymbolConfig
+	14,  // 325: service.schematic.pb.ElementConfig.manual_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	14,  // 326: service.schematic.pb.ElementConfig.needle_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	12,  // 327: service.schematic.pb.ElementConfig.regulator:type_name -> service.schematic.pb.StaticSymbolConfig
+	12,  // 328: service.schematic.pb.ElementConfig.regulator_manual:type_name -> service.schematic.pb.StaticSymbolConfig
+	14,  // 329: service.schematic.pb.ElementConfig.relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	32,  // 330: service.schematic.pb.ElementConfig.solenoid_valve:type_name -> service.schematic.pb.NodeConfigSolenoidValvePayload
+	14,  // 331: service.schematic.pb.ElementConfig.spring_loaded_relief_valve:type_name -> service.schematic.pb.DummyToggleSymbolConfig
+	13,  // 332: service.schematic.pb.ElementConfig.three_way_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 333: service.schematic.pb.ElementConfig.three_way_ball_valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	13,  // 334: service.schematic.pb.ElementConfig.valve:type_name -> service.schematic.pb.ToggleSymbolConfig
+	12,  // 335: service.schematic.pb.ElementConfig.cross_junction:type_name -> service.schematic.pb.StaticSymbolConfig
+	33,  // 336: service.schematic.pb.ElementConfig.cylinder:type_name -> service.schematic.pb.NodeConfigCylinderPayload
+	34,  // 337: service.schematic.pb.ElementConfig.tank:type_name -> service.schematic.pb.NodeConfigTankPayload
+	12,  // 338: service.schematic.pb.ElementConfig.t_junction:type_name -> service.schematic.pb.StaticSymbolConfig
+	36,  // 339: service.schematic.pb.ElementConfig.custom_actuator:type_name -> service.schematic.pb.NodeConfigCustomActuatorPayload
+	37,  // 340: service.schematic.pb.ElementConfig.custom_static:type_name -> service.schematic.pb.NodeConfigCustomStaticPayload
+	7,   // 341: service.schematic.pb.ElementConfig.pipe:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 342: service.schematic.pb.ElementConfig.electric:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 343: service.schematic.pb.ElementConfig.secondary:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 344: service.schematic.pb.ElementConfig.jacketed:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 345: service.schematic.pb.ElementConfig.hydraulic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 346: service.schematic.pb.ElementConfig.pneumatic:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	7,   // 347: service.schematic.pb.ElementConfig.data:type_name -> service.schematic.pb.SegmentedEdgeConfig
+	40,  // 348: service.schematic.pb.Schematic.ConfigsEntry.value:type_name -> service.schematic.pb.ElementConfig
+	349, // [349:349] is the sub-list for method output_type
+	349, // [349:349] is the sub-list for method input_type
+	349, // [349:349] is the sub-list for extension type_name
+	349, // [349:349] is the sub-list for extension extendee
+	0,   // [0:349] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }
@@ -8307,13 +8420,13 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[24].OneofWrappers = []any{}
 	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[25].OneofWrappers = []any{}
 	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[26].OneofWrappers = []any{}
-	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[27].OneofWrappers = []any{}
 	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[28].OneofWrappers = []any{}
 	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[29].OneofWrappers = []any{}
 	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[30].OneofWrappers = []any{}
 	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[31].OneofWrappers = []any{}
-	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[32].OneofWrappers = []any{}
-	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33].OneofWrappers = []any{
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[33].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34].OneofWrappers = []any{}
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35].OneofWrappers = []any{
 		(*EdgeConfig_Pipe)(nil),
 		(*EdgeConfig_Electric)(nil),
 		(*EdgeConfig_Secondary)(nil),
@@ -8322,7 +8435,7 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 		(*EdgeConfig_Pneumatic)(nil),
 		(*EdgeConfig_Data)(nil),
 	}
-	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[34].OneofWrappers = []any{
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[36].OneofWrappers = []any{
 		(*NodeConfig_Cap)(nil),
 		(*NodeConfig_Filter)(nil),
 		(*NodeConfig_FlowStraightener)(nil),
@@ -8424,7 +8537,7 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 		(*NodeConfig_CustomActuator)(nil),
 		(*NodeConfig_CustomStatic)(nil),
 	}
-	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[35].OneofWrappers = []any{
+	file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[37].OneofWrappers = []any{
 		(*ElementConfig_Cap)(nil),
 		(*ElementConfig_Filter)(nil),
 		(*ElementConfig_FlowStraightener)(nil),
@@ -8539,7 +8652,7 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   37,
+			NumMessages:   39,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

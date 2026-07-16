@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Test Python
 description: Common steps for testing Python packages
 
@@ -45,7 +54,7 @@ runs:
         exit 1
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v8.1.0
+      uses: astral-sh/setup-uv@v8.2.0
 
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -84,7 +93,7 @@ runs:
 
     - name: Upload coverage
       if: inputs.coverage == 'true'
-      uses: codecov/codecov-action@v6
+      uses: codecov/codecov-action@v7
       with:
         fail_ci_if_error: true
         flags: ${{ inputs.coverage_flag }}

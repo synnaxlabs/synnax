@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import cast
 
 from pydantic import BaseModel
 
@@ -39,18 +39,12 @@ class ID(BaseModel):
             super().__init__(key=key, type=type)
 
     def __str__(self) -> str:
-        return f"{self.key}:{self.type}"
+        return f"{self.type}:{self.key}"
 
 
 ROOT_ID = ID(key="root", type="builtin")
 
 CrudeID = str | ID
-
-
-class Resource(BaseModel):
-    id: ID
-    name: str
-    data: dict[str, Any]
 
 
 class Relationship(BaseModel):

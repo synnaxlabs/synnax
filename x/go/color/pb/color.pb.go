@@ -115,7 +115,7 @@ type Stop struct {
 	// position is the normalized position of the stop along the gradient [0, 1].
 	Position float64 `protobuf:"fixed64,3,opt,name=position,proto3" json:"position,omitempty"`
 	// switched indicates whether the stop's color has been switched by the user.
-	Switched      bool `protobuf:"varint,4,opt,name=switched,proto3" json:"switched,omitempty"`
+	Switched      *bool `protobuf:"varint,4,opt,name=switched,proto3,oneof" json:"switched,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -172,8 +172,8 @@ func (x *Stop) GetPosition() float64 {
 }
 
 func (x *Stop) GetSwitched() bool {
-	if x != nil {
-		return x.Switched
+	if x != nil && x.Switched != nil {
+		return *x.Switched
 	}
 	return false
 }
@@ -188,12 +188,13 @@ const file_x_go_color_pb_color_proto_rawDesc = "" +
 	"\x01r\x18\x01 \x01(\rR\x01r\x12\f\n" +
 	"\x01g\x18\x02 \x01(\rR\x01g\x12\f\n" +
 	"\x01b\x18\x03 \x01(\rR\x01b\x12\f\n" +
-	"\x01a\x18\x04 \x01(\x01R\x01a\"y\n" +
+	"\x01a\x18\x04 \x01(\x01R\x01a\"\x8b\x01\n" +
 	"\x04Stop\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12'\n" +
 	"\x05color\x18\x02 \x01(\v2\x11.x.color.pb.ColorR\x05color\x12\x1a\n" +
-	"\bposition\x18\x03 \x01(\x01R\bposition\x12\x1a\n" +
-	"\bswitched\x18\x04 \x01(\bR\bswitchedB\x88\x01\n" +
+	"\bposition\x18\x03 \x01(\x01R\bposition\x12\x1f\n" +
+	"\bswitched\x18\x04 \x01(\bH\x00R\bswitched\x88\x01\x01B\v\n" +
+	"\t_switchedB\x88\x01\n" +
 	"\x0ecom.x.color.pbB\n" +
 	"ColorProtoP\x01Z github.com/synnaxlabs/x/color/pb\xa2\x02\x03XCP\xaa\x02\n" +
 	"X.Color.Pb\xca\x02\n" +
@@ -230,6 +231,7 @@ func file_x_go_color_pb_color_proto_init() {
 	if File_x_go_color_pb_color_proto != nil {
 		return
 	}
+	file_x_go_color_pb_color_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

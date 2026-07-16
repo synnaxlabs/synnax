@@ -26,12 +26,12 @@ import (
 )
 
 const (
-	intervalSymbolName  = "interval"
-	waitSymbolName      = "wait"
-	nowSymbolName       = "now"
-	periodConfigParam   = "period"
-	durationConfigParam = "duration"
-	name                = "time"
+	intervalSymbolName = "interval"
+	waitSymbolName     = "wait"
+	nowSymbolName      = "now"
+	periodInputParam   = "period"
+	durationInputParam = "duration"
+	name               = "time"
 )
 
 // MinTolerance is the minimum tolerance for timing comparisons,
@@ -72,9 +72,10 @@ func NewSymbols() []*symbol.Symbol {
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
+			Inputs:  types.Params{{Name: periodInputParam, Type: types.TimeSpan()}},
 		}),
-		Doc: intervalDoc,
+		Trigger: symbol.TriggerOnly,
+		Doc:     intervalDoc,
 	}
 	wait := &symbol.Symbol{
 		Name: waitSymbolName,
@@ -82,9 +83,10 @@ func NewSymbols() []*symbol.Symbol {
 		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
+			Inputs:  types.Params{{Name: durationInputParam, Type: types.TimeSpan()}},
 		}),
-		Doc: waitDoc,
+		Trigger: symbol.TriggerOnly,
+		Doc:     waitDoc,
 	}
 	now := &symbol.Symbol{
 		Name: nowSymbolName,
@@ -93,7 +95,8 @@ func NewSymbols() []*symbol.Symbol {
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
-		Doc: nowDoc,
+		Trigger: symbol.TriggerOnly,
+		Doc:     nowDoc,
 	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(interval, wait, now)
@@ -140,7 +143,7 @@ func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case intervalSymbolName:
-		periodParam, ok := cfg.Node.Config.Get(periodConfigParam)
+		periodParam, ok := cfg.Node.Inputs.Get(periodInputParam)
 		if !ok {
 			return nil, query.ErrNotFound
 		}
@@ -156,7 +159,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}, nil
 
 	case waitSymbolName:
-		durationParam, ok := cfg.Node.Config.Get(durationConfigParam)
+		durationParam, ok := cfg.Node.Inputs.Get(durationInputParam)
 		if !ok {
 			return nil, query.ErrNotFound
 		}
@@ -210,11 +213,13 @@ func gcd(a, b int64) int64 {
 func parseTime(v any, name string) (telem.TimeSpan, error) {
 	span, ok := v.(telem.TimeSpan)
 	if !ok {
-		return 0, errors.Wrapf(
-			validate.ErrValidation,
-			"configuration parameter %s has invalid type, expected type telem.TimeSpan, received %s",
+		return 0, validate.PathedError(
+			errors.Wrapf(
+				validate.ErrInvalidType,
+				"expected type telem.TimeSpan, received %s",
+				reflect.TypeOf(v).Name(),
+			),
 			name,
-			reflect.TypeOf(v).Name(),
 		)
 	}
 	return span, nil

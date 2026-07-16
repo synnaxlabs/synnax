@@ -17,15 +17,16 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -38,9 +39,10 @@ type Key = channel.Key
 // Service is the central service for all things Channel related.
 type Service struct {
 	access   *rbac.Service
-	internal *servicechannel.Service
+	internal *channel.Service
 	ranger   *ranger.Service
 	alias    *alias.Service
+	status   *status.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -53,7 +55,43 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		internal: cfg.Service.Channel,
 		ranger:   cfg.Service.Ranger,
 		alias:    cfg.Service.Alias,
+		status:   cfg.Service.Status,
 	}, nil
+}
+
+var _ codec.ChannelResolver = (*Service)(nil)
+
+// RetrieveDataTypes implements codec.ChannelResolver, resolving the data types of the
+// channels with the given keys so that a dynamic framer codec can resolve channel
+// metadata through the API layer. Resolution intentionally bypasses access control, as
+// it runs on the per-frame encode/decode hot path.
+func (s *Service) RetrieveDataTypes(
+	ctx context.Context,
+	keys channel.Keys,
+) ([]telem.DataType, error) {
+	var channels []channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&channels).
+		Exec(ctx, nil); err != nil {
+		return nil, err
+	}
+	return lo.Map(channels, func(ch channel.Channel, _ int) telem.DataType {
+		return ch.DataType
+	}), nil
+}
+
+// RetrieveName implements codec.ChannelResolver, resolving the name of the channel with
+// the given key, returning an empty string if no channel with the key exists.
+func (s *Service) RetrieveName(ctx context.Context, key channel.Key) string {
+	var ch channel.Channel
+	if err := s.internal.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, nil); err != nil {
+		return ""
+	}
+	return ch.Name
 }
 
 // CreateRequest is a request to create a Channel in the cluster.
@@ -132,12 +170,16 @@ type RetrieveRequest struct {
 	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// RangeKey is used for fetching aliases.
 	RangeKey ranger.Key `json:"range_key" msgpack:"range_key"`
+	// IncludeStatus attaches each channel's status row (e.g. calculation status) to the
+	// returned channels when true. Channels with no status row are returned with a nil
+	// status.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // RetrieveResponse is the response for a RetrieveRequest.
 type RetrieveResponse struct {
 	// Channels is a slice of Channels matching the request.
-	Channels []Channel `json:"channels" msgpack:"channels"`
+	Channels []Channel `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }
 
 // Retrieve retrieves a Channel based on the parameters given in the request. If no
@@ -228,7 +270,26 @@ func (s *Service) Retrieve(
 		for i, ch := range resChannels {
 			al, err := aliasReader.Retrieve(ctx, resRng.Key, ch.Key())
 			if err == nil {
-				oChannels[i].Alias = al
+				oChannels[i].Alias = &al
+			}
+		}
+	}
+	if req.IncludeStatus {
+		ids := channel.OntologyIDsFromChannels(resChannels)
+		statuses := make([]Status, 0, len(resChannels))
+		if err := status.NewRetrieve[types.Nil](s.status).
+			Where(status.MatchKeys[types.Nil](ontology.IDsToKeys(ids)...)).
+			Entries(&statuses).
+			Exec(ctx, nil); err != nil {
+			return RetrieveResponse{}, err
+		}
+		statusByKey := make(map[string]Status, len(statuses))
+		for _, stat := range statuses {
+			statusByKey[stat.Key] = stat
+		}
+		for i := range oChannels {
+			if stat, ok := statusByKey[ids[i].String()]; ok {
+				oChannels[i].Status = &stat
 			}
 		}
 	}
@@ -304,7 +365,7 @@ func (s *Service) Delete(
 		if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  access.ActionDelete,
-			Objects: req.Keys.OntologyIDs(),
+			Objects: channel.OntologyIDsFromKeys(req.Keys),
 		}); err != nil {
 			return types.Nil{}, err
 		}
@@ -345,7 +406,7 @@ func (s *Service) Rename(
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionUpdate,
-		Objects: req.Keys.OntologyIDs(),
+		Objects: channel.OntologyIDsFromKeys(req.Keys),
 	}); err != nil {
 		return types.Nil{}, err
 	}

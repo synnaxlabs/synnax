@@ -15,11 +15,11 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -224,7 +224,7 @@ type (
 		Keys       []symbol.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveSymbolResponse struct {
-		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
+		Symbols []symbol.Symbol `json:"symbols,omitzero" msgpack:"symbols,omitzero"`
 	}
 )
 

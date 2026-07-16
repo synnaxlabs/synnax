@@ -46,7 +46,12 @@ func (s Stop) EncodeOrc(w *orc.Writer) error {
 		return err
 	}
 	w.Float64(float64(s.Position))
-	w.Bool(s.Switched)
+	if s.Switched != nil {
+		w.Bool(true)
+		w.Bool((*s.Switched))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -61,8 +66,18 @@ func (s *Stop) DecodeOrc(r *orc.Reader) error {
 	if s.Position, err = r.Float64(); err != nil {
 		return err
 	}
-	if s.Switched, err = r.Bool(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			s.Switched = &hv
+		}
 	}
 	return nil
 }

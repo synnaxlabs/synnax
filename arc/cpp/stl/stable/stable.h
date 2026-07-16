@@ -24,10 +24,10 @@
 
 namespace arc::stl::stable {
 
-struct StableForConfig {
+struct StableForInputs {
     x::telem::TimeSpan duration;
 
-    static std::pair<StableForConfig, x::errors::Error>
+    static std::pair<StableForInputs, x::errors::Error>
     create(const types::Params &params) {
         const auto &param = params["duration"];
         auto sv = types::to_sample_value(param.value, param.type);
@@ -54,7 +54,8 @@ struct StableForConfig {
 /// function, matching the Go runtime behavior.
 class StableFor : public runtime::node::Node {
     runtime::state::Node state;
-    StableForConfig cfg;
+    StableForInputs inputs;
+    size_t input_idx;
     x::telem::MonoClock clock;
     std::optional<uint8_t> value;
     std::optional<uint8_t> last_sent;
@@ -62,16 +63,20 @@ class StableFor : public runtime::node::Node {
 
 public:
     explicit StableFor(
-        const StableForConfig &cfg,
+        const StableForInputs &inputs,
         runtime::state::Node &&state,
+        size_t input_idx,
         x::telem::NowFunc now = nullptr
     ):
-        state(std::move(state)), cfg(cfg), clock(std::move(now)) {}
+        state(std::move(state)),
+        inputs(inputs),
+        input_idx(input_idx),
+        clock(std::move(now)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->state.refresh_inputs()) {
-            const auto &input_data = this->state.input(0);
-            const auto &input_time = this->state.input_time(0);
+            const auto &input_data = this->state.input(this->input_idx);
+            const auto &input_time = this->state.input_time(this->input_idx);
             if (input_data->size() > 0) {
                 for (size_t i = 0; i < input_data->size(); i++) {
                     const auto current_value = input_data->at<uint8_t>(i);
@@ -89,7 +94,7 @@ public:
         const auto current_value = *this->value;
         const auto current_time = this->clock.now();
         if (x::telem::TimeSpan(current_time - this->last_changed) >=
-            this->cfg.duration) {
+            this->inputs.duration) {
             if (!this->last_sent.has_value() || *this->last_sent != current_value) {
                 const auto &o = this->state.output(0);
                 const auto &o_time = this->state.output_time(0);
@@ -124,10 +129,12 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto [node_cfg, err] = StableForConfig::create(cfg.node.config);
+        auto [inputs, err] = StableForInputs::create(cfg.node.inputs);
         if (err) return {nullptr, err};
+        auto [input_idx, in_err] = cfg.node.resolve_input(ir::default_input_param);
+        if (in_err) return {nullptr, in_err};
         return {
-            std::make_unique<StableFor>(node_cfg, std::move(cfg.state)),
+            std::make_unique<StableFor>(inputs, std::move(cfg.state), input_idx),
             x::errors::NIL
         };
     }

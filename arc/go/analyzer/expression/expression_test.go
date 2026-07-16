@@ -695,7 +695,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := add(5)
 				}
-			`, "expects 2 argument(s), got 1"),
+			`, "missing required argument"),
 			Entry("too many arguments", `
 				func add(x i32, y i32) i32 {
 					return x + y
@@ -704,7 +704,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := add(5, 10, 15)
 				}
-			`, "expects 2 argument(s), got 3"),
+			`, "too many arguments"),
 			Entry("no arguments when expected", `
 				func getValue(x i32) i32 {
 					return x
@@ -713,7 +713,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := getValue()
 				}
-			`, "expects 1 argument(s), got 0"),
+			`, "missing required argument"),
 			Entry("wrong argument type - string instead of i32", `
 				func add(x i32, y i32) i32 {
 					return x + y
@@ -722,7 +722,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := add(5, "hello")
 				}
-			`, "argument 2 of add"),
+			`, "argument 'y' of 'add'"),
 			Entry("wrong argument type - i32 vs f32 variable", `
 				func process(x f32) f32 {
 					return x * 2.0
@@ -732,7 +732,7 @@ var _ = Describe("Expressions", func() {
 					x i32 := 5
 					result := process(x)
 				}
-			`, "argument 1 of process"),
+			`, "argument 'x' of 'process'"),
 			Entry("wrong argument type - integer literal to string parameter", `
 				func greet(name str) {
 				}
@@ -740,7 +740,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					greet(42)
 				}
-			`, "argument 1 of greet"),
+			`, "argument 'name' of 'greet'"),
 			Entry("wrong argument type - integer literal to string in standalone call", `
 				func log(msg str) {
 				}
@@ -748,7 +748,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					log(123)
 				}
-			`, "argument 1 of log"),
+			`, "argument 'msg' of 'log'"),
 			Entry("nested call type mismatch", `
 				func getFloat() f32 {
 					return 3.14
@@ -761,7 +761,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := needsInt(getFloat())
 				}
-			`, "argument 1 of needsInt"),
+			`, "argument 'x' of 'needsInt'"),
 			Entry("wrong arg count in nested call", `
 				func double(x i32) i32 {
 					return x * 2
@@ -770,7 +770,7 @@ var _ = Describe("Expressions", func() {
 				func testFunc() {
 					result := double(double())
 				}
-			`, "expects 1 argument(s), got 0"),
+			`, "missing required argument"),
 			Entry("calling a variable as a function", `
 				func testFunc() {
 					x i32 := 42
@@ -807,7 +807,7 @@ var _ = Describe("Expressions", func() {
 				Name: "tick",
 				Kind: symbol.KindFunction,
 				Type: types.Function(types.FunctionProperties{
-					Config:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
+					Inputs:  types.Params{{Name: "duration", Type: types.TimeSpan()}},
 					Outputs: types.Params{{Name: "output", Type: types.U8()}},
 				}),
 			}}
@@ -868,11 +868,11 @@ var _ = Describe("Expressions", func() {
 			Entry("missing required argument", `
 				func add(x i64, y i64 = 0) i64 { return x + y }
 				func testFunc() { result := add() }
-			`, "expects 1 to 2 argument(s), got 0"),
+			`, "missing required argument"),
 			Entry("too many arguments", `
 				func add(x i64, y i64 = 0) i64 { return x + y }
 				func testFunc() { result := add(1, 2, 3) }
-			`, "expects 1 to 2 argument(s), got 3"),
+			`, "too many arguments"),
 		)
 	})
 

@@ -17,14 +17,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/project/pb"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestProjectPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Project PB Suite")
+	RunSpecs(t, "Service Project PB Suite")
 }
 
 // sample builds a fully-populated project whose layout holds string and bool
@@ -33,7 +32,6 @@ func sample() project.Project {
 	return project.Project{
 		Key:    uuid.New(),
 		Name:   "ops",
-		Author: user.Key(uuid.New()),
 		Layout: msgpack.EncodedJSON{"active": "plot-1", "pinned": true},
 	}
 }
@@ -65,11 +63,6 @@ var _ = Describe("Translator", func() {
 		Expect(pb.ProjectFromPB(&pb.Project{Key: "not-a-uuid"})).Error().
 			To(MatchError(ContainSubstring("invalid UUID")))
 	})
-
-	It("Should error when decoding a project with a malformed author", func() {
-		Expect(pb.ProjectFromPB(&pb.Project{
-			Key:    uuid.NewString(),
-			Author: "not-a-uuid",
-		})).Error().To(MatchError(ContainSubstring("invalid UUID")))
-	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

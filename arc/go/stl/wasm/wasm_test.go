@@ -33,6 +33,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -40,10 +41,10 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-var _ = Describe("ConvertConfigValue", func() {
+var _ = Describe("ConvertLiteralValue", func() {
 	DescribeTable("supported numeric and timestamp types",
 		func(v any, expected uint64) {
-			Expect(wasm.ConvertConfigValue(v)).To(Equal(expected))
+			Expect(wasm.ConvertLiteralValue(v)).To(Equal(expected))
 		},
 		Entry("int8", int8(1), uint64(1)),
 		Entry("int16", int16(2), uint64(2)),
@@ -61,7 +62,7 @@ var _ = Describe("ConvertConfigValue", func() {
 
 	DescribeTable("unsupported types return an error instead of panicking",
 		func(v any) {
-			_, err := wasm.ConvertConfigValue(v)
+			_, err := wasm.ConvertLiteralValue(v)
 			Expect(err).To(HaveOccurred())
 		},
 		Entry("bool", true),
@@ -246,7 +247,8 @@ func singleFunctionGraph(key string, outType types.Type, body string) arc.Graph 
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: outType}},
 			Body:    ir.Body{Raw: body},
 		}},
-		Nodes: []graph.Node{{Key: key, Type: key}},
+		Nodes:  []graph.Node{{Key: key}},
+		Inputs: map[string]msgpack.EncodedJSON{key: {"type": key}},
 	}
 }
 
@@ -281,13 +283,18 @@ func binaryOpGraph(
 			},
 		},
 		Nodes: []graph.Node{
-			{Key: lhsKey, Type: lhsKey},
-			{Key: rhsKey, Type: rhsKey},
-			{Key: opKey, Type: opKey},
+			{Key: lhsKey},
+			{Key: rhsKey},
+			{Key: opKey},
 		},
-		Edges: []graph.Edge{
-			{Source: ir.Handle{Node: lhsKey, Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: opKey, Param: "lhs"}},
-			{Source: ir.Handle{Node: rhsKey, Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: opKey, Param: "rhs"}},
+		Inputs: map[string]msgpack.EncodedJSON{
+			lhsKey: {"type": lhsKey},
+			rhsKey: {"type": rhsKey},
+			opKey:  {"type": opKey},
+		},
+		Edges: graph.Edges{
+			{Edge: ir.Edge{Source: ir.Handle{Node: lhsKey, Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: opKey, Param: "lhs"}}},
+			{Edge: ir.Edge{Source: ir.Handle{Node: rhsKey, Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: opKey, Param: "rhs"}}},
 		},
 	}
 }
@@ -366,10 +373,15 @@ var _ = Describe("WASM", func() {
 					{Key: "a", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 					{Key: "b", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
-				Nodes: []graph.Node{{Key: "a", Type: "a"}, {Key: "b", Type: "b"}, {Key: "math_ops", Type: "math_ops"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "a"}},
-					{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}},
+				Nodes: []graph.Node{{Key: "a"}, {Key: "b"}, {Key: "math_ops"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"a":        {"type": "a"},
+					"b":        {"type": "b"},
+					"math_ops": {"type": "math_ops"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "a"}}},
+					{Edge: ir.Edge{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -437,8 +449,12 @@ var _ = Describe("WASM", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "c1", Type: "counter1"},
-					{Key: "c2", Type: "counter2"},
+					{Key: "c1"},
+					{Key: "c2"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"c1": {"type": "counter1"},
+					"c2": {"type": "counter2"},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -479,8 +495,12 @@ var _ = Describe("WASM", func() {
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "counter_a", Type: "counter"},
-					{Key: "counter_b", Type: "counter"},
+					{Key: "counter_a"},
+					{Key: "counter_b"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"counter_a": {"type": "counter"},
+					"counter_b": {"type": "counter"},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -531,9 +551,13 @@ var _ = Describe("WASM", func() {
 					},
 					{Key: "x", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
-				Nodes: []graph.Node{{Key: "x", Type: "x"}, {Key: "add", Type: "add"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add", Param: "x"}},
+				Nodes: []graph.Node{{Key: "x"}, {Key: "add"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"x":   {"type": "x"},
+					"add": {"type": "add"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add", Param: "x"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -555,9 +579,13 @@ var _ = Describe("WASM", func() {
 					},
 					{Key: "a", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
-				Nodes: []graph.Node{{Key: "a", Type: "a"}, {Key: "compute", Type: "compute"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "compute", Param: "a"}},
+				Nodes: []graph.Node{{Key: "a"}, {Key: "compute"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"a":       {"type": "a"},
+					"compute": {"type": "compute"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "compute", Param: "a"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -579,9 +607,13 @@ var _ = Describe("WASM", func() {
 					},
 					{Key: "value", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}}, Body: ir.Body{Raw: `{ return 1.0 }`}},
 				},
-				Nodes: []graph.Node{{Key: "value", Type: "value"}, {Key: "scale", Type: "scale"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}},
+				Nodes: []graph.Node{{Key: "value"}, {Key: "scale"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"value": {"type": "value"},
+					"scale": {"type": "scale"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -605,10 +637,38 @@ var _ = Describe("WASM", func() {
 			h.Execute(ctx, "add")
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))).To(Equal([]int64{105}))
 		})
+
+		It("Should bind a literal input ordered before an edge-fed input", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "scale",
+						Inputs:  types.Params{{Name: "gain", Type: types.F64(), Value: 3.0}, {Name: "value", Type: types.F64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+						Body:    ir.Body{Raw: `{ return gain * value }`},
+					},
+					{Key: "value", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}}, Body: ir.Body{Raw: `{ return 1.0 }`}},
+				},
+				Nodes: []graph.Node{{Key: "value"}, {Key: "scale"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"value": {"type": "value"},
+					"scale": {"type": "scale"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}}},
+				},
+			}
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
+
+			h.SetInput("value", 0, telem.NewSeriesV[float64](10.0, 20.0), telem.NewSeriesSecondsTSV(1, 2))
+			h.Execute(ctx, "scale")
+			Expect(telem.UnmarshalSeries[float64](h.Output("scale", 0))).To(Equal([]float64{30.0, 60.0}))
+		})
 	})
 
-	Describe("TimeSpan Config Values", func() {
-		It("Should thread duration literal config values through the analyzer, compiler, and runtime", func(ctx SpecContext) {
+	Describe("TimeSpan Input Values", func() {
+		It("Should thread duration literal input values through the analyzer, compiler, and runtime", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "trigger_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
@@ -671,10 +731,15 @@ trigger_ch -> emit_period{period=1s}
 					{Key: "a", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 					{Key: "b", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}, Body: ir.Body{Raw: `{ return 1 }`}},
 				},
-				Nodes: []graph.Node{{Key: "a", Type: "a"}, {Key: "b", Type: "b"}, {Key: "math_ops", Type: "math_ops"}},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "a"}},
-					{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}},
+				Nodes: []graph.Node{{Key: "a"}, {Key: "b"}, {Key: "math_ops"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"a":        {"type": "a"},
+					"b":        {"type": "b"},
+					"math_ops": {"type": "math_ops"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "a"}}},
+					{Edge: ir.Edge{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1150,13 +1215,17 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "val_src", Type: "val_src"},
-					{Key: "neg_c", Type: "neg_c"},
+					{Key: "val_src"},
+					{Key: "neg_c"},
 				},
-				Edges: []graph.Edge{{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"val_src": {"type": "val_src"},
+					"neg_c":   {"type": "neg_c"},
+				},
+				Edges: graph.Edges{{Edge: ir.Edge{
 					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "neg_c", Param: "val"},
-				}},
+				}}},
 			}
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1182,13 +1251,17 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "val_src", Type: "val_src"},
-					{Key: "neg_cf", Type: "neg_cf"},
+					{Key: "val_src"},
+					{Key: "neg_cf"},
 				},
-				Edges: []graph.Edge{{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"val_src": {"type": "val_src"},
+					"neg_cf":  {"type": "neg_cf"},
+				},
+				Edges: graph.Edges{{Edge: ir.Edge{
 					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "neg_cf", Param: "val"},
-				}},
+				}}},
 			}
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
@@ -1217,14 +1290,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "str_len", Type: "str_len"},
+					{Key: "source"},
+					{Key: "str_len"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source":  {"type": "source"},
+					"str_len": {"type": "str_len"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "str_len", Param: "s"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1258,14 +1335,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "qstr_len", Type: "qstr_len"},
+					{Key: "source"},
+					{Key: "qstr_len"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source":   {"type": "source"},
+					"qstr_len": {"type": "qstr_len"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "qstr_len", Param: "s"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1307,19 +1388,24 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "src_a", Type: "src_a"},
-					{Key: "src_b", Type: "src_b"},
-					{Key: "qstr_concat", Type: "qstr_concat"},
+					{Key: "src_a"},
+					{Key: "src_b"},
+					{Key: "qstr_concat"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"src_a":       {"type": "src_a"},
+					"src_b":       {"type": "src_b"},
+					"qstr_concat": {"type": "qstr_concat"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src_a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "qstr_concat", Param: "a"},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "src_b", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "qstr_concat", Param: "b"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1365,14 +1451,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "labeler", Type: "labeler"},
+					{Key: "source"},
+					{Key: "labeler"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source":  {"type": "source"},
+					"labeler": {"type": "labeler"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "labeler", Param: "x"},
-					},
+					}},
 				},
 			}
 			// The key assertion: this must not panic on Density() for
@@ -1412,14 +1502,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "tagger", Type: "tagger"},
+					{Key: "source"},
+					{Key: "tagger"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source": {"type": "source"},
+					"tagger": {"type": "tagger"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "tagger", Param: "x"},
-					},
+					}},
 				},
 			}
 			// Must not panic even with multiple string outputs
@@ -1453,14 +1547,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "stringify", Type: "stringify"},
+					{Key: "source"},
+					{Key: "stringify"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source":    {"type": "source"},
+					"stringify": {"type": "stringify"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "stringify", Param: "x"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1500,14 +1598,18 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "source", Type: "source"},
-					{Key: "labeler", Type: "labeler"},
+					{Key: "source"},
+					{Key: "labeler"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"source":  {"type": "source"},
+					"labeler": {"type": "labeler"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "labeler", Param: "x"},
-					},
+					}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1584,14 +1686,13 @@ trigger_ch -> emit_period{period=1s}
 		})
 	})
 
-	Describe("Config Parameters", func() {
-		It("Should pass config values to WASM function", func(ctx SpecContext) {
+	Describe("Input Parameters", func() {
+		It("Should pass input values to WASM function", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key:     "add_config",
-						Config:  types.Params{{Name: "x", Type: types.I64()}},
-						Inputs:  types.Params{{Name: "y", Type: types.I64()}},
+						Key:     "add_input",
+						Inputs:  types.Params{{Name: "x", Type: types.I64()}, {Name: "y", Type: types.I64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 						Body:    ir.Body{Raw: `{ return x + y }`},
 					},
@@ -1602,11 +1703,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "add_config", Type: "add_config", Config: map[string]any{"x": int64(10)}},
+					{Key: "input_source"},
+					{Key: "add_input"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add_config", Param: "y"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"add_input":    {"type": "add_input", "x": int64(10)},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add_input", Param: "y"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1615,21 +1720,20 @@ trigger_ch -> emit_period{period=1s}
 			// Set up input source output
 			h.SetInput("input_source", 0, telem.NewSeriesV[int64](5), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode(ctx, "add_config")
-			h.NextChanged(ctx, n, "add_config")
+			n := h.CreateNode(ctx, "add_input")
+			h.NextChanged(ctx, n, "add_input")
 
-			output := h.Output("add_config", 0)
+			output := h.Output("add_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(15)))
 		})
 
-		It("Should handle multiple config parameters", func(ctx SpecContext) {
+		It("Should handle multiple input parameters", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key:     "multi_config",
-						Config:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
-						Inputs:  types.Params{{Name: "c", Type: types.I32()}},
+						Key:     "multi_input",
+						Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}, {Name: "c", Type: types.I32()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 						Body:    ir.Body{Raw: `{ return a + b + c }`},
 					},
@@ -1640,11 +1744,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "multi_config", Type: "multi_config", Config: map[string]any{"a": int32(5), "b": int32(10)}},
+					{Key: "input_source"},
+					{Key: "multi_input"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "multi_config", Param: "c"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"multi_input":  {"type": "multi_input", "a": int32(5), "b": int32(10)},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "multi_input", Param: "c"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1652,21 +1760,20 @@ trigger_ch -> emit_period{period=1s}
 
 			h.SetInput("input_source", 0, telem.NewSeriesV[int32](3), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode(ctx, "multi_config")
-			h.NextChanged(ctx, n, "multi_config")
+			n := h.CreateNode(ctx, "multi_input")
+			h.NextChanged(ctx, n, "multi_input")
 
-			output := h.Output("multi_config", 0)
+			output := h.Output("multi_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[int32](output)[0]).To(Equal(int32(18)))
 		})
 
-		It("Should handle float64 config parameters", func(ctx SpecContext) {
+		It("Should handle float64 input parameters", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
-						Key:     "scale_config",
-						Config:  types.Params{{Name: "factor", Type: types.F64()}},
-						Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+						Key:     "scale_input",
+						Inputs:  types.Params{{Name: "factor", Type: types.F64()}, {Name: "value", Type: types.F64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 						Body:    ir.Body{Raw: `{ return value * factor }`},
 					},
@@ -1677,11 +1784,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "scale_config", Type: "scale_config", Config: map[string]any{"factor": 2.5}},
+					{Key: "input_source"},
+					{Key: "scale_input"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_config", Param: "value"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"scale_input":  {"type": "scale_input", "factor": 2.5},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_input", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1689,21 +1800,20 @@ trigger_ch -> emit_period{period=1s}
 
 			h.SetInput("input_source", 0, telem.NewSeriesV[float64](10.0), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode(ctx, "scale_config")
-			h.NextChanged(ctx, n, "scale_config")
+			n := h.CreateNode(ctx, "scale_input")
+			h.NextChanged(ctx, n, "scale_input")
 
-			output := h.Output("scale_config", 0)
+			output := h.Output("scale_input", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[float64](output)[0]).To(Equal(25.0))
 		})
 
-		It("Should handle negative i64 config parameter", func(ctx SpecContext) {
+		It("Should handle negative i64 input parameter", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
 						Key:     "offset_func",
-						Config:  types.Params{{Name: "offset", Type: types.I64()}},
-						Inputs:  types.Params{{Name: "value", Type: types.I64()}},
+						Inputs:  types.Params{{Name: "offset", Type: types.I64()}, {Name: "value", Type: types.I64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 						Body:    ir.Body{Raw: `{ return value + offset }`},
 					},
@@ -1714,11 +1824,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "offset_func", Type: "offset_func", Config: map[string]any{"offset": int64(-50)}},
+					{Key: "input_source"},
+					{Key: "offset_func"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "offset_func", Param: "value"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"offset_func":  {"type": "offset_func", "offset": int64(-50)},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "offset_func", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -1735,13 +1849,12 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(50)))
 		})
 
-		It("Should handle negative f64 config parameter", func(ctx SpecContext) {
+		It("Should handle negative f64 input parameter", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
 						Key:     "scale_neg",
-						Config:  types.Params{{Name: "factor", Type: types.F64()}},
-						Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+						Inputs:  types.Params{{Name: "factor", Type: types.F64()}, {Name: "value", Type: types.F64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 						Body:    ir.Body{Raw: `{ return value * factor }`},
 					},
@@ -1752,11 +1865,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "scale_neg", Type: "scale_neg", Config: map[string]any{"factor": -3.0}},
+					{Key: "input_source"},
+					{Key: "scale_neg"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_neg", Param: "value"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"scale_neg":    {"type": "scale_neg", "factor": -3.0},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_neg", Param: "value"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -2103,11 +2220,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "trigger_source", Type: "trigger_source"},
-					{Key: "void_func", Type: "void_func"},
+					{Key: "trigger_source"},
+					{Key: "void_func"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_func", Param: "trigger"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"trigger_source": {"type": "trigger_source"},
+					"void_func":      {"type": "void_func"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_func", Param: "trigger"}}},
 				},
 			}
 			h := newHarness(ctx, g, nil)
@@ -2143,11 +2264,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "trigger_source", Type: "trigger_source"},
-					{Key: "void_with_state", Type: "void_with_state"},
+					{Key: "trigger_source"},
+					{Key: "void_with_state"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"trigger_source":  {"type": "trigger_source"},
+					"void_with_state": {"type": "void_with_state"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}}},
 				},
 			}
 			h := newHarness(ctx, g, chans, channels.Digest{Key: 100, DataType: telem.Int32T})
@@ -2239,11 +2364,11 @@ trigger_ch -> emit_period{period=1s}
 		})
 	})
 
-	Describe("Channel Config Parameter Arithmetic", func() {
+	Describe("Channel Input Parameter Arithmetic", func() {
 		// Regression test for: "cannot pop the 2nd f32 operand for f32.add:
 		// type mismatch: expected f32, but was i32"
-		// Bug occurred when reading from a channel config parameter and performing arithmetic.
-		It("Should read from channel config param and perform f32 arithmetic", func(ctx SpecContext) {
+		// Bug occurred when reading from a channel input parameter and performing arithmetic.
+		It("Should read from channel input param and perform f32 arithmetic", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
@@ -2252,8 +2377,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "increment_counter",
-						Config:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
-						Inputs:  types.Params{},
+						Inputs:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							counter = counter + 1.0
@@ -2261,9 +2385,12 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "increment_counter", Type: "increment_counter", Config: map[string]any{"counter": uint32(100)}},
+					{Key: "increment_counter"},
 				},
-				Edges: []graph.Edge{},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"increment_counter": {"type": "increment_counter", "counter": uint32(100)},
+				},
+				Edges: graph.Edges{},
 			}
 
 			h := newHarness(ctx, g, chans,
@@ -2283,7 +2410,7 @@ trigger_ch -> emit_period{period=1s}
 		})
 
 		// Test matching the user's original example with stateful variable and conditional
-		It("Should handle channel config param with stateful variable and conditional", func(ctx SpecContext) {
+		It("Should handle channel input param with stateful variable and conditional", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 			}
@@ -2297,8 +2424,7 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key:     "count_rising",
-						Config:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}},
-						Inputs:  types.Params{{Name: "input", Type: types.U8()}},
+						Inputs:  types.Params{{Name: "counter", Type: types.Chan(types.F32())}, {Name: "input", Type: types.U8()}},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							prev u8 $= input
@@ -2315,11 +2441,15 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "input_source", Type: "input_source"},
-					{Key: "count_rising", Type: "count_rising", Config: map[string]any{"counter": uint32(100)}},
+					{Key: "input_source"},
+					{Key: "count_rising"},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "count_rising", Param: "input"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"input_source": {"type": "input_source"},
+					"count_rising": {"type": "count_rising", "counter": uint32(100)},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "count_rising", Param: "input"}}},
 				},
 			}
 
@@ -2381,24 +2511,23 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(2.0)))
 		})
 
-		It("Should handle multiple channel config parameters", func(ctx SpecContext) {
+		It("Should handle multiple channel input parameters", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
 				{Name: "pressure_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 101},
 				{Name: "output_sum", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 102},
 			}
 
-			// Function that reads from two channel config params and writes their sum to a third
+			// Function that reads from two channel input params and writes their sum to a third
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
 						Key: "combine_sensors",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "temp", Type: types.Chan(types.F32())},
 							{Name: "pressure", Type: types.Chan(types.F32())},
 							{Name: "result", Type: types.Chan(types.F32())},
 						},
-						Inputs:  types.Params{},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							result = temp + pressure
@@ -2406,17 +2535,17 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{
-						Key:  "combine_sensors",
-						Type: "combine_sensors",
-						Config: map[string]any{
-							"temp":     uint32(100),
-							"pressure": uint32(101),
-							"result":   uint32(102),
-						},
+					{Key: "combine_sensors"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"combine_sensors": {
+						"type":     "combine_sensors",
+						"temp":     uint32(100),
+						"pressure": uint32(101),
+						"result":   uint32(102),
 					},
 				},
-				Edges: []graph.Edge{},
+				Edges: graph.Edges{},
 			}
 
 			h := newHarness(ctx, g, chans,
@@ -2438,7 +2567,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(102).Series[0])[0]).To(BeNumerically("~", float32(126.8), 0.01))
 		})
 
-		It("Should handle multiple channel config params with different operations", func(ctx SpecContext) {
+		It("Should handle multiple channel input params with different operations", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "input_a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
 				{Name: "input_b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 201},
@@ -2447,19 +2576,18 @@ trigger_ch -> emit_period{period=1s}
 				{Name: "out_product", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 204},
 			}
 
-			// Function that performs multiple operations on channel config params
+			// Function that performs multiple operations on channel input params
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
 						Key: "multi_op",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "a", Type: types.Chan(types.F64())},
 							{Name: "b", Type: types.Chan(types.F64())},
 							{Name: "sum", Type: types.Chan(types.F64())},
 							{Name: "diff", Type: types.Chan(types.F64())},
 							{Name: "product", Type: types.Chan(types.F64())},
 						},
-						Inputs:  types.Params{},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							sum = a + b
@@ -2469,19 +2597,19 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{
-						Key:  "multi_op",
-						Type: "multi_op",
-						Config: map[string]any{
-							"a":       uint32(200),
-							"b":       uint32(201),
-							"sum":     uint32(202),
-							"diff":    uint32(203),
-							"product": uint32(204),
-						},
+					{Key: "multi_op"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"multi_op": {
+						"type":    "multi_op",
+						"a":       uint32(200),
+						"b":       uint32(201),
+						"sum":     uint32(202),
+						"diff":    uint32(203),
+						"product": uint32(204),
 					},
 				},
-				Edges: []graph.Edge{},
+				Edges: graph.Edges{},
 			}
 
 			h := newHarness(ctx, g, chans,
@@ -2513,22 +2641,21 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[float64](outFr.Get(204).Series[0])[0]).To(Equal(float64(30.0)))
 		})
 
-		It("Should handle channel config param used multiple times in expression", func(ctx SpecContext) {
+		It("Should handle channel input param used multiple times in expression", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "value_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 300},
 				{Name: "squared_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 301},
 			}
 
-			// Function that reads from a channel config param twice (squaring it)
+			// Function that reads from a channel input param twice (squaring it)
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
 						Key: "square_value",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "value", Type: types.Chan(types.F32())},
 							{Name: "squared", Type: types.Chan(types.F32())},
 						},
-						Inputs:  types.Params{},
 						Outputs: types.Params{},
 						Body: ir.Body{Raw: `{
 							squared = value * value
@@ -2536,16 +2663,16 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{
-						Key:  "square_value",
-						Type: "square_value",
-						Config: map[string]any{
-							"value":   uint32(300),
-							"squared": uint32(301),
-						},
+					{Key: "square_value"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"square_value": {
+						"type":    "square_value",
+						"value":   uint32(300),
+						"squared": uint32(301),
 					},
 				},
-				Edges: []graph.Edge{},
+				Edges: graph.Edges{},
 			}
 
 			h := newHarness(ctx, g, chans,
@@ -2575,8 +2702,8 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(0.25)))
 		})
 
-		It("Should handle mixed channel and non-channel config params", func(ctx SpecContext) {
-			// This tests the tolerance_alarm pattern: some config params are channels,
+		It("Should handle mixed channel and non-channel input params", func(ctx SpecContext) {
+			// This tests the tolerance_alarm pattern: some input params are channels,
 			// others are plain values (f32, i64)
 			chans := []symbol.Symbol{
 				{Name: "set_point_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 400},
@@ -2587,13 +2714,13 @@ trigger_ch -> emit_period{period=1s}
 				Functions: []ir.Function{
 					{
 						Key: "tolerance_check",
-						Config: types.Params{
+						Inputs: types.Params{
 							{Name: "tolerance_upper", Type: types.F32()},
 							{Name: "tolerance_lower", Type: types.F32()},
 							{Name: "set_point", Type: types.Chan(types.F32())},
 							{Name: "samples", Type: types.I64()},
+							{Name: "value", Type: types.F32()},
 						},
-						Inputs:  types.Params{{Name: "value", Type: types.F32()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 						Body: ir.Body{Raw: `{
 							count i64 $= 0
@@ -2619,20 +2746,21 @@ trigger_ch -> emit_period{period=1s}
 					},
 				},
 				Nodes: []graph.Node{
-					{Key: "value_source", Type: "value_source"},
-					{
-						Key:  "tolerance_check",
-						Type: "tolerance_check",
-						Config: map[string]any{
-							"tolerance_upper": float32(10.0),
-							"tolerance_lower": float32(5.0),
-							"set_point":       uint32(400),
-							"samples":         int64(3),
-						},
+					{Key: "value_source"},
+					{Key: "tolerance_check"},
+				},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"value_source": {"type": "value_source"},
+					"tolerance_check": {
+						"type":            "tolerance_check",
+						"tolerance_upper": float32(10.0),
+						"tolerance_lower": float32(5.0),
+						"set_point":       uint32(400),
+						"samples":         int64(3),
 					},
 				},
-				Edges: []graph.Edge{
-					{Source: ir.Handle{Node: "value_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "tolerance_check", Param: "value"}},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{Source: ir.Handle{Node: "value_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "tolerance_check", Param: "value"}}},
 				},
 			}
 
@@ -2682,7 +2810,7 @@ trigger_ch -> emit_period{period=1s}
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
 		})
 
-		It("Should handle intermediate variable assignment from channel config param", func(ctx SpecContext) {
+		It("Should handle intermediate variable assignment from channel input param", func(ctx SpecContext) {
 			// This is the EXACT user code that was failing.
 			// The key pattern is: sp := set_point (where set_point is chan f32)
 			chans := []symbol.Symbol{
@@ -2790,7 +2918,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 
 		It("Should handle writing to channel through intermediate variable", func(ctx SpecContext) {
 			// Test that writing to an intermediate variable correctly writes to the channel
-			// out := output (config param with channel type)
+			// out := output (input param with channel type)
 			// out = value * 2.0 (write to channel through intermediate variable)
 			chans := []symbol.Symbol{
 				{Name: "input_ch", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
@@ -2827,9 +2955,9 @@ input_ch -> writer{output=write_target} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](50.0))
 		})
 
-		It("Should handle nested intermediate variable assignments from channel config param", func(ctx SpecContext) {
+		It("Should handle nested intermediate variable assignments from channel input param", func(ctx SpecContext) {
 			// Test that we can chain intermediate variable assignments:
-			// out := output      (from config param)
+			// out := output      (from input param)
 			// out2 := out        (from intermediate variable)
 			// out2 = value * 3.0 (write through second intermediate)
 			chans := []symbol.Symbol{
@@ -3036,7 +3164,7 @@ input_ch -> checker{} -> output_ch
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 		})
 
-		It("Should write to separate channels when function with channel config is used multiple times", func(ctx SpecContext) {
+		It("Should write to separate channels when function with channel input is used multiple times", func(ctx SpecContext) {
 			chans := []symbol.Symbol{
 				{Name: "input_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 101},
 				{Name: "input_2", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 102},
@@ -3135,20 +3263,19 @@ input_ch -> count_local{} -> sink_ch
 		})
 	})
 
-	Describe("String config params", func() {
-		It("should create and execute a node with a string config param without error", func(ctx SpecContext) {
+	Describe("String input params", func() {
+		It("should create and execute a node with a string input param without error", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{{
 					Key:     "log_fn",
-					Config:  types.Params{{Name: "msg", Type: types.String()}},
+					Inputs:  types.Params{{Name: "msg", Type: types.String()}},
 					Outputs: types.Params{},
 					Body:    ir.Body{Raw: `{}`},
 				}},
-				Nodes: []graph.Node{{
-					Key:    "log_fn",
-					Type:   "log_fn",
-					Config: map[string]any{"msg": "hello"},
-				}},
+				Nodes: []graph.Node{{Key: "log_fn"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"log_fn": {"type": "log_fn", "msg": "hello"},
+				},
 			}
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)

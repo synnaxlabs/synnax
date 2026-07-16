@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -41,7 +42,10 @@ var _ = Describe("Constant", func() {
 		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewHost()
 			g := graph.Graph{
-				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Nodes: []graph.Node{{Key: "const"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"const": {"type": "constant"},
+				},
 				Functions: []graph.Function{{
 					Key: "constant",
 					Outputs: types.Params{
@@ -55,7 +59,7 @@ var _ = Describe("Constant", func() {
 		})
 		It("Should create constant for constant type", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
@@ -71,7 +75,7 @@ var _ = Describe("Constant", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
-					Config: types.Params{{
+					Inputs: types.Params{{
 						Name:  "value",
 						Type:  types.F64(),
 						Value: 3.14,
@@ -85,7 +89,7 @@ var _ = Describe("Constant", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
-					Config: types.Params{{
+					Inputs: types.Params{{
 						Name:  "value",
 						Type:  types.I64(),
 						Value: 100,
@@ -98,7 +102,7 @@ var _ = Describe("Constant", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
-					Config: types.Params{{
+					Inputs: types.Params{{
 						Name:  "value",
 						Type:  types.U8(),
 						Value: uint8(255),
@@ -118,7 +122,10 @@ var _ = Describe("Constant", func() {
 		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewHost()
 			g := graph.Graph{
-				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
+				Nodes: []graph.Node{{Key: "const"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"const": {"type": "constant"},
+				},
 				Functions: []graph.Function{{
 					Key: "constant",
 					Outputs: types.Params{
@@ -134,7 +141,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should emit output on Next with int value", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
@@ -146,7 +153,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should set output data on Next", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(100)}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(100)}}},
 				State: s.Node("const"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
@@ -159,7 +166,7 @@ var _ = Describe("Constant", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "constant",
-					Config: types.Params{{Name: "value", Type: types.F64(), Value: 3.14}},
+					Inputs: types.Params{{Name: "value", Type: types.F64(), Value: 3.14}},
 				},
 				State: s.Node("const"),
 			}
@@ -173,7 +180,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should handle float64 constant", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.F64(), Value: 2.718}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.F64(), Value: 2.718}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -187,7 +194,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should handle int32 constant", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I32(), Value: int32(42)}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I32(), Value: int32(42)}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -201,7 +208,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should handle uint8 constant", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.U8(), Value: uint8(255)}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.U8(), Value: uint8(255)}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -216,14 +223,18 @@ var _ = Describe("Constant", func() {
 		It("Should allow downstream nodes to read constant", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "const", Type: "constant"},
-					{Key: "sink", Type: "sink"},
+					{Key: "const"},
+					{Key: "sink"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"const": {"type": "constant"},
+					"sink":  {"type": "sink"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "const", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -244,7 +255,7 @@ var _ = Describe("Constant", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(inter)
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(999)}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(999)}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -261,7 +272,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should handle zero value constant", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 0}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I64(), Value: 0}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -275,7 +286,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should handle negative value constant", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: -42}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I64(), Value: -42}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -289,7 +300,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should only emit once across multiple Next calls when node has no incoming edges", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -307,7 +318,7 @@ var _ = Describe("Constant", func() {
 
 		It("Should emit again after Reset is called when node has no incoming edges", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
+				Node:  ir.Node{Type: "constant", Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
 			}
 			constNode := s.Node("const")
@@ -329,7 +340,7 @@ var _ = Describe("Constant", func() {
 				Node: ir.Node{
 					Key:    "const",
 					Type:   "constant",
-					Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}},
+					Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}},
 				},
 				State: s.Node("const"),
 				Program: program.Program{IR: ir.IR{Edges: ir.Edges{{
@@ -353,7 +364,7 @@ var _ = Describe("Constant", func() {
 				Node: ir.Node{
 					Key:    "const",
 					Type:   "constant",
-					Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}},
+					Inputs: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}},
 				},
 				State: s.Node("const"),
 				Program: program.Program{IR: ir.IR{Edges: ir.Edges{{

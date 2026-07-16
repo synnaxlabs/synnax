@@ -1,0 +1,141 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package arc
+
+import (
+	"context"
+
+	"github.com/google/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/spatial"
+)
+
+// scopedAction is a short local alias for the Arc action envelope.
+type scopedAction = actions.Scoped[arc.Key, arc.Action]
+
+// createArc persists a fresh Arc and returns it with its key populated. Writes
+// commit immediately (nil tx) so access-control reads can observe the new
+// ontology resource.
+func createArc(ctx context.Context, name string) arc.Arc {
+	a := arc.Arc{Name: name, Mode: arc.ModeGraph}
+	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
+	return a
+}
+
+var _ = Describe("Service.Dispatch", func() {
+	Describe("access control", func() {
+		It("Should reject the request with access.ErrDenied when the subject has no policy", func(ctx SpecContext) {
+			a := createArc(ctx, "no-policy")
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+				Key:         a.Key,
+				DispatchKey: "sess-1",
+				Actions: []arc.Action{arc.NewRemoveNodeAction(arc.RemoveNodePayload{
+					Key: "n1",
+				})},
+			})).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should accept the request when the subject's policy permits update on the target Arc", func(ctx SpecContext) {
+			a := createArc(ctx, "with-policy")
+			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(a.Key))
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+				Key:         a.Key,
+				DispatchKey: "sess-1",
+				Actions: []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{
+					Node: graph.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
+				})},
+			})).Error().To(Succeed())
+			var res arc.Arc
+			Expect(arcSvc.NewRetrieve().
+				Where(arc.MatchKeys(a.Key)).
+				Entry(&res).Exec(ctx, nil)).To(Succeed())
+			Expect(res.Graph.Nodes).To(HaveLen(1))
+			Expect(res.Graph.Nodes[0].Position).To(Equal(spatial.XY{X: 1, Y: 2}))
+		})
+
+		It("Should reject when the subject's policy targets a different Arc", func(ctx SpecContext) {
+			a := createArc(ctx, "policy-target")
+			b := createArc(ctx, "no-policy-target")
+			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(a.Key))
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+				Key:         b.Key,
+				DispatchKey: "sess-1",
+				Actions: []arc.Action{arc.NewRemoveNodeAction(arc.RemoveNodePayload{
+					Key: "n1",
+				})},
+			})).Error().To(MatchError(access.ErrDenied))
+		})
+	})
+
+	Describe("delegation to Writer.Dispatch", func() {
+		It("Should apply a multi-action sequence to the target Arc", func(ctx SpecContext) {
+			a := createArc(ctx, "multi-action")
+			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(a.Key))
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+				Key:         a.Key,
+				DispatchKey: "sess-1",
+				Actions: []arc.Action{
+					arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n1"}}),
+					arc.NewSetNodeAction(arc.SetNodePayload{Node: graph.Node{Key: "n2"}}),
+					arc.NewRenameAction(arc.RenamePayload{Name: "renamed-multi"}),
+				},
+			})).Error().To(Succeed())
+			var res arc.Arc
+			Expect(arcSvc.NewRetrieve().
+				Where(arc.MatchKeys(a.Key)).
+				Entry(&res).Exec(ctx, nil)).To(Succeed())
+			Expect(res.Graph.Nodes).To(HaveLen(2))
+			Expect(res.Name).To(Equal("renamed-multi"))
+		})
+
+		It("Should bubble up query.ErrNotFound when the target Arc does not exist", func(ctx SpecContext) {
+			missing := uuid.New()
+			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(missing))
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+				Key:         missing,
+				DispatchKey: "sess-1",
+				Actions: []arc.Action{arc.NewRenameAction(arc.RenamePayload{
+					Name: "ghost",
+				})},
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("subject identity propagation", func() {
+		It("Should pass the DispatchKey verbatim into the action observer", func(ctx SpecContext) {
+			a := createArc(ctx, "session-propagation")
+			grantUpdateOn(ctx, user.OntologyID(author.Key), arc.OntologyID(a.Key))
+			seen := make(chan scopedAction, 1)
+			DeferCleanup(arcSvc.OnAction(func(_ context.Context, sa scopedAction) {
+				seen <- sa
+			}))
+			Expect(apiSvc.Dispatch(authedCtx(ctx, author), db, DispatchRequest{
+				Key:         a.Key,
+				DispatchKey: "session-marker-xyz",
+				Actions: []arc.Action{arc.NewSetNodeAction(arc.SetNodePayload{
+					Node: graph.Node{Key: "n1"},
+				})},
+			})).Error().To(Succeed())
+			var got scopedAction
+			Eventually(seen).Should(Receive(&got))
+			Expect(got.Key).To(Equal(a.Key))
+			Expect(got.DispatchKey).To(Equal("session-marker-xyz"))
+			Expect(got.Seq).To(BeNumerically(">", uint64(0)))
+			Expect(got.Actions).To(HaveLen(1))
+		})
+	})
+})

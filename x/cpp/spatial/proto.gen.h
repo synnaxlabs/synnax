@@ -241,13 +241,13 @@ StickyXY::to_proto() const {
     ::x::spatial::pb::StickyXY pb;
     pb.set_x(this->x);
     pb.set_y(this->y);
-    if (this->root.has_value()) {
-        auto [v, err] = this->root->to_proto();
+    {
+        auto [v, err] = this->root.to_proto();
         if (err) return {{}, err};
         *pb.mutable_root() = v;
     }
-    if (this->units.has_value()) {
-        auto [v, err] = this->units->to_proto();
+    {
+        auto [v, err] = this->units.to_proto();
         if (err) return {{}, err};
         *pb.mutable_units() = v;
     }
@@ -259,12 +259,12 @@ StickyXY::from_proto(const ::x::spatial::pb::StickyXY &pb) {
     StickyXY cpp;
     cpp.x = pb.x();
     cpp.y = pb.y();
-    if (pb.has_root()) {
+    {
         auto [v, err] = CornerLocation::from_proto(pb.root());
         if (err) return {{}, err};
         cpp.root = v;
     }
-    if (pb.has_units()) {
+    {
         auto [v, err] = StickyUnits::from_proto(pb.units());
         if (err) return {{}, err};
         cpp.units = v;

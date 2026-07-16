@@ -14,16 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	xlabel "github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,11 +36,12 @@ var _ = Describe("Status", Ordered, func() {
 		tx       gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
 		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
@@ -96,7 +95,7 @@ var _ = Describe("Status", Ordered, func() {
 				var retrieved status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any]("update-key")).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved.Message).To(Equal("Updated message"))
-				Expect(retrieved.Variant).To(Equal(xstatus.Variant("warning")))
+				Expect(retrieved.Variant).To(Equal(status.Variant("warning")))
 			})
 			Context("Parent Management", func() {
 				It("Should set a custom parent for the status", func(ctx SpecContext) {
@@ -321,31 +320,31 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("MatchVariants", func() {
 			It("Should retrieve statuses with a single variant", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantInfo)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](status.VariantInfo)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(3))
 				for _, s := range statuses {
-					Expect(s.Variant).To(Equal(xstatus.VariantInfo))
+					Expect(s.Variant).To(Equal(status.VariantInfo))
 				}
 			})
 
 			It("Should retrieve statuses with multiple variants", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantInfo, xstatus.VariantWarning)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](status.VariantInfo, status.VariantWarning)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(5))
 				for _, s := range statuses {
-					Expect(s.Variant).To(SatisfyAny(Equal(xstatus.VariantInfo), Equal(xstatus.VariantWarning)))
+					Expect(s.Variant).To(SatisfyAny(Equal(status.VariantInfo), Equal(status.VariantWarning)))
 				}
 			})
 
 			It("Should return empty when no statuses match variant", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantSuccess)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](status.VariantSuccess)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(BeEmpty())
 			})
 
 			It("Should retrieve only error variant statuses", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](xstatus.VariantError)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(status.MatchVariants[any](status.VariantError)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(1))
 				Expect(statuses[0].Key).To(Equal("retrieve-c"))
 			})
@@ -382,11 +381,11 @@ var _ = Describe("Status", Ordered, func() {
 				s := &status.Status[any]{
 					Key:     "labeled-status",
 					Name:    "Labeled",
-					Variant: xstatus.VariantInfo,
+					Variant: status.VariantInfo,
 					Time:    telem.Now(),
 				}
 				Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
-				Expect(labelSvc.NewWriter(tx).Label(ctx, status.OntologyID(s.Key), []xlabel.Key{l.Key})).To(Succeed())
+				Expect(labelSvc.NewWriter(tx).Label(ctx, status.OntologyID(s.Key), []label.Key{l.Key})).To(Succeed())
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().
 					Where(status.MatchLabels[any](l.Key)).
@@ -413,39 +412,39 @@ var _ = Describe("Status", Ordered, func() {
 		Describe("Combinators", func() {
 			It("Should compose filters with And", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.And[any](
+				Expect(svc.NewRetrieve().Where(status.And(
 					status.MatchKeyPrefix[any]("retrieve-"),
-					status.MatchVariants[any](xstatus.VariantInfo),
+					status.MatchVariants[any](status.VariantInfo),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				for _, s := range statuses {
 					Expect(s.Key).To(HavePrefix("retrieve-"))
-					Expect(s.Variant).To(Equal(xstatus.VariantInfo))
+					Expect(s.Variant).To(Equal(status.VariantInfo))
 				}
 				Expect(statuses).ToNot(BeEmpty())
 			})
 			It("Should compose filters with Or", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.Or[any](
-					status.MatchVariants[any](xstatus.VariantError),
-					status.MatchVariants[any](xstatus.VariantWarning),
+				Expect(svc.NewRetrieve().Where(status.Or(
+					status.MatchVariants[any](status.VariantError),
+					status.MatchVariants[any](status.VariantWarning),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				for _, s := range statuses {
 					Expect(s.Variant).To(SatisfyAny(
-						Equal(xstatus.VariantError),
-						Equal(xstatus.VariantWarning),
+						Equal(status.VariantError),
+						Equal(status.VariantWarning),
 					))
 				}
 				Expect(statuses).ToNot(BeEmpty())
 			})
 			It("Should invert a filter with Not", func(ctx SpecContext) {
 				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve().Where(status.And[any](
+				Expect(svc.NewRetrieve().Where(status.And(
 					status.MatchKeyPrefix[any]("retrieve-"),
-					status.Not[any](status.MatchVariants[any](xstatus.VariantError)),
+					status.Not(status.MatchVariants[any](status.VariantError)),
 				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				for _, s := range statuses {
 					Expect(s.Key).To(HavePrefix("retrieve-"))
-					Expect(s.Variant).ToNot(Equal(xstatus.VariantError))
+					Expect(s.Variant).ToNot(Equal(status.VariantError))
 				}
 				Expect(statuses).ToNot(BeEmpty())
 			})
@@ -595,7 +594,7 @@ var _ = Describe("Status", Ordered, func() {
 			w := status.NewWriter[any](svc, tx)
 			s := &status.Status[any]{
 				Key: "observe-test", Name: "Observe Test",
-				Variant: xstatus.VariantSuccess, Time: telem.Now(),
+				Variant: status.VariantSuccess, Time: telem.Now(),
 			}
 			Expect(w.Set(ctx, s)).To(Succeed())
 			called := false
@@ -605,5 +604,107 @@ var _ = Describe("Status", Ordered, func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())
 		})
+	})
+})
+
+var _ = Describe("Status.String", func() {
+	DescribeTable("Should render the variant icon for each variant",
+		func(variant status.Variant, expected string) {
+			Expect(status.Status[any]{Variant: variant}.String()).To(Equal(expected))
+		},
+		Entry("info", status.VariantInfo, "[ℹ info]"),
+		Entry("success", status.VariantSuccess, "[✓ success]"),
+		Entry("error", status.VariantError, "[✗ error]"),
+		Entry("warning", status.VariantWarning, "[⚠ warning]"),
+		Entry("disabled", status.VariantDisabled, "[⊘ disabled]"),
+		Entry("loading", status.VariantLoading, "[◌ loading]"),
+		Entry("unknown falls back to a bullet", status.Variant("custom"), "[• custom]"),
+	)
+
+	It("Should render the name when present", func() {
+		s := status.Status[any]{Variant: status.VariantInfo, Name: "My Status"}
+		Expect(s.String()).To(Equal("[ℹ info] My Status"))
+	})
+
+	It("Should render the key in parentheses when it differs from the name", func() {
+		s := status.Status[any]{Variant: status.VariantInfo, Name: "My Status", Key: "abc"}
+		Expect(s.String()).To(Equal("[ℹ info] My Status (abc)"))
+	})
+
+	It("Should not render the key when it equals the name", func() {
+		s := status.Status[any]{Variant: status.VariantInfo, Name: "same", Key: "same"}
+		Expect(s.String()).To(Equal("[ℹ info] same"))
+	})
+
+	It("Should not render a key in parentheses when the key is empty", func() {
+		s := status.Status[any]{Variant: status.VariantInfo, Name: "n"}
+		Expect(s.String()).ToNot(ContainSubstring("("))
+	})
+
+	It("Should render the message after a colon", func() {
+		s := status.Status[any]{Variant: status.VariantError, Message: "boom"}
+		Expect(s.String()).To(Equal("[✗ error]: boom"))
+	})
+
+	It("Should render the description on its own line", func() {
+		s := status.Status[any]{
+			Variant:     status.VariantInfo,
+			Message:     "m",
+			Description: "more detail",
+		}
+		Expect(s.String()).To(ContainSubstring("\n  more detail"))
+	})
+
+	It("Should render the time when non-zero", func() {
+		s := status.Status[any]{Variant: status.VariantInfo, Time: telem.Now()}
+		Expect(s.String()).To(ContainSubstring("\n  @ "))
+	})
+
+	It("Should not render the time when zero", func() {
+		s := status.Status[any]{Variant: status.VariantInfo}
+		Expect(s.String()).ToNot(ContainSubstring("@"))
+	})
+
+	It("Should render a fully-populated status with every field", func() {
+		s := status.Status[map[string]any]{
+			Variant:     status.VariantWarning,
+			Name:        "Acquire",
+			Key:         "task-1",
+			Message:     "acquiring",
+			Description: "5 channels",
+			Details:     map[string]any{"running": true},
+		}
+		out := s.String()
+		Expect(out).To(HavePrefix("[⚠ warning] Acquire (task-1): acquiring"))
+		Expect(out).To(ContainSubstring("\n  5 channels"))
+		Expect(out).To(ContainSubstring("\n  Details: map[running:true]"))
+	})
+
+	It("Should not render a Details line when Details is the zero value", func() {
+		s := status.Status[any]{Variant: status.VariantInfo, Message: "hello"}
+		Expect(s.String()).ToNot(ContainSubstring("Details"))
+	})
+
+	It("Should suppress a zero numeric Details value", func() {
+		s := status.Status[int]{Variant: status.VariantInfo, Message: "hello", Details: 0}
+		Expect(s.String()).ToNot(ContainSubstring("Details"))
+	})
+
+	It("Should render a Details line when Details is non-zero", func() {
+		s := status.Status[map[string]any]{
+			Variant: status.VariantInfo,
+			Message: "hello",
+			Details: map[string]any{"running": true},
+		}
+		Expect(s.String()).To(ContainSubstring("Details: map[running:true]"))
+	})
+
+	It("Should render a non-zero string Details that stringifies to \"0\"", func() {
+		s := status.Status[string]{
+			Variant: status.VariantInfo,
+			Message: "hello",
+			Details: "0",
+		}
+		Expect(s.String()).To(ContainSubstring("Details: 0"))
 	})
 })

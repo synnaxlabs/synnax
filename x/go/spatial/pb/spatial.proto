@@ -142,10 +142,10 @@ message StickyXY {
   double x = 1;
   // y is the vertical coordinate.
   double y = 2;
-  // root is the optional anchor corner for the position.
-  optional CornerLocation root = 3;
-  // units is the optional unit specification for the coordinates.
-  optional StickyUnits units = 4;
+  // root is the anchor corner for the position.
+  CornerLocation root = 3;
+  // units is the unit specification for the coordinates.
+  StickyUnits units = 4;
 }
 
 // Dimensions is a 2D size with width and height values.

@@ -17,8 +17,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -59,14 +59,13 @@ var _ = Describe("Workspace to project migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		// Seed two legacy workspace records under the "Workspace" gorp prefix.
-		wsA, wsB, authorKey := uuid.New(), uuid.New(), uuid.New()
+		wsA, wsB := uuid.New(), uuid.New()
 		wsTable := MustOpen(gorp.OpenTable[projectv56.Key, projectv56.Workspace](
 			ctx, gorp.TableConfig[projectv56.Key, projectv56.Workspace]{DB: db},
 		))
 		seedA := projectv56.Workspace{
 			Key:    wsA,
 			Name:   "Ops",
-			Author: authorKey,
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}
 		Expect(wsTable.NewCreate().Entry(&seedA).Exec(ctx, db)).To(Succeed())
@@ -114,7 +113,6 @@ var _ = Describe("Workspace to project migration", func() {
 		Expect(pA).To(Equal(project.Project{
 			Key:    wsA,
 			Name:   "Ops",
-			Author: authorKey,
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}))
 		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[project.Key, project.Project](wsB)).
@@ -153,6 +151,57 @@ var _ = Describe("Workspace to project migration", func() {
 		Expect(openProjectTable(ctx, db).NewRetrieve().
 			Where(gorp.MatchKeys[project.Key, project.Project](uuid.New())).
 			Exists(ctx, db)).To(BeFalse())
+	})
+})
+
+var _ = Describe("Remove author relationships migration", func() {
+	parentOf := func(from, to ontology.ID) ontology.Relationship {
+		return ontology.Relationship{From: from, Type: ontology.RelationshipTypeParentOf, To: to}
+	}
+	hasRel := func(ctx context.Context, db *gorp.DB, r ontology.Relationship) error {
+		return MustOpen(gorp.OpenTable[string, ontology.Relationship](
+			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
+		)).NewRetrieve().Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
+			Entry(&ontology.Relationship{}).Exec(ctx, db)
+	}
+
+	It("Should delete user-to-project parent relationships and leave others intact", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		relTable := MustOpen(gorp.OpenTable[string, ontology.Relationship](
+			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
+		))
+		projectID := ontology.ID{Type: ontology.ResourceTypeProject, Key: uuid.NewString()}
+		userID := ontology.ID{Type: ontology.ResourceTypeUser, Key: uuid.NewString()}
+		groupID := group.OntologyID(uuid.New())
+		lpID := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: uuid.NewString()}
+
+		authorToProject := parentOf(userID, projectID)
+		groupToProject := parentOf(groupID, projectID)
+		projectToLP := parentOf(projectID, lpID)
+		for _, r := range []ontology.Relationship{authorToProject, groupToProject, projectToLP} {
+			rr := r
+			Expect(relTable.NewCreate().Entry(&rr).Exec(ctx, db)).To(Succeed())
+		}
+
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		tx := db.OpenTx()
+		Expect(project.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+
+		By("Deleting the author user-to-project relationship")
+		Expect(hasRel(ctx, db, authorToProject)).To(MatchError(query.ErrNotFound))
+
+		By("Leaving the group parent and project children untouched")
+		Expect(hasRel(ctx, db, groupToProject)).To(Succeed())
+		Expect(hasRel(ctx, db, projectToLP)).To(Succeed())
+	})
+
+	It("Should be a no-op when no author relationships exist", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		tx := db.OpenTx()
+		Expect(project.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
 	})
 })
 

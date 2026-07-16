@@ -25,11 +25,68 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// mapResolver is a codec.ChannelResolver backed by a static key-to-data-type map. Keys
+// absent from the map are omitted from the result, so an unmapped key yields a slice
+// shorter than the requested keys.
+type mapResolver map[channel.Key]telem.DataType
+
+var _ codec.ChannelResolver = mapResolver{}
+
+func (m mapResolver) RetrieveDataTypes(
+	_ context.Context,
+	keys channel.Keys,
+) ([]telem.DataType, error) {
+	resolved := make([]telem.DataType, 0, len(keys))
+	for _, k := range keys {
+		if dt, ok := m[k]; ok {
+			resolved = append(resolved, dt)
+		}
+	}
+	return resolved, nil
+}
+
+func (m mapResolver) RetrieveName(_ context.Context, key channel.Key) string {
+	return fmt.Sprintf("channel-%d", key)
+}
+
+// configResolver is a configurable codec.ChannelResolver used to exercise the codec's
+// resolver error and naming paths. When dataTypesErr is non-nil it is returned from
+// RetrieveDataTypes; otherwise data types are returned in key order for keys present in
+// dataTypes (so a missing key yields a shorter slice). name is returned verbatim from
+// RetrieveName.
+type configResolver struct {
+	dataTypes    map[channel.Key]telem.DataType
+	dataTypesErr error
+	name         string
+}
+
+var _ codec.ChannelResolver = configResolver{}
+
+func (r configResolver) RetrieveDataTypes(
+	_ context.Context,
+	keys channel.Keys,
+) ([]telem.DataType, error) {
+	if r.dataTypesErr != nil {
+		return nil, r.dataTypesErr
+	}
+	resolved := make([]telem.DataType, 0, len(keys))
+	for _, k := range keys {
+		if dt, ok := r.dataTypes[k]; ok {
+			resolved = append(resolved, dt)
+		}
+	}
+	return resolved, nil
+}
+
+func (r configResolver) RetrieveName(context.Context, channel.Key) string {
+	return r.name
+}
 
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(
@@ -330,39 +387,17 @@ var _ = Describe("Codec", func() {
 
 	Describe("Dynamic Codec", Ordered, func() {
 		ShouldNotLeakGoroutinesPerSpec()
-		var (
-			builder    *mock.Cluster
-			channelSvc *channel.Service
-			idxCh      channel.Channel
-			dataCh     channel.Channel
+		const (
+			idxCh  channel.Key = 1
+			dataCh channel.Key = 2
 		)
-		BeforeAll(func(ctx SpecContext) {
-			builder = mock.NewCluster()
-			dist := builder.Provision(context.Background())
-			channelSvc = dist.Channel
-			w := dist.Channel.NewWriter(nil)
-			idxCh = channel.Channel{
-				DataType: telem.TimeStampT,
-				Name:     "time",
-				IsIndex:  true,
-			}
-			Expect(w.Create(ctx, &idxCh)).To(Succeed())
-			dataCh = channel.Channel{
-				Name:       "data",
-				DataType:   telem.Float32T,
-				LocalIndex: idxCh.Key().LocalKey(),
-			}
-			Expect(w.Create(ctx, &dataCh)).To(Succeed())
-		})
-		AfterAll(func() {
-			Expect(builder.Close()).To(Succeed())
-		})
+		resolver := mapResolver{idxCh: telem.TimeStampT, dataCh: telem.Float32T}
 
 		It("Should allow the caller to update the list of channels", func(ctx SpecContext) {
-			codec := codec.NewDynamic(channelSvc)
-			Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
+			codec := codec.NewDynamic(resolver)
+			Expect(codec.Update(ctx, []channel.Key{dataCh, idxCh})).To(Succeed())
 			fr := frame.NewMulti(
-				channel.Keys{dataCh.Key(), idxCh.Key()},
+				channel.Keys{dataCh, idxCh},
 				[]telem.Series{
 					telem.NewSeriesV[float32](1, 2, 3, 4),
 					telem.NewSeriesSecondsTSV(1, 2, 3, 4),
@@ -375,20 +410,20 @@ var _ = Describe("Codec", func() {
 
 		Describe("Initialized", func() {
 			It("Should return false if update has not been called on the codec at least once", func() {
-				codec := codec.NewDynamic(channelSvc)
+				codec := codec.NewDynamic(resolver)
 				Expect(codec.Initialized()).To(BeFalse())
 			})
 
 			It("Should return true if update has been called on the codec at least once", func(ctx SpecContext) {
-				codec := codec.NewDynamic(channelSvc)
-				Expect(codec.Update(ctx, []channel.Key{dataCh.Key(), idxCh.Key()})).To(Succeed())
+				codec := codec.NewDynamic(resolver)
+				Expect(codec.Update(ctx, []channel.Key{dataCh, idxCh})).To(Succeed())
 				Expect(codec.Initialized()).To(BeTrue())
 			})
 		})
 
 		It("Should not mutate the caller's keys slice when updating", func(ctx SpecContext) {
-			c := codec.NewDynamic(channelSvc)
-			keys := []channel.Key{dataCh.Key(), idxCh.Key()}
+			c := codec.NewDynamic(resolver)
+			keys := []channel.Key{dataCh, idxCh}
 			original := make([]channel.Key, len(keys))
 			copy(original, keys)
 			Expect(c.Update(ctx, keys)).To(Succeed())
@@ -404,41 +439,41 @@ var _ = Describe("Codec", func() {
 		})
 
 		It("Should use the correct encode/decode state even if the codecs are out of sync", func(ctx SpecContext) {
-			encoder := codec.NewDynamic(channelSvc)
-			decoder := codec.NewDynamic(channelSvc)
+			encoder := codec.NewDynamic(resolver)
+			decoder := codec.NewDynamic(resolver)
 			By("Correctly encoding and decoding when the two codecs are in sync")
-			Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
-			Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
+			Expect(decoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+			Expect(encoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
 
-			frame1 := frame.NewUnary(idxCh.Key(), telem.NewSeriesSecondsTSV(1, 2, 3))
+			frame1 := frame.NewUnary(idxCh, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded := MustSucceed(encoder.Encode(ctx, frame1))
 			decoded := MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
 			By("Correctly using the previous encoding state when the two codecs are out of sync")
-			Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+			Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
 
 			encoded = MustSucceed(encoder.Encode(ctx, frame1))
 			decoded = MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
 			By("Correctly using he most up to date state after the codec are in sync again")
-			Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+			Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
 			encoded = MustSucceed(encoder.Encode(ctx, frame1))
 			decoded = MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame.SeriesSlice()).To(BeEmpty())
 
-			frame2 := frame.NewUnary(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
+			frame2 := frame.NewUnary(dataCh, telem.NewSeriesV[float32](1, 2, 3, 4))
 			encoded = MustSucceed(encoder.Encode(ctx, frame2))
 			decoded = MustSucceed(decoder.Decode(encoded))
 			Expect(decoded.Frame).To(telem.MatchFrame(frame2.Frame))
 		})
 
 		It("Should preserve alignment across rapid key churn (schematic pattern)", func(ctx SpecContext) {
-			enc := codec.NewDynamic(channelSvc)
-			dec := codec.NewDynamic(channelSvc)
-			only := channel.Keys{dataCh.Key()}
-			both := channel.Keys{dataCh.Key(), idxCh.Key()}
+			enc := codec.NewDynamic(resolver)
+			dec := codec.NewDynamic(resolver)
+			only := channel.Keys{dataCh}
+			both := channel.Keys{dataCh, idxCh}
 			Expect(enc.Update(ctx, only)).To(Succeed())
 			Expect(dec.Update(ctx, only)).To(Succeed())
 
@@ -461,12 +496,12 @@ var _ = Describe("Codec", func() {
 				case 3:
 					Expect(enc.Update(ctx, only)).To(Succeed())
 				}
-				s := telem.NewSeriesV[float32](float32(i))
+				s := telem.NewSeriesV(float32(i))
 				s.Alignment = cesium.LeadingAlignment(1, sample)
-				fr := frame.NewUnary(dataCh.Key(), s)
+				fr := frame.NewUnary(dataCh, s)
 				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
 				for k, ds := range decoded.Entries() {
-					if k != dataCh.Key() {
+					if k != dataCh {
 						continue
 					}
 					if hasPrev {
@@ -487,24 +522,24 @@ var _ = Describe("Codec", func() {
 		Describe("Delayed Frames", func() {
 			Context("Empty Result", func() {
 				It("Should work correctly when a 'delayed' frame is provided ot the codec", func(ctx SpecContext) {
-					encoder := codec.NewDynamic(channelSvc)
-					decoder := codec.NewDynamic(channelSvc)
+					encoder := codec.NewDynamic(resolver)
+					decoder := codec.NewDynamic(resolver)
 					By("Correctly encoding and decoding when the two codecs are in sync")
-					Expect(decoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
-					Expect(encoder.Update(ctx, []channel.Key{idxCh.Key()})).To(Succeed())
+					Expect(decoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+					Expect(encoder.Update(ctx, []channel.Key{idxCh})).To(Succeed())
 
 					frame1 := frame.NewUnary(
-						idxCh.Key(),
+						idxCh,
 						telem.NewSeriesSecondsTSV(1, 2, 3),
 					)
 					encoded := MustSucceed(encoder.Encode(ctx, frame1))
 					decoded := MustSucceed(decoder.Decode(encoded))
 					Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
-					Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
-					Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+					Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
+					Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
 					delayedFrame1 := frame.NewUnary(
-						idxCh.Key(),
+						idxCh,
 						telem.NewSeriesV[float32](1, 2, 3, 4),
 					)
 					encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
@@ -515,10 +550,10 @@ var _ = Describe("Codec", func() {
 
 			Context("Non-Empty Result", func() {
 				It("Should work correctly when a 'delayed' frame is provided ot the codec", func(ctx SpecContext) {
-					encoder := codec.NewDynamic(channelSvc)
-					decoder := codec.NewDynamic(channelSvc)
+					encoder := codec.NewDynamic(resolver)
+					decoder := codec.NewDynamic(resolver)
 					By("Correctly encoding and decoding when the two codecs are in sync")
-					keys := []channel.Key{idxCh.Key(), dataCh.Key()}
+					keys := []channel.Key{idxCh, dataCh}
 					Expect(decoder.Update(ctx, keys)).To(Succeed())
 					Expect(encoder.Update(ctx, keys)).To(Succeed())
 
@@ -533,8 +568,8 @@ var _ = Describe("Codec", func() {
 					decoded := MustSucceed(decoder.Decode(encoded))
 					Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
 
-					Expect(decoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
-					Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
+					Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
+					Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
 					delayedFrame1 := frame.NewMulti(
 						keys,
 						[]telem.Series{
@@ -1036,6 +1071,55 @@ var _ = Describe("Codec", func() {
 			Expect(dat.Series).To(HaveLen(2))
 			Expect(dat.Series[0]).To(telem.MatchSeriesData(datA))
 			Expect(dat.Series[1]).To(telem.MatchSeriesData(datB))
+		})
+	})
+
+	Describe("Resolver", Ordered, func() {
+		ShouldNotLeakGoroutinesPerSpec()
+
+		It("Should return the error when the resolver fails to retrieve data types", func(ctx SpecContext) {
+			resolveErr := errors.New("failed to resolve data types")
+			c := codec.NewDynamic(configResolver{dataTypesErr: resolveErr})
+			Expect(c.Update(ctx, []channel.Key{1})).To(MatchError(resolveErr))
+		})
+
+		It("Should return an error when the resolver returns the wrong number of data types", func(ctx SpecContext) {
+			// Key 1 resolves but key 2 does not, so the resolver returns one data type
+			// for two keys.
+			c := codec.NewDynamic(configResolver{
+				dataTypes: map[channel.Key]telem.DataType{1: telem.TimeStampT},
+			})
+			Expect(c.Update(ctx, []channel.Key{1, 2})).To(MatchError(
+				ContainSubstring("resolver returned 1 data types for 2 channel keys"),
+			))
+		})
+
+		Describe("Name Resolution", func() {
+			It("Should include the resolved channel name in a data type mismatch error", func(ctx SpecContext) {
+				c := codec.NewDynamic(configResolver{
+					dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+					name:      "my-channel",
+				})
+				Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
+				fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
+				Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("my-channel")),
+				))
+			})
+
+			It("Should fall back to the key string when the resolver returns an empty name", func(ctx SpecContext) {
+				c := codec.NewDynamic(configResolver{
+					dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+					name:      "",
+				})
+				Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
+				fr := frame.NewUnary(777, telem.NewSeriesSecondsTSV(1, 2, 3))
+				Expect(c.Encode(ctx, fr)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(channel.Key(777).String())),
+				))
+			})
 		})
 	})
 })

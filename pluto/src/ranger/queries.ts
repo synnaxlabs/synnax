@@ -565,10 +565,10 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
   update: async ({ client, value: getValue, reset, store, rollbacks }) => {
     const value = getValue();
     const parentKey = value.parent;
-    const parentID = primitive.isNonZero(parentKey)
-      ? ranger.ontologyID(parentKey)
-      : undefined;
-    const rng = await client.ranges.create(value, { parent: parentID });
+    const rng = await client.ranges.create({
+      ...value,
+      parent: primitive.isNonZero(parentKey) ? { key: parentKey } : undefined,
+    });
     const labels = await Label.setLabelsFor({
       store,
       client,
@@ -637,8 +637,12 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema, FluxSubStor
 
 export const useLabels = (
   key: ranger.Key,
+  opts?: Omit<
+    Flux.UseDirectRetrieveParams<Label.LabelsOfQuery, label.Label[]>,
+    "query"
+  >,
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
-  Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) });
+  Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) }, opts);
 
 export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
 

@@ -19,9 +19,9 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
@@ -51,17 +51,17 @@ var _ = Describe("PublishSignals", func() {
 		state = actions.NewState[uuid.UUID, testAction]()
 		serviceName = nextServiceName()
 		closer = MustSucceed(actions.PublishSignals(ctx, actions.SignalsConfig[uuid.UUID, testAction]{
-			Provider: dist.Signals,
+			Provider: sigs,
 			State:    state,
 			Name:     serviceName,
 		}))
 		DeferCleanup(func() { Expect(closer.Close()).To(Succeed()) })
-		Expect(dist.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchNames(fmt.Sprintf("sy_%s_set", serviceName))).
 			Entry(&setChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
-		streamer = MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
+		streamer = MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{setChannel.Key()},
 		}))
 		requests, responses = confluence.Attach(streamer, 2)
@@ -131,7 +131,7 @@ var _ = Describe("SignalsConfig.Validate", func() {
 		func(mutate func(*actions.SignalsConfig[uuid.UUID, testAction]), wantField string) {
 			state := actions.NewState[uuid.UUID, testAction]()
 			cfg := actions.SignalsConfig[uuid.UUID, testAction]{
-				Provider: dist.Signals,
+				Provider: sigs,
 				State:    state,
 				Name:     "actions_validate",
 			}
@@ -151,7 +151,7 @@ var _ = Describe("SignalsConfig.Validate", func() {
 
 	It("Should accept a fully-populated config", func() {
 		Expect(actions.SignalsConfig[uuid.UUID, testAction]{
-			Provider: dist.Signals,
+			Provider: sigs,
 			State:    actions.NewState[uuid.UUID, testAction](),
 			Name:     "ok",
 		}.Validate()).To(Succeed())

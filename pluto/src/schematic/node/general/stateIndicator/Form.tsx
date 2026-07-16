@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, type schematic } from "@synnaxlabs/client";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
@@ -36,42 +36,36 @@ const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   );
 };
 
-const STATE_INDICATOR_FORM_TABS: Tabs.Tab[] = [
-  { tabKey: "style", name: "Style" },
-  { tabKey: "options", name: "Options" },
-  { tabKey: "telemetry", name: "Telemetry" },
-];
-
-export const StateIndicatorForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "telemetry":
-        return <StateIndicatorTelemForm path="" />;
-      case "options":
-        return (
-          <Form.Wrapper y align="stretch">
-            <Form.StateMappingForm path="options" showColor />
-          </Form.Wrapper>
-        );
-      default:
-        return (
-          <Form.Wrapper y align="stretch">
-            <Flex.Box y align="stretch" grow gap="small">
-              <Label.Form path="label" />
-              <Flex.Box x>
-                <Form.ColorField path="color" />
-                <Base.NumericField
-                  path="inlineSize"
-                  label="Width"
-                  hideIfNull
-                  inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
-                />
-              </Flex.Box>
-            </Flex.Box>
-          </Form.Wrapper>
-        );
-    }
-  }, []);
-  const props = Tabs.useStatic({ tabs: STATE_INDICATOR_FORM_TABS, content });
-  return <Tabs.Tabs {...props} grow />;
-};
+export const StateIndicatorForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style" grow>
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="options">Options</Tabs.Tab>
+      <Tabs.Tab itemKey="telemetry">Telemetry</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <Form.Wrapper y align="stretch">
+        <Flex.Box y align="stretch" grow gap="small">
+          <Label.Form path="label" />
+          <Flex.Box x>
+            <Form.ColorField path="color" />
+            <Base.NumericField
+              path="inlineSize"
+              label="Width"
+              hideIfNull
+              inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
+            />
+          </Flex.Box>
+        </Flex.Box>
+      </Form.Wrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="options">
+      <Form.Wrapper y align="stretch">
+        <Form.StateMappingForm path="options" showColor />
+      </Form.Wrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="telemetry">
+      <StateIndicatorTelemForm path="" />
+    </Tabs.Content>
+  </Tabs.Frame>
+);

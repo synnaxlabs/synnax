@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -36,6 +36,12 @@ var _ = Describe("Writer", func() {
 			p := panel.Panel{Name: "test", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
+		})
+
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			p := panel.Panel{Parent: &parentID}
+			Expect(svc.NewWriter(tx).Create(ctx, &p)).
+				To(MatchError(ContainSubstring("name: required")))
 		})
 
 		It("Should default a freshly created panel to a single empty leaf", func(ctx SpecContext) {
@@ -92,23 +98,21 @@ var _ = Describe("Writer", func() {
 		It("Should parent the panel to the provided parent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "with-parent", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				parentID,
-				ontology.RelationshipTypeParentOf,
-				panel.OntologyID(p.Key),
-			)).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: parentID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panel.OntologyID(p.Key),
+			})).To(BeTrue())
 		})
 
 		It("Should create a panel with no parent relationship when parent is absent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "draft"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				parentID,
-				ontology.RelationshipTypeParentOf,
-				panel.OntologyID(p.Key),
-			)).To(BeFalse())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: parentID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panel.OntologyID(p.Key),
+			})).To(BeFalse())
 		})
 
 		It("Should still register the resource when parent is absent", func(ctx SpecContext) {
@@ -145,19 +149,23 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should parent each panel to its own parent", func(ctx SpecContext) {
-			other := MustSucceed(dist.Group.CreateOrRetrieve(ctx, "other-parent", ontology.RootID)).
+			other := MustSucceed(groupSvc.CreateOrRetrieve(ctx, "other-parent", ontology.RootID)).
 				OntologyID()
 			ps := []panel.Panel{
 				{Name: "a", Parent: &parentID},
 				{Name: "b", Parent: &other},
 			}
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx, parentID, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[0].Key),
-			)).To(BeTrue())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx, other, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[1].Key),
-			)).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: parentID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panel.OntologyID(ps[0].Key),
+			})).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: other,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panel.OntologyID(ps[1].Key),
+			})).To(BeTrue())
 		})
 
 		It("Should reject the batch when any panel's tree is invalid", func(ctx SpecContext) {

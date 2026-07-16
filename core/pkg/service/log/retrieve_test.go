@@ -12,7 +12,7 @@ package log_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
@@ -25,7 +25,7 @@ var _ = Describe("Retrieve", func() {
 			Channels: []log.ChannelEntry{
 				{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000"), Notation: notation.NotationStandard},
 			},
-			ShowChannelNames: true,
+			HideChannelNames: true,
 		}
 		Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 		var res log.Log

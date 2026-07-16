@@ -15,8 +15,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
@@ -24,37 +31,83 @@ import (
 
 func TestPanel(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Panel Suite")
+	RunSpecs(t, "Service Panel Suite")
 }
 
 var (
-	dist     mock.Node
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	svc      *panel.Service
-	parentID ontology.ID
-	tx       gorp.Tx
+	node       mock.Node
+	db         *gorp.DB
+	otg        *ontology.Ontology
+	searchIdx  *search.Index
+	groupSvc   *group.Service
+	svc        *panel.Service
+	writer     panel.Writer
+	framerSvc  *framer.Service
+	channelSvc *channel.Service
+	parentID   ontology.ID
+	tx         gorp.Tx
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	builder := DeferClose(mock.NewCluster())
-	dist = DeferClose(builder.Provision(ctx))
-	db = dist.DB
-	otg = dist.Ontology
-	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Search:   dist.Search,
-		Signals:  dist.Signals,
+	ShouldNotLeakGoroutines()
+	node = mock.NewNode(ctx)
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	searchIdx = MustOpen(search.OpenIndex())
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
 	}))
+	db = node.DB
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+	}))
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		Status:       statusSvc,
+		HostResolver: node.Cluster,
+	}))
+	sigs := MustSucceed(signals.New(signals.Config{
+		Channel: channelSvc,
+		Framer:  framerSvc,
+	}))
+	svc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+		Signals:  sigs,
+	}))
+	writer = svc.NewWriter(nil)
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
 	parent := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "panel-parent"}))
 	parentID = user.OntologyID(parent.Key)
 })
 
 var _ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

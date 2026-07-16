@@ -50,7 +50,7 @@ inline std::pair<::x::color::pb::Stop, x::errors::Error> Stop::to_proto() const 
         *pb.mutable_color() = v;
     }
     pb.set_position(this->position);
-    pb.set_switched(this->switched);
+    if (this->switched.has_value()) pb.set_switched(*this->switched);
     return {pb, x::errors::NIL};
 }
 
@@ -64,7 +64,7 @@ Stop::from_proto(const ::x::color::pb::Stop &pb) {
         cpp.color = v;
     }
     cpp.position = pb.position();
-    cpp.switched = pb.switched();
+    if (pb.has_switched()) cpp.switched = pb.switched();
     return {cpp, x::errors::NIL};
 }
 

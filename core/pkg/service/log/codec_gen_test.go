@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
@@ -103,24 +103,24 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				TimestampPrecision:   17,
-				ShowChannelNames:     true,
-				ShowReceiptTimestamp: false,
+				HideChannelNames:     true,
+				HideReceiptTimestamp: false,
 			}),
 			Entry("zero values", log.Log{
 				Key:                  uuid.Nil,
 				Name:                 "",
 				Channels:             nil,
 				TimestampPrecision:   0,
-				ShowChannelNames:     false,
-				ShowReceiptTimestamp: false,
+				HideChannelNames:     false,
+				HideReceiptTimestamp: false,
 			}),
 			Entry("empty collections", log.Log{
 				Key:                  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:                 "test_2",
 				Channels:             []log.ChannelEntry{},
 				TimestampPrecision:   5,
-				ShowChannelNames:     true,
-				ShowReceiptTimestamp: false,
+				HideChannelNames:     true,
+				HideReceiptTimestamp: false,
 			}),
 		)
 	})
@@ -199,8 +199,8 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 			},
 		},
 		TimestampPrecision:   17,
-		ShowChannelNames:     true,
-		ShowReceiptTimestamp: false,
+		HideChannelNames:     true,
+		HideReceiptTimestamp: false,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -334,8 +334,8 @@ func FuzzDecodeLog(f *testing.F) {
 				},
 			},
 			TimestampPrecision:   17,
-			ShowChannelNames:     true,
-			ShowReceiptTimestamp: false,
+			HideChannelNames:     true,
+			HideReceiptTimestamp: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -349,8 +349,8 @@ func FuzzDecodeLog(f *testing.F) {
 			Name:                 "",
 			Channels:             nil,
 			TimestampPrecision:   0,
-			ShowChannelNames:     false,
-			ShowReceiptTimestamp: false,
+			HideChannelNames:     false,
+			HideReceiptTimestamp: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -364,8 +364,8 @@ func FuzzDecodeLog(f *testing.F) {
 			Name:                 "test_2",
 			Channels:             []log.ChannelEntry{},
 			TimestampPrecision:   5,
-			ShowChannelNames:     true,
-			ShowReceiptTimestamp: false,
+			HideChannelNames:     true,
+			HideReceiptTimestamp: false,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

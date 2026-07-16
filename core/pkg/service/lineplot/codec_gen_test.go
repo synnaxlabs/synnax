@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
@@ -28,21 +28,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("AutoBounds", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original lineplot.AutoBounds) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded lineplot.AutoBounds
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", lineplot.AutoBounds{Lower: true, Upper: false}),
-			Entry("zero values", lineplot.AutoBounds{Lower: false, Upper: false}),
-		)
-	})
 	Describe("Axes", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original lineplot.Axes) {
@@ -61,7 +46,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    10.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -71,7 +56,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    21.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -81,7 +66,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    32.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -91,7 +76,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    43.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -101,7 +86,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    54.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -111,7 +96,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    65.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -123,7 +108,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -133,7 +118,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -143,7 +128,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -153,7 +138,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -163,7 +148,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -173,7 +158,7 @@ var _ = Describe("Codec", func() {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -197,7 +182,7 @@ var _ = Describe("Codec", func() {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    9.5,
 				Type:           new(lineplot.TickType("linear")),
 			}),
@@ -207,7 +192,7 @@ var _ = Describe("Codec", func() {
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			}),
@@ -262,24 +247,24 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", lineplot.Legend{
-				Visible: true,
+				Hidden: true,
 				Position: spatial.StickyXY{
 					X: 3.5,
 					Y: 4.5,
-					Root: new(spatial.CornerLocation{
+					Root: spatial.CornerLocation{
 						X: spatial.XLocation("left"),
 						Y: spatial.YLocation("top"),
-					}),
-					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+					},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			}),
 			Entry("zero values", lineplot.Legend{
-				Visible: false,
+				Hidden: false,
 				Position: spatial.StickyXY{
 					X:     0,
 					Y:     0,
-					Root:  nil,
-					Units: nil,
+					Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 				},
 			}),
 		)
@@ -334,15 +319,15 @@ var _ = Describe("Codec", func() {
 				Name:  "test_2",
 				Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
 				Legend: lineplot.Legend{
-					Visible: true,
+					Hidden: true,
 					Position: spatial.StickyXY{
 						X: 9.5,
 						Y: 10.5,
-						Root: new(spatial.CornerLocation{
+						Root: spatial.CornerLocation{
 							X: spatial.XLocation("left"),
 							Y: spatial.YLocation("top"),
-						}),
-						Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+						},
+						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 					},
 				},
 				Channels: lineplot.Channels{
@@ -361,7 +346,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    37.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -371,7 +356,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    48.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -381,7 +366,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    59.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -391,7 +376,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    70.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -401,7 +386,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    81.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -411,7 +396,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    92.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -454,12 +439,12 @@ var _ = Describe("Codec", func() {
 				Name:  "",
 				Title: lineplot.Title{Level: text.Level(""), Visible: false},
 				Legend: lineplot.Legend{
-					Visible: false,
+					Hidden: false,
 					Position: spatial.StickyXY{
 						X:     0,
 						Y:     0,
-						Root:  nil,
-						Units: nil,
+						Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+						Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 					},
 				},
 				Channels: lineplot.Channels{
@@ -478,7 +463,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
@@ -488,7 +473,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
@@ -498,7 +483,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
@@ -508,7 +493,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
@@ -518,7 +503,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
@@ -528,7 +513,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction(""),
 						LabelLevel:     text.Level(""),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 						TickSpacing:    0,
 						Type:           nil,
 					},
@@ -541,15 +526,15 @@ var _ = Describe("Codec", func() {
 				Name:  "test_2",
 				Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
 				Legend: lineplot.Legend{
-					Visible: true,
+					Hidden: true,
 					Position: spatial.StickyXY{
 						X: 9.5,
 						Y: 10.5,
-						Root: new(spatial.CornerLocation{
+						Root: spatial.CornerLocation{
 							X: spatial.XLocation("left"),
 							Y: spatial.YLocation("top"),
-						}),
-						Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+						},
+						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 					},
 				},
 				Channels: lineplot.Channels{
@@ -568,7 +553,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    37.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -578,7 +563,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    48.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -588,7 +573,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    59.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -598,7 +583,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    70.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -608,7 +593,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+						ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 						TickSpacing:    81.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -618,7 +603,7 @@ var _ = Describe("Codec", func() {
 						LabelDirection: spatial.Direction("x"),
 						LabelLevel:     text.Level("h1"),
 						Bounds:         spatial.Bounds{},
-						AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+						ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 						TickSpacing:    92.5,
 						Type:           new(lineplot.TickType("linear")),
 					},
@@ -626,6 +611,21 @@ var _ = Describe("Codec", func() {
 				Lines: []lineplot.Line{},
 				Rules: []lineplot.Rule{},
 			}),
+		)
+	})
+	Describe("ManualBounds", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original lineplot.ManualBounds) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded lineplot.ManualBounds
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", lineplot.ManualBounds{Lower: true, Upper: false}),
+			Entry("zero values", lineplot.ManualBounds{Lower: false, Upper: false}),
 		)
 	})
 	Describe("Ranges", func() {
@@ -699,23 +699,6 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeAutoBounds(b *testing.B) {
-	ab := lineplot.AutoBounds{Lower: true, Upper: false}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := ab.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded lineplot.AutoBounds
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeAxes(b *testing.B) {
 	a := lineplot.Axes{
 		X1: lineplot.Axis{
@@ -724,7 +707,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+			ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    10.5,
 			Type:           new(lineplot.TickType("linear")),
 		},
@@ -734,7 +717,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    21.5,
 			Type:           new(lineplot.TickType("linear")),
 		},
@@ -744,7 +727,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+			ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    32.5,
 			Type:           new(lineplot.TickType("linear")),
 		},
@@ -754,7 +737,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    43.5,
 			Type:           new(lineplot.TickType("linear")),
 		},
@@ -764,7 +747,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+			ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 			TickSpacing:    54.5,
 			Type:           new(lineplot.TickType("linear")),
 		},
@@ -774,7 +757,7 @@ func BenchmarkEncodeDecodeAxes(b *testing.B) {
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    65.5,
 			Type:           new(lineplot.TickType("linear")),
 		},
@@ -801,7 +784,7 @@ func BenchmarkEncodeDecodeAxis(b *testing.B) {
 		LabelDirection: spatial.Direction("x"),
 		LabelLevel:     text.Level("h1"),
 		Bounds:         spatial.Bounds{},
-		AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+		ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 		TickSpacing:    9.5,
 		Type:           new(lineplot.TickType("linear")),
 	}
@@ -846,15 +829,15 @@ func BenchmarkEncodeDecodeChannels(b *testing.B) {
 
 func BenchmarkEncodeDecodeLegend(b *testing.B) {
 	lv := lineplot.Legend{
-		Visible: true,
+		Hidden: true,
 		Position: spatial.StickyXY{
 			X: 3.5,
 			Y: 4.5,
-			Root: new(spatial.CornerLocation{
+			Root: spatial.CornerLocation{
 				X: spatial.XLocation("left"),
 				Y: spatial.YLocation("top"),
-			}),
-			Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+			},
+			Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -907,15 +890,15 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 		Name:  "test_2",
 		Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
 		Legend: lineplot.Legend{
-			Visible: true,
+			Hidden: true,
 			Position: spatial.StickyXY{
 				X: 9.5,
 				Y: 10.5,
-				Root: new(spatial.CornerLocation{
+				Root: spatial.CornerLocation{
 					X: spatial.XLocation("left"),
 					Y: spatial.YLocation("top"),
-				}),
-				Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+				},
+				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 			},
 		},
 		Channels: lineplot.Channels{
@@ -934,7 +917,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    37.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -944,7 +927,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    48.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -954,7 +937,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    59.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -964,7 +947,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    70.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -974,7 +957,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    81.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -984,7 +967,7 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    92.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -1030,6 +1013,23 @@ func BenchmarkEncodeDecodeLinePlot(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded lineplot.LinePlot
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeManualBounds(b *testing.B) {
+	mb := lineplot.ManualBounds{Lower: true, Upper: false}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := mb.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded lineplot.ManualBounds
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1102,52 +1102,6 @@ func BenchmarkEncodeDecodeTitle(b *testing.B) {
 	}
 }
 
-func FuzzDecodeAutoBounds(f *testing.F) {
-	{
-		seed := lineplot.AutoBounds{Lower: true, Upper: false}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := lineplot.AutoBounds{Lower: false, Upper: false}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded lineplot.AutoBounds
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded lineplot.AutoBounds
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeAxes(f *testing.F) {
 	{
 		seed := lineplot.Axes{
@@ -1157,7 +1111,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    10.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -1167,7 +1121,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    21.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -1177,7 +1131,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    32.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -1187,7 +1141,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    43.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -1197,7 +1151,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 				TickSpacing:    54.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -1207,7 +1161,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction("x"),
 				LabelLevel:     text.Level("h1"),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 				TickSpacing:    65.5,
 				Type:           new(lineplot.TickType("linear")),
 			},
@@ -1226,7 +1180,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
@@ -1236,7 +1190,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
@@ -1246,7 +1200,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
@@ -1256,7 +1210,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
@@ -1266,7 +1220,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
@@ -1276,7 +1230,7 @@ func FuzzDecodeAxes(f *testing.F) {
 				LabelDirection: spatial.Direction(""),
 				LabelLevel:     text.Level(""),
 				Bounds:         spatial.Bounds{},
-				AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+				ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 				TickSpacing:    0,
 				Type:           nil,
 			},
@@ -1324,7 +1278,7 @@ func FuzzDecodeAxis(f *testing.F) {
 			LabelDirection: spatial.Direction("x"),
 			LabelLevel:     text.Level("h1"),
 			Bounds:         spatial.Bounds{},
-			AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 			TickSpacing:    9.5,
 			Type:           new(lineplot.TickType("linear")),
 		}
@@ -1341,7 +1295,7 @@ func FuzzDecodeAxis(f *testing.F) {
 			LabelDirection: spatial.Direction(""),
 			LabelLevel:     text.Level(""),
 			Bounds:         spatial.Bounds{},
-			AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+			ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 			TickSpacing:    0,
 			Type:           nil,
 		}
@@ -1458,15 +1412,15 @@ func FuzzDecodeChannels(f *testing.F) {
 func FuzzDecodeLegend(f *testing.F) {
 	{
 		seed := lineplot.Legend{
-			Visible: true,
+			Hidden: true,
 			Position: spatial.StickyXY{
 				X: 3.5,
 				Y: 4.5,
-				Root: new(spatial.CornerLocation{
+				Root: spatial.CornerLocation{
 					X: spatial.XLocation("left"),
 					Y: spatial.YLocation("top"),
-				}),
-				Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+				},
+				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1477,12 +1431,12 @@ func FuzzDecodeLegend(f *testing.F) {
 	}
 	{
 		seed := lineplot.Legend{
-			Visible: false,
+			Hidden: false,
 			Position: spatial.StickyXY{
 				X:     0,
 				Y:     0,
-				Root:  nil,
-				Units: nil,
+				Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+				Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -1592,15 +1546,15 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			Name:  "test_2",
 			Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
 			Legend: lineplot.Legend{
-				Visible: true,
+				Hidden: true,
 				Position: spatial.StickyXY{
 					X: 9.5,
 					Y: 10.5,
-					Root: new(spatial.CornerLocation{
+					Root: spatial.CornerLocation{
 						X: spatial.XLocation("left"),
 						Y: spatial.YLocation("top"),
-					}),
-					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+					},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			},
 			Channels: lineplot.Channels{
@@ -1619,7 +1573,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    37.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1629,7 +1583,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    48.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1639,7 +1593,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    59.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1649,7 +1603,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    70.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1659,7 +1613,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    81.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1669,7 +1623,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    92.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1719,12 +1673,12 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			Name:  "",
 			Title: lineplot.Title{Level: text.Level(""), Visible: false},
 			Legend: lineplot.Legend{
-				Visible: false,
+				Hidden: false,
 				Position: spatial.StickyXY{
 					X:     0,
 					Y:     0,
-					Root:  nil,
-					Units: nil,
+					Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
 				},
 			},
 			Channels: lineplot.Channels{
@@ -1743,7 +1697,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -1753,7 +1707,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -1763,7 +1717,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -1773,7 +1727,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -1783,7 +1737,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -1793,7 +1747,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction(""),
 					LabelLevel:     text.Level(""),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: false},
 					TickSpacing:    0,
 					Type:           nil,
 				},
@@ -1813,15 +1767,15 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			Name:  "test_2",
 			Title: lineplot.Title{Level: text.Level("h1"), Visible: true},
 			Legend: lineplot.Legend{
-				Visible: true,
+				Hidden: true,
 				Position: spatial.StickyXY{
 					X: 9.5,
 					Y: 10.5,
-					Root: new(spatial.CornerLocation{
+					Root: spatial.CornerLocation{
 						X: spatial.XLocation("left"),
 						Y: spatial.YLocation("top"),
-					}),
-					Units: new(spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}),
+					},
+					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
 				},
 			},
 			Channels: lineplot.Channels{
@@ -1840,7 +1794,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    37.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1850,7 +1804,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    48.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1860,7 +1814,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    59.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1870,7 +1824,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    70.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1880,7 +1834,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: true, Upper: false},
+					ManualBounds:   lineplot.ManualBounds{Lower: true, Upper: false},
 					TickSpacing:    81.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1890,7 +1844,7 @@ func FuzzDecodeLinePlot(f *testing.F) {
 					LabelDirection: spatial.Direction("x"),
 					LabelLevel:     text.Level("h1"),
 					Bounds:         spatial.Bounds{},
-					AutoBounds:     lineplot.AutoBounds{Lower: false, Upper: true},
+					ManualBounds:   lineplot.ManualBounds{Lower: false, Upper: true},
 					TickSpacing:    92.5,
 					Type:           new(lineplot.TickType("linear")),
 				},
@@ -1916,6 +1870,52 @@ func FuzzDecodeLinePlot(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded lineplot.LinePlot
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeManualBounds(f *testing.F) {
+	{
+		seed := lineplot.ManualBounds{Lower: true, Upper: false}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := lineplot.ManualBounds{Lower: false, Upper: false}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded lineplot.ManualBounds
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded lineplot.ManualBounds
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

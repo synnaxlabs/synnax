@@ -138,6 +138,22 @@ func (p Params) Has(name string) bool {
 	return ok
 }
 
+// Positional returns the params bindable by position: all params except the
+// trigger, which the upstream feeds rather than the call site.
+func (p Params) Positional(trigger string) Params {
+	if trigger == "" {
+		return p
+	}
+	positional := make(Params, 0, len(p))
+	for _, param := range p {
+		if param.Name == trigger {
+			continue
+		}
+		positional = append(positional, param)
+	}
+	return positional
+}
+
 // ValueMap returns a map of parameter names to their values.
 func (p Params) ValueMap() map[string]any {
 	return lo.SliceToMap(p, func(item Param) (string, any) {
@@ -398,7 +414,7 @@ func Sequence() Type { return Type{Kind: KindSequence} }
 // Stage returns a stage (within a sequence) type.
 func Stage() Type { return Type{Kind: KindStage} }
 
-// Function creates a function type with the given inputs, outputs, and optional config.
+// Function creates a function type with the given inputs and outputs.
 func Function(props FunctionProperties) Type {
 	return Type{Kind: KindFunction, FunctionProperties: props}
 }
@@ -536,10 +552,7 @@ func Equal(t Type, v Type) bool {
 		if !paramsEqual(t.Inputs, v.Inputs) {
 			return false
 		}
-		if !paramsEqual(t.Outputs, v.Outputs) {
-			return false
-		}
-		return paramsEqual(t.Config, v.Config)
+		return paramsEqual(t.Outputs, v.Outputs)
 	}
 	if t.Unit == nil && v.Unit == nil {
 		return true

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type ontology } from "@synnaxlabs/client";
+import { type ontology } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -264,7 +265,7 @@ describe("User queries", () => {
 
         const usernameField = result.current.form.get("username");
         expect(usernameField.status.variant).toBe("error");
-        expect(usernameField.status.message).toContain("Username is required");
+        expect(usernameField.status.message).toContain("username is required");
       });
 
       it("should validate all required fields", async () => {

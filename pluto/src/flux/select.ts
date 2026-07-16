@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, type optional } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
@@ -38,13 +38,13 @@ export interface CreateSelectorParams<
   equal?: (a: Selected, b: Selected) => boolean;
 }
 
-export type UseSelect<Args extends {}, Selected> = (args: Args) => Selected;
+export type UseSelect<Args extends {}, Selected> = optional.Arg<Args, Selected>;
 
 export const createSelector =
   <ScopedStore extends base.Store, Args extends {}, Selected, Raw = Selected>(
     params: CreateSelectorParams<ScopedStore, Args, Selected, Raw>,
   ): UseSelect<Args, Selected> =>
-  (args: Args): Selected => {
+  (args: Args = {} as Args): Selected => {
     const store = useStore<ScopedStore>();
     const memoArgs = useMemoDeepEqual(args);
     const versionRef = useRef(0);

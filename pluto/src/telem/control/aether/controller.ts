@@ -13,6 +13,7 @@ import {
   control,
   DisconnectedError,
   type framer,
+  status as cstatus,
   type Synnax,
   TimeStamp,
   ValidationError,
@@ -25,7 +26,6 @@ import {
   type CrudeSeries,
   type destructor,
   errors,
-  type status as xstatus,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -442,40 +442,40 @@ export class AuthoritySource
     this.valid = true;
   }
 
-  value(): xstatus.Status<typeof authoritySourceDetailsZ> {
+  value(): cstatus.Status<typeof authoritySourceDetailsZ> {
     this.maybeRevalidate();
 
     const time = TimeStamp.now();
     if (this.props.channel === 0)
-      return {
+      return cstatus.create<typeof authoritySourceDetailsZ>({
         name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
         message: "No Channel",
         time,
         details: { valid: false, authority: 0 },
-      };
+      });
 
     const state = this.prov.get(this.props.channel);
 
     if (state == null)
-      return {
+      return cstatus.create<typeof authoritySourceDetailsZ>({
         name: this.controller.key,
         key: this.controller.key,
         variant: "disabled",
         message: "Uncontrolled",
         time,
         details: { valid: true, color: undefined, authority: 0 },
-      };
+      });
 
-    return {
+    return cstatus.create<typeof authoritySourceDetailsZ>({
       name: this.controller.key,
       key: state.subject.key,
       variant: state.subject.key === this.controller.key ? "success" : "error",
       message: `Controlled by ${state.subject.name}`,
       time,
       details: { valid: true, color: state.subjectColor, authority: state.authority },
-    };
+    });
   }
 
   cleanup(): void {

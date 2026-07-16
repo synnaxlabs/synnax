@@ -28,8 +28,7 @@ import {
   type Streamer,
   streamerConfigZ,
 } from "@/framer/streamer";
-import { newVirtualChannel } from "@/testutil/channels";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient, newVirtualChannel } from "@/testutil";
 
 const client = createTestClient();
 

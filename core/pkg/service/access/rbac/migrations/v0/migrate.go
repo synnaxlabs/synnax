@@ -16,10 +16,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	policy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
@@ -65,12 +65,11 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 				userOntologyID := user.OntologyID(u.Key)
 				policies := policyByUser[userOntologyID.String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
-				if err = otgWriter.DeleteRelationship(
-					ctx,
-					cfg.Role.UsersGroup().OntologyID(),
-					ontology.RelationshipTypeParentOf,
-					userOntologyID,
-				); err != nil {
+				if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{
+					From: cfg.Role.UsersGroup().OntologyID(),
+					Type: ontology.RelationshipTypeParentOf,
+					To:   userOntologyID,
+				}); err != nil {
 					return err
 				}
 				if err = roleWriter.AssignRole(ctx, userOntologyID, roleKey); err != nil {

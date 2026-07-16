@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build driver
-
 package driver_test
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -23,7 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var mockBinaryPath string
+var mockFS fs.FS
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -33,18 +32,21 @@ func TestDriver(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
 	tmpDir := GinkgoT().TempDir()
-	mockBinaryPath = filepath.Join(tmpDir, "mockdriver")
+	driverName := "driver"
 	if runtime.GOOS == "windows" {
-		mockBinaryPath += ".exe"
+		driverName = "driver.exe"
 	}
+	binaryPath := filepath.Join(tmpDir, driverName)
 	cmd := exec.Command(
-		"go", "build", "-o", mockBinaryPath,
+		"go", "build", "-o", binaryPath,
 		"./testdata/mockdriver",
 	)
 	cmd.Dir = MustSucceed(os.Getwd())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	Expect(cmd.Run()).To(Succeed())
+	mockFS = os.DirFS(tmpDir)
 	ShouldNotLeakGoroutines()
 })

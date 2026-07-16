@@ -14,14 +14,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -46,9 +45,10 @@ var _ = Describe("Task", Ordered, func() {
 		stat        *status.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -71,7 +71,7 @@ var _ = Describe("Task", Ordered, func() {
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
-			HostProvider:        mock.StaticHostKeyProvider(1),
+			HostProvider:        mock.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
@@ -373,14 +373,14 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(taskStatus.Message).To(Equal("Status Test Task status unknown"))
 			Expect(taskStatus.Details.Task).To(Equal(m.Key))
 		})
 
 		It("Should use the provided status when creating a task", func(ctx SpecContext) {
 			providedStatus := &task.Status{
-				Variant:     xstatus.VariantSuccess,
+				Variant:     status.VariantSuccess,
 				Message:     "Custom task status",
 				Description: "Task is running",
 				Time:        telem.Now(),
@@ -400,7 +400,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantSuccess))
+			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(taskStatus.Message).To(Equal("Custom task status"))
 			Expect(taskStatus.Description).To(Equal("Task is running"))
 			// Key should be auto-assigned
@@ -425,6 +425,54 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).Error().To(MatchError(ContainSubstring("variant")))
 		})
+		It("Should restore a missing status row when the task is re-configured", func(ctx SpecContext) {
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 0),
+				Name: "Self Heal Task",
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+
+			Expect(status.NewWriter[task.StatusDetails](stat, tx).
+				Delete(ctx, task.OntologyID(t.Key).String())).To(Succeed())
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+
+			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+			Expect(w.Create(ctx, reconfigured)).To(Succeed())
+
+			var healed task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+				Entry(&healed).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(healed.Details.Task).To(Equal(t.Key))
+		})
+
+		It("Should not clobber a live status row on a no-op re-configure", func(ctx SpecContext) {
+			t := &task.Task{
+				Key:  task.NewKey(testRack.Key, 0),
+				Name: "Live Status Task",
+				Status: &task.Status{
+					Variant: status.VariantSuccess,
+					Message: "Task is running",
+					Time:    telem.Now(),
+				},
+			}
+			Expect(w.Create(ctx, t)).To(Succeed())
+
+			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
+			Expect(w.Create(ctx, reconfigured)).To(Succeed())
+
+			var preserved task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](stat).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+				Entry(&preserved).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
+			Expect(preserved.Message).To(Equal("Task is running"))
+		})
+
 		It("Should create an unknown status when copying a task", func(ctx SpecContext) {
 			m := &task.Task{
 				Key:  task.NewKey(testRack.Key, 0),
@@ -439,7 +487,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(copied.Key).String())).
 				Entry(&copiedStatus).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(copiedStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(copiedStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
@@ -462,7 +510,7 @@ var _ = Describe("Task", Ordered, func() {
 					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 					Entry(&taskStatus).
 					Exec(ctx, nil)).To(Succeed())
-				g.Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+				g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 				g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
 				g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
 			}).Should(Succeed())
@@ -486,7 +534,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should create unknown statuses for tasks missing them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -509,7 +557,7 @@ var _ = Describe("Task", Ordered, func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.StaticHostKeyProvider(1),
+				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
 				Search:       searchIdx,
 			}))
@@ -539,7 +587,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(task.Key(t.Key)).String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
 			Expect(restoredStatus.Details.Task).To(Equal(task.Key(t.Key)))
 		})
@@ -547,7 +595,7 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should not create statuses for tasks that already have them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -570,7 +618,7 @@ var _ = Describe("Task", Ordered, func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.StaticHostKeyProvider(1),
+				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
 				Search:       searchIdx,
 			}))
@@ -597,7 +645,7 @@ var _ = Describe("Task", Ordered, func() {
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, nil)).To(Succeed())
-			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
+			Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
 			Expect(taskStatus.Message).To(Equal("Task With Status status unknown"))
 		})
 	})

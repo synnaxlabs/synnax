@@ -36,5 +36,5 @@ message Stop {
   // position is the normalized position of the stop along the gradient [0, 1].
   double position = 3;
   // switched indicates whether the stop's color has been switched by the user.
-  bool switched = 4;
+  optional bool switched = 4;
 }

@@ -13,12 +13,13 @@ import (
 	"context"
 	"go/types"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -37,8 +38,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		ontology: cfg.Distribution.Ontology,
-		search:   cfg.Distribution.Search,
+		ontology: cfg.Service.Ontology,
+		search:   cfg.Service.Search,
 		access:   cfg.Service.RBAC,
 	}, nil
 }
@@ -129,11 +130,13 @@ func (s *Service) AddChildren(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	w := s.ontology.NewWriter(tx)
-	for _, child := range req.Children {
-		if err := w.DefineRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
-			return types.Nil{}, err
-		}
+	if err := s.ontology.NewWriter(tx).DefineRelationships(
+		ctx,
+		req.ID,
+		ontology.RelationshipTypeParentOf,
+		req.Children...,
+	); err != nil {
+		return types.Nil{}, err
 	}
 	return types.Nil{}, nil
 }
@@ -155,13 +158,16 @@ func (s *Service) RemoveChildren(
 	}); err != nil {
 		return types.Nil{}, err
 	}
-	w := s.ontology.NewWriter(tx)
-	for _, child := range req.Children {
-		if err := w.DeleteRelationship(ctx, req.ID, ontology.RelationshipTypeParentOf, child); err != nil {
-			return types.Nil{}, err
-		}
-	}
-	return types.Nil{}, nil
+	return types.Nil{}, s.ontology.NewWriter(tx).DeleteRelationships(
+		ctx,
+		lo.Map(req.Children, func(child ontology.ID, _ int) ontology.Relationship {
+			return ontology.Relationship{
+				From: req.ID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   child,
+			}
+		})...,
+	)
 }
 
 type MoveChildrenRequest struct {
@@ -184,10 +190,19 @@ func (s *Service) MoveChildren(
 	}
 	w := s.ontology.NewWriter(tx)
 	for _, child := range req.Children {
-		if err := w.DeleteRelationship(ctx, req.From, ontology.RelationshipTypeParentOf, child); err != nil {
+		if err := w.DeleteRelationships(ctx, ontology.Relationship{
+			From: req.From,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   child,
+		}); err != nil {
 			return types.Nil{}, err
 		}
-		if err := w.DefineRelationship(ctx, req.To, ontology.RelationshipTypeParentOf, child); err != nil {
+		if err := w.DefineRelationships(
+			ctx,
+			req.To,
+			ontology.RelationshipTypeParentOf,
+			child,
+		); err != nil {
 			return types.Nil{}, err
 		}
 	}

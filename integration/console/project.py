@@ -88,6 +88,7 @@ class ProjectClient:
         self.ctx_menu = ContextMenu(layout.page)
         self.notifications = NotificationsClient(layout.page)
         self.tree = Tree(layout.page)
+        self._active_project: str | None = None
 
     def create_page(
         self, page_type: PageType, page_name: str | None = None
@@ -112,7 +113,7 @@ class ProjectClient:
         """
         self.layout.close_left_toolbar()
         add_btn = self.layout.page.locator(
-            ".console-mosaic > .pluto-tabs-selector .pluto-tabs-selector__actions button:has(.pluto-icon--add)"
+            ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector button:has(.pluto-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.dispatch_event("click")
@@ -264,9 +265,19 @@ class ProjectClient:
         project_item.first.wait_for(state="hidden", timeout=5000)
 
     def expand_active(self) -> None:
-        """Expand the active project in the resources toolbar to show its contents."""
+        """Expand the active project in the resources toolbar to show its contents.
+
+        Targets the active project by name. Concurrently-running tests each add
+        their own project to the shared tree, so expanding whichever node sorts
+        first (expand_root) would expand the wrong project and the test's pages
+        would never be revealed. Falls back to expand_root if no project has
+        been activated through this client yet.
+        """
         self.layout.show_resource_toolbar("project")
-        self.tree.expand_root(self.ITEM_PREFIX)
+        if self._active_project is not None:
+            self.tree.expand_named(self.ITEM_PREFIX, self._active_project)
+        else:
+            self.tree.expand_root(self.ITEM_PREFIX)
         self.layout.page.locator(".pluto-tree__item").first.wait_for(
             state="visible", timeout=5000
         )
@@ -789,12 +800,14 @@ class ProjectClient:
             .first
         )
         if name in selector.inner_text():
+            self._active_project = name
             return
         self.layout.show_resource_toolbar("project")
         self.get_item(name).dblclick(timeout=5000)
         self.layout.page.get_by_role("button").filter(has_text=name).wait_for(
             state="visible", timeout=5000
         )
+        self._active_project = name
         self.layout.close_left_toolbar()
 
     def rename(self, *, old_name: str, new_name: str) -> None:
@@ -810,6 +823,8 @@ class ProjectClient:
         self.ctx_menu.action(project, "Rename")
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
+        if self._active_project == old_name:
+            self._active_project = new_name
         self.layout.close_left_toolbar()
 
     def delete(self, name: str) -> None:
@@ -836,6 +851,8 @@ class ProjectClient:
         delete_btn.wait_for(state="visible", timeout=5000)
         delete_btn.click(timeout=5000)
         self.wait_for_project_removed(name)
+        if self._active_project == name:
+            self._active_project = None
         self.layout.close_left_toolbar()
 
     def select_bootstrap(self, name: str) -> None:
@@ -857,6 +874,7 @@ class ProjectClient:
         item.wait_for(state="visible", timeout=10000)
         item.click(timeout=5000)
         self._wait_for_app()
+        self._active_project = name
 
     def on_splash(self) -> bool:
         """Report whether the project Splash screen is showing.
@@ -895,6 +913,7 @@ class ProjectClient:
         if item.count() == 0:
             return False
         item.first.click(timeout=5000)
+        self._active_project = name
         return True
 
     def _create_from_splash(self, name: str) -> None:
@@ -907,6 +926,7 @@ class ProjectClient:
         self.layout.page.get_by_role("button", name="Create Project", exact=True).click(
             timeout=5000
         )
+        self._active_project = name
 
     def open_plot(self, name: str) -> Plot:
         """Open a plot by double-clicking it in the project resources toolbar.
@@ -948,9 +968,10 @@ class ProjectClient:
         pane.first.wait_for(state="visible", timeout=5000)
 
         active_tab = (
-            self.layout.page.locator(".pluto-tabs-selector")
-            .locator("div")
-            .filter(has=self.layout.page.locator("[aria-label='pluto-tabs__close']"))
+            self.layout.page.locator(
+                ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
+            )
+            .filter(has=self.layout.page.locator("[aria-label='Close']"))
             .last
         )
         actual_name = active_tab.inner_text().strip()
@@ -1040,9 +1061,9 @@ class ProjectClient:
         plot_pane = self.layout.page.locator(".pluto-line-plot")
         plot_pane.first.wait_for(state="visible", timeout=5000)
 
-        tabs = self.layout.page.locator(".pluto-tabs-selector div").filter(
-            has=self.layout.page.locator("[aria-label='pluto-tabs__close']")
-        )
+        tabs = self.layout.page.locator(
+            ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector > .pluto-tabs__tab"
+        ).filter(has=self.layout.page.locator("[aria-label='Close']"))
         tab_count = tabs.count()
         actual_tab_name = "Line Plot"
         if tab_count > 0:

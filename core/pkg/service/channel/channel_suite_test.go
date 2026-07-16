@@ -10,24 +10,26 @@
 package channel_test
 
 import (
+	"context"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	svcChannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	dist   mock.Node
-	svc    *svcChannel.Service
-	arcSvc *arc.Service
+	svc           *channel.Service
+	channelWriter channel.Writer
 )
 
 func TestChannel(t *testing.T) {
@@ -37,51 +39,76 @@ func TestChannel(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var _ = BeforeSuite(func(ctx SpecContext) {
-	dist = DeferClose(mock.NewCluster().Provision(ctx))
+// serviceConfig builds a channel ServiceConfig for the node, opening the ontology,
+// search, group, label, and status services the channel service depends on.
+func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
+	GinkgoHelper()
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	searchIdx := MustOpen(search.OpenIndex())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-		Search:   dist.Search,
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       dist.DB,
-		Group:    dist.Group,
-		Signals:  dist.Signals,
-		Ontology: dist.Ontology,
+		DB:       node.DB,
+		Group:    groupSvc,
+		Ontology: otg,
 		Label:    labelSvc,
-		Search:   dist.Search,
+		Search:   searchIdx,
 	}))
-	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-		DB:           dist.DB,
-		Ontology:     dist.Ontology,
-		Group:        dist.Group,
-		HostProvider: mock.StaticHostKeyProvider(1),
+	return channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
 		Status:       statusSvc,
-		Search:       dist.Search,
-	}))
-	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
-		DB:       dist.DB,
-		Ontology: dist.Ontology,
-		Group:    dist.Group,
-		Rack:     rackSvc,
-		Status:   statusSvc,
-		Search:   dist.Search,
-	}))
-	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Task:     taskSvc,
-		Search:   dist.Search,
-	}))
-	svc = MustOpen(svcChannel.OpenService(ctx, svcChannel.ServiceConfig{
-		DB:           dist.DB,
-		Distribution: dist.Channel,
-		Status:       statusSvc,
-		Arc:          arcSvc,
-	}))
+	}
+}
+
+// openService opens a channel service for the node and creates the node's internal
+// control channel, mirroring what the service layer's OpenLayer does in production.
+// Tests rely on the control channel for their local-key and channel-count expectations.
+// Extra configs override the derived distribution-layer fields.
+func openService(
+	ctx context.Context,
+	node mock.Node,
+	cfgs ...channel.ServiceConfig,
+) (*channel.Service, *ontology.Ontology) {
+	GinkgoHelper()
+	cfg := serviceConfig(ctx, node)
+	channelSvc := MustOpen(channel.OpenService(
+		ctx,
+		append([]channel.ServiceConfig{cfg}, cfgs...)...,
+	))
+	controlCh := channel.Channel{
+		Name:        fmt.Sprintf("sy_node_%v_control", node.Cluster.HostKey()),
+		Leaseholder: node.Cluster.HostKey(),
+		Virtual:     true,
+		DataType:    telem.StringT,
+		Internal:    true,
+	}
+	Expect(channelSvc.NewWriter(nil).Create(
+		ctx, &controlCh, channel.RetrieveIfNameExists(),
+	)).To(Succeed())
+	Expect(node.Framer.ConfigureControlUpdateChannel(
+		ctx, controlCh.Key(), controlCh.Name,
+	)).To(Succeed())
+	Expect(cfg.Search.Initialize(ctx)).To(Succeed())
+	return channelSvc, cfg.Ontology
+}
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := mock.NewNode(ctx)
+	svc, _ = openService(ctx, node)
+	channelWriter = svc.NewWriter(nil)
 })

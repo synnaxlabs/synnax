@@ -14,11 +14,11 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -94,6 +94,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 				gorp.NewMigration(
 					"v56_stage_project_layouts",
 					MigrateLayoutsToStaging,
+				),
+				"v56_migrate_workspace_to_project",
+			),
+			migrate.WithAddedDeps(
+				gorp.NewMigration(
+					"v56_remove_project_author_relationships",
+					func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+						return RemoveAuthorRelationships(ctx, tx, cfg.Ontology)
+					},
 				),
 				"v56_migrate_workspace_to_project",
 			),

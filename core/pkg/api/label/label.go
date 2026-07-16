@@ -15,10 +15,10 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -83,7 +83,7 @@ type RetrieveRequest struct {
 
 type RetrieveResponse struct {
 	// Labels are the labels that were retrieved.
-	Labels []Label `json:"labels" msgpack:"labels"`
+	Labels []Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
 }
 
 func (s *Service) Retrieve(

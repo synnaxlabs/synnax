@@ -12,9 +12,9 @@ package node_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 )
 
 var _ = Describe("Service", func() {
@@ -50,8 +50,8 @@ var _ = Describe("Service", func() {
 
 	Describe("NewService", func() {
 		It("Should define the free-node sentinel resource in the ontology", func(ctx SpecContext) {
-			Expect(testOtg.NewWriter(nil).HasResource(ctx, node.OntologyID(node.KeyFree))).
-				To(BeTrue())
+			Expect(testOtg.NewRetrieve().WhereIDs(node.OntologyID(node.KeyFree)).
+				Exists(ctx, nil)).To(BeTrue())
 		})
 
 		It("Should reject a config that fails validation", func(ctx SpecContext) {

@@ -190,7 +190,7 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`labels: list[UUID]`))
+			Expect(content).To(ContainSubstring(`labels: list[UUID] = Field(default_factory=list)`))
 			Expect(content).To(ContainSubstring(`parent: UUID | None = None`))
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
@@ -303,7 +303,7 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`units: Units = Field(default="Volts")`))
+			Expect(content).To(ContainSubstring(`units: Units = "Volts"`))
 			Expect(content).ToNot(ContainSubstring(`default=Units.volts`))
 		})
 
@@ -312,8 +312,8 @@ var _ = Describe("Python Types Plugin", func() {
 				@py output "out"
 
 				Mode enum {
-					off  = 0
-					on   = 1
+					on   = 0
+					off  = 1
 				}
 
 				Channel struct {
@@ -322,7 +322,7 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 			content := MustContentOf(resp, "types_gen.py")
-			Expect(content).To(ContainSubstring(`default=Mode.on`))
+			Expect(content).To(ContainSubstring(`mode: Mode = Mode.on`))
 		})
 
 		It("Should generate an extending enum as the union of its parents", func(ctx SpecContext) {
@@ -404,7 +404,7 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("uint64", "uint64", "int = Field(ge=0, le=18446744073709551615)"),
 				Entry("float32", "float32", "float"),
 				Entry("float64", "float64", "float"),
-				Entry("record", "record", "dict[str, Any]"),
+				Entry("record", "record", "dict[str, Any] = Field(default_factory=dict)"),
 				Entry("bytes", "bytes", "bytes"),
 			)
 
@@ -440,7 +440,7 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`last_name: str | None = None`))
 		})
 
-		It("Should handle soft optional types (?)", func(ctx SpecContext) {
+		It("Should handle optional types (?)", func(ctx SpecContext) {
 			source := `
 				@py output "out"
 
@@ -460,34 +460,8 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Soft optional (?) becomes T | None = None in Python
+			// An optional (?) field becomes T | None = None in Python
 			Expect(content).To(ContainSubstring(`status: str | None = None`))
-		})
-
-		It("Should handle hard optional types (??)", func(ctx SpecContext) {
-			source := `
-				@py output "out"
-
-				Task struct {
-					key uuid
-					name string
-					status string??
-					description string??
-				}
-			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			req := &plugin.Request{
-				Resolutions: table,
-			}
-
-			resp := MustSucceed(typesPlugin.Generate(req))
-
-			content := string(resp.Files[0].Content)
-			// Hard optional (??) also becomes T | None = None in Python (no pointer distinction)
-			Expect(content).To(ContainSubstring(`status: str | None = None`))
-			Expect(content).To(ContainSubstring(`description: str | None = None`))
 		})
 
 		It("Should handle optional arrays", func(ctx SpecContext) {
@@ -535,7 +509,7 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustSucceed(typesPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`enabled: bool = Field(default=False)`))
+			Expect(content).To(ContainSubstring(`enabled: bool = False`))
 			Expect(content).To(ContainSubstring(`retries: int = Field(default=3, ge=-2147483648, le=2147483647)`))
 		})
 
@@ -585,6 +559,32 @@ var _ = Describe("Python Types Plugin", func() {
 			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 			content := string(resp.Files[0].Content)
 			Expect(content).To(ContainSubstring(`default_factory=lambda: Point(x=1, y=2)`))
+		})
+
+		It("Should emit an empty record default as default_factory=dict", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					args record = {}
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`args: dict[str, Any] = Field(default_factory=dict)`))
+		})
+
+		It("Should emit a populated record default as a dict literal", func(ctx SpecContext) {
+			source := `
+				@py output "out"
+
+				Config struct {
+					args record = { mode = "fast", retries = 3 }
+				}
+			`
+			resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+			content := MustContentOf(resp, "types_gen.py")
+			Expect(content).To(ContainSubstring(`default_factory=lambda: {"mode": "fast", "retries": 3}`))
 		})
 
 		It("Should wrap int defaults in distinct type constructor", func(ctx SpecContext) {
@@ -1179,6 +1179,25 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
+			It("Should make a field typed as an optional type param optional", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Status struct<Details?> {
+						message string
+						details Details
+					}
+				`
+				resp := MustGenerate(ctx, source, "api", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`Details = TypeVar("Details")`,
+						`class Status(BaseModel, Generic[Details]):`,
+						`details: Details | None = None`,
+					).
+					ToNotContain(`from typing_extensions import`)
+			})
+
 			It("Should skip type params with defaults in Generic[]", func(ctx SpecContext) {
 				source := `
 					@py output "out"
@@ -1223,8 +1242,8 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 
 					Transfer struct<R> {
-						from_ State<R>??
-						to   State<R>??
+						from_ State<R>?
+						to   State<R>?
 					}
 
 					Update struct<R> {
@@ -1236,7 +1255,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ToContain(
 						`from_: State[R] | None`,
 						`to: State[R] | None`,
-						`transfers: list[Transfer[R]]`,
+						`transfers: list[Transfer[R]] = Field(default_factory=list)`,
 					)
 			})
 
@@ -1272,6 +1291,10 @@ var _ = Describe("Python Types Plugin", func() {
 					StatusInfo struct {
 						code StatusCode
 						message string
+					}
+
+					Details struct {
+						running bool = false
 					}
 				`)
 			})
@@ -1314,6 +1337,25 @@ var _ = Describe("Python Types Plugin", func() {
 					)
 			})
 
+			It("Should qualify cross-namespace struct default with its module alias", func(ctx SpecContext) {
+				source := `
+					import "schemas/status"
+
+					@py output "client/py/synnax/task"
+
+					Task struct {
+						key uuid
+						details status.Details = {}
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`from synnax import status`,
+						`details: status.Details = Field(default_factory=lambda: status.Details())`,
+					)
+			})
+
 			It("Should alias module import when it conflicts with a field name", func(ctx SpecContext) {
 				source := `
 					import "schemas/status"
@@ -1340,8 +1382,8 @@ var _ = Describe("Python Types Plugin", func() {
 					@py output "out"
 
 					Transfer struct {
-						from string??
-						to string??
+						from string?
+						to string?
 					}
 				`
 				resp := MustGenerate(ctx, source, "control", loader, typesPlugin)
@@ -1415,7 +1457,7 @@ var _ = Describe("Python Types Plugin", func() {
 Status struct<Details?> {
     variant string
     message string
-    details Details??
+    details Details?
 }
 `)
 
@@ -1476,7 +1518,7 @@ ChannelStatus = status.Status<nil>
 					}
 
 					APIRange struct extends Base {
-						parent APIRange??
+						parent APIRange?
 						@py name "Payload"
 					}
 				`
@@ -1499,7 +1541,7 @@ ChannelStatus = status.Status<nil>
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
-					ToContain(`mode: str = Field(default="normal")`)
+					ToContain(`mode: str = "normal"`)
 			})
 		})
 
@@ -1586,7 +1628,7 @@ ChannelStatus = status.Status<nil>
 				`
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
-					ToContain(`mode: Mode = Field(default=Mode.automatic)`)
+					ToContain(`mode: Mode = Mode.automatic`)
 			})
 
 			It("Should generate default for cross-namespace enum variant", func(ctx SpecContext) {
@@ -1609,7 +1651,7 @@ ChannelStatus = status.Status<nil>
 				`
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
-					ToContain(`concurrency: control.Concurrency = Field(default=control.Concurrency.exclusive)`)
+					ToContain(`concurrency: control.Concurrency = control.Concurrency.exclusive`)
 			})
 		})
 	})
@@ -1796,6 +1838,197 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 
 	It("Should resolve an array-of-union field to a list of the alias", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, source, "ni", loader, typesPlugin)
-		ExpectContent(resp, "types_gen.py").ToContain("scales: list[Scale]")
+		ExpectContent(resp, "types_gen.py").ToContain("scales: list[Scale] = Field(default_factory=list)")
 	})
 })
+
+var _ = Describe("Collection type aliases and maps", func() {
+	It("Should render a top-level array alias as list[Elem]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Node struct {
+				key string
+			}
+
+			Nodes Node[]
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("Nodes: TypeAlias = list[Node]")
+	})
+
+	It("Should render a required map field as a dict with a default", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Authorities struct {
+				channels map<uint32, uint8>
+			}
+		`
+		resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"channels: dict[int, int] = Field(default_factory=dict)",
+		)
+	})
+
+	It("Should render a map<string, record> field as a dict[str, dict[str, Any]]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Graph struct {
+				configs map<string, record>
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+		)
+	})
+
+	It("Should render an explicitly empty map default as default_factory=dict", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Graph struct {
+				configs map<string, record> = {}
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"configs: dict[str, dict[str, Any]] = Field(default_factory=dict)",
+		)
+	})
+
+	It("Should render a struct-valued map field as a dict[str, Struct]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Node struct {
+				key string
+			}
+
+			Graph struct {
+				nodes map<string, Node>
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain(
+			"nodes: dict[str, Node] = Field(default_factory=dict)",
+		)
+	})
+
+	It("Should make an optional map field nullable with a None default", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Authorities struct {
+				channels map<uint32, uint8>?
+			}
+		`
+		resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("channels: dict[int, int] | None = None")
+	})
+
+	It("Should render an explicit array alias (= Elem[]) as list[Elem]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Node struct {
+				key string
+			}
+
+			Nodes = Node[]
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		Expect(content).To(ContainSubstring("Nodes: TypeAlias = list[Node]"))
+		Expect(content).NotTo(ContainSubstring("Nodes: TypeAlias = Any"))
+	})
+
+	It("Should render an explicit map alias (= map<K,V>) as dict[K, V]", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Authorities = map<uint32, uint8>
+		`
+		resp := MustGenerate(ctx, source, "ir", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToContain("Authorities: TypeAlias = dict[int, int]")
+	})
+
+	It("Should emit a struct before an array alias that references it", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Nodes Node[]
+
+			Node struct {
+				key string
+			}
+		`
+		resp := MustGenerate(ctx, source, "graph", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		classIdx := strings.Index(content, "class Node(BaseModel):")
+		aliasIdx := strings.Index(content, "Nodes: TypeAlias = list[Node]")
+		Expect(classIdx).To(BeNumerically(">", 0))
+		Expect(aliasIdx).To(BeNumerically(">", 0))
+		Expect(classIdx).To(
+			BeNumerically("<", aliasIdx),
+			"class Node must be emitted before the Nodes alias to avoid a NameError",
+		)
+	})
+
+	It("Should emit model_rebuild() for a self-recursive struct", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Tree struct {
+				key      string
+				children Tree[]
+			}
+		`
+		resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+		content := MustContentOf(resp, "types_gen.py")
+		Expect(content).To(ContainSubstring("class Tree(BaseModel):"))
+		Expect(content).To(ContainSubstring("Tree.model_rebuild()"))
+		// the rebuild call must come after the class definition
+		Expect(strings.Index(content, "class Tree(BaseModel):")).To(
+			BeNumerically("<", strings.Index(content, "Tree.model_rebuild()")),
+		)
+	})
+
+	It("Should not emit model_rebuild() for a struct with no forward reference", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		typesPlugin := types.New(types.DefaultOptions())
+		source := `
+			@py output "out"
+
+			Leaf struct {
+				key string
+			}
+		`
+		resp := MustGenerate(ctx, source, "leaf", loader, typesPlugin)
+		ExpectContent(resp, "types_gen.py").ToNotContain("model_rebuild()")
+	})
+})
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

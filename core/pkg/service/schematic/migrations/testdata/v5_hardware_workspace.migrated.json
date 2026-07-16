@@ -9,11 +9,7 @@
         "x": 425,
         "y": 478
       },
-      "z_index": 4,
-      "measured": {
-        "width": 0,
-        "height": 0
-      }
+      "z_index": 4
     },
     {
       "key": "cJXBL6uIOmB",
@@ -21,11 +17,7 @@
         "x": 669,
         "y": 454
       },
-      "z_index": 4,
-      "measured": {
-        "width": 0,
-        "height": 0
-      }
+      "z_index": 4
     }
   ],
   "edges": [],

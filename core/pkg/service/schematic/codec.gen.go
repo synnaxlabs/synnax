@@ -14,7 +14,7 @@ package schematic
 import (
 	"encoding/json"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -32,9 +32,24 @@ func (csc ControlStateConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	w.Bool(csc.Show)
-	w.Bool(csc.ShowChip)
-	w.Bool(csc.ShowIndicator)
+	if csc.Show != nil {
+		w.Bool(true)
+		w.Bool((*csc.Show))
+	} else {
+		w.Bool(false)
+	}
+	if csc.ShowChip != nil {
+		w.Bool(true)
+		w.Bool((*csc.ShowChip))
+	} else {
+		w.Bool(false)
+	}
+	if csc.ShowIndicator != nil {
+		w.Bool(true)
+		w.Bool((*csc.ShowIndicator))
+	} else {
+		w.Bool(false)
+	}
 	if csc.Orientation != nil {
 		w.Bool(true)
 		w.String(string((*csc.Orientation)))
@@ -45,7 +60,6 @@ func (csc ControlStateConfig) EncodeOrc(w *orc.Writer) error {
 }
 
 func (csc *ControlStateConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -59,14 +73,44 @@ func (csc *ControlStateConfig) DecodeOrc(r *orc.Reader) error {
 			csc.Authority = &hv
 		}
 	}
-	if csc.Show, err = r.Bool(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			csc.Show = &hv
+		}
 	}
-	if csc.ShowChip, err = r.Bool(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			csc.ShowChip = &hv
+		}
 	}
-	if csc.ShowIndicator, err = r.Bool(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			csc.ShowIndicator = &hv
+		}
 	}
 	{
 		present, err := r.Bool()
@@ -109,8 +153,18 @@ func (dtsc DummyToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	w.Bool(dtsc.Enabled)
-	w.Bool(dtsc.Clickable)
+	if dtsc.Enabled != nil {
+		w.Bool(true)
+		w.Bool((*dtsc.Enabled))
+	} else {
+		w.Bool(false)
+	}
+	if dtsc.Clickable != nil {
+		w.Bool(true)
+		w.Bool((*dtsc.Clickable))
+	} else {
+		w.Bool(false)
+	}
 	if dtsc.Color != nil {
 		w.Bool(true)
 		if err := (*dtsc.Color).EncodeOrc(w); err != nil {
@@ -123,7 +177,6 @@ func (dtsc DummyToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
 }
 
 func (dtsc *DummyToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -167,11 +220,31 @@ func (dtsc *DummyToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			dtsc.Scale = &hv
 		}
 	}
-	if dtsc.Enabled, err = r.Bool(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			dtsc.Enabled = &hv
+		}
 	}
-	if dtsc.Clickable, err = r.Bool(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv bool
+			if hv, err = r.Bool(); err != nil {
+				return err
+			}
+			dtsc.Clickable = &hv
+		}
 	}
 	{
 		present, err := r.Bool()
@@ -410,7 +483,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Float64(float64(v.OnClickDelay))
+		if v.OnClickDelay != nil {
+			w.Bool(true)
+			w.Float64(float64((*v.OnClickDelay)))
+		} else {
+			w.Bool(false)
+		}
 		if v.CommandChannel != nil {
 			w.Bool(true)
 			w.Uint32(uint32((*v.CommandChannel)))
@@ -545,7 +623,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.String(v.Units)
+		if v.Units != nil {
+			w.Bool(true)
+			w.String((*v.Units))
+		} else {
+			w.Bool(false)
+		}
 		if v.Level != nil {
 			w.Bool(true)
 			w.String(string((*v.Level)))
@@ -585,7 +668,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Bool(v.Disabled)
+		if v.Disabled != nil {
+			w.Bool(true)
+			w.Bool((*v.Disabled))
+		} else {
+			w.Bool(false)
+		}
 		if v.Control != nil {
 			w.Bool(true)
 			if err := (*v.Control).EncodeOrc(w); err != nil {
@@ -645,8 +733,18 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.String(v.Page)
-		w.Bool(v.DblClickNav)
+		if v.Page != nil {
+			w.Bool(true)
+			w.String((*v.Page))
+		} else {
+			w.Bool(false)
+		}
+		if v.DblClickNav != nil {
+			w.Bool(true)
+			w.Bool((*v.DblClickNav))
+		} else {
+			w.Bool(false)
+		}
 	case ElementConfigPolygon:
 		w.String("polygon")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -728,7 +826,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 				}
 			}
 		}
-		w.Bool(v.Disabled)
+		if v.Disabled != nil {
+			w.Bool(true)
+			w.Bool((*v.Disabled))
+		} else {
+			w.Bool(false)
+		}
 		if v.Control != nil {
 			w.Bool(true)
 			if err := (*v.Control).EncodeOrc(w); err != nil {
@@ -776,8 +879,18 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.String(v.Units)
-		w.Bool(v.Disabled)
+		if v.Units != nil {
+			w.Bool(true)
+			w.String((*v.Units))
+		} else {
+			w.Bool(false)
+		}
+		if v.Disabled != nil {
+			w.Bool(true)
+			w.Bool((*v.Disabled))
+		} else {
+			w.Bool(false)
+		}
 		if v.Control != nil {
 			w.Bool(true)
 			if err := (*v.Control).EncodeOrc(w); err != nil {
@@ -850,14 +963,24 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Bool(v.AutoFit)
+		if v.AutoFit != nil {
+			w.Bool(true)
+			w.Bool((*v.AutoFit))
+		} else {
+			w.Bool(false)
+		}
 		if v.Level != nil {
 			w.Bool(true)
 			w.String(string((*v.Level)))
 		} else {
 			w.Bool(false)
 		}
-		w.String(v.Value)
+		if v.Value != nil {
+			w.Bool(true)
+			w.String((*v.Value))
+		} else {
+			w.Bool(false)
+		}
 	case ElementConfigValue:
 		w.String("value")
 		if err := v.LabeledConfig.EncodeOrc(w); err != nil {
@@ -904,7 +1027,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.String(v.Units)
+		if v.Units != nil {
+			w.Bool(true)
+			w.String((*v.Units))
+		} else {
+			w.Bool(false)
+		}
 		if v.InlineSize != nil {
 			w.Bool(true)
 			w.Float64(float64((*v.InlineSize)))
@@ -969,7 +1097,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		} else {
 			w.Bool(false)
 		}
-		w.Bool(v.UseWidthForBackground)
+		if v.UseWidthForBackground != nil {
+			w.Bool(true)
+			w.Bool((*v.UseWidthForBackground))
+		} else {
+			w.Bool(false)
+		}
 		if v.ValueBackgroundShift != nil {
 			w.Bool(true)
 			if err := (*v.ValueBackgroundShift).EncodeOrc(w); err != nil {
@@ -1241,7 +1374,12 @@ func (ec ElementConfig) EncodeOrc(w *orc.Writer) error {
 		if err := v.ToggleSymbolConfig.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.Bool(v.NormallyOpen)
+		if v.NormallyOpen != nil {
+			w.Bool(true)
+			w.Bool((*v.NormallyOpen))
+		} else {
+			w.Bool(false)
+		}
 	case ElementConfigSpringLoadedReliefValve:
 		w.String("spring_loaded_relief_valve")
 		if err := v.DummyToggleSymbolConfig.EncodeOrc(w); err != nil {
@@ -1738,8 +1876,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Level = &hv
 			}
 		}
-		if v.OnClickDelay, err = r.Float64(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv float64
+				if hv, err = r.Float64(); err != nil {
+					return err
+				}
+				v.OnClickDelay = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -2009,8 +2157,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Location = &hv
 			}
 		}
-		if v.Units, err = r.String(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Units = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -2095,8 +2253,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Color = &hv
 			}
 		}
-		if v.Disabled, err = r.Bool(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.Disabled = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -2216,11 +2384,31 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Color = &hv
 			}
 		}
-		if v.Page, err = r.String(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Page = &hv
+			}
 		}
-		if v.DblClickNav, err = r.Bool(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.DblClickNav = &hv
+			}
 		}
 		ec.Variant = v
 	case "polygon":
@@ -2383,8 +2571,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-		if v.Disabled, err = r.Bool(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.Disabled = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -2482,11 +2680,31 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Color = &hv
 			}
 		}
-		if v.Units, err = r.String(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Units = &hv
+			}
 		}
-		if v.Disabled, err = r.Bool(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.Disabled = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -2623,8 +2841,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Align = &hv
 			}
 		}
-		if v.AutoFit, err = r.Bool(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.AutoFit = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -2643,8 +2871,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Level = &hv
 			}
 		}
-		if v.Value, err = r.String(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Value = &hv
+			}
 		}
 		ec.Variant = v
 	case "value":
@@ -2722,8 +2960,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Redline = &hv
 			}
 		}
-		if v.Units, err = r.String(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv string
+				if hv, err = r.String(); err != nil {
+					return err
+				}
+				v.Units = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -2867,8 +3115,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 				v.Location = &hv
 			}
 		}
-		if v.UseWidthForBackground, err = r.Bool(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.UseWidthForBackground = &hv
+			}
 		}
 		{
 			present, err := r.Bool()
@@ -3202,8 +3460,18 @@ func (ec *ElementConfig) DecodeOrc(r *orc.Reader) error {
 		if err := v.ToggleSymbolConfig.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.NormallyOpen, err = r.Bool(); err != nil {
-			return err
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				var hv bool
+				if hv, err = r.Bool(); err != nil {
+					return err
+				}
+				v.NormallyOpen = &hv
+			}
 		}
 		ec.Variant = v
 	case "spring_loaded_relief_valve":
@@ -3516,7 +3784,12 @@ func (h *Handle) DecodeOrc(r *orc.Reader) error {
 }
 
 func (lc LabelConfig) EncodeOrc(w *orc.Writer) error {
-	w.String(lc.Label)
+	if lc.Label != nil {
+		w.Bool(true)
+		w.String((*lc.Label))
+	} else {
+		w.Bool(false)
+	}
 	if lc.Level != nil {
 		w.Bool(true)
 		w.String(string((*lc.Level)))
@@ -3551,9 +3824,18 @@ func (lc LabelConfig) EncodeOrc(w *orc.Writer) error {
 }
 
 func (lc *LabelConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if lc.Label, err = r.String(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			lc.Label = &hv
+		}
 	}
 	{
 		present, err := r.Bool()
@@ -3716,9 +3998,6 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 		return err
 	}
 	w.Int16(int16(nv.ZIndex))
-	if err := nv.Measured.EncodeOrc(w); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -3731,9 +4010,6 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if nv.ZIndex, err = r.Int16(); err != nil {
-		return err
-	}
-	if err = nv.Measured.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil
@@ -4144,12 +4420,16 @@ func (tc ToggleConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	w.Float64(float64(tc.OnClickDelay))
+	if tc.OnClickDelay != nil {
+		w.Bool(true)
+		w.Float64(float64((*tc.OnClickDelay)))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
 func (tc *ToggleConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -4240,8 +4520,18 @@ func (tc *ToggleConfig) DecodeOrc(r *orc.Reader) error {
 			tc.Control = &hv
 		}
 	}
-	if tc.OnClickDelay, err = r.Float64(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tc.OnClickDelay = &hv
+		}
 	}
 	return nil
 }
@@ -4287,7 +4577,12 @@ func (tsc ToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	w.Float64(float64(tsc.OnClickDelay))
+	if tsc.OnClickDelay != nil {
+		w.Bool(true)
+		w.Float64(float64((*tsc.OnClickDelay)))
+	} else {
+		w.Bool(false)
+	}
 	if tsc.Color != nil {
 		w.Bool(true)
 		if err := (*tsc.Color).EncodeOrc(w); err != nil {
@@ -4300,7 +4595,6 @@ func (tsc ToggleSymbolConfig) EncodeOrc(w *orc.Writer) error {
 }
 
 func (tsc *ToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
-	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -4391,8 +4685,18 @@ func (tsc *ToggleSymbolConfig) DecodeOrc(r *orc.Reader) error {
 			tsc.Control = &hv
 		}
 	}
-	if tsc.OnClickDelay, err = r.Float64(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv float64
+			if hv, err = r.Float64(); err != nil {
+				return err
+			}
+			tsc.OnClickDelay = &hv
+		}
 	}
 	{
 		present, err := r.Bool()

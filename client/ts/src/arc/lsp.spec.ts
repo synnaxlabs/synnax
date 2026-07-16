@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 interface JSONRPCRequest {
   jsonrpc: "2.0";
@@ -415,8 +416,7 @@ describe("Arc LSP", () => {
         }),
       });
 
-      const metadata = { is_block: true };
-      const encoded = btoa(JSON.stringify(metadata));
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/test123#${encoded}`;
 
       stream.send({
@@ -478,8 +478,7 @@ describe("Arc LSP", () => {
         }),
       });
 
-      const metadata = { is_block: true };
-      const encoded = btoa(JSON.stringify(metadata));
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/syntax-error#${encoded}`;
 
       stream.send({
@@ -546,8 +545,7 @@ describe("Arc LSP", () => {
         }),
       });
 
-      const metadata = { is_block: true };
-      const encoded = btoa(JSON.stringify(metadata));
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/multiline#${encoded}`;
 
       stream.send({
@@ -608,8 +606,7 @@ describe("Arc LSP", () => {
         }),
       });
 
-      const metadata = { is_block: true };
-      const encoded = btoa(JSON.stringify(metadata));
+      const encoded = url.encodeBase64(JSON.stringify({ is_block: true }));
       const blockURI = `arc://block/change-test#${encoded}`;
 
       stream.send({

@@ -12,6 +12,7 @@
 package ranger
 
 import (
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -21,13 +22,22 @@ func (rv Range) EncodeOrc(w *orc.Writer) error {
 	if err := rv.TimeRange.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := rv.Color.EncodeOrc(w); err != nil {
-		return err
+	if rv.Color != nil {
+		w.Bool(true)
+		if err := (*rv.Color).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
 	}
 	return nil
 }
 
 func (rv *Range) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
 	var err error
 	if _, err := r.Read(rv.Key[:]); err != nil {
 		return err
@@ -38,8 +48,18 @@ func (rv *Range) DecodeOrc(r *orc.Reader) error {
 	if err = rv.TimeRange.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = rv.Color.DecodeOrc(r); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv color.Color
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			rv.Color = &hv
+		}
 	}
 	return nil
 }

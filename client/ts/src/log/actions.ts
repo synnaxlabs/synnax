@@ -16,10 +16,16 @@ import {
   type Handlers,
   removeChannel,
   rename,
+  setChannelAlias,
+  setChannelColor,
   setChannelEntry,
+  setChannelNotation,
+  setChannelPrecision,
   setChannels,
-  setShowChannelNames,
-  setShowReceiptTimestamp,
+  setChannelTimestampFormat,
+  setChannelTimestampTz,
+  setHideChannelNames,
+  setHideReceiptTimestamp,
   setTimestampPrecision,
   swapChannel,
 } from "@/log/actions.gen";
@@ -79,6 +85,70 @@ const handlers: Handlers = {
     };
   },
 
+  setChannelColor: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelColor({
+        channel: payload.channel,
+        color: actions.snapshotDraft(entry.color),
+      }),
+    ];
+    entry.color = payload.color;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelNotation: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelNotation({ channel: payload.channel, notation: entry.notation }),
+    ];
+    entry.notation = payload.notation;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelPrecision: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelPrecision({ channel: payload.channel, precision: entry.precision }),
+    ];
+    entry.precision = payload.precision;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelAlias: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [setChannelAlias({ channel: payload.channel, alias: entry.alias })];
+    entry.alias = payload.alias;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelTimestampFormat: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelTimestampFormat({
+        channel: payload.channel,
+        format: entry.timestamp.format,
+      }),
+    ];
+    entry.timestamp.format = payload.format;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
+  setChannelTimestampTz: (state, payload) => {
+    const entry = state.channels.find((e) => e.channel === payload.channel);
+    if (entry == null) return actions.NO_OP_RESULT;
+    const inverse = [
+      setChannelTimestampTz({ channel: payload.channel, tz: entry.timestamp.tz }),
+    ];
+    entry.timestamp.tz = payload.tz;
+    return { inverse, targets: [`channel:${payload.channel}`] };
+  },
+
   setChannels: (state, payload) => {
     const oldChannels = actions.snapshotDraft(state.channels);
     const targets = new Set<string>();
@@ -107,20 +177,20 @@ const handlers: Handlers = {
     };
   },
 
-  setShowChannelNames: (state, payload) => {
-    const oldValue = state.showChannelNames;
-    state.showChannelNames = payload.showChannelNames;
+  setHideChannelNames: (state, payload) => {
+    const oldValue = state.hideChannelNames;
+    state.hideChannelNames = payload.hideChannelNames;
     return {
-      inverse: [setShowChannelNames({ showChannelNames: oldValue })],
+      inverse: [setHideChannelNames({ hideChannelNames: oldValue })],
       targets: [state.key],
     };
   },
 
-  setShowReceiptTimestamp: (state, payload) => {
-    const oldValue = state.showReceiptTimestamp;
-    state.showReceiptTimestamp = payload.showReceiptTimestamp;
+  setHideReceiptTimestamp: (state, payload) => {
+    const oldValue = state.hideReceiptTimestamp;
+    state.hideReceiptTimestamp = payload.hideReceiptTimestamp;
     return {
-      inverse: [setShowReceiptTimestamp({ showReceiptTimestamp: oldValue })],
+      inverse: [setHideReceiptTimestamp({ hideReceiptTimestamp: oldValue })],
       targets: [state.key],
     };
   },

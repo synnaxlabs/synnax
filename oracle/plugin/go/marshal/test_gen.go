@@ -284,8 +284,8 @@ func generateTestCodecFile(
 					fieldGoName := naming.GetFieldName(f)
 					var expr string
 					var err error
-					if f.IsHardOptional {
-						expr, err = b.hardOptionalExpr(r, f.Type)
+					if f.Optional && b.isGoPointerField(f.Type) {
+						expr, err = b.optionalExpr(r, f.Type)
 					} else {
 						expr, err = b.valueExpr(r, f.Type)
 					}
@@ -468,8 +468,8 @@ func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string,
 		fieldGoName := naming.GetFieldName(f)
 		var expr string
 		var err error
-		if f.IsHardOptional {
-			expr, err = b.hardOptionalExpr(resolved, f.Type)
+		if f.Optional && b.isGoPointerField(f.Type) {
+			expr, err = b.optionalExpr(resolved, f.Type)
 		} else {
 			expr, err = b.valueExpr(resolved, f.Type)
 		}
@@ -523,7 +523,26 @@ func (b *testValueBuilder) buildEmbeddedStructFieldExprs(
 	return exprs, nil
 }
 
-func (b *testValueBuilder) hardOptionalExpr(
+// isGoPointerField reports whether an optional field of the given type is
+// generated as a Go pointer by the types plugin. Slices, maps, and record/any
+// (msgpack.EncodedJSON) are nilable in place and are never pointerized, so only
+// the remaining types take the `new(...)` pointer form for their test value.
+func (b *testValueBuilder) isGoPointerField(ref resolution.TypeRef) bool {
+	resolved, ok := ref.Resolve(b.table)
+	if !ok {
+		return false
+	}
+	actual, _ := typemap.UnwrapTypeRef(resolved, ref, b.table)
+	switch form := actual.Form.(type) {
+	case resolution.BuiltinGenericForm:
+		return form.Name != "Array" && form.Name != "Map"
+	case resolution.PrimitiveForm:
+		return form.Name != "record" && form.Name != "any"
+	}
+	return true
+}
+
+func (b *testValueBuilder) optionalExpr(
 	resolved resolution.Type, ref resolution.TypeRef,
 ) (string, error) {
 	if b.mode == modeZeroValue {
@@ -608,8 +627,8 @@ func (b *testValueBuilder) valueExpr(
 				fieldGoName := naming.GetFieldName(f)
 				var expr string
 				var err error
-				if f.IsHardOptional {
-					expr, err = b.hardOptionalExpr(r, f.Type)
+				if f.Optional && b.isGoPointerField(f.Type) {
+					expr, err = b.optionalExpr(r, f.Type)
 				} else {
 					expr, err = b.valueExpr(r, f.Type)
 				}

@@ -83,6 +83,7 @@ type Transport struct {
 	RangeRetrieve freighter.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse]
 	RangeDelete   freighter.UnaryServer[ranger.DeleteRequest, types.Nil]
 	RangeRename   freighter.UnaryServer[ranger.RenameRequest, types.Nil]
+	RangeSetEnd   freighter.UnaryServer[ranger.SetEndRequest, types.Nil]
 	// KV
 	KVGet    freighter.UnaryServer[kv.GetRequest, kv.GetResponse]
 	KVSet    freighter.UnaryServer[kv.SetRequest, types.Nil]
@@ -99,9 +100,10 @@ type Transport struct {
 	OntologyRemoveChildren freighter.UnaryServer[ontology.RemoveChildrenRequest, types.Nil]
 	OntologyMoveChildren   freighter.UnaryServer[ontology.MoveChildrenRequest, types.Nil]
 	// GROUP
-	GroupCreate freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
-	GroupDelete freighter.UnaryServer[group.DeleteRequest, types.Nil]
-	GroupRename freighter.UnaryServer[group.RenameRequest, types.Nil]
+	GroupCreate   freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
+	GroupDelete   freighter.UnaryServer[group.DeleteRequest, types.Nil]
+	GroupRename   freighter.UnaryServer[group.RenameRequest, types.Nil]
+	GroupRetrieve freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	// PROJECT
 	ProjectCreate    freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
 	ProjectRetrieve  freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
@@ -177,6 +179,7 @@ type Transport struct {
 	ArcCreate   freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
 	ArcDelete   freighter.UnaryServer[arc.DeleteRequest, types.Nil]
 	ArcRetrieve freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
+	ArcDispatch freighter.UnaryServer[arc.DispatchRequest, types.Nil]
 	ArcLSP      freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
@@ -274,12 +277,14 @@ func (l *Layer) BindTo(t Transport) {
 		t.GroupCreate,
 		t.GroupDelete,
 		t.GroupRename,
+		t.GroupRetrieve,
 
 		// RANGE
 		t.RangeCreate,
 		t.RangeRetrieve,
 		t.RangeDelete,
 		t.RangeRename,
+		t.RangeSetEnd,
 
 		// KV
 		t.KVGet,
@@ -386,6 +391,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
+		t.ArcDispatch,
 
 		// IMPORT/EXPORT
 		t.ImExImport,
@@ -439,12 +445,14 @@ func (l *Layer) BindTo(t Transport) {
 	t.GroupCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Create))
 	t.GroupDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Delete))
 	t.GroupRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Group.Rename))
+	t.GroupRetrieve.BindHandler(l.Group.Retrieve)
 
 	// RANGE
 	t.RangeRetrieve.BindHandler(l.Range.Retrieve)
 	t.RangeCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Create))
 	t.RangeDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Delete))
 	t.RangeRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.Rename))
+	t.RangeSetEnd.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Range.SetEnd))
 
 	// KV
 	t.KVGet.BindHandler(l.KV.Get)
@@ -564,6 +572,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Create))
 	t.ArcDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Delete))
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
+	t.ArcDispatch.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Arc.Dispatch))
 	t.ArcLSP.BindHandler(l.Arc.LSP)
 
 	// IMPORT/EXPORT

@@ -23,17 +23,14 @@ import (
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db *cesium.DB
 				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				fs = openFS()
-				db = openDBOnFS(ctx, fs)
-			})
-			AfterAll(func() {
-				Expect(db.Close()).To(Succeed())
+				db = mustOpenDBOnFS(ctx, fs)
 			})
 
 			Describe("Accuracy", func() {
@@ -43,6 +40,7 @@ var _ = Describe("Iterator Behavior", func() {
 					i                                        *cesium.Iterator
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					data1Key, index1Key, data2Key, index2Key = GenerateChannelKey(),
 						GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 					index1 = cesium.Channel{Key: index1Key, Name: "Magellan", IsIndex: true, DataType: telem.TimeStampT}
@@ -264,6 +262,7 @@ var _ = Describe("Iterator Behavior", func() {
 					varDataKey cesium.ChannelKey
 				)
 				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
 					varIdxKey = GenerateChannelKey()
 					varDataKey = GenerateChannelKey()
 					Expect(db.CreateChannel(ctx,

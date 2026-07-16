@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { panel } from "@/panel";
@@ -37,70 +38,74 @@ const asSplit = (node: panel.Node): panel.NodeSplit => {
 const tabKeys = (node: panel.Node | undefined): string[] =>
   node?.variant === "leaf" ? node.tabs.map((t) => t.key) : [];
 
+const a = uuid.create();
+const b = uuid.create();
+const c = uuid.create();
+
 describe("reduceAll", () => {
   describe("moveTab", () => {
     it("should move a tab into the empty side of a freshly split leaf", () => {
-      const { next } = panel.reduceAll(state(leaf("a", "b")), [
+      const { next } = panel.reduceAll(state(leaf(a, b)), [
         panel.splitLeaf({ leaf: panel.ROOT_PATH, location: "right", size: 0.5 }),
         panel.moveTab({
-          key: "b",
+          key: b,
           targetLeaf: panel.childPath(panel.ROOT_PATH, "last"),
           index: 0,
         }),
       ]);
       const root = asSplit(next.root);
-      expect(tabKeys(root.first)).toEqual(["a"]);
-      expect(tabKeys(root.last)).toEqual(["b"]);
+      expect(tabKeys(root.first)).toEqual([a]);
+      expect(tabKeys(root.last)).toEqual([b]);
     });
 
     it("should collapse the source split when moving the last tab out of a side", () => {
-      const { next } = panel.reduceAll(state(split("x", 0.5, leaf("a"), leaf("b"))), [
-        panel.moveTab({ key: "a", targetLeaf: 3, index: 0 }),
+      const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
+        panel.moveTab({ key: a, targetLeaf: 3, index: 0 }),
       ]);
       expect(next.root.variant).toEqual("leaf");
-      expect(tabKeys(next.root)).toEqual(["a", "b"]);
+      expect(tabKeys(next.root)).toEqual([a, b]);
     });
 
     it("should split the target leaf and move the tab into the new sibling when location is present", () => {
-      const { next } = panel.reduceAll(state(leaf("a", "b")), [
-        panel.moveTab({ key: "b", targetLeaf: panel.ROOT_PATH, location: "right" }),
+      const { next } = panel.reduceAll(state(leaf(a, b)), [
+        panel.moveTab({ key: b, targetLeaf: panel.ROOT_PATH, location: "right" }),
       ]);
       const root = asSplit(next.root);
       expect(root.direction).toEqual("x");
-      expect(tabKeys(root.first)).toEqual(["a"]);
-      expect(tabKeys(root.last)).toEqual(["b"]);
+      expect(tabKeys(root.first)).toEqual([a]);
+      expect(tabKeys(root.last)).toEqual([b]);
     });
 
     it("should place the new sibling first for a top location", () => {
-      const { next } = panel.reduceAll(state(leaf("a", "b")), [
-        panel.moveTab({ key: "b", targetLeaf: panel.ROOT_PATH, location: "top" }),
+      const { next } = panel.reduceAll(state(leaf(a, b)), [
+        panel.moveTab({ key: b, targetLeaf: panel.ROOT_PATH, location: "top" }),
       ]);
       const root = asSplit(next.root);
       expect(root.direction).toEqual("y");
-      expect(tabKeys(root.first)).toEqual(["b"]);
-      expect(tabKeys(root.last)).toEqual(["a"]);
+      expect(tabKeys(root.first)).toEqual([b]);
+      expect(tabKeys(root.last)).toEqual([a]);
     });
 
     it("should no-op when moving a leaf's only tab to an edge of its own leaf", () => {
-      const { next } = panel.reduceAll(state(leaf("a")), [
-        panel.moveTab({ key: "a", targetLeaf: panel.ROOT_PATH, location: "left" }),
+      const { next } = panel.reduceAll(state(leaf(a)), [
+        panel.moveTab({ key: a, targetLeaf: panel.ROOT_PATH, location: "left" }),
       ]);
       expect(next.root.variant).toEqual("leaf");
-      expect(tabKeys(next.root)).toEqual(["a"]);
+      expect(tabKeys(next.root)).toEqual([a]);
     });
 
     it("should place the tab directly in the target leaf for a center location", () => {
-      const { next } = panel.reduceAll(state(split("x", 0.5, leaf("a"), leaf("b"))), [
-        panel.moveTab({ key: "a", targetLeaf: 3, location: "center" }),
+      const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b))), [
+        panel.moveTab({ key: a, targetLeaf: 3, location: "center" }),
       ]);
       expect(next.root.variant).toEqual("leaf");
-      expect(tabKeys(next.root)).toEqual(["b", "a"]);
+      expect(tabKeys(next.root)).toEqual([b, a]);
     });
   });
 
   describe("resizeSplit", () => {
     it("should return the same state reference when the size is unchanged", () => {
-      const prev = state(split("x", 0.5, leaf("a"), leaf("b")));
+      const prev = state(split("x", 0.5, leaf(a), leaf(b)));
       const { next } = panel.reduceAll(prev, [
         panel.resizeSplit({ split: panel.ROOT_PATH, size: 0.5 }),
       ]);
@@ -108,7 +113,7 @@ describe("reduceAll", () => {
     });
 
     it("should resize the split when the size differs", () => {
-      const prev = state(split("x", 0.5, leaf("a"), leaf("b")));
+      const prev = state(split("x", 0.5, leaf(a), leaf(b)));
       const { next } = panel.reduceAll(prev, [
         panel.resizeSplit({ split: panel.ROOT_PATH, size: 0.7 }),
       ]);
@@ -119,64 +124,63 @@ describe("reduceAll", () => {
 
   describe("insertTab", () => {
     it("should split the target leaf and insert into the new sibling when location is present", () => {
-      const { next } = panel.reduceAll(state(leaf("a")), [
+      const { next } = panel.reduceAll(state(leaf(a)), [
         panel.insertTab({
-          tab: { variant: "empty", key: "b" },
+          tab: { variant: "empty", key: b },
           targetLeaf: panel.ROOT_PATH,
           location: "bottom",
         }),
       ]);
       const root = asSplit(next.root);
       expect(root.direction).toEqual("y");
-      expect(tabKeys(root.first)).toEqual(["a"]);
-      expect(tabKeys(root.last)).toEqual(["b"]);
+      expect(tabKeys(root.first)).toEqual([a]);
+      expect(tabKeys(root.last)).toEqual([b]);
     });
 
     it("should insert directly into the target leaf for a center location", () => {
-      const { next } = panel.reduceAll(state(leaf("a")), [
+      const { next } = panel.reduceAll(state(leaf(a)), [
         panel.insertTab({
-          tab: { variant: "empty", key: "b" },
+          tab: { variant: "empty", key: b },
           targetLeaf: panel.ROOT_PATH,
           location: "center",
         }),
       ]);
       expect(next.root.variant).toEqual("leaf");
-      expect(tabKeys(next.root)).toEqual(["a", "b"]);
+      expect(tabKeys(next.root)).toEqual([a, b]);
     });
 
     it("should degrade an edge insert into an empty leaf to a direct insert", () => {
       const { next } = panel.reduceAll(state(leaf()), [
         panel.insertTab({
-          tab: { variant: "empty", key: "a" },
+          tab: { variant: "empty", key: a },
           targetLeaf: panel.ROOT_PATH,
           location: "right",
         }),
       ]);
       expect(next.root.variant).toEqual("leaf");
-      expect(tabKeys(next.root)).toEqual(["a"]);
+      expect(tabKeys(next.root)).toEqual([a]);
     });
   });
 
   describe("removeTab", () => {
     it("should collapse the split when removing a side's last tab", () => {
-      const { next } = panel.reduceAll(
-        state(split("x", 0.5, leaf("a"), leaf("b", "c"))),
-        [panel.removeTab({ key: "a" })],
-      );
+      const { next } = panel.reduceAll(state(split("x", 0.5, leaf(a), leaf(b, c))), [
+        panel.removeTab({ key: a }),
+      ]);
       expect(next.root.variant).toEqual("leaf");
-      expect(tabKeys(next.root)).toEqual(["b", "c"]);
+      expect(tabKeys(next.root)).toEqual([b, c]);
     });
   });
 
   describe("setTabResource", () => {
     it("should swap the tab variant in place without changing its position", () => {
       const resource = { type: "lineplot", key: "lp-1" } as const;
-      const { next } = panel.reduceAll(state(leaf("a", "b")), [
-        panel.setTabResource({ key: "a", resource }),
+      const { next } = panel.reduceAll(state(leaf(a, b)), [
+        panel.setTabResource({ key: a, resource }),
       ]);
       expect(next.root.variant).toEqual("leaf");
-      expect(tabKeys(next.root)).toEqual(["a", "b"]);
-      const tab = panel.findTab(next.root, "a");
+      expect(tabKeys(next.root)).toEqual([a, b]);
+      const tab = panel.findTab(next.root, a);
       expect(tab?.variant).toEqual("resource");
       if (tab?.variant === "resource") expect(tab.resource).toEqual(resource);
     });
@@ -184,10 +188,10 @@ describe("reduceAll", () => {
 
   describe("setTabView", () => {
     it("should swap the tab variant in place without changing its position", () => {
-      const { next } = panel.reduceAll(state(leaf("a")), [
-        panel.setTabView({ key: "a", type: "docs", args: {} }),
+      const { next } = panel.reduceAll(state(leaf(a)), [
+        panel.setTabView({ key: a, view: { type: "docs", name: "", args: {} } }),
       ]);
-      const tab = panel.findTab(next.root, "a");
+      const tab = panel.findTab(next.root, a);
       expect(tab?.variant).toEqual("view");
       if (tab?.variant === "view") {
         expect(tab.type).toEqual("docs");

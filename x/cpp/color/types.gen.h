@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -56,7 +57,7 @@ struct Stop {
     double position = 0;
     /// @brief switched indicates whether the stop's color has been switched by the
     /// user.
-    bool switched = false;
+    std::optional<bool> switched;
 
     static Stop parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

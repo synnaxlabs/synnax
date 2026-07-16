@@ -19,7 +19,7 @@ import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { List } from "@/list";
-import { useContext, useItemState, useSelection } from "@/select/Provider";
+import { useContext, useItemState, useSelected } from "@/select/Context";
 import { Tag } from "@/tag";
 import { Text } from "@/text";
 
@@ -105,7 +105,7 @@ export const MultipleTrigger = <
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
 }: MultipleTriggerProps<K, E>): ReactElement => {
-  const value = useSelection<K>();
+  const value = useSelected<K>();
   const valueRef = useSyncedRef(value);
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();

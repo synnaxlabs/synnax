@@ -62,7 +62,7 @@ namespace {
     variant_param.name = "variant";
     variant_param.type = str_type;
     variant_param.value = variant;
-    node.config = ::arc::types::Params{key_param, message_param, variant_param};
+    node.inputs = ::arc::types::Params{key_param, message_param, variant_param};
     ::arc::types::Type out_type;
     out_type.kind = ::arc::types::Kind::String;
     ::arc::types::Param out;
@@ -72,14 +72,13 @@ namespace {
     return node;
 }
 
-// recordingReporter pushes (variant, message) pairs into the provided vector.
-Reporter recordingReporter(std::vector<std::pair<std::string, std::string>> *out) {
-    return
-        [out](const std::string &v, const std::string &m) { out->emplace_back(v, m); };
+// recordingReporter pushes reported messages into the provided vector.
+Reporter recordingReporter(std::vector<std::string> *out) {
+    return [out](const std::string &m) { out->emplace_back(m); };
 }
 
 Reporter noopReporter() {
-    return [](const std::string &, const std::string &) {};
+    return [](const std::string &) {};
 }
 
 // Unique per test to avoid cross-run contamination on a shared cluster.
@@ -99,7 +98,7 @@ std::string unique_name(const std::string &prefix) {
     return ir;
 }
 
-} // namespace
+}
 
 TEST(StatusModuleTest, HandlesSet) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -240,7 +239,7 @@ TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto name = unique_name("set_iv_");
 
-    std::vector<std::pair<std::string, std::string>> calls;
+    std::vector<std::string> calls;
     auto node = make_set_ir_node(name, "msg", "bogus");
     auto ir = build_ir(node);
     ::arc::runtime::state::State s(
@@ -256,8 +255,7 @@ TEST(SetStatusTest, NextWarnsOnInvalidVariant) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].first, x::status::VARIANT_WARNING);
-    EXPECT_NE(calls[0].second.find("status.set:"), std::string::npos);
+    EXPECT_NE(calls[0].find("status.set:"), std::string::npos);
 }
 
 TEST(SetStatusTest, IsOutputTruthyDoesNotThrow) {

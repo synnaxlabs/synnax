@@ -16,8 +16,8 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/gorp"
 	xiter "github.com/synnaxlabs/x/iter"
@@ -69,9 +69,6 @@ var (
 )
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeTask }
-
-// Schema implements ontology.Service.
-func (s *Service) Schema() zyn.Schema { return schema }
 
 // SearchableFields implements ontology.SearchableFieldsProvider.
 func (s *Service) SearchableFields() []string { return []string{"type"} }

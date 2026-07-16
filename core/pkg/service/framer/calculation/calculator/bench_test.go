@@ -15,44 +15,87 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type benchEnv struct {
-	ctx    context.Context
-	dist   mock.Node
-	arcSvc *arc.Service
+	ctx           context.Context
+	node          mock.Node
+	closer        io.MultiCloser
+	channelSvc    *channel.Service
+	channelWriter channel.Writer
 }
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
-	ctx := context.Background()
-	distB := mock.NewCluster()
-	dist := distB.Provision(ctx)
-
-	arcSvc, err := arc.OpenService(ctx, arc.ServiceConfig{
-		Channel:  dist.Channel,
-		Ontology: dist.Ontology,
-		DB:       dist.DB,
-		Signals:  dist.Signals,
-		Search:   dist.Search,
-	})
+	node := mock.OpenNode(b.Context())
+	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
-		b.Fatalf("failed to open arc service: %v", err)
+		b.Fatalf("failed to open ontology: %v", err)
 	}
 
-	return &benchEnv{ctx: ctx, dist: dist, arcSvc: arcSvc}
+	searchIdx, err := search.OpenIndex()
+	if err != nil {
+		b.Fatalf("failed to open search index: %v", err)
+	}
+
+	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	})
+	if err != nil {
+		b.Fatalf("failed to open group service: %v", err)
+	}
+
+	labelSvc := MustSucceed(label.OpenService(b.Context(), label.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Group:    groupSvc,
+		Label:    labelSvc,
+		Search:   searchIdx,
+	}))
+	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostResolver: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
+	}))
+	return &benchEnv{
+		ctx:           b.Context(),
+		node:          node,
+		channelSvc:    channelSvc,
+		channelWriter: channelSvc.NewWriter(nil),
+		closer: io.MultiCloser{
+			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+		},
+	}
 }
 
 func (e *benchEnv) close(b *testing.B) {
-	if err := e.dist.Close(); err != nil {
-		b.Errorf("failed to close distribution: %v", err)
+	if err := e.closer.Close(); err != nil {
+		b.Errorf("failed to close env: %v", err)
 	}
 }
 
@@ -62,7 +105,7 @@ func (e *benchEnv) openCalculator(
 	calc *channel.Channel,
 ) *calculator.Calculator {
 	if len(indexes) > 0 {
-		if err := e.dist.Channel.CreateMany(e.ctx, &indexes); err != nil {
+		if err := e.channelWriter.CreateMany(e.ctx, &indexes); err != nil {
 			b.Fatalf("failed to create index channels: %v", err)
 		}
 	}
@@ -78,17 +121,16 @@ func (e *benchEnv) openCalculator(
 			ch.LocalIndex = indexes[toGet].LocalKey
 			bases[i] = ch
 		}
-		if err := e.dist.Channel.CreateMany(e.ctx, &bases); err != nil {
+		if err := e.channelWriter.CreateMany(e.ctx, &bases); err != nil {
 			b.Fatalf("failed to create base channels: %v", err)
 		}
 	}
-	if err := e.dist.Channel.Create(e.ctx, calc); err != nil {
+	if err := e.channelWriter.Create(e.ctx, calc); err != nil {
 		b.Fatalf("failed to create calc channel: %v", err)
 	}
 	mod, err := compiler.Compile(e.ctx, compiler.Config{
-		ChannelService: e.dist.Channel,
+		ChannelService: e.channelSvc,
 		Channel:        *calc,
-		SymbolResolver: e.arcSvc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		b.Fatalf("failed to compile calculator: %v", err)

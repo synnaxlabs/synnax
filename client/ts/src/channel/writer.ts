@@ -17,12 +17,11 @@ import {
   keyZ,
   nameZ,
   type New,
-  newZ,
   type Payload,
   payloadZ,
 } from "@/channel/types.gen";
 
-const createReqZ = z.object({ channels: newZ.array() });
+const createReqZ = z.object({ channels: payloadZ.array() });
 const createResZ = z.object({ channels: payloadZ.array() });
 
 const deleteReqZ = z.object({

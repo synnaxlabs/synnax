@@ -14,11 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,40 +31,32 @@ func TestProject(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db      *gorp.DB
-	svc     *project.Service
-	userSvc *user.Service
-	author  user.User
-	tx      gorp.Tx
+	db     *gorp.DB
+	svc    *project.Service
+	writer project.Writer
+	tx     gorp.Tx
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		var (
 			otg       = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx = MustOpen(search.Open())
+			searchIdx = MustOpen(search.OpenIndex())
 			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
 		)
-		userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
 		svc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-			Username: "test",
-		}))
+		writer = svc.NewWriter(nil)
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

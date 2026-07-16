@@ -22,7 +22,7 @@ func configureClientGRPC(
 	sec security.Provider,
 	insecure bool,
 ) *fgrpc.Pool {
-	return fgrpc.NewPool(
+	return fgrpc.OpenPool(
 		"",
 		grpc.WithTransportCredentials(getClientGRPCTransportCredentials(sec, insecure)),
 	)

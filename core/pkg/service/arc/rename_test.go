@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	arclsptestutil "github.com/synnaxlabs/arc/lsp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	lsptestutil "github.com/synnaxlabs/x/lsp/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -27,7 +27,7 @@ var _ = Describe("LSP Rename", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
@@ -49,7 +49,7 @@ var _ = Describe("LSP Rename", func() {
 		Expect(result.Changes[uri]).To(HaveLen(2))
 
 		var renamed channel.Channel
-		Expect(dist.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchKeys(ch.Key())).
 			Entry(&renamed).Exec(ctx, nil)).To(Succeed())
 		Expect(renamed.Name).To(Equal("lsp_renamed_ch"))
@@ -62,7 +62,7 @@ var _ = Describe("LSP Rename", func() {
 			Internal: true,
 			DataType: telem.Float32T,
 		}
-		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
@@ -81,7 +81,7 @@ var _ = Describe("LSP Rename", func() {
 		Expect(prepared).To(BeNil())
 
 		var original channel.Channel
-		Expect(dist.Channel.NewRetrieve().
+		Expect(channelSvc.NewRetrieve().
 			Where(channel.MatchKeys(ch.Key())).
 			Entry(&original).Exec(ctx, nil)).To(Succeed())
 		Expect(original.Name).To(Equal("lsp_rename_internal"))

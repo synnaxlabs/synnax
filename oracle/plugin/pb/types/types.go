@@ -368,7 +368,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 			Doc:        doc.Get(field.Domains),
 			Type:       "bytes",
 			Number:     number,
-			IsOptional: field.IsHardOptional,
+			IsOptional: field.Optional,
 			IsRepeated: false, // bytes is not repeated
 		}, nil
 	}
@@ -385,8 +385,26 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 			Doc:        doc.Get(field.Domains),
 			Type:       wrapperName,
 			Number:     number,
-			IsOptional: field.IsHardOptional,
+			IsOptional: field.Optional,
 			IsRepeated: true,
+		}, nil
+	}
+
+	// An optional list cannot be `optional repeated` in proto3, so wrap the repeated
+	// field in a message: an absent message is "not loaded" (null), a present message
+	// with an empty list is "loaded, empty". The message field is inherently nullable.
+	if field.Optional && isArray {
+		wrapperName, err := p.generateOptionalArrayWrapper(field.Type, data)
+		if err != nil {
+			return fieldData{}, errors.Wrapf(err, "field %q", field.Name)
+		}
+		return fieldData{
+			Name:       casing.FieldSnake(field.Name),
+			Doc:        doc.Get(field.Domains),
+			Type:       wrapperName,
+			Number:     number,
+			IsOptional: false,
+			IsRepeated: false,
 		}, nil
 	}
 
@@ -400,7 +418,7 @@ func (p *Plugin) processField(field resolution.Field, number int, data *template
 		Doc:        doc.Get(field.Domains),
 		Type:       protoType,
 		Number:     number,
-		IsOptional: field.IsHardOptional,
+		IsOptional: field.Optional,
 		IsRepeated: isArray,
 	}, nil
 }
@@ -503,6 +521,50 @@ func (p *Plugin) isNestedArrayType(typeRef resolution.TypeRef, table *resolution
 		return false
 	}
 	return p.isArrayType(elemType, table)
+}
+
+// generateOptionalArrayWrapper registers (once) a wrapper message holding the
+// repeated element type, so an optional list can be represented as a nullable
+// message field. Returns the wrapper message name.
+func (p *Plugin) generateOptionalArrayWrapper(typeRef resolution.TypeRef, data *templateData) (string, error) {
+	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	if !ok {
+		return "", errors.New("could not get element type for optional array")
+	}
+	elemProtoType, err := p.typeToProto(elemType, data)
+	if err != nil {
+		return "", errors.Wrap(err, "could not convert optional array element type to proto")
+	}
+	wrapperName := p.getOptionalArrayWrapperName(typeRef, data.table)
+	if data.wrapperMessages == nil {
+		data.wrapperMessages = make(set.Set[string])
+	}
+	if !data.wrapperMessages.Contains(wrapperName) {
+		data.wrapperMessages.Add(wrapperName)
+		data.Messages = append(data.Messages, messageData{
+			Name: wrapperName,
+			Fields: []fieldData{
+				{Name: "values", Type: elemProtoType, Number: 1, IsRepeated: true},
+			},
+		})
+	}
+	return wrapperName, nil
+}
+
+// getOptionalArrayWrapperName derives the wrapper message name for an optional list
+// (e.g. "Label" -> "LabelList"), distinct from the nested-array "Wrapper" suffix.
+func (p *Plugin) getOptionalArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {
+	elemType, ok := p.getArrayElementType(typeRef, table)
+	if !ok {
+		return "ListWrapper"
+	}
+	if resolved, ok := elemType.Resolve(table); ok {
+		return lo.PascalCase(resolved.Name) + "List"
+	}
+	if resolution.IsPrimitive(elemType.Name) {
+		return cases.Title(language.English).String(elemType.Name) + "List"
+	}
+	return "ListWrapper"
 }
 
 func (p *Plugin) getNestedArrayWrapperName(typeRef resolution.TypeRef, table *resolution.Table) string {

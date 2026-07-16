@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestCppPB(t *testing.T) {
@@ -214,7 +215,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Type struct {
 						name string
-						unit Unit??
+						unit Unit?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -241,8 +242,8 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Node struct {
 						name string
-						left Node??
-						right Node??
+						left Node?
+						right Node?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -281,8 +282,8 @@ var _ = Describe("C++ PB Plugin", func() {
 					Type struct extends FunctionProperties {
 						kind string
 						name string
-						elem Type??
-						constraint Type??
+						elem Type?
+						constraint Type?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -446,14 +447,14 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should handle hard optional any type fields", func(ctx SpecContext) {
+			It("Should handle optional any type fields", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
 					@pb output "core/pkg/service/types/pb"
 
 					Param struct {
 						name string
-						value any??
+						value any?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -526,6 +527,33 @@ var _ = Describe("C++ PB Plugin", func() {
 						// Should NOT use set_* for map fields
 						"pb.set_read(",
 						"pb.set_write(",
+					)
+			})
+
+			It("Should use to_struct/from_struct for record map values", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Graph struct {
+						configs map<string, record>
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						`#include "x/cpp/json/struct.h"`,
+						"for (const auto& [k, v] : this->configs)",
+						"auto [pb_v, err] = x::json::to_struct(v)",
+						"(*pb.mutable_configs())[k] = pb_v",
+						"for (const auto& [k, v] : pb.configs())",
+						"auto [cpp_v, err] = x::json::from_struct(v)",
+						"cpp.configs[k] = cpp_v",
+					).
+					ToNotContain(
+						"(*pb.mutable_configs())[k] = v;",
+						"cpp.configs[k] = v;",
 					)
 			})
 		})
@@ -809,7 +837,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					@pb output "core/pkg/service/types/pb"
 
 					Config struct {
-						data record??
+						data record?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -853,7 +881,7 @@ var _ = Describe("C++ PB Plugin", func() {
 			})
 		})
 
-		Context("hard optional uuid field", func() {
+		Context("optional uuid field", func() {
 			It("Should generate has_value check for optional uuid", func(ctx SpecContext) {
 				source := `
 					@cpp output "client/cpp/types"
@@ -861,7 +889,7 @@ var _ = Describe("C++ PB Plugin", func() {
 
 					Task struct {
 						key uuid
-						parent uuid??
+						parent uuid?
 					}
 				`
 				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
@@ -950,6 +978,40 @@ var _ = Describe("C++ PB Plugin", func() {
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("to_proto()").
 					ToContain("from_proto")
+			})
+		})
+
+		Context("cross-namespace string enum reference", func() {
+			BeforeEach(func() {
+				loader.Add("schemas/geo", `
+					@cpp output "x/cpp/geo"
+					@pb output "x/go/geo/pb"
+
+					Side enum {
+						left = "left"
+						right = "right"
+					}
+				`)
+			})
+
+			It("Should qualify the enum translator with the owning namespace", func(ctx SpecContext) {
+				source := `
+					import "schemas/geo"
+
+					@cpp output "x/cpp/marker"
+					@pb output "x/go/marker/pb"
+
+					Marker struct {
+						side geo.Side
+					}
+				`
+				resp := MustGenerate(ctx, source, "marker", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"::x::geo::side_to_pb(this->side)",
+						"::x::geo::side_from_pb(pb.side())",
+					)
 			})
 		})
 
@@ -1128,14 +1190,14 @@ var _ = Describe("C++ PB Plugin", func() {
 					)
 			})
 
-			It("Should emit optional-guarded JSON-bridge conversion for hard-optional type-param field", func(ctx SpecContext) {
+			It("Should emit optional-guarded JSON-bridge conversion for optional type-param field", func(ctx SpecContext) {
 				source := `
 					@cpp output "x/cpp/status"
 					@pb output "x/go/status/pb"
 
 					Status struct<Details> {
 						key     string
-						details Details??
+						details Details?
 					}
 				`
 				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
@@ -1151,3 +1213,5 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

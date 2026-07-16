@@ -52,6 +52,25 @@ export const buildQueryString = (
 };
 
 /**
+ * Encodes a string as unpadded base64url (RFC 4648 §5). The result contains only
+ * characters that are unreserved in URI paths, queries, and fragments, so it survives
+ * URI canonicalization unchanged and is safe to embed directly in a URL.
+ */
+export const encodeBase64 = (input: string): string => {
+  const bytes = new TextEncoder().encode(input);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+};
+
+/** Decodes an unpadded base64url string produced by {@link encodeBase64}. */
+export const decodeBase64 = (encoded: string): string => {
+  const binary = atob(encoded.replace(/-/g, "+").replace(/_/g, "/"));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+};
+
+/**
  * URL is a simple class for building and extending URLs.
  */
 export class URL {

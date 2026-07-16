@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, id, observe } from "@synnaxlabs/x";
+import { type color, type destructor, id, observe } from "@synnaxlabs/x";
 
 import {
   type BooleanSourceSpec,
+  type ColorSourceSpec,
   type NumberSourceSpec,
   type Source,
   type StringSourceSpec,
@@ -67,4 +68,11 @@ export const stringSourceSpec = (source: TestSource<string>): StringSourceSpec =
   props: { testId: source.id },
   variant: "source",
   valueType: "string",
+});
+
+export const colorSourceSpec = (source: TestSource<color.Color>): ColorSourceSpec => ({
+  type: TestSource.TYPE,
+  props: { testId: source.id },
+  variant: "source",
+  valueType: "color",
 });

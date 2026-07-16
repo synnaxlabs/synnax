@@ -231,7 +231,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 					Channel struct {
 						key uint32
-						status ChannelStatus??
+						status ChannelStatus?
 					}
 				`
 				resp := MustGenerate(ctx, channelSource, "channel", loader, cppPlugin)
@@ -242,7 +242,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			})
 		})
 
-		It("Should treat soft optional as bare type", func(ctx SpecContext) {
+		It("Should wrap optional scalars in std::optional", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -263,19 +263,19 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Soft optionals (?) are just the bare type in C++
-			Expect(content).To(ContainSubstring(`std::uint32_t task_counter = 0;`))
-			Expect(content).To(ContainSubstring(`bool embedded = false;`))
-			Expect(content).NotTo(ContainSubstring(`std::optional`))
+			// A trailing `?` makes the field optional, wrapped in std::optional.
+			Expect(content).To(ContainSubstring(`#include <optional>`))
+			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> task_counter;`))
+			Expect(content).To(ContainSubstring(`std::optional<bool> embedded;`))
 		})
 
-		It("Should use std::optional for hard optional types", func(ctx SpecContext) {
+		It("Should use std::optional for optional types", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
 				Rack struct {
 					key uint32
-					parent uint32??
+					parent uint32?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
@@ -288,7 +288,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Only hard optionals (??) use std::optional in C++
+			// Only optionals (?) use std::optional in C++
 			Expect(content).To(ContainSubstring(`#include <optional>`))
 			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> parent;`))
 		})
@@ -319,7 +319,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			// Note: vectors don't get = {} default since they have a proper default constructor
 		})
 
-		It("Should treat soft optional arrays as bare vector", func(ctx SpecContext) {
+		It("Should wrap optional arrays with std::optional", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
@@ -338,17 +338,17 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Soft optional array is just the vector without std::optional
-			Expect(content).To(ContainSubstring(`std::vector<std::string> tags;`))
+			// A trailing `?` wraps the vector in std::optional.
+			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
-		It("Should wrap hard optional arrays with std::optional", func(ctx SpecContext) {
+		It("Should wrap optional arrays with std::optional", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
 
 				Rack struct {
 					key uint32
-					tags string[]??
+					tags string[]?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
@@ -361,7 +361,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// Hard optional array wraps the vector with std::optional
+			// Optional array wraps the vector with std::optional
 			Expect(content).To(ContainSubstring(`std::optional<std::vector<std::string>> tags;`))
 		})
 
@@ -422,7 +422,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 
 				New struct extends Rack {
-					key uint32??
+					key uint32?
 					-task_counter
 				}
 			`
@@ -436,7 +436,7 @@ var _ = Describe("C++ Types Plugin", func() {
 			resp := MustSucceed(cppPlugin.Generate(req))
 
 			content := string(resp.Files[0].Content)
-			// New struct should have flattened fields with key hard optional and task_counter omitted
+			// New struct should have flattened fields with key optional and task_counter omitted
 			Expect(content).To(ContainSubstring(`struct New {`))
 			Expect(content).To(ContainSubstring(`std::optional<std::uint32_t> key;`))
 			Expect(content).To(ContainSubstring(`std::string name;`))
@@ -627,7 +627,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Status struct<D?> {
 					key uint32
-					details D??
+					details D?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
@@ -973,8 +973,8 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Node struct {
 					name string
-					left Node??
-					right Node??
+					left Node?
+					right Node?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
@@ -1000,10 +1000,10 @@ var _ = Describe("C++ Types Plugin", func() {
 				@cpp output "client/cpp/types"
 
 				A struct {
-					b B??
+					b B?
 				}
 				B struct {
-					a A??
+					a A?
 				}
 			`
 			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
@@ -1024,7 +1024,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Node struct {
 					children Node[]
-					parent Parent??
+					parent Parent?
 				}
 				Parent struct {
 					nodes Node[]
@@ -1041,10 +1041,10 @@ var _ = Describe("C++ Types Plugin", func() {
 				@cpp output "client/cpp/types"
 
 				A struct {
-					b BWrap??
+					b BWrap?
 				}
 				B struct {
-					a A??
+					a A?
 				}
 				BWrap B
 			`
@@ -1071,7 +1071,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Type struct {
 					name string
-					unit Unit??
+					unit Unit?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
@@ -1116,7 +1116,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Rack struct {
 					key uint32
-					status RackStatus??
+					status RackStatus?
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, rackSource, "rack", loader)
@@ -1525,7 +1525,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp output "out"
 
 					Config struct {
-						enabled     bool = true
+						enabled     bool = false
 						sample_rate float64 = 10
 						label       string = "dflt"
 					}
@@ -1533,7 +1533,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "config", loader, cppPlugin)
 				ExpectContent(resp, "types.gen.h").
 					ToContain(
-						`bool enabled = true;`,
+						`bool enabled = false;`,
 						`double sample_rate = 10;`,
 						`std::string label = "dflt";`,
 					)
@@ -1869,3 +1869,5 @@ var _ = Describe("C++ Union Variant Doc Coverage", func() {
 		commonContent.ToNotContain("struct Task {")
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

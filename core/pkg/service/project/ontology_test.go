@@ -18,24 +18,13 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/zyn"
 )
-
-// newAuthor creates a fresh user and returns its key. Committed-write specs
-// (OnChange, OpenNexter) use a unique author per spec so they never collide with
-// other specs that query projects by author.
-func newAuthor(ctx SpecContext) user.Key {
-	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: uuid.NewString(),
-	})).Key
-}
 
 var _ = Describe("Ontology", func() {
 	Describe("OntologyID", func() {
@@ -80,13 +69,6 @@ var _ = Describe("Ontology", func() {
 			}})).Error().To(MatchError(ContainSubstring("invalid UUID")))
 		})
 	})
-	Describe("Schema", func() {
-		It("Should return an object schema with key and name fields", func() {
-			shape := svc.Schema().Shape()
-			Expect(shape.DataType()).To(Equal(zyn.ObjectT))
-			Expect(shape.Fields()).To(SatisfyAll(HaveKey("key"), HaveKey("name")))
-		})
-	})
 	Describe("Type", func() {
 		It("Should return the project resource type", func() {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypeProject))
@@ -94,7 +76,7 @@ var _ = Describe("Ontology", func() {
 	})
 	Describe("RetrieveResource", func() {
 		It("Should retrieve a project as an ontology resource", func(ctx SpecContext) {
-			p := project.Project{Key: uuid.New(), Name: "resource", Author: author.Key}
+			p := project.Project{Key: uuid.New(), Name: "resource"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			resource := MustSucceed(svc.RetrieveResource(ctx, p.Key.String(), tx))
 			Expect(resource.ID).To(Equal(project.OntologyID(p.Key)))
@@ -122,8 +104,8 @@ var _ = Describe("Ontology", func() {
 			})
 			DeferCleanup(disconnect)
 
-			p := project.Project{Key: uuid.New(), Name: "observed", Author: newAuthor(ctx)}
-			Expect(svc.NewWriter(nil).Create(ctx, &p)).To(Succeed())
+			p := project.Project{Key: uuid.New(), Name: "observed"}
+			Expect(writer.Create(ctx, &p)).To(Succeed())
 			expectedID := project.OntologyID(p.Key).String()
 
 			Eventually(func(g Gomega) {
@@ -136,7 +118,7 @@ var _ = Describe("Ontology", func() {
 				g.Expect(changes[idx].Value.Name).To(Equal("observed"))
 			}).Should(Succeed())
 
-			Expect(svc.NewWriter(nil).Delete(ctx, p.Key)).To(Succeed())
+			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				mu.Lock()
@@ -150,10 +132,10 @@ var _ = Describe("Ontology", func() {
 	})
 	Describe("OpenNexter", func() {
 		It("Should iterate over all projects currently stored", func(ctx SpecContext) {
-			a := project.Project{Key: uuid.New(), Name: "a", Author: newAuthor(ctx)}
-			b := project.Project{Key: uuid.New(), Name: "b", Author: newAuthor(ctx)}
-			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
-			Expect(svc.NewWriter(nil).Create(ctx, &b)).To(Succeed())
+			a := project.Project{Key: uuid.New(), Name: "a"}
+			b := project.Project{Key: uuid.New(), Name: "b"}
+			Expect(writer.Create(ctx, &a)).To(Succeed())
+			Expect(writer.Create(ctx, &b)).To(Succeed())
 
 			seq, closer := MustSucceed2(svc.OpenNexter(ctx))
 			DeferClose(closer)

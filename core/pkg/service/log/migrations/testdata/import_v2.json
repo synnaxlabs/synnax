@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "type": "log",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Test Log V2",
+  "channels": [
+    {
+      "channel": 1,
+      "color": { "r": 127, "g": 29, "b": 29, "a": 1 },
+      "notation": "scientific",
+      "precision": 2,
+      "alias": "temp",
+      "timestamp": { "format": "ISO", "tz": "UTC" }
+    },
+    {
+      "channel": 5,
+      "color": { "r": 0, "g": 0, "b": 0, "a": 0 },
+      "notation": "standard",
+      "precision": -1,
+      "alias": "",
+      "timestamp": { "format": "", "tz": "" }
+    }
+  ],
+  "timestamp_precision": 1,
+  "hide_channel_names": false,
+  "hide_receipt_timestamp": true
+}

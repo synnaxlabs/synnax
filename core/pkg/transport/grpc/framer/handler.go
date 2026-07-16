@@ -16,10 +16,8 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/errors"
@@ -114,7 +112,7 @@ func (t frameWriterRequestTranslator) Backward(
 	if msg == nil {
 		return framer.WriterRequest{}, nil
 	}
-	r := framer.WriterRequest{Command: writer.Command(msg.Command)}
+	r := framer.WriterRequest{Command: framer.WriterCommand(msg.Command)}
 	if msg.Config != nil {
 		subj, err := controlpb.SubjectFromPB(msg.Config.ControlSubject)
 		if err != nil {
@@ -124,7 +122,7 @@ func (t frameWriterRequestTranslator) Backward(
 		r.Config = framer.WriterConfig{
 			Keys:                     keys,
 			Start:                    telem.TimeStamp(msg.Config.Start),
-			Mode:                     writer.Mode(msg.Config.Mode),
+			Mode:                     framer.WriterMode(msg.Config.Mode),
 			Authorities:              msg.Config.Authorities,
 			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
@@ -170,7 +168,7 @@ func (frameWriterResponseTranslator) Backward(
 	msg *WriterResponse,
 ) (framer.WriterResponse, error) {
 	return framer.WriterResponse{
-		Command: writer.Command(msg.Command),
+		Command: framer.WriterCommand(msg.Command),
 		End:     telem.TimeStamp(msg.End),
 		Err:     errors.TranslatePayloadBackward(msg.Error),
 	}, nil
@@ -209,7 +207,7 @@ func (t frameIteratorRequestTranslator) Backward(
 		}
 	}
 	return framer.IteratorRequest{
-		Command:   iterator.Command(msg.Command),
+		Command:   framer.IteratorCommand(msg.Command),
 		Span:      telem.TimeSpan(msg.Span),
 		Bounds:    tr,
 		Keys:      keys,
@@ -232,7 +230,7 @@ func (t frameIteratorResponseTranslator) Forward(
 	}
 	if t.codec != nil &&
 		t.codec.Initialized() &&
-		msg.Variant == iterator.ResponseVariantData &&
+		msg.Variant == framer.IteratorResponseVariantData &&
 		!msg.Frame.Empty() {
 		buf, err := t.codec.Encode(ctx, msg.Frame)
 		if err != nil {
@@ -254,8 +252,8 @@ func (t frameIteratorResponseTranslator) Backward(
 	msg *IteratorResponse,
 ) (framer.IteratorResponse, error) {
 	res := framer.IteratorResponse{
-		Variant: iterator.ResponseVariant(msg.Variant),
-		Command: iterator.Command(msg.Command),
+		Variant: framer.IteratorResponseVariant(msg.Variant),
+		Command: framer.IteratorCommand(msg.Command),
 		NodeKey: node.Key(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
@@ -401,7 +399,10 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func New(t *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport {
+func New(
+	t *api.Transport,
+	channelResolver codec.ChannelResolver,
+) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
@@ -409,7 +410,7 @@ func New(t *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 					fgrpc.Translator[framer.WriterRequest, *WriterRequest],
 					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(channelResolver)
 					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &FrameWriterService_ServiceDesc,
@@ -421,7 +422,7 @@ func New(t *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 					fgrpc.Translator[framer.IteratorRequest, *IteratorRequest],
 					fgrpc.Translator[framer.IteratorResponse, *IteratorResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(channelResolver)
 					return frameIteratorRequestTranslator{codec: codec},
 						frameIteratorResponseTranslator{codec: codec}
 				},
@@ -434,7 +435,7 @@ func New(t *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 					fgrpc.Translator[framer.StreamerRequest, *StreamerRequest],
 					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(channelResolver)
 					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,

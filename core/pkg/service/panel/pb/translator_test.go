@@ -15,7 +15,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/pb"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -25,7 +25,7 @@ import (
 
 func TestPanelPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Panel PB Suite")
+	RunSpecs(t, "Service Panel PB Suite")
 }
 
 // viewVariant builds a non-trivial view member, including an opaque Args map
@@ -33,9 +33,11 @@ func TestPanelPB(t *testing.T) {
 func viewVariant() panel.TabView {
 	return panel.TabView{
 		TabBase: panel.TabBase{Key: uuid.New()},
-		Type:    "docs",
-		Name:    "Docs",
-		Args:    msgpack.EncodedJSON{"path": "/intro", "pinned": true},
+		View: panel.View{
+			Type: "docs",
+			Name: "Docs",
+			Args: msgpack.EncodedJSON{"path": "/intro", "pinned": true},
+		},
 	}
 }
 
@@ -108,8 +110,10 @@ var _ = Describe("Translator", func() {
 				Name: "bad-args",
 				Root: leafNode(panel.Tab{Variant: panel.TabView{
 					TabBase: panel.TabBase{Key: uuid.New()},
-					Type:    "x",
-					Args:    msgpack.EncodedJSON{"bad": make(chan int)},
+					View: panel.View{
+						Type: "x",
+						Args: msgpack.EncodedJSON{"bad": make(chan int)},
+					},
 				}}),
 			}
 			Expect(pb.PanelToPB(p)).Error().To(MatchError(ContainSubstring("invalid type")))
@@ -142,16 +146,16 @@ var _ = Describe("Translator", func() {
 		})
 
 		It("Should round-trip a slice of view members without the wrapper-owned base", func() {
-			vs := []panel.TabView{
+			vs := []panel.View{
 				{Type: "docs", Name: "Docs", Args: msgpack.EncodedJSON{"path": "/intro"}},
 				{Type: "about", Args: msgpack.EncodedJSON{}},
 			}
-			back := MustSucceed(pb.TabViewsFromPB(MustSucceed(pb.TabViewsToPB(vs))))
+			back := MustSucceed(pb.ViewsFromPB(MustSucceed(pb.ViewsToPB(vs))))
 			Expect(back).To(Equal(vs))
 		})
 
 		It("Should return a zero view member when decoding nil", func() {
-			Expect(pb.TabViewFromPB(nil)).To(Equal(panel.TabView{}))
+			Expect(pb.ViewFromPB(nil)).To(Equal(panel.View{}))
 		})
 	})
 
@@ -194,3 +198,5 @@ var _ = Describe("Translator", func() {
 		})
 	})
 })
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

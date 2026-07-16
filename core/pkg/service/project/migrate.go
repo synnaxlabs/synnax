@@ -14,8 +14,8 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -200,6 +200,28 @@ func rewriteWorkspaceRelationships(ctx context.Context, tx gorp.Tx) error {
 		}
 	}
 	return nil
+}
+
+// RemoveAuthorRelationships deletes the parent-of relationships that pointed from a
+// project's author user to the project. The author field is no longer part of a
+// project, so its relationships are orphaned on existing clusters; a project's only
+// parent is now the Projects group. This must run after the workspace-to-project
+// migration, which re-types the legacy user-to-workspace relationships to
+// user-to-project before they can be matched here.
+func RemoveAuthorRelationships(ctx context.Context, tx gorp.Tx, otg *ontology.Ontology) error {
+	stale, err := collectEntries(
+		ctx,
+		gorp.WrapReader[string, ontology.Relationship](tx),
+		func(rel ontology.Relationship) bool {
+			return rel.Type == ontology.RelationshipTypeParentOf &&
+				rel.From.Type == ontology.ResourceTypeUser &&
+				rel.To.Type == ontology.ResourceTypeProject
+		},
+	)
+	if err != nil {
+		return err
+	}
+	return otg.NewWriter(tx).DeleteRelationships(ctx, stale...)
 }
 
 // collectEntries drains a reader into a slice of the entries matching keep.

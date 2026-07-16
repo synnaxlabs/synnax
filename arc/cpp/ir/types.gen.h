@@ -90,14 +90,12 @@ struct Body {
 };
 
 /// @brief Node is a concrete instantiation of a function with typed parameters and
-/// configuration values.
+/// values.
 struct Node {
     /// @brief key is the unique identifier for this node instance.
     std::string key;
     /// @brief type is the function type being instantiated.
     std::string type;
-    /// @brief config contains configuration parameter values.
-    ::arc::types::Params config;
     /// @brief inputs contains input parameter type signatures.
     ::arc::types::Params inputs;
     /// @brief outputs contains output parameter type signatures.
@@ -111,6 +109,8 @@ struct Node {
     using proto_type = ::arc::ir::pb::Node;
     [[nodiscard]] std::pair<::arc::ir::pb::Node, x::errors::Error> to_proto() const;
     static std::pair<Node, x::errors::Error> from_proto(const ::arc::ir::pb::Node &pb);
+    [[nodiscard]] std::pair<size_t, x::errors::Error>
+    resolve_input(const std::string &name) const;
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
     friend std::ostream &operator<<(std::ostream &os, const Node &n);
@@ -161,8 +161,6 @@ struct Function {
     std::string key;
     /// @brief body is raw source code for user-defined functions.
     Body body;
-    /// @brief config contains configuration parameter definitions.
-    ::arc::types::Params config;
     /// @brief inputs contains input parameter definitions.
     ::arc::types::Params inputs;
     /// @brief outputs contains output parameter definitions.
@@ -187,7 +185,10 @@ struct Nodes : private std::vector<Node> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Nodes() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Nodes();
 
     // Container interface
     using Base::begin;
@@ -257,7 +258,10 @@ struct Functions : private std::vector<Function> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Functions() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Functions();
 
     // Container interface
     using Base::begin;
@@ -308,7 +312,10 @@ struct Edges : private std::vector<Edge> {
 
     // Inherit constructors - these are instantiated at point of use, not declaration
     using Base::Base;
-    Edges() = default;
+    // The default constructor is defined out-of-line below so it instantiates the
+    // element type's destructor only after the element type is complete; the element
+    // may be forward-declared here to break a reference cycle.
+    Edges();
 
     // Container interface
     using Base::begin;
@@ -452,4 +459,10 @@ struct IR {
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
     friend std::ostream &operator<<(std::ostream &os, const IR &ir);
 };
+
+inline Nodes::Nodes() = default;
+
+inline Functions::Functions() = default;
+
+inline Edges::Edges() = default;
 }

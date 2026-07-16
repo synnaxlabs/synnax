@@ -41,7 +41,6 @@ import { Measure } from "@/lineplot/measure";
 import { type measure } from "@/lineplot/measure/aether";
 import {
   useDispatch,
-  useEnsureRetrieved,
   useRedo,
   useRename,
   useSelectAxisRuleKeys,
@@ -59,6 +58,7 @@ import {
 } from "@/lineplot/queries";
 import { Range } from "@/lineplot/range";
 import { Rule as BaseRule } from "@/lineplot/rule";
+import { useKey } from "@/lineplot/Suspended";
 import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
@@ -70,8 +70,7 @@ import { type Viewport } from "@/viewport";
 // in the consumer (Console's range slice), so the connected component receives
 // the static/dynamic time window per range key rather than reading it itself.
 export type ResolvedRange =
-  | { variant: "static"; timeRange: TimeRange }
-  | { variant: "dynamic"; span: TimeSpan };
+  { variant: "static"; timeRange: TimeRange } | { variant: "dynamic"; span: TimeSpan };
 
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 
@@ -85,8 +84,8 @@ const AXIS_LOCATIONS: Record<lineplot.AxisKey, location.Outer> = {
 };
 
 const UNDO_REDO_CONFIG: Triggers.ModeConfig<"undo" | "redo" | "default"> = {
-  undo: [["Control", "Z"]],
-  redo: [["Control", "Shift", "Z"]],
+  undo: [Triggers.UNDO],
+  redo: [Triggers.REDO],
   default: [],
   defaultMode: "default",
 };
@@ -248,7 +247,7 @@ const Legend = ({
       dispatch({ key, actions: [lineplot.setLineLabel({ key: lineKey, label })] }),
     [dispatch, key, editable],
   );
-  if (!legend.visible) return null;
+  if (legend.hidden) return null;
   return (
     <BaseLegend
       onLineColorChange={handleLineColorChange}
@@ -483,7 +482,6 @@ const useViewportReset = ({
 };
 
 export interface LinePlotProps extends FrameProps {
-  resourceKey: lineplot.Key;
   editable?: boolean;
   enableTriggers?: boolean | (() => boolean);
   resolvedRanges?: Map<string, ResolvedRange>;
@@ -502,7 +500,6 @@ export interface LinePlotProps extends FrameProps {
 }
 
 export const LinePlot = ({
-  resourceKey: key,
   editable = true,
   enableTriggers = true,
   resolvedRanges,
@@ -522,7 +519,7 @@ export const LinePlot = ({
   ref,
   ...rest
 }: LinePlotProps): ReactElement => {
-  useEnsureRetrieved({ key });
+  const key = useKey();
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useSelectXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });

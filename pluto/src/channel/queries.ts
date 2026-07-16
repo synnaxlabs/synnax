@@ -16,7 +16,14 @@ import {
   ontology,
   ranger,
 } from "@synnaxlabs/client";
-import { array, errors, type optional, primitive, TimeSpan } from "@synnaxlabs/x";
+import {
+  array,
+  control,
+  errors,
+  type optional,
+  primitive,
+  TimeSpan,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type channel as aetherChannel } from "@/channel/aether";
@@ -43,7 +50,7 @@ interface FluxSubStore extends Status.FluxSubStore {
   [Group.FLUX_STORE_KEY]: Group.FluxStore;
 }
 
-export const formSchema = channel.newZ
+export const formSchema = channel.payloadZ
   .required({ expression: true })
   .extend({
     name: channel.nameZ,
@@ -93,6 +100,7 @@ export const ZERO_FORM_VALUES: z.infer<
   leaseholder: 0,
   virtual: false,
   expression: "",
+  concurrency: control.Concurrency.exclusive,
   operations: [
     {
       type: "none",
@@ -114,11 +122,10 @@ const retrieveSingle = async ({
   }
   if (isCalculated(ch.payload))
     try {
-      const st = await Status.retrieveSingle<typeof channel.statusZ>({
+      const st = await Status.retrieveSingle({
         store,
         client,
         query: { key: channel.statusKey(key) },
-        detailsSchema: channel.statusZ,
       });
       ch = client.channels.sugar({ ...ch.payload, status: st });
     } catch (e) {

@@ -12,29 +12,12 @@
 package lineplot
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
-
-func (ab AutoBounds) EncodeOrc(w *orc.Writer) error {
-	w.Bool(ab.Lower)
-	w.Bool(ab.Upper)
-	return nil
-}
-
-func (ab *AutoBounds) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if ab.Lower, err = r.Bool(); err != nil {
-		return err
-	}
-	if ab.Upper, err = r.Bool(); err != nil {
-		return err
-	}
-	return nil
-}
 
 func (a Axes) EncodeOrc(w *orc.Writer) error {
 	if err := a.X1.EncodeOrc(w); err != nil {
@@ -88,7 +71,7 @@ func (a Axis) EncodeOrc(w *orc.Writer) error {
 	w.String(string(a.LabelLevel))
 	w.Float64(float64(a.Bounds.Lower))
 	w.Float64(float64(a.Bounds.Upper))
-	if err := a.AutoBounds.EncodeOrc(w); err != nil {
+	if err := a.ManualBounds.EncodeOrc(w); err != nil {
 		return err
 	}
 	w.Float64(float64(a.TickSpacing))
@@ -133,7 +116,7 @@ func (a *Axis) DecodeOrc(r *orc.Reader) error {
 	if a.Bounds.Upper, err = r.Float64(); err != nil {
 		return err
 	}
-	if err = a.AutoBounds.DecodeOrc(r); err != nil {
+	if err = a.ManualBounds.DecodeOrc(r); err != nil {
 		return err
 	}
 	if a.TickSpacing, err = r.Float64(); err != nil {
@@ -300,7 +283,7 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 }
 
 func (lv Legend) EncodeOrc(w *orc.Writer) error {
-	w.Bool(lv.Visible)
+	w.Bool(lv.Hidden)
 	if err := lv.Position.EncodeOrc(w); err != nil {
 		return err
 	}
@@ -309,7 +292,7 @@ func (lv Legend) EncodeOrc(w *orc.Writer) error {
 
 func (lv *Legend) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if lv.Visible, err = r.Bool(); err != nil {
+	if lv.Hidden, err = r.Bool(); err != nil {
 		return err
 	}
 	if err = lv.Position.DecodeOrc(r); err != nil {
@@ -484,6 +467,23 @@ func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+func (mb ManualBounds) EncodeOrc(w *orc.Writer) error {
+	w.Bool(mb.Lower)
+	w.Bool(mb.Upper)
+	return nil
+}
+
+func (mb *ManualBounds) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if mb.Lower, err = r.Bool(); err != nil {
+		return err
+	}
+	if mb.Upper, err = r.Bool(); err != nil {
+		return err
 	}
 	return nil
 }

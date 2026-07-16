@@ -14,21 +14,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
-	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
-	framertransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
+	disttransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc"
 	"github.com/synnaxlabs/synnax/pkg/driver"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
@@ -42,10 +39,10 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	xservice "github.com/synnaxlabs/x/service"
-	xsignal "github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -153,27 +150,17 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	// permission mask for all files appropriately.
 	disablePermissionBits()
 
-	var (
-		closer            xio.MultiCloser
-		securityProvider  security.Provider
-		storageLayer      *storage.Layer
-		distributionLayer *distribution.Layer
-		serviceLayer      *service.Layer
-		apiLayer          *api.Layer
-		transportLayer    transport.Layer
-		rootServer        *server.Server
-		embeddedDriver    *driver.Driver
-	)
-	cleanup, ok := xservice.NewOpener(ctx, &closer)
-	defer func() {
-		err = cleanup(err)
-	}()
+	var closer xio.MultiCloser
 
-	if securityProvider, err = security.NewProvider(security.ProviderConfig{
+	cleanup, ok := xservice.NewOpener(ctx, &closer)
+	defer func() { err = cleanup(err) }()
+
+	securityProvider, err := security.NewProvider(security.ProviderConfig{
 		LoaderConfig: cfg.certFactoryConfig.LoaderConfig,
 		Insecure:     cfg.insecure,
 		KeySize:      cfg.certFactoryConfig.KeySize,
-	}); !ok(err, nil) {
+	})
+	if !ok(err, nil) {
 		return err
 	}
 
@@ -183,11 +170,12 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
-	if storageLayer, err = storage.OpenLayer(ctx, storage.LayerConfig{
+	storageLayer, err := storage.OpenLayer(ctx, storage.LayerConfig{
 		Instrumentation: cfg.Child("storage"),
 		InMemory:        cfg.memBacked,
 		Dirname:         cfg.dataPath,
-	}); !ok(err, storageLayer) {
+	})
+	if !ok(err, storageLayer) {
 		return err
 	}
 
@@ -199,46 +187,41 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return ctx.Err()
 	}
 	var (
-		aspenTransport         = aspentransport.New(grpcClientPool)
-		frameTransport         = framertransport.New(grpcClientPool)
-		channelTransport       = channeltransport.New(grpcClientPool)
-		distributionTransports = []grpc.BindableTransport{
-			aspenTransport,
-			frameTransport,
-			channelTransport,
-		}
+		aspenTransport = aspentransport.New(grpcClientPool)
+		distTransport  = disttransport.New(grpcClientPool)
 	)
 
-	if distributionLayer, err = distribution.OpenLayer(ctx, distribution.LayerConfig{
-		Instrumentation:      cfg.Child("distribution"),
-		AdvertiseAddress:     cfg.listenAddress,
-		PeerAddresses:        cfg.peers,
-		AspenTransport:       aspenTransport,
-		FrameTransport:       frameTransport,
-		ChannelTransport:     channelTransport,
-		Verifier:             cfg.verifier,
+	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
+		Instrumentation:  cfg.Child("distribution"),
+		AdvertiseAddress: cfg.listenAddress,
+		PeerAddresses:    cfg.peers,
+		AspenTransport:   aspenTransport,
+		Transport:        distTransport,
+		Storage:          storageLayer,
+	})
+	if !ok(err, distributionLayer) {
+		return err
+	}
+
+	serviceLayer, err := service.OpenLayer(ctx, service.LayerConfig{
+		Instrumentation:      cfg.Child("service"),
+		Distribution:         distributionLayer,
+		Security:             securityProvider,
 		Storage:              storageLayer,
+		RootCredentials:      cfg.rootCredentials,
+		Verifier:             cfg.verifier,
 		ValidateChannelNames: cfg.validateChannelNames,
-	}); !ok(err, distributionLayer) {
+	})
+	if !ok(err, serviceLayer) {
 		return err
 	}
 
-	if serviceLayer, err = service.OpenLayer(ctx, service.LayerConfig{
-		Instrumentation: cfg.Child("service"),
-		Distribution:    distributionLayer,
-		Security:        securityProvider,
-		Storage:         storageLayer,
-		RootCredentials: cfg.rootCredentials,
-	}); !ok(err, serviceLayer) {
-		return err
-	}
-
-	apiCfg := api.LayerConfig{
+	apiLayer, err := api.NewLayer(api.LayerConfig{
 		Instrumentation: cfg.Child("api"),
 		Service:         serviceLayer,
 		Distribution:    distributionLayer,
-	}
-	if apiLayer, err = api.NewLayer(apiCfg); !ok(err, nil) {
+	})
+	if !ok(err, nil) {
 		return err
 	}
 
@@ -250,12 +233,12 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	}); !ok(err, nil) {
 		return err
 	}
-	if transportLayer, err = transport.NewLayer(transport.LayerConfig{
+	transportLayer, err := transport.NewLayer(transport.LayerConfig{
 		Instrumentation: cfg.Child("transport"),
 		API:             apiLayer,
 		Router:          r,
-		Channel:         distributionLayer.Channel,
-	}); !ok(err, nil) {
+	})
+	if !ok(err, nil) {
 		return err
 	}
 
@@ -264,15 +247,16 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
-	if rootServer, err = server.Serve(
+	if rootServer, err := server.Serve(
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
 					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
-				&server.GRPCBranch{Transports: slices.Concat(
+				&server.GRPCBranch{Transports: append(
 					transportLayer.GRPC,
-					distributionTransports,
+					aspenTransport,
+					distTransport,
 				)},
 				server.NewHTTPRedirectBranch(),
 			},
@@ -296,12 +280,12 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	// details on this issue.
 	if stopSearchIndexing := runStartupSearchIndexing(
 		ctx,
-		distributionLayer,
+		serviceLayer,
 	); !ok(nil, stopSearchIndexing) {
 		return nil
 	}
 
-	if embeddedDriver, err = driver.Open(
+	if embeddedDriver, err := driver.Open(
 		ctx,
 		driver.Config{
 			Enabled:             new(!*cfg.noDriver),
@@ -350,25 +334,22 @@ func openWorkDir() (string, io.Closer, error) {
 		"workdir",
 		strconv.Itoa(os.Getpid()),
 	)
-	if err = os.MkdirAll(dir, xfs.UserRWX); err != nil {
+	if err = os.MkdirAll(dir, fs.UserRWX); err != nil {
 		return "", nil, err
 	}
 	return dir, xio.CloserFunc(func() error { return os.RemoveAll(dir) }), nil
 }
 
-func runStartupSearchIndexing(
-	ctx context.Context,
-	dist *distribution.Layer,
-) io.Closer {
+func runStartupSearchIndexing(ctx context.Context, svc *service.Layer) io.Closer {
 	// Run indexing inside an isolated signal context, so that if we receive an early
 	// cancellation signal, we can ensure that we exit indexing before we close any
 	// resources that it depends on (notably storage KV).
-	searchIndexCtx, cancelIndexing := xsignal.WithCancel(ctx)
+	searchIndexCtx, cancelIndexing := signal.WithCancel(ctx)
 	searchIndexCtx.Go(
-		dist.Search.Initialize,
-		xsignal.WithKey("startup_search_indexing"),
+		svc.Search.Initialize,
+		signal.WithKey("startup_search_indexing"),
 	)
-	return xsignal.NewHardShutdown(searchIndexCtx, cancelIndexing)
+	return signal.NewHardShutdown(searchIndexCtx, cancelIndexing)
 }
 
 func parseIntegrations(enabled, disabled []string) []string {

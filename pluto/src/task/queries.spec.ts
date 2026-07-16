@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, group, ontology, task } from "@synnaxlabs/client";
-import { id, status, TimeStamp } from "@synnaxlabs/x";
+import { group, ontology, status, task } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
+import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -239,6 +240,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: {},
         },
       });
@@ -332,6 +334,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: true,
+          cmd: "",
           data: {},
         },
       });
@@ -406,6 +409,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: { error: "Test error" },
         },
       });
@@ -726,6 +730,59 @@ describe("queries", () => {
       expect(result.current.form.get("snapshot").value).toEqual(false);
     });
 
+    it("should honor an initial rackKey when creating a new task", async () => {
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          name: "testTask",
+          type: "testType",
+          config: {},
+          rackKey: testRack.key,
+        },
+      });
+      const { result } = renderHook(() => useForm({ query: {} }), {
+        wrapper,
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(result.current.form.get("rackKey").value).toEqual(testRack.key);
+    });
+
+    it("should derive rackKey from the task key even when an initial rackKey is set", async () => {
+      const otherRack = await client.racks.create({ name: "otherRack" });
+      const existing = await testRack.createTask({
+        name: "rackKeyDeriveTask",
+        type: "testType",
+        config: {},
+      });
+      const useForm = Task.createForm({
+        schemas: {
+          type: z.literal("testType"),
+          config: z.object({}),
+          statusData: z.any().optional(),
+        },
+        initialValues: {
+          key: existing.key,
+          name: "rackKeyDeriveTask",
+          type: "testType",
+          config: {},
+          rackKey: otherRack.key,
+        },
+      });
+      const { result } = renderHook(() => useForm({ query: {} }), {
+        wrapper,
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(result.current.form.get("rackKey").value).toEqual(testRack.key);
+    });
+
     it("should retrieve and populate form with existing task", async () => {
       const testTask = await testRack.createTask({
         name: "existingTask",
@@ -998,6 +1055,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: { errorCode: 500 },
         },
       });
@@ -1133,6 +1191,7 @@ describe("queries", () => {
         details: {
           task: testTask.key,
           running: false,
+          cmd: "",
           data: { errorCode: 500 },
         },
       });
@@ -1464,14 +1523,13 @@ describe("queries", () => {
         const fr = await streamer.read();
         const sample = fr.at(-1)[task.COMMAND_CHANNEL_NAME];
         const parsed = task.commandZ.parse(sample);
-        const stat: task.Status = {
+        const stat: task.Status = status.create<task.StatusDetailsZodObject>({
           key: parsed.key,
           name: "Task Status",
           variant: "success",
           message: "Command executed successfully",
-          time: TimeStamp.now(),
-          details: { task: t.key, running: true, data: {} },
-        };
+          details: { task: t.key, running: true, cmd: "", data: {} },
+        });
         await client.statuses.set(stat);
       });
       streamer.close();

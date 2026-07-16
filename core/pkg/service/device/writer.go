@@ -13,13 +13,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -41,7 +40,7 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 			Key:     OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
-			Variant: xstatus.VariantWarning,
+			Variant: status.VariantWarning,
 			Message: fmt.Sprintf("%s state unknown", d.Name),
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
@@ -52,6 +51,22 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 	stat.Details.Device = d.Key
 	stat.Details.Rack = d.Rack
 	return &stat
+}
+
+// healStatus restores a device's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Devices are re-created on every scan
+// cycle, so on a no-op update the default "unknown" status must not overwrite a status
+// the driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *status.Status[StatusDetails],
+) error {
+	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+		Exists(ctx, w.tx); err != nil || exists {
+		return err
+	}
+	return w.status.Set(ctx, stat)
 }
 
 // Create creates or updates the given device. If device.Parent is non-zero, the device
@@ -101,7 +116,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 		if device.Name != existing.Name {
 			return w.status.Set(ctx, stat)
 		}
-		return nil
+		return w.healStatus(ctx, stat)
 	}
 	stat := resolveStatus(device, providedStatus)
 	device.Status = stat
@@ -109,7 +124,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 		return err
 	}
 	otgID := OntologyID(device.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if err = w.otg.DeleteIncomingRelationshipsOfType(
@@ -119,7 +134,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(
+	return w.otg.DefineRelationships(
 		ctx,
 		parentID,
 		ontology.RelationshipTypeParentOf,
@@ -140,7 +155,7 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 
 // Delete deletes the device with the given key and its associated status.
 func (w Writer) Delete(ctx context.Context, key Key) error {
-	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+	if err := w.otg.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	if err := w.status.Delete(ctx, OntologyID(key).String()); err != nil {

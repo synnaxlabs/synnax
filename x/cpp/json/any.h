@@ -24,7 +24,7 @@ inline google::protobuf::Any to_any(const json &j) {
     const auto &obj = j.is_object() ? j : json::object();
     auto [s, err] = to_struct(obj);
     if (err) return any;
-    any.PackFrom(s);
+    if (!any.PackFrom(s)) return google::protobuf::Any{};
     return any;
 }
 

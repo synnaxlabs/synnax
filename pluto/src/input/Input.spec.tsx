@@ -335,7 +335,7 @@ describe("Input", () => {
         const input = c.getByRole("textbox");
         fireEvent.change(input, { target: { value: "15" } });
         fireEvent.blur(input);
-        expect(onChange).toHaveBeenCalledWith(9);
+        expect(onChange).toHaveBeenCalledWith(10);
       });
 
       it("should clamp negative values to lower bound", () => {

@@ -20,7 +20,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/api/ranger/pb/ranger.pb.h"
+#include "core/pkg/service/ranger/pb/ranger.pb.h"
 #include "core/pkg/transport/grpc/ranger/ranger.pb.h"
 
 namespace synnax::ranger {
@@ -32,16 +32,22 @@ using RetrieveClient = freighter::
 using CreateClient = freighter::
     UnaryClient<grpc::ranger::CreateRequest, grpc::ranger::CreateResponse>;
 
+/// @brief type alias for the transport used to set the end bound of a range.
+using SetEndClient = freighter::
+    UnaryClient<grpc::ranger::SetEndRequest, google::protobuf::Empty>;
+
 /// @brief a client for performing operations on the ranges in a Synnax cluster.
 class Client {
 public:
     Client(
         std::unique_ptr<RetrieveClient> retrieve_client,
         std::unique_ptr<CreateClient> create_client,
+        std::unique_ptr<SetEndClient> set_end_client,
         const ranger::kv::Client &kv_client
     ):
         retrieve_client(std::move(retrieve_client)),
         create_client(std::move(create_client)),
+        set_end_client(std::move(set_end_client)),
         kv(kv_client) {}
 
     /// @brief retrieves the range with the given key.
@@ -70,11 +76,18 @@ public:
     [[nodiscard]] std::pair<Range, x::errors::Error>
     create(const std::string &name, x::telem::TimeRange time_range) const;
 
+    /// @brief sets the end bound of the range with the given key in a single request,
+    /// preserving all other fields.
+    [[nodiscard]] x::errors::Error
+    set_end(const Key &key, x::telem::TimeStamp end) const;
+
 private:
     /// @brief range retrieval transport.
     std::unique_ptr<RetrieveClient> retrieve_client;
     /// @brief create retrieval transport.
     std::unique_ptr<CreateClient> create_client;
+    /// @brief set-end transport.
+    std::unique_ptr<SetEndClient> set_end_client;
     /// @brief range kv get transport.
     ranger::kv::Client kv;
 

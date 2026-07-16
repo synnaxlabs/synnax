@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -42,6 +42,10 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
 	lp.Lines = reconcileLines(*lp)
+	lp.ApplyDefaults()
+	if err := lp.Validate(); err != nil {
+		return err
+	}
 	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -49,13 +53,13 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, lp *LinePlot
 		return nil
 	}
 	otgID := OntologyID(lp.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
+	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if projectKey == uuid.Nil {
 		return nil
 	}
-	return w.otg.DefineRelationship(
+	return w.otg.DefineRelationships(
 		ctx,
 		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
@@ -105,10 +109,5 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
 }

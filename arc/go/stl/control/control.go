@@ -46,12 +46,10 @@ var (
 
 func newSymbolProps() types.Type {
 	return types.Function(types.FunctionProperties{
-		Config: types.Params{
-			{Name: "value", Type: types.U8()},
-			{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
-		},
 		Inputs: types.Params{
 			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
+			{Name: "value", Type: types.U8()},
+			{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
 		},
 	})
 }
@@ -61,11 +59,12 @@ func newSymbolProps() types.Type {
 // (set_authority) whose Deprecated field points at the canonical member.
 func NewSymbols() []*symbol.Symbol {
 	member := &symbol.Symbol{
-		Name: symbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: newSymbolProps(),
-		Doc:  memberDoc,
+		Name:    symbolName,
+		Kind:    symbol.KindFunction,
+		Exec:    symbol.ExecFlow,
+		Type:    newSymbolProps(),
+		Trigger: symbol.TriggerInput(ir.DefaultOutputParam),
+		Doc:     memberDoc,
 	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(member)
@@ -91,17 +90,17 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg nodeConfig
-	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
-		return nil, errors.Wrap(err, "control.set_authority config")
+	var inputs nodeInputs
+	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &inputs); err != nil {
+		return nil, errors.Wrap(err, "control.set_authority inputs")
 	}
 	var channelKey *uint32
-	if nodeCfg.Channel != 0 {
-		channelKey = &nodeCfg.Channel
+	if inputs.Channel != 0 {
+		channelKey = &inputs.Channel
 	}
 	return &setAuthority{
 		auth:       h.auth,
-		authority:  nodeCfg.Value,
+		authority:  inputs.Value,
 		channelKey: channelKey,
 	}, nil
 }
@@ -111,7 +110,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Number().Uint32(),
 })
 
-type nodeConfig struct {
+type nodeInputs struct {
 	Value   uint8  `json:"value"`
 	Channel uint32 `json:"channel"`
 }

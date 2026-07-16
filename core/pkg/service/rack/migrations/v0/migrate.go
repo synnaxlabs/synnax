@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -135,7 +134,7 @@ func backfillStatuses(
 				Key:     key,
 				Name:    r.Name,
 				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
+				Variant: status.VariantWarning,
 				Message: "Status unknown",
 				Details: StatusDetails{Rack: r.Key},
 			})

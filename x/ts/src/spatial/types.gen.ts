@@ -180,9 +180,9 @@ export const stickyXYZ = z.object({
   x: z.number(),
   /** y is the vertical coordinate. */
   y: z.number(),
-  /** root is the optional anchor corner for the position. */
-  root: cornerLocationZ.optional(),
-  /** units is the optional unit specification for the coordinates. */
-  units: stickyUnitsZ.optional(),
+  /** root is the anchor corner for the position. */
+  root: cornerLocationZ.prefault({ x: "left", y: "top" }),
+  /** units is the unit specification for the coordinates. */
+  units: stickyUnitsZ.prefault({ x: "px", y: "px" }),
 });
 export interface StickyXY extends z.infer<typeof stickyXYZ> {}

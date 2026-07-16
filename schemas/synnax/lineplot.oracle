@@ -1,0 +1,588 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/x/color"
+import "schemas/x/spatial"
+import "schemas/x/text"
+
+@ts output "client/ts/src/lineplot"
+@go output "core/pkg/service/lineplot"
+@pb
+
+Key = uuid {
+    @doc value "is a unique identifier for a line plot, represented as a UUID."
+}
+
+TickType enum {
+    linear = "linear"
+    time   = "time"
+
+    @doc value "selects how an axis renders its tick labels."
+}
+
+DownsampleMode enum {
+    average  = "average"
+    decimate = "decimate"
+
+    @doc value "selects how a line condenses samples that map to the same pixel."
+}
+
+XAxisKey enum {
+    x1 = "x1"
+    x2 = "x2"
+
+    @doc value "names one of the two x-axes. X-axes carry a single channel each."
+}
+
+YAxisKey enum {
+    y1 = "y1"
+    y2 = "y2"
+    y3 = "y3"
+    y4 = "y4"
+
+    @doc value "names one of the four y-axes. Y-axes carry zero or more channels each."
+}
+
+AxisKey enum extends XAxisKey, YAxisKey {
+    @doc value "names one of the six fixed plot axes."
+}
+
+Title struct {
+    level   text.Level = text.LevelH4 {
+        @doc value "is the typography level of the title text."
+    }
+    visible bool = false {
+        @doc value "is whether the title is shown above the plot."
+    }
+
+    @doc value "is the plot title configuration."
+}
+
+Legend struct {
+    hidden   bool = false {
+        @doc value "is whether the legend is hidden. When false (the default), the legend is shown."
+    }
+    position spatial.StickyXY = {
+        x = 50,
+        y = 50,
+        root = { x = spatial.XLocationLeft, y = spatial.YLocationTop },
+        units = { x = spatial.StickyUnitPx, y = spatial.StickyUnitPx }
+    } {
+        @doc value "is the anchor position of the legend within the plot container."
+    }
+
+    @doc value "is the plot legend configuration."
+}
+
+Channels struct {
+    x1 channel.Key = 0 {
+        @doc value "is the channel rendered on the x1 axis."
+    }
+    x2 channel.Key = 0 {
+        @doc value "is the channel rendered on the x2 axis."
+    }
+    y1 channel.Key[] {
+        @doc value "are the channels rendered on the y1 axis."
+    }
+    y2 channel.Key[] {
+        @doc value "are the channels rendered on the y2 axis."
+    }
+    y3 channel.Key[] {
+        @doc value "are the channels rendered on the y3 axis."
+    }
+    y4 channel.Key[] {
+        @doc value "are the channels rendered on the y4 axis."
+    }
+
+    @doc value """
+        binds channel keys to each axis. x1 and x2 are single-channel; y1
+        through y4 carry zero or more channels each.
+    """
+}
+
+Ranges struct {
+    x1 string[] {
+        @doc value """
+            are the range keys plotted against the x1 axis. Range keys are
+            opaque strings rather than UUIDs because the console layers
+            synthetic rolling-window ranges (e.g. "recent", "rolling1m")
+            alongside persisted ranges; the server stores whatever the
+            client sends.
+        """
+    }
+    x2 string[] {
+        @doc value "are the range keys plotted against the x2 axis."
+    }
+
+    @doc value "binds range keys to each x-axis."
+}
+
+ManualBounds struct {
+    lower bool = false {
+        @doc value "is whether the lower bound is set manually rather than computed from data."
+    }
+    upper bool = false {
+        @doc value "is whether the upper bound is set manually rather than computed from data."
+    }
+
+    @doc value """
+        controls whether an axis uses a manually-set bound on each side
+        independently. When a side is false (the default), the corresponding
+        entry in Axis.bounds is recomputed locally from the rendered data
+        window and never broadcast to the server; when true, Axis.bounds holds
+        the user-set value.
+    """
+}
+
+Axis struct {
+    key             AxisKey           {
+        @doc value "identifies which of the six axes this configuration applies to."
+    }
+    label           string = "" {
+        @doc value "is the human-readable label rendered along the axis."
+    }
+    label_direction spatial.Direction = spatial.DirectionX {
+        @doc value "is the orientation in which the label text is laid out."
+    }
+    label_level     text.Level = text.LevelSmall {
+        @doc value "is the typography level of the label."
+    }
+    bounds          spatial.Bounds = { lower = 0, upper = 0 } {
+        @doc value """
+            is the value-space window of the axis. When the matching entry in
+            manual_bounds is false the field is overwritten locally on every
+            render; otherwise it is the user-set fixed bound.
+        """
+    }
+    manual_bounds   ManualBounds = {} {
+        @doc value "controls per-edge manual bound override."
+    }
+    tick_spacing    float64 = 75 {
+        @doc value "is the target pixel distance between adjacent tick marks."
+    }
+    type            TickType?         {
+        @doc value """
+            selects the tick label style. Null means default (linear).
+            X-axes typically carry "time" when bound to a timestamp channel.
+        """
+    }
+
+    @doc value "is the configuration for a single plot axis."
+}
+
+Axes struct {
+    x1 Axis = { key = AxisKeyX1 } {
+        @doc value "is the x1 axis configuration."
+    }
+    x2 Axis = { key = AxisKeyX2 } {
+        @doc value "is the x2 axis configuration."
+    }
+    y1 Axis = { key = AxisKeyY1, label_direction = spatial.DirectionY } {
+        @doc value "is the y1 axis configuration."
+    }
+    y2 Axis = { key = AxisKeyY2, label_direction = spatial.DirectionY } {
+        @doc value "is the y2 axis configuration."
+    }
+    y3 Axis = { key = AxisKeyY3, label_direction = spatial.DirectionY } {
+        @doc value "is the y3 axis configuration."
+    }
+    y4 Axis = { key = AxisKeyY4, label_direction = spatial.DirectionY } {
+        @doc value "is the y4 axis configuration."
+    }
+
+    @doc value "bundles configuration for all six fixed plot axes."
+}
+
+Line struct {
+    key             string         {
+        @doc value """
+            is the line identifier derived from its channel and range
+            assignment. Format is internal to the client and stable across
+            re-renders so styling overrides persist.
+        """
+    }
+    label           string?        {
+        @doc value """
+            is the user-specified line label. Null means derive from the
+            channel name at render time; non-null is an override.
+        """
+    }
+    color           color.Color?   {
+        @doc value """
+            is the line color. When null, the Console assigns one from the
+            visualization palette at render time.
+        """
+    }
+    stroke_width    float64 = 2 {
+        @doc value "is the line stroke width in pixels."
+    }
+    downsample      uint32 = 1 {
+        @doc value """
+            is the downsample factor applied before rendering. 1 means render
+            every sample; higher values render every Nth sample.
+        """
+    }
+    downsample_mode DownsampleMode = DownsampleModeDecimate {
+        @doc value "selects how the downsample factor is applied."
+    }
+
+    @doc value "is the per-line styling and downsampling configuration."
+}
+
+Rule struct {
+    key        string       {
+        @doc value "is the unique rule identifier within the line plot."
+    }
+    label      string       {
+        @doc value "is the human-readable label rendered alongside the rule."
+    }
+    color      color.Color? {
+        @doc value "is the display color of the rule. When null, the Console assigns a default at render time."
+    }
+    axis       AxisKey      {
+        @doc value "is the axis the rule is anchored to."
+    }
+    line_width float64 = 1 {
+        @doc value "is the rule line width in pixels."
+    }
+    line_dash  float64 = 0 {
+        @doc value "is the dash length in pixels; 0 renders a solid line."
+    }
+    units      string = "" {
+        @doc value "is the unit label displayed next to the position value."
+    }
+    position   float64      {
+        @doc value "is the value-space position of the rule along its anchored axis."
+    }
+
+    @doc value "is a horizontal or vertical annotation line drawn over the plot."
+}
+
+LinePlot struct {
+    key      Key = create {
+        @doc value "is the unique identifier for this line plot."
+        @key
+    }
+    name     string   {
+        @doc value         "is a human-readable name for the line plot."
+        @validate required
+    }
+    title    Title = {} {
+        @doc value "is the plot title configuration."
+    }
+    legend   Legend = {} {
+        @doc value "is the plot legend configuration."
+    }
+    channels Channels = {} {
+        @doc value "binds channel keys to each axis."
+    }
+    ranges   Ranges = {} {
+        @doc value "binds range keys to each x-axis."
+    }
+    axes     Axes = {} {
+        @doc value "bundles per-axis configuration."
+    }
+    lines    Line[]   {
+        @doc value """
+            holds per-line styling and downsampling configuration. Each entry
+            corresponds to one channel and range combination produced by the
+            channels and ranges bindings.
+        """
+    }
+    rules    Rule[]   {
+        @doc value "holds annotation rules drawn over the plot."
+    }
+
+    action Rename {
+        name string
+
+        @doc value "renames the line plot."
+    }
+
+    action SetTitleVisible {
+        visible bool
+
+        @doc value "sets whether the plot title is shown above the plot."
+    }
+
+    action SetTitleLevel {
+        level text.Level
+
+        @doc value "sets the typography level of the plot title."
+    }
+
+    action SetLegendHidden {
+        hidden bool
+
+        @doc value "sets whether the plot legend is hidden."
+    }
+
+    action SetLegendPosition {
+        position spatial.StickyXY
+
+        @doc value "sets the anchor position of the plot legend within the container."
+    }
+
+    action AddChannel {
+        axis_key YAxisKey
+        channel  channel.Key
+
+        @doc value """
+            appends the channel to the channels array bound to the y-axis
+            named by axis_key. No-op when the channel is already present.
+        """
+    }
+
+    action RemoveChannel {
+        axis_key YAxisKey
+        channel  channel.Key
+
+        @doc value """
+            removes the channel from the y-axis named by axis_key. No-op
+            when the channel is not present.
+        """
+    }
+
+    action SetChannels {
+        axis_key YAxisKey
+        channels channel.Key[]
+
+        @doc value """
+            replaces the entire set of channels bound to the y-axis named by
+            axis_key with channels. Channels absent from the new set are
+            removed and their lines dropped; channels not previously present
+            are added. Existing channels keep their line styling.
+        """
+    }
+
+    action SetXChannel {
+        axis_key XAxisKey
+        channel  channel.Key
+
+        @doc value """
+            replaces the single channel bound to the x-axis named by
+            axis_key.
+        """
+    }
+
+    action AddRange {
+        axis_key XAxisKey
+        range    string
+
+        @doc value """
+            appends the range key to the ranges array bound to the x-axis
+            named by axis_key. No-op when the range is already present.
+        """
+    }
+
+    action RemoveRange {
+        axis_key XAxisKey
+        range    string
+
+        @doc value """
+            removes the range key from the x-axis named by axis_key. No-op
+            when the range is not present.
+        """
+    }
+
+    action SetRanges {
+        axis_key XAxisKey
+        ranges   string[]
+
+        @doc value """
+            replaces the entire set of range keys bound to the x-axis named by
+            axis_key with ranges. Ranges absent from the new set are removed
+            and their lines dropped; ranges not previously present are added.
+            Existing ranges keep their line styling.
+        """
+    }
+
+    action SetAxisLabel {
+        key   AxisKey
+        label string
+
+        @doc value "sets the label rendered along the axis identified by key."
+    }
+
+    action SetAxisLabelDirection {
+        key             AxisKey
+        label_direction spatial.Direction
+
+        @doc value "sets the orientation in which the axis label is laid out."
+    }
+
+    action SetAxisLabelLevel {
+        key         AxisKey
+        label_level text.Level
+
+        @doc value "sets the typography level of the axis label."
+    }
+
+    action SetAxisBounds {
+        key           AxisKey
+        bounds        spatial.Bounds
+        manual_bounds ManualBounds
+
+        @doc value """
+            sets the axis value-space window together with its per-edge manual
+            override flags. The two travel together: fixing a bound enables the
+            manual override for that edge, so callers set both at once.
+        """
+    }
+
+    action SetAxisTickSpacing {
+        key          AxisKey
+        tick_spacing float64
+
+        @doc value "sets the target pixel distance between adjacent tick marks."
+    }
+
+    action SetAxisType {
+        key  AxisKey
+        type TickType?
+
+        @doc value """
+            sets the axis tick label style. Null resets it to the default,
+            which the Console derives (linear, or time for a timestamp-bound
+            x-axis) at render time.
+        """
+    }
+
+    action SetLineLabel {
+        key   string
+        label string?
+
+        @doc value """
+            sets the label of the line identified by key. Null resets it to
+            derive from the channel name at render time.
+        """
+    }
+
+    action SetLineColor {
+        key   string
+        color color.Color?
+
+        @doc value """
+            sets the color of the line identified by key. Null resets it to a
+            palette color assigned at render time.
+        """
+    }
+
+    action SetLineStrokeWidth {
+        key          string
+        stroke_width float64
+
+        @doc value "sets the stroke width, in pixels, of the line identified by key."
+    }
+
+    action SetLineDownsample {
+        key        string
+        downsample uint32
+
+        @doc value "sets the downsample factor of the line identified by key."
+    }
+
+    action SetLineDownsampleMode {
+        key             string
+        downsample_mode DownsampleMode
+
+        @doc value "sets how the downsample factor is applied for the line identified by key."
+    }
+
+    action SetLine {
+        line Line
+
+        @doc value """
+            replaces the line with line.key in place, inserting it when no such
+            line exists. The fine-grained setLine* actions cover per-field edits;
+            this full-object form restores a line dropped by reconciliation.
+        """
+    }
+
+    action SetRule {
+        rule Rule
+
+        @doc value """
+            inserts the rule if no rule with rule.key exists, otherwise
+            replaces the existing entry in place. The fine-grained setRule*
+            actions cover per-field edits; this full-object form creates a rule
+            or restores one removed by another action's inverse.
+        """
+    }
+
+    action SetRuleLabel {
+        key   string
+        label string
+
+        @doc value "sets the label of the rule identified by key."
+    }
+
+    action SetRuleColor {
+        key   string
+        color color.Color?
+
+        @doc value """
+            sets the color of the rule identified by key. Null resets it to a
+            default color assigned at render time.
+        """
+    }
+
+    action SetRuleAxis {
+        key  string
+        axis AxisKey
+
+        @doc value "sets the axis the rule identified by key is anchored to."
+    }
+
+    action SetRuleLineWidth {
+        key        string
+        line_width float64
+
+        @doc value "sets the line width, in pixels, of the rule identified by key."
+    }
+
+    action SetRuleLineDash {
+        key       string
+        line_dash float64
+
+        @doc value "sets the dash length, in pixels, of the rule identified by key."
+    }
+
+    action SetRuleUnits {
+        key   string
+        units string
+
+        @doc value "sets the unit label of the rule identified by key."
+    }
+
+    action SetRulePosition {
+        key      string
+        position float64
+
+        @doc value "sets the value-space position of the rule identified by key."
+    }
+
+    action RemoveRule {
+        key string
+
+        @doc value "removes the rule with the given key, if present."
+    }
+
+    @doc value     """
+        is a time-series visualization component for plotting telemetry data.
+        Line plots support multiple channels, real-time streaming, and
+        historical data display with zoom and pan capabilities.
+    """
+    @ontology type "lineplot"
+    @create
+    @retrieve
+    @go marshal
+    @go migrate
+}

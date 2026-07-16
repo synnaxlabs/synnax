@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/op"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,19 +29,24 @@ var _ = Describe("OP", func() {
 		ctx SpecContext, t string, lhs, lhsTime, rhs, rhsTime, output, outputTime telem.Series) {
 		g := graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "lhs", Type: "lhs"},
-				{Key: "rhs", Type: "rhs"},
-				{Key: "op", Type: t},
+				{Key: "lhs"},
+				{Key: "rhs"},
+				{Key: "op"},
 			},
-			Edges: []graph.Edge{
-				{
+			Inputs: map[string]msgpack.EncodedJSON{
+				"lhs": {"type": "lhs"},
+				"rhs": {"type": "rhs"},
+				"op":  {"type": t},
+			},
+			Edges: graph.Edges{
+				{Edge: ir.Edge{
 					Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-				},
-				{
+				}},
+				{Edge: ir.Edge{
 					Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-				},
+				}},
 			},
 			Functions: []graph.Function{
 				{
@@ -110,14 +116,18 @@ var _ = Describe("OP", func() {
 		ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series) {
 		g := graph.Graph{
 			Nodes: []graph.Node{
-				{Key: "input", Type: "input"},
-				{Key: "op", Type: t},
+				{Key: "input"},
+				{Key: "op"},
 			},
-			Edges: []graph.Edge{
-				{
+			Inputs: map[string]msgpack.EncodedJSON{
+				"input": {"type": "input"},
+				"op":    {"type": t},
+			},
+			Edges: graph.Edges{
+				{Edge: ir.Edge{
 					Source: ir.Handle{Node: "input", Param: ir.DefaultOutputParam},
 					Target: ir.Handle{Node: "op", Param: ir.DefaultInputParam},
-				},
+				}},
 			},
 			Functions: []graph.Function{
 				{
@@ -152,19 +162,24 @@ var _ = Describe("OP", func() {
 		It("Should handle lhs longer than rhs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "ge"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "ge"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -203,19 +218,24 @@ var _ = Describe("OP", func() {
 		It("Should handle rhs longer than lhs", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "eq"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "eq"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -255,19 +275,24 @@ var _ = Describe("OP", func() {
 		It("Should handle logical OR with mismatched lengths", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "or"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "or"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -307,19 +332,24 @@ var _ = Describe("OP", func() {
 		It("Should handle logical AND with mismatched lengths", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "and"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "and"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -359,19 +389,24 @@ var _ = Describe("OP", func() {
 		It("Should handle logical OR with single values", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "or"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "or"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -410,19 +445,24 @@ var _ = Describe("OP", func() {
 		It("Should handle logical AND with single values", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
-					{Key: "lhs", Type: "lhs"},
-					{Key: "rhs", Type: "rhs"},
-					{Key: "op", Type: "and"},
+					{Key: "lhs"},
+					{Key: "rhs"},
+					{Key: "op"},
 				},
-				Edges: []graph.Edge{
-					{
+				Inputs: map[string]msgpack.EncodedJSON{
+					"lhs": {"type": "lhs"},
+					"rhs": {"type": "rhs"},
+					"op":  {"type": "and"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "lhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.LHSInputParam},
-					},
-					{
+					}},
+					{Edge: ir.Edge{
 						Source: ir.Handle{Node: "rhs", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "op", Param: ir.RHSInputParam},
-					},
+					}},
 				},
 				Functions: []graph.Function{
 					{
@@ -458,4 +498,24 @@ var _ = Describe("OP", func() {
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 	})
+})
+
+var _ = Describe("Construction validation", func() {
+	DescribeTable("Should error at construction when an input param is missing",
+		func(ctx SpecContext, nodeType string) {
+			prog := ir.IR{Nodes: ir.Nodes{{
+				Key:     "op",
+				Type:    nodeType,
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+			}}}
+			s := node.New(prog)
+			cfg := node.Config{Node: prog.Nodes[0], State: s.Node("op")}
+			Expect(op.NewHost().Create(ctx, cfg)).Error().
+				To(MatchError(node.ErrInputNotFound))
+		},
+		Entry("binary ge", "ge"),
+		Entry("logical and", "and"),
+		Entry("logical or", "or"),
+		Entry("unary not", "not"),
+	)
 })

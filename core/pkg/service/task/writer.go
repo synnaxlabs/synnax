@@ -13,22 +13,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Writer struct {
-	tx     gorp.Tx
-	otg    ontology.Writer
-	rack   rack.Writer
-	group  group.Group
-	status status.Writer[StatusDetails]
-	table  *gorp.Table[Key, Task]
+	tx        gorp.Tx
+	otgWriter ontology.Writer
+	otg       *ontology.Ontology
+	rack      rack.Writer
+	group     group.Group
+	status    status.Writer[StatusDetails]
+	table     *gorp.Table[Key, Task]
 }
 
 func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Status[StatusDetails] {
@@ -38,7 +38,7 @@ func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Stat
 			Time:    telem.Now(),
 			Name:    t.Name,
 			Message: fmt.Sprintf("%s status unknown", t.Name),
-			Variant: xstatus.VariantWarning,
+			Variant: status.VariantWarning,
 			Details: StatusDetails{Task: t.Key},
 		}
 	}
@@ -46,6 +46,22 @@ func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Stat
 	provided.Details.Task = t.Key
 	provided.Name = t.Name
 	return provided
+}
+
+// healStatus restores a task's status row if it has gone missing (e.g. deleted
+// out-of-band) without clobbering a live one. Tasks are re-created on every scan cycle,
+// so on a no-op update the default "unknown" status must not overwrite a status the
+// driver has already reported; it is only written when no row exists.
+func (w Writer) healStatus(
+	ctx context.Context,
+	stat *status.Status[StatusDetails],
+) error {
+	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
+		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+		Exists(ctx, w.tx); err != nil || exists {
+		return err
+	}
+	return w.status.Set(ctx, stat)
 }
 
 // Create creates or updates a task. If a status is provided on the task,
@@ -72,7 +88,11 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return err
 	}
 	stat := resolveStatus(t, providedStatus)
-	if err := w.status.Set(ctx, stat); err != nil {
+	if providedStatus != nil {
+		if err := w.status.Set(ctx, stat); err != nil {
+			return err
+		}
+	} else if err := w.healStatus(ctx, stat); err != nil {
 		return err
 	}
 	// We don't create ontology resources for internal tasks.
@@ -80,14 +100,14 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		return nil
 	}
 	otgID := OntologyID(t.Key)
-	exists, err := w.otg.HasResource(ctx, otgID)
+	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
 	if err != nil || exists {
 		return err
 	}
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
-	return w.otg.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		w.group.OntologyID(),
 		ontology.RelationshipTypeParentOf,
@@ -113,7 +133,7 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+	if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 		return err
 	}
 	return w.status.Delete(ctx, OntologyID(key).String())
@@ -143,7 +163,7 @@ func (w Writer) Copy(
 	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
 	}
-	if err = w.otg.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
 		return Task{}, err
 	}
 	return res, nil

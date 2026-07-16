@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
@@ -40,26 +40,30 @@ var _ = Describe("Writer", func() {
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
 
+		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
+			l := log.Log{}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).
+				To(MatchError(ContainSubstring("name: required")))
+		})
+
 		It("Should establish a ParentOf relationship to the project", func(ctx SpecContext) {
 			l := log.Log{Name: "with-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				project.OntologyID(proj.Key),
-				ontology.RelationshipTypeParentOf,
-				log.OntologyID(l.Key),
-			)).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: project.OntologyID(proj.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   log.OntologyID(l.Key),
+			})).To(BeTrue())
 		})
 
 		It("Should skip the project ParentOf relationship when proj is uuid.Nil", func(ctx SpecContext) {
 			l := log.Log{Name: "no-proj"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				project.OntologyID(proj.Key),
-				ontology.RelationshipTypeParentOf,
-				log.OntologyID(l.Key),
-			)).To(BeFalse())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: project.OntologyID(proj.Key),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   log.OntologyID(l.Key),
+			})).To(BeFalse())
 		})
 
 		It("Should still register the resource in the ontology when proj is uuid.Nil", func(ctx SpecContext) {
@@ -208,6 +212,53 @@ var _ = Describe("Writer", func() {
 				Expect(res.Channels[0].Alias).To(Equal("second"))
 			})
 
+			It("Should set per-field config via the fine-grained channel setters", func(ctx SpecContext) {
+				l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 5}}}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+				red := color.Color{R: 255, G: 0, B: 0, A: 1}
+				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetChannelColorAction(log.SetChannelColorPayload{Channel: 5, Color: red}),
+					log.NewSetChannelNotationAction(log.SetChannelNotationPayload{Channel: 5, Notation: notation.NotationScientific}),
+					log.NewSetChannelPrecisionAction(log.SetChannelPrecisionPayload{Channel: 5, Precision: 4}),
+					log.NewSetChannelAliasAction(log.SetChannelAliasPayload{Channel: 5, Alias: "volts"}),
+					log.NewSetChannelTimestampFormatAction(log.SetChannelTimestampFormatPayload{Channel: 5, Format: telem.TimestampFormatTime}),
+					log.NewSetChannelTimestampTzAction(log.SetChannelTimestampTzPayload{Channel: 5, Tz: telem.TimeZoneUTC}),
+				})).To(Succeed())
+				entry := retrieve(ctx, l.Key).Channels[0]
+				Expect(entry.Color).To(Equal(red))
+				Expect(entry.Notation).To(Equal(notation.NotationScientific))
+				Expect(entry.Precision).To(Equal(int32(4)))
+				Expect(entry.Alias).To(Equal("volts"))
+				Expect(entry.Timestamp.Format).To(Equal(telem.TimestampFormatTime))
+				Expect(entry.Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
+			})
+
+			It("Should treat a fine-grained channel setter as a no-op when the channel is absent", func(ctx SpecContext) {
+				l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 1}}}
+				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetChannelAliasAction(log.SetChannelAliasPayload{Channel: 99, Alias: "ignored"}),
+				})).To(Succeed())
+				res := retrieve(ctx, l.Key)
+				Expect(res.Channels).To(HaveLen(1))
+				Expect(res.Channels[0].Alias).To(BeEmpty())
+			})
+
+			DescribeTable("Should reject an out-of-range channel precision",
+				func(ctx SpecContext, precision int32) {
+					l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 5}}}
+					Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
+					Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
+						log.NewSetChannelPrecisionAction(log.SetChannelPrecisionPayload{
+							Channel:   5,
+							Precision: precision,
+						}),
+					})).Error().To(MatchError(validate.ErrValidation))
+				},
+				Entry("below minimum", int32(-2)),
+				Entry("above maximum", int32(18)),
+			)
+
 			It("Should replace the whole list via SetChannels", func(ctx SpecContext) {
 				l := log.Log{Name: "test", Channels: []log.ChannelEntry{{Channel: 1}}}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
@@ -279,19 +330,19 @@ var _ = Describe("Writer", func() {
 			)
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
-				l := log.Log{Name: "test", ShowChannelNames: true, ShowReceiptTimestamp: true}
+				l := log.Log{Name: "test"}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())
 				Expect(svc.NewWriter(tx).Dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewSetShowChannelNamesAction(log.SetShowChannelNamesPayload{
-						ShowChannelNames: false,
+					log.NewSetHideChannelNamesAction(log.SetHideChannelNamesPayload{
+						HideChannelNames: true,
 					}),
-					log.NewSetShowReceiptTimestampAction(log.SetShowReceiptTimestampPayload{
-						ShowReceiptTimestamp: false,
+					log.NewSetHideReceiptTimestampAction(log.SetHideReceiptTimestampPayload{
+						HideReceiptTimestamp: true,
 					}),
 				})).To(Succeed())
 				res := retrieve(ctx, l.Key)
-				Expect(res.ShowChannelNames).To(BeFalse())
-				Expect(res.ShowReceiptTimestamp).To(BeFalse())
+				Expect(res.HideChannelNames).To(BeTrue())
+				Expect(res.HideReceiptTimestamp).To(BeTrue())
 			})
 		})
 

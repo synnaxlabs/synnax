@@ -24,7 +24,7 @@ export const userZ = z.object({
   /** key is the unique identifier for this user. */
   key: keyZ,
   /** username is the unique login name for the user. */
-  username: z.string().min(1, "Username is required"),
+  username: z.string().min(1, "username is required"),
   /** firstName is the user's first name. */
   firstName: z.string(),
   /** lastName is the user's last name. */

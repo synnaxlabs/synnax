@@ -334,7 +334,7 @@ func (c *collector) structFuncFromForms(
 			continue
 		}
 		name := naming.GetFieldName(oldField)
-		c.addField(&fn, oldField.Type, "old."+name, name, oldField.IsHardOptional)
+		c.addField(&fn, oldField.Type, "old."+name, name, oldField.Optional)
 	}
 	return fn
 }
@@ -597,12 +597,24 @@ func (c *collector) isStructLike(typ resolution.Type) bool {
 	case resolution.StructForm:
 		return true
 	case resolution.AliasForm:
+		// An alias to an array of an oracle struct (e.g. Members = Member[]) is
+		// struct-like: its elements need a per-element migrate, not a slice cast.
+		if elemRef, isArr := arrayBaseRef(typ); isArr {
+			if elem, ok := c.resolveRef(elemRef); ok {
+				return c.isStructLike(elem)
+			}
+		}
 		if r, ok := form.Target.Resolve(c.oldTable); ok {
 			if _, s := r.Form.(resolution.StructForm); s {
 				return true
 			}
 		}
 	case resolution.DistinctForm:
+		if elemRef, isArr := arrayBaseRef(typ); isArr {
+			if elem, ok := c.resolveRef(elemRef); ok {
+				return c.isStructLike(elem)
+			}
+		}
 		if r, ok := form.Base.Resolve(c.oldTable); ok {
 			if _, s := r.Form.(resolution.StructForm); s {
 				return true

@@ -11,7 +11,6 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:oracle",
     "workspaceContains:**/*.oracle"
   ],
   "main": "./out/extension.js",

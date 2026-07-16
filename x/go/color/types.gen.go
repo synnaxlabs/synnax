@@ -32,5 +32,5 @@ type Stop struct {
 	// Position is the normalized position of the stop along the gradient [0, 1].
 	Position float64 `json:"position" msgpack:"position"`
 	// Switched indicates whether the stop's color has been switched by the user.
-	Switched bool `json:"switched" msgpack:"switched"`
+	Switched *bool `json:"switched,omitempty" msgpack:"switched,omitempty"`
 }

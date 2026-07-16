@@ -15,12 +15,10 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/gorp"
-	xlabel "github.com/synnaxlabs/x/label"
-	"github.com/synnaxlabs/x/status"
 )
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
@@ -140,7 +138,7 @@ func MatchNames[D any](names ...string) Filter[D] {
 }
 
 // MatchVariants returns a filter for statuses with the given variants.
-func MatchVariants[D any](variants ...status.Variant) Filter[D] {
+func MatchVariants[D any](variants ...Variant) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
 		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
 			return slices.Contains(variants, s.Variant), nil
@@ -149,14 +147,14 @@ func MatchVariants[D any](variants ...status.Variant) Filter[D] {
 }
 
 // MatchLabels returns a filter for statuses that have any of the provided labels.
-func MatchLabels[D any](matchLabels ...xlabel.Key) Filter[D] {
+func MatchLabels[D any](matchLabels ...label.Key) Filter[D] {
 	return Match(func(ctx gorp.Context, r Retrieve[D], s *Status[D]) (bool, error) {
 		labels, err := r.label.RetrieveFor(ctx, OntologyID(s.Key), ctx.Tx)
 		if err != nil {
 			return false, err
 		}
-		labelKeys := lo.Map(labels, func(l xlabel.Label, _ int) xlabel.Key { return l.Key })
-		return lo.ContainsBy(labelKeys, func(l xlabel.Key) bool {
+		labelKeys := lo.Map(labels, func(l label.Label, _ int) label.Key { return l.Key })
+		return lo.ContainsBy(labelKeys, func(l label.Key) bool {
 			return lo.Contains(matchLabels, l)
 		}), nil
 	})

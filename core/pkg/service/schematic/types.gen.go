@@ -14,7 +14,7 @@ package schematic
 import (
 	"encoding/json"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
+	"github.com/synnaxlabs/x/validate"
+	"strconv"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -97,9 +99,6 @@ type Node struct {
 	// ZIndex is the stacking order of the node within the schematic. Higher values render
 	// above lower values. Set by the user via send-to-back / bring-to-front actions.
 	ZIndex int16 `json:"z_index" msgpack:"z_index"`
-	// Measured is the rendered pixel size of the node. Populated by the renderer after the
-	// node is mounted and used to keep diagram measurements consistent across re-renders.
-	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
 }
 
 // Handle is a reference to a specific connection point on a specific node. For
@@ -129,19 +128,33 @@ type Segment struct {
 	Length float64 `json:"length" msgpack:"length"`
 }
 
+func (s Segment) Validate() error {
+	v := validate.New("Segment")
+	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
+	return v.Error()
+}
+
 // SegmentedEdgeConfig is the configuration shared by every segmented edge variant.
 type SegmentedEdgeConfig struct {
 	// Color is the stroke color of the edge.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Segments is the ordered list of orthogonal runs that trace the connector path from
 	// the source handle to the target handle.
-	Segments []Segment `json:"segments" msgpack:"segments"`
+	Segments []Segment `json:"segments,omitzero" msgpack:"segments,omitzero"`
+}
+
+func (s SegmentedEdgeConfig) Validate() error {
+	v := validate.New("SegmentedEdgeConfig")
+	for i := range s.Segments {
+		v.Exec(func() error { return validate.PathedError(s.Segments[i].Validate(), "segments", strconv.Itoa(i)) })
+	}
+	return v.Error()
 }
 
 // LabelConfig is the text label configuration shared by schematic symbols.
 type LabelConfig struct {
 	// Label is the text content of the label.
-	Label string `json:"label" msgpack:"label"`
+	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
 	// Level is the typography level of the label text.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// Orientation is the placement of the label relative to the symbol.
@@ -171,11 +184,11 @@ type ControlStateConfig struct {
 	// channel. Defaults to absolute authority when unset.
 	Authority *uint8 `json:"authority,omitempty" msgpack:"authority,omitempty"`
 	// Show indicates whether the control state widget is visible.
-	Show bool `json:"show" msgpack:"show"`
+	Show *bool `json:"show,omitempty" msgpack:"show,omitempty"`
 	// ShowChip indicates whether the authority chip is visible.
-	ShowChip bool `json:"show_chip" msgpack:"show_chip"`
+	ShowChip *bool `json:"show_chip,omitempty" msgpack:"show_chip,omitempty"`
 	// ShowIndicator indicates whether the state indicator is visible.
-	ShowIndicator bool `json:"show_indicator" msgpack:"show_indicator"`
+	ShowIndicator *bool `json:"show_indicator,omitempty" msgpack:"show_indicator,omitempty"`
 	// Orientation is the placement of the control state widget relative to the symbol.
 	Orientation *spatial.Location `json:"orientation,omitempty" msgpack:"orientation,omitempty"`
 }
@@ -191,7 +204,7 @@ type ToggleConfig struct {
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	OnClickDelay *float64 `json:"on_click_delay,omitempty" msgpack:"on_click_delay,omitempty"`
 }
 
 // StaticSymbolConfig is the configuration for non-interactive labeled symbols.
@@ -213,9 +226,9 @@ type ToggleSymbolConfig struct {
 type DummyToggleSymbolConfig struct {
 	LabeledConfig
 	// Enabled indicates whether the symbol renders in its active state.
-	Enabled bool `json:"enabled" msgpack:"enabled"`
+	Enabled *bool `json:"enabled,omitempty" msgpack:"enabled,omitempty"`
 	// Clickable indicates whether clicking the symbol toggles its state.
-	Clickable bool `json:"clickable" msgpack:"clickable"`
+	Clickable *bool `json:"clickable,omitempty" msgpack:"clickable,omitempty"`
 	// Color is the stroke color of the symbol.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 }
@@ -237,7 +250,7 @@ type Redline struct {
 	// Bounds is the numeric range mapped onto the gradient.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// Gradient is the color gradient applied across the bounds.
-	Gradient []color.Stop `json:"gradient" msgpack:"gradient"`
+	Gradient []color.Stop `json:"gradient,omitzero" msgpack:"gradient,omitzero"`
 }
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
@@ -251,12 +264,21 @@ type Schematic struct {
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 	// Nodes contains all diagram nodes in the schematic.
-	Nodes []Node `json:"nodes" msgpack:"nodes"`
+	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Edges contains all connections between nodes.
-	Edges []Edge `json:"edges" msgpack:"edges"`
+	Edges []Edge `json:"edges,omitzero" msgpack:"edges,omitzero"`
 	// Configs contains per-element configuration keyed by node or edge key. The variant of
 	// each value selects the symbol or edge style it configures.
-	Configs map[string]ElementConfig `json:"configs" msgpack:"configs"`
+	Configs map[string]ElementConfig `json:"configs,omitzero" msgpack:"configs,omitzero"`
+}
+
+func (s Schematic) Validate() error {
+	v := validate.New("Schematic")
+	validate.NotEmptyString(v, "name", s.Name)
+	for key, value := range s.Configs {
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "configs", key) })
+	}
+	return v.Error()
 }
 
 type EdgeConfigType string
@@ -281,11 +303,23 @@ type EdgeConfigPipe struct {
 
 func (EdgeConfigPipe) isEdgeConfigVariant() {}
 
+func (e EdgeConfigPipe) Validate() error {
+	v := validate.New("EdgeConfigPipe")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
 type EdgeConfigElectric struct {
 	SegmentedEdgeConfig
 }
 
 func (EdgeConfigElectric) isEdgeConfigVariant() {}
+
+func (e EdgeConfigElectric) Validate() error {
+	v := validate.New("EdgeConfigElectric")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
 
 type EdgeConfigSecondary struct {
 	SegmentedEdgeConfig
@@ -293,11 +327,23 @@ type EdgeConfigSecondary struct {
 
 func (EdgeConfigSecondary) isEdgeConfigVariant() {}
 
+func (e EdgeConfigSecondary) Validate() error {
+	v := validate.New("EdgeConfigSecondary")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
 type EdgeConfigJacketed struct {
 	SegmentedEdgeConfig
 }
 
 func (EdgeConfigJacketed) isEdgeConfigVariant() {}
+
+func (e EdgeConfigJacketed) Validate() error {
+	v := validate.New("EdgeConfigJacketed")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
 
 type EdgeConfigHydraulic struct {
 	SegmentedEdgeConfig
@@ -305,17 +351,35 @@ type EdgeConfigHydraulic struct {
 
 func (EdgeConfigHydraulic) isEdgeConfigVariant() {}
 
+func (e EdgeConfigHydraulic) Validate() error {
+	v := validate.New("EdgeConfigHydraulic")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
 type EdgeConfigPneumatic struct {
 	SegmentedEdgeConfig
 }
 
 func (EdgeConfigPneumatic) isEdgeConfigVariant() {}
 
+func (e EdgeConfigPneumatic) Validate() error {
+	v := validate.New("EdgeConfigPneumatic")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
 type EdgeConfigData struct {
 	SegmentedEdgeConfig
 }
 
 func (EdgeConfigData) isEdgeConfigVariant() {}
+
+func (e EdgeConfigData) Validate() error {
+	v := validate.New("EdgeConfigData")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
 
 // EdgeConfig is the per-edge configuration stored in the schematic configs map. The
 // variant selects the visual style of the connection.
@@ -418,6 +482,26 @@ func (u *EdgeConfig) UnmarshalJSON(data []byte) error {
 		u.Variant = v
 	default:
 		return errors.Newf("EdgeConfig: unknown variant %q", disc.Type)
+	}
+	return nil
+}
+
+func (u EdgeConfig) Validate() error {
+	switch variant := u.Variant.(type) {
+	case EdgeConfigPipe:
+		return variant.Validate()
+	case EdgeConfigElectric:
+		return variant.Validate()
+	case EdgeConfigSecondary:
+		return variant.Validate()
+	case EdgeConfigJacketed:
+		return variant.Validate()
+	case EdgeConfigHydraulic:
+		return variant.Validate()
+	case EdgeConfigPneumatic:
+		return variant.Validate()
+	case EdgeConfigData:
+		return variant.Validate()
 	}
 	return nil
 }
@@ -709,7 +793,7 @@ type NodeConfigButton struct {
 	// Level is the typography level of the button text.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	OnClickDelay *float64 `json:"on_click_delay,omitempty" msgpack:"on_click_delay,omitempty"`
 	// CommandChannel is the channel button presses are written to.
 	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
 	// Mode is the actuation behavior of the button.
@@ -763,12 +847,20 @@ type NodeConfigGauge struct {
 	// Location is the anchor of the value within the gauge.
 	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
 	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
+	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 }
 
 func (NodeConfigGauge) isNodeConfigVariant() {}
+
+func (n NodeConfigGauge) Validate() error {
+	v := validate.New("NodeConfigGauge")
+	if n.Location != nil {
+		v.Exec(func() error { return validate.PathedError(n.Location.Validate(), "location") })
+	}
+	return v.Error()
+}
 
 // NodeConfigInput is the configuration for free-form input symbols.
 type NodeConfigInput struct {
@@ -782,7 +874,7 @@ type NodeConfigInput struct {
 	// Color is the accent color of the input.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
+	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -813,9 +905,9 @@ type NodeConfigOffPageReference struct {
 	// Color is the fill color of the reference.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Page is the key of the schematic this reference links to.
-	Page string `json:"page" msgpack:"page"`
+	Page *string `json:"page,omitempty" msgpack:"page,omitempty"`
 	// DblClickNav indicates whether double-clicking navigates to the linked schematic.
-	DblClickNav bool `json:"dbl_click_nav" msgpack:"dbl_click_nav"`
+	DblClickNav *bool `json:"dbl_click_nav,omitempty" msgpack:"dbl_click_nav,omitempty"`
 }
 
 func (NodeConfigOffPageReference) isNodeConfigVariant() {}
@@ -853,9 +945,9 @@ type NodeConfigSelect struct {
 	// InlineSize is the inline size of the select in pixels.
 	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
 	// Options is the set of selectable states.
-	Options []StateMapping `json:"options" msgpack:"options"`
+	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
 	// Disabled indicates whether the select rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
+	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -876,9 +968,9 @@ type NodeConfigSetpoint struct {
 	// Color is the accent color of the setpoint.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
+	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
 	// Disabled indicates whether the setpoint rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
+	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -895,7 +987,7 @@ type NodeConfigStateIndicator struct {
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
 	// Options is the set of displayable states.
-	Options []StateMapping `json:"options" msgpack:"options"`
+	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
 }
 
 func (NodeConfigStateIndicator) isNodeConfigVariant() {}
@@ -916,11 +1008,11 @@ type NodeConfigTextBox struct {
 	// Align is the alignment of the text within the box.
 	Align *FlexAlignment `json:"align,omitempty" msgpack:"align,omitempty"`
 	// AutoFit indicates whether the box resizes to fit its content.
-	AutoFit bool `json:"auto_fit" msgpack:"auto_fit"`
+	AutoFit *bool `json:"auto_fit,omitempty" msgpack:"auto_fit,omitempty"`
 	// Level is the typography level of the text.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// Value is the text content of the box.
-	Value string `json:"value" msgpack:"value"`
+	Value *string `json:"value,omitempty" msgpack:"value,omitempty"`
 }
 
 func (NodeConfigTextBox) isNodeConfigVariant() {}
@@ -935,11 +1027,11 @@ type NodeConfigValue struct {
 	// TextColor is the color of the displayed text.
 	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
+	Tooltip []string `json:"tooltip,omitzero" msgpack:"tooltip,omitzero"`
 	// Redline is the bounds-to-gradient mapping applied to the background.
 	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
 	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
+	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
 	// InlineSize is the inline size of the value in pixels.
 	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
 	// Channel is the channel whose value the symbol displays.
@@ -963,7 +1055,7 @@ type NodeConfigValue struct {
 	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
 	// UseWidthForBackground indicates whether the background spans the full configured
 	// width.
-	UseWidthForBackground bool `json:"use_width_for_background" msgpack:"use_width_for_background"`
+	UseWidthForBackground *bool `json:"use_width_for_background,omitempty" msgpack:"use_width_for_background,omitempty"`
 	// ValueBackgroundShift is the offset applied to the value background.
 	ValueBackgroundShift *spatial.XY `json:"value_background_shift,omitempty" msgpack:"value_background_shift,omitempty"`
 	// ValueBackgroundOverScan is the extra padding applied around the value background.
@@ -971,6 +1063,14 @@ type NodeConfigValue struct {
 }
 
 func (NodeConfigValue) isNodeConfigVariant() {}
+
+func (n NodeConfigValue) Validate() error {
+	v := validate.New("NodeConfigValue")
+	if n.Location != nil {
+		v.Exec(func() error { return validate.PathedError(n.Location.Validate(), "location") })
+	}
+	return v.Error()
+}
 
 type NodeConfigAgitator struct {
 	ToggleSymbolConfig
@@ -1276,7 +1376,7 @@ func (NodeConfigReliefValve) isNodeConfigVariant() {}
 type NodeConfigSolenoidValve struct {
 	ToggleSymbolConfig
 	// NormallyOpen indicates whether the valve is open when unpowered.
-	NormallyOpen bool `json:"normally_open" msgpack:"normally_open"`
+	NormallyOpen *bool `json:"normally_open,omitempty" msgpack:"normally_open,omitempty"`
 }
 
 func (NodeConfigSolenoidValve) isNodeConfigVariant() {}
@@ -1357,7 +1457,7 @@ type NodeConfigCustomActuator struct {
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
+	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
 func (NodeConfigCustomActuator) isNodeConfigVariant() {}
@@ -1372,7 +1472,7 @@ type NodeConfigCustomStatic struct {
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
+	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
 func (NodeConfigCustomStatic) isNodeConfigVariant() {}
@@ -2226,6 +2326,16 @@ func (u *NodeConfig) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (u NodeConfig) Validate() error {
+	switch variant := u.Variant.(type) {
+	case NodeConfigGauge:
+		return variant.Validate()
+	case NodeConfigValue:
+		return variant.Validate()
+	}
+	return nil
+}
+
 type ElementConfigType string
 
 const (
@@ -2520,7 +2630,7 @@ type ElementConfigButton struct {
 	// Level is the typography level of the button text.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
-	OnClickDelay float64 `json:"on_click_delay" msgpack:"on_click_delay"`
+	OnClickDelay *float64 `json:"on_click_delay,omitempty" msgpack:"on_click_delay,omitempty"`
 	// CommandChannel is the channel button presses are written to.
 	CommandChannel *channel.Key `json:"command_channel,omitempty" msgpack:"command_channel,omitempty"`
 	// Mode is the actuation behavior of the button.
@@ -2574,12 +2684,20 @@ type ElementConfigGauge struct {
 	// Location is the anchor of the value within the gauge.
 	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
 	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
+	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
 	// Level is the typography level of the displayed value.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 }
 
 func (ElementConfigGauge) isElementConfigVariant() {}
+
+func (e ElementConfigGauge) Validate() error {
+	v := validate.New("ElementConfigGauge")
+	if e.Location != nil {
+		v.Exec(func() error { return validate.PathedError(e.Location.Validate(), "location") })
+	}
+	return v.Error()
+}
 
 // ElementConfigInput is the configuration for free-form input symbols.
 type ElementConfigInput struct {
@@ -2593,7 +2711,7 @@ type ElementConfigInput struct {
 	// Color is the accent color of the input.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Disabled indicates whether the input rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
+	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -2624,9 +2742,9 @@ type ElementConfigOffPageReference struct {
 	// Color is the fill color of the reference.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Page is the key of the schematic this reference links to.
-	Page string `json:"page" msgpack:"page"`
+	Page *string `json:"page,omitempty" msgpack:"page,omitempty"`
 	// DblClickNav indicates whether double-clicking navigates to the linked schematic.
-	DblClickNav bool `json:"dbl_click_nav" msgpack:"dbl_click_nav"`
+	DblClickNav *bool `json:"dbl_click_nav,omitempty" msgpack:"dbl_click_nav,omitempty"`
 }
 
 func (ElementConfigOffPageReference) isElementConfigVariant() {}
@@ -2664,9 +2782,9 @@ type ElementConfigSelect struct {
 	// InlineSize is the inline size of the select in pixels.
 	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
 	// Options is the set of selectable states.
-	Options []StateMapping `json:"options" msgpack:"options"`
+	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
 	// Disabled indicates whether the select rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
+	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -2687,9 +2805,9 @@ type ElementConfigSetpoint struct {
 	// Color is the accent color of the setpoint.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
+	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
 	// Disabled indicates whether the setpoint rejects interaction.
-	Disabled bool `json:"disabled" msgpack:"disabled"`
+	Disabled *bool `json:"disabled,omitempty" msgpack:"disabled,omitempty"`
 	// Control is the control state display configuration.
 	Control *ControlStateConfig `json:"control,omitempty" msgpack:"control,omitempty"`
 }
@@ -2706,7 +2824,7 @@ type ElementConfigStateIndicator struct {
 	// InlineSize is the inline size of the indicator in pixels.
 	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
 	// Options is the set of displayable states.
-	Options []StateMapping `json:"options" msgpack:"options"`
+	Options []StateMapping `json:"options,omitzero" msgpack:"options,omitzero"`
 }
 
 func (ElementConfigStateIndicator) isElementConfigVariant() {}
@@ -2727,11 +2845,11 @@ type ElementConfigTextBox struct {
 	// Align is the alignment of the text within the box.
 	Align *FlexAlignment `json:"align,omitempty" msgpack:"align,omitempty"`
 	// AutoFit indicates whether the box resizes to fit its content.
-	AutoFit bool `json:"auto_fit" msgpack:"auto_fit"`
+	AutoFit *bool `json:"auto_fit,omitempty" msgpack:"auto_fit,omitempty"`
 	// Level is the typography level of the text.
 	Level *text.Level `json:"level,omitempty" msgpack:"level,omitempty"`
 	// Value is the text content of the box.
-	Value string `json:"value" msgpack:"value"`
+	Value *string `json:"value,omitempty" msgpack:"value,omitempty"`
 }
 
 func (ElementConfigTextBox) isElementConfigVariant() {}
@@ -2746,11 +2864,11 @@ type ElementConfigValue struct {
 	// TextColor is the color of the displayed text.
 	TextColor *color.Color `json:"text_color,omitempty" msgpack:"text_color,omitempty"`
 	// Tooltip is the list of tooltip lines shown on hover.
-	Tooltip []string `json:"tooltip" msgpack:"tooltip"`
+	Tooltip []string `json:"tooltip,omitzero" msgpack:"tooltip,omitzero"`
 	// Redline is the bounds-to-gradient mapping applied to the background.
 	Redline *Redline `json:"redline,omitempty" msgpack:"redline,omitempty"`
 	// Units is the unit suffix displayed after the value.
-	Units string `json:"units" msgpack:"units"`
+	Units *string `json:"units,omitempty" msgpack:"units,omitempty"`
 	// InlineSize is the inline size of the value in pixels.
 	InlineSize *float64 `json:"inline_size,omitempty" msgpack:"inline_size,omitempty"`
 	// Channel is the channel whose value the symbol displays.
@@ -2774,7 +2892,7 @@ type ElementConfigValue struct {
 	Location *spatial.LocationXY `json:"location,omitempty" msgpack:"location,omitempty"`
 	// UseWidthForBackground indicates whether the background spans the full configured
 	// width.
-	UseWidthForBackground bool `json:"use_width_for_background" msgpack:"use_width_for_background"`
+	UseWidthForBackground *bool `json:"use_width_for_background,omitempty" msgpack:"use_width_for_background,omitempty"`
 	// ValueBackgroundShift is the offset applied to the value background.
 	ValueBackgroundShift *spatial.XY `json:"value_background_shift,omitempty" msgpack:"value_background_shift,omitempty"`
 	// ValueBackgroundOverScan is the extra padding applied around the value background.
@@ -2782,6 +2900,14 @@ type ElementConfigValue struct {
 }
 
 func (ElementConfigValue) isElementConfigVariant() {}
+
+func (e ElementConfigValue) Validate() error {
+	v := validate.New("ElementConfigValue")
+	if e.Location != nil {
+		v.Exec(func() error { return validate.PathedError(e.Location.Validate(), "location") })
+	}
+	return v.Error()
+}
 
 type ElementConfigAgitator struct {
 	ToggleSymbolConfig
@@ -3087,7 +3213,7 @@ func (ElementConfigReliefValve) isElementConfigVariant() {}
 type ElementConfigSolenoidValve struct {
 	ToggleSymbolConfig
 	// NormallyOpen indicates whether the valve is open when unpowered.
-	NormallyOpen bool `json:"normally_open" msgpack:"normally_open"`
+	NormallyOpen *bool `json:"normally_open,omitempty" msgpack:"normally_open,omitempty"`
 }
 
 func (ElementConfigSolenoidValve) isElementConfigVariant() {}
@@ -3168,7 +3294,7 @@ type ElementConfigCustomActuator struct {
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
+	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
 func (ElementConfigCustomActuator) isElementConfigVariant() {}
@@ -3183,7 +3309,7 @@ type ElementConfigCustomStatic struct {
 	// StateOverrides contains per-instance overrides of the spec's visual states. Each
 	// entry mirrors the symbol service's State shape; the wire format stores it opaquely,
 	// consistent with how the symbol service stores specs.
-	StateOverrides []msgpack.EncodedJSON `json:"state_overrides" msgpack:"state_overrides"`
+	StateOverrides []msgpack.EncodedJSON `json:"state_overrides,omitzero" msgpack:"state_overrides,omitzero"`
 }
 
 func (ElementConfigCustomStatic) isElementConfigVariant() {}
@@ -3194,11 +3320,23 @@ type ElementConfigPipe struct {
 
 func (ElementConfigPipe) isElementConfigVariant() {}
 
+func (e ElementConfigPipe) Validate() error {
+	v := validate.New("ElementConfigPipe")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
 type ElementConfigElectric struct {
 	SegmentedEdgeConfig
 }
 
 func (ElementConfigElectric) isElementConfigVariant() {}
+
+func (e ElementConfigElectric) Validate() error {
+	v := validate.New("ElementConfigElectric")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
 
 type ElementConfigSecondary struct {
 	SegmentedEdgeConfig
@@ -3206,11 +3344,23 @@ type ElementConfigSecondary struct {
 
 func (ElementConfigSecondary) isElementConfigVariant() {}
 
+func (e ElementConfigSecondary) Validate() error {
+	v := validate.New("ElementConfigSecondary")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
 type ElementConfigJacketed struct {
 	SegmentedEdgeConfig
 }
 
 func (ElementConfigJacketed) isElementConfigVariant() {}
+
+func (e ElementConfigJacketed) Validate() error {
+	v := validate.New("ElementConfigJacketed")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
 
 type ElementConfigHydraulic struct {
 	SegmentedEdgeConfig
@@ -3218,17 +3368,35 @@ type ElementConfigHydraulic struct {
 
 func (ElementConfigHydraulic) isElementConfigVariant() {}
 
+func (e ElementConfigHydraulic) Validate() error {
+	v := validate.New("ElementConfigHydraulic")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
 type ElementConfigPneumatic struct {
 	SegmentedEdgeConfig
 }
 
 func (ElementConfigPneumatic) isElementConfigVariant() {}
 
+func (e ElementConfigPneumatic) Validate() error {
+	v := validate.New("ElementConfigPneumatic")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
+
 type ElementConfigData struct {
 	SegmentedEdgeConfig
 }
 
 func (ElementConfigData) isElementConfigVariant() {}
+
+func (e ElementConfigData) Validate() error {
+	v := validate.New("ElementConfigData")
+	v.Exec(e.SegmentedEdgeConfig.Validate)
+	return v.Error()
+}
 
 // ElementConfig is the per-element configuration stored in the schematic configs map: a
 // node config or an edge config, discriminated by variant.
@@ -4131,6 +4299,30 @@ func (u *ElementConfig) UnmarshalJSON(data []byte) error {
 		u.Variant = v
 	default:
 		return errors.Newf("ElementConfig: unknown variant %q", disc.Type)
+	}
+	return nil
+}
+
+func (u ElementConfig) Validate() error {
+	switch variant := u.Variant.(type) {
+	case ElementConfigGauge:
+		return variant.Validate()
+	case ElementConfigValue:
+		return variant.Validate()
+	case ElementConfigPipe:
+		return variant.Validate()
+	case ElementConfigElectric:
+		return variant.Validate()
+	case ElementConfigSecondary:
+		return variant.Validate()
+	case ElementConfigJacketed:
+		return variant.Validate()
+	case ElementConfigHydraulic:
+		return variant.Validate()
+	case ElementConfigPneumatic:
+		return variant.Validate()
+	case ElementConfigData:
+		return variant.Validate()
 	}
 	return nil
 }

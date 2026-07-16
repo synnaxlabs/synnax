@@ -37,7 +37,7 @@ func mustColor(hex string) color.Color {
 func tankCfg(label, hex string) schematic.ElementConfig {
 	cfg := schematic.ElementConfigTank{
 		LabeledConfig: schematic.LabeledConfig{
-			Label: new(schematic.LabelConfig{Label: label}),
+			Label: new(schematic.LabelConfig{Label: new(label)}),
 		},
 	}
 	if hex != "" {
@@ -498,7 +498,6 @@ var _ = Describe("Reducer", func() {
 			},
 			Entry("rename", schematic.ActionTypeRename),
 			Entry("set_node_position", schematic.ActionTypeSetNodePosition),
-			Entry("set_node_measured", schematic.ActionTypeSetNodeMeasured),
 			Entry("set_node", schematic.ActionTypeSetNode),
 			Entry("remove_node", schematic.ActionTypeRemoveNode),
 			Entry("add_edge", schematic.ActionTypeAddEdge),

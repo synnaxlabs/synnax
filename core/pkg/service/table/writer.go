@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -46,6 +46,9 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 			return err
 		}
 	}
+	if err = t.Validate(); err != nil {
+		return err
+	}
 	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -53,13 +56,13 @@ func (w Writer) Create(ctx context.Context, projectKey project.Key, t *Table) er
 		return nil
 	}
 	otgID := OntologyID(t.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	if projectKey == uuid.Nil {
 		return nil
 	}
-	return w.otgWriter.DefineRelationship(
+	return w.otgWriter.DefineRelationships(
 		ctx,
 		project.OntologyID(projectKey),
 		ontology.RelationshipTypeParentOf,
@@ -110,10 +113,5 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Where(gorp.MatchKeys[Key, Table](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }

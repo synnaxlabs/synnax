@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
+
 import { Box } from "@/schematic/node/general/box";
 import { Button } from "@/schematic/node/general/button";
 import { Circle } from "@/schematic/node/general/circle";
@@ -37,4 +39,4 @@ export const REGISTRY = {
   switch: Switch.spec,
   text_box: TextBox.spec,
   value: Value.spec,
-} as const;
+} as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;

@@ -11,15 +11,13 @@ package task
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
@@ -38,38 +36,41 @@ import (
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	// DB is the gorp database that tasks will be stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between tasks and other resources
-	// in the Synnax cluster.
+	// Ontology is used to define relationships between tasks and other resources in the
+	// Synnax cluster.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create task related groups of ontology resources.
+	//
 	// [REQUIRED]
 	Group *group.Service
 	// Rack is used to manage rack-related operations for tasks.
+	//
 	// [REQUIRED]
 	Rack *rack.Service
 	// Status is used to define and process statuses for tasks.
+	//
 	// [REQUIRED]
 	Status *status.Service
-	// Signals is used to propagate task changes through the Synnax signals' channel
-	// communication mechanism.
-	// [OPTIONAL]
-	Signals *signals.Provider
 	// Channel is used to create channels related to task operations.
+	//
 	// [OPTIONAL]
 	Channel *channel.Service
 	// Search is the search index for fuzzy searching tasks.
+	//
 	// [REQUIRED]
 	Search *search.Index
+	// Instrumentation is used for logging, tracing, and metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -79,7 +80,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Search = override.Nil(c.Search, other.Search)
 	return c
@@ -111,7 +111,7 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			Virtual:  true,
 			Internal: true,
 		}
-		if err = cfg.Channel.Create(
+		if err = cfg.Channel.NewWriter(nil).Create(
 			ctx,
 			&cmdCh,
 			channel.RetrieveIfNameExists(),
@@ -157,17 +157,6 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
-	if cfg.Signals == nil {
-		return s, nil
-	}
-	var sig io.Closer
-	if sig, err = signals.PublishFromGorp(
-		ctx,
-		cfg.Signals,
-		signals.GorpPublisherConfigPureNumeric(s.table.Observe(), telem.Uint64T),
-	); !ok(err, sig) {
-		return nil, err
-	}
 	return s, nil
 }
 
@@ -186,7 +175,7 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	for _, t := range tasks {
 		ids = append(ids, OntologyID(t.Key))
 	}
-	if err := s.cfg.Ontology.NewWriter(nil).DeleteResource(ctx, ids...); err != nil {
+	if err := s.cfg.Ontology.NewWriter(nil).DeleteResources(ctx, ids...); err != nil {
 		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
 	}
 }
@@ -196,12 +185,13 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:     tx,
-		otg:    s.cfg.Ontology.NewWriter(tx),
-		rack:   s.cfg.Rack.NewWriter(tx),
-		group:  s.group,
-		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
-		table:  s.table,
+		tx:        tx,
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
+		rack:      s.cfg.Rack.NewWriter(tx),
+		group:     s.group,
+		status:    status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:     s.table,
 	}
 }
 

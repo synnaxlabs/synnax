@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  createTestClient,
   DataType,
   lineplot as lineplotClient,
   NotFoundError,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -292,7 +292,7 @@ describe("lineplot queries", () => {
             lineplotClient.setAxisBounds({
               key: original.key,
               bounds: { lower: 0, upper: 100 },
-              autoBounds: { lower: false, upper: false },
+              manualBounds: { lower: true, upper: true },
             }),
           ],
         });
@@ -325,7 +325,7 @@ describe("lineplot queries", () => {
             lineplotClient.setAxisBounds({
               key: original.key,
               bounds: { lower: -5, upper: 25 },
-              autoBounds: { lower: false, upper: false },
+              manualBounds: { lower: true, upper: true },
             }),
           ],
         });
@@ -362,7 +362,7 @@ describe("lineplot queries", () => {
               lineplotClient.setAxisBounds({
                 key: original.key,
                 bounds: { lower: 0, upper },
-                autoBounds: { lower: false, upper: false },
+                manualBounds: { lower: true, upper: true },
               }),
             ],
           });
@@ -395,7 +395,7 @@ describe("lineplot queries", () => {
             lineplotClient.setAxisBounds({
               key: x1Orig.key,
               bounds: { lower: 0, upper: 50 },
-              autoBounds: { lower: false, upper: false },
+              manualBounds: { lower: true, upper: true },
             }),
           ],
         });
@@ -407,7 +407,7 @@ describe("lineplot queries", () => {
             lineplotClient.setAxisBounds({
               key: x2Orig.key,
               bounds: { lower: 0, upper: 70 },
-              autoBounds: { lower: false, upper: false },
+              manualBounds: { lower: true, upper: true },
             }),
           ],
         });
@@ -437,7 +437,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h4", visible: true } })],
+          actions: [
+            lineplotClient.setTitleVisible({ visible: true }),
+            lineplotClient.setTitleLevel({ level: "h4" }),
+          ],
         });
       });
       await waitFor(() =>
@@ -515,7 +518,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h3", visible: true } })],
+          actions: [
+            lineplotClient.setTitleVisible({ visible: true }),
+            lineplotClient.setTitleLevel({ level: "h3" }),
+          ],
         });
       });
       await waitFor(() => {
@@ -534,11 +540,11 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setLegendVisible({ visible: !original.visible })],
+          actions: [lineplotClient.setLegendHidden({ hidden: !original.hidden })],
         });
       });
       await waitFor(() =>
-        expect(result.current.legend.visible).toEqual(!original.visible),
+        expect(result.current.legend.hidden).toEqual(!original.hidden),
       );
     });
 
@@ -1081,7 +1087,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+          actions: [
+            lineplotClient.setTitleVisible({ visible: true }),
+            lineplotClient.setTitleLevel({ level: "h2" }),
+          ],
         });
       });
       expect(result.current.name).toBe(firstName);
@@ -1117,7 +1126,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+          actions: [
+            lineplotClient.setTitleVisible({ visible: true }),
+            lineplotClient.setTitleLevel({ level: "h2" }),
+          ],
         });
       });
       expect(result.current.ranges).toBe(firstRanges);
@@ -1135,7 +1147,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+          actions: [
+            lineplotClient.setTitleVisible({ visible: true }),
+            lineplotClient.setTitleLevel({ level: "h2" }),
+          ],
         });
       });
       expect(result.current.axes).toBe(firstAxes);
@@ -1209,7 +1224,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+          actions: [
+            lineplotClient.setTitleVisible({ visible: true }),
+            lineplotClient.setTitleLevel({ level: "h2" }),
+          ],
         });
       });
       expect(result.current.yAxis).toBe(firstYAxis);
@@ -1283,7 +1301,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+          actions: [
+            lineplotClient.setTitleVisible({ visible: true }),
+            lineplotClient.setTitleLevel({ level: "h2" }),
+          ],
         });
       });
       expect(result.current.lines).toBe(firstLines);
@@ -1321,7 +1342,10 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setTitle({ title: { level: "h2", visible: true } })],
+          actions: [
+            lineplotClient.setTitleVisible({ visible: true }),
+            lineplotClient.setTitleLevel({ level: "h2" }),
+          ],
         });
       });
       expect(result.current.rules).toBe(firstRules);

@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/color"
@@ -34,7 +34,7 @@ var (
 	fullyPopulatedStaticSymbolConfig = schematic.StaticSymbolConfig{
 		LabeledConfig: schematic.LabeledConfig{
 			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
+				Label:         new(string("test_2")),
 				Level:         new(text.Level("h1")),
 				Orientation:   new(spatial.Location("top")),
 				Direction:     new(spatial.Direction("x")),
@@ -55,7 +55,7 @@ var (
 		ToggleConfig: schematic.ToggleConfig{
 			LabeledConfig: schematic.LabeledConfig{
 				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
+					Label:         new(string("test_2")),
 					Level:         new(text.Level("h1")),
 					Orientation:   new(spatial.Location("top")),
 					Direction:     new(spatial.Direction("x")),
@@ -69,12 +69,12 @@ var (
 			CommandChannel: new(channel.Key(12)),
 			Control: new(schematic.ControlStateConfig{
 				Authority:     new(uint8(14)),
-				Show:          false,
-				ShowChip:      true,
-				ShowIndicator: false,
+				Show:          new(bool(false)),
+				ShowChip:      new(bool(true)),
+				ShowIndicator: new(bool(false)),
 				Orientation:   new(spatial.Location("top")),
 			}),
-			OnClickDelay: 18.5,
+			OnClickDelay: new(float64(18.5)),
 		},
 		Color: new(color.Color{
 			R: 21,
@@ -85,7 +85,7 @@ var (
 	}
 	fullyPopulatedLabeledConfig = schematic.LabeledConfig{
 		Label: new(schematic.LabelConfig{
-			Label:         "test_2",
+			Label:         new(string("test_2")),
 			Level:         new(text.Level("h1")),
 			Orientation:   new(spatial.Location("top")),
 			Direction:     new(spatial.Direction("x")),
@@ -98,7 +98,7 @@ var (
 	fullyPopulatedDummyToggleSymbolConfig = schematic.DummyToggleSymbolConfig{
 		LabeledConfig: schematic.LabeledConfig{
 			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
+				Label:         new(string("test_2")),
 				Level:         new(text.Level("h1")),
 				Orientation:   new(spatial.Location("top")),
 				Direction:     new(spatial.Direction("x")),
@@ -108,8 +108,8 @@ var (
 			Orientation: new(spatial.OuterLocation("top")),
 			Scale:       new(float64(9.5)),
 		},
-		Enabled:   false,
-		Clickable: true,
+		Enabled:   new(bool(false)),
+		Clickable: new(bool(true)),
 		Color: new(color.Color{
 			R: 14,
 			G: 15,
@@ -120,7 +120,7 @@ var (
 	fullyPopulatedToggleConfig = schematic.ToggleConfig{
 		LabeledConfig: schematic.LabeledConfig{
 			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
+				Label:         new(string("test_2")),
 				Level:         new(text.Level("h1")),
 				Orientation:   new(spatial.Location("top")),
 				Direction:     new(spatial.Direction("x")),
@@ -134,12 +134,12 @@ var (
 		CommandChannel: new(channel.Key(12)),
 		Control: new(schematic.ControlStateConfig{
 			Authority:     new(uint8(14)),
-			Show:          false,
-			ShowChip:      true,
-			ShowIndicator: false,
+			Show:          new(bool(false)),
+			ShowChip:      new(bool(true)),
+			ShowIndicator: new(bool(false)),
 			Orientation:   new(spatial.Location("top")),
 		}),
-		OnClickDelay: 18.5,
+		OnClickDelay: new(float64(18.5)),
 	}
 	fullyPopulatedSegmentedEdgeConfig = schematic.SegmentedEdgeConfig{
 		Color: new(color.Color{
@@ -166,16 +166,16 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", schematic.ControlStateConfig{
 				Authority:     new(uint8(2)),
-				Show:          false,
-				ShowChip:      true,
-				ShowIndicator: false,
+				Show:          new(bool(false)),
+				ShowChip:      new(bool(true)),
+				ShowIndicator: new(bool(false)),
 				Orientation:   new(spatial.Location("top")),
 			}),
 			Entry("zero values", schematic.ControlStateConfig{
 				Authority:     nil,
-				Show:          false,
-				ShowChip:      false,
-				ShowIndicator: false,
+				Show:          nil,
+				ShowChip:      nil,
+				ShowIndicator: nil,
 				Orientation:   nil,
 			}),
 		)
@@ -198,8 +198,8 @@ var _ = Describe("Codec", func() {
 					Orientation: nil,
 					Scale:       nil,
 				},
-				Enabled:   false,
-				Clickable: false,
+				Enabled:   nil,
+				Clickable: nil,
 				Color:     nil,
 			}),
 		)
@@ -313,7 +313,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("box variant", schematic.ElementConfig{Variant: schematic.ElementConfigBox{
 				Label: new(schematic.LabelConfig{
-					Label:         "test_2",
+					Label:         new(string("test_2")),
 					Level:         new(text.Level("h1")),
 					Orientation:   new(spatial.Location("top")),
 					Direction:     new(spatial.Direction("x")),
@@ -341,7 +341,7 @@ var _ = Describe("Codec", func() {
 				LabeledConfig:  fullyPopulatedLabeledConfig,
 				Size:           new(schematic.ComponentSize("tiny")),
 				Level:          new(text.Level("h1")),
-				OnClickDelay:   3.5,
+				OnClickDelay:   new(float64(3.5)),
 				CommandChannel: new(channel.Key(5)),
 				Mode:           new(schematic.ButtonMode("fire")),
 				Color: new(color.Color{
@@ -352,9 +352,9 @@ var _ = Describe("Codec", func() {
 				}),
 				Control: new(schematic.ControlStateConfig{
 					Authority:     new(uint8(13)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
+					Show:          new(bool(true)),
+					ShowChip:      new(bool(false)),
+					ShowIndicator: new(bool(true)),
 					Orientation:   new(spatial.Location("top")),
 				}),
 			}}),
@@ -396,7 +396,7 @@ var _ = Describe("Codec", func() {
 					X: spatial.XCenterLocation("left"),
 					Y: spatial.YCenterLocation("top"),
 				}),
-				Units: "test_20",
+				Units: new(string("test_20")),
 				Level: new(text.Level("h1")),
 			}}),
 			Entry("input variant", schematic.ElementConfig{Variant: schematic.ElementConfigInput{
@@ -410,12 +410,12 @@ var _ = Describe("Codec", func() {
 					B: 10,
 					A: 10.5,
 				}),
-				Disabled: true,
+				Disabled: new(bool(true)),
 				Control: new(schematic.ControlStateConfig{
 					Authority:     new(uint8(14)),
-					Show:          false,
-					ShowChip:      true,
-					ShowIndicator: false,
+					Show:          new(bool(false)),
+					ShowChip:      new(bool(true)),
+					ShowIndicator: new(bool(false)),
 					Orientation:   new(spatial.Location("top")),
 				}),
 			}}),
@@ -433,7 +433,7 @@ var _ = Describe("Codec", func() {
 			Entry("off_page_reference variant", schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
 				Orientation: new(spatial.OuterLocation("top")),
 				Label: schematic.LabelConfig{
-					Label:         "test_3",
+					Label:         new(string("test_3")),
 					Level:         new(text.Level("h1")),
 					Orientation:   new(spatial.Location("top")),
 					Direction:     new(spatial.Direction("x")),
@@ -447,8 +447,8 @@ var _ = Describe("Codec", func() {
 					B: 14,
 					A: 14.5,
 				}),
-				Page:        "test_15",
-				DblClickNav: false,
+				Page:        new(string("test_15")),
+				DblClickNav: new(bool(false)),
 			}}),
 			Entry("polygon variant", schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
@@ -494,12 +494,12 @@ var _ = Describe("Codec", func() {
 						}),
 					},
 				},
-				Disabled: false,
+				Disabled: new(bool(false)),
 				Control: new(schematic.ControlStateConfig{
 					Authority:     new(uint8(21)),
-					Show:          true,
-					ShowChip:      false,
-					ShowIndicator: true,
+					Show:          new(bool(true)),
+					ShowChip:      new(bool(false)),
+					ShowIndicator: new(bool(true)),
 					Orientation:   new(spatial.Location("top")),
 				}),
 			}}),
@@ -515,13 +515,13 @@ var _ = Describe("Codec", func() {
 					B: 11,
 					A: 11.5,
 				}),
-				Units:    "test_12",
-				Disabled: true,
+				Units:    new(string("test_12")),
+				Disabled: new(bool(true)),
 				Control: new(schematic.ControlStateConfig{
 					Authority:     new(uint8(16)),
-					Show:          false,
-					ShowChip:      true,
-					ShowIndicator: false,
+					Show:          new(bool(false)),
+					ShowChip:      new(bool(true)),
+					ShowIndicator: new(bool(false)),
 					Orientation:   new(spatial.Location("top")),
 				}),
 			}}),
@@ -562,9 +562,9 @@ var _ = Describe("Codec", func() {
 				}),
 				Width:   new(float64(6.5)),
 				Align:   new(schematic.FlexAlignment("start")),
-				AutoFit: false,
+				AutoFit: new(bool(false)),
 				Level:   new(text.Level("h1")),
-				Value:   "test_10",
+				Value:   new(string("test_10")),
 			}}),
 			Entry("value variant", schematic.ElementConfig{Variant: schematic.ElementConfigValue{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -589,11 +589,11 @@ var _ = Describe("Codec", func() {
 							Key:      "test_18",
 							Color:    color.Color{},
 							Position: 20.5,
-							Switched: true,
+							Switched: new(bool(true)),
 						},
 					},
 				}),
-				Units:            "test_22",
+				Units:            new(string("test_22")),
 				InlineSize:       new(float64(23.5)),
 				Channel:          new(channel.Key(25)),
 				RollingAverage:   new(int32(26)),
@@ -612,7 +612,7 @@ var _ = Describe("Codec", func() {
 					X: spatial.XCenterLocation("left"),
 					Y: spatial.YCenterLocation("top"),
 				}),
-				UseWidthForBackground:   true,
+				UseWidthForBackground:   new(bool(true)),
 				ValueBackgroundShift:    new(spatial.XY{X: 41.5, Y: 42.5}),
 				ValueBackgroundOverScan: new(spatial.XY{X: 44.5, Y: 45.5}),
 			}}),
@@ -768,7 +768,7 @@ var _ = Describe("Codec", func() {
 			}}),
 			Entry("solenoid_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigSolenoidValve{
 				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-				NormallyOpen:       true,
+				NormallyOpen:       new(bool(true)),
 			}}),
 			Entry("spring_loaded_relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigSpringLoadedReliefValve{
 				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
@@ -904,7 +904,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", schematic.LabelConfig{
-				Label:         "test_1",
+				Label:         new(string("test_1")),
 				Level:         new(text.Level("h1")),
 				Orientation:   new(spatial.Location("top")),
 				Direction:     new(spatial.Direction("x")),
@@ -912,7 +912,7 @@ var _ = Describe("Codec", func() {
 				Align:         new(schematic.FlexAlignment("start")),
 			}),
 			Entry("zero values", schematic.LabelConfig{
-				Label:         "",
+				Label:         nil,
 				Level:         nil,
 				Orientation:   nil,
 				Direction:     nil,
@@ -955,13 +955,11 @@ var _ = Describe("Codec", func() {
 				Key:      "test_1",
 				Position: spatial.XY{X: 3.5, Y: 4.5},
 				ZIndex:   6,
-				Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
 			}),
 			Entry("zero values", schematic.Node{
 				Key:      "",
 				Position: spatial.XY{X: 0, Y: 0},
 				ZIndex:   0,
-				Measured: spatial.Dimensions{Width: 0, Height: 0},
 			}),
 		)
 	})
@@ -988,7 +986,7 @@ var _ = Describe("Codec", func() {
 							A: 8.5,
 						},
 						Position: 9.5,
-						Switched: false,
+						Switched: new(bool(false)),
 					},
 				},
 			}),
@@ -1016,17 +1014,16 @@ var _ = Describe("Codec", func() {
 						Key:      "test_5",
 						Position: spatial.XY{X: 7.5, Y: 8.5},
 						ZIndex:   10,
-						Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
 					},
 				},
 				Edges: []schematic.Edge{
 					{
-						Key:    "test_14",
-						Source: schematic.Handle{Node: "test_16", Param: "test_17"},
-						Target: schematic.Handle{Node: "test_19", Param: "test_20"},
+						Key:    "test_11",
+						Source: schematic.Handle{Node: "test_13", Param: "test_14"},
+						Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 					},
 				},
-				Configs: map[string]schematic.ElementConfig{"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
+				Configs: map[string]schematic.ElementConfig{"test_18": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 			}),
 			Entry("zero values", schematic.Schematic{
 				Key:      uuid.Nil,
@@ -1158,7 +1155,7 @@ var _ = Describe("Codec", func() {
 				StateChannel:   nil,
 				CommandChannel: nil,
 				Control:        nil,
-				OnClickDelay:   0,
+				OnClickDelay:   nil,
 			}),
 		)
 	})
@@ -1184,7 +1181,7 @@ var _ = Describe("Codec", func() {
 					StateChannel:   nil,
 					CommandChannel: nil,
 					Control:        nil,
-					OnClickDelay:   0,
+					OnClickDelay:   nil,
 				},
 				Color: nil,
 			}),
@@ -1195,9 +1192,9 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeControlStateConfig(b *testing.B) {
 	csc := schematic.ControlStateConfig{
 		Authority:     new(uint8(2)),
-		Show:          false,
-		ShowChip:      true,
-		ShowIndicator: false,
+		Show:          new(bool(false)),
+		ShowChip:      new(bool(true)),
+		ShowIndicator: new(bool(false)),
 		Orientation:   new(spatial.Location("top")),
 	}
 	w := orc.NewWriter(0)
@@ -1289,7 +1286,7 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 
 func BenchmarkEncodeDecodeLabelConfig(b *testing.B) {
 	lc := schematic.LabelConfig{
-		Label:         "test_1",
+		Label:         new(string("test_1")),
 		Level:         new(text.Level("h1")),
 		Orientation:   new(spatial.Location("top")),
 		Direction:     new(spatial.Direction("x")),
@@ -1333,7 +1330,6 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 		Key:      "test_1",
 		Position: spatial.XY{X: 3.5, Y: 4.5},
 		ZIndex:   6,
-		Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1363,7 +1359,7 @@ func BenchmarkEncodeDecodeRedline(b *testing.B) {
 					A: 8.5,
 				},
 				Position: 9.5,
-				Switched: false,
+				Switched: new(bool(false)),
 			},
 		},
 	}
@@ -1392,17 +1388,16 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Key:      "test_5",
 				Position: spatial.XY{X: 7.5, Y: 8.5},
 				ZIndex:   10,
-				Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
 			},
 		},
 		Edges: []schematic.Edge{
 			{
-				Key:    "test_14",
-				Source: schematic.Handle{Node: "test_16", Param: "test_17"},
-				Target: schematic.Handle{Node: "test_19", Param: "test_20"},
+				Key:    "test_11",
+				Source: schematic.Handle{Node: "test_13", Param: "test_14"},
+				Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 			},
 		},
-		Configs: map[string]schematic.ElementConfig{"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
+		Configs: map[string]schematic.ElementConfig{"test_18": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1535,9 +1530,9 @@ func FuzzDecodeControlStateConfig(f *testing.F) {
 	{
 		seed := schematic.ControlStateConfig{
 			Authority:     new(uint8(2)),
-			Show:          false,
-			ShowChip:      true,
-			ShowIndicator: false,
+			Show:          new(bool(false)),
+			ShowChip:      new(bool(true)),
+			ShowIndicator: new(bool(false)),
 			Orientation:   new(spatial.Location("top")),
 		}
 		w := orc.NewWriter(0)
@@ -1549,9 +1544,9 @@ func FuzzDecodeControlStateConfig(f *testing.F) {
 	{
 		seed := schematic.ControlStateConfig{
 			Authority:     nil,
-			Show:          false,
-			ShowChip:      false,
-			ShowIndicator: false,
+			Show:          nil,
+			ShowChip:      nil,
+			ShowIndicator: nil,
 			Orientation:   nil,
 		}
 		w := orc.NewWriter(0)
@@ -1605,8 +1600,8 @@ func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
 				Orientation: nil,
 				Scale:       nil,
 			},
-			Enabled:   false,
-			Clickable: false,
+			Enabled:   nil,
+			Clickable: nil,
 			Color:     nil,
 		}
 		w := orc.NewWriter(0)
@@ -1950,7 +1945,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBox{
 			Label: new(schematic.LabelConfig{
-				Label:         "test_2",
+				Label:         new(string("test_2")),
 				Level:         new(text.Level("h1")),
 				Orientation:   new(spatial.Location("top")),
 				Direction:     new(spatial.Direction("x")),
@@ -1985,7 +1980,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			LabeledConfig:  fullyPopulatedLabeledConfig,
 			Size:           new(schematic.ComponentSize("tiny")),
 			Level:          new(text.Level("h1")),
-			OnClickDelay:   3.5,
+			OnClickDelay:   new(float64(3.5)),
 			CommandChannel: new(channel.Key(5)),
 			Mode:           new(schematic.ButtonMode("fire")),
 			Color: new(color.Color{
@@ -1996,9 +1991,9 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			}),
 			Control: new(schematic.ControlStateConfig{
 				Authority:     new(uint8(13)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
+				Show:          new(bool(true)),
+				ShowChip:      new(bool(false)),
+				ShowIndicator: new(bool(true)),
 				Orientation:   new(spatial.Location("top")),
 			}),
 		}}
@@ -2054,7 +2049,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				X: spatial.XCenterLocation("left"),
 				Y: spatial.YCenterLocation("top"),
 			}),
-			Units: "test_20",
+			Units: new(string("test_20")),
 			Level: new(text.Level("h1")),
 		}}
 		w := orc.NewWriter(0)
@@ -2075,12 +2070,12 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 10,
 				A: 10.5,
 			}),
-			Disabled: true,
+			Disabled: new(bool(true)),
 			Control: new(schematic.ControlStateConfig{
 				Authority:     new(uint8(14)),
-				Show:          false,
-				ShowChip:      true,
-				ShowIndicator: false,
+				Show:          new(bool(false)),
+				ShowChip:      new(bool(true)),
+				ShowIndicator: new(bool(false)),
 				Orientation:   new(spatial.Location("top")),
 			}),
 		}}
@@ -2112,7 +2107,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
 			Orientation: new(spatial.OuterLocation("top")),
 			Label: schematic.LabelConfig{
-				Label:         "test_3",
+				Label:         new(string("test_3")),
 				Level:         new(text.Level("h1")),
 				Orientation:   new(spatial.Location("top")),
 				Direction:     new(spatial.Direction("x")),
@@ -2126,8 +2121,8 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 14,
 				A: 14.5,
 			}),
-			Page:        "test_15",
-			DblClickNav: false,
+			Page:        new(string("test_15")),
+			DblClickNav: new(bool(false)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2187,12 +2182,12 @@ func FuzzDecodeElementConfig(f *testing.F) {
 					}),
 				},
 			},
-			Disabled: false,
+			Disabled: new(bool(false)),
 			Control: new(schematic.ControlStateConfig{
 				Authority:     new(uint8(21)),
-				Show:          true,
-				ShowChip:      false,
-				ShowIndicator: true,
+				Show:          new(bool(true)),
+				ShowChip:      new(bool(false)),
+				ShowIndicator: new(bool(true)),
 				Orientation:   new(spatial.Location("top")),
 			}),
 		}}
@@ -2215,13 +2210,13 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 11,
 				A: 11.5,
 			}),
-			Units:    "test_12",
-			Disabled: true,
+			Units:    new(string("test_12")),
+			Disabled: new(bool(true)),
 			Control: new(schematic.ControlStateConfig{
 				Authority:     new(uint8(16)),
-				Show:          false,
-				ShowChip:      true,
-				ShowIndicator: false,
+				Show:          new(bool(false)),
+				ShowChip:      new(bool(true)),
+				ShowIndicator: new(bool(false)),
 				Orientation:   new(spatial.Location("top")),
 			}),
 		}}
@@ -2283,9 +2278,9 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			}),
 			Width:   new(float64(6.5)),
 			Align:   new(schematic.FlexAlignment("start")),
-			AutoFit: false,
+			AutoFit: new(bool(false)),
 			Level:   new(text.Level("h1")),
-			Value:   "test_10",
+			Value:   new(string("test_10")),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2317,11 +2312,11 @@ func FuzzDecodeElementConfig(f *testing.F) {
 						Key:      "test_18",
 						Color:    color.Color{},
 						Position: 20.5,
-						Switched: true,
+						Switched: new(bool(true)),
 					},
 				},
 			}),
-			Units:            "test_22",
+			Units:            new(string("test_22")),
 			InlineSize:       new(float64(23.5)),
 			Channel:          new(channel.Key(25)),
 			RollingAverage:   new(int32(26)),
@@ -2340,7 +2335,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				X: spatial.XCenterLocation("left"),
 				Y: spatial.YCenterLocation("top"),
 			}),
-			UseWidthForBackground:   true,
+			UseWidthForBackground:   new(bool(true)),
 			ValueBackgroundShift:    new(spatial.XY{X: 41.5, Y: 42.5}),
 			ValueBackgroundOverScan: new(spatial.XY{X: 44.5, Y: 45.5}),
 		}}
@@ -2853,7 +2848,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 	{
 		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSolenoidValve{
 			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
-			NormallyOpen:       true,
+			NormallyOpen:       new(bool(true)),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3163,7 +3158,7 @@ func FuzzDecodeHandle(f *testing.F) {
 func FuzzDecodeLabelConfig(f *testing.F) {
 	{
 		seed := schematic.LabelConfig{
-			Label:         "test_1",
+			Label:         new(string("test_1")),
 			Level:         new(text.Level("h1")),
 			Orientation:   new(spatial.Location("top")),
 			Direction:     new(spatial.Direction("x")),
@@ -3178,7 +3173,7 @@ func FuzzDecodeLabelConfig(f *testing.F) {
 	}
 	{
 		seed := schematic.LabelConfig{
-			Label:         "",
+			Label:         nil,
 			Level:         nil,
 			Orientation:   nil,
 			Direction:     nil,
@@ -3276,7 +3271,6 @@ func FuzzDecodeNode(f *testing.F) {
 			Key:      "test_1",
 			Position: spatial.XY{X: 3.5, Y: 4.5},
 			ZIndex:   6,
-			Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3289,7 +3283,6 @@ func FuzzDecodeNode(f *testing.F) {
 			Key:      "",
 			Position: spatial.XY{X: 0, Y: 0},
 			ZIndex:   0,
-			Measured: spatial.Dimensions{Width: 0, Height: 0},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3340,7 +3333,7 @@ func FuzzDecodeRedline(f *testing.F) {
 						A: 8.5,
 					},
 					Position: 9.5,
-					Switched: false,
+					Switched: new(bool(false)),
 				},
 			},
 		}
@@ -3406,17 +3399,16 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Key:      "test_5",
 					Position: spatial.XY{X: 7.5, Y: 8.5},
 					ZIndex:   10,
-					Measured: spatial.Dimensions{Width: 11.5, Height: 12.5},
 				},
 			},
 			Edges: []schematic.Edge{
 				{
-					Key:    "test_14",
-					Source: schematic.Handle{Node: "test_16", Param: "test_17"},
-					Target: schematic.Handle{Node: "test_19", Param: "test_20"},
+					Key:    "test_11",
+					Source: schematic.Handle{Node: "test_13", Param: "test_14"},
+					Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 				},
 			},
-			Configs: map[string]schematic.ElementConfig{"test_21": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
+			Configs: map[string]schematic.ElementConfig{"test_18": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3724,7 +3716,7 @@ func FuzzDecodeToggleConfig(f *testing.F) {
 			StateChannel:   nil,
 			CommandChannel: nil,
 			Control:        nil,
-			OnClickDelay:   0,
+			OnClickDelay:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3781,7 +3773,7 @@ func FuzzDecodeToggleSymbolConfig(f *testing.F) {
 				StateChannel:   nil,
 				CommandChannel: nil,
 				Control:        nil,
-				OnClickDelay:   0,
+				OnClickDelay:   nil,
 			},
 			Color: nil,
 		}

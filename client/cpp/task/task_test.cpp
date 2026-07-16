@@ -128,7 +128,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
         .config = {{"key", "value"}},
         .status = Status{
             .key = "task-status-key",
-            .variant = x::status::VARIANT_SUCCESS,
+            .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Task is running",
             .time = x::telem::TimeStamp::now(),
             .details = task::StatusDetails{.task = 0, .running = true, .cmd = "start"}
@@ -138,7 +138,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key, {.include_status = true}));
     ASSERT_EQ(t2.name, "test_task_with_status");
     ASSERT_TRUE(t2.status.has_value());
-    ASSERT_EQ(t2.status->variant, x::status::VARIANT_SUCCESS);
+    ASSERT_EQ(t2.status->variant, synnax::status::VARIANT_SUCCESS);
     ASSERT_EQ(t2.status->message, "Task is running");
     ASSERT_EQ(t2.status->details.running, true);
     ASSERT_EQ(t2.status->details.cmd, "start");
@@ -156,7 +156,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
         .config = {{"key", "value"}},
         .status = Status{
             .key = "task-status-by-name",
-            .variant = x::status::VARIANT_WARNING,
+            .variant = synnax::status::VARIANT_WARNING,
             .message = "Task warning",
             .time = x::telem::TimeStamp::now()
         }
@@ -165,7 +165,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
     const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, {.include_status = true}));
     ASSERT_EQ(t2.name, rand_name);
     ASSERT_TRUE(t2.status.has_value());
-    ASSERT_EQ(t2.status->variant, x::status::VARIANT_WARNING);
+    ASSERT_EQ(t2.status->variant, synnax::status::VARIANT_WARNING);
     ASSERT_EQ(t2.status->message, "Task warning");
 }
 
@@ -180,7 +180,7 @@ TEST(TaskTests, testListTasksWithStatus) {
         .config = {{"key", "value"}},
         .status = Status{
             .key = "task-list-status",
-            .variant = x::status::VARIANT_INFO,
+            .variant = synnax::status::VARIANT_INFO,
             .message = "Task info",
             .time = x::telem::TimeStamp::now(),
         }
@@ -189,7 +189,7 @@ TEST(TaskTests, testListTasksWithStatus) {
     const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_TRUE(tasks[0].status.has_value());
-    ASSERT_EQ(tasks[0].status->variant, x::status::VARIANT_INFO);
+    ASSERT_EQ(tasks[0].status->variant, synnax::status::VARIANT_INFO);
     ASSERT_EQ(tasks[0].status->message, "Task info");
 }
 /// @brief it should retrieve multiple tasks by their names.
