@@ -58,13 +58,17 @@ func MigrateKeysToUUID(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation
 		key := uuid.New()
 		keys[old.Key] = key
 		oldKeys[i] = old.Key
+		configHash, err := hashConfig(old.Config)
+		if err != nil {
+			return err
+		}
 		tasks[i] = Task{
 			Key:        key,
 			Rack:       rack.Key(old.Key >> 32),
 			Name:       old.Name,
 			Type:       old.Type,
 			Config:     old.Config,
-			ConfigHash: hashConfig(old.Config),
+			ConfigHash: configHash,
 			Internal:   old.Internal,
 			Snapshot:   old.Snapshot,
 		}

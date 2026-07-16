@@ -11,6 +11,7 @@ package task_test
 
 import (
 	"context"
+	"math"
 
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -206,6 +207,16 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, t)).To(Succeed())
 			Expect(t.ConfigHash).ToNot(Equal("deadbeefdeadbeef"))
 			Expect(t.ConfigHash).To(Equal(create(ctx, msgpack.EncodedJSON{"rate": 10})))
+		})
+		// An unhashable config must not store an empty hash, which a driver would echo
+		// back as a match and silently disable drift detection for the task.
+		It("Should reject a config that cannot be hashed", func(ctx SpecContext) {
+			t := &task.Task{
+				Rack:   testRack.Key,
+				Name:   "Test Task",
+				Config: msgpack.EncodedJSON{"rate": math.NaN()},
+			}
+			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("hash task config")))
 		})
 		It("Should persist the hash alongside the task", func(ctx SpecContext) {
 			t := &task.Task{
