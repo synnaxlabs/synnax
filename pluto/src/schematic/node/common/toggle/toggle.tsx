@@ -7,47 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, memo, type ReactElement } from "react";
-import { z } from "zod";
+import { schematic } from "@synnaxlabs/client";
+import { type FC, memo, type ReactElement, useMemo } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
+import * as CommonTelem from "@/schematic/node/common/telem";
 import { type ButtonProps } from "@/schematic/node/common/toggle/Button";
 import { type NodeProps } from "@/schematic/node/spec";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
 import { Toggle as Base } from "@/vis/toggle";
 
-export const toggleConfigZ = Label.labeledConfigZ.extend({
-  source: telem.booleanSourceSpecZ.optional(),
-  sink: telem.booleanSinkSpecZ.optional(),
-  control: Control.stateConfigZ.optional(),
-  onClickDelay: z.number().optional(),
-});
-export type ToggleConfig = z.infer<typeof toggleConfigZ>;
-
-export const ZERO_BOOLEAN_SOURCE = telem.sourcePipeline("boolean", {
-  connections: [{ from: "valueStream", to: "threshold" }],
-  segments: {
-    valueStream: telem.streamChannelValue({ channel: 0 }),
-    threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
-  },
-  outlet: "threshold",
-});
-
-export const ZERO_BOOLEAN_SINK = telem.sinkPipeline("boolean", {
-  connections: [{ from: "setpoint", to: "setter" }],
-  segments: {
-    setter: control.setChannelValue({ channel: 0 }),
-    setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
-  },
-  inlet: "setpoint",
-});
+export const toggleConfigZ = schematic.toggleConfigZ;
+export type ToggleConfig = schematic.ToggleConfig;
 
 export const ZERO_TOGGLE_DEFAULTS: Partial<ToggleConfig> = {
-  source: ZERO_BOOLEAN_SOURCE,
-  sink: ZERO_BOOLEAN_SINK,
   control: { show: true },
   onClickDelay: 0,
 };
@@ -75,13 +49,21 @@ export const createToggle = <C extends ToggleConfig>(
   }: NodeProps<ToggleConfig>): ReactElement => {
     const {
       control,
-      source,
-      sink,
+      stateChannel,
+      commandChannel,
       label,
       orientation = "left",
       onClickDelay,
       ...rest
     } = config;
+    const source = useMemo(
+      () => CommonTelem.booleanSource(stateChannel),
+      [stateChannel],
+    );
+    const sink = useMemo(
+      () => CommonTelem.booleanSink(commandChannel),
+      [commandChannel],
+    );
     const { enabled, toggle } = Base.use({ aetherKey: nodeKey, source, sink });
     const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
@@ -94,7 +76,11 @@ export const createToggle = <C extends ToggleConfig>(
         {...scaleResize}
       >
         <Label.Label config={label} onChange={onConfigChange} />
-        <Control.State config={control} onChange={onConfigChange} />
+        <Control.State
+          config={control}
+          channel={commandChannel}
+          onChange={onConfigChange}
+        />
         <Sym
           enabled={enabled}
           onClick={toggle}
@@ -110,11 +96,7 @@ export const createToggle = <C extends ToggleConfig>(
   return M;
 };
 
-export const dummyToggleConfigZ = Label.labeledConfigZ.extend({
-  enabled: z.boolean().optional(),
-  clickable: z.boolean().optional(),
-});
-export type DummyToggleConfig = z.infer<typeof dummyToggleConfigZ>;
+export type DummyToggleConfig = Omit<schematic.DummyToggleSymbolConfig, "color">;
 
 export const createDummyToggle = <C extends DummyToggleConfig>(
   Primitive: FC<Omit<C, "label"> & ButtonProps>,

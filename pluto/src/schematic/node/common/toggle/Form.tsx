@@ -7,20 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
-import { type Control } from "@/schematic/node/common/control";
 import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDelay";
 import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Wrapper } from "@/schematic/node/common/form/Wrapper";
-import { telem } from "@/telem/aether";
-import { control } from "@/telem/control/aether";
-import { type Toggle as VisToggle } from "@/vis/toggle";
 
 interface ChannelFormProps {
   path: string;
@@ -28,71 +24,35 @@ interface ChannelFormProps {
 }
 
 export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement => {
-  const { value, onChange } = Form.useField<
-    Omit<VisToggle.UseProps, "aetherKey"> & { control: Control.StateProps }
-  >(path);
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
-  const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
-    sourceP.segments.valueStream.props,
-  );
-  const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
+  const { value, onChange } =
+    Form.useField<
+      Pick<schematic.ToggleConfig, "stateChannel" | "commandChannel" | "control">
+    >(path);
 
-  const handleSourceChange = (v: channel.Key | null): void => {
-    v ??= 0;
-    const t = telem.sourcePipeline("boolean", {
-      connections: [{ from: "valueStream", to: "threshold" }],
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: v }),
-        threshold: telem.withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
-      },
-      outlet: "threshold",
-    });
-    onChange({ ...value, source: t });
-  };
+  const handleSourceChange = (v: channel.Key | null): void =>
+    onChange({ ...value, stateChannel: v ?? undefined });
 
-  const handleSinkChange = (v: channel.Key | null): void => {
-    v ??= 0;
-    const t = telem.sinkPipeline("boolean", {
-      connections: [{ from: "setpoint", to: "setter" }],
-      segments: {
-        setter: control.setChannelValue({ channel: v }),
-        setpoint: telem.setpoint({ truthy: 1, falsy: 0 }),
-      },
-      inlet: "setpoint",
-    });
-
-    const authSource = control.authoritySource({ channel: v });
-
-    const controlChipSink = control.acquireChannelControl({
-      channel: v,
-      authority: 255,
-    });
-
+  const handleSinkChange = (v: channel.Key | null): void =>
     onChange({
       ...value,
-      sink: t,
-      control: {
-        showChip: true,
-        showIndicator: true,
-        ...value.control,
-        chip: { sink: controlChipSink, source: authSource },
-        indicator: { statusSource: authSource },
-      },
+      commandChannel: v ?? undefined,
+      control: { showChip: true, showIndicator: true, ...value.control },
     });
-  };
 
   return (
     <Wrapper y empty>
       <Flex.Box x grow>
         <Input.Item label="State channel" grow padHelpText={false}>
           <Channel.SelectSingle
-            value={source.channel as number}
+            value={value.stateChannel ?? 0}
             onChange={handleSourceChange}
           />
         </Input.Item>
         <Input.Item label="Command channel" grow padHelpText={false}>
-          <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
+          <Channel.SelectSingle
+            value={value.commandChannel ?? 0}
+            onChange={handleSinkChange}
+          />
         </Input.Item>
       </Flex.Box>
       <Flex.Box x grow>

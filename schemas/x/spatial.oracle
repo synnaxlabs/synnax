@@ -160,6 +160,25 @@ Location enum {
     """
 }
 
+XCenterLocation enum extends XLocation, CenterLocation {
+    @doc value "is a horizontal-axis location at the left, right, or center."
+}
+
+YCenterLocation enum extends YLocation, CenterLocation {
+    @doc value "is a vertical-axis location at the top, bottom, or center."
+}
+
+LocationXY struct {
+    x XCenterLocation {
+        @doc value "is the horizontal anchor."
+    }
+    y YCenterLocation {
+        @doc value "is the vertical anchor."
+    }
+
+    @doc value "is a per-axis location pair anchoring content within a region."
+}
+
 Alignment enum {
     start  = "start"
     center = "center"

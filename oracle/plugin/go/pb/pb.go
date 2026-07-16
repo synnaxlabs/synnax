@@ -1077,7 +1077,7 @@ func (p *Plugin) getOptionalArrayWrapperName(typeRef resolution.TypeRef, table *
 		return "ListWrapper"
 	}
 	if resolved, ok := elemType.Resolve(table); ok {
-		return resolved.Name + "List"
+		return lo.PascalCase(resolved.Name) + "List"
 	}
 	if resolution.IsPrimitive(elemType.Name) {
 		return cases.Title(language.English).String(elemType.Name) + "List"

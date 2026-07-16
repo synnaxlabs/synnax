@@ -9,7 +9,8 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
-import { box, direction, xy } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { box, color, direction, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
   type FC,
@@ -52,7 +53,9 @@ export interface PathProps extends Omit<Base.BaseProps, "path" | "points"> {
   crossings: xy.XY[];
 }
 
-const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
+const create = <V extends schematic.EdgeConfigType>(
+  Path: FC<PathProps>,
+): Edge<Config<V>> => {
   const E: Edge<Config<V>> = ({
     edgeKey,
     source,
@@ -139,7 +142,7 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
 
     return (
       <>
-        <Path points={points} crossings={crossings} color={edgeColor} />
+        <Path points={points} crossings={crossings} color={edgeColor ?? color.ZERO} />
         {selected &&
           calcMidPoints(points).map((p, i) => {
             const dir = segments[i].direction;
@@ -190,7 +193,7 @@ const calcMidPoints = (points: xy.XY[]): xy.XY[] =>
     return xy.construct((p.x + prev.x) / 2, (p.y + prev.y) / 2);
   });
 
-export const createSpec = <V extends string = string>(
+export const createSpec = <V extends schematic.EdgeConfigType>(
   variant: V,
   name: string,
   path: FC<PathProps>,

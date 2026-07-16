@@ -10,6 +10,7 @@
 package migrations_test
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"os"
@@ -28,6 +29,7 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v5"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v56"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -114,6 +116,26 @@ func nonZeroV0() v0.Data {
 	}
 }
 
+// cfgFields returns a typed element config's wire fields for shape assertions.
+func cfgFields(cfg schematic.ElementConfig) map[string]any {
+	b := MustSucceed(json.Marshal(cfg))
+	var m map[string]any
+	Expect(json.Unmarshal(b, &m)).To(Succeed())
+	return m
+}
+
+// migrateFromV55 composes the full migration chain from a v55 snapshot to the
+// current typed Schematic.
+func migrateFromV55(
+	ctx context.Context, old v55.Schematic,
+) (schematic.Schematic, error) {
+	mid, err := v56.MigrateSchematic(ctx, old)
+	if err != nil {
+		return schematic.Schematic{}, err
+	}
+	return schematic.MigrateSchematic(ctx, mid)
+}
+
 var _ = Describe("MigrateSchematic", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured production fixture. Run with UPDATE_MIGRATED=1 to regenerate
@@ -124,7 +146,7 @@ var _ = Describe("MigrateSchematic", func() {
 			func(ctx SpecContext, fixture string) {
 				blob, _ := loadFixture(fixture)
 				snap := v55.Schematic{Key: fixedKey, Name: fixture, Data: blob}
-				out := MustSucceed(schematic.MigrateSchematic(ctx, snap))
+				out := MustSucceed(migrateFromV55(ctx, snap))
 				assertMigrated(fixture, out)
 			},
 			Entry("v2 condensed", "v2_gse_condensed.json"),
@@ -143,9 +165,16 @@ var _ = Describe("MigrateSchematic", func() {
 				ctx, gorp.TableConfig[uuid.UUID, schematic.Schematic]{
 					DB: db,
 					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Schematic, schematic.Schematic](
+						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Schematic, v56.Schematic](
 							"v55_lift_typed_schematic",
-							schematic.MigrateSchematic,
+							v56.MigrateSchematic,
+						),
+						migrate.WithAddedDeps(
+							gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v56.Schematic, schematic.Schematic](
+								"v56_typed_element_configs",
+								schematic.MigrateSchematic,
+							),
+							"v55_lift_typed_schematic",
 						),
 					},
 				},
@@ -181,7 +210,131 @@ var _ = Describe("MigrateSchematic", func() {
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "outlet"}))
-			Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
+			Expect(cfgFields(got.Configs["n1"])["variant"]).To(Equal("tank"))
+		})
+
+		It("Should extract telem pipeline args from v56 stored configs", func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			t := MustOpen(gorp.OpenTable[uuid.UUID, v56.Schematic](
+				ctx, gorp.TableConfig[uuid.UUID, v56.Schematic]{DB: db},
+			))
+			pipeline := map[string]any{
+				"type": "source-pipeline", "variant": "source", "valueType": "string",
+				"props": map[string]any{
+					"outlet": "stringifier",
+					"segments": map[string]any{
+						"valueStream": map[string]any{
+							"type": "stream-channel-value", "variant": "source",
+							"valueType": "number",
+							"props":     map[string]any{"channel": 42.0},
+						},
+						"rollingAverage": map[string]any{
+							"type": "rolling-average", "variant": "source-transformer",
+							"valueType": "number",
+							"props":     map[string]any{"windowSize": 5.0},
+						},
+					},
+				},
+			}
+			seed := v56.Schematic{
+				Key:  uuid.New(),
+				Name: "Telem Args",
+				Configs: map[string]msgpack.EncodedJSON{
+					"v1": {"variant": "value", "telem": pipeline},
+					"t1": {
+						"variant": "valve",
+						"sink": map[string]any{
+							"type": "sink-pipeline", "variant": "sink", "valueType": "boolean",
+							"props": map[string]any{
+								"inlet": "setpoint",
+								"segments": map[string]any{
+									"setter": map[string]any{
+										"type": "controlled-numeric-telem-sink", "variant": "sink",
+										"valueType": "number",
+										"props":     map[string]any{"channel": 7.0},
+									},
+								},
+							},
+						},
+						"control": map[string]any{
+							"show": true,
+							"chip": map[string]any{
+								"sink": map[string]any{
+									"type": "acquire-channel-control", "variant": "sink",
+									"valueType": "boolean",
+									"props":     map[string]any{"channel": 7.0, "authority": 200.0},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
+			migrated := MustOpen(gorp.OpenTable[uuid.UUID, schematic.Schematic](
+				ctx, gorp.TableConfig[uuid.UUID, schematic.Schematic]{
+					DB: db,
+					Migrations: []migrate.Migration{
+						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v56.Schematic, schematic.Schematic](
+							"v56_typed_element_configs",
+							schematic.MigrateSchematic,
+						),
+					},
+				},
+			))
+			got := retrieve(ctx, db, migrated, seed.Key)
+			value := cfgFields(got.Configs["v1"])
+			Expect(value["channel"]).To(Equal(42.0))
+			Expect(value["rolling_average"]).To(Equal(5.0))
+			Expect(value).NotTo(HaveKey("telem"))
+			valve := cfgFields(got.Configs["t1"])
+			Expect(valve["command_channel"]).To(Equal(7.0))
+			Expect(valve).NotTo(HaveKey("sink"))
+			Expect(valve["control"]).To(SatisfyAll(
+				HaveKeyWithValue("authority", 200.0),
+				Not(HaveKey("chip")),
+			))
+		})
+
+		It("Should normalize and type v56 stored configs on retrieve", func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			t := MustOpen(gorp.OpenTable[uuid.UUID, v56.Schematic](
+				ctx, gorp.TableConfig[uuid.UUID, v56.Schematic]{DB: db},
+			))
+			seed := v56.Schematic{
+				Key:   uuid.New(),
+				Name:  "Typed Configs",
+				Nodes: []v56.Node{{Key: "n1"}},
+				Configs: map[string]msgpack.EncodedJSON{
+					"n1": {
+						"variant":         "box",
+						"backgroundColor": "#102030",
+						"strokeWidth":     2.0,
+						"label":           map[string]any{"maxInlineSize": 120.0},
+					},
+					"bogus": {"data": 1.0},
+				},
+			}
+			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
+			migrated := MustOpen(gorp.OpenTable[uuid.UUID, schematic.Schematic](
+				ctx, gorp.TableConfig[uuid.UUID, schematic.Schematic]{
+					DB: db,
+					Migrations: []migrate.Migration{
+						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v56.Schematic, schematic.Schematic](
+							"v56_typed_element_configs",
+							schematic.MigrateSchematic,
+						),
+					},
+				},
+			))
+			got := retrieve(ctx, db, migrated, seed.Key)
+			Expect(got.Configs).To(HaveLen(1))
+			fields := cfgFields(got.Configs["n1"])
+			Expect(fields["variant"]).To(Equal("box"))
+			Expect(fields["background_color"]).To(Equal(
+				map[string]any{"r": 16.0, "g": 32.0, "b": 48.0, "a": 1.0},
+			))
+			Expect(fields["stroke_width"]).To(Equal(2.0))
+			Expect(fields["label"]).To(HaveKeyWithValue("max_inline_size", 120.0))
 		})
 
 		It("Should chain a legacy v0 blob through every migration step on retrieve", func(ctx SpecContext) {
@@ -194,7 +347,7 @@ var _ = Describe("MigrateSchematic", func() {
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "out"}))
-			Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
+			Expect(cfgFields(got.Configs["n1"])["variant"]).To(Equal("valve"))
 		})
 	})
 
@@ -202,14 +355,14 @@ var _ = Describe("MigrateSchematic", func() {
 	// the v6 console contract. Keep one concern per spec so failures localize.
 	Describe("v5 reshape semantics", func() {
 		migrateV5 := func(ctx SpecContext, body string) schematic.Schematic {
-			return MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			return MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key:  uuid.New(),
 				Data: jsonMap(`{"version": "5.0.0", "nodes": [], "edges": [], "props": {}, ` + body + `}`),
 			}))
 		}
 
 		It("Should reshape edge endpoints into nested Handle{Node, Param}", func(ctx SpecContext) {
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0",
@@ -222,7 +375,7 @@ var _ = Describe("MigrateSchematic", func() {
 		})
 
 		It("Should lift edge.data segments, color, and variant into props keyed by edge id", func(ctx SpecContext) {
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0",
@@ -233,9 +386,10 @@ var _ = Describe("MigrateSchematic", func() {
 					}]
 				}`),
 			}))
-			Expect(out.Configs["e1"]).To(SatisfyAll(
+			Expect(cfgFields(out.Configs["e1"])).To(SatisfyAll(
 				HaveKeyWithValue("variant", "pipe"),
-				HaveKeyWithValue("color", "#0000ff"),
+				HaveKeyWithValue("color",
+					map[string]any{"r": 0.0, "g": 0.0, "b": 255.0, "a": 1.0}),
 				HaveKey("segments"),
 			))
 		})
@@ -243,7 +397,7 @@ var _ = Describe("MigrateSchematic", func() {
 		It("Should strip legacy stumps from a full-path edge", func(ctx SpecContext) {
 			// Real OX Pre-Valve -> OX MPV edge from a 0.55 schematic: the stored full
 			// path includes both stumps, which would double on render and fold a pigtail.
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0", "nodes": [], "props": {},
@@ -259,7 +413,7 @@ var _ = Describe("MigrateSchematic", func() {
 					}]
 				}`),
 			}))
-			Expect(out.Configs["e1"]["segments"]).To(Equal([]any{
+			Expect(cfgFields(out.Configs["e1"])["segments"]).To(Equal([]any{
 				map[string]any{"direction": "y", "length": -281.7166395035551},
 				map[string]any{"direction": "x", "length": 140.06190790464655},
 			}))
@@ -269,7 +423,7 @@ var _ = Describe("MigrateSchematic", func() {
 			// A single segment shorter than two stumps (real 0.55 edge, 11.88px) has no
 			// strippable middle; subtracting a full stump from each end would flip it
 			// into a self-crossing spur, so it is cleared to an empty (auto-routed) edge.
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0", "nodes": [], "props": {},
@@ -277,11 +431,11 @@ var _ = Describe("MigrateSchematic", func() {
 						"data": {"segments": [{"direction": "y", "length": 11.88}], "variant": "pipe"}}]
 				}`),
 			}))
-			Expect(out.Configs["e1"]["segments"]).To(Equal([]any{}))
+			Expect(cfgFields(out.Configs["e1"])["segments"]).To(Equal([]any{}))
 		})
 
 		It("Should default edge-prop variant to pipe when edge.data is non-null but empty", func(ctx SpecContext) {
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0",
@@ -289,11 +443,11 @@ var _ = Describe("MigrateSchematic", func() {
 					"edges": [{"key": "e1", "source": "n1", "target": "n2", "data": {}}]
 				}`),
 			}))
-			Expect(out.Configs["e1"]["variant"]).To(Equal("pipe"))
+			Expect(cfgFields(out.Configs["e1"])["variant"]).To(Equal("pipe"))
 		})
 
 		It("Should produce no edge-prop entry when edge.data is missing or null", func(ctx SpecContext) {
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0",
@@ -310,20 +464,21 @@ var _ = Describe("MigrateSchematic", func() {
 
 		It("Should rename node-prop key to variant", func(ctx SpecContext) {
 			out := migrateV5(ctx, `"props": {"n1": {"key": "valve", "color": "#ff0000"}}`)
-			Expect(out.Configs["n1"]).To(SatisfyAll(
+			Expect(cfgFields(out.Configs["n1"])).To(SatisfyAll(
 				HaveKeyWithValue("variant", "valve"),
-				HaveKeyWithValue("color", "#ff0000"),
+				HaveKeyWithValue("color",
+					map[string]any{"r": 255.0, "g": 0.0, "b": 0.0, "a": 1.0}),
 				Not(HaveKey("key")),
 			))
 		})
 
 		It("Should overwrite an existing variant with the v0 key field per console v6 contract", func(ctx SpecContext) {
 			out := migrateV5(ctx, `"props": {"n1": {"key": "tank", "variant": "stale"}}`)
-			Expect(out.Configs["n1"]["variant"]).To(Equal("tank"))
+			Expect(cfgFields(out.Configs["n1"])["variant"]).To(Equal("tank"))
 		})
 
 		It("Should preserve user-set zIndex on nodes", func(ctx SpecContext) {
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0", "edges": [], "props": {},
@@ -338,7 +493,7 @@ var _ = Describe("MigrateSchematic", func() {
 		})
 
 		It("Should default zIndex to 0 when the wire form omits it", func(ctx SpecContext) {
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "5.0.0", "edges": [], "props": {},
@@ -350,7 +505,7 @@ var _ = Describe("MigrateSchematic", func() {
 
 		It("Should pass through the gorp-entry fields (key, name, snapshot)", func(ctx SpecContext) {
 			key := uuid.New()
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: key, Name: "tank-1", Snapshot: true,
 				Data: jsonMap(`{"version": "5.0.0"}`),
 			}))
@@ -360,7 +515,7 @@ var _ = Describe("MigrateSchematic", func() {
 		})
 
 		It("Should handle a nil data blob without erroring", func(ctx SpecContext) {
-			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
+			out := MustSucceed(migrateFromV55(ctx, v55.Schematic{
 				Key: uuid.New(), Name: "empty", Data: nil,
 			}))
 			Expect(out.Nodes).To(BeEmpty())

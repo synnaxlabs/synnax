@@ -10,6 +10,7 @@
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Access, control, Flex, Schematic, Value, Viewport } from "@synnaxlabs/pluto";
 import {
+  caseconv,
   color,
   control as xcontrol,
   dimensions,
@@ -67,7 +68,8 @@ const v0LabelZ = z.looseObject({
 });
 
 const v0NodePropsZ = z.looseObject({
-  key: Schematic.Node.variantZ,
+  // Legacy camelCase registry key; converted to a variant by the v6 migration.
+  key: z.string(),
   color: color.crudeZ.optional(),
   label: v0LabelZ.optional(),
 });
@@ -353,13 +355,88 @@ const migrateLegendColors = (
   return out;
 };
 
+// segProp reads a property from a named segment of a legacy pipeline spec;
+// single-segment specs store the segment at the top level. Mirrors convert.go.
+const segProp = (spec: unknown, segment: string, prop: string): unknown => {
+  if (typeof spec !== "object" || spec == null) return undefined;
+  const props = (spec as record.Unknown).props;
+  if (typeof props !== "object" || props == null) return undefined;
+  let segments = (props as record.Unknown).segments;
+  if (typeof segments !== "object" || segments == null) segments = { [segment]: spec };
+  const seg = (segments as record.Unknown)[segment];
+  if (typeof seg !== "object" || seg == null) return undefined;
+  const segProps = (seg as record.Unknown).props;
+  if (typeof segProps !== "object" || segProps == null) return undefined;
+  const v = (segProps as record.Unknown)[prop];
+  if (prop === "channel" && v === 0) return undefined;
+  return v;
+};
+
+// extractTelemArgs rewrites legacy telem pipeline specs into the schema's
+// semantic arguments, in place. Mirrors extractTelemArgs in convert.go.
+const extractTelemArgs = (cfg: record.Unknown): void => {
+  const setIfPresent = (key: string, v: unknown): void => {
+    if (v !== undefined) cfg[key] = v;
+  };
+  switch (cfg.variant) {
+    case "value":
+    case "gauge":
+      setIfPresent("channel", segProp(cfg.telem, "valueStream", "channel"));
+      setIfPresent("rollingAverage", segProp(cfg.telem, "rollingAverage", "windowSize"));
+      delete cfg.telem;
+      delete cfg.backgroundTelem;
+      break;
+    case "light":
+      setIfPresent("channel", segProp(cfg.source, "valueStream", "channel"));
+      setIfPresent("threshold", segProp(cfg.source, "threshold", "trueBound"));
+      delete cfg.source;
+      break;
+    case "state_indicator":
+      setIfPresent("channel", segProp(cfg.source, "valueStream", "channel"));
+      delete cfg.source;
+      break;
+    case "setpoint":
+      setIfPresent("stateChannel", segProp(cfg.source, "valueStream", "channel"));
+      setIfPresent("commandChannel", segProp(cfg.sink, "setter", "channel"));
+      delete cfg.source;
+      delete cfg.sink;
+      break;
+    case "button":
+    case "select":
+    case "input":
+      setIfPresent("commandChannel", segProp(cfg.sink, "setter", "channel"));
+      delete cfg.sink;
+      break;
+    default:
+      if ("source" in cfg) {
+        setIfPresent("stateChannel", segProp(cfg.source, "valueStream", "channel"));
+        delete cfg.source;
+      }
+      if ("sink" in cfg) {
+        setIfPresent("commandChannel", segProp(cfg.sink, "setter", "channel"));
+        delete cfg.sink;
+      }
+  }
+  const control = cfg.control;
+  if (typeof control !== "object" || control == null) return;
+  const ctl = control as record.Unknown;
+  const obj = (v: unknown): record.Unknown | undefined =>
+    typeof v === "object" && v != null ? (v as record.Unknown) : undefined;
+  const authority = obj(obj(obj(ctl.chip)?.sink)?.props)?.authority;
+  if (authority !== undefined) ctl.authority = authority;
+  delete ctl.chip;
+  delete ctl.indicator;
+};
+
 const migratePropsToConfigs = (
   props: Record<string, V0NodeProps>,
 ): Record<string, V6ElementConfig> =>
   Object.fromEntries(
     Object.entries(props).map(([k, p]) => {
       const { key, ...rest } = p as V0NodeProps & Record<string, unknown>;
-      return [k, { ...rest, variant: key } as V6ElementConfig];
+      const cfg: record.Unknown = { ...rest, variant: caseconv.camelToSnake(key) };
+      extractTelemArgs(cfg);
+      return [k, cfg as V6ElementConfig];
     }),
   );
 

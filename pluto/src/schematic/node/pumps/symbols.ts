@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createToggle } from "@/schematic/node/common/create";
 import { Cavity } from "@/schematic/node/pumps/Cavity";
 import { Centrifugal } from "@/schematic/node/pumps/Centrifugal";
@@ -25,13 +23,13 @@ import { Turbo } from "@/schematic/node/pumps/Turbo";
 import { Vacuum } from "@/schematic/node/pumps/Vacuum";
 
 const cavity = createToggle({
-  variant: "cavityPump",
+  variant: "cavity_pump",
   name: "Cavity",
   label: "Cavity Pump",
   Primitive: Cavity,
 });
 const centrifugal = createToggle({
-  variant: "centrifugalCompressor",
+  variant: "centrifugal_compressor",
   name: "Centrifugal Compressor",
   Primitive: Centrifugal,
 });
@@ -41,84 +39,68 @@ const compressor = createToggle({
   Primitive: Compressor,
 });
 const diaphragm = createToggle({
-  variant: "diaphragmPump",
+  variant: "diaphragm_pump",
   name: "Diaphragm Pump",
   Primitive: Diaphragm,
 });
 const ejection = createToggle({
-  variant: "ejectionPump",
+  variant: "ejection_pump",
   name: "Ejection",
   label: "Ejection Pump",
   Primitive: Ejection,
 });
 const ejector = createToggle({
-  variant: "ejectorCompressor",
+  variant: "ejector_compressor",
   name: "Ejector Compressor",
   Primitive: Ejector,
 });
 const liquidRing = createToggle({
-  variant: "liquidRingCompressor",
+  variant: "liquid_ring_compressor",
   name: "Liquid Ring Compressor",
   Primitive: LiquidRing,
 });
 const piston = createToggle({
-  variant: "pistonPump",
+  variant: "piston_pump",
   name: "Piston",
   label: "Piston Pump",
   Primitive: Piston,
 });
 const pump = createToggle({ variant: "pump", name: "Pump", Primitive: Pump });
 const rollerVane = createToggle({
-  variant: "rollerVaneCompressor",
+  variant: "roller_vane_compressor",
   name: "Roller Vane Compressor",
   Primitive: RollerVane,
 });
 const screw = createToggle({
-  variant: "screwPump",
+  variant: "screw_pump",
   name: "Screw",
   label: "Screw Pump",
   Primitive: Screw,
 });
 const turbo = createToggle({
-  variant: "turboCompressor",
+  variant: "turbo_compressor",
   name: "Turbo Compressor",
   Primitive: Turbo,
 });
 const vacuum = createToggle({
-  variant: "vacuumPump",
+  variant: "vacuum_pump",
   name: "Vacuum",
   label: "Vacuum Pump",
   Primitive: Vacuum,
 });
 
 export const REGISTRY = {
-  cavityPump: cavity.spec,
-  centrifugalCompressor: centrifugal.spec,
+  cavity_pump: cavity.spec,
+  centrifugal_compressor: centrifugal.spec,
   compressor: compressor.spec,
-  diaphragmPump: diaphragm.spec,
-  ejectionPump: ejection.spec,
-  ejectorCompressor: ejector.spec,
-  liquidRingCompressor: liquidRing.spec,
-  pistonPump: piston.spec,
+  diaphragm_pump: diaphragm.spec,
+  ejection_pump: ejection.spec,
+  ejector_compressor: ejector.spec,
+  liquid_ring_compressor: liquidRing.spec,
+  piston_pump: piston.spec,
   pump: pump.spec,
-  rollerVaneCompressor: rollerVane.spec,
-  screwPump: screw.spec,
-  turboCompressor: turbo.spec,
-  vacuumPump: vacuum.spec,
+  roller_vane_compressor: rollerVane.spec,
+  screw_pump: screw.spec,
+  turbo_compressor: turbo.spec,
+  vacuum_pump: vacuum.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  cavity.configZ,
-  centrifugal.configZ,
-  compressor.configZ,
-  diaphragm.configZ,
-  ejection.configZ,
-  ejector.configZ,
-  liquidRing.configZ,
-  piston.configZ,
-  pump.configZ,
-  rollerVane.configZ,
-  screw.configZ,
-  turbo.configZ,
-  vacuum.configZ,
-]);

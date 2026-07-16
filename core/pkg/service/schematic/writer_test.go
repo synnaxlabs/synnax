@@ -17,7 +17,6 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
@@ -178,14 +177,14 @@ var _ = Describe("Writer", func() {
 				}}),
 				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "pump",
-					Config: msgpack.EncodedJSON{"label": "Main Pump"},
+					Config: tankPayload("Main Pump"),
 				}),
 			})).To(Succeed())
 			var res schematic.Schematic
 			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Nodes).To(HaveLen(2))
 			Expect(res.Edges).To(HaveLen(1))
-			Expect(res.Configs["pump"]).To(HaveKeyWithValue("label", "Main Pump"))
+			Expect(res.Configs["pump"]).To(Equal(tankCfg("Main Pump", "")))
 		})
 
 		It("Should notify subscribers with the dispatched ScopedAction on success", func(ctx SpecContext) {

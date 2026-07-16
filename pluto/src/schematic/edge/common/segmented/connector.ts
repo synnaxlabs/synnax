@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { box, direction, location, xy } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { type diagram } from "@/vis/diagram/aether";
 
@@ -116,12 +116,9 @@ export const prepareNode = ({
   };
 };
 
-export const segmentZ = z.object({
-  direction: direction.directionZ,
-  length: z.number(),
-});
+export const segmentZ = schematic.segmentZ;
 
-export type Segment = z.infer<typeof segmentZ>;
+export type Segment = schematic.Segment;
 
 export const travelSegments = (source: xy.XY, ...segments: Segment[]): xy.XY => {
   let current = source;
@@ -623,7 +620,7 @@ export interface UpdateSegmentsForPositionChangesProps {
     source: { node: string };
     target: { node: string };
   }>;
-  props: Record<string, { segments?: Segment[] } | undefined>;
+  props: Record<string, schematic.ElementConfig | undefined>;
   changes: NodePositionChange[];
 }
 
@@ -650,7 +647,8 @@ export const updateSegmentsForPositionChanges = ({
       xy.equals(sourceDelta, targetDelta, 0.001)
     )
       continue;
-    let segments = props[edge.key]?.segments ?? [];
+    const cfg = props[edge.key];
+    let segments = (cfg != null && "segments" in cfg ? cfg.segments : undefined) ?? [];
     if (segments.length === 0) continue;
     if (sourceDelta != null && !xy.equals(sourceDelta, xy.ZERO))
       segments = moveSourceNode({ delta: sourceDelta, segments });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel } from "@synnaxlabs/client";
+import { type channel, type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -17,31 +17,18 @@ import { Input } from "@/input";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
-import { telem } from "@/telem/aether";
-import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
-    Base.useField<Omit<BaseStateIndicator.UseProps, "aetherKey">>(path);
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
-    sourceP.segments.valueStream.props,
-  );
+    Base.useField<Pick<schematic.NodeConfigStateIndicator, "channel">>(path);
 
-  const handleSourceChange = (v: channel.Key | null): void => {
-    v ??= 0;
-    const t = telem.sourcePipeline("number", {
-      connections: [],
-      segments: { valueStream: telem.streamChannelValue({ channel: v }) },
-      outlet: "valueStream",
-    });
-    onChange({ ...value, source: t });
-  };
+  const handleSourceChange = (v: channel.Key | null): void =>
+    onChange({ ...value, channel: v ?? undefined });
 
   return (
     <Form.Wrapper x grow align="stretch">
       <Input.Item label="Input channel" grow>
         <Channel.SelectSingle
-          value={source.channel as number}
+          value={value.channel ?? 0}
           onChange={handleSourceChange}
         />
       </Input.Item>

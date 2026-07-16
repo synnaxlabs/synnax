@@ -25,6 +25,14 @@ export const STICKY_UNITS = ["px", "decimal"] as const;
 export const stickyUnitZ = z.enum(STICKY_UNITS);
 export type StickyUnit = z.infer<typeof stickyUnitZ>;
 
+export const X_CENTER_LOCATIONS = ["left", "right", "center"] as const;
+export const xCenterLocationZ = z.enum(X_CENTER_LOCATIONS);
+export type XCenterLocation = z.infer<typeof xCenterLocationZ>;
+
+export const Y_CENTER_LOCATIONS = ["top", "bottom", "center"] as const;
+export const yCenterLocationZ = z.enum(Y_CENTER_LOCATIONS);
+export type YCenterLocation = z.infer<typeof yCenterLocationZ>;
+
 export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum(OUTER_LOCATIONS);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
@@ -99,6 +107,15 @@ export const dimensionsZ = z.object({
   height: z.number(),
 });
 export interface Dimensions extends z.infer<typeof dimensionsZ> {}
+
+/** LocationXY is a per-axis location pair anchoring content within a region. */
+export const locationXYZ = z.object({
+  /** x is the horizontal anchor. */
+  x: xCenterLocationZ,
+  /** y is the vertical anchor. */
+  y: yCenterLocationZ,
+});
+export interface LocationXY extends z.infer<typeof locationXYZ> {}
 
 /**
  * SignedDimensions is a 2D size whose width and height components carry sign, allowing

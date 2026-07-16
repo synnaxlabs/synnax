@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import { createStatic, createToggle } from "@/schematic/node/common/create";
 import { Cap } from "@/schematic/node/fittings/Cap";
 import { Filter } from "@/schematic/node/fittings/Filter";
@@ -27,19 +25,19 @@ import { Vent } from "@/schematic/node/fittings/Vent";
 const cap = createStatic({ variant: "cap", name: "Cap", Primitive: Cap });
 const filter = createStatic({ variant: "filter", name: "Filter", Primitive: Filter });
 const flowStraightener = createStatic({
-  variant: "flowStraightener",
+  variant: "flow_straightener",
   name: "Flow Straightener",
   Primitive: FlowStraightener,
 });
 const heaterElement = createStatic({
-  variant: "heaterElement",
+  variant: "heater_element",
   name: "Heater",
   label: "Heater Element",
   Primitive: HeaterElement,
 });
-const isoCap = createStatic({ variant: "isoCap", name: "ISO Cap", Primitive: ISOCap });
+const isoCap = createStatic({ variant: "iso_cap", name: "ISO Cap", Primitive: ISOCap });
 const isoFilter = createStatic({
-  variant: "isoFilter",
+  variant: "iso_filter",
   name: "ISO Filter",
   Primitive: ISOFilter,
 });
@@ -50,7 +48,7 @@ const orifice = createStatic({
   Primitive: Orifice,
 });
 const orificePlate = createStatic({
-  variant: "orificePlate",
+  variant: "orifice_plate",
   name: "Plate",
   label: "Orifice Plate",
   Primitive: OrificePlate,
@@ -61,7 +59,7 @@ const strainer = createStatic({
   Primitive: Strainer,
 });
 const strainerCone = createStatic({
-  variant: "strainerCone",
+  variant: "strainer_cone",
   name: "Cone",
   label: "Strainer Cone",
   Primitive: StrainerCone,
@@ -77,31 +75,15 @@ const vent = createStatic({ variant: "vent", name: "Vent", Primitive: Vent });
 export const REGISTRY = {
   cap: cap.spec,
   filter: filter.spec,
-  flowStraightener: flowStraightener.spec,
-  heaterElement: heaterElement.spec,
-  isoCap: isoCap.spec,
-  isoFilter: isoFilter.spec,
+  flow_straightener: flowStraightener.spec,
+  heater_element: heaterElement.spec,
+  iso_cap: isoCap.spec,
+  iso_filter: isoFilter.spec,
   nozzle: nozzle.spec,
   orifice: orifice.spec,
-  orificePlate: orificePlate.spec,
+  orifice_plate: orificePlate.spec,
   strainer: strainer.spec,
-  strainerCone: strainerCone.spec,
+  strainer_cone: strainerCone.spec,
   thruster: thruster.spec,
   vent: vent.spec,
 } as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  cap.configZ,
-  filter.configZ,
-  flowStraightener.configZ,
-  heaterElement.configZ,
-  isoCap.configZ,
-  isoFilter.configZ,
-  nozzle.configZ,
-  orifice.configZ,
-  orificePlate.configZ,
-  strainer.configZ,
-  strainerCone.configZ,
-  thruster.configZ,
-  vent.configZ,
-]);

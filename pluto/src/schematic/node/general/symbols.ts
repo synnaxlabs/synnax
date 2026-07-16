@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { type schematic } from "@synnaxlabs/client";
 
 import { Box } from "@/schematic/node/general/box";
 import { Button } from "@/schematic/node/general/button";
@@ -31,29 +31,12 @@ export const REGISTRY = {
   gauge: Gauge.spec,
   input: Input.spec,
   light: Light.spec,
-  offPageReference: OffPageReference.spec,
+  off_page_reference: OffPageReference.spec,
   polygon: Polygon.spec,
   select: Select.spec,
   setpoint: Setpoint.spec,
-  stateIndicator: StateIndicator.spec,
+  state_indicator: StateIndicator.spec,
   switch: Switch.spec,
-  textBox: TextBox.spec,
+  text_box: TextBox.spec,
   value: Value.spec,
-} as const;
-
-export const configZ = z.discriminatedUnion("variant", [
-  Box.configZ,
-  Button.configZ,
-  Circle.configZ,
-  Gauge.configZ,
-  Input.configZ,
-  Light.configZ,
-  OffPageReference.configZ,
-  Polygon.configZ,
-  Select.configZ,
-  Setpoint.configZ,
-  StateIndicator.configZ,
-  Switch.configZ,
-  TextBox.configZ,
-  Value.configZ,
-]);
+} as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;

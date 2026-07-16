@@ -19,7 +19,6 @@ import {
   Schematic as PSchematic,
   Status,
   Synnax,
-  telem,
   Text,
   Tooltip,
   Tree as PTree,
@@ -82,23 +81,10 @@ const useOnSelect = (): ((resource: ontology.Resource) => void) => {
 };
 
 const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
-  const t = telem.sourcePipeline("string", {
-    connections: [
-      {
-        from: "valueStream",
-        to: "stringifier",
-      },
-    ],
-    segments: {
-      valueStream: telem.streamChannelValue({ channel: Number(otgID.key) }),
-      stringifier: telem.stringifyNumber({ precision: 2 }),
-    },
-    outlet: "stringifier",
-  });
   const nodeConfig: PSchematic.Node.ConfigOf<"value"> = {
     variant: "value",
     label: { label: name, level: "p" },
-    telem: t,
+    channel: Number(otgID.key),
   };
   const items = [
     PSchematic.createHaulItem({

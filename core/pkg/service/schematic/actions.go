@@ -10,9 +10,12 @@
 package schematic
 
 import (
+	"encoding/json"
 	"maps"
 
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Handle replaces the schematic's name.
@@ -48,12 +51,45 @@ func (p SetNodePayload) Handle(state Schematic) (Schematic, error) {
 		state.Nodes = append(state.Nodes, p.Node)
 	}
 	if p.Config != nil {
-		if state.Configs == nil {
-			state.Configs = make(map[string]msgpack.EncodedJSON)
+		cfg, err := decodeElementConfig(normalizeConfigKeys(p.Config))
+		if err != nil {
+			return state, err
 		}
-		state.Configs[p.Node.Key] = p.Config
+		if state.Configs == nil {
+			state.Configs = make(map[string]ElementConfig)
+		}
+		state.Configs[p.Node.Key] = cfg
 	}
 	return state, nil
+}
+
+// decodeElementConfig validates an opaque config payload against the element
+// config union. It returns a validate-style error when the payload's variant
+// is unknown or its fields do not conform to the variant's shape.
+func decodeElementConfig(raw msgpack.EncodedJSON) (ElementConfig, error) {
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return ElementConfig{}, err
+	}
+	var cfg ElementConfig
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return ElementConfig{}, errors.Wrap(err, "invalid element config")
+	}
+	return cfg, nil
+}
+
+// elementConfigFields returns a config's wire fields as an opaque map for
+// partial merging.
+func elementConfigFields(cfg ElementConfig) (msgpack.EncodedJSON, error) {
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	var m msgpack.EncodedJSON
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // Handle removes the node with the matching key and discards any config entry
@@ -100,34 +136,54 @@ func (p RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 // key matches an edge whose source node carries a color, the source color
 // overrides whatever color (if any) was in the payload.
 func (p SetConfigPayload) Handle(state Schematic) (Schematic, error) {
-	if state.Configs == nil {
-		state.Configs = make(map[string]msgpack.EncodedJSON)
-	}
-	if existing := state.Configs[p.Key]; existing != nil {
-		merged := make(msgpack.EncodedJSON, len(existing)+len(p.Config))
-		maps.Copy(merged, existing)
-		maps.Copy(merged, p.Config)
+	if existing, ok := state.Configs[p.Key]; ok {
+		fields, err := elementConfigFields(existing)
+		if err != nil {
+			return state, err
+		}
+		maps.Copy(fields, normalizeConfigKeys(p.Config))
+		merged, err := decodeElementConfig(fields)
+		if err != nil {
+			return state, err
+		}
 		state.Configs[p.Key] = merged
 		return state, nil
 	}
-	cfg := p.Config
+	raw := normalizeConfigKeys(p.Config)
 	for _, e := range state.Edges {
 		if e.Key != p.Key {
 			continue
 		}
-		srcCfg := state.Configs[e.Source.Node]
-		if srcCfg == nil {
+		srcCfg, ok := state.Configs[e.Source.Node]
+		if !ok {
 			break
 		}
-		c, ok := srcCfg["color"]
+		srcFields, err := elementConfigFields(srcCfg)
+		if err != nil {
+			return state, err
+		}
+		c, ok := srcFields["color"]
 		if !ok || c == nil {
 			break
 		}
-		next := make(msgpack.EncodedJSON, len(cfg)+1)
-		maps.Copy(next, cfg)
+		if b, err := json.Marshal(c); err == nil {
+			var srcColor color.Color
+			if err := json.Unmarshal(b, &srcColor); err != nil || srcColor.IsZero() {
+				break
+			}
+		}
+		next := make(msgpack.EncodedJSON, len(raw)+1)
+		maps.Copy(next, raw)
 		next["color"] = c
-		cfg = next
+		raw = next
 		break
+	}
+	cfg, err := decodeElementConfig(raw)
+	if err != nil {
+		return state, err
+	}
+	if state.Configs == nil {
+		state.Configs = make(map[string]ElementConfig)
 	}
 	state.Configs[p.Key] = cfg
 	return state, nil

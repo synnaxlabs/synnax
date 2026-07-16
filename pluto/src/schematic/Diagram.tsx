@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { type record } from "@synnaxlabs/x";
 import { useStoreApi } from "@xyflow/react";
 import {
   type PropsWithChildren,
@@ -176,7 +175,7 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Acti
           schematic.setConfig({
             key: ch.edge.key,
             // TODO: Remove this once schematic configs are strongly typed.
-            config: Edge.REGISTRY.pipe.defaultConfig() as unknown as record.Unknown,
+            config: Edge.REGISTRY.pipe.defaultConfig(),
           }),
         ];
       case "remove":

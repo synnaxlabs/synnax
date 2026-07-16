@@ -14,5 +14,5 @@ export const GROUP: Group = {
   key: "vessels",
   name: "Vessels",
   Icon: Icon.Tank,
-  symbols: ["tank", "cylinder", "tJunction", "crossJunction"],
+  symbols: ["tank", "cylinder", "t_junction", "cross_junction"],
 };

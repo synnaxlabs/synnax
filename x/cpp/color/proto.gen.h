@@ -41,4 +41,31 @@ Color::from_proto(const ::x::color::pb::Color &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::x::color::pb::Stop, x::errors::Error> Stop::to_proto() const {
+    ::x::color::pb::Stop pb;
+    pb.set_key(this->key);
+    {
+        auto [v, err] = this->color.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_color() = v;
+    }
+    pb.set_position(this->position);
+    if (this->switched.has_value()) pb.set_switched(*this->switched);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Stop, x::errors::Error>
+Stop::from_proto(const ::x::color::pb::Stop &pb) {
+    Stop cpp;
+    cpp.key = pb.key();
+    {
+        auto [v, err] = Color::from_proto(pb.color());
+        if (err) return {{}, err};
+        cpp.color = v;
+    }
+    cpp.position = pb.position();
+    if (pb.has_switched()) cpp.switched = pb.switched();
+    return {cpp, x::errors::NIL};
+}
+
 }

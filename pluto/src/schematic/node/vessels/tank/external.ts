@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 
 import { Component } from "@/component";
 import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";
 import { type Spec } from "@/schematic/node/spec";
-import { type Config, VARIANT } from "@/schematic/node/vessels/tank/config";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Symbol } from "@/schematic/node/vessels/tank/Symbol";
 import { type Theming } from "@/theming";
 
-export * from "@/schematic/node/vessels/tank/config";
-
-export const defaultConfig = (t: Theming.Theme): Config => ({
-  variant: VARIANT,
+export const defaultConfig = (t: Theming.Theme): schematic.NodeConfigTank => ({
+  variant: "tank",
   orientation: "left",
   color: color.ZERO,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
@@ -31,8 +29,8 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   borderRadius: Border.DEFAULT_RADIUS,
 });
 
-export const spec: Spec<typeof VARIANT, Config> = {
-  key: VARIANT,
+export const spec: Spec<"tank", schematic.NodeConfigTank> = {
+  key: "tank",
   name: "Tank",
   Form: TankForm,
   Node: Symbol,

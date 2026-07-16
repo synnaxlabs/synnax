@@ -7,12 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type z } from "zod";
+package border_test
 
-import { Segmented } from "@/schematic/edge/common/segmented";
+import (
+	"testing"
 
-export const VARIANT = "jacketed" as const;
-export const NAME = "Jacketed";
-export const configZ = Segmented.createConfigZ(VARIANT);
-export type Config = z.infer<typeof configZ>;
-export const defaultConfig = (): Config => Segmented.createDefaultConfig(VARIANT);
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+func TestBorder(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Border Suite")
+}

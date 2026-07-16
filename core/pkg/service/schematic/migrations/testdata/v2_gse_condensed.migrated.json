@@ -853,140 +853,78 @@
   ],
   "configs": {
     "0HUYGlbRioB": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "checkValve"
+      "variant": "check_valve"
     },
     "0I4eu8Xu1eC": {
-      "color": "#d20000",
-      "inlineSize": 70,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "in",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "0I8Emq7F796": {
-      "color": "#009827",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "Fuel Post Pilot Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "1ZOodQkSwlS": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -996,177 +934,62 @@
       "variant": "pipe"
     },
     "1wASI4h8XZH": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Ox Fill",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "2OHxFMlBGgA": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Ox MPV",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "2jD9GoGb6XA": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -1176,344 +999,188 @@
       "variant": "pipe"
     },
     "4hRwlpoiQ9L": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "59o9iS3gTyH": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "Fuel Pilot Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "regulator"
     },
     "5rVYWOBlRGU": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "Ox PTs",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "60ZCGzTdQpr": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "dbl_click_nav": false,
       "label": {
-        "align": "center",
         "label": "To Ambient",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
-      "variant": "offPageReference"
+      "page": "",
+      "variant": "off_page_reference"
     },
     "70V2y1eaoCv": {
-      "color": "#d20000",
-      "inlineSize": 70,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "75L9iU3gNJr": {
-      "color": "#d20000",
-      "inlineSize": 70,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "7FQEEi9ferA": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "80I1A0rWqRw": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "dbl_click_nav": false,
       "label": {
-        "align": "center",
         "label": "To Ambient",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
-      "variant": "offPageReference"
+      "page": "",
+      "variant": "off_page_reference"
     },
     "8pqASgu2f8J": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -1531,20 +1198,30 @@
       "variant": "pipe"
     },
     "BAY30X3JrBd": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "Ox Dome Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "regulator"
     },
     "C2Lqyi43lLI": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -1562,79 +1239,55 @@
       "variant": "pipe"
     },
     "C8cBrd21WaS": {
-      "color": "#d20000",
-      "inlineSize": 70,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "Czhkq14bwKL": {
-      "color": [171, 0, 255, 1],
+      "color": {
+        "r": 171,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
+      "dbl_click_nav": false,
       "label": {
-        "align": "center",
         "label": "To Engine",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
-      "variant": "offPageReference"
+      "page": "",
+      "variant": "off_page_reference"
     },
     "D6Kl9VjDwwW": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -1644,209 +1297,108 @@
       "variant": "pipe"
     },
     "DeV37ebNkgE": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": 0,
-      "color": "#d20000",
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
+      },
+      "border_radius": 0,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "dimensions": {
-        "height": 50,
-        "width": 100
+        "width": 100,
+        "height": 50
       },
       "label": {
-        "align": "center",
         "label": "Manifold",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "bottom"
+        "orientation": "bottom",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "scale": 1,
       "variant": "box"
     },
     "DlBptq7iyFJ": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Press ISO",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "F3ptPgDEX5c": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "Fuel Dome Orifice",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "orifice"
     },
     "FG3UvatT8VR": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Fuel Dome ISO",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "FPv3YsSVs8o": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -1864,105 +1416,55 @@
       "variant": "pipe"
     },
     "GPBKCxrBPFK": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Ox Drain",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "GQb0xWTOn7H": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "Fuel Dome Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "regulator"
     },
     "H36AEEXTAbH": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -1972,307 +1474,175 @@
       "variant": "pipe"
     },
     "HsW4nJW6kAZ": {
-      "color": "#009827",
+      "clickable": false,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "enabled": false,
       "label": {
-        "align": "center",
         "label": "Fuel Dome Relief Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
       "scale": 1,
-      "variant": "angledReliefValve"
+      "variant": "angled_relief_valve"
     },
     "I3KjSt1tSRG": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Ox Low-Flow Vent",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "JjPiK1XPeF6": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": {
-        "x": 50,
-        "y": 10
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
       },
-      "color": "#d20000",
+      "border_radius": {
+        "top_left": {
+          "x": 50,
+          "y": 10
+        },
+        "top_right": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_left": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_right": {
+          "x": 50,
+          "y": 10
+        }
+      },
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "tank"
     },
     "KjMLsHPXXv2": {
-      "color": "#009827",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "Ox Post Pilot Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "LAAstqx83Ke": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "LM41RXhz2kT": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "LXJozKItrqp": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -2282,186 +1652,126 @@
       "variant": "pipe"
     },
     "OABTFTzErmB": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": {
-        "x": 50,
-        "y": 10
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
       },
-      "color": "#00b0ff",
+      "border_radius": {
+        "top_left": {
+          "x": 50,
+          "y": 10
+        },
+        "top_right": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_left": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_right": {
+          "x": 50,
+          "y": 10
+        }
+      },
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "tank"
     },
     "OOkLb5RngOz": {
-      "color": [0, 121, 255, 1],
+      "color": {
+        "r": 0,
+        "g": 121,
+        "b": 255,
+        "a": 1
+      },
+      "dbl_click_nav": false,
       "label": {
-        "align": "center",
         "label": "To OX",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
-      "variant": "offPageReference"
+      "page": "",
+      "variant": "off_page_reference"
     },
     "OfZeCzCTkUk": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Fuel MPV",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "P49uwwU4CA9": {
-      "color": "#009827",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "Fuel Post-Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "PN0YMOWWugP": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -2479,471 +1789,265 @@
       "variant": "pipe"
     },
     "Pa7P4hDGSGI": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "Ox Dome Orifice",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "orifice"
     },
     "QWGklzcRmcV": {
-      "color": [210, 0, 0, 1],
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "dbl_click_nav": false,
       "label": {
-        "align": "center",
         "label": "To FUEL",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
-      "variant": "offPageReference"
+      "page": "",
+      "variant": "off_page_reference"
     },
     "Qj9S0cHkaiq": {
-      "color": "#d20000",
-      "inlineSize": 70,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "Fuel PTs",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "ROrFkey4CDj": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Ox High-Flow Vent",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "SKDLhJpoYDF": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "Flowmeter",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1.5,
-      "variant": "staticMixer"
+      "variant": "static_mixer"
     },
     "SqBeH0GCMh2": {
-      "color": "#009827",
+      "clickable": false,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "enabled": false,
       "label": {
-        "align": "center",
         "label": "Press 2K Bleed",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "right"
+        "orientation": "right",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "bottom",
       "scale": 1,
-      "variant": "needleValve"
+      "variant": "needle_valve"
     },
     "Th2IzrFPm38": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Fuel Vent",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "Tmtl8zfcuP1": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "OX Liquid TCs",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "TyqbAhrSUKg": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Fuel Prevalve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "U7Ij3kxDFQo": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "Flowmeter",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1.5,
-      "variant": "staticMixer"
+      "variant": "static_mixer"
     },
     "UOdnd6Aha36": {
-      "color": [0, 152, 39, 1],
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "dbl_click_nav": false,
       "label": {
-        "align": "center",
         "label": "From Press",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "variant": "offPageReference"
+      "page": "",
+      "variant": "off_page_reference"
     },
     "VIlsVklUWZx": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "checkValve"
+      "variant": "check_valve"
     },
     "VZzYr3ZwCJD": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -2953,7 +2057,12 @@
       "variant": "pipe"
     },
     "WeKnySzoEQA": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -2963,127 +2072,60 @@
       "variant": "pipe"
     },
     "XFhXmkRXHQL": {
-      "color": "#009827",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "Ox Dome Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "XajoNRDoFqn": {
-      "color": [0, 176, 255, 1],
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "Z6AWNKGQM1r": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3093,20 +2135,30 @@
       "variant": "pipe"
     },
     "aIvn9MvqyaT": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "checkValve"
+      "variant": "check_valve"
     },
     "ayxZ1Ks2nMr": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3120,7 +2172,12 @@
       "variant": "pipe"
     },
     "b0mS63N9roh": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3130,26 +2187,40 @@
       "variant": "pipe"
     },
     "bvLG286CeYr": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": 3,
-      "color": [210, 0, 0, 1],
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
+      },
+      "border_radius": 3,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "dimensions": {
-        "height": 38,
-        "width": 108
+        "width": 108,
+        "height": 38
       },
       "label": {
-        "align": "center",
         "label": "Level Sensor",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "scale": 1,
       "variant": "box"
     },
     "dD988rzVRcw": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3163,7 +2234,12 @@
       "variant": "pipe"
     },
     "dMvdYlmIJ4E": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3173,20 +2249,30 @@
       "variant": "pipe"
     },
     "dSaxNR8i6Ww": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "checkValve"
+      "variant": "check_valve"
     },
     "f6jyfaj727c": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3196,26 +2282,40 @@
       "variant": "pipe"
     },
     "fNn6627SLuM": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": 0,
-      "color": "#00b0ff",
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
+      },
+      "border_radius": 0,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "dimensions": {
-        "height": 50,
-        "width": 100
+        "width": 100,
+        "height": 50
       },
       "label": {
-        "align": "center",
         "label": "Manifold",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "bottom"
+        "orientation": "bottom",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "scale": 1,
       "variant": "box"
     },
     "gYqkTrdkhYm": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3225,164 +2325,80 @@
       "variant": "pipe"
     },
     "hYZ8WBgT9ia": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Ox Return Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "bottom"
+        "orientation": "bottom",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "i3O5NYaw7U8": {
-      "color": [0, 152, 39, 1],
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "dbl_click_nav": false,
       "label": {
-        "align": "center",
         "label": "From Press",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "variant": "offPageReference"
+      "page": "",
+      "variant": "off_page_reference"
     },
     "ir70ZMsvcRF": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "OX Ullage TCs",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "kqL2HO4P8w3": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3392,39 +2408,60 @@
       "variant": "pipe"
     },
     "kzoCoaFsLXm": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": 3,
-      "color": "#00b0ff",
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
+      },
+      "border_radius": 3,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
-        "align": "center",
         "label": "LOX (dewars)",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "scale": 1,
       "variant": "box"
     },
     "lNCSyAFKEbd": {
-      "color": "#009827",
+      "clickable": false,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "enabled": false,
       "label": {
-        "align": "center",
         "label": "Ox Dome Relief Valve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
       "scale": 1,
-      "variant": "angledReliefValve"
+      "variant": "angled_relief_valve"
     },
     "mijOsc1nobC": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3442,7 +2479,12 @@
       "variant": "pipe"
     },
     "nE7dOn7d1gh": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3460,7 +2502,12 @@
       "variant": "pipe"
     },
     "ny8HbH1PIxr": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3470,19 +2517,31 @@
       "variant": "pipe"
     },
     "rPpCZ6MD5As": {
-      "color": [171, 0, 255, 1],
+      "color": {
+        "r": 171,
+        "g": 0,
+        "b": 255,
+        "a": 1
+      },
+      "dbl_click_nav": false,
       "label": {
-        "align": "center",
         "label": "To Engine",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "right",
-      "variant": "offPageReference"
+      "page": "",
+      "variant": "off_page_reference"
     },
     "reactflow__edge-2OHxFMlBGgA2-rPpCZ6MD5As2": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3492,7 +2551,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-DlBptq7iyFJ2-FG3UvatT8VR1": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3510,7 +2574,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-DlBptq7iyFJ2-uSKBe4MSMqr1": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3528,7 +2597,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-FG3UvatT8VR2-P49uwwU4CA91": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3538,7 +2612,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-JjPiK1XPeF63-Th2IzrFPm381": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3552,7 +2631,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-OABTFTzErmB1-0HUYGlbRioB2": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3574,7 +2658,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-OABTFTzErmB2-I3KjSt1tSRG2": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3596,7 +2685,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-OABTFTzErmB3-hYZ8WBgT9ia1": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3610,7 +2704,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-aIvn9MvqyaT2-JjPiK1XPeF61": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3632,7 +2731,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-aIvn9MvqyaT2-s6dSeA0idmI1": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3654,7 +2758,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-hYZ8WBgT9ia2-SKDLhJpoYDF2": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -3680,7 +2789,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-s6dSeA0idmI3-Th2IzrFPm381": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3694,12 +2808,22 @@
       "variant": "pipe"
     },
     "reactflow__edge-uSKBe4MSMqr2-uTfrxrrlGWI1": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [],
       "variant": "pipe"
     },
     "reactflow__edge-wqAUB77dleH1-0HUYGlbRioB2": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3721,7 +2845,12 @@
       "variant": "pipe"
     },
     "reactflow__edge-zv17pHUEYJq1-0HUYGlbRioB2": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3743,187 +2872,125 @@
       "variant": "pipe"
     },
     "s6dSeA0idmI": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": {
-        "x": 50,
-        "y": 10
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
       },
-      "color": "#d20000",
+      "border_radius": {
+        "top_left": {
+          "x": 50,
+          "y": 10
+        },
+        "top_right": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_left": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_right": {
+          "x": 50,
+          "y": 10
+        }
+      },
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "tank"
     },
     "s7ibSMcZAgG": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "label": {
-        "align": "center",
         "label": "Ox Pilot Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "regulator"
     },
     "tC1XCqyIKMC": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Ox Prevalve",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "tGM2NvgzLkE": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "tgSbQMJqq9B": {
-      "color": "#00b0ff",
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "y",
@@ -3937,389 +3004,245 @@
       "variant": "pipe"
     },
     "tmYmmOWOh6K": {
-      "color": "#009827",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "Fuel Dome Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "uD0n1qxXf9L": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": {
-        "x": 50,
-        "y": 10
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
       },
-      "color": "#009827",
+      "border_radius": {
+        "top_left": {
+          "x": 50,
+          "y": 10
+        },
+        "top_right": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_left": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_right": {
+          "x": 50,
+          "y": 10
+        }
+      },
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
-        "align": "center",
         "label": "Press 2K Supply",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "tank"
     },
     "uSKBe4MSMqr": {
-      "color": "#009827",
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
       "control": {
-        "show": true
+        "show": true,
+        "show_chip": false,
+        "show_indicator": false
       },
       "label": {
-        "align": "center",
         "label": "Ox Dome ISO",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
-      "normallyOpen": false,
+      "normally_open": false,
+      "on_click_delay": 0,
       "orientation": "left",
       "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": 0
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
+      "variant": "solenoid_valve"
     },
     "uTfrxrrlGWI": {
-      "color": "#009827",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "Ox Post-Reg",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "uqFoCkom7yz": {
-      "color": "#d20000",
+      "clickable": false,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
+      "enabled": false,
       "label": {
-        "align": "center",
         "label": "Fuel Fill",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
-      "variant": "manualValve"
+      "variant": "manual_valve"
     },
     "uyjE2Q6RFBv": {
-      "color": "#00b0ff",
-      "inlineSize": 70,
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
+      "inline_size": 70,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "C",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "wLXXPa67EtO": {
-      "color": "#009827",
-      "inlineSize": 67,
+      "color": {
+        "r": 0,
+        "g": 152,
+        "b": 39,
+        "a": 1
+      },
+      "inline_size": 67,
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "level": "h5",
       "orientation": "left",
+      "rolling_average": 1,
       "scale": 1,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": 0
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
+      "tooltip": null,
       "units": "psi",
+      "use_width_for_background": false,
       "variant": "value"
     },
     "wqAUB77dleH": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": {
-        "x": 50,
-        "y": 10
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
       },
-      "color": "#00b0ff",
+      "border_radius": {
+        "top_left": {
+          "x": 50,
+          "y": 10
+        },
+        "top_right": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_left": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_right": {
+          "x": 50,
+          "y": 10
+        }
+      },
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,
       "variant": "tank"
     },
     "xpOYKYNFNfV": {
-      "color": "#d20000",
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "segments": [
         {
           "direction": "x",
@@ -4329,41 +3252,74 @@
       "variant": "pipe"
     },
     "zPngCTpi3wa": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": 3,
-      "color": "#d20000",
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
+      },
+      "border_radius": 3,
+      "color": {
+        "r": 210,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
-        "align": "center",
         "label": "LOX (dewars)",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
-      "scale": 1,
       "variant": "box"
     },
     "zv17pHUEYJq": {
-      "backgroundColor": [10, 10, 10, 0],
-      "borderRadius": {
-        "x": 50,
-        "y": 10
+      "background_color": {
+        "r": 10,
+        "g": 10,
+        "b": 10,
+        "a": 0
       },
-      "color": "#00b0ff",
+      "border_radius": {
+        "top_left": {
+          "x": 50,
+          "y": 10
+        },
+        "top_right": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_left": {
+          "x": 50,
+          "y": 10
+        },
+        "bottom_right": {
+          "x": 50,
+          "y": 10
+        }
+      },
+      "color": {
+        "r": 0,
+        "g": 176,
+        "b": 255,
+        "a": 1
+      },
       "dimensions": {
-        "height": 200,
-        "width": 100
+        "width": 100,
+        "height": 200
       },
       "label": {
-        "align": "center",
         "label": "",
         "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
+        "orientation": "top",
+        "max_inline_size": 150,
+        "align": "center"
       },
       "orientation": "left",
       "scale": 1,

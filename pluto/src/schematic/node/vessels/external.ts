@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export { GROUP } from "@/schematic/node/vessels/group";
-export { configZ, REGISTRY } from "@/schematic/node/vessels/symbols";
+export { REGISTRY } from "@/schematic/node/vessels/symbols";

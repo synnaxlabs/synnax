@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
+
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
-import { NAME, VARIANT } from "@/schematic/edge/secondary/config";
+import { type Spec } from "@/schematic/edge/spec";
 
 const STYLE = { strokeDasharray: "12,4,4" };
 
-export const spec = Segmented.createSpec(
-  VARIANT,
-  NAME,
-  ({ points, crossings, color }) => (
+export const spec: Spec<"secondary", schematic.EdgeConfigSecondary> =
+  Segmented.createSpec("secondary", "Secondary", ({ points, crossings, color }) => (
     <Base.Base path={Path.rounded(points, crossings)} color={color} style={STYLE} />
-  ),
-);
+  ));

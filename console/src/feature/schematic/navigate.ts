@@ -50,7 +50,7 @@ export const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler =>
       if (ui == null || ui.editable || retrieve == null) return;
       const config = fluxStore.schematics.get(layoutKey)?.configs?.[nodeId];
       if (
-        config?.variant !== "offPageReference" ||
+        config?.variant !== "off_page_reference" ||
         typeof config.page !== "string" ||
         config.page.length === 0
       )

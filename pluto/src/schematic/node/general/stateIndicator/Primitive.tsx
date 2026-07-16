@@ -9,18 +9,18 @@
 
 import "@/schematic/node/general/stateIndicator/stateIndicator.css";
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { symbolColorVar } from "@/schematic/symbolColor";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<schematic.NodeConfigStateIndicator, "variant"> {
   className?: string;
   matchedOptionKey?: string | null;
 }

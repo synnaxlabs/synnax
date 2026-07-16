@@ -96,6 +96,68 @@ sticky_unit_from_pb(::x::spatial::pb::StickyUnit pb) {
     }
 }
 
+inline std::pair<::x::spatial::pb::XCenterLocation, x::errors::Error>
+x_center_location_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::x::spatial::pb::XCenterLocation>
+        kMap = {
+            {X_CENTER_LOCATION_LEFT, ::x::spatial::pb::X_CENTER_LOCATION_LEFT},
+            {X_CENTER_LOCATION_RIGHT, ::x::spatial::pb::X_CENTER_LOCATION_RIGHT},
+            {X_CENTER_LOCATION_CENTER, ::x::spatial::pb::X_CENTER_LOCATION_CENTER},
+        };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized XCenterLocation value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+x_center_location_from_pb(::x::spatial::pb::XCenterLocation pb) {
+    switch (pb) {
+        case ::x::spatial::pb::X_CENTER_LOCATION_LEFT:
+            return {X_CENTER_LOCATION_LEFT, x::errors::NIL};
+        case ::x::spatial::pb::X_CENTER_LOCATION_RIGHT:
+            return {X_CENTER_LOCATION_RIGHT, x::errors::NIL};
+        case ::x::spatial::pb::X_CENTER_LOCATION_CENTER:
+            return {X_CENTER_LOCATION_CENTER, x::errors::NIL};
+        default:
+            return {
+                "",
+                x::errors::Error("unrecognized XCenterLocation protobuf value")
+            };
+    }
+}
+
+inline std::pair<::x::spatial::pb::YCenterLocation, x::errors::Error>
+y_center_location_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::x::spatial::pb::YCenterLocation>
+        kMap = {
+            {Y_CENTER_LOCATION_TOP, ::x::spatial::pb::Y_CENTER_LOCATION_TOP},
+            {Y_CENTER_LOCATION_BOTTOM, ::x::spatial::pb::Y_CENTER_LOCATION_BOTTOM},
+            {Y_CENTER_LOCATION_CENTER, ::x::spatial::pb::Y_CENTER_LOCATION_CENTER},
+        };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized YCenterLocation value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+y_center_location_from_pb(::x::spatial::pb::YCenterLocation pb) {
+    switch (pb) {
+        case ::x::spatial::pb::Y_CENTER_LOCATION_TOP:
+            return {Y_CENTER_LOCATION_TOP, x::errors::NIL};
+        case ::x::spatial::pb::Y_CENTER_LOCATION_BOTTOM:
+            return {Y_CENTER_LOCATION_BOTTOM, x::errors::NIL};
+        case ::x::spatial::pb::Y_CENTER_LOCATION_CENTER:
+            return {Y_CENTER_LOCATION_CENTER, x::errors::NIL};
+        default:
+            return {
+                "",
+                x::errors::Error("unrecognized YCenterLocation protobuf value")
+            };
+    }
+}
+
 inline std::pair<::x::spatial::pb::XY, x::errors::Error> XY::to_proto() const {
     ::x::spatial::pb::XY pb;
     pb.set_x(this->x);
@@ -246,6 +308,38 @@ Viewport::from_proto(const ::x::spatial::pb::Viewport &pb) {
         auto [v, err] = XY::from_proto(pb.position());
         if (err) return {{}, err};
         cpp.position = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::LocationXY, x::errors::Error>
+LocationXY::to_proto() const {
+    ::x::spatial::pb::LocationXY pb;
+    {
+        auto [v, err] = x_center_location_to_pb(this->x);
+        if (err) return {{}, err};
+        pb.set_x(v);
+    }
+    {
+        auto [v, err] = y_center_location_to_pb(this->y);
+        if (err) return {{}, err};
+        pb.set_y(v);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<LocationXY, x::errors::Error>
+LocationXY::from_proto(const ::x::spatial::pb::LocationXY &pb) {
+    LocationXY cpp;
+    {
+        auto [v, err] = x_center_location_from_pb(pb.x());
+        if (err) return {{}, err};
+        cpp.x = v;
+    }
+    {
+        auto [v, err] = y_center_location_from_pb(pb.y());
+        if (err) return {{}, err};
+        cpp.y = v;
     }
     return {cpp, x::errors::NIL};
 }

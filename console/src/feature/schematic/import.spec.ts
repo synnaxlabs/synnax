@@ -360,6 +360,75 @@ const LEGACY_V2 = {
   props: { n1: { key: "valve", color: [28, 28, 28, 1] } },
 };
 
+const LEGACY_V2_TELEM = {
+  ...LEGACY_V2,
+  nodes: [
+    { key: "n1", position: { x: 0, y: 0 }, type: "custom" },
+    { key: "n2", position: { x: 10, y: 0 }, type: "custom" },
+    { key: "n3", position: { x: 20, y: 0 }, type: "custom" },
+  ],
+  props: {
+    n1: {
+      key: "solenoidValve",
+      color: [28, 28, 28, 1],
+      normallyOpen: false,
+      control: {
+        show: true,
+        chip: { sink: { props: { authority: 50 } } },
+        indicator: { statusSource: { props: {} } },
+      },
+      source: {
+        type: "source-pipeline",
+        props: {
+          outlet: "valueStream",
+          segments: {
+            valueStream: { type: "stream-channel-value", props: { channel: 101 } },
+          },
+        },
+      },
+      sink: {
+        type: "sink-pipeline",
+        props: {
+          inlet: "setpoint",
+          segments: {
+            setpoint: { type: "boolean-numeric-converter-sink", props: {} },
+            setter: { type: "controlled-numeric-telem-sink", props: { channel: 102 } },
+          },
+        },
+      },
+    },
+    n2: {
+      key: "value",
+      color: [28, 28, 28, 1],
+      telem: {
+        type: "source-pipeline",
+        props: {
+          outlet: "stringifier",
+          segments: {
+            valueStream: { type: "stream-channel-value", props: { channel: 103 } },
+            rollingAverage: { type: "rolling-average", props: { windowSize: 5 } },
+            stringifier: { type: "stringify-number", props: { precision: 2 } },
+          },
+        },
+      },
+    },
+    n3: {
+      key: "value",
+      color: [28, 28, 28, 1],
+      telem: {
+        type: "source-pipeline",
+        props: {
+          outlet: "stringifier",
+          segments: {
+            valueStream: { type: "stream-channel-value", props: { channel: 0 } },
+            stringifier: { type: "stringify-number", props: { precision: 2 } },
+          },
+        },
+      },
+    },
+  },
+};
+
 const TYPED_EXPORT = {
   key: "88aee41e-53b7-4a76-9df9-aceccc220089",
   name: "Schematic",
@@ -389,6 +458,46 @@ describe("schematic import", () => {
       expect(() => Schematic.parseImport(V6_ZERO, undefined)).toThrow(
         "Imported schematic has no graph data",
       );
+    });
+
+    it("should convert multi-word legacy variants to snake_case", () => {
+      const out = Schematic.parseImport(LEGACY_V2_TELEM, undefined);
+      expect(configsOf(out).n1).toMatchObject({ variant: "solenoid_valve" });
+    });
+
+    it("should extract state and command channels from legacy source/sink specs", () => {
+      const out = Schematic.parseImport(LEGACY_V2_TELEM, undefined);
+      const n1 = configsOf(out).n1 as record.Unknown;
+      expect(n1).toMatchObject({ stateChannel: 101, commandChannel: 102 });
+      expect(n1).not.toHaveProperty("source");
+      expect(n1).not.toHaveProperty("sink");
+    });
+
+    it("should extract control authority from the legacy chip sink", () => {
+      const out = Schematic.parseImport(LEGACY_V2_TELEM, undefined);
+      const n1 = configsOf(out).n1 as record.Unknown;
+      expect(n1.control).toMatchObject({ show: true, authority: 50 });
+      expect(n1.control).not.toHaveProperty("chip");
+      expect(n1.control).not.toHaveProperty("indicator");
+    });
+
+    it("should extract value channel and rolling average from legacy telem specs", () => {
+      const out = Schematic.parseImport(LEGACY_V2_TELEM, undefined);
+      const n2 = configsOf(out).n2 as record.Unknown;
+      expect(n2).toMatchObject({ variant: "value", channel: 103, rollingAverage: 5 });
+      expect(n2).not.toHaveProperty("telem");
+    });
+
+    it("should omit channel arguments for the legacy zero-channel sentinel", () => {
+      const out = Schematic.parseImport(LEGACY_V2_TELEM, undefined);
+      const n3 = configsOf(out).n3 as record.Unknown;
+      expect(n3).not.toHaveProperty("channel");
+      expect(n3).not.toHaveProperty("telem");
+    });
+
+    it("should produce a payload that passes the create schema", () => {
+      const out = Schematic.parseImport(LEGACY_V2_TELEM, undefined);
+      expect(() => schematic.schematicZ.parse(out)).not.toThrow();
     });
   });
 

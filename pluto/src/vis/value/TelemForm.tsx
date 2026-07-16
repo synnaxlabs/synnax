@@ -13,23 +13,17 @@ import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Color } from "@/color";
-import { telem } from "@/ether";
 import { Flex } from "@/flex";
 import { Form } from "@/form";
 import { Input } from "@/input";
 import { Notation } from "@/notation";
 
 interface ValueTelemFormT {
-  telem: telem.StringSourceSpec;
-  tooltip: string[];
-  stalenessTimeout?: number;
-  stalenessColor?: color.Color;
+  channel?: channel.Key;
+  rollingAverage?: number;
+  precision?: number;
+  notation?: notation.Notation;
 }
-
-const VALUE_CONNECTIONS: telem.Connection[] = [
-  { from: "valueStream", to: "rollingAverage" },
-  { from: "rollingAverage", to: "stringifier" },
-];
 
 export interface TelemFormProps {
   path: string;
@@ -38,35 +32,6 @@ export interface TelemFormProps {
 export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   const { set } = Form.useContext();
   const { value, onChange } = Form.useField<ValueTelemFormT>(path);
-  const sourceP = telem.sourcePipelinePropsZ.parse(value.telem?.props);
-  const source = telem.streamChannelValuePropsZ.parse(
-    sourceP.segments.valueStream.props,
-  );
-  const stringifier = telem.stringifyNumberProps.parse(
-    sourceP.segments.stringifier.props,
-  );
-  const rollingAverage = telem.rollingAverageProps.parse(
-    sourceP.segments.rollingAverage.props,
-  );
-
-  const handleChange = (segments: telem.SourcePipelineProps["segments"]): void => {
-    const t = telem.sourcePipeline("string", {
-      connections: VALUE_CONNECTIONS,
-      segments: {
-        valueStream: telem.streamChannelValue({ channel: source.channel }),
-        stringifier: telem.stringifyNumber({
-          precision: stringifier.precision ?? 2,
-          notation: stringifier.notation,
-        }),
-        rollingAverage: telem.rollingAverage({
-          windowSize: rollingAverage.windowSize ?? 1,
-        }),
-        ...segments,
-      },
-      outlet: "stringifier",
-    });
-    onChange({ ...value, telem: t });
-  };
 
   const { retrieve } = Channel.useRetrieveObservable({
     onChange: useCallback(
@@ -76,21 +41,19 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
   });
   const handleSourceChange = (key: channel.Key | null): void => {
     if (primitive.isNonZero(key)) retrieve({ key });
-    handleChange({ valueStream: telem.streamChannelValue({ channel: key ?? 0 }) });
+    onChange({ ...value, channel: key ?? undefined });
   };
 
   const handleNotationChange = (notation: notation.Notation): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, notation }) });
+    onChange({ ...value, notation });
 
   const handlePrecisionChange = (precision: number): void =>
-    handleChange({ stringifier: telem.stringifyNumber({ ...stringifier, precision }) });
+    onChange({ ...value, precision });
 
   const handleRollingAverageChange = (windowSize: number): void =>
-    handleChange({ rollingAverage: telem.rollingAverage({ windowSize }) });
+    onChange({ ...value, rollingAverage: windowSize });
 
-  if (typeof source.channel != "number")
-    throw new Error("Must pass in a channel by key to Value.TelemForm");
-  const channelKey = source.channel;
+  const channelKey = value.channel ?? 0;
 
   return (
     <>
@@ -100,20 +63,20 @@ export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
       <Flex.Box x>
         <Input.Item label="Notation">
           <Notation.Select
-            value={stringifier.notation}
+            value={value.notation ?? "standard"}
             onChange={handleNotationChange}
           />
         </Input.Item>
         <Input.Item label="Precision" align="start">
           <Input.Numeric
-            value={stringifier.precision ?? 2}
+            value={value.precision ?? 2}
             bounds={{ lower: 0, upper: 10 }}
             onChange={handlePrecisionChange}
           />
         </Input.Item>
         <Input.Item label="Averaging window" align="start">
           <Input.Numeric
-            value={rollingAverage.windowSize ?? 1}
+            value={value.rollingAverage ?? 1}
             bounds={{ lower: 1, upper: 100 }}
             onChange={handleRollingAverageChange}
           />

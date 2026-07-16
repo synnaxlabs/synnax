@@ -124,6 +124,21 @@ export const [useSelectElementConfig, useGetElementConfig] = Scope.bindSelector(
   }),
 );
 
+export interface SelectEdgeArgs {
+  key: schematic.Key;
+  edgeKey: string;
+}
+
+export const useSelectEdge = Scope.bindHook(
+  Flux.createSelector<FluxSubStore, SelectEdgeArgs, schematic.Edge | undefined>({
+    subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+    select: (store, { key, edgeKey }) => {
+      const s = store.schematics.get(key);
+      return s?.edges?.find((e) => e.key === edgeKey);
+    },
+  }),
+);
+
 export interface SelectConfigsArgs {
   key: schematic.Key;
   keys: string[];

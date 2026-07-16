@@ -7,15 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
-import z from "zod";
+import { NotFoundError, schematic } from "@synnaxlabs/client";
 
 import {
   CUSTOM_ACTUATOR_VARIANT,
   CUSTOM_STATIC_VARIANT,
-  customActuatorConfigZ,
   customActuatorSpec,
-  customStaticConfigZ,
   customStaticSpec,
 } from "@/schematic/node/custom/configs";
 import { Fittings } from "@/schematic/node/fittings";
@@ -37,27 +34,15 @@ export const REGISTRY = {
   ...Safety.REGISTRY,
   ...Valves.REGISTRY,
   ...Vessels.REGISTRY,
-  customActuator: customActuatorSpec,
-  customStatic: customStaticSpec,
-} as const;
+  custom_actuator: customActuatorSpec,
+  custom_static: customStaticSpec,
+} as const satisfies Record<schematic.NodeConfigType, unknown>;
 
-const VARIANTS = Object.keys(REGISTRY);
-export const variantZ = z.enum(VARIANTS);
-export type Variant = keyof typeof REGISTRY;
+export const variantZ = schematic.nodeConfigTypeZ;
+export type Variant = schematic.NodeConfigType;
 
-export const configZ = z.discriminatedUnion("variant", [
-  ...Fittings.configZ.options,
-  ...Flowmeters.configZ.options,
-  ...General.configZ.options,
-  ...Process.configZ.options,
-  ...Pumps.configZ.options,
-  ...Safety.configZ.options,
-  ...Valves.configZ.options,
-  ...Vessels.configZ.options,
-  customActuatorConfigZ,
-  customStaticConfigZ,
-]);
-export type Config = z.infer<typeof configZ>;
+export const configZ = schematic.nodeConfigZ;
+export type Config = schematic.NodeConfig;
 export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
 
 export const resolveSpec = (variant: string): Spec<Variant, Config> => {

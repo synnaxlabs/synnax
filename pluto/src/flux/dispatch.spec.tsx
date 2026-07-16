@@ -507,6 +507,7 @@ describe("Flux.createDispatch", () => {
           actions: schematic.rename({ name: "renamed" }),
         });
       });
+      // Two distinct entries: one undo leaves canUndo true, a second clears it.
       act(() => result.current.undo.undo());
       await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
       expect(result.current.undo.canUndo).toBe(true);
@@ -528,7 +529,7 @@ describe("Flux.createDispatch", () => {
           key,
           actions: schematic.setNode({
             node: { key: "n1", position: { x: 0, y: 0 } },
-            config: { label: "original" },
+            config: { variant: "tank", label: { label: "original" } },
           }),
         });
       });
@@ -541,13 +542,19 @@ describe("Flux.createDispatch", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.setConfig({ key: "n1", config: { label: "first" } }),
+          actions: schematic.setConfig({
+            key: "n1",
+            config: { label: { label: "first" } },
+          }),
         });
       });
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.setConfig({ key: "n1", config: { label: "second" } }),
+          actions: schematic.setConfig({
+            key: "n1",
+            config: { label: { label: "second" } },
+          }),
         });
       });
       act(() => result.current.undo.undo());

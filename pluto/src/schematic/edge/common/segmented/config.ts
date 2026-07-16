@@ -7,26 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
-import { z } from "zod";
+import { type z } from "zod";
 
-import { type Segment, segmentZ } from "@/schematic/edge/common/segmented/connector";
+export type Config<V extends schematic.EdgeConfigType = schematic.EdgeConfigType> =
+  Extract<schematic.EdgeConfig, { variant: V }>;
 
-export interface Config<V extends string = string> {
-  variant: V;
-  color: color.Color;
-  segments: Segment[];
-}
+export const createConfigZ = <V extends schematic.EdgeConfigType>(
+  variant: V,
+): z.ZodType<Config<V>> => schematic.EDGE_CONFIG_SCHEMAS[variant];
 
-export const createConfigZ = <V extends string>(variant: V) =>
-  z.object({
-    variant: z.literal(variant),
-    color: color.colorZ,
-    segments: z.array(segmentZ),
+export const createDefaultConfig = <V extends schematic.EdgeConfigType>(
+  variant: V,
+): Config<V> =>
+  schematic.EDGE_CONFIG_SCHEMAS[variant].parse({
+    variant,
+    color: color.ZERO,
+    segments: [],
   });
-
-export const createDefaultConfig = <V extends string>(variant: V): Config<V> => ({
-  variant,
-  color: color.ZERO,
-  segments: [],
-});

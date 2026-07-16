@@ -20,12 +20,190 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/border"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
+)
+
+var (
+	fullyPopulatedStaticSymbolConfig = schematic.StaticSymbolConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         new(string("test_2")),
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+			Scale:       new(float64(9.5)),
+		},
+		Color: new(color.Color{
+			R: 12,
+			G: 13,
+			B: 14,
+			A: 14.5,
+		}),
+	}
+	fullyPopulatedToggleSymbolConfig = schematic.ToggleSymbolConfig{
+		ToggleConfig: schematic.ToggleConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label: new(schematic.LabelConfig{
+					Label:         new(string("test_2")),
+					Level:         new(text.Level("h1")),
+					Orientation:   new(spatial.Location("top")),
+					Direction:     new(spatial.Direction("x")),
+					MaxInlineSize: new(float64(6.5)),
+					Align:         new(schematic.FlexAlignment("start")),
+				}),
+				Orientation: new(spatial.OuterLocation("top")),
+				Scale:       new(float64(9.5)),
+			},
+			StateChannel:   new(channel.Key(11)),
+			CommandChannel: new(channel.Key(12)),
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(14)),
+				Show:          new(bool(false)),
+				ShowChip:      new(bool(true)),
+				ShowIndicator: new(bool(false)),
+				Orientation:   new(spatial.Location("top")),
+			}),
+			OnClickDelay: new(float64(18.5)),
+		},
+		Color: new(color.Color{
+			R: 21,
+			G: 22,
+			B: 23,
+			A: 23.5,
+		}),
+	}
+	fullyPopulatedLabeledConfig = schematic.LabeledConfig{
+		Label: new(schematic.LabelConfig{
+			Label:         new(string("test_2")),
+			Level:         new(text.Level("h1")),
+			Orientation:   new(spatial.Location("top")),
+			Direction:     new(spatial.Direction("x")),
+			MaxInlineSize: new(float64(6.5)),
+			Align:         new(schematic.FlexAlignment("start")),
+		}),
+		Orientation: new(spatial.OuterLocation("top")),
+		Scale:       new(float64(9.5)),
+	}
+	fullyPopulatedDummyToggleSymbolConfig = schematic.DummyToggleSymbolConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         new(string("test_2")),
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+			Scale:       new(float64(9.5)),
+		},
+		Enabled:   new(bool(false)),
+		Clickable: new(bool(true)),
+		Color: new(color.Color{
+			R: 14,
+			G: 15,
+			B: 16,
+			A: 16.5,
+		}),
+	}
+	fullyPopulatedToggleConfig = schematic.ToggleConfig{
+		LabeledConfig: schematic.LabeledConfig{
+			Label: new(schematic.LabelConfig{
+				Label:         new(string("test_2")),
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+			Scale:       new(float64(9.5)),
+		},
+		StateChannel:   new(channel.Key(11)),
+		CommandChannel: new(channel.Key(12)),
+		Control: new(schematic.ControlStateConfig{
+			Authority:     new(uint8(14)),
+			Show:          new(bool(false)),
+			ShowChip:      new(bool(true)),
+			ShowIndicator: new(bool(false)),
+			Orientation:   new(spatial.Location("top")),
+		}),
+		OnClickDelay: new(float64(18.5)),
+	}
+	fullyPopulatedSegmentedEdgeConfig = schematic.SegmentedEdgeConfig{
+		Color: new(color.Color{
+			R: 3,
+			G: 4,
+			B: 5,
+			A: 5.5,
+		}),
+		Segments: []schematic.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
+	}
 )
 
 var _ = Describe("Codec", func() {
+	Describe("ControlStateConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ControlStateConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ControlStateConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.ControlStateConfig{
+				Authority:     new(uint8(2)),
+				Show:          new(bool(false)),
+				ShowChip:      new(bool(true)),
+				ShowIndicator: new(bool(false)),
+				Orientation:   new(spatial.Location("top")),
+			}),
+			Entry("zero values", schematic.ControlStateConfig{
+				Authority:     nil,
+				Show:          nil,
+				ShowChip:      nil,
+				ShowIndicator: nil,
+				Orientation:   nil,
+			}),
+		)
+	})
+	Describe("DummyToggleSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.DummyToggleSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.DummyToggleSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedDummyToggleSymbolConfig),
+			Entry("zero values", schematic.DummyToggleSymbolConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label:       nil,
+					Orientation: nil,
+					Scale:       nil,
+				},
+				Enabled:   nil,
+				Clickable: nil,
+				Color:     nil,
+			}),
+		)
+	})
 	Describe("Edge", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.Edge) {
@@ -49,6 +227,656 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("ElementConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ElementConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ElementConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("cap variant", schematic.ElementConfig{Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}),
+			Entry("filter variant", schematic.ElementConfig{Variant: schematic.ElementConfigFilter{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flow_straightener variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowStraightener{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("heater_element variant", schematic.ElementConfig{Variant: schematic.ElementConfigHeaterElement{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("iso_cap variant", schematic.ElementConfig{Variant: schematic.ElementConfigIsoCap{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("iso_filter variant", schematic.ElementConfig{Variant: schematic.ElementConfigIsoFilter{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("nozzle variant", schematic.ElementConfig{Variant: schematic.ElementConfigNozzle{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("orifice variant", schematic.ElementConfig{Variant: schematic.ElementConfigOrifice{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("orifice_plate variant", schematic.ElementConfig{Variant: schematic.ElementConfigOrificePlate{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("strainer variant", schematic.ElementConfig{Variant: schematic.ElementConfigStrainer{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("strainer_cone variant", schematic.ElementConfig{Variant: schematic.ElementConfigStrainerCone{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("thruster variant", schematic.ElementConfig{Variant: schematic.ElementConfigThruster{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("vent variant", schematic.ElementConfig{Variant: schematic.ElementConfigVent{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_general variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterGeneral{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_electromagnetic variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterElectromagnetic{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_variable_area variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterVariableArea{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_coriolis variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterCoriolis{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_nozzle variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterNozzle{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_venturi variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterVenturi{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_ring_piston variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterRingPiston{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_positive_displacement variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterPositiveDisplacement{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_turbine variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterTurbine{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_pulse variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterPulse{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_float_sensor variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterFloatSensor{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flowmeter_orifice variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterOrifice{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("box variant", schematic.ElementConfig{Variant: schematic.ElementConfigBox{
+				Label: new(schematic.LabelConfig{
+					Label:         new(string("test_2")),
+					Level:         new(text.Level("h1")),
+					Orientation:   new(spatial.Location("top")),
+					Direction:     new(spatial.Direction("x")),
+					MaxInlineSize: new(float64(6.5)),
+					Align:         new(schematic.FlexAlignment("start")),
+				}),
+				Orientation: new(spatial.OuterLocation("top")),
+				Color: new(color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 16,
+					G: 17,
+					B: 18,
+					A: 18.5,
+				}),
+				Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
+				BorderRadius: new(float64(22.5)),
+				StrokeWidth:  new(float64(23.5)),
+			}}),
+			Entry("button variant", schematic.ElementConfig{Variant: schematic.ElementConfigButton{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				Size:           new(schematic.ComponentSize("tiny")),
+				Level:          new(text.Level("h1")),
+				OnClickDelay:   new(float64(3.5)),
+				CommandChannel: new(channel.Key(5)),
+				Mode:           new(schematic.ButtonMode("fire")),
+				Color: new(color.Color{
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
+				}),
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(13)),
+					Show:          new(bool(true)),
+					ShowChip:      new(bool(false)),
+					ShowIndicator: new(bool(true)),
+					Orientation:   new(spatial.Location("top")),
+				}),
+			}}),
+			Entry("circle variant", schematic.ElementConfig{Variant: schematic.ElementConfigCircle{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Radius:        1.5,
+				Color: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 9,
+					G: 10,
+					B: 11,
+					A: 11.5,
+				}),
+				StrokeWidth: new(float64(12.5)),
+			}}),
+			Entry("gauge variant", schematic.ElementConfig{Variant: schematic.ElementConfigGauge{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
+				Color: new(color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				}),
+				Bounds:         new(spatial.Bounds{}),
+				BarWidth:       new(float64(10.5)),
+				Channel:        new(channel.Key(12)),
+				RollingAverage: new(int32(13)),
+				Precision:      new(float64(13.5)),
+				MinWidth:       new(float64(14.5)),
+				Width:          new(float64(15.5)),
+				Notation:       new(notation.Notation("standard")),
+				Location: new(spatial.LocationXY{
+					X: spatial.XCenterLocation("left"),
+					Y: spatial.YCenterLocation("top"),
+				}),
+				Units: new(string("test_20")),
+				Level: new(text.Level("h1")),
+			}}),
+			Entry("input variant", schematic.ElementConfig{Variant: schematic.ElementConfigInput{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				Size:           new(schematic.ComponentSize("tiny")),
+				CommandChannel: new(channel.Key(3)),
+				Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
+				Color: new(color.Color{
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
+				}),
+				Disabled: new(bool(true)),
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(14)),
+					Show:          new(bool(false)),
+					ShowChip:      new(bool(true)),
+					ShowIndicator: new(bool(false)),
+					Orientation:   new(spatial.Location("top")),
+				}),
+			}}),
+			Entry("light variant", schematic.ElementConfig{Variant: schematic.ElementConfigLight{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Channel:       new(channel.Key(2)),
+				Threshold:     new(spatial.Bounds{}),
+				Color: new(color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				}),
+			}}),
+			Entry("off_page_reference variant", schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
+				Orientation: new(spatial.OuterLocation("top")),
+				Label: schematic.LabelConfig{
+					Label:         new(string("test_3")),
+					Level:         new(text.Level("h1")),
+					Orientation:   new(spatial.Location("top")),
+					Direction:     new(spatial.Direction("x")),
+					MaxInlineSize: new(float64(7.5)),
+					Align:         new(schematic.FlexAlignment("start")),
+				},
+				Level: new(text.Level("h1")),
+				Color: new(color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}),
+				Page:        new(string("test_15")),
+				DblClickNav: new(bool(false)),
+			}}),
+			Entry("polygon variant", schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				NumSides:       1.5,
+				SideLength:     2.5,
+				Rotation:       new(float64(3.5)),
+				CornerRounding: new(float64(4.5)),
+				Color: new(color.Color{
+					R: 7,
+					G: 8,
+					B: 9,
+					A: 9.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 12,
+					G: 13,
+					B: 14,
+					A: 14.5,
+				}),
+				StrokeWidth: new(float64(15.5)),
+			}}),
+			Entry("select variant", schematic.ElementConfig{Variant: schematic.ElementConfigSelect{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				Size:           new(schematic.ComponentSize("tiny")),
+				CommandChannel: new(channel.Key(3)),
+				Color: new(color.Color{
+					R: 5,
+					G: 6,
+					B: 7,
+					A: 7.5,
+				}),
+				InlineSize: new(float64(8.5)),
+				Options: []schematic.StateMapping{
+					{
+						Key:   "test_10",
+						Name:  "test_11",
+						Value: 12.5,
+						Color: new(color.Color{
+							R: 15,
+							G: 16,
+							B: 17,
+							A: 17.5,
+						}),
+					},
+				},
+				Disabled: new(bool(false)),
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(21)),
+					Show:          new(bool(true)),
+					ShowChip:      new(bool(false)),
+					ShowIndicator: new(bool(true)),
+					Orientation:   new(spatial.Location("top")),
+				}),
+			}}),
+			Entry("setpoint variant", schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{
+				LabeledConfig:  fullyPopulatedLabeledConfig,
+				Size:           new(schematic.ComponentSize("tiny")),
+				StateChannel:   new(channel.Key(3)),
+				CommandChannel: new(channel.Key(4)),
+				Dimensions:     new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+				Color: new(color.Color{
+					R: 9,
+					G: 10,
+					B: 11,
+					A: 11.5,
+				}),
+				Units:    new(string("test_12")),
+				Disabled: new(bool(true)),
+				Control: new(schematic.ControlStateConfig{
+					Authority:     new(uint8(16)),
+					Show:          new(bool(false)),
+					ShowChip:      new(bool(true)),
+					ShowIndicator: new(bool(false)),
+					Orientation:   new(spatial.Location("top")),
+				}),
+			}}),
+			Entry("state_indicator variant", schematic.ElementConfig{Variant: schematic.ElementConfigStateIndicator{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Channel:       new(channel.Key(2)),
+				Color: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				InlineSize: new(float64(7.5)),
+				Options: []schematic.StateMapping{
+					{
+						Key:   "test_9",
+						Name:  "test_10",
+						Value: 11.5,
+						Color: new(color.Color{
+							R: 14,
+							G: 15,
+							B: 16,
+							A: 16.5,
+						}),
+					},
+				},
+			}}),
+			Entry("switch variant", schematic.ElementConfig{Variant: schematic.ElementConfigSwitch{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("text_box variant", schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Color: new(color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}),
+				Width:   new(float64(6.5)),
+				Align:   new(schematic.FlexAlignment("start")),
+				AutoFit: new(bool(false)),
+				Level:   new(text.Level("h1")),
+				Value:   new(string("test_10")),
+			}}),
+			Entry("value variant", schematic.ElementConfig{Variant: schematic.ElementConfigValue{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
+				Color: new(color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				}),
+				TextColor: new(color.Color{
+					R: 11,
+					G: 12,
+					B: 13,
+					A: 13.5,
+				}),
+				Tooltip: []string{"test_14"},
+				Redline: new(schematic.Redline{
+					Bounds: spatial.Bounds{},
+					Gradient: []color.Stop{
+						{
+							Key:      "test_18",
+							Color:    color.Color{},
+							Position: 20.5,
+							Switched: new(bool(true)),
+						},
+					},
+				}),
+				Units:            new(string("test_22")),
+				InlineSize:       new(float64(23.5)),
+				Channel:          new(channel.Key(25)),
+				RollingAverage:   new(int32(26)),
+				Level:            new(text.Level("h1")),
+				Precision:        new(float64(27.5)),
+				StalenessTimeout: new(float64(28.5)),
+				StalenessColor: new(color.Color{
+					R: 31,
+					G: 32,
+					B: 33,
+					A: 33.5,
+				}),
+				MinWidth: new(float64(34.5)),
+				Notation: new(notation.Notation("standard")),
+				Location: new(spatial.LocationXY{
+					X: spatial.XCenterLocation("left"),
+					Y: spatial.YCenterLocation("top"),
+				}),
+				UseWidthForBackground:   new(bool(true)),
+				ValueBackgroundShift:    new(spatial.XY{X: 41.5, Y: 42.5}),
+				ValueBackgroundOverScan: new(spatial.XY{X: 44.5, Y: 45.5}),
+			}}),
+			Entry("agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigAgitator{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("cross_beam_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigCrossBeamAgitator{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("flat_blade_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlatBladeAgitator{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("heat_exchanger_general variant", schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerGeneral{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("heat_exchanger_m variant", schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerM{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("heat_exchanger_straight_tube variant", schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerStraightTube{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("helical_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigHelicalAgitator{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("paddle_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigPaddleAgitator{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("propeller_agitator variant", schematic.ElementConfig{Variant: schematic.ElementConfigPropellerAgitator{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("rotary_mixer variant", schematic.ElementConfig{Variant: schematic.ElementConfigRotaryMixer{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("static_mixer variant", schematic.ElementConfig{Variant: schematic.ElementConfigStaticMixer{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("cavity_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigCavityPump{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("centrifugal_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigCentrifugalCompressor{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigCompressor{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("diaphragm_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigDiaphragmPump{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("ejection_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigEjectionPump{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("ejector_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigEjectorCompressor{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("liquid_ring_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigLiquidRingCompressor{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("piston_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigPistonPump{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigPump{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("roller_vane_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigRollerVaneCompressor{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("screw_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigScrewPump{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("turbo_compressor variant", schematic.ElementConfig{Variant: schematic.ElementConfigTurboCompressor{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("vacuum_pump variant", schematic.ElementConfig{Variant: schematic.ElementConfigVacuumPump{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("burst_disc variant", schematic.ElementConfig{Variant: schematic.ElementConfigBurstDisc{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flame_arrestor variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestor{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flame_arrestor_detonation variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorDetonation{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flame_arrestor_explosion variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorExplosion{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flame_arrestor_fire_res variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorFireRes{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("flame_arrestor_fire_res_detonation variant", schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorFireResDetonation{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("iso_burst_disc variant", schematic.ElementConfig{Variant: schematic.ElementConfigIsoBurstDisc{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("angled_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigAngledValve{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("angled_relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigAngledReliefValve{
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+			}}),
+			Entry("angled_spring_loaded_relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigAngledSpringLoadedReliefValve{
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+			}}),
+			Entry("ball_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigBallValve{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("breather_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigBreatherValve{
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+			}}),
+			Entry("butterfly_valve_one variant", schematic.ElementConfig{Variant: schematic.ElementConfigButterflyValveOne{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("butterfly_valve_two variant", schematic.ElementConfig{Variant: schematic.ElementConfigButterflyValveTwo{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("check_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigCheckValve{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("check_valve_with_arrow variant", schematic.ElementConfig{Variant: schematic.ElementConfigCheckValveWithArrow{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("electric_regulator variant", schematic.ElementConfig{Variant: schematic.ElementConfigElectricRegulator{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("electric_regulator_motorized variant", schematic.ElementConfig{Variant: schematic.ElementConfigElectricRegulatorMotorized{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("four_way_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigFourWayValve{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("gate_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigGateValve{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("iso_check_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigIsoCheckValve{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("manual_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigManualValve{
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+			}}),
+			Entry("needle_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigNeedleValve{
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+			}}),
+			Entry("regulator variant", schematic.ElementConfig{Variant: schematic.ElementConfigRegulator{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("regulator_manual variant", schematic.ElementConfig{Variant: schematic.ElementConfigRegulatorManual{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigReliefValve{
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+			}}),
+			Entry("solenoid_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigSolenoidValve{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+				NormallyOpen:       new(bool(true)),
+			}}),
+			Entry("spring_loaded_relief_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigSpringLoadedReliefValve{
+				DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+			}}),
+			Entry("three_way_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigThreeWayValve{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("three_way_ball_valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigThreeWayBallValve{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("valve variant", schematic.ElementConfig{Variant: schematic.ElementConfigValve{
+				ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			}}),
+			Entry("cross_junction variant", schematic.ElementConfig{Variant: schematic.ElementConfigCrossJunction{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("cylinder variant", schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Dimensions:    new(spatial.Dimensions{Width: 2.5, Height: 3.5}),
+				BorderRadius: new(border.Radius{
+					TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
+					TopRight:    spatial.XY{X: 9.5, Y: 10.5},
+					BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
+					BottomRight: spatial.XY{X: 15.5, Y: 16.5},
+				}),
+				Color: new(color.Color{
+					R: 19,
+					G: 20,
+					B: 21,
+					A: 21.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 24,
+					G: 25,
+					B: 26,
+					A: 26.5,
+				}),
+			}}),
+			Entry("tank variant", schematic.ElementConfig{Variant: schematic.ElementConfigTank{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				Color: new(color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}),
+				BackgroundColor: new(color.Color{
+					R: 8,
+					G: 9,
+					B: 10,
+					A: 10.5,
+				}),
+				Dimensions: new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
+				BorderRadius: new(border.Radius{
+					TopLeft:     spatial.XY{X: 16.5, Y: 17.5},
+					TopRight:    spatial.XY{X: 19.5, Y: 20.5},
+					BottomLeft:  spatial.XY{X: 22.5, Y: 23.5},
+					BottomRight: spatial.XY{X: 25.5, Y: 26.5},
+				}),
+			}}),
+			Entry("t_junction variant", schematic.ElementConfig{Variant: schematic.ElementConfigTJunction{
+				StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+			}}),
+			Entry("custom_actuator variant", schematic.ElementConfig{Variant: schematic.ElementConfigCustomActuator{
+				ToggleConfig: fullyPopulatedToggleConfig,
+				SpecKey:      "test_1",
+				Color: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+			}}),
+			Entry("custom_static variant", schematic.ElementConfig{Variant: schematic.ElementConfigCustomStatic{
+				LabeledConfig: fullyPopulatedLabeledConfig,
+				SpecKey:       "test_1",
+				Color: new(color.Color{
+					R: 4,
+					G: 5,
+					B: 6,
+					A: 6.5,
+				}),
+				StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+			}}),
+			Entry("pipe variant", schematic.ElementConfig{Variant: schematic.ElementConfigPipe{
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+			}}),
+			Entry("electric variant", schematic.ElementConfig{Variant: schematic.ElementConfigElectric{
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+			}}),
+			Entry("secondary variant", schematic.ElementConfig{Variant: schematic.ElementConfigSecondary{
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+			}}),
+			Entry("jacketed variant", schematic.ElementConfig{Variant: schematic.ElementConfigJacketed{
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+			}}),
+			Entry("hydraulic variant", schematic.ElementConfig{Variant: schematic.ElementConfigHydraulic{
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+			}}),
+			Entry("pneumatic variant", schematic.ElementConfig{Variant: schematic.ElementConfigPneumatic{
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+			}}),
+			Entry("data variant", schematic.ElementConfig{Variant: schematic.ElementConfigData{
+				SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+			}}),
+		)
+	})
 	Describe("Handle", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original schematic.Handle) {
@@ -62,6 +890,54 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", schematic.Handle{Node: "test_1", Param: "test_2"}),
 			Entry("zero values", schematic.Handle{Node: "", Param: ""}),
+		)
+	})
+	Describe("LabelConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.LabelConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.LabelConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.LabelConfig{
+				Label:         new(string("test_1")),
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(5.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Entry("zero values", schematic.LabelConfig{
+				Label:         nil,
+				Level:         nil,
+				Orientation:   nil,
+				Direction:     nil,
+				MaxInlineSize: nil,
+				Align:         nil,
+			}),
+		)
+	})
+	Describe("LabeledConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.LabeledConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.LabeledConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedLabeledConfig),
+			Entry("zero values", schematic.LabeledConfig{
+				Label:       nil,
+				Orientation: nil,
+				Scale:       nil,
+			}),
 		)
 	})
 	Describe("Node", func() {
@@ -85,6 +961,37 @@ var _ = Describe("Codec", func() {
 				Position: spatial.XY{X: 0, Y: 0},
 				ZIndex:   0,
 			}),
+		)
+	})
+	Describe("Redline", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.Redline) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.Redline
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.Redline{
+				Bounds: spatial.Bounds{},
+				Gradient: []color.Stop{
+					{
+						Key: "test_3",
+						Color: color.Color{
+							R: 6,
+							G: 7,
+							B: 8,
+							A: 8.5,
+						},
+						Position: 9.5,
+						Switched: new(bool(false)),
+					},
+				},
+			}),
+			Entry("zero values", schematic.Redline{Bounds: spatial.Bounds{}, Gradient: nil}),
+			Entry("empty collections", schematic.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}),
 		)
 	})
 	Describe("Schematic", func() {
@@ -116,7 +1023,7 @@ var _ = Describe("Codec", func() {
 						Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 					},
 				},
-				Configs: map[string]msgpack.EncodedJSON{"test_18": {"key_18": "value_18"}},
+				Configs: map[string]schematic.ElementConfig{"test_18": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 			}),
 			Entry("zero values", schematic.Schematic{
 				Key:      uuid.Nil,
@@ -132,11 +1039,195 @@ var _ = Describe("Codec", func() {
 				Snapshot: true,
 				Nodes:    []schematic.Node{},
 				Edges:    []schematic.Edge{},
-				Configs:  map[string]msgpack.EncodedJSON{},
+				Configs:  map[string]schematic.ElementConfig{},
+			}),
+		)
+	})
+	Describe("Segment", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.Segment) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.Segment
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}),
+			Entry("zero values", schematic.Segment{Direction: spatial.Direction(""), Length: 0}),
+		)
+	})
+	Describe("SegmentedEdgeConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.SegmentedEdgeConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.SegmentedEdgeConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
+			Entry("zero values", schematic.SegmentedEdgeConfig{Color: nil, Segments: nil}),
+			Entry("empty collections", schematic.SegmentedEdgeConfig{
+				Color: new(color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}),
+				Segments: []schematic.Segment{},
+			}),
+		)
+	})
+	Describe("StateMapping", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.StateMapping) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.StateMapping
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", schematic.StateMapping{
+				Key:   "test_1",
+				Name:  "test_2",
+				Value: 3.5,
+				Color: new(color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				}),
+			}),
+			Entry("zero values", schematic.StateMapping{
+				Key:   "",
+				Name:  "",
+				Value: 0,
+				Color: nil,
+			}),
+		)
+	})
+	Describe("StaticSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.StaticSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.StaticSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedStaticSymbolConfig),
+			Entry("zero values", schematic.StaticSymbolConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label:       nil,
+					Orientation: nil,
+					Scale:       nil,
+				},
+				Color: nil,
+			}),
+		)
+	})
+	Describe("ToggleConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ToggleConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ToggleConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedToggleConfig),
+			Entry("zero values", schematic.ToggleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label:       nil,
+					Orientation: nil,
+					Scale:       nil,
+				},
+				StateChannel:   nil,
+				CommandChannel: nil,
+				Control:        nil,
+				OnClickDelay:   nil,
+			}),
+		)
+	})
+	Describe("ToggleSymbolConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original schematic.ToggleSymbolConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded schematic.ToggleSymbolConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedToggleSymbolConfig),
+			Entry("zero values", schematic.ToggleSymbolConfig{
+				ToggleConfig: schematic.ToggleConfig{
+					LabeledConfig: schematic.LabeledConfig{
+						Label:       nil,
+						Orientation: nil,
+						Scale:       nil,
+					},
+					StateChannel:   nil,
+					CommandChannel: nil,
+					Control:        nil,
+					OnClickDelay:   nil,
+				},
+				Color: nil,
 			}),
 		)
 	})
 })
+
+func BenchmarkEncodeDecodeControlStateConfig(b *testing.B) {
+	csc := schematic.ControlStateConfig{
+		Authority:     new(uint8(2)),
+		Show:          new(bool(false)),
+		ShowChip:      new(bool(true)),
+		ShowIndicator: new(bool(false)),
+		Orientation:   new(spatial.Location("top")),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := csc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ControlStateConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeDummyToggleSymbolConfig(b *testing.B) {
+	dtsc := fullyPopulatedDummyToggleSymbolConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := dtsc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.DummyToggleSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	e := schematic.Edge{
@@ -159,6 +1250,23 @@ func BenchmarkEncodeDecodeEdge(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
+	ec := schematic.ElementConfig{Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ec.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ElementConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeHandle(b *testing.B) {
 	h := schematic.Handle{Node: "test_1", Param: "test_2"}
 	w := orc.NewWriter(0)
@@ -169,6 +1277,47 @@ func BenchmarkEncodeDecodeHandle(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded schematic.Handle
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLabelConfig(b *testing.B) {
+	lc := schematic.LabelConfig{
+		Label:         new(string("test_1")),
+		Level:         new(text.Level("h1")),
+		Orientation:   new(spatial.Location("top")),
+		Direction:     new(spatial.Direction("x")),
+		MaxInlineSize: new(float64(5.5)),
+		Align:         new(schematic.FlexAlignment("start")),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := lc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.LabelConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeLabeledConfig(b *testing.B) {
+	lc := fullyPopulatedLabeledConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := lc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.LabeledConfig
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -197,6 +1346,38 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeRedline(b *testing.B) {
+	rv := schematic.Redline{
+		Bounds: spatial.Bounds{},
+		Gradient: []color.Stop{
+			{
+				Key: "test_3",
+				Color: color.Color{
+					R: 6,
+					G: 7,
+					B: 8,
+					A: 8.5,
+				},
+				Position: 9.5,
+				Switched: new(bool(false)),
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := rv.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.Redline
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 	s := schematic.Schematic{
 		Key:      uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -216,7 +1397,7 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 			},
 		},
-		Configs: map[string]msgpack.EncodedJSON{"test_18": {"key_18": "value_18"}},
+		Configs: map[string]schematic.ElementConfig{"test_18": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -231,6 +1412,231 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkEncodeDecodeSegment(b *testing.B) {
+	s := schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := s.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.Segment
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
+	sec := fullyPopulatedSegmentedEdgeConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sec.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.SegmentedEdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStateMapping(b *testing.B) {
+	sm := schematic.StateMapping{
+		Key:   "test_1",
+		Name:  "test_2",
+		Value: 3.5,
+		Color: new(color.Color{
+			R: 6,
+			G: 7,
+			B: 8,
+			A: 8.5,
+		}),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := sm.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.StateMapping
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeStaticSymbolConfig(b *testing.B) {
+	ssc := fullyPopulatedStaticSymbolConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := ssc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.StaticSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeToggleConfig(b *testing.B) {
+	tc := fullyPopulatedToggleConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := tc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ToggleConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeToggleSymbolConfig(b *testing.B) {
+	tsc := fullyPopulatedToggleSymbolConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for i := 0; i < b.N; i++ {
+		w.Reset()
+		if err := tsc.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded schematic.ToggleSymbolConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeControlStateConfig(f *testing.F) {
+	{
+		seed := schematic.ControlStateConfig{
+			Authority:     new(uint8(2)),
+			Show:          new(bool(false)),
+			ShowChip:      new(bool(true)),
+			ShowIndicator: new(bool(false)),
+			Orientation:   new(spatial.Location("top")),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ControlStateConfig{
+			Authority:     nil,
+			Show:          nil,
+			ShowChip:      nil,
+			ShowIndicator: nil,
+			Orientation:   nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ControlStateConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ControlStateConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeDummyToggleSymbolConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedDummyToggleSymbolConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.DummyToggleSymbolConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label:       nil,
+				Orientation: nil,
+				Scale:       nil,
+			},
+			Enabled:   nil,
+			Clickable: nil,
+			Color:     nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.DummyToggleSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.DummyToggleSymbolConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeEdge(f *testing.F) {
@@ -287,6 +1693,1422 @@ func FuzzDecodeEdge(f *testing.F) {
 	})
 }
 
+func FuzzDecodeElementConfig(f *testing.F) {
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFilter{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowStraightener{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHeaterElement{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigIsoCap{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigIsoFilter{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigNozzle{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOrifice{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOrificePlate{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStrainer{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStrainerCone{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigThruster{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigVent{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterGeneral{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterElectromagnetic{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterVariableArea{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterCoriolis{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterNozzle{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterVenturi{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterRingPiston{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterPositiveDisplacement{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterTurbine{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterPulse{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterFloatSensor{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlowmeterOrifice{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBox{
+			Label: new(schematic.LabelConfig{
+				Label:         new(string("test_2")),
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(6.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			}),
+			Orientation: new(spatial.OuterLocation("top")),
+			Color: new(color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 16,
+				G: 17,
+				B: 18,
+				A: 18.5,
+			}),
+			Dimensions:   new(spatial.Dimensions{Width: 20.5, Height: 21.5}),
+			BorderRadius: new(float64(22.5)),
+			StrokeWidth:  new(float64(23.5)),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButton{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			Size:           new(schematic.ComponentSize("tiny")),
+			Level:          new(text.Level("h1")),
+			OnClickDelay:   new(float64(3.5)),
+			CommandChannel: new(channel.Key(5)),
+			Mode:           new(schematic.ButtonMode("fire")),
+			Color: new(color.Color{
+				R: 8,
+				G: 9,
+				B: 10,
+				A: 10.5,
+			}),
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(13)),
+				Show:          new(bool(true)),
+				ShowChip:      new(bool(false)),
+				ShowIndicator: new(bool(true)),
+				Orientation:   new(spatial.Location("top")),
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCircle{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Radius:        1.5,
+			Color: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 9,
+				G: 10,
+				B: 11,
+				A: 11.5,
+			}),
+			StrokeWidth: new(float64(12.5)),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigGauge{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
+			Color: new(color.Color{
+				R: 6,
+				G: 7,
+				B: 8,
+				A: 8.5,
+			}),
+			Bounds:         new(spatial.Bounds{}),
+			BarWidth:       new(float64(10.5)),
+			Channel:        new(channel.Key(12)),
+			RollingAverage: new(int32(13)),
+			Precision:      new(float64(13.5)),
+			MinWidth:       new(float64(14.5)),
+			Width:          new(float64(15.5)),
+			Notation:       new(notation.Notation("standard")),
+			Location: new(spatial.LocationXY{
+				X: spatial.XCenterLocation("left"),
+				Y: spatial.YCenterLocation("top"),
+			}),
+			Units: new(string("test_20")),
+			Level: new(text.Level("h1")),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigInput{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			Size:           new(schematic.ComponentSize("tiny")),
+			CommandChannel: new(channel.Key(3)),
+			Dimensions:     new(spatial.Dimensions{Width: 4.5, Height: 5.5}),
+			Color: new(color.Color{
+				R: 8,
+				G: 9,
+				B: 10,
+				A: 10.5,
+			}),
+			Disabled: new(bool(true)),
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(14)),
+				Show:          new(bool(false)),
+				ShowChip:      new(bool(true)),
+				ShowIndicator: new(bool(false)),
+				Orientation:   new(spatial.Location("top")),
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigLight{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Channel:       new(channel.Key(2)),
+			Threshold:     new(spatial.Bounds{}),
+			Color: new(color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigOffPageReference{
+			Orientation: new(spatial.OuterLocation("top")),
+			Label: schematic.LabelConfig{
+				Label:         new(string("test_3")),
+				Level:         new(text.Level("h1")),
+				Orientation:   new(spatial.Location("top")),
+				Direction:     new(spatial.Direction("x")),
+				MaxInlineSize: new(float64(7.5)),
+				Align:         new(schematic.FlexAlignment("start")),
+			},
+			Level: new(text.Level("h1")),
+			Color: new(color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}),
+			Page:        new(string("test_15")),
+			DblClickNav: new(bool(false)),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPolygon{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			NumSides:       1.5,
+			SideLength:     2.5,
+			Rotation:       new(float64(3.5)),
+			CornerRounding: new(float64(4.5)),
+			Color: new(color.Color{
+				R: 7,
+				G: 8,
+				B: 9,
+				A: 9.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 12,
+				G: 13,
+				B: 14,
+				A: 14.5,
+			}),
+			StrokeWidth: new(float64(15.5)),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSelect{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			Size:           new(schematic.ComponentSize("tiny")),
+			CommandChannel: new(channel.Key(3)),
+			Color: new(color.Color{
+				R: 5,
+				G: 6,
+				B: 7,
+				A: 7.5,
+			}),
+			InlineSize: new(float64(8.5)),
+			Options: []schematic.StateMapping{
+				{
+					Key:   "test_10",
+					Name:  "test_11",
+					Value: 12.5,
+					Color: new(color.Color{
+						R: 15,
+						G: 16,
+						B: 17,
+						A: 17.5,
+					}),
+				},
+			},
+			Disabled: new(bool(false)),
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(21)),
+				Show:          new(bool(true)),
+				ShowChip:      new(bool(false)),
+				ShowIndicator: new(bool(true)),
+				Orientation:   new(spatial.Location("top")),
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSetpoint{
+			LabeledConfig:  fullyPopulatedLabeledConfig,
+			Size:           new(schematic.ComponentSize("tiny")),
+			StateChannel:   new(channel.Key(3)),
+			CommandChannel: new(channel.Key(4)),
+			Dimensions:     new(spatial.Dimensions{Width: 5.5, Height: 6.5}),
+			Color: new(color.Color{
+				R: 9,
+				G: 10,
+				B: 11,
+				A: 11.5,
+			}),
+			Units:    new(string("test_12")),
+			Disabled: new(bool(true)),
+			Control: new(schematic.ControlStateConfig{
+				Authority:     new(uint8(16)),
+				Show:          new(bool(false)),
+				ShowChip:      new(bool(true)),
+				ShowIndicator: new(bool(false)),
+				Orientation:   new(spatial.Location("top")),
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStateIndicator{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Channel:       new(channel.Key(2)),
+			Color: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			InlineSize: new(float64(7.5)),
+			Options: []schematic.StateMapping{
+				{
+					Key:   "test_9",
+					Name:  "test_10",
+					Value: 11.5,
+					Color: new(color.Color{
+						R: 14,
+						G: 15,
+						B: 16,
+						A: 16.5,
+					}),
+				},
+			},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSwitch{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTextBox{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Color: new(color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}),
+			Width:   new(float64(6.5)),
+			Align:   new(schematic.FlexAlignment("start")),
+			AutoFit: new(bool(false)),
+			Level:   new(text.Level("h1")),
+			Value:   new(string("test_10")),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigValue{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Position:      new(spatial.XY{X: 2.5, Y: 3.5}),
+			Color: new(color.Color{
+				R: 6,
+				G: 7,
+				B: 8,
+				A: 8.5,
+			}),
+			TextColor: new(color.Color{
+				R: 11,
+				G: 12,
+				B: 13,
+				A: 13.5,
+			}),
+			Tooltip: []string{"test_14"},
+			Redline: new(schematic.Redline{
+				Bounds: spatial.Bounds{},
+				Gradient: []color.Stop{
+					{
+						Key:      "test_18",
+						Color:    color.Color{},
+						Position: 20.5,
+						Switched: new(bool(true)),
+					},
+				},
+			}),
+			Units:            new(string("test_22")),
+			InlineSize:       new(float64(23.5)),
+			Channel:          new(channel.Key(25)),
+			RollingAverage:   new(int32(26)),
+			Level:            new(text.Level("h1")),
+			Precision:        new(float64(27.5)),
+			StalenessTimeout: new(float64(28.5)),
+			StalenessColor: new(color.Color{
+				R: 31,
+				G: 32,
+				B: 33,
+				A: 33.5,
+			}),
+			MinWidth: new(float64(34.5)),
+			Notation: new(notation.Notation("standard")),
+			Location: new(spatial.LocationXY{
+				X: spatial.XCenterLocation("left"),
+				Y: spatial.YCenterLocation("top"),
+			}),
+			UseWidthForBackground:   new(bool(true)),
+			ValueBackgroundShift:    new(spatial.XY{X: 41.5, Y: 42.5}),
+			ValueBackgroundOverScan: new(spatial.XY{X: 44.5, Y: 45.5}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigAgitator{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCrossBeamAgitator{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlatBladeAgitator{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerGeneral{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerM{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHeatExchangerStraightTube{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHelicalAgitator{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPaddleAgitator{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPropellerAgitator{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigRotaryMixer{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigStaticMixer{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCavityPump{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCentrifugalCompressor{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCompressor{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigDiaphragmPump{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigEjectionPump{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigEjectorCompressor{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigLiquidRingCompressor{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPistonPump{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPump{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigRollerVaneCompressor{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigScrewPump{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTurboCompressor{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigVacuumPump{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBurstDisc{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestor{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorDetonation{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorExplosion{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorFireRes{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFlameArrestorFireResDetonation{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigIsoBurstDisc{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigAngledValve{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigAngledReliefValve{
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigAngledSpringLoadedReliefValve{
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBallValve{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigBreatherValve{
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButterflyValveOne{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigButterflyValveTwo{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCheckValve{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCheckValveWithArrow{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigElectricRegulator{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigElectricRegulatorMotorized{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigFourWayValve{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigGateValve{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigIsoCheckValve{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigManualValve{
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigNeedleValve{
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigRegulator{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigRegulatorManual{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigReliefValve{
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSolenoidValve{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+			NormallyOpen:       new(bool(true)),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSpringLoadedReliefValve{
+			DummyToggleSymbolConfig: fullyPopulatedDummyToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigThreeWayValve{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigThreeWayBallValve{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigValve{
+			ToggleSymbolConfig: fullyPopulatedToggleSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCrossJunction{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCylinder{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Dimensions:    new(spatial.Dimensions{Width: 2.5, Height: 3.5}),
+			BorderRadius: new(border.Radius{
+				TopLeft:     spatial.XY{X: 6.5, Y: 7.5},
+				TopRight:    spatial.XY{X: 9.5, Y: 10.5},
+				BottomLeft:  spatial.XY{X: 12.5, Y: 13.5},
+				BottomRight: spatial.XY{X: 15.5, Y: 16.5},
+			}),
+			Color: new(color.Color{
+				R: 19,
+				G: 20,
+				B: 21,
+				A: 21.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 24,
+				G: 25,
+				B: 26,
+				A: 26.5,
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTank{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			Color: new(color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}),
+			BackgroundColor: new(color.Color{
+				R: 8,
+				G: 9,
+				B: 10,
+				A: 10.5,
+			}),
+			Dimensions: new(spatial.Dimensions{Width: 12.5, Height: 13.5}),
+			BorderRadius: new(border.Radius{
+				TopLeft:     spatial.XY{X: 16.5, Y: 17.5},
+				TopRight:    spatial.XY{X: 19.5, Y: 20.5},
+				BottomLeft:  spatial.XY{X: 22.5, Y: 23.5},
+				BottomRight: spatial.XY{X: 25.5, Y: 26.5},
+			}),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigTJunction{
+			StaticSymbolConfig: fullyPopulatedStaticSymbolConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCustomActuator{
+			ToggleConfig: fullyPopulatedToggleConfig,
+			SpecKey:      "test_1",
+			Color: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigCustomStatic{
+			LabeledConfig: fullyPopulatedLabeledConfig,
+			SpecKey:       "test_1",
+			Color: new(color.Color{
+				R: 4,
+				G: 5,
+				B: 6,
+				A: 6.5,
+			}),
+			StateOverrides: []msgpack.EncodedJSON{{"key_7": "value_7"}},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPipe{
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigElectric{
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigSecondary{
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigJacketed{
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigHydraulic{
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigPneumatic{
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ElementConfig{Variant: schematic.ElementConfigData{
+			SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig,
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ElementConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ElementConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeHandle(f *testing.F) {
 	{
 		seed := schematic.Handle{Node: "test_1", Param: "test_2"}
@@ -316,6 +3138,116 @@ func FuzzDecodeHandle(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.Handle
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLabelConfig(f *testing.F) {
+	{
+		seed := schematic.LabelConfig{
+			Label:         new(string("test_1")),
+			Level:         new(text.Level("h1")),
+			Orientation:   new(spatial.Location("top")),
+			Direction:     new(spatial.Direction("x")),
+			MaxInlineSize: new(float64(5.5)),
+			Align:         new(schematic.FlexAlignment("start")),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.LabelConfig{
+			Label:         nil,
+			Level:         nil,
+			Orientation:   nil,
+			Direction:     nil,
+			MaxInlineSize: nil,
+			Align:         nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.LabelConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.LabelConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeLabeledConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedLabeledConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.LabeledConfig{
+			Label:       nil,
+			Orientation: nil,
+			Scale:       nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.LabeledConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.LabeledConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
@@ -387,6 +3319,75 @@ func FuzzDecodeNode(f *testing.F) {
 	})
 }
 
+func FuzzDecodeRedline(f *testing.F) {
+	{
+		seed := schematic.Redline{
+			Bounds: spatial.Bounds{},
+			Gradient: []color.Stop{
+				{
+					Key: "test_3",
+					Color: color.Color{
+						R: 6,
+						G: 7,
+						B: 8,
+						A: 8.5,
+					},
+					Position: 9.5,
+					Switched: new(bool(false)),
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.Redline{Bounds: spatial.Bounds{}, Gradient: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.Redline{Bounds: spatial.Bounds{}, Gradient: []color.Stop{}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.Redline
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.Redline
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeSchematic(f *testing.F) {
 	{
 		seed := schematic.Schematic{
@@ -407,7 +3408,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Target: schematic.Handle{Node: "test_16", Param: "test_17"},
 				},
 			},
-			Configs: map[string]msgpack.EncodedJSON{"test_18": {"key_18": "value_18"}},
+			Configs: map[string]schematic.ElementConfig{"test_18": {Variant: schematic.ElementConfigCap{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -437,7 +3438,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 			Snapshot: true,
 			Nodes:    []schematic.Node{},
 			Edges:    []schematic.Edge{},
-			Configs:  map[string]msgpack.EncodedJSON{},
+			Configs:  map[string]schematic.ElementConfig{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -457,6 +3458,343 @@ func FuzzDecodeSchematic(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded schematic.Schematic
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSegment(f *testing.F) {
+	{
+		seed := schematic.Segment{Direction: spatial.Direction("x"), Length: 2.5}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.Segment{Direction: spatial.Direction(""), Length: 0}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.Segment
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.Segment
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedSegmentedEdgeConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.SegmentedEdgeConfig{Color: nil, Segments: nil}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.SegmentedEdgeConfig{
+			Color: new(color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}),
+			Segments: []schematic.Segment{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.SegmentedEdgeConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.SegmentedEdgeConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStateMapping(f *testing.F) {
+	{
+		seed := schematic.StateMapping{
+			Key:   "test_1",
+			Name:  "test_2",
+			Value: 3.5,
+			Color: new(color.Color{
+				R: 6,
+				G: 7,
+				B: 8,
+				A: 8.5,
+			}),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.StateMapping{
+			Key:   "",
+			Name:  "",
+			Value: 0,
+			Color: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.StateMapping
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.StateMapping
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeStaticSymbolConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedStaticSymbolConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.StaticSymbolConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label:       nil,
+				Orientation: nil,
+				Scale:       nil,
+			},
+			Color: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.StaticSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.StaticSymbolConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeToggleConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedToggleConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ToggleConfig{
+			LabeledConfig: schematic.LabeledConfig{
+				Label:       nil,
+				Orientation: nil,
+				Scale:       nil,
+			},
+			StateChannel:   nil,
+			CommandChannel: nil,
+			Control:        nil,
+			OnClickDelay:   nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ToggleConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ToggleConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		w2 := orc.NewWriter(w1.Len())
+		if err := redecoded.EncodeOrc(w2); err != nil {
+			t.Fatalf("re-encode failed: %v", err)
+		}
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeToggleSymbolConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedToggleSymbolConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := schematic.ToggleSymbolConfig{
+			ToggleConfig: schematic.ToggleConfig{
+				LabeledConfig: schematic.LabeledConfig{
+					Label:       nil,
+					Orientation: nil,
+					Scale:       nil,
+				},
+				StateChannel:   nil,
+				CommandChannel: nil,
+				Control:        nil,
+				OnClickDelay:   nil,
+			},
+			Color: nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded schematic.ToggleSymbolConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded schematic.ToggleSymbolConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

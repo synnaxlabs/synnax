@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
@@ -14,9 +15,8 @@ import { CSS } from "@/css";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
-import { type Config } from "@/schematic/node/vessels/cylinder/config";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface RenderProps extends Omit<schematic.NodeConfigCylinder, "variant"> {
   className?: string;
   scale?: number;
 }

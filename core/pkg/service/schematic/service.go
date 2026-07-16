@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
+	v56 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v56"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -104,11 +105,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[Key, v55.Schematic]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v55.Schematic, Schematic](
+				gorp.NewEntryMigration[Key, Key, v55.Schematic, v56.Schematic](
 					"v55_lift_typed_schematic",
-					MigrateSchematic,
+					v56.MigrateSchematic,
 				),
 				"msgpack_to_orc",
+			),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[Key, Key, v56.Schematic, Schematic](
+					"v56_typed_element_configs",
+					MigrateSchematic,
+				),
+				"v55_lift_typed_schematic",
 			),
 		},
 		Instrumentation: cfg.Instrumentation,
