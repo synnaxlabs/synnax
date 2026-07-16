@@ -21,8 +21,8 @@
 #include "x/cpp/color/proto.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/pb/pb.h"
-#include "x/cpp/telem/json.gen.h"
 #include "x/cpp/telem/proto.gen.h"
+#include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/service/ranger/pb/ranger.pb.h"
 

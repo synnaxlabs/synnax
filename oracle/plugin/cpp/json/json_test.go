@@ -683,6 +683,23 @@ var _ = Describe("C++ JSON Plugin", func() {
 				Expect(resp.Deletions).To(ConsistOf("client/cpp/node/json.gen.h"))
 			})
 
+			It("Should request deletion for packages whose types are all omitted", func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/telem"
+
+					TimeRange struct {
+						start uint64
+						end   uint64
+
+						@cpp omit
+					}
+				`
+				resp := MustGenerate(ctx, source, "telem", loader, jsonPlugin)
+
+				Expect(resp.Files).To(BeEmpty())
+				Expect(resp.Deletions).To(ConsistOf("x/cpp/telem/json.gen.h"))
+			})
+
 			It("Should include types.gen.h for references into scalar-only packages", func(ctx SpecContext) {
 				loader.Add("schemas/node", `
 					@cpp output "client/cpp/node"

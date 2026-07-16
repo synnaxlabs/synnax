@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
@@ -133,6 +134,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 
+	jsonPaths, err := json.ContentPaths(req)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, outputPath := range outputOrder {
 		structs := outputStructs[outputPath]
 		namespace := ""
@@ -151,7 +157,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			}
 		}
 
-		content, err := p.generateProto(outputPath, structs, enums, namespace, req)
+		content, err := p.generateProto(outputPath, structs, enums, namespace, jsonPaths, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate proto for %s", outputPath)
 		}
@@ -187,6 +193,7 @@ func (p *Plugin) generateProto(
 	structs []resolution.Type,
 	enums []resolution.Type,
 	namespace string,
+	jsonPaths set.Set[string],
 	req *plugin.Request,
 ) ([]byte, error) {
 	data := &templateData{
@@ -197,6 +204,7 @@ func (p *Plugin) generateProto(
 		ArrayWrappers:    make([]arrayWrapperTranslatorData, 0),
 		includes:         newIncludeManager(),
 		table:            req.Resolutions,
+		jsonPaths:        jsonPaths,
 		rawNs:            namespace,
 		processedEnums:   make(set.Set[string]),
 		processedStructs: make(set.Set[string]),
@@ -204,7 +212,7 @@ func (p *Plugin) generateProto(
 
 	data.includes.addSystem("utility")
 	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
-	data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", outputPath))
+	data.includes.addInternal(data.jsonInclude(outputPath))
 	data.includes.addInternal("x/cpp/errors/errors.h")
 	data.includes.addInternal("x/cpp/pb/pb.h")
 
@@ -615,7 +623,7 @@ func (p *Plugin) generateStructConversion(
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
 			data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-			data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+			data.includes.addInternal(data.jsonInclude(targetOutputPath))
 		}
 	}
 
@@ -861,7 +869,7 @@ func (p *Plugin) generateAliasConversion(
 			targetOutputPath := output.GetPath(targetResolved, "cpp")
 			if targetOutputPath != "" {
 				data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-				data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+				data.includes.addInternal(data.jsonInclude(targetOutputPath))
 			}
 		}
 		cppType := domain.GetName(resolved, "cpp")
@@ -954,7 +962,7 @@ func (p *Plugin) generateArrayElementConversion(
 					targetOutputPath := output.GetPath(resolved, "cpp")
 					if targetOutputPath != "" {
 						data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						data.includes.addInternal(data.jsonInclude(targetOutputPath))
 					}
 				}
 				elemCppType := p.typeRefToCppForTranslator(elemType, data)
@@ -1037,7 +1045,7 @@ func (p *Plugin) generateMapConversion(
 				targetOutputPath := output.GetPath(resolved, "cpp")
 				if targetOutputPath != "" {
 					data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-					data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+					data.includes.addInternal(data.jsonInclude(targetOutputPath))
 				}
 			}
 			valueCppType := p.typeRefToCppForTranslator(valueType, data)
@@ -1170,7 +1178,7 @@ func (p *Plugin) generateNestedArrayConversion(
 						targetOutputPath := output.GetPath(innerResolved, "cpp")
 						if targetOutputPath != "" {
 							data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-							data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+							data.includes.addInternal(data.jsonInclude(targetOutputPath))
 						}
 					}
 					innerCppType := p.typeRefToCppForTranslator(innerElem, data)
@@ -1404,12 +1412,19 @@ type templateData struct {
 	processedStructs set.Set[string]
 	includes         *includeManager
 	table            *resolution.Table
+	jsonPaths        set.Set[string]
 	OutputPath       string
 	Namespace        string
 	rawNs            string
 	Translators      []translatorData
 	EnumTranslators  []enumTranslatorData
 	ArrayWrappers    []arrayWrapperTranslatorData
+}
+
+// jsonInclude returns the header to include for a reference to types generated at
+// outputPath.
+func (d *templateData) jsonInclude(outputPath string) string {
+	return json.IncludeFor(d.jsonPaths, outputPath)
 }
 
 type arrayWrapperTranslatorData struct {

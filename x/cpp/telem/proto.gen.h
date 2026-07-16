@@ -15,7 +15,6 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/telem/json.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 #include "x/go/telem/pb/telem.pb.h"

@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
@@ -56,100 +55,119 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
-	structCollector, err := framework.CollectStructs("cpp", req)
+	c, err := collect(req)
 	if err != nil {
 		return nil, err
 	}
 
-	distinctCollector, err := framework.CollectDistinct("cpp", req)
-	if err != nil {
-		return nil, err
-	}
-
-	unionCollector := framework.NewCollector("cpp", req)
-	if err := unionCollector.AddAll(req.Resolutions.UnionTypes()); err != nil {
-		return nil, err
-	}
-
-	allPaths := make(set.Set[string])
-	for _, path := range structCollector.Paths() {
-		allPaths.Add(path)
-	}
-	for _, path := range distinctCollector.Paths() {
-		allPaths.Add(path)
-	}
-	for _, path := range unionCollector.Paths() {
-		allPaths.Add(path)
-	}
-
-	jsonPaths := make(set.Set[string])
-	for outputPath := range allPaths {
-		if pathHasJSONContent(
-			structCollector.Get(outputPath),
-			distinctCollector.Get(outputPath),
-			unionCollector.Get(outputPath),
-		) {
-			jsonPaths.Add(outputPath)
-		}
-	}
-
-	for outputPath := range allPaths {
-		structs := structCollector.Get(outputPath)
-		distinctTypes := distinctCollector.Get(outputPath)
-		unions := unionCollector.Get(outputPath)
+	for outputPath := range c.jsonPaths {
+		structs := c.structs.Get(outputPath)
+		distinctTypes := c.distinct.Get(outputPath)
+		unions := c.unions.Get(outputPath)
 
 		var namespace string
 		if len(structs) > 0 {
 			namespace = structs[0].Namespace
 		} else if len(distinctTypes) > 0 {
 			namespace = distinctTypes[0].Namespace
-		} else if len(unions) > 0 {
-			namespace = unions[0].Namespace
 		} else {
-			continue
+			namespace = unions[0].Namespace
 		}
 
 		content, err := p.generateFile(
-			outputPath, structs, distinctTypes, unions, namespace, jsonPaths, req)
+			outputPath, structs, distinctTypes, unions, namespace, c.jsonPaths, req)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate json for %s", outputPath)
 		}
-		filePath := fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern)
-		if len(content) > 0 {
-			resp.Files = append(resp.Files, plugin.File{Path: filePath, Content: content})
-		} else {
-			resp.Deletions = append(resp.Deletions, filePath)
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern),
+			Content: content,
+		})
+	}
+
+	// Request deletion for every other C++ output path so stale files from schemas
+	// that no longer have anything to serialize get cleaned up.
+	deletions := make(set.Set[string])
+	for _, t := range req.Resolutions.TypesWithDomain("cpp") {
+		outputPath := output.GetPath(t, "cpp")
+		if outputPath == "" || c.jsonPaths.Contains(outputPath) {
+			continue
 		}
+		if req.RepoRoot != "" && req.ValidateOutputPath(outputPath) != nil {
+			continue
+		}
+		deletions.Add(fmt.Sprintf("%s/%s", outputPath, p.Options.FileNamePattern))
+	}
+	for d := range deletions {
+		resp.Deletions = append(resp.Deletions, d)
 	}
 
 	return resp, nil
 }
 
-// pathHasJSONContent reports whether the plugin emits a json.gen.h for a path: at least
-// one non-omitted struct, union, or variable-length array wrapper lives there.
-func pathHasJSONContent(structs, distinctTypes, unions []resolution.Type) bool {
-	for _, s := range structs {
-		if !omit.IsType(s, "cpp") {
-			return true
+// ContentPaths returns the output paths for which the plugin emits a json.gen.h file.
+// Other plugins use it to decide whether a cross-package reference can include
+// json.gen.h or must fall back to types.gen.h.
+func ContentPaths(req *plugin.Request) (set.Set[string], error) {
+	c, err := collect(req)
+	if err != nil {
+		return nil, err
+	}
+	return c.jsonPaths, nil
+}
+
+// IncludeFor returns the header to include for a reference to types generated at
+// outputPath: json.gen.h when that path emits one, types.gen.h otherwise (scalar-only
+// packages use default JSON serialization and get no json.gen.h).
+func IncludeFor(jsonPaths set.Set[string], outputPath string) string {
+	if jsonPaths.Contains(outputPath) {
+		return outputPath + "/json.gen.h"
+	}
+	return outputPath + "/types.gen.h"
+}
+
+// collection holds the per-path type collectors and the set of paths with JSON
+// content. Collectors exclude cpp-omitted types.
+type collection struct {
+	structs, distinct, unions *framework.Collector
+	jsonPaths                 set.Set[string]
+}
+
+func collect(req *plugin.Request) (collection, error) {
+	var c collection
+	var err error
+	if c.structs, err = framework.CollectStructs("cpp", req); err != nil {
+		return c, err
+	}
+	if c.distinct, err = framework.CollectDistinct("cpp", req); err != nil {
+		return c, err
+	}
+	c.unions = framework.NewCollector("cpp", req)
+	if err = c.unions.AddAll(req.Resolutions.UnionTypes()); err != nil {
+		return c, err
+	}
+
+	c.jsonPaths = make(set.Set[string])
+	for _, path := range c.structs.Paths() {
+		c.jsonPaths.Add(path)
+	}
+	for _, path := range c.unions.Paths() {
+		c.jsonPaths.Add(path)
+	}
+	for _, path := range c.distinct.Paths() {
+		if lo.SomeBy(c.distinct.Get(path), isVariableLengthArray) {
+			c.jsonPaths.Add(path)
 		}
 	}
-	for _, u := range unions {
-		if !omit.IsType(u, "cpp") {
-			return true
-		}
-	}
-	for _, dt := range distinctTypes {
-		if omit.IsType(dt, "cpp") {
-			continue
-		}
-		if form, ok := dt.Form.(resolution.DistinctForm); ok &&
-			form.Base.Name == "Array" &&
-			len(form.Base.TypeArgs) > 0 &&
-			form.Base.ArraySize == nil {
-			return true
-		}
-	}
-	return false
+	return c, nil
+}
+
+// isVariableLengthArray reports whether t is a distinct type wrapping a
+// variable-length array, the only distinct form that needs JSON serialization.
+func isVariableLengthArray(t resolution.Type) bool {
+	form, ok := t.Form.(resolution.DistinctForm)
+	return ok && form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 &&
+		form.Base.ArraySize == nil
 }
 
 func (p *Plugin) generateFile(
@@ -176,9 +194,6 @@ func (p *Plugin) generateFile(
 	data.includes.addInternal("x/cpp/json/json.h")
 
 	for _, s := range structs {
-		if omit.IsType(s, "cpp") {
-			continue
-		}
 		serializer, err := p.processStruct(s, data, req)
 		if err != nil {
 			return nil, err
@@ -189,9 +204,6 @@ func (p *Plugin) generateFile(
 	}
 
 	for _, dt := range distinctTypes {
-		if omit.IsType(dt, "cpp") {
-			continue
-		}
 		wrapper := p.processArrayWrapper(dt, data)
 		if wrapper != nil {
 			data.ArrayWrappers = append(data.ArrayWrappers, *wrapper)
@@ -199,16 +211,9 @@ func (p *Plugin) generateFile(
 	}
 
 	for _, u := range unions {
-		if omit.IsType(u, "cpp") {
-			continue
-		}
 		variantSerializers, dispatch := p.processUnion(u, data)
 		data.Serializers = append(data.Serializers, variantSerializers...)
 		data.Unions = append(data.Unions, dispatch)
-	}
-
-	if len(data.Serializers) == 0 && len(data.ArrayWrappers) == 0 && len(data.Unions) == 0 {
-		return nil, nil
 	}
 
 	var buf bytes.Buffer
@@ -219,18 +224,10 @@ func (p *Plugin) generateFile(
 }
 
 func (p *Plugin) processArrayWrapper(dt resolution.Type, data *templateData) *arrayWrapperData {
-	form, ok := dt.Form.(resolution.DistinctForm)
-	if !ok {
+	if !isVariableLengthArray(dt) {
 		return nil
 	}
-
-	if form.Base.Name != "Array" || len(form.Base.TypeArgs) == 0 {
-		return nil
-	}
-
-	if form.Base.ArraySize != nil {
-		return nil
-	}
+	form := dt.Form.(resolution.DistinctForm)
 
 	name := domain.GetName(dt, "cpp")
 	elemType := form.Base.TypeArgs[0]
@@ -1087,13 +1084,9 @@ type templateData struct {
 }
 
 // jsonInclude returns the header to include for a cross-namespace reference into
-// outputPath: json.gen.h when that path emits one, types.gen.h otherwise (scalar-only
-// packages use default JSON serialization and get no json.gen.h).
+// outputPath.
 func (d *templateData) jsonInclude(outputPath string) string {
-	if d.jsonPaths.Contains(outputPath) {
-		return outputPath + "/json.gen.h"
-	}
-	return outputPath + "/types.gen.h"
+	return IncludeFor(d.jsonPaths, outputPath)
 }
 
 type arrayWrapperData struct {

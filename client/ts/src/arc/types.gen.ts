@@ -36,9 +36,8 @@ export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
 /**
- * Arc is an Arc module combining visual graph representation and text-based
- * source code for reactive control systems. Compiles to WebAssembly for
- * sandboxed execution.
+ * Arc is an Arc module combining visual graph representation and text-based source code
+ * for reactive control systems. Compiles to WebAssembly for sandboxed execution.
  */
 export const arcZ = z.object({
   /** key is the unique identifier for this module. */
@@ -46,8 +45,8 @@ export const arcZ = z.object({
   /** name is a human-readable name for the module. */
   name: z.string().min(1, "name is required"),
   /**
-   * mode specifies the representation mode for this module.
-   * Either "text" for text-based Arc code or "graph" for visual dataflow.
+   * mode specifies the representation mode for this module. Either "text" for
+   * text-based Arc code or "graph" for visual dataflow.
    */
   mode: modeZ,
   /** graph is the visual dataflow graph representation of the module. */
