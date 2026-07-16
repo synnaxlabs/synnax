@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 func compileIdentifier[ASTNode antlr.ParserRuleContext](
@@ -64,7 +65,10 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:
-		if !scope.Reassigned && scope.DefaultValue != nil {
+		// Reassigned is only tracked at flow level; a never-written $= there
+		// is its seed. Func-local statefuls always load their cell.
+		if _, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction); errors.Is(fnErr, query.ErrNotFound) &&
+			!scope.Reassigned && scope.DefaultValue != nil {
 			return emitSeedConst(ctx, scope)
 		}
 		emitStatefulLoad(ctx, scope.ID, scope.Type)

@@ -64,6 +64,7 @@ func (s *ProgramState) Node(key string) *State {
 	for i := range alignedData {
 		alignedTime[i] = telem.Series{DataType: telem.TimeStampT}
 	}
+	hasEdgeFed, hasValueFed := false, false
 	for i, p := range n.Inputs {
 		// A channel input is a reference resolved by key in the host functions, not
 		// a value stream. It carries no data series and never gates execution.
@@ -81,12 +82,14 @@ func (s *ProgramState) Node(key string) *State {
 			ir.Handle{Node: key, Param: p.Name},
 		)
 		if found {
+			hasEdgeFed = true
 			inputs[i] = edge
 			alignedData[i] = telem.Series{
 				DataType: s.outputs[edge.Source].data.DataType,
 			}
 			inputSources[i] = s.outputs[edge.Source]
 		} else {
+			hasValueFed = true
 			syntheticSource := ir.Handle{
 				Node:  "__default_" + key + "_" + p.Name,
 				Param: ir.DefaultOutputParam,
@@ -112,9 +115,30 @@ func (s *ProgramState) Node(key string) *State {
 		}
 	}
 
+	// A node fed only by input values would consume them once and never re-run;
+	// its trigger edges register as gating-only entries so each fire re-arms it.
+	// SY-4495: registering unconditionally would make multi-trigger nodes await
+	// fresh values on every trigger before running.
+	if !hasEdgeFed && hasValueFed {
+		for _, e := range s.ir.Edges {
+			if e.Target.Node != key {
+				continue
+			}
+			if _, ok := n.Inputs.Get(e.Target.Param); ok {
+				continue
+			}
+			inputs = append(inputs, e)
+			alignedData = append(alignedData, telem.Series{})
+			alignedTime = append(alignedTime, telem.Series{DataType: telem.TimeStampT})
+			accumulated = append(accumulated, inputEntry{})
+			inputSources = append(inputSources, s.outputs[e.Source])
+			isReference = append(isReference, false)
+		}
+	}
+
 	// Variable reads re-arm on fresh values only; self-write feeders on Reset only.
-	rearm := make([]rearmRule, len(n.Inputs))
-	for i := range n.Inputs {
+	rearm := make([]rearmRule, len(inputs))
+	for i := range inputs {
 		srcNode, found := s.ir.Nodes.Find(inputs[i].Source.Node)
 		if !found ||
 			(srcNode.Type != "variable" && srcNode.Type != "stateful_variable") {
