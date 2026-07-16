@@ -169,19 +169,20 @@ type Channel struct {
 	Leaseholder uint32 `protobuf:"varint,2,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
 	// data_type is the data type of samples stored in this channel.
 	DataType string `protobuf:"bytes,3,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
-	// is_index is true if this channel is an index channel. Index channels must have int64
-	// values (TIMESTAMP data type) written in ascending order, and are most commonly unix
-	// nanosecond timestamps.
+	// is_index is true if this channel is an index channel. Index channels must have
+	// int64 values (TIMESTAMP data type) written in ascending order, and are most
+	// commonly unix nanosecond timestamps.
 	IsIndex bool `protobuf:"varint,4,opt,name=is_index,json=isIndex,proto3" json:"is_index,omitempty"`
 	// local_key is the locally-unique portion of this channel's key.
 	LocalKey uint32 `protobuf:"varint,5,opt,name=local_key,json=localKey,proto3" json:"local_key,omitempty"`
 	// local_index is the channel used to index this channel's values, associating each
 	// value with a timestamp.
 	LocalIndex uint32 `protobuf:"varint,6,opt,name=local_index,json=localIndex,proto3" json:"local_index,omitempty"`
-	// virtual is true if this channel does not persist data and is used only for streaming.
+	// virtual is true if this channel does not persist data and is used only for
+	// streaming.
 	Virtual bool `protobuf:"varint,7,opt,name=virtual,proto3" json:"virtual,omitempty"`
-	// concurrency sets the policy for concurrent writes to the channel's data. Only virtual
-	// channels can have a policy of shared concurrency.
+	// concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
 	Concurrency pb.Concurrency `protobuf:"varint,8,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
 	// internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`

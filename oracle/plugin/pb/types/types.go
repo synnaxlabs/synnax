@@ -929,7 +929,7 @@ enum {{.Name}} {
 message {{.Name}} {
 {{- range .Fields}}
 {{- if .Doc}}
-  {{formatDoc .Name .Doc}}
+  {{formatDoc .Name .Doc 2}}
 {{- end}}
   {{if .IsRepeated}}repeated {{else if .IsOptional}}optional {{end}}{{.Type}} {{.Name}} = {{.Number}};
 {{- end}}

@@ -208,7 +208,7 @@ var _ = Describe("FormatProto", func() {
 	It("should format single-line doc", func() {
 		Expect(doc.FormatProto("Name", "doc text")).To(Equal("// Name doc text"))
 	})
-	It("should format multi-line doc by normalizing newlines (delegates to FormatGo)", func() {
+	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatProto("Name", "line1\nline2\nline3")
 		Expect(result).To(Equal("// Name line1 line2 line3"))
 	})
@@ -218,6 +218,14 @@ var _ = Describe("FormatProto", func() {
 		lines := strings.SplitSeq(result, "\n")
 		for line := range lines {
 			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
+	})
+	It("should account for indentation when wrapping", func() {
+		longDoc := "is the channel used to index this channel's values, associating each value with a timestamp."
+		result := doc.FormatProto("index", longDoc, 2)
+		lines := strings.SplitSeq(result, "\n")
+		for line := range lines {
+			Expect(2+len(line)).To(BeNumerically("<=", 88), "indented line exceeds 88 chars: %s", line)
 		}
 	})
 })
