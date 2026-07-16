@@ -269,8 +269,8 @@ func FormatCpp(name, doc string) string {
 //
 // Multi-line: "// Name line1\n// line2\n// line3"
 //
-// Text is wrapped to 88 characters including the comment prefix and the indentation
-// the comment is emitted at (buf format re-indents continuation lines to match).
+// Text is wrapped to 88 characters including the comment prefix and the indentation the
+// comment is emitted at (buf format re-indents continuation lines to match).
 func FormatProto(name, doc string, indent ...int) string {
 	if doc == "" {
 		return ""

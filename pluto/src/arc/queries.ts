@@ -118,7 +118,7 @@ const requireArc = (store: FluxSubStore, key: arc.Key): arc.Arc => {
 // nodes. graph.Node is a structural superset of Diagram.Node, so the stored array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated store updates.
-export const useSelectAllNodes = Scope.bindHook(
+export const [useSelectAllNodes, useGetAllNodes] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, Diagram.Node[]>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key }) => requireArc(store, key).graph.nodes,
@@ -133,7 +133,7 @@ export interface SelectNodesArgs {
 // useSelectNodes returns only the graph nodes whose keys are in the given set. The
 // filter runs in the store and the result is compared by value, so a consumer that
 // tracks a selection re-renders only when its nodes change, not on every node mutation.
-export const useSelectNodes = Scope.bindHook(
+export const [useSelectNodes, useGetNodes] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectNodesArgs, Diagram.Node[]>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key, keys }) => {
@@ -150,7 +150,7 @@ export const useSelectNodes = Scope.bindHook(
 // edges. graph.Edge is a structural superset of Diagram.Edge, so the stored array
 // is returned by reference with no translation, keeping selections referentially
 // stable across unrelated store updates.
-export const useSelectAllEdges = Scope.bindHook(
+export const [useSelectAllEdges, useGetAllEdges] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, Diagram.Edge[]>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key }) => requireArc(store, key).graph.edges,
@@ -164,7 +164,7 @@ export interface SelectNodePropsArgs {
 
 // useSelectNodeConfig returns the typed config for a single graph node. Returned by
 // reference, so the selection only re-runs when that node's config changes.
-export const useSelectNodeConfig = Scope.bindHook(
+export const [useSelectNodeConfig, useGetNodeConfig] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectNodePropsArgs, Node.Config>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key, nodeKey }) =>
@@ -172,9 +172,10 @@ export const useSelectNodeConfig = Scope.bindHook(
   }),
 );
 
-// useSelectMode returns the representation mode of the Arc with the given key,
-// or undefined when it has not yet loaded into the store.
-export const useSelectMode = Scope.bindHook(
+// useSelectMode returns the representation mode of the Arc with the given key. It
+// requires the arc to be loaded into the store, so callers must render it beneath an
+// Arc.Suspended boundary that has retrieved the arc.
+export const [useSelectMode, useGetMode] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, arc.Mode>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key }) => requireArc(store, key).mode,
@@ -184,14 +185,14 @@ export const useSelectMode = Scope.bindHook(
 // useSelectHasText reports whether the Arc with the given key has loaded into the store.
 // It returns a stable boolean, so an editor that drives its document imperatively re-renders
 // only when the document first becomes available, not on every subsequent edit.
-export const useSelectHasText = Scope.bindHook(
+export const [useSelectHasText, useGetHasText] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, boolean>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key }) => store.arcs.get(key)?.text.doc != null,
   }),
 );
 
-export const useSelectName = Scope.bindHook(
+export const [useSelectName, useGetName] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
     subscribe: (store, { key }, notify) => store.arcs.onSet(notify, key),
     select: (store, { key }) => requireArc(store, key).name,
@@ -279,8 +280,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
 >({
   name: PLURAL_RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     rollbacks.push(store.arcs.delete(data));
+    await onOptimisticComplete(data);
     await client.arcs.delete(data);
     return data;
   },
@@ -344,7 +346,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { rack } = data;
     const optimistic: arc.Arc = arc.arcZ.parse(data);
     let taskKey: task.Key | undefined;
@@ -373,6 +375,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
       }
     }
     rollbacks.push(store.arcs.set(optimistic));
+    await onOptimisticComplete(optimistic);
     const prog = await client.arcs.create(optimistic);
     if (taskKey == null) return prog;
     const { key, name } = prog;
@@ -428,16 +431,17 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
       store,
       data: { key, name },
       rollbacks,
+      onOptimisticComplete,
     } = params;
     const task = await retrieveTask({ client, store, query: { arcKey: key } });
     if (task != null) await Task.rename({ ...params, data: { key: task.key, name } });
-
     rollbacks.push(
       store.arcs.set(
         key,
         state.skipUndefined((p) => ({ ...p, name })),
       ),
     );
+    await onOptimisticComplete({ key, name });
     await client.arcs.dispatch(key, id.create(), [arc.rename({ name })]);
     return { key, name };
   },

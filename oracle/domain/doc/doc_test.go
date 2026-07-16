@@ -98,6 +98,9 @@ var _ = Describe("FormatTS", func() {
 	It("should return empty string for empty doc", func() {
 		Expect(doc.FormatTS("Name", "")).To(Equal(""))
 	})
+	It("should return empty string for whitespace-only doc", func() {
+		Expect(doc.FormatTS("Name", " ")).To(Equal(""))
+	})
 	It("should format single-line doc", func() {
 		Expect(doc.FormatTS("Name", "doc text")).To(Equal("/** Name doc text */"))
 	})
@@ -118,11 +121,22 @@ var _ = Describe("FormatTS", func() {
 			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
 		}
 	})
+	It("should account for indentation when wrapping", func() {
+		longDoc := "is the channel used to index this channel's values, associating each value with a timestamp."
+		result := doc.FormatTS("index", longDoc, 2)
+		lines := strings.SplitSeq(result, "\n")
+		for line := range lines {
+			Expect(2+len(line)).To(BeNumerically("<=", 88), "indented line exceeds 88 chars: %s", line)
+		}
+	})
 })
 
 var _ = Describe("FormatPyDocstring", func() {
 	It("should return empty string for empty doc", func() {
 		Expect(doc.FormatPyDocstring("Name", "")).To(Equal(""))
+	})
+	It("should return empty string for whitespace-only doc", func() {
+		Expect(doc.FormatPyDocstring("Name", " ")).To(Equal(""))
 	})
 	It("should format single-line doc", func() {
 		Expect(doc.FormatPyDocstring("Name", "doc text")).To(Equal(`"""Name doc text"""`))
@@ -152,6 +166,10 @@ var _ = Describe("FormatPyComment", func() {
 	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatPyComment("Name", "line1\nline2\nline3")
 		Expect(result).To(Equal("# Name line1 line2 line3"))
+	})
+	It("should preserve paragraph breaks (double newline)", func() {
+		result := doc.FormatPyComment("Name", "First paragraph.\n\nSecond paragraph.")
+		Expect(result).To(Equal("# Name First paragraph.\n#\n# Second paragraph."))
 	})
 	It("should wrap long text to 88 characters", func() {
 		longDoc := "is the node that holds the lease for this channel. Mostly for internal use and other purposes."
@@ -205,8 +223,15 @@ var _ = Describe("FormatProto", func() {
 	It("should return empty string for empty doc", func() {
 		Expect(doc.FormatProto("Name", "")).To(Equal(""))
 	})
+	It("should return empty string for whitespace-only doc", func() {
+		Expect(doc.FormatProto("Name", " ")).To(Equal(""))
+	})
 	It("should format single-line doc", func() {
 		Expect(doc.FormatProto("Name", "doc text")).To(Equal("// Name doc text"))
+	})
+	It("should preserve paragraph breaks (double newline)", func() {
+		result := doc.FormatProto("Name", "First paragraph.\n\nSecond paragraph.")
+		Expect(result).To(Equal("// Name First paragraph.\n//\n// Second paragraph."))
 	})
 	It("should format multi-line doc by normalizing newlines", func() {
 		result := doc.FormatProto("Name", "line1\nline2\nline3")
@@ -263,6 +288,36 @@ var _ = Describe("FormatPyDocstringGoogle", func() {
 
     Attributes:
         key: Unique identifier.
+    """`
+		Expect(result).To(Equal(expected))
+	})
+	It("should wrap long class docs to 88 characters including indentation", func() {
+		longDoc := "is the node that holds the lease for this channel. Mostly for internal use and other purposes."
+		result := doc.FormatPyDocstringGoogle(longDoc, nil)
+		lines := strings.Split(result, "\n")
+		Expect(len(lines)).To(BeNumerically(">", 2), "expected wrapped lines")
+		for _, line := range lines {
+			Expect(len(line)).To(BeNumerically("<=", 88), "line exceeds 88 chars: %s", line)
+		}
+	})
+	It("should preserve paragraph breaks in class docs", func() {
+		result := doc.FormatPyDocstringGoogle("first paragraph.\n\nsecond paragraph.", nil)
+		expected := `    """First paragraph.
+
+    second paragraph.
+    """`
+		Expect(result).To(Equal(expected))
+	})
+	It("should preserve paragraph breaks in field docs", func() {
+		fields := []doc.FieldDoc{
+			{Name: "key", Doc: "first paragraph.\n\nsecond paragraph."},
+		}
+		result := doc.FormatPyDocstringGoogle("", fields)
+		expected := `    """
+    Attributes:
+        key: First paragraph.
+
+            second paragraph.
     """`
 		Expect(result).To(Equal(expected))
 	})
