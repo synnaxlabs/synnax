@@ -230,7 +230,10 @@ export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
 
 export interface InitialValues<
   S extends task.Schemas = task.Schemas,
-> extends optional.Optional<task.Payload<S>, "key" | "rack" | "internal" | "snapshot"> {
+> extends optional.Optional<
+  task.Payload<S>,
+  "key" | "rack" | "internal" | "snapshot" | "configHash"
+> {
   key?: task.Key;
   /** Rack to pre-select when creating a new task. The payload rack takes
    * precedence when set. */

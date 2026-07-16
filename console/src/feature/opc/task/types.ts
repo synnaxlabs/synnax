@@ -127,6 +127,7 @@ export const ZERO_READ_PAYLOAD = {
   type: "opc_read",
   name: "OPC UA Read Task",
   config: ZERO_READ_CONFIG,
+  configHash: "",
   internal: false,
   snapshot: false,
 } as const satisfies ReadPayload;
@@ -180,6 +181,7 @@ export const ZERO_WRITE_PAYLOAD = {
   type: "opc_write",
   name: "OPC UA Write Task",
   config: ZERO_WRITE_CONFIG,
+  configHash: "",
   internal: false,
   snapshot: false,
 } as const satisfies WritePayload;

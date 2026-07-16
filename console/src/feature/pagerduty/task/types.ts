@@ -70,6 +70,7 @@ export const ZERO_ALERT_PAYLOAD: AlertPayload = {
   type: ALERT_TYPE,
   name: "PagerDuty Alert Task",
   config: ZERO_ALERT_TASK_CONFIG,
+  configHash: "",
   internal: false,
   snapshot: false,
 };
