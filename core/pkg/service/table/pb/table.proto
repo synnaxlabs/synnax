@@ -21,12 +21,12 @@ option go_package = "github.com/synnaxlabs/synnax/pkg/service/table/pb";
 message Cell {
   // key is the unique identifier for this cell within the table.
   string key = 1;
-  // variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-  // the shape of props and which Pluto cell component renders the cell.
+  // variant is the cell variant identifier (e.g. "text", "value"). The variant
+  // determines the shape of props and which Pluto cell component renders the cell.
   string variant = 2;
   // props is the variant-specific cell configuration. The shape is determined by the
-  // variant; the wire format intentionally stores it as an opaque record so new variants
-  // can be added without a schema migration.
+  // variant; the wire format intentionally stores it as an opaque record so new
+  // variants can be added without a schema migration.
   google.protobuf.Struct props = 3;
 }
 
@@ -34,12 +34,12 @@ message Cell {
 // without identifying which cell. Used by actions that overwrite existing cells in
 // place (EraseCells), where the target cell's key is provided separately.
 message CellTemplate {
-  // variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-  // the shape of props and which Pluto cell component renders the cell.
+  // variant is the cell variant identifier (e.g. "text", "value"). The variant
+  // determines the shape of props and which Pluto cell component renders the cell.
   string variant = 1;
   // props is the variant-specific cell configuration. The shape is determined by the
-  // variant; the wire format intentionally stores it as an opaque record so new variants
-  // can be added without a schema migration.
+  // variant; the wire format intentionally stores it as an opaque record so new
+  // variants can be added without a schema migration.
   google.protobuf.Struct props = 2;
 }
 
@@ -70,8 +70,8 @@ message Table {
   repeated Row rows = 3;
   // columns are the table columns in display order, left to right.
   repeated Column columns = 4;
-  // cells contains all cells in the table, keyed by cell key. Cell positions are derived
-  // from rows[*].cells[*] references; cells not referenced by any row are orphaned and
-  // will be pruned on the next structural edit.
+  // cells contains all cells in the table, keyed by cell key. Cell positions are
+  // derived from rows[*].cells[*] references; cells not referenced by any row are
+  // orphaned and will be pruned on the next structural edit.
   map<string, Cell> cells = 5;
 }

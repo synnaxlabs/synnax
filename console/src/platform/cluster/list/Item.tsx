@@ -10,9 +10,9 @@
 import "@/platform/cluster/list/List.css";
 
 import {
-  Cluster,
   Flex,
   List,
+  Node,
   Select,
   Status,
   Synnax,
@@ -43,7 +43,7 @@ const Base = ({
     if (!validateName(value) || item == null) return;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));
   };
-  const { data } = Cluster.useConnectionState(item);
+  const { data } = Node.useConnectionState(item);
   const status = data?.status ?? "disconnected";
   let statusVariant = Synnax.CONNECTION_STATE_VARIANTS[status];
   let statusMessage: string = status;

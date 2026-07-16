@@ -390,6 +390,7 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 	tdd := typeDefData{
 		Name:    name,
 		CppType: p.typeRefToCpp(form.Base, data),
+		Doc:     doc.Get(td.Domains),
 	}
 
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
@@ -1283,6 +1284,7 @@ type sortedDeclData struct {
 type typeDefData struct {
 	Name               string
 	CppType            string
+	Doc                string
 	ElementType        string
 	ProtoType          string
 	ProtoNamespace     string
@@ -1494,6 +1496,9 @@ constexpr const char* {{$enum.Name | toScreamingSnake}}_{{.Name | toScreamingSna
 {{- $td := $d.TypeDef}}
 {{if or $i (gt (len $.Enums) 0)}}
 {{end}}
+{{- if $td.Doc}}
+{{formatDoc $td.Name $td.Doc}}
+{{- end}}
 {{- if $td.IsArrayWrapper}}
 {{- if $td.IsFixedSizeArray}}
 struct {{$td.Name}} : private std::array<{{$td.ElementType}}, {{$td.ArraySize}}> {

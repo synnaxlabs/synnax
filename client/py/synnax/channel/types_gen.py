@@ -15,7 +15,7 @@ from typing import Literal, TypeAlias
 
 from pydantic import BaseModel, Field
 
-from synnax import cluster
+from synnax import node
 from synnax import status as status_
 from synnax.ontology.payload import ID
 from x import control, telem
@@ -41,9 +41,8 @@ Status: TypeAlias = status_.Status[None]
 
 
 class Operation(BaseModel):
-    """Defines an aggregation operation applied to channel data. Operations
-    calculate min, max, or average values over a time duration or triggered
-    by a reset channel.
+    """Defines an aggregation operation applied to channel data. Operations calculate
+    min, max, or average values over a time duration or triggered by a reset channel.
 
     Attributes:
         type: Is the aggregation operation type: min, max, avg, or none.
@@ -60,29 +59,29 @@ class Operation(BaseModel):
 
 
 class Payload(BaseModel):
-    """Is a logical collection of samples emitted by or representing values
-    from a single source. Channels are the fundamental unit of telemetry
-    storage and streaming in Synnax.
+    """Is a logical collection of samples emitted by or representing values from a
+    single source. Channels are the fundamental unit of telemetry storage and streaming
+    in Synnax.
 
     Attributes:
-        key: Is the unique identifier for this channel, automatically assigned
-            by Synnax.
+        key: Is the unique identifier for this channel, automatically assigned by
+            Synnax.
         name: Is the human-readable channel name.
-        leaseholder: Is the cluster node that holds the lease for this channel. Mostly
-            for internal use.
+        leaseholder: Is the node that holds the lease for this channel. Mostly for
+            internal use.
         data_type: Is the data type of samples stored in this channel (e.g., Float64,
             Int32, TimeStamp).
         is_index: Is true if this is an index channel. Index channels must have int64
-            values (TIMESTAMP data type) written in ascending order, and are
-            most commonly unix nanosecond timestamps.
-        index: Is the channel used to index this channel's values, associating
-            each value with a timestamp.
+            values (TIMESTAMP data type) written in ascending order, and are most
+            commonly unix nanosecond timestamps.
+        index: Is the channel used to index this channel's values, associating each
+            value with a timestamp.
         alias: Is an optional alternate name for the channel within a specific context.
         virtual: Is true if this channel does not store data in the database but can
             still be used for streaming purposes.
         internal: Is true if this is a system channel hidden from normal user queries.
-        expression: Is an Arc expression for calculated channels. If set, the channel
-            is automatically configured as virtual.
+        expression: Is an Arc expression for calculated channels. If set, the channel is
+            automatically configured as virtual.
         operations: Contains optional aggregation operations (min, max, avg) applied to
             channel data over time or triggered by a reset channel.
         concurrency: Sets the policy for concurrent writes to the channel's data. Only
@@ -92,7 +91,7 @@ class Payload(BaseModel):
 
     key: Key = Field(default=Key(0), ge=0, le=4294967295)
     name: Name
-    leaseholder: cluster.NodeKey = Field(default=cluster.NodeKey(0), ge=0, le=4095)
+    leaseholder: node.Key = Field(default=node.Key(0), ge=0, le=4095)
     data_type: telem.DataType
     is_index: bool = False
     index: Key = Field(default=Key(0), ge=0, le=4294967295)

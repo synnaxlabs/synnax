@@ -17,7 +17,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -44,7 +44,7 @@ type Config struct {
 	// HostResolver is used to retrieve information about the host node.
 	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
+	HostResolver cluster.HostResolver
 	// TS is the underlying time-series database engine that serves as one of the three
 	// main data sources for the relay.
 	//
@@ -113,7 +113,7 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "transport", c.Transport)
-	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "ts", c.TS)
 	validate.NotNil(v, "free_writes", c.FreeWrites)
 	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
