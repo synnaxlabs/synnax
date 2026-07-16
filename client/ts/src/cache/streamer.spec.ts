@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, Frame, type framer } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import { EOF } from "@synnaxlabs/freighter";
 import { DataType, Series } from "@synnaxlabs/x";
 import { describe, expect, it, type Mock, vi } from "vitest";
 import z from "zod";
 
-import { flux } from "@/flux/aether";
+import { type cache } from "@/cache";
+import { createStreamer, type StreamerParams } from "@/cache/streamer";
+import { type channel } from "@/channel";
+import { type framer } from "@/framer";
+import { Frame } from "@/framer/frame";
 
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -115,20 +117,27 @@ const createStoreConfig = <T>(
   channel: string,
   schema: z.ZodType<T>,
   onChange: Mock,
-): flux.StoreConfig<flux.Store> => ({
+): cache.StoreConfig<cache.Stores> => ({
   labels: { listeners: [{ channel, schema, onChange }] },
 });
 
 const createStreamerArgs = (
-  overrides?: Partial<flux.StreamerParams<flux.Store>>,
-): flux.StreamerParams<flux.Store> => ({
+  overrides?: Partial<StreamerParams<cache.Stores>>,
+): StreamerParams<cache.Stores> => ({
   handleError: createBasicErrorHandler(),
   storeConfig: { labels: { listeners: [] } },
-  client: createTestClient(),
   store: {},
   openStreamer: async () => new MockHardenedStreamer([]),
   ...overrides,
 });
+
+const openStreamer = async (
+  args: StreamerParams<cache.Stores>,
+): Promise<() => Promise<void>> => {
+  const streamer = createStreamer(args);
+  await streamer.demand();
+  return streamer.close;
+};
 
 describe("openStreamer", () => {
   it("should open a streamer on a set of channels", async () => {
@@ -136,7 +145,7 @@ describe("openStreamer", () => {
     const schema = z.object({ name: z.string() });
     const frames = [new Frame({ test: new Series([{ name: "test" }]) })];
 
-    const closeStreamer = await flux.openStreamer(
+    const closeStreamer = await openStreamer(
       createStreamerArgs({
         storeConfig: createStoreConfig("test", schema, onChange),
         openStreamer: createFrameStreamer(frames),
@@ -156,7 +165,7 @@ describe("openStreamer", () => {
       const handleError = createMockErrorHandler();
       const schema = z.object({ name: z.string(), age: z.number() });
       const frames = [new Frame({ test: new Series([{ name: "test" }]) })];
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig: createStoreConfig("test", schema, onChange),
@@ -184,7 +193,7 @@ describe("openStreamer", () => {
         new Frame({ test2: new Series([{ value: 3 }]) }),
       ];
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -193,7 +202,7 @@ describe("openStreamer", () => {
         },
       };
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig,
@@ -212,7 +221,7 @@ describe("openStreamer", () => {
       const handleError = createMockErrorHandler();
       const schema = z.object({ value: z.number() });
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig: createStoreConfig("test", schema, onChange),
@@ -253,7 +262,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series([{ value: 1 }]) }),
         new Frame({ test: new Series([{ value: 2 }]) }),
       ];
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: {
             labels: {
@@ -287,7 +296,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig: createStoreConfig("test", schema, onChange),
@@ -311,7 +320,7 @@ describe("openStreamer", () => {
       const listener3 = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -326,7 +335,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig,
           openStreamer: createFrameStreamer(frames),
@@ -355,7 +364,7 @@ describe("openStreamer", () => {
       const handleError = createMockErrorHandler();
       const schema = z.object({ value: z.number() });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -370,7 +379,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig,
@@ -409,7 +418,7 @@ describe("openStreamer", () => {
       });
       const schema = z.object({ value: z.number() });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -425,7 +434,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig,
           openStreamer: createFrameStreamer(frames),
@@ -459,7 +468,7 @@ describe("openStreamer", () => {
       const handleError = createMockErrorHandler();
       const schema = z.object({ value: z.number() });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -476,7 +485,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series([{ value: 4 }]) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig,
@@ -511,7 +520,7 @@ describe("openStreamer", () => {
       const schema1 = z.object({ value: z.number() });
       const schema2 = z.object({ value: z.string() });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             { channel: "test", schema: schema1, onChange: listener1 },
@@ -523,7 +532,7 @@ describe("openStreamer", () => {
       // Data that satisfies schema1 but not schema2
       const frames = [new Frame({ test: new Series([{ value: 123 }]) })];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig,
@@ -560,7 +569,7 @@ describe("openStreamer", () => {
       });
       const schema = z.object({ id: z.number() });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             { channel: "user_create", schema, onChange: createListener },
@@ -578,7 +587,7 @@ describe("openStreamer", () => {
         }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig,
           openStreamer: createFrameStreamer(frames),
@@ -607,7 +616,7 @@ describe("openStreamer", () => {
       ];
 
       const schema = z.object({ id: z.number() });
-      const storeListeners: flux.StoreConfig<flux.Store>["labels"]["listeners"] = [];
+      const storeListeners: cache.StoreConfig<cache.Stores>["labels"]["listeners"] = [];
 
       channels.forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -617,7 +626,7 @@ describe("openStreamer", () => {
         storeListeners.push({ channel, schema, onChange: listener });
       });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: { listeners: storeListeners },
       };
 
@@ -629,7 +638,7 @@ describe("openStreamer", () => {
         ),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig,
           openStreamer: createFrameStreamer(frames),
@@ -668,7 +677,7 @@ describe("openStreamer", () => {
         type: z.string(),
       });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             {
@@ -697,7 +706,7 @@ describe("openStreamer", () => {
         }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig,
           openStreamer: createFrameStreamer(frames),
@@ -728,7 +737,7 @@ describe("openStreamer", () => {
     it("should handle frames with only delete channels", async () => {
       const executionOrder: string[] = [];
       const schema = z.object({ id: z.number() });
-      const listeners: flux.StoreConfig<flux.Store>["labels"]["listeners"] = [];
+      const listeners: cache.StoreConfig<cache.Stores>["labels"]["listeners"] = [];
 
       ["user_delete", "role_delete", "permission_delete"].forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -737,7 +746,7 @@ describe("openStreamer", () => {
         listeners.push({ channel, schema, onChange: listener });
       });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: { listeners },
       };
 
@@ -749,7 +758,7 @@ describe("openStreamer", () => {
         }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig,
           openStreamer: createFrameStreamer(frames),
@@ -770,7 +779,7 @@ describe("openStreamer", () => {
     it("should handle frames with no delete channels", async () => {
       const executionOrder: string[] = [];
       const schema = z.object({ id: z.number() });
-      const listeners: flux.StoreConfig<flux.Store>["labels"]["listeners"] = [];
+      const listeners: cache.StoreConfig<cache.Stores>["labels"]["listeners"] = [];
 
       ["user_create", "role_update", "permission_grant"].forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -779,7 +788,7 @@ describe("openStreamer", () => {
         listeners.push({ channel, schema, onChange: listener });
       });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: { listeners },
       };
 
@@ -791,7 +800,7 @@ describe("openStreamer", () => {
         }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig,
           openStreamer: createFrameStreamer(frames),
@@ -820,7 +829,7 @@ describe("openStreamer", () => {
         "update_user",
       ];
 
-      const listeners: flux.StoreConfig<flux.Store>["labels"]["listeners"] = [];
+      const listeners: cache.StoreConfig<cache.Stores>["labels"]["listeners"] = [];
       channels.forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
           executionOrder.push(channel);
@@ -828,7 +837,7 @@ describe("openStreamer", () => {
         listeners.push({ channel, schema, onChange: listener });
       });
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: { listeners },
       };
 
@@ -840,7 +849,7 @@ describe("openStreamer", () => {
         ),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig,
           openStreamer: createFrameStreamer(frames),
@@ -880,7 +889,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series({ data: jsonData, dataType: DataType.JSON }) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -911,7 +920,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series({ data: [42, 84], dataType: DataType.FLOAT64 }) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -939,7 +948,7 @@ describe("openStreamer", () => {
         }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -958,7 +967,7 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const schema = z.object({ value: z.number() });
       const frames = [new Frame({ other_channel: new Series([{ value: 42 }]) })];
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -974,7 +983,7 @@ describe("openStreamer", () => {
       const handleError = createMockErrorHandler();
       const schema = z.object({ value: z.number() });
       const frames = [new Frame({ test: new Series([{ invalid: "data" }]) })];
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig: createStoreConfig("test", schema, onChange),
@@ -994,7 +1003,7 @@ describe("openStreamer", () => {
       const jsonSchema = z.object({ id: z.number(), name: z.string() });
       const numericSchema = z.number();
 
-      const storeConfig: flux.StoreConfig<flux.Store> = {
+      const storeConfig: cache.StoreConfig<cache.Stores> = {
         labels: {
           listeners: [
             { channel: "json_channel", schema: jsonSchema, onChange: jsonListener },
@@ -1020,7 +1029,7 @@ describe("openStreamer", () => {
         }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig,
@@ -1050,7 +1059,7 @@ describe("openStreamer", () => {
         }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
           storeConfig: createStoreConfig("test", schema, onChange),
@@ -1072,7 +1081,7 @@ describe("openStreamer", () => {
 
       // Create a mock streamer to track close calls
       let mockStreamer: MockHardenedStreamer;
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: async () => {
@@ -1103,7 +1112,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
@@ -1132,7 +1141,7 @@ describe("openStreamer", () => {
 
       // First streamer
       const frames1 = [new Frame({ test: new Series([{ value: 1 }]) })];
-      const closeStreamer1 = await flux.openStreamer(
+      const closeStreamer1 = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange1),
           openStreamer: createFrameStreamer(frames1),
@@ -1147,7 +1156,7 @@ describe("openStreamer", () => {
 
       // Second streamer with different data
       const frames2 = [new Frame({ test: new Series([{ value: 2 }]) })];
-      const closeStreamer2 = await flux.openStreamer(
+      const closeStreamer2 = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange2),
           openStreamer: createFrameStreamer(frames2),
@@ -1168,7 +1177,7 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       let mockStreamer: MockHardenedStreamer;
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: async () => {
@@ -1193,7 +1202,7 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: async () => {
@@ -1222,7 +1231,7 @@ describe("openStreamer", () => {
         new Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
-      const closeStreamer = await flux.openStreamer(
+      const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),

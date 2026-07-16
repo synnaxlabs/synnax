@@ -11,11 +11,10 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+import { bindStore, STORE_KEY } from "@/view/store";
 import { type Key, keyZ, type New, type View, viewZ } from "@/view/types.gen";
-
-export const SET_CHANNEL_NAME = "sy_view_set";
-export const DELETE_CHANNEL_NAME = "sy_view_delete";
 
 const createReqZ = z.object({ views: viewZ.array() });
 const createResZ = z.object({ views: viewZ.array() });
@@ -43,9 +42,23 @@ const retrieveResponseZ = z.object({ views: viewZ.array().default(() => []) });
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, View>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the view cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, View> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async retrieve(params: RetrieveSingleParams): Promise<View>;

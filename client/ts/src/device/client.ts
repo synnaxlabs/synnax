@@ -11,6 +11,8 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
+import { bindStore, STORE_KEY } from "@/device/store";
 import {
   type Device,
   type DeviceSchemas,
@@ -23,9 +25,6 @@ import {
 import { ontology } from "@/ontology";
 import { keyZ as rackKeyZ } from "@/rack/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-
-export const SET_CHANNEL_NAME = "sy_device_set";
-export const DELETE_CHANNEL_NAME = "sy_device_delete";
 
 const createReqZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -98,9 +97,23 @@ type RetrieveSchemas<
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Omit<Device, "status">>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the device cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Omit<Device, "status">> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async retrieve<

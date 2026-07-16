@@ -8,20 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { type SynnaxParams } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { cache, type SynnaxParams } from "@synnaxlabs/client";
+import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { describe, expect, it, vi } from "vitest";
 
 import { type aether } from "@/aether/aether";
 import { flux } from "@/flux/aether";
-import { base } from "@/flux/base";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 
 const MockSender = { send: vi.fn() };
 const NOOP = alamos.Instrumentation.NOOP;
-
-const STORE_CONFIG: base.StoreConfig<base.Store> = {};
 
 const shouldNotCreate = (): never => {
   throw new Error("should not create a child");
@@ -69,7 +66,7 @@ const makeTree = (
     create: shouldNotCreate,
   });
 
-  const registry = flux.createRegistry({ storeConfig: STORE_CONFIG });
+  const registry = flux.createRegistry();
   const FluxProvider = registry[flux.PROVIDER_TYPE];
   const fluxProvider = new FluxProvider({
     path: [`${key}-flux`],
@@ -91,30 +88,47 @@ const updateFlux = (tree: { flux: aether.Component }, key: string) =>
   });
 
 describe("flux.aether.Provider", () => {
-  it("closes the owned store when the node is deleted", async () => {
-    const key = "flux-provider-delete";
+  it("starts change streaming on the connected client's engine", async () => {
+    const key = "flux-provider-stream";
+    const spy = vi.spyOn(cache.Engine.prototype, "ensureStreaming");
     const tree = makeTree(key, TEST_CLIENT_PARAMS);
     updateFlux(tree, key);
 
-    const closeSpy = vi.spyOn(base.Client.prototype, "close");
-    tree.flux._delete([`${key}-flux`]);
-    await expect.poll(() => closeSpy.mock.calls.length).toBe(1);
-    closeSpy.mockRestore();
+    await expect.poll(() => spy.mock.calls.length).toBeGreaterThan(0);
+    const streamed = spy.mock.instances as unknown as cache.Engine[];
+    expect(streamed.some((engine) => !engine.detached)).toBe(true);
+    spy.mockRestore();
 
+    tree.flux._delete([`${key}-flux`]);
     tree.synnaxProvider._delete([`${key}-synnax`]);
   });
 
-  it("closes the previous store when the underlying client swaps", async () => {
-    const key = "flux-provider-swap";
-    const tree = makeTree(key, TEST_CLIENT_PARAMS);
+  it("binds a detached engine when no client is connected", async () => {
+    const key = "flux-provider-detached";
+    const spy = vi.spyOn(cache.Engine.prototype, "ensureStreaming");
+    const tree = makeTree(key, null);
     updateFlux(tree, key);
 
-    const closeSpy = vi.spyOn(base.Client.prototype, "close");
+    await expect.poll(() => spy.mock.calls.length).toBeGreaterThan(0);
+    const engines = spy.mock.instances as unknown as cache.Engine[];
+    expect(engines.every((engine) => engine.detached)).toBe(true);
+    spy.mockRestore();
+
+    tree.flux._delete([`${key}-flux`]);
+    tree.synnaxProvider._delete([`${key}-synnax`]);
+  });
+
+  it("rebinds onto a new engine when the underlying client swaps", async () => {
+    const key = "flux-provider-swap";
+    const spy = vi.spyOn(cache.Engine.prototype, "ensureStreaming");
+    const tree = makeTree(key, TEST_CLIENT_PARAMS);
+    updateFlux(tree, key);
+    await expect.poll(() => spy.mock.calls.length).toBeGreaterThan(0);
+    const firstEngines = new Set(spy.mock.instances);
 
     // A different `name` forces synnax.aether.Provider to treat this as a distinct
-    // connection (deep.equal on props fails), so it opens a second real connection and
-    // closes the first — which should cascade into flux.aether.Provider swapping (and
-    // closing) its own store.
+    // connection (deep.equal on props fails), so it opens a second real connection,
+    // and flux.aether.Provider must rebind onto the new client's engine.
     tree.synnaxProvider._updateState({
       path: [`${key}-synnax`],
       state: { props: { ...TEST_CLIENT_PARAMS, name: "swap" }, state: null },
@@ -123,41 +137,12 @@ describe("flux.aether.Provider", () => {
     });
     updateFlux(tree, key);
 
-    await expect.poll(() => closeSpy.mock.calls.length).toBe(1);
-    closeSpy.mockRestore();
+    await expect
+      .poll(() => spy.mock.instances.some((engine) => !firstEngines.has(engine)))
+      .toBe(true);
+    spy.mockRestore();
 
     tree.flux._delete([`${key}-flux`]);
     tree.synnaxProvider._delete([`${key}-synnax`]);
-  });
-
-  it("never closes a caller-supplied client", async () => {
-    const suppliedClient = new base.Client({
-      client: createTestClient(),
-      storeConfig: STORE_CONFIG,
-      handleError: () => {},
-      handleAsyncError: async () => {},
-    });
-    const registry = flux.createRegistry({ client: suppliedClient });
-    const key = "flux-provider-unowned";
-    const FluxProvider = registry[flux.PROVIDER_TYPE];
-    const provider = new FluxProvider({
-      path: [key],
-      type: flux.PROVIDER_TYPE,
-      sender: MockSender,
-      instrumentation: NOOP,
-      parent: null,
-    });
-
-    const closeSpy = vi.spyOn(suppliedClient, "close");
-    provider._updateState({
-      path: [key],
-      state: {},
-      type: flux.PROVIDER_TYPE,
-      create: shouldNotCreate,
-    });
-    provider._delete([key]);
-    expect(closeSpy).not.toHaveBeenCalled();
-
-    await suppliedClient.close();
   });
 });

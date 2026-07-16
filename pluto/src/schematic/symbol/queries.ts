@@ -33,32 +33,6 @@ export interface FluxSubStore extends Ontology.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-const SET_SYMBOL_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof schematic.symbol.symbolZ
-> = {
-  channel: schematic.symbol.SET_CHANNEL_NAME,
-  schema: schematic.symbol.symbolZ,
-  onChange: ({ store, changed }) => store.schematicSymbols.set(changed.key, changed),
-};
-
-const DELETE_SYMBOL_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof schematic.symbol.keyZ
-> = {
-  channel: schematic.symbol.DELETE_CHANNEL_NAME,
-  schema: schematic.symbol.keyZ,
-  onChange: ({ store, changed }) => store.schematicSymbols.delete(changed),
-};
-
-export const STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
-  schematic.symbol.Key,
-  schematic.symbol.Symbol
-> = {
-  listeners: [SET_SYMBOL_LISTENER, DELETE_SYMBOL_LISTENER],
-};
-
 export type RetrieveQuery = {
   key: string;
 };

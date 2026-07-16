@@ -15,7 +15,6 @@ import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
 import { Status } from "@/status";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -24,10 +23,7 @@ const client = createTestClient();
 describe("Status queries", () => {
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   describe("useList", () => {

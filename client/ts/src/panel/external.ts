@@ -10,5 +10,11 @@
 export * from "@/panel/actions";
 export * from "@/panel/actions.gen";
 export * from "@/panel/client";
+export {
+  bindStore,
+  DELETE_CHANNEL_NAME,
+  SET_CHANNEL_NAME,
+  STORE_KEY,
+} from "@/panel/store";
 export * from "@/panel/tree";
 export * from "@/panel/types.gen";

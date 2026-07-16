@@ -34,11 +34,7 @@ import { type Ranger } from "@/ranger";
 import { state } from "@/state";
 import { Status } from "@/status";
 
-export {
-  FLUX_STORE_CONFIG,
-  FLUX_STORE_KEY,
-  type FluxStore,
-} from "@/channel/aether/queries";
+export { FLUX_STORE_KEY, type FluxStore } from "@/channel/aether/queries";
 
 const RESOURCE_NAME = "channel";
 const PLURAL_RESOURCE_NAME = "channels";

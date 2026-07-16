@@ -11,9 +11,11 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
+import { type cache } from "@/cache";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { type Key, keyZ } from "@/status/payload";
+import { bindStore, STORE_KEY } from "@/status/store";
 import { type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -66,9 +68,23 @@ export interface SetOptions {
 export class Client {
   readonly type: string = "status";
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Status>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the status cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Status> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(

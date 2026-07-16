@@ -11,11 +11,10 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
+import { type cache } from "@/cache";
+import { bindStore, STORE_KEY } from "@/group/store";
 import { type Group, groupZ, type Key, keyZ } from "@/group/types.gen";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
-
-export const SET_CHANNEL_NAME = "sy_group_set";
-export const DELETE_CHANNEL_NAME = "sy_group_delete";
 
 const resZ = z.object({ group: groupZ });
 
@@ -33,9 +32,23 @@ export interface CreateParams extends z.infer<typeof createReqZ> {}
 
 export class Client {
   client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Group>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the group cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Group> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async create(params: CreateParams): Promise<Group> {

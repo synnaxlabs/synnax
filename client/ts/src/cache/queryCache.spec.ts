@@ -9,10 +9,17 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { base } from "@/flux/base";
-import { pendingResult, successResult } from "@/flux/result";
+import { cache } from "@/cache";
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+const successState = <D extends cache.Data>(data: D): cache.QueryState<D> => ({
+  variant: "success",
+  data,
+});
+const loadingState = <D extends cache.Data>(
+  promise: Promise<D>,
+): cache.QueryState<D> => ({ variant: "loading", promise });
 
 type Q = { k: string };
 const qA: Q = { k: "a" };
@@ -20,44 +27,44 @@ const qB: Q = { k: "b" };
 
 describe("hashQuery", () => {
   it("collapses key orderings to the same hash", () => {
-    expect(base.hashQuery({ a: 1, b: 2 })).toEqual(base.hashQuery({ b: 2, a: 1 }));
+    expect(cache.hashQuery({ a: 1, b: 2 })).toEqual(cache.hashQuery({ b: 2, a: 1 }));
   });
 
   it("preserves array order", () => {
-    expect(base.hashQuery([1, 2, 3])).not.toEqual(base.hashQuery([3, 2, 1]));
+    expect(cache.hashQuery([1, 2, 3])).not.toEqual(cache.hashQuery([3, 2, 1]));
   });
 
   it("hashes nested objects recursively", () => {
-    expect(base.hashQuery({ a: { x: 1, y: 2 } })).toEqual(
-      base.hashQuery({ a: { y: 2, x: 1 } }),
+    expect(cache.hashQuery({ a: { x: 1, y: 2 } })).toEqual(
+      cache.hashQuery({ a: { y: 2, x: 1 } }),
     );
   });
 
   it("hashes null and primitives", () => {
-    expect(base.hashQuery(null)).toEqual("null");
-    expect(base.hashQuery(undefined)).toEqual("undefined");
-    expect(base.hashQuery(42)).toEqual("42");
-    expect(base.hashQuery("x")).toEqual('"x"');
+    expect(cache.hashQuery(null)).toEqual("null");
+    expect(cache.hashQuery(undefined)).toEqual("undefined");
+    expect(cache.hashQuery(42)).toEqual("42");
+    expect(cache.hashQuery("x")).toEqual('"x"');
   });
 
   it("disambiguates null, undefined, and absent fields", () => {
-    const hNull = base.hashQuery(null);
-    const hUndef = base.hashQuery(undefined);
+    const hNull = cache.hashQuery(null);
+    const hUndef = cache.hashQuery(undefined);
     expect(hNull).not.toEqual(hUndef);
 
-    const nestedNull = base.hashQuery({ a: null });
-    const nestedUndef = base.hashQuery({ a: undefined });
-    const absent = base.hashQuery({});
+    const nestedNull = cache.hashQuery({ a: null });
+    const nestedUndef = cache.hashQuery({ a: undefined });
+    const absent = cache.hashQuery({});
     expect(nestedNull).not.toEqual(nestedUndef);
     expect(nestedNull).not.toEqual(absent);
     expect(nestedUndef).not.toEqual(absent);
   });
 
   it("hashes bigints without throwing and disambiguates from same-valued numbers", () => {
-    expect(base.hashQuery(42n)).toEqual("42n");
-    expect(base.hashQuery(42n)).not.toEqual(base.hashQuery(42));
-    expect(base.hashQuery({ k: 42n })).toEqual('{"k":42n}');
-    expect(() => base.hashQuery({ k: 9007199254740993n })).not.toThrow();
+    expect(cache.hashQuery(42n)).toEqual("42n");
+    expect(cache.hashQuery(42n)).not.toEqual(cache.hashQuery(42));
+    expect(cache.hashQuery({ k: 42n })).toEqual('{"k":42n}');
+    expect(() => cache.hashQuery({ k: 9007199254740993n })).not.toThrow();
   });
 
   it("delegates to primitive.Hashable.hash() for class instances", () => {
@@ -67,8 +74,8 @@ describe("hashQuery", () => {
         return `tag:${this.v}`;
       }
     }
-    expect(base.hashQuery({ id: new TaggedID("abc") })).toEqual('{"id":tag:abc}');
-    expect(base.hashQuery(new TaggedID("xyz"))).toEqual("tag:xyz");
+    expect(cache.hashQuery({ id: new TaggedID("abc") })).toEqual('{"id":tag:abc}');
+    expect(cache.hashQuery(new TaggedID("xyz"))).toEqual("tag:xyz");
   });
 
   it("produces stable hashes across instances representing the same value", () => {
@@ -78,8 +85,8 @@ describe("hashQuery", () => {
         return this.v.toString();
       }
     }
-    expect(base.hashQuery({ k: new Wrapper(7) })).toEqual(
-      base.hashQuery({ k: new Wrapper(7) }),
+    expect(cache.hashQuery({ k: new Wrapper(7) })).toEqual(
+      cache.hashQuery({ k: new Wrapper(7) }),
     );
   });
 });
@@ -87,22 +94,22 @@ describe("hashQuery", () => {
 describe("QueryCache", () => {
   describe("get / set", () => {
     it("returns undefined for an absent query", () => {
-      const cache = new base.QueryCache<Q, number>();
-      expect(cache.get(qA)).toBeUndefined();
+      const qc = new cache.QueryCache<Q, number>();
+      expect(qc.get(qA)).toBeUndefined();
     });
 
     it("returns the stored result", () => {
-      const cache = new base.QueryCache<Q, number>();
-      const result = successResult<number>("retrieved x", 7);
-      cache.set(qA, result);
-      expect(cache.get(qA)).toBe(result);
+      const qc = new cache.QueryCache<Q, number>();
+      const result = successState(7);
+      qc.set(qA, result);
+      expect(qc.get(qA)).toBe(result);
     });
 
     it("treats equivalent queries with key reorderings as the same entry", () => {
-      const cache = new base.QueryCache<Record<string, number>, number>();
-      const result = successResult<number>("retrieved", 7);
-      cache.set({ a: 1, b: 2 }, result);
-      expect(cache.get({ b: 2, a: 1 })).toBe(result);
+      const qc = new cache.QueryCache<Record<string, number>, number>();
+      const result = successState(7);
+      qc.set({ a: 1, b: 2 }, result);
+      expect(qc.get({ b: 2, a: 1 })).toBe(result);
     });
 
     it("treats distinct Hashable instances of the same value as the same entry", () => {
@@ -112,100 +119,100 @@ describe("QueryCache", () => {
           return this.v.toString();
         }
       }
-      const cache = new base.QueryCache<{ k: Wrapper }, number>();
-      const result = successResult<number>("retrieved", 7);
-      cache.set({ k: new Wrapper(42) }, result);
-      expect(cache.get({ k: new Wrapper(42) })).toBe(result);
+      const qc = new cache.QueryCache<{ k: Wrapper }, number>();
+      const result = successState(7);
+      qc.set({ k: new Wrapper(42) }, result);
+      expect(qc.get({ k: new Wrapper(42) })).toBe(result);
     });
 
     it("isolates entries across separate QueryCache instances", () => {
-      const a = new base.QueryCache<Q, number>();
-      const b = new base.QueryCache<Q, number>();
-      a.set(qA, successResult<number>("retrieved", 1));
+      const a = new cache.QueryCache<Q, number>();
+      const b = new cache.QueryCache<Q, number>();
+      a.set(qA, successState(1));
       expect(b.get(qA)).toBeUndefined();
     });
   });
 
   describe("subscribe", () => {
     it("notifies subscribers on set", () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       const listener = vi.fn();
-      cache.subscribe(qA, listener);
-      cache.set(qA, successResult<number>("retrieved", 1));
+      qc.subscribe(qA, listener);
+      qc.set(qA, successState(1));
       expect(listener).toHaveBeenCalledTimes(1);
     });
 
     it("scopes notifications by query", () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       const aListener = vi.fn();
       const bListener = vi.fn();
-      cache.subscribe(qA, aListener);
-      cache.subscribe(qB, bListener);
-      cache.set(qA, successResult<number>("retrieved", 1));
+      qc.subscribe(qA, aListener);
+      qc.subscribe(qB, bListener);
+      qc.set(qA, successState(1));
       expect(aListener).toHaveBeenCalledTimes(1);
       expect(bListener).not.toHaveBeenCalled();
     });
 
     it("returns a destructor that removes the listener", () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       const listener = vi.fn();
-      const unsubscribe = cache.subscribe(qA, listener);
+      const unsubscribe = qc.subscribe(qA, listener);
       unsubscribe();
-      cache.set(qA, successResult<number>("retrieved", 1));
+      qc.set(qA, successState(1));
       expect(listener).not.toHaveBeenCalled();
     });
   });
 
   describe("auto-transition on settle", () => {
     it("replaces a loading entry with a success entry when the promise resolves", async () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       let resolve: (v: number) => void = () => {};
       const promise = new Promise<number>((r) => {
         resolve = r;
       });
-      cache.set(qA, pendingResult<number>("Number", promise));
+      qc.set(qA, loadingState(promise));
       resolve(42);
       await flush();
-      const entry = cache.get(qA);
+      const entry = qc.get(qA);
       expect(entry?.variant).toEqual("success");
       expect(entry?.variant === "success" && entry.data).toEqual(42);
     });
 
     it("replaces a loading entry with an error entry when the promise rejects", async () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       let reject: (reason: unknown) => void = () => {};
       const promise = new Promise<number>((_, r) => {
         reject = r;
       });
-      cache.set(qA, pendingResult<number>("Number", promise));
+      qc.set(qA, loadingState(promise));
       reject(new Error("boom"));
       await flush();
-      const entry = cache.get(qA);
+      const entry = qc.get(qA);
       expect(entry?.variant).toEqual("error");
     });
 
     it("transitions to error when the promise rejects with a non-Error value", async () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       let reject: (reason: unknown) => void = () => {};
       const promise = new Promise<number>((_, r) => {
         reject = r;
       });
-      cache.set(qA, pendingResult<number>("Number", promise));
+      qc.set(qA, loadingState(promise));
       reject("oops");
       await flush();
-      const entry = cache.get(qA);
+      const entry = qc.get(qA);
       expect(entry?.variant).toEqual("error");
     });
 
     it("notifies subscribers on the settle transition", async () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       const listener = vi.fn();
       let resolve: (v: number) => void = () => {};
       const promise = new Promise<number>((r) => {
         resolve = r;
       });
-      cache.subscribe(qA, listener);
-      cache.set(qA, pendingResult<number>("Number", promise));
+      qc.subscribe(qA, listener);
+      qc.set(qA, loadingState(promise));
       listener.mockClear();
       resolve(1);
       await flush();
@@ -215,50 +222,50 @@ describe("QueryCache", () => {
 
   describe("identity-gated replacement", () => {
     it("ignores a late promise resolution that follows a listener push", async () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       let resolve: (v: number) => void = () => {};
       const promise = new Promise<number>((r) => {
         resolve = r;
       });
-      cache.set(qA, pendingResult<number>("Number", promise));
-      cache.set(qA, successResult<number>("listener", 99));
+      qc.set(qA, loadingState(promise));
+      qc.set(qA, successState(99));
       resolve(1);
       await flush();
-      const entry = cache.get(qA);
+      const entry = qc.get(qA);
       expect(entry?.variant === "success" && entry.data).toEqual(99);
     });
 
     it("ignores a late promise rejection that follows a listener push", async () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       let reject: (reason: unknown) => void = () => {};
       const promise = new Promise<number>((_, r) => {
         reject = r;
       });
-      cache.set(qA, pendingResult<number>("Number", promise));
-      cache.set(qA, successResult<number>("listener", 5));
+      qc.set(qA, loadingState(promise));
+      qc.set(qA, successState(5));
       reject(new Error("ignored"));
       await flush();
-      const entry = cache.get(qA);
+      const entry = qc.get(qA);
       expect(entry?.variant).toEqual("success");
     });
   });
 
   describe("invalidate", () => {
     it("removes the entry and notifies subscribers", () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       const listener = vi.fn();
-      cache.set(qA, successResult<number>("retrieved", 1));
-      cache.subscribe(qA, listener);
-      cache.invalidate(qA);
-      expect(cache.get(qA)).toBeUndefined();
+      qc.set(qA, successState(1));
+      qc.subscribe(qA, listener);
+      qc.invalidate(qA);
+      expect(qc.get(qA)).toBeUndefined();
       expect(listener).toHaveBeenCalledTimes(1);
     });
 
     it("no-ops on an absent query", () => {
-      const cache = new base.QueryCache<Q, number>();
+      const qc = new cache.QueryCache<Q, number>();
       const listener = vi.fn();
-      cache.subscribe(qA, listener);
-      cache.invalidate(qA);
+      qc.subscribe(qA, listener);
+      qc.invalidate(qA);
       expect(listener).not.toHaveBeenCalled();
     });
   });

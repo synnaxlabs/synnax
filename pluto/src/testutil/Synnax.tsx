@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { cache, type Synnax as Client } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
@@ -40,24 +40,39 @@ const RenderContextSeed = ({
 
 const newWrapper = (
   client: Client | null,
-  fluxClient: Flux.Client,
+  handlers: Pick<Flux.ProviderProps, "handleError" | "handleAsyncError">,
   additionalRegistry?: aether.ComponentRegistry,
   renderContext?: canvasTest.Recorder,
 ) => {
   const AetherProvider = aetherTest.createProvider({
     ...synnax.REGISTRY,
     ...status.REGISTRY,
-    ...flux.createRegistry({ storeConfig: {} }),
+    ...flux.createRegistry(),
     ...(renderContext != null
       ? { [canvasTest.RenderProvider.TYPE]: canvasTest.RenderProvider }
       : {}),
     ...additionalRegistry,
   });
+  // One detached engine per wrapper, not per mount: sequential renders under the
+  // same wrapper must share store state, as production providers outlive renders.
+  // Controllers are prebuilt for the same reason: binding is once-per-engine.
+  const detachedEngine =
+    client == null || !client.cache.enabled
+      ? new cache.Engine({ openStreamer: null })
+      : undefined;
+  let composers = Pluto.STORE_COMPOSERS;
+  if (detachedEngine != null)
+    composers = Object.fromEntries(
+      Object.entries(Pluto.STORE_COMPOSERS).map(([key, compose]) => {
+        const controller = compose({ client: null, engine: detachedEngine });
+        return [key, () => controller];
+      }),
+    );
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
-          <Flux.Provider client={fluxClient}>
+          <Flux.Provider composers={composers} engine={detachedEngine} {...handlers}>
             {renderContext == null ? (
               children
             ) : (
@@ -73,10 +88,9 @@ const newWrapper = (
 
 export interface CreateSynnaxWrapperParams {
   client: Client | null;
-  excludeFluxStores?: string[];
-  /** Overrides the flux error handler. Defaults to logging via console.error. */
+  /** Overrides the flux error handler. Defaults to the status aggregator. */
   handleError?: status.ErrorHandler;
-  /** Overrides the flux async error handler. Defaults to logging via console.error. */
+  /** Overrides the flux async error handler. Defaults to the status aggregator. */
   handleAsyncError?: status.AsyncErrorHandler;
   /** Extra aether components merged into the test render registry. */
   additionalRegistry?: aether.ComponentRegistry;
@@ -88,38 +102,25 @@ export interface CreateSynnaxWrapperParams {
   renderContext?: canvasTest.Recorder;
 }
 
-const createFluxClient = (params: CreateSynnaxWrapperParams): Flux.Client => {
-  const { client, excludeFluxStores, handleError, handleAsyncError } = params;
-  const storeConfig = { ...Pluto.FLUX_STORE_CONFIG };
-  if (excludeFluxStores)
-    excludeFluxStores.forEach((store) => delete storeConfig[store]);
-  return new Flux.Client({
-    client,
-    storeConfig,
-    handleError: handleError ?? status.createErrorHandler(console.error),
-    handleAsyncError: handleAsyncError ?? status.createAsyncErrorHandler(console.error),
-  });
-};
-
-export const createSynnaxWrapper = (
-  params: CreateSynnaxWrapperParams,
-): FC<PropsWithChildren> =>
+export const createSynnaxWrapper = ({
+  client,
+  handleError,
+  handleAsyncError,
+  additionalRegistry,
+  renderContext,
+}: CreateSynnaxWrapperParams): FC<PropsWithChildren> =>
   newWrapper(
-    params.client,
-    createFluxClient(params),
-    params.additionalRegistry,
-    params.renderContext,
+    client,
+    { handleError, handleAsyncError },
+    additionalRegistry,
+    renderContext,
   );
 
 export const createAsyncSynnaxWrapper = async (
   params: CreateSynnaxWrapperParams,
 ): Promise<FC<PropsWithChildren>> => {
-  const fluxClient = createFluxClient(params);
-  await fluxClient.awaitInitialized();
-  return newWrapper(
-    params.client,
-    fluxClient,
-    params.additionalRegistry,
-    params.renderContext,
-  );
+  const { client } = params;
+  if (client != null && client.cache.enabled)
+    await client.cache.engine.ensureStreaming();
+  return createSynnaxWrapper(params);
 };

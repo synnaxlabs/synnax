@@ -11,7 +11,9 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
 import { ontology } from "@/ontology";
+import { bindStore, STORE_KEY } from "@/rack/store";
 import {
   type Key,
   keyZ,
@@ -24,9 +26,6 @@ import {
 } from "@/rack/types.gen";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-
-export const SET_CHANNEL_NAME = "sy_rack_set";
-export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -75,10 +74,24 @@ const deleteResZ = z.object({});
 export class Client {
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
+  private readonly store_?: cache.Store<Key, Omit<Payload, "status">>;
 
-  constructor(client: UnaryClient, taskClient: task.Client) {
+  constructor(client: UnaryClient, taskClient: task.Client, engine?: cache.Engine) {
     this.client = client;
     this.tasks = taskClient;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the rack cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Omit<Payload, "status">> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async delete(keys: Key | Key[]): Promise<void> {

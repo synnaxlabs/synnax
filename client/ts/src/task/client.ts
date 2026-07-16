@@ -19,12 +19,14 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { type Key as RackKey, keyZ as rackKeyZ } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
+  commandZ,
   type Key,
   keyZ,
   type New,
@@ -33,6 +35,7 @@ import {
   type PayloadSchemas as Schemas,
   payloadZ,
   type Status,
+  type StatusDetailsZodObject,
   statusZ,
 } from "@/task/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -42,6 +45,49 @@ export type { PayloadSchemas as Schemas } from "@/task/types.gen";
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
+
+export const STORE_KEY = "tasks";
+
+// Temporary hack that filters the set of commands that should change the
+// status of a task to loading.
+// Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
+const LOADING_COMMANDS = ["start", "stop"];
+
+/** Registers the task store on the given engine. */
+const bindStore = (engine: cache.Engine, client: Client): void => {
+  const store = () => engine.store<Key, Omit<Task, "status">>(STORE_KEY);
+  const setListener: cache.ChannelListener<{}, typeof keyZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: async ({ changed: key }) =>
+      store().set(key, await client.retrieve({ key, includeStatus: true })),
+  };
+  const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: ({ changed }) => store().delete(changed),
+  };
+  const commandListener: cache.ChannelListener<{}, typeof commandZ> = {
+    channel: COMMAND_CHANNEL_NAME,
+    schema: commandZ,
+    onChange: ({ changed }) => {
+      const statuses = engine.store<status.Key, status.Status>(status.STORE_KEY);
+      statuses.set(statusKey(changed.task), (prev) => {
+        if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
+        return status.create<StatusDetailsZodObject>({
+          key: statusKey(changed.task),
+          name: "Task Status",
+          variant: "loading",
+          message: `Running ${changed.type} command...`,
+          details: { task: changed.task, running: true, cmd: "", data: {} },
+        });
+      });
+    },
+  };
+  engine.registerStore<Key, Omit<Task, "status">>(STORE_KEY, {
+    listeners: [setListener, deleteListener, commandListener],
+  });
+};
 
 export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
 
@@ -257,17 +303,32 @@ export class Client {
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
   private readonly rangeClient: ranger.Client;
+  private readonly store_?: cache.Store<Key, Omit<Task, "status">>;
 
   constructor(
     client: UnaryClient,
     frameClient: framer.Client,
     ontologyClient: ontology.Client,
     rangeClient: ranger.Client,
+    engine?: cache.Engine,
   ) {
     this.client = client;
     this.frameClient = frameClient;
     this.ontologyClient = ontologyClient;
     this.rangeClient = rangeClient;
+    if (engine == null) return;
+    bindStore(engine, this);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the task cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Omit<Task, "status">> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async create(task: New): Promise<Task>;

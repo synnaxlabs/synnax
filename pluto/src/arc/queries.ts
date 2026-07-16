@@ -43,43 +43,8 @@ export interface FluxSubStore extends Status.FluxSubStore, Task.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-// kindOfTransaction classifies an action batch for the undo coalesce window. A
-// node drag dispatches a stream of set_node_position actions for a single
-// gesture; classifying them all as "move" collapses them into one undoable.
-const kindOfTransaction = (actions: arc.Action[]): string => {
-  if (actions.length === 0) return "default";
-  const hasMove = actions.some((a) => a.type === "set_node_position");
-  const onlyMove = actions.every((a) => a.type === "set_node_position");
-  if (hasMove && onlyMove) return "move";
-  if (actions.length === 1) return actions[0].type;
-  return "transaction";
-};
-
-const undoableStoreConfig = Flux.createUndoableStore<
-  arc.Key,
-  arc.Arc,
-  arc.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  reduce: arc.reduceAll,
-  channel: arc.SET_CHANNEL_NAME,
-  schema: arc.scopedActionZ,
-  isUndoable: arc.isUndoable,
-  kindOf: kindOfTransaction,
-});
-
-const DELETE_ARC_LISTENER: Flux.ChannelListener<FluxSubStore, typeof arc.keyZ> = {
-  channel: arc.DELETE_CHANNEL_NAME,
-  schema: arc.keyZ,
-  onChange: ({ store, changed }) => store.arcs.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  ...undoableStoreConfig,
-  listeners: [...undoableStoreConfig.listeners, DELETE_ARC_LISTENER],
-};
+export const STORE_COMPOSER: Flux.StoreComposer = ({ client, engine }) =>
+  client?.arcs.dispatcher ?? arc.bindStore(engine);
 
 const {
   useDispatch,

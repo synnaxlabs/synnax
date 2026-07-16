@@ -14,7 +14,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { Ontology } from "@/ontology";
 import { Ranger } from "@/ranger";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -25,10 +24,7 @@ describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
     controller = new AbortController();
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
   afterEach(() => {
     controller.abort();

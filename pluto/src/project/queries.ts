@@ -29,26 +29,6 @@ interface FluxSubStore extends Flux.Store, role.FluxSubStore, policy.FluxSubStor
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const SET_PROJECT_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof project.projectZ
-> = {
-  channel: project.SET_CHANNEL_NAME,
-  schema: project.projectZ,
-  onChange: ({ store, changed }) => store.projects.set(changed.key, changed),
-};
-
-const DELETE_PROJECT_LISTENER: Flux.ChannelListener<FluxSubStore, typeof project.keyZ> =
-  {
-    channel: project.DELETE_CHANNEL_NAME,
-    schema: project.keyZ,
-    onChange: ({ store, changed }) => store.projects.delete(changed),
-  };
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_PROJECT_LISTENER, DELETE_PROJECT_LISTENER],
-};
-
 export type RetrieveQuery = {
   key: project.Key;
 };

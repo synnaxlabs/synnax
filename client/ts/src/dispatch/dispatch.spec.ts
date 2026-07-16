@@ -11,14 +11,15 @@ import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { type base } from "@/flux/base";
+import { type cache } from "@/cache";
+import { ScopedUnaryStore } from "@/cache/store";
 import {
-  createUndoableStore,
-  type DispatchFrame,
-  type DispatchReducer,
-  type DispatchSend,
-  type UndoableUnaryStore,
-} from "@/flux/base/undoable";
+  Controller,
+  type Frame,
+  type Handle,
+  type Reducer,
+  type Send,
+} from "@/dispatch/dispatch";
 
 interface Doc {
   values: Record<string, number>;
@@ -29,7 +30,7 @@ type Action =
   | { type: "tag"; key: string; tag: string }
   | { type: "noop" };
 
-const reducer: DispatchReducer<Doc, Action> = (state, actions) => {
+const reducer: Reducer<Doc, Action> = (state, actions) => {
   let next = state;
   const inverse: Action[] = [];
   const targets = new Set<string>();
@@ -46,18 +47,14 @@ const reducer: DispatchReducer<Doc, Action> = (state, actions) => {
   return { next, inverse, targets: [...targets] };
 };
 
-const STORE_KEY = "docs" as const;
-
-interface SubStore extends base.Store {
-  [STORE_KEY]: UndoableUnaryStore<string, Doc, Action>;
-}
-
 const frameZ = z.object({
   key: z.string(),
   dispatchKey: z.string(),
   seq: z.number().int().nonnegative(),
   actions: z.array(z.any()),
-}) as unknown as z.ZodType<DispatchFrame<string, Action>>;
+}) as unknown as z.ZodType<Frame<string, Action>>;
+
+type CombinedStore = cache.UnaryStore<string, Doc> & Handle<string, Doc, Action>;
 
 const setupStore = (
   opts: Partial<{
@@ -71,31 +68,31 @@ const setupStore = (
   const handleError = vi.fn((excOrFn: unknown) => {
     if (typeof excOrFn === "function") void excOrFn();
   });
-  const config = createUndoableStore<string, Doc, Action, typeof STORE_KEY, SubStore>({
-    storeKey: STORE_KEY,
+  const docs = new ScopedUnaryStore<string, Doc>(handleError);
+  const controller = new Controller<string, Doc, Action>({
+    store: docs,
+    handleError,
     reduce: reducer,
-    channel: "test",
-    schema: frameZ,
     isUndoable: opts.isUndoable,
     kindOf: opts.kindOf,
     coalesceWindow: opts.coalesceWindow,
     stackCap: opts.stackCap,
     preprocess: opts.preprocess,
   });
-  if (config.factory == null) throw new Error("expected factory");
-  const unscoped = config.factory(handleError);
-  const scope = (s: string) =>
-    unscoped.scope(s) as UndoableUnaryStore<string, Doc, Action>;
-  return { handleError, scope, store: scope("primary") };
+  const scope = (s: string): CombinedStore => ({
+    ...(docs.scope(s) as cache.UnaryStore<string, Doc>),
+    ...controller.scope(s),
+  });
+  return { handleError, scope, store: scope("primary"), controller };
 };
 
 const prime = (
-  store: UndoableUnaryStore<string, Doc, Action>,
+  store: CombinedStore,
   key: string,
   values: Record<string, number> = {},
 ) => store.set(key, { values });
 
-describe("UndoableStore", () => {
+describe("dispatch.Controller", () => {
   describe("replay", () => {
     it("returns null when the doc is not cached", () => {
       const { store } = setupStore();
@@ -216,7 +213,7 @@ describe("UndoableStore", () => {
 
   describe("coalescing", () => {
     const push = (
-      store: UndoableUnaryStore<string, Doc, Action>,
+      store: CombinedStore,
       key: string,
       target: string,
       value: number,
@@ -500,7 +497,7 @@ describe("UndoableStore", () => {
   describe("beginTransaction", () => {
     it("accumulates and commits as a single undoable", async () => {
       const { store } = setupStore();
-      const send = vi.fn<DispatchSend<Action>>(async () => {});
+      const send = vi.fn<Send<Action>>(async () => {});
       prime(store, "k", { a: 0 });
       const tx = store.beginTransaction("k", send, "move");
       tx.add({ type: "set", key: "a", value: 1 });
@@ -521,7 +518,7 @@ describe("UndoableStore", () => {
 
     it("returns false from commit when no actions were added", async () => {
       const { store } = setupStore();
-      const send = vi.fn<DispatchSend<Action>>(async () => {});
+      const send = vi.fn<Send<Action>>(async () => {});
       prime(store, "k", { a: 0 });
       const ok = await store.beginTransaction("k", send).commit();
       expect(ok).toBe(false);
@@ -531,7 +528,7 @@ describe("UndoableStore", () => {
 
     it("returns false from commit when the doc is not cached", async () => {
       const { store } = setupStore();
-      const send = vi.fn<DispatchSend<Action>>(async () => {});
+      const send = vi.fn<Send<Action>>(async () => {});
       const tx = store.beginTransaction("missing", send);
       tx.add({ type: "set", key: "a", value: 1 });
       const ok = await tx.commit();
@@ -541,7 +538,7 @@ describe("UndoableStore", () => {
 
     it("subsequent commits return false and do not re-send", async () => {
       const { store } = setupStore();
-      const send = vi.fn<DispatchSend<Action>>(async () => {});
+      const send = vi.fn<Send<Action>>(async () => {});
       prime(store, "k", { a: 0 });
       const tx = store.beginTransaction("k", send);
       tx.add({ type: "set", key: "a", value: 1 });
@@ -555,7 +552,7 @@ describe("UndoableStore", () => {
       prime(store, "k", { a: 0 });
       const tx = store.beginTransaction(
         "k",
-        vi.fn<DispatchSend<Action>>(async () => {}),
+        vi.fn<Send<Action>>(async () => {}),
       );
       tx.add({ type: "set", key: "a", value: 1 });
       await tx.commit();
@@ -564,7 +561,7 @@ describe("UndoableStore", () => {
 
     it("abort restores the pre-transaction snapshot and pushes nothing", () => {
       const { store } = setupStore();
-      const send = vi.fn<DispatchSend<Action>>(async () => {});
+      const send = vi.fn<Send<Action>>(async () => {});
       prime(store, "k", { a: 0 });
       const tx = store.beginTransaction("k", send);
       tx.add({ type: "set", key: "a", value: 1 });
@@ -581,7 +578,7 @@ describe("UndoableStore", () => {
       prime(store, "k", { a: 0 });
       const tx = store.beginTransaction(
         "k",
-        vi.fn<DispatchSend<Action>>(async () => {}),
+        vi.fn<Send<Action>>(async () => {}),
       );
       tx.add({ type: "set", key: "a", value: 5 });
       await tx.commit();
@@ -871,6 +868,25 @@ describe("UndoableStore", () => {
         ["a"],
       );
       expect(cb).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("listener", () => {
+    it("applies broadcast frames from the channel to the controller", () => {
+      const { store, controller } = setupStore();
+      prime(store, "k", { a: 1 });
+      const listener = controller.listener("docs_dispatch", frameZ);
+      expect(listener.channel).toBe("docs_dispatch");
+      void listener.onChange({
+        changed: {
+          key: "k",
+          dispatchKey: "remote-1",
+          seq: 1,
+          actions: [{ type: "set", key: "a", value: 42 }],
+        },
+        store: {},
+      });
+      expect(store.get("k")).toEqual({ values: { a: 42 } });
     });
   });
 

@@ -13,7 +13,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { Ontology } from "@/ontology";
 import { Symbol } from "@/schematic/symbol";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -23,10 +22,7 @@ describe("Symbol queries", () => {
   let wrapper: FC<PropsWithChildren>;
 
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({
-      client,
-      excludeFluxStores: [Ontology.RESOURCES_FLUX_STORE_KEY],
-    });
+    wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
   beforeEach(() => {

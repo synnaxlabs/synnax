@@ -9,4 +9,5 @@
 
 export * from "@/label/client";
 export * from "@/label/payload";
+export { DELETE_CHANNEL_NAME, SET_CHANNEL_NAME, STORE_KEY } from "@/label/store";
 export * from "@/label/types.gen";

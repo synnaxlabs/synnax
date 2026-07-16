@@ -11,6 +11,8 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, caseconv, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
+import { bindStore, STORE_KEY } from "@/project/store";
 import { type Key, keyZ, type New, type Project, projectZ } from "@/project/types.gen";
 
 const retrieveReqZ = z.object({
@@ -32,16 +34,27 @@ const retrieveResZ = z.object({ projects: projectZ.array().default(() => []) });
 const createResZ = z.object({ projects: projectZ.array() });
 const emptyResZ = z.object({});
 
-export const SET_CHANNEL_NAME = "sy_project_set";
-export const DELETE_CHANNEL_NAME = "sy_project_delete";
-
 export interface SetLayoutParams extends z.input<typeof setLayoutReqZ> {}
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Project>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the project cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Project> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async create(project: New): Promise<Project>;

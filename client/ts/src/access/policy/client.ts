@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { bindStore, STORE_KEY } from "@/access/policy/store";
 import {
   type Key,
   keyZ,
@@ -18,10 +19,8 @@ import {
   type Policy,
   policyZ,
 } from "@/access/policy/types.gen";
+import { type cache } from "@/cache";
 import { ontology } from "@/ontology";
-
-export const SET_CHANNEL_NAME = "sy_policy_set";
-export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -70,9 +69,23 @@ const deleteResZ = z.object({});
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Policy>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the policy cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Policy> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async create(policy: New): Promise<Policy>;

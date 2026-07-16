@@ -24,22 +24,6 @@ export interface FluxSubStore extends Flux.Store {
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const SET_GROUP_LISTENER: Flux.ChannelListener<FluxSubStore, typeof group.groupZ> = {
-  channel: group.SET_CHANNEL_NAME,
-  schema: group.groupZ,
-  onChange: ({ store, changed }) => store.groups.set(changed.key, changed),
-};
-
-const DELETE_GROUP_LISTENER: Flux.ChannelListener<FluxSubStore, typeof group.keyZ> = {
-  channel: group.DELETE_CHANNEL_NAME,
-  schema: group.keyZ,
-  onChange: ({ store, changed }) => store.groups.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_GROUP_LISTENER, DELETE_GROUP_LISTENER],
-};
-
 export type RetrieveQuery = {
   key: group.Key;
 };

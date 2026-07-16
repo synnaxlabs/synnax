@@ -13,6 +13,7 @@ import { z } from "zod";
 import { access } from "@/access";
 import { arc } from "@/arc";
 import { auth } from "@/auth";
+import { cache } from "@/cache";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
@@ -51,6 +52,7 @@ export const synnaxParamsZ = z.object({
   secure: z.boolean().default(false),
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
+  cache: z.boolean().default(true),
 });
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
@@ -91,6 +93,7 @@ export default class Synnax extends framer.Client {
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
+  readonly cache: cache.Handle;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -136,6 +139,10 @@ export default class Synnax extends framer.Client {
       new channel.ClusterRetriever(transport.unary),
     );
     super(transport.stream, transport.unary, chRetriever);
+    const engine = parsedParams.cache
+      ? new cache.Engine({ openStreamer: (config) => this.openStreamer(config) })
+      : undefined;
+    this.cache = new cache.Handle(engine ?? null);
     this.auth = new auth.Client(transport.unary, { username, password });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary, chRetriever);
@@ -143,7 +150,13 @@ export default class Synnax extends framer.Client {
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
     this.transport = transport;
-    this.channels = new channel.Client(this, chRetriever, transport.unary, chCreator);
+    this.channels = new channel.Client(
+      this,
+      chRetriever,
+      transport.unary,
+      chCreator,
+      engine,
+    );
     this.connectivity = new connection.Checker(
       transport.unary,
       connectivityPollFrequency,
@@ -152,10 +165,10 @@ export default class Synnax extends framer.Client {
       clockSkewThreshold,
     );
     this.control = new control.Client(this);
-    this.ontology = new ontology.Client(this.transport.unary);
+    this.ontology = new ontology.Client(this.transport.unary, engine);
     const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(this.transport.unary);
-    this.statuses = new status.Client(this.transport.unary);
+    this.labels = new label.Client(this.transport.unary, engine);
+    this.statuses = new status.Client(this.transport.unary, engine);
     this.ranges = new ranger.Client(
       this,
       rangeWriter,
@@ -165,31 +178,34 @@ export default class Synnax extends framer.Client {
       this.ontology,
       (key: ranger.Key) => new alias.Client(key, this.transport.unary),
       (key: ranger.Key) => new kv.Client(key, this.transport.unary),
+      engine,
     );
-    this.access = new access.Client(this.transport.unary);
-    this.users = new user.Client(this.transport.unary);
-    this.projects = new project.Client(this.transport.unary);
+    this.access = new access.Client(this.transport.unary, engine);
+    this.users = new user.Client(this.transport.unary, engine);
+    this.projects = new project.Client(this.transport.unary, engine);
     this.tasks = new task.Client(
       this.transport.unary,
       this,
       this.ontology,
       this.ranges,
+      engine,
     );
-    this.racks = new rack.Client(this.transport.unary, this.tasks);
-    this.devices = new device.Client(this.transport.unary);
-    this.arcs = new arc.Client(this.transport.unary, this.transport.stream);
-    this.views = new view.Client(this.transport.unary);
-    this.schematics = new schematic.Client(this.transport.unary);
-    this.lineplots = new lineplot.Client(this.transport.unary);
-    this.panels = new panel.Client(this.transport.unary);
-    this.logs = new log.Client(this.transport.unary);
-    this.tables = new table.Client(this.transport.unary);
-    this.groups = new group.Client(this.transport.unary);
+    this.racks = new rack.Client(this.transport.unary, this.tasks, engine);
+    this.devices = new device.Client(this.transport.unary, engine);
+    this.arcs = new arc.Client(this.transport.unary, this.transport.stream, engine);
+    this.views = new view.Client(this.transport.unary, engine);
+    this.schematics = new schematic.Client(this.transport.unary, engine);
+    this.lineplots = new lineplot.Client(this.transport.unary, engine);
+    this.panels = new panel.Client(this.transport.unary, engine);
+    this.logs = new log.Client(this.transport.unary, engine);
+    this.tables = new table.Client(this.transport.unary, engine);
+    this.groups = new group.Client(this.transport.unary, engine);
     this.imex = new imex.Client(this.transport.file);
   }
 
   close(): void {
     this.connectivity.stop();
+    this.cache.close().catch(console.error);
   }
 }
 

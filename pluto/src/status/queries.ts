@@ -28,30 +28,6 @@ export interface FluxSubStore extends Label.FluxSubStore {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-const SET_STATUS_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  ReturnType<typeof status.statusZ>
-> = {
-  channel: status.SET_CHANNEL_NAME,
-  schema: status.statusZ(),
-  onChange: ({ store, changed }) =>
-    store.statuses.set(changed.key, (p) => {
-      const next = { ...p, ...changed };
-      next.labels = Label.retrieveCachedLabelsOf(store, status.ontologyID(changed.key));
-      return next;
-    }),
-};
-
-const DELETE_STATUS_LISTENER: Flux.ChannelListener<FluxSubStore, typeof status.keyZ> = {
-  channel: status.DELETE_CHANNEL_NAME,
-  schema: status.keyZ,
-  onChange: ({ store, changed }) => store.statuses.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_STATUS_LISTENER, DELETE_STATUS_LISTENER],
-};
-
 export type ListParams = status.MultiRetrieveParams;
 
 export const useList = Flux.createList<

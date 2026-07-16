@@ -23,7 +23,7 @@ interface TestState {
 }
 
 describe("result", () => {
-  describe("pendingResult", () => {
+  describe("loadingResult", () => {
     it("should create a loading result with correct structure", () => {
       const result = loadingResult<TestState>("fetch user", undefined);
 

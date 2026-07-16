@@ -11,12 +11,15 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
+import { type dispatch } from "@/dispatch";
 import { project } from "@/project";
 import {
   type Action,
   dispatchReqZ,
   rename as renameAction,
 } from "@/schematic/actions.gen";
+import { bindStore, STORE_KEY } from "@/schematic/store";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -26,8 +29,6 @@ import {
   schematicZ,
 } from "@/schematic/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-
-export const SET_CHANNEL_NAME = "sy_schematic_set";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -62,10 +63,35 @@ const emptyResZ = z.object({});
 export class Client {
   readonly symbols: symbol.Client;
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Schematic>;
+  private readonly dispatcher_?: dispatch.Controller<Key, Schematic, Action>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
-    this.symbols = new symbol.Client(client);
+    this.symbols = new symbol.Client(client, engine);
+    if (engine == null) return;
+    this.dispatcher_ = bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the schematic cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Schematic> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
+  }
+
+  /**
+   * Action-dispatch controller over the schematic cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get dispatcher(): dispatch.Controller<Key, Schematic, Action> {
+    if (this.dispatcher_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.dispatcher_;
   }
 
   async create(project: project.Key, schematic: New): Promise<Schematic>;

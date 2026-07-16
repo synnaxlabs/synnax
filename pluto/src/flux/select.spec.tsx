@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { cache } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -15,7 +16,7 @@ import { describe, expect, it, vi } from "vitest";
 import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
-import { base } from "@/flux/base";
+import { type base } from "@/flux/base";
 import { status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
@@ -32,50 +33,38 @@ interface TestStore extends base.Store {
   docs: base.UnaryStore<string, Doc>;
 }
 
-const STORE_CONFIG: base.StoreConfig<TestStore> = {
-  docs: { listeners: [] },
-};
-
 const AetherProvider = aetherTest.createProvider({
   ...synnax.REGISTRY,
   ...status.REGISTRY,
-  ...flux.createRegistry({ storeConfig: {} }),
+  ...flux.createRegistry(),
 });
 
 const createTestWrapper = (): {
   wrapper: React.FC<PropsWithChildren>;
-  fluxClient: base.Client<TestStore>;
+  engine: cache.Engine;
 } => {
-  const handleError = status.createErrorHandler(console.error);
-  const handleAsyncError = status.createAsyncErrorHandler(console.error);
-  const fluxClient = new base.Client<TestStore>({
-    client: null,
-    storeConfig: STORE_CONFIG,
-    handleError,
-    handleAsyncError,
-  });
+  const engine = new cache.Engine({ openStreamer: null });
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={null}>
-          <Flux.Provider client={fluxClient}>{children}</Flux.Provider>
+          <Flux.Provider engine={engine}>{children}</Flux.Provider>
         </Synnax.TestProvider>
       </Status.Aggregator>
     </AetherProvider>
   );
-  return { wrapper: Wrapper, fluxClient };
+  return { wrapper: Wrapper, engine };
 };
 
-const setDoc = (fluxClient: base.Client<TestStore>, doc: Doc): void => {
-  const store = fluxClient.scopedStore<TestStore>("test-writer");
-  store.docs.set(doc.key, doc);
+const setDoc = (engine: cache.Engine, doc: Doc): void => {
+  engine.store<string, Doc>("docs", "test-writer").set(doc.key, doc);
 };
 
 describe("createSelector", () => {
   describe("basic selection", () => {
     it("should return the selected value from the store", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -114,7 +103,7 @@ describe("createSelector", () => {
 
   describe("reactivity", () => {
     it("should update when the subscribed key changes in the store", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
+      const { wrapper, engine } = createTestWrapper();
 
       const [useSelectName] = Flux.createSelector<TestStore, { key: string }, string>({
         subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
@@ -127,7 +116,7 @@ describe("createSelector", () => {
       expect(result.current).toBe("");
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k1",
           name: "Alice",
           count: 1,
@@ -139,7 +128,7 @@ describe("createSelector", () => {
     });
 
     it("should not re-render when a different key changes", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
+      const { wrapper, engine } = createTestWrapper();
       let renderCount = 0;
 
       const [useSelectName] = Flux.createSelector<TestStore, { key: string }, string>({
@@ -154,7 +143,7 @@ describe("createSelector", () => {
       const countAfterMount = renderCount;
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k2",
           name: "Bob",
           count: 2,
@@ -168,8 +157,8 @@ describe("createSelector", () => {
 
   describe("equality and caching", () => {
     it("should use custom equality function to prevent unnecessary updates", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -204,7 +193,7 @@ describe("createSelector", () => {
       const firstRef = result.current;
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k1",
           name: "Bob",
           count: 2,
@@ -217,8 +206,8 @@ describe("createSelector", () => {
     });
 
     it("should update when selected value actually changes per custom equality", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -246,7 +235,7 @@ describe("createSelector", () => {
       expect(result.current).toEqual({ x: 1, y: 2 });
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k1",
           name: "Alice",
           count: 1,
@@ -258,8 +247,8 @@ describe("createSelector", () => {
     });
 
     it("should skip re-render when primitive selection is unchanged", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 5,
@@ -285,7 +274,7 @@ describe("createSelector", () => {
       const countAfterMount = renderCount;
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k1",
           name: "Bob",
           count: 5,
@@ -297,7 +286,7 @@ describe("createSelector", () => {
       expect(renderCount).toBe(countAfterMount);
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k1",
           name: "Bob",
           count: 10,
@@ -311,8 +300,8 @@ describe("createSelector", () => {
 
   describe("derived selection stability", () => {
     it("should not infinite loop when select returns a new object reference from unchanged data", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -346,8 +335,8 @@ describe("createSelector", () => {
     });
 
     it("should still update derived selections when store data changes", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -373,7 +362,7 @@ describe("createSelector", () => {
       expect(result.current).toEqual({ name: "Alice", count: 1 });
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k1",
           name: "Bob",
           count: 99,
@@ -437,8 +426,8 @@ describe("createSelector", () => {
 
   describe("transform", () => {
     it("should apply transform to the raw selection", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -461,9 +450,9 @@ describe("createSelector", () => {
     });
 
     it("should not re-run transform when the raw selection reference is unchanged", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
+      const { wrapper, engine } = createTestWrapper();
       const nested = { x: 1, y: 2 };
-      setDoc(fluxClient, { key: "k1", name: "Alice", count: 1, nested });
+      setDoc(engine, { key: "k1", name: "Alice", count: 1, nested });
 
       const transform = vi.fn((raw: { x: number; y: number }) => ({
         sum: raw.x + raw.y,
@@ -483,15 +472,15 @@ describe("createSelector", () => {
       const firstOut = result.current;
       const callsAfterMount = transform.mock.calls.length;
 
-      act(() => setDoc(fluxClient, { key: "k1", name: "Bob", count: 2, nested }));
+      act(() => setDoc(engine, { key: "k1", name: "Bob", count: 2, nested }));
 
       expect(transform.mock.calls.length).toBe(callsAfterMount);
       expect(result.current).toBe(firstOut);
     });
 
     it("should re-run transform when the raw selection reference changes", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -514,7 +503,7 @@ describe("createSelector", () => {
       expect(result.current).toBe(3);
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k1",
           name: "Alice",
           count: 1,
@@ -526,8 +515,8 @@ describe("createSelector", () => {
     });
 
     it("should re-run transform when an arg it depends on changes but the raw selection is unchanged", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -557,9 +546,9 @@ describe("createSelector", () => {
     });
 
     it("should not re-run transform when args are deep-equal but referentially different", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
+      const { wrapper, engine } = createTestWrapper();
       const nested = { x: 2, y: 3 };
-      setDoc(fluxClient, { key: "k1", name: "Alice", count: 1, nested });
+      setDoc(engine, { key: "k1", name: "Alice", count: 1, nested });
 
       const transform = vi.fn(
         (raw: { x: number; y: number }, { multiplier }: { multiplier: number }) =>
@@ -614,8 +603,8 @@ describe("createSelector", () => {
 
   describe("useGet", () => {
     it("should return the current value from the store when invoked", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -632,8 +621,8 @@ describe("createSelector", () => {
     });
 
     it("should read the latest value on each call without re-rendering", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,
@@ -658,7 +647,7 @@ describe("createSelector", () => {
       const countAfterMount = renderCount;
 
       act(() =>
-        setDoc(fluxClient, {
+        setDoc(engine, {
           key: "k1",
           name: "Bob",
           count: 2,
@@ -689,8 +678,8 @@ describe("createSelector", () => {
     });
 
     it("should apply the transform to the raw selection", () => {
-      const { wrapper, fluxClient } = createTestWrapper();
-      setDoc(fluxClient, {
+      const { wrapper, engine } = createTestWrapper();
+      setDoc(engine, {
         key: "k1",
         name: "Alice",
         count: 1,

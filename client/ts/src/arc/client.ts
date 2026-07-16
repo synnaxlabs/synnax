@@ -16,11 +16,11 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
 import { type Action, dispatchReqZ } from "@/arc/actions.gen";
+import { bindStore, STORE_KEY } from "@/arc/store";
 import { type Arc, arcZ, type Key, keyZ, type New } from "@/arc/types.gen";
+import { type cache } from "@/cache";
+import { type dispatch } from "@/dispatch";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-
-export const SET_CHANNEL_NAME = "sy_arc_set";
-export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -70,10 +70,35 @@ export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 export class Client {
   private readonly client: UnaryClient;
   private readonly streamClient: StreamClient;
+  private readonly store_?: cache.Store<Key, Arc>;
+  private readonly dispatcher_?: dispatch.Controller<Key, Arc, Action>;
 
-  constructor(client: UnaryClient, streamClient: StreamClient) {
+  constructor(client: UnaryClient, streamClient: StreamClient, engine?: cache.Engine) {
     this.client = client;
     this.streamClient = streamClient;
+    if (engine == null) return;
+    this.dispatcher_ = bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the arc cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Arc> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
+  }
+
+  /**
+   * Action-dispatch controller over the arc cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get dispatcher(): dispatch.Controller<Key, Arc, Action> {
+    if (this.dispatcher_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.dispatcher_;
   }
 
   async create(arc: New): Promise<Arc>;

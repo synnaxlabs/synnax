@@ -13,6 +13,7 @@ export type { Role } from "@/access/role/types.gen";
 export { actions } from "@/actions";
 export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
+export { cache } from "@/cache";
 export { channel } from "@/channel";
 export { Channel, isCalculated } from "@/channel/client";
 export {
@@ -26,6 +27,7 @@ export {
 export * from "@/connection";
 export { control } from "@/control";
 export { device } from "@/device";
+export { dispatch } from "@/dispatch";
 export {
   AuthError,
   ContiguityError,

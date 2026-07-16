@@ -37,41 +37,8 @@ export interface FluxSubStore extends Flux.Store {
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const kindOfTransaction = (actions: panel.Action[]): string => {
-  if (actions.length === 0) return "default";
-  // Drag-resize streams ResizeSplit; coalesce them into a single undoable per
-  // gesture so one ⌘Z reverses the entire drag.
-  if (actions.every((a) => a.type === "resize_split")) return "resize";
-  // Same for cross-leaf drags that produce a stream of MoveTab.
-  if (actions.every((a) => a.type === "move_tab")) return "move";
-  if (actions.length === 1) return actions[0].type;
-  return "transaction";
-};
-
-const undoableStoreConfig = Flux.createUndoableStore<
-  panel.Key,
-  panel.Panel,
-  panel.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  reduce: panel.reduceAll,
-  channel: panel.SET_CHANNEL_NAME,
-  schema: panel.scopedActionZ,
-  kindOf: kindOfTransaction,
-});
-
-const DELETE_PANEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof panel.keyZ> = {
-  channel: panel.DELETE_CHANNEL_NAME,
-  schema: panel.keyZ,
-  onChange: ({ store, changed }) => store.panels.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  ...undoableStoreConfig,
-  listeners: [...undoableStoreConfig.listeners, DELETE_PANEL_LISTENER],
-};
+export const STORE_COMPOSER: Flux.StoreComposer = ({ client, engine }) =>
+  client?.panels.dispatcher ?? panel.bindStore(engine);
 
 export type RetrieveQuery = { key: panel.Key };
 

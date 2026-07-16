@@ -29,22 +29,6 @@ export interface FluxSubStore
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-const SET_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.rackZ> = {
-  channel: rack.SET_CHANNEL_NAME,
-  schema: rack.rackZ,
-  onChange: ({ store, changed }) => store.racks.set(changed),
-};
-
-const DELETE_RACK_LISTENER: Flux.ChannelListener<FluxSubStore, typeof rack.keyZ> = {
-  channel: rack.DELETE_CHANNEL_NAME,
-  schema: rack.keyZ,
-  onChange: ({ store, changed }) => store.racks.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_RACK_LISTENER, DELETE_RACK_LISTENER],
-};
-
 export type RetrieveQuery = {
   key: rack.Key;
   includeStatus?: boolean;

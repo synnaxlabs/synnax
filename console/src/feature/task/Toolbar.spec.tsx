@@ -30,6 +30,7 @@ import {
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
+  openContextMenu,
   uniqueName,
 } from "@/testutil";
 
@@ -99,10 +100,6 @@ const awaitTab = async (created: CreatedPanel, type: string): Promise<record.Unk
     return tab.args;
   });
 
-const openContextMenu = async (name: string): Promise<void> => {
-  fireEvent.contextMenu(await screen.findByText(name));
-};
-
 // The task's reported status streams in after the initial list fetch. Reopen the menu
 // until the status-dependent item is present so status-gated flows are deterministic.
 const openContextMenuUntil = async (name: string, text: string): Promise<void> => {
@@ -135,7 +132,10 @@ describe("task/Toolbar", () => {
   it("opens the task's configuration tab on double click", async () => {
     const t = await createTask();
     const { created } = await renderToolbar();
-    fireEvent.doubleClick(await screen.findByText(t.name));
+    await screen.findByText(t.name);
+    // Re-query synchronously: async status/permission resolutions can replace the
+    // text node, detaching a match held across an await before the event lands.
+    fireEvent.doubleClick(screen.getByText(t.name));
     const args = await awaitTab(created, NI.Task.ANALOG_READ_TYPE);
     expect(args).toEqual({ taskKey: t.key });
   });

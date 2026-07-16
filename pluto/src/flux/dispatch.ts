@@ -36,6 +36,7 @@ const INERT_TX: Transaction<never> = {
 
 export interface CreateDispatchParams<
   Key extends record.Key,
+  State extends base.Data,
   Action,
   SK extends string,
 > {
@@ -46,6 +47,12 @@ export interface CreateDispatchParams<
     actions: Action[];
     dispatchKey: string;
   }) => Promise<void>;
+  /**
+   * Rewrites an action batch against the current document before replay and
+   * send. Lives here rather than on the domain's dispatch controller when the
+   * rewrite needs visualization-layer context (e.g. diagram geometry).
+   */
+  preprocess?: (state: State, actions: Action[]) => Action[];
 }
 
 export const createDispatch = <
@@ -57,7 +64,8 @@ export const createDispatch = <
 >({
   storeKey,
   send,
-}: CreateDispatchParams<Key, Action, SK>) => {
+  preprocess,
+}: CreateDispatchParams<Key, State, Action, SK>) => {
   // Reduce + send with rollback. Used by dispatch, undo, and redo. The
   // `commitStack` closure applies the per-op stack mutation (push entry on
   // dispatch; transition undo↔redo on undo/redo) and returns its rollback.
@@ -75,7 +83,12 @@ export const createDispatch = <
     op: string,
     skipPreprocess = false,
   ): Promise<boolean> => {
-    const r = store[storeKey].replay(key, actions, { skipPreprocess });
+    const undoable = store[storeKey];
+    const current = undoable.get(key);
+    if (current == null) return false;
+    const processed =
+      skipPreprocess || preprocess == null ? actions : preprocess(current, actions);
+    const r = undoable.replay(key, processed, { skipPreprocess: true });
     if (r == null) return false;
     const stackRollback = commitStack(r);
     // A replay that left the state untouched has nothing for the server: no

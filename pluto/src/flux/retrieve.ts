@@ -17,7 +17,6 @@ import {
   errorResult,
   loadingResult,
   nullClientResult,
-  pendingResult,
   type Result,
   successResult,
 } from "@/flux/result";
@@ -435,7 +434,7 @@ const useSuspended = <
             cache.invalidate(memoQuery);
             return;
           }
-          cache.set(memoQuery, successResult(name, next));
+          cache.set(memoQuery, { variant: "success", data: next });
         };
         const result = mountListeners({ client, store, query: memoQuery, onChange });
         const listeners = Array.isArray(result) ? result : [result];
@@ -450,15 +449,16 @@ const useSuspended = <
   );
 
   if (entry?.variant === "success") return entry.data;
-  if (entry?.variant === "error") throw status.toError(entry.status);
-  if (entry?.variant === "loading" && entry.promise != null) return use(entry.promise);
+  if (entry?.variant === "error")
+    throw status.toError(errorResult(`retrieve ${name}`, entry.error).status);
+  if (entry?.variant === "loading") return use(entry.promise);
 
   const promise = retrieve({
     client: client as AllowDisconnected extends true ? Client | null : Client,
     query: memoQuery,
     store,
   });
-  cache.set(memoQuery, pendingResult(name, promise));
+  cache.set(memoQuery, { variant: "loading", promise });
   return use(promise);
 };
 
@@ -487,8 +487,9 @@ const useEnsure = <
 
   const entry = cache.get(memoQuery);
   if (entry?.variant === "success") return;
-  if (entry?.variant === "error") throw status.toError(entry.status);
-  if (entry?.variant === "loading" && entry.promise != null) {
+  if (entry?.variant === "error")
+    throw status.toError(errorResult(`retrieve ${name}`, entry.error).status);
+  if (entry?.variant === "loading") {
     use(entry.promise);
     return;
   }
@@ -498,7 +499,7 @@ const useEnsure = <
     query: memoQuery,
     store,
   });
-  cache.set(memoQuery, pendingResult(name, promise));
+  cache.set(memoQuery, { variant: "loading", promise });
   use(promise);
 };
 

@@ -10,13 +10,8 @@
 import { type record } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type base } from "@/flux/base";
-import {
-  createStore,
-  orderByKeys,
-  ScopedUnaryStore,
-  scopeStore,
-} from "@/flux/base/store";
+import { type cache } from "@/cache";
+import { createStore, orderByKeys, ScopedUnaryStore, scopeStore } from "@/cache/store";
 
 const basicHandleError = vi.fn((excOrFunc: any, _?: string) => {
   if (typeof excOrFunc === "function") void excOrFunc();
@@ -1530,9 +1525,9 @@ describe("Base Store", () => {
   describe("Store Factory Functions", () => {
     describe("createStore", () => {
       it("should create independent stores for each key", () => {
-        const config: base.StoreConfig<{
-          store1: base.UnaryStore<record.Key, record.Keyed<record.Key>, undefined>;
-          store2: base.UnaryStore<record.Key, record.Keyed<record.Key>, undefined>;
+        const config: cache.StoreConfig<{
+          store1: cache.UnaryStore<record.Key, record.Keyed<record.Key>, undefined>;
+          store2: cache.UnaryStore<record.Key, record.Keyed<record.Key>, undefined>;
         }> = {
           store1: { listeners: [] },
           store2: { listeners: [] },
@@ -1625,5 +1620,104 @@ describe("Base Store", () => {
       // Map.set with the same key keeps the last value written — confirming contract.
       expect(ordered).toEqual([{ key: 1, name: "second" }]);
     });
+  });
+});
+
+describe("Tombstones", () => {
+  interface Doc extends record.Keyed<string> {
+    key: string;
+    name: string;
+  }
+  const newStore = () =>
+    new ScopedUnaryStore<string, Doc>(basicHandleError).scope("scope");
+
+  it("should report unknown for a never-seen key", () => {
+    const store = newStore();
+    expect(store.status("missing")).toBe("unknown");
+    expect(store.getTombstone("missing")).toBeUndefined();
+  });
+
+  it("should report present for a live entry", () => {
+    const store = newStore();
+    store.set({ key: "k1", name: "a" });
+    expect(store.status("k1")).toBe("present");
+    expect(store.getTombstone("k1")).toBeUndefined();
+  });
+
+  it("should corpse a deleted entry", () => {
+    const store = newStore();
+    store.set({ key: "k1", name: "a" });
+    store.delete("k1");
+    expect(store.get("k1")).toBeUndefined();
+    expect(store.status("k1")).toBe("tombstoned");
+    const tombstone = store.getTombstone("k1");
+    expect(tombstone?.corpse).toEqual({ key: "k1", name: "a" });
+    expect(tombstone?.deletedAt).toBeDefined();
+  });
+
+  it("should not corpse a delete of an absent key", () => {
+    const store = newStore();
+    store.delete("k1");
+    expect(store.status("k1")).toBe("unknown");
+    expect(store.getTombstone("k1")).toBeUndefined();
+  });
+
+  it("should clear the tombstone on a subsequent set", () => {
+    const store = newStore();
+    store.set({ key: "k1", name: "a" });
+    store.delete("k1");
+    store.set({ key: "k1", name: "b" });
+    expect(store.status("k1")).toBe("present");
+    expect(store.getTombstone("k1")).toBeUndefined();
+    expect(store.get("k1")).toEqual({ key: "k1", name: "b" });
+  });
+
+  it("should clear the tombstone on setIfAbsent", () => {
+    const store = newStore();
+    store.set({ key: "k1", name: "a" });
+    store.delete("k1");
+    store.setIfAbsent({ key: "k1", name: "c" });
+    expect(store.status("k1")).toBe("present");
+    expect(store.getTombstone("k1")).toBeUndefined();
+  });
+
+  it("should corpse entries deleted through a filter", () => {
+    const store = newStore();
+    store.set([
+      { key: "k1", name: "a" },
+      { key: "k2", name: "b" },
+    ]);
+    store.delete((value) => value.name === "a");
+    expect(store.status("k1")).toBe("tombstoned");
+    expect(store.status("k2")).toBe("present");
+  });
+
+  it("should remove the tombstone when a delete is rolled back", () => {
+    const store = newStore();
+    store.set({ key: "k1", name: "a" });
+    const rollback = store.delete("k1");
+    rollback();
+    expect(store.status("k1")).toBe("present");
+    expect(store.getTombstone("k1")).toBeUndefined();
+    expect(store.get("k1")).toEqual({ key: "k1", name: "a" });
+  });
+
+  it("should restore the tombstone when a resurrecting set is rolled back", () => {
+    const store = newStore();
+    store.set({ key: "k1", name: "a" });
+    store.delete("k1");
+    const rollback = store.set({ key: "k1", name: "b" });
+    rollback();
+    expect(store.status("k1")).toBe("tombstoned");
+    expect(store.getTombstone("k1")?.corpse).toEqual({ key: "k1", name: "a" });
+  });
+
+  it("should clear tombstones on clear", () => {
+    const base = new ScopedUnaryStore<string, Doc>(basicHandleError);
+    const store = base.scope("scope");
+    store.set({ key: "k1", name: "a" });
+    store.delete("k1");
+    base.clear();
+    expect(store.status("k1")).toBe("unknown");
   });
 });

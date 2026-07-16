@@ -7,14 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useEffect,
-  useMemo,
-  useRef,
-} from "react";
+import { cache, type dispatch } from "@synnaxlabs/client";
+import { type PropsWithChildren, type ReactElement, useMemo, useRef } from "react";
 
 import { Aether } from "@/aether";
 import { context } from "@/context";
@@ -23,10 +17,16 @@ import { base } from "@/flux/base";
 import { useInitializerRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { type state } from "@/state";
+import { type status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
-const [Context, useContext] = context.create<base.Client>({
+interface ContextValue {
+  engine: cache.Engine;
+  controllers: Record<string, dispatch.Controller<any, any, any>>;
+}
+
+const [Context, useContext] = context.create<ContextValue>({
   displayName: "Flux.Context",
   providerName: "Flux.Provider",
 });
@@ -34,9 +34,12 @@ const [Context, useContext] = context.create<base.Client>({
 export const useStore = <ScopedStore extends flux.Store>(
   scope?: string,
 ): ScopedStore => {
-  const client = useContext("Flux.useStore");
+  const { engine, controllers } = useContext("Flux.useStore");
   const uniqueKey = useUniqueKey(scope);
-  return useMemo(() => client.scopedStore<ScopedStore>(uniqueKey), [client, uniqueKey]);
+  return useMemo(
+    () => base.createScopedStore<ScopedStore>(engine, controllers, uniqueKey),
+    [engine, controllers, uniqueKey],
+  );
 };
 
 /// Returns the typed query cache for the given key, creating it on first use.
@@ -44,57 +47,79 @@ export const useStore = <ScopedStore extends flux.Store>(
 /// concrete `Q` and `D` types and requires no per-call generics or casts.
 export const useQueryCache = <Q extends base.Query, D extends state.State>(
   key: string,
-): base.QueryCache<Q, D> => useContext("Flux.useQueryCache").getCache<Q, D>(key);
+): cache.QueryCache<Q, D> =>
+  useContext("Flux.useQueryCache").engine.getCache<Q, D>(key);
 
-export type ProviderProps<ScopedStore extends flux.Store> = (
-  { client: base.Client<ScopedStore> } | { storeConfig: flux.StoreConfig<ScopedStore> }
-) &
-  PropsWithChildren;
+export interface ProviderProps extends PropsWithChildren {
+  /**
+   * Builds the dispatch controller overlaying each undoable store key.
+   * Assembled at the Pluto wiring site; must be referentially stable.
+   */
+  composers?: base.StoreComposers;
+  /**
+   * Overrides the engine backing the flux stores. Defaults to the connected
+   * client's cache engine, or a detached engine when disconnected.
+   */
+  engine?: cache.Engine;
+  /**
+   * Overrides error reporting for store listeners and change streaming.
+   * Defaults to the status aggregator.
+   */
+  handleError?: status.ErrorHandler;
+  /** Async counterpart of handleError. */
+  handleAsyncError?: status.AsyncErrorHandler;
+}
 
-export const Provider = <ScopedStore extends flux.Store>({
+const NO_COMPOSERS: base.StoreComposers = {};
+
+export const Provider = ({
   children,
-  ...cfg
-}: ProviderProps<ScopedStore>): ReactElement | null => {
+  composers = NO_COMPOSERS,
+  engine: engineOverride,
+  handleError: handleErrorOverride,
+  handleAsyncError: handleAsyncErrorOverride,
+}: ProviderProps): ReactElement | null => {
   const synnaxClient = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const handleAsyncError = Status.useAsyncErrorHandler();
+  const aggregatorHandleError = Status.useErrorHandler();
+  const aggregatorHandleAsyncError = Status.useAsyncErrorHandler();
+  const handleError = handleErrorOverride ?? aggregatorHandleError;
+  const handleAsyncError = handleAsyncErrorOverride ?? aggregatorHandleAsyncError;
   const { path } = Aether.useLifecycle({
     type: flux.PROVIDER_TYPE,
     schema: flux.providerStateZ,
     initialState: {},
   });
-  const owns = !("client" in cfg);
-  const initializeClient = () => {
-    if ("client" in cfg) return cfg.client;
-    return new base.Client({
-      client: synnaxClient,
-      storeConfig: cfg.storeConfig,
-      handleError,
-      handleAsyncError,
-    });
+  const initialize = (): ContextValue => {
+    const attachedClient =
+      engineOverride == null && synnaxClient?.cache.enabled === true
+        ? synnaxClient
+        : null;
+    const engine =
+      engineOverride ??
+      attachedClient?.cache.engine ??
+      new cache.Engine({ openStreamer: null });
+    engine.setErrorHandlers(handleError, handleAsyncError);
+    const controllers = Object.fromEntries(
+      Object.entries(composers).map(([key, compose]) => [
+        key,
+        compose({ client: attachedClient, engine }),
+      ]),
+    );
+    handleError(
+      async () => await engine.ensureStreaming(),
+      "failed to start flux change streaming",
+    );
+    return { engine, controllers };
   };
-  const closeClient = (client: base.Client<ScopedStore>): void => {
-    client
-      .close()
-      .catch((err: unknown) => console.error("failed to close flux client", err));
-  };
-  const clientRef = useInitializerRef(initializeClient);
-  const prevSynnaxClient = useRef<SynnaxClient | null>(null);
-  if (synnaxClient?.key !== prevSynnaxClient.current?.key) {
-    prevSynnaxClient.current = synnaxClient;
-    const prevClient = clientRef.current;
-    clientRef.current = initializeClient();
-    if (owns) closeClient(prevClient);
+  const valueRef = useInitializerRef(initialize);
+  const prevClientKey = useRef(synnaxClient?.key);
+  if (synnaxClient?.key !== prevClientKey.current) {
+    prevClientKey.current = synnaxClient?.key;
+    valueRef.current = initialize();
   }
-  useEffect(
-    () => () => {
-      if (owns) closeClient(clientRef.current);
-    },
-    [],
-  );
   return (
     <Aether.Composite path={path}>
-      <Context value={clientRef.current}>{children}</Context>
+      <Context value={valueRef.current}>{children}</Context>
     </Aether.Composite>
   );
 };

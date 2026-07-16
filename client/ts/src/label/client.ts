@@ -11,12 +11,11 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
+import { type cache } from "@/cache";
+import { bindStore, STORE_KEY } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-
-export const SET_CHANNEL_NAME = "sy_label_set";
-export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
 const createReqZ = z.object({ labels: labelZ.array() });
 const createResZ = z.object({ labels: labelZ.array() });
@@ -57,9 +56,23 @@ const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) })
 export class Client {
   readonly type: string = "label";
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Label>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine, async (keys) => await this.retrieve({ keys }));
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the label cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Label> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async retrieve(params: RetrieveSingleParams): Promise<Label>;

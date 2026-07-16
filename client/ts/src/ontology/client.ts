@@ -11,16 +11,23 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
 import { QueryError } from "@/errors";
 import {
   type ID,
   idToString,
   idZ,
   parseIDs,
+  type Relationship,
   type Resource,
   resourceTypeZ,
   resourceZ,
 } from "@/ontology/payload";
+import {
+  bindStores,
+  RELATIONSHIPS_STORE_KEY,
+  RESOURCES_STORE_KEY,
+} from "@/ontology/store";
 import { Writer } from "@/ontology/writer";
 
 const retrieveReqZ = z.object({
@@ -47,10 +54,36 @@ export class Client {
   readonly type: string = "ontology";
   private readonly client: UnaryClient;
   private readonly writer: Writer;
+  private readonly relationships_?: cache.Store<string, Relationship>;
+  private readonly resources_?: cache.Store<string, Resource>;
 
-  constructor(unary: UnaryClient) {
+  constructor(unary: UnaryClient, engine?: cache.Engine) {
     this.client = unary;
     this.writer = new Writer(unary);
+    if (engine == null) return;
+    bindStores(engine, async (ids) => await this.retrieve(ids));
+    this.relationships_ = engine.store(RELATIONSHIPS_STORE_KEY);
+    this.resources_ = engine.store(RESOURCES_STORE_KEY);
+  }
+
+  /**
+   * Read surface of the relationship cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get relationships(): cache.Store<string, Relationship> {
+    if (this.relationships_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.relationships_;
+  }
+
+  /**
+   * Read surface of the resource cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get resources(): cache.Store<string, Resource> {
+    if (this.resources_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.resources_;
   }
 
   /**
@@ -172,8 +205,3 @@ export class Client {
     return resources;
   }
 }
-
-export const RESOURCE_SET_CHANNEL_NAME = "sy_ontology_resource_set";
-export const RESOURCE_DELETE_CHANNEL_NAME = "sy_ontology_resource_delete";
-export const RELATIONSHIP_SET_CHANNEL_NAME = "sy_ontology_relationship_set";
-export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete";

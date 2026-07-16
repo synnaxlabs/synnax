@@ -36,24 +36,6 @@ export interface FluxSubStore extends Task.FluxSubStore {
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
 
-const genericDeviceZ = device.deviceZ();
-
-const SET_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof genericDeviceZ> = {
-  channel: device.SET_CHANNEL_NAME,
-  schema: genericDeviceZ,
-  onChange: ({ store, changed }) => store.devices.set(changed.key, changed),
-};
-
-const DELETE_DEVICE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof device.keyZ> = {
-  channel: device.DELETE_CHANNEL_NAME,
-  schema: device.keyZ,
-  onChange: ({ store, changed }) => store.devices.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_DEVICE_LISTENER, DELETE_DEVICE_LISTENER],
-};
-
 export const useSetSynchronizer = (onSet: (device: device.Device) => void): void => {
   const store = Flux.useStore<FluxSubStore>();
   useEffect(() => store.devices.onSet(onSet), [store]);

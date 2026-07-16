@@ -10,7 +10,9 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { keyZ, type New, type Role, roleZ } from "@/access/role/types.gen";
+import { bindStore, STORE_KEY } from "@/access/role/store";
+import { type Key, keyZ, type New, type Role, roleZ } from "@/access/role/types.gen";
+import { type cache } from "@/cache";
 import { user } from "@/user";
 
 const retrieveRequestZ = z.object({
@@ -64,14 +66,25 @@ export type UnassignParams = z.input<typeof unassignReqZ>;
 
 const unassignResZ = z.object({});
 
-export const SET_CHANNEL_NAME = "sy_role_set";
-export const DELETE_CHANNEL_NAME = "sy_role_delete";
-
 export class Client {
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Role>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the role cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Role> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async create(role: New): Promise<Role>;

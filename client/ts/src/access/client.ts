@@ -11,13 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
+import { type cache } from "@/cache";
 
 export class Client {
   readonly policies: policy.Client;
   readonly roles: role.Client;
 
-  constructor(client: UnaryClient) {
-    this.policies = new policy.Client(client);
-    this.roles = new role.Client(client);
+  constructor(client: UnaryClient, engine?: cache.Engine) {
+    this.policies = new policy.Client(client, engine);
+    this.roles = new role.Client(client, engine);
   }
 }

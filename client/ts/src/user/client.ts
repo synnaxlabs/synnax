@@ -11,8 +11,10 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
+import { bindStore, STORE_KEY } from "@/user/store";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
 
 const retrieveRequestZ = z.object({
@@ -73,9 +75,23 @@ export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, User>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the user cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, User> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   async create(user: New): Promise<User>;

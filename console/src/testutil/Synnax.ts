@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, type Synnax as Client } from "@synnaxlabs/client";
+import { cache, status, type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, Pluto } from "@synnaxlabs/pluto";
 import {
   createAsyncSynnaxWrapper as pCreateAsyncSynnaxWrapper,
@@ -151,14 +151,26 @@ export const createAsyncSynnaxWrapper = async (
   await pCreateAsyncSynnaxWrapper(withConsoleErrorHandlers(params));
 
 /**
- * Builds a real pluto flux store backed by the full production store config, for code
- * that takes a Pluto.FluxStore directly instead of reading it from the provider stack.
- * Pass a real client for live-core specs, or null (the default) for offline ones.
+ * Builds a real pluto flux store backed by the client's cache engine (or a detached
+ * engine when no client is given), for code that takes a Pluto.FluxStore directly
+ * instead of reading it from the provider stack. Pass a real client for live-core
+ * specs, or null (the default) for offline ones.
  */
-export const createTestFluxStore = (client: Client | null = null): Pluto.FluxStore =>
-  new Flux.Client({
-    client,
-    storeConfig: { ...Pluto.FLUX_STORE_CONFIG },
-    handleError: createErrorHandler(console.error),
-    handleAsyncError: createAsyncErrorHandler(console.error),
-  }).scopedStore<Pluto.FluxStore>("");
+export const createTestFluxStore = (client: Client | null = null): Pluto.FluxStore => {
+  const attached = client != null && client.cache.enabled;
+  const engine = attached
+    ? client.cache.engine
+    : new cache.Engine({ openStreamer: null });
+  engine.setErrorHandlers(
+    createErrorHandler(console.error),
+    createAsyncErrorHandler(console.error),
+  );
+  const controllers = Object.fromEntries(
+    Object.entries(Pluto.STORE_COMPOSERS).map(([key, compose]) => [
+      key,
+      compose({ client: attached ? client : null, engine }),
+    ]),
+  );
+  if (attached) void engine.ensureStreaming();
+  return Flux.createScopedStore<Pluto.FluxStore>(engine, controllers, "");
+};

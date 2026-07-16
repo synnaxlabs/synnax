@@ -210,11 +210,13 @@ export class HardenedStreamer implements Streamer {
   private readonly breaker: breaker.Breaker;
   private readonly opener: StreamOpener;
   private readonly config: ParsedStreamerConfig;
+  private readonly onReopen?: () => void;
 
   private constructor(
     opener: StreamOpener,
     config: StreamerConfig,
     breakerConfig: breaker.Config = {},
+    onReopen?: () => void,
   ) {
     this.opener = opener;
     this.config = streamerConfigZ.parse(config);
@@ -224,30 +226,36 @@ export class HardenedStreamer implements Streamer {
       scale = 1,
     } = breakerConfig ?? {};
     this.breaker = new breaker.Breaker({ maxRetries, baseInterval, scale });
+    this.onReopen = onReopen;
   }
 
   /**
    * Opens a new hardened streamer with the given configuration.
    * @param opener - The function to use for opening streamers
    * @param config - The configuration for the streamer
+   * @param breakerConfig - Retry behavior for reconnect attempts
+   * @param onReopen - Called after every successful reconnect (not the initial
+   * open). Frames may have been dropped between the failure and the reopen.
    * @returns A promise that resolves to a new hardened streamer
    */
   static async open(
     opener: StreamOpener,
     config: StreamerConfig,
     breakerConfig?: breaker.Config,
+    onReopen?: () => void,
   ): Promise<HardenedStreamer> {
-    const h = new HardenedStreamer(opener, config, breakerConfig);
-    await h.runStreamer();
+    const h = new HardenedStreamer(opener, config, breakerConfig, onReopen);
+    await h.runStreamer(false);
     return h;
   }
 
-  private async runStreamer(): Promise<void> {
+  private async runStreamer(notifyReopen: boolean = true): Promise<void> {
     while (true)
       try {
         if (this.wrapped_ != null) this.wrapped_.close();
         this.wrapped_ = await this.opener(this.config);
         this.breaker.reset();
+        if (notifyReopen) this.onReopen?.();
         return;
       } catch (e) {
         this.wrapped_ = null;

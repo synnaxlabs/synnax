@@ -11,12 +11,13 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
+import { type dispatch } from "@/dispatch";
 import { project } from "@/project";
 import { type Action, dispatchReqZ, rename as renameAction } from "@/table/actions.gen";
+import { bindStore, STORE_KEY } from "@/table/store";
 import { type Key, keyZ, type New, type Table, tableZ } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-
-export const SET_CHANNEL_NAME = "sy_table_set";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -39,9 +40,34 @@ const emptyResZ = z.object({});
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly store_?: cache.Store<Key, Table>;
+  private readonly dispatcher_?: dispatch.Controller<Key, Table, Action>;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, engine?: cache.Engine) {
     this.client = client;
+    if (engine == null) return;
+    this.dispatcher_ = bindStore(engine);
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the table cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Table> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
+  }
+
+  /**
+   * Action-dispatch controller over the table cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get dispatcher(): dispatch.Controller<Key, Table, Action> {
+    if (this.dispatcher_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.dispatcher_;
   }
 
   async create(project: project.Key, table: New): Promise<Table>;

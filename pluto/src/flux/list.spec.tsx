@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { cache, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
-import { base } from "@/flux/base";
+import { type base } from "@/flux/base";
 import { type ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { Status } from "@/status/base";
@@ -1252,39 +1252,30 @@ describe("list", () => {
     interface ReconnectStore extends base.Store {
       docs: base.UnaryStore<string, Doc>;
     }
-    const RECONNECT_STORE_CONFIG: base.StoreConfig<ReconnectStore> = {
-      docs: { listeners: [] },
-    };
     const ReconnectAetherProvider = aetherTest.createProvider({
       ...synnax.REGISTRY,
       ...status.REGISTRY,
-      ...flux.createRegistry({ storeConfig: {} }),
+      ...flux.createRegistry(),
     });
-    const setDoc = (fluxClient: base.Client<ReconnectStore>, doc: Doc): void => {
-      fluxClient.scopedStore<ReconnectStore>("test-writer").docs.set(doc.key, doc);
+    const setDoc = (engine: cache.Engine, doc: Doc): void => {
+      engine.store<string, Doc>("docs", "test-writer").set(doc.key, doc);
     };
-    const newFluxClient = (): base.Client<ReconnectStore> =>
-      new base.Client<ReconnectStore>({
-        client: null,
-        storeConfig: RECONNECT_STORE_CONFIG,
-        handleError: status.createErrorHandler(console.error),
-        handleAsyncError: status.createAsyncErrorHandler(console.error),
-      });
+    const newEngine = (): cache.Engine => new cache.Engine({ openStreamer: null });
 
-    // Flux.Provider rebuilds its base client when the Synnax client key changes;
+    // Flux.Provider rebinds its stores when the Synnax client key changes;
     // only key is read here, so a minimal stub stands in for a full client.
     const clientWithKey = (key: string): Client => ({ key }) as unknown as Client;
 
     interface ReconnectSetup {
-      fluxA: base.Client<ReconnectStore>;
-      fluxB: base.Client<ReconnectStore>;
+      fluxA: cache.Engine;
+      fluxB: cache.Engine;
       wrapper: React.FC<PropsWithChildren>;
       reconnect: () => void;
     }
 
     const createReconnectSetup = (): ReconnectSetup => {
-      const fluxA = newFluxClient();
-      const fluxB = newFluxClient();
+      const fluxA = newEngine();
+      const fluxB = newEngine();
       // Distinct keys model the client swap.
       let activeFlux = fluxA;
       let activeSynnax = clientWithKey("a");
@@ -1292,7 +1283,7 @@ describe("list", () => {
         <ReconnectAetherProvider>
           <Status.Aggregator>
             <Synnax.TestProvider client={activeSynnax}>
-              <Flux.Provider client={activeFlux}>{children}</Flux.Provider>
+              <Flux.Provider engine={activeFlux}>{children}</Flux.Provider>
             </Synnax.TestProvider>
           </Status.Aggregator>
         </ReconnectAetherProvider>

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type rack, status, task } from "@synnaxlabs/client";
+import { ontology, type rack, task } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
@@ -33,45 +33,6 @@ export interface FluxSubStore extends Ontology.FluxSubStore, Label.FluxSubStore 
   [FLUX_STORE_KEY]: FluxStore;
   [Status.FLUX_STORE_KEY]: Status.FluxStore;
 }
-
-// Temporary hack that filters the set of commands that should change the
-// status of a task to loading.
-// Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
-const LOADING_COMMANDS = ["start", "stop"];
-
-const SET_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
-  channel: task.SET_CHANNEL_NAME,
-  schema: task.keyZ,
-  onChange: async ({ store, changed: key, client }) =>
-    store.tasks.set(key, await client.tasks.retrieve({ key, includeStatus: true })),
-};
-
-const DELETE_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.keyZ> = {
-  channel: task.DELETE_CHANNEL_NAME,
-  schema: task.keyZ,
-  onChange: ({ store, changed }) => store.tasks.delete(changed),
-};
-
-const SET_COMMAND_LISTENER: Flux.ChannelListener<FluxSubStore, typeof task.commandZ> = {
-  channel: task.COMMAND_CHANNEL_NAME,
-  schema: task.commandZ,
-  onChange: ({ store, changed }) => {
-    store.statuses.set(task.statusKey(changed.task), (prev) => {
-      if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-      return status.create<task.StatusDetailsZodObject>({
-        key: task.statusKey(changed.task),
-        name: "Task Status",
-        variant: "loading",
-        message: `Running ${changed.type} command...`,
-        details: { task: changed.task, running: true, cmd: "", data: {} },
-      });
-    });
-  },
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_LISTENER, DELETE_LISTENER, SET_COMMAND_LISTENER],
-};
 
 export type RetrieveQuery = task.RetrieveSingleParams;
 

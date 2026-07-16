@@ -11,6 +11,7 @@ import { type spatial } from "@synnaxlabs/x";
 import { type Draft } from "immer";
 
 import {
+  type Action,
   createReduceAll,
   type HandlerResult,
   type Handlers,
@@ -294,3 +295,14 @@ const handlers: Handlers = {
 };
 
 export const reduceAll = createReduceAll(handlers);
+
+export const kindOf = (actions: Action[]): string => {
+  if (actions.length === 0) return "default";
+  // Drag-resize streams ResizeSplit; coalesce them into a single undoable per
+  // gesture so one ⌘Z reverses the entire drag.
+  if (actions.every((a) => a.type === "resize_split")) return "resize";
+  // Same for cross-leaf drags that produce a stream of MoveTab.
+  if (actions.every((a) => a.type === "move_tab")) return "move";
+  if (actions.length === 1) return actions[0].type;
+  return "transaction";
+};

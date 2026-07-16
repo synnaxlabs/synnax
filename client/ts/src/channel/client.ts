@@ -22,6 +22,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
 import { type Params } from "@/channel/payload";
 import {
   analyzeParams,
@@ -32,6 +33,7 @@ import {
   type Retriever,
   type RetrieveRequest,
 } from "@/channel/retriever";
+import { bindStore, STORE_KEY } from "@/channel/store";
 import {
   type Key,
   keyZ,
@@ -53,9 +55,6 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
 }
-
-export const SET_CHANNEL_NAME = "sy_channel_set";
-export const DELETE_CHANNEL_NAME = "sy_channel_delete";
 
 /**
  * Represents a Channel in a Synnax database. Typically, channels should not be
@@ -234,17 +233,36 @@ export class Client {
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
   readonly writer: Writer;
+  private readonly store_?: cache.Store<Key, Channel>;
 
   constructor(
     frameClient: framer.Client,
     retriever: Retriever,
     client: UnaryClient,
     writer: Writer,
+    engine?: cache.Engine,
   ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
     this.client = client;
     this.writer = writer;
+    if (engine == null) return;
+    bindStore(
+      engine,
+      (payload) => this.sugar(payload),
+      async (keys) => await this.retrieve(keys),
+    );
+    this.store_ = engine.store(STORE_KEY);
+  }
+
+  /**
+   * Read surface of the channel cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Channel> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
   }
 
   /**

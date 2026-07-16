@@ -274,36 +274,8 @@ const augmentWithEdgeSegments = (
   return [...actions, ...extra];
 };
 
-const kindOfTransaction = (actions: schematic.Action[]): string => {
-  if (actions.length === 0) return "default";
-  // A drag dispatches a stream of `set_node_position` per frame, plus
-  // `set_config` companions synthesized by augmentWithEdgeSegments for any
-  // affected edges. Both shapes are part of one user gesture and must coalesce
-  // together — classify them all as "move" so the per-kind coalesce window
-  // collapses them into a single undoable.
-  const hasMove = actions.some((a) => a.type === "set_node_position");
-  const onlyMoveOrSegment = actions.every(
-    (a) => a.type === "set_node_position" || a.type === "set_config",
-  );
-  if (hasMove && onlyMoveOrSegment) return "move";
-  if (actions.length === 1) return actions[0].type;
-  return "transaction";
-};
-
-export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
-  schematic.Key,
-  schematic.Schematic,
-  schematic.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  reduce: schematic.reduceAll,
-  preprocess: augmentWithEdgeSegments,
-  channel: schematic.SET_CHANNEL_NAME,
-  schema: schematic.scopedActionZ,
-  kindOf: kindOfTransaction,
-});
+export const STORE_COMPOSER: Flux.StoreComposer = ({ client, engine }) =>
+  client?.schematics.dispatcher ?? schematic.bindStore(engine);
 
 export const {
   useDispatch,
@@ -320,6 +292,7 @@ export const {
   storeKey: FLUX_STORE_KEY,
   send: ({ client, key, actions, dispatchKey }) =>
     client.schematics.dispatch(key, dispatchKey, actions),
+  preprocess: augmentWithEdgeSegments,
 });
 
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);

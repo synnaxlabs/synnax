@@ -12,17 +12,21 @@ import {
   array,
   color,
   type CrudeTimeRange,
+  deep,
   type Series,
   TimeRange,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
 import { type channel } from "@/channel";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { type ontology } from "@/ontology";
+import { alias } from "@/ranger/alias";
 import { type Client as AliasClient } from "@/ranger/alias/client";
+import { kv } from "@/ranger/kv";
 import { type Client as KVClient } from "@/ranger/kv/client";
 import { type Name, type Params } from "@/ranger/payload";
 import {
@@ -38,6 +42,80 @@ import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 export const SET_CHANNEL_NAME = "sy_range_set";
 export const DELETE_CHANNEL_NAME = "sy_range_delete";
+
+export const STORE_KEY = "ranges";
+export const KV_STORE_KEY = "rangeKV";
+export const ALIASES_STORE_KEY = "rangeAliases";
+
+const kvDeleteZ = z
+  .string()
+  .transform((val) => val.split("<--->"))
+  .transform(([range, key]) => ({ key, range }));
+
+const aliasDeleteZ = z.string().transform((val) => alias.decodeDeleteChange(val));
+
+/** Registers the range, range KV, and range alias stores on the given engine. */
+const bindStores = (engine: cache.Engine, client: Client): void => {
+  const ranges = () => engine.store<Key, Range>(STORE_KEY);
+  const setListener: cache.ChannelListener<{}, typeof payloadZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: payloadZ,
+    onChange: async ({ changed }) => {
+      const range = client.sugarOne(changed);
+      const prev = ranges().get(changed.key);
+      let labels: label.Label[] | undefined;
+      if (prev?.labels == null) labels = await range.retrieveLabels();
+      let parent: Range | null = null;
+      if (prev?.parent == null) parent = await range.retrieveParent();
+      ranges().set(changed.key, (p) => {
+        const pld: Payload = { ...range.payload };
+        pld.labels = p?.labels ?? labels;
+        pld.parent = p?.parent ?? parent?.payload;
+        return client.sugarOne(pld);
+      });
+    },
+  };
+  const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: ({ changed }) => ranges().delete(changed),
+  };
+  engine.registerStore<Key, Range>(STORE_KEY, {
+    equal: (a, b) => deep.equal(a.payload, b.payload),
+    listeners: [setListener, deleteListener],
+    refetch: async (keys) => await client.retrieve(keys),
+  });
+
+  const pairs = () => engine.store<string, kv.Pair>(KV_STORE_KEY);
+  const kvSetListener: cache.ChannelListener<{}, typeof kv.pairZ> = {
+    channel: kv.SET_CHANNEL_NAME,
+    schema: kv.pairZ,
+    onChange: ({ changed }) => pairs().set(kv.createPairKey(changed), changed),
+  };
+  const kvDeleteListener: cache.ChannelListener<{}, typeof kvDeleteZ> = {
+    channel: kv.DELETE_CHANNEL_NAME,
+    schema: kvDeleteZ,
+    onChange: ({ changed }) => pairs().delete(kv.createPairKey(changed)),
+  };
+  engine.registerStore<string, kv.Pair>(KV_STORE_KEY, {
+    listeners: [kvSetListener, kvDeleteListener],
+  });
+
+  const aliases = () => engine.store<string, alias.Alias>(ALIASES_STORE_KEY);
+  const aliasSetListener: cache.ChannelListener<{}, typeof alias.aliasZ> = {
+    channel: alias.SET_CHANNEL_NAME,
+    schema: alias.aliasZ,
+    onChange: ({ changed }) => aliases().set(alias.createKey(changed), changed),
+  };
+  const aliasDeleteListener: cache.ChannelListener<{}, typeof aliasDeleteZ> = {
+    channel: alias.DELETE_CHANNEL_NAME,
+    schema: aliasDeleteZ,
+    onChange: ({ changed }) => aliases().delete(alias.createKey(changed)),
+  };
+  engine.registerStore<string, alias.Alias>(ALIASES_STORE_KEY, {
+    listeners: [aliasSetListener, aliasDeleteListener],
+  });
+};
 
 interface RangeConstructionOptions {
   frameClient: framer.Client;
@@ -204,6 +282,9 @@ export class Client {
   private readonly ontologyClient: ontology.Client;
   private readonly createAliasClient: (key: Key) => AliasClient;
   private readonly createKVClient: (key: Key) => KVClient;
+  private readonly store_?: cache.Store<Key, Range>;
+  private readonly kvPairs_?: cache.Store<string, kv.Pair>;
+  private readonly aliases_?: cache.Store<string, alias.Alias>;
 
   constructor(
     frameClient: framer.Client,
@@ -214,6 +295,7 @@ export class Client {
     ontologyClient: ontology.Client,
     createAliasClient: (key: Key) => AliasClient,
     createKVClient: (key: Key) => KVClient,
+    engine?: cache.Engine,
   ) {
     this.frameClient = frameClient;
     this.writer = writer;
@@ -223,6 +305,41 @@ export class Client {
     this.ontologyClient = ontologyClient;
     this.createAliasClient = createAliasClient;
     this.createKVClient = createKVClient;
+    if (engine == null) return;
+    bindStores(engine, this);
+    this.store_ = engine.store(STORE_KEY);
+    this.kvPairs_ = engine.store(KV_STORE_KEY);
+    this.aliases_ = engine.store(ALIASES_STORE_KEY);
+  }
+
+  /**
+   * Read surface of the range cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get store(): cache.Store<Key, Range> {
+    if (this.store_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.store_;
+  }
+
+  /**
+   * Read surface of the range KV pair cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get kvPairs(): cache.Store<string, kv.Pair> {
+    if (this.kvPairs_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.kvPairs_;
+  }
+
+  /**
+   * Read surface of the range alias cache.
+   * @throws when the cache was disabled at client construction.
+   */
+  get aliases(): cache.Store<string, alias.Alias> {
+    if (this.aliases_ == null)
+      throw new Error("cache is disabled on this client (cache: false)");
+    return this.aliases_;
   }
 
   async create(range: New): Promise<Range>;

@@ -28,22 +28,6 @@ export interface FluxSubStore extends Flux.Store {
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
 }
 
-const SET_LABEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof label.labelZ> = {
-  channel: label.SET_CHANNEL_NAME,
-  schema: label.labelZ,
-  onChange: ({ store, changed }) => store.labels.set(changed.key, changed),
-};
-
-const DELETE_LABEL_LISTENER: Flux.ChannelListener<FluxSubStore, typeof label.keyZ> = {
-  channel: label.DELETE_CHANNEL_NAME,
-  schema: label.keyZ,
-  onChange: ({ store, changed }) => store.labels.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_LABEL_LISTENER, DELETE_LABEL_LISTENER],
-};
-
 export type RetrieveQuery = label.RetrieveSingleParams;
 
 export const retrieveSingle = async ({

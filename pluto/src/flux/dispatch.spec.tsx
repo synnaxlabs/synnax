@@ -39,6 +39,7 @@ const createSchem = async () => {
 
 type SendFn = Flux.CreateDispatchParams<
   schematic.Key,
+  schematic.Schematic,
   schematic.Action,
   typeof Schematic.FLUX_STORE_KEY
 >["send"];

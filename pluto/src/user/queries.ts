@@ -28,14 +28,6 @@ export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
 export const FLUX_STORE_KEY = "users";
 const RESOURCE_NAME = "user";
 
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
-  user.Key,
-  user.User
-> = {
-  listeners: [],
-};
-
 export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
   [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;

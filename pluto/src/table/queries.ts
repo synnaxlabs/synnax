@@ -230,37 +230,8 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
-// kindOfTransaction classifies an action batch for the undoable store's
-// per-kind coalesce window. Continuous resize gestures (a stream of
-// resize_row or resize_col actions) collapse into a single undo step;
-// successive set_cell actions on the same cell coalesce per-cell so typing
-// inside one cell collapses to one undo step but switching cells starts a
-// fresh entry; everything else is treated as a discrete user action.
-const kindOfTransaction = (actions: table.Action[]): string => {
-  if (actions.length === 0) return "default";
-  if (actions.every((a) => a.type === "resize_row" || a.type === "resize_col"))
-    return "resize";
-  if (actions.length === 1) {
-    const a = actions[0];
-    if (a.type === "set_cell") return `set_cell:${a.setCell.cell.key}`;
-    return a.type;
-  }
-  return "transaction";
-};
-
-export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
-  table.Key,
-  table.Table,
-  table.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  reduce: table.reduceAll,
-  channel: table.SET_CHANNEL_NAME,
-  schema: table.scopedActionZ,
-  kindOf: kindOfTransaction,
-});
+export const STORE_COMPOSER: Flux.StoreComposer = ({ client, engine }) =>
+  client?.tables.dispatcher ?? table.bindStore(engine);
 
 export const {
   useDispatch,

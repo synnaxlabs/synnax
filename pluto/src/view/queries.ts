@@ -28,22 +28,6 @@ export interface FluxSubStore extends Flux.Store {
   [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
 }
 
-const SET_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof view.viewZ> = {
-  channel: view.SET_CHANNEL_NAME,
-  schema: view.viewZ,
-  onChange: ({ store, changed }) => store.views.set(changed.key, changed),
-};
-
-const DELETE_VIEW_LISTENER: Flux.ChannelListener<FluxSubStore, typeof view.keyZ> = {
-  channel: view.DELETE_CHANNEL_NAME,
-  schema: view.keyZ,
-  onChange: ({ store, changed }) => store.views.delete(changed),
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
-  listeners: [SET_VIEW_LISTENER, DELETE_VIEW_LISTENER],
-};
-
 export type ListQuery = view.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, view.Key, view.View, FluxSubStore>({

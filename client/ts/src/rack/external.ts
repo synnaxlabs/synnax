@@ -8,4 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/rack/client";
+export { DELETE_CHANNEL_NAME, SET_CHANNEL_NAME, STORE_KEY } from "@/rack/store";
 export * from "@/rack/types.gen";
