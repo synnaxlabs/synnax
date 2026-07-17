@@ -159,7 +159,11 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
     const get = useGet();
     return useCallback(
       (args?: optional.Optional<Args, "key" | "tabKey">) =>
-        get({ key, tabKey, ...args } as Args),
+        get({
+          ...args,
+          key: Scope.require(args?.key ?? key),
+          tabKey: TabScope.require(args?.tabKey ?? tabKey),
+        } as Args),
       [get, key, tabKey],
     );
   };

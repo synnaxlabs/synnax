@@ -7,15 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, type Synnax, UnexpectedError } from "@synnaxlabs/client";
+import {
+  lineplot,
+  type project,
+  type Synnax,
+  UnexpectedError,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { Table } from "@/platform/table";
+import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
-import { createConsoleWrapper } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab } from "@/testutil";
 
 const client: Synnax = createTestClient();
 
@@ -35,14 +40,25 @@ const buildHarness = async ({ activeProject }: BuildHarnessArgs = {}) =>
   });
 
 const newProject = async (): Promise<project.Project> =>
-  await client.projects.create({ name: `proj-${id.create()}`, layout: {} });
+  await client.projects.create({
+    name: `proj_${id.create().replace(/-/g, "_")}`,
+    layout: {},
+  });
 
 const renderCreate = (
   harness: Awaited<ReturnType<typeof buildHarness>>,
-  props: Parameters<typeof Table.useCreate>[0] = {},
-) => renderHook(() => Table.useCreate(props), { wrapper: harness.wrapper });
+  props: Parameters<typeof LinePlot.useCreate>[0] = {},
+) => renderHook(() => LinePlot.useCreate(props), { wrapper: harness.wrapper });
 
-describe("useCreate", () => {
+const expectParent = async (key: string, projectKey: project.Key) =>
+  await waitFor(async () => {
+    const parents = await client.ontology.retrieveParents(lineplot.ontologyID(key));
+    expect(
+      parents.some((p) => p.id.type === "project" && p.id.key === projectKey),
+    ).toBe(true);
+  });
+
+describe("lineplot useCreate", () => {
   let projectA: project.Project;
   let projectB: project.Project;
 
@@ -59,12 +75,7 @@ describe("useCreate", () => {
       await act(async () => {
         result.current({ key, name: "ProvidedProject" });
       });
-      await waitFor(async () =>
-        expect((await client.tables.retrieve({ key })).name).toEqual("ProvidedProject"),
-      );
-      expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
-        projectB.key,
-      );
+      await expectParent(key, projectB.key);
     });
 
     it("falls back to the active project when no prop is given", async () => {
@@ -74,31 +85,52 @@ describe("useCreate", () => {
       await act(async () => {
         result.current({ key, name: "ActiveProject" });
       });
-      await waitFor(async () =>
-        expect((await client.tables.retrieve({ key })).name).toEqual("ActiveProject"),
-      );
+      await expectParent(key, projectA.key);
+    });
+
+    it("does not change the active project when creating in another one", async () => {
+      const harness = await buildHarness({ activeProject: projectA });
+      const { result } = renderCreate(harness, { project: projectB.key });
+      const key = uuid.create();
+      await act(async () => {
+        result.current({ key, name: "OtherProject" });
+      });
+      await expectParent(key, projectB.key);
       expect(Session.Project.selectSelected(harness.store.getState())).toEqual(
         projectA.key,
       );
     });
   });
 
-  describe("session seeding", () => {
-    it("seeds the table session state with editable=true", async () => {
+  describe("without a project", () => {
+    it("throws when no params, prop, or active project is available", async () => {
+      const harness = await buildHarness();
+      const { result } = renderCreate(harness);
+      expect(() => result.current({ key: uuid.create() })).toThrow(UnexpectedError);
+    });
+  });
+
+  describe("tab management", () => {
+    it("opens a resource tab for the created line plot", async () => {
       const harness = await buildHarness({ activeProject: projectA });
       const { result } = renderCreate(harness);
       const key = uuid.create();
       await act(async () => {
-        result.current({ key, name: "Editable" });
+        result.current({ key, name: "Opened" });
       });
-      await waitFor(() =>
-        expect(
-          Session.Table.selectEditable({ state: harness.store.getState(), key }),
-        ).toBe(true),
+      const tab = await resolveFocusedTab(
+        harness.store,
+        client,
+        (t) => t.variant === "resource" && t.resource.key === key,
       );
+      expect(tab.variant).toEqual("resource");
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.type).toEqual(lineplot.ontologyID(key).type);
     });
+  });
 
-    it("defaults the table name to 'Table' when init omits one", async () => {
+  describe("init defaults", () => {
+    it("defaults the line plot name to 'New Line Plot' when init omits one", async () => {
       const harness = await buildHarness({ activeProject: projectA });
       const { result } = renderCreate(harness);
       const key = uuid.create();
@@ -106,11 +138,13 @@ describe("useCreate", () => {
         result.current({ key });
       });
       await waitFor(async () =>
-        expect((await client.tables.retrieve({ key })).name).toEqual("Table"),
+        expect((await client.lineplots.retrieve({ key })).name).toEqual(
+          "New Line Plot",
+        ),
       );
     });
 
-    it("uses the caller-provided key for the server table", async () => {
+    it("uses the caller-provided key for the server line plot", async () => {
       const harness = await buildHarness({ activeProject: projectA });
       const { result } = renderCreate(harness);
       const callerKey = uuid.create();
@@ -118,34 +152,10 @@ describe("useCreate", () => {
         result.current({ key: callerKey, name: "WithKey" });
       });
       const retrieved = await waitFor(
-        async () => await client.tables.retrieve({ key: callerKey }),
+        async () => await client.lineplots.retrieve({ key: callerKey }),
       );
       expect(retrieved.key).toEqual(callerKey);
       expect(retrieved.name).toEqual("WithKey");
-    });
-  });
-
-  describe("without a project", () => {
-    it("throws when neither a prop nor an active project is available", async () => {
-      const harness = await buildHarness();
-      const { result } = renderCreate(harness);
-      expect(() => result.current({ key: uuid.create() })).toThrow(UnexpectedError);
-    });
-  });
-
-  describe("project switching", () => {
-    it("does not flip the active project when the table is created in the active one", async () => {
-      const harness = await buildHarness({ activeProject: projectA });
-      const beforeActive = Session.Project.selectSelected(harness.store.getState());
-      const { result } = renderCreate(harness, { project: projectA.key });
-      const key = uuid.create();
-      await act(async () => {
-        result.current({ key, name: "SameProject" });
-      });
-      await waitFor(async () => await client.tables.retrieve({ key }));
-      expect(Session.Project.selectSelected(harness.store.getState())).toBe(
-        beforeActive,
-      );
     });
   });
 });

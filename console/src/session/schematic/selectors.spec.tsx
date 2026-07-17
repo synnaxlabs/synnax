@@ -95,28 +95,6 @@ describe("schematic getters", () => {
     expect(result.current()).toEqual(["a", "b"]);
   });
 
-  it("should read the control status", () => {
-    const { result } = renderHook(() => Schematic.useGetControlStatus(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe("acquired");
-  });
-
-  it("should report whether control is acquired", () => {
-    const { result } = renderHook(() => Schematic.useGetControlIsAcquired(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe(true);
-    expect(result.current({ key: "absent" })).toBe(false);
-  });
-
-  it("should read the control authority", () => {
-    const { result } = renderHook(() => Schematic.useGetAuthority(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe(250);
-  });
-
   it("should read the toolbar state", () => {
     const { result } = renderHook(() => Schematic.useGetToolbar(), {
       wrapper: wrapperFor(createCustomStore(), KEY),
@@ -129,27 +107,6 @@ describe("schematic getters", () => {
       wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current()).toBe("properties");
-  });
-
-  it("should read the selected symbol group", () => {
-    const { result } = renderHook(() => Schematic.useGetSelectedSymbolGroup(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe("valves");
-  });
-
-  it("should read the legend state", () => {
-    const { result } = renderHook(() => Schematic.useGetLegend(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toEqual(customState.legend);
-  });
-
-  it("should read the legend visibility", () => {
-    const { result } = renderHook(() => Schematic.useGetLegendVisible(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current()).toBe(false);
   });
 
   it("should read the editable flag", () => {

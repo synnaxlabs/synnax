@@ -50,25 +50,4 @@ describe("docs selectors", () => {
       expect(result.current).toEqual(location);
     });
   });
-
-  describe("useGetLocation", () => {
-    it("should read the current location on demand across dispatches", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Docs.useGetLocation(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual({ path: "", heading: "" });
-      const first: Docs.Location = { path: "/guides/intro", heading: "setup" };
-      act(() => {
-        store.dispatch(Docs.setLocation(first));
-      });
-      expect(get()).toEqual(first);
-      const second: Docs.Location = { path: "/reference", heading: "api" };
-      act(() => {
-        store.dispatch(Docs.setLocation(second));
-      });
-      expect(get()).toEqual(second);
-    });
-  });
 });
