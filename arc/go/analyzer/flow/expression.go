@@ -159,9 +159,9 @@ func LiftVarReads[T antlr.ParserRuleContext](
 		if !sym.Reassigned && !exprRead {
 			continue
 		}
-		// An expression-read var lifts as its value type; the node feeds it data.
+		// A channel-coupled var lifts as its value type; a node feeds it data.
 		t := sym.Type
-		if exprRead {
+		if t.Kind == types.KindChan {
 			t = t.Unwrap()
 		}
 		if _, err = fn.Add(ctx, symbol.Symbol{

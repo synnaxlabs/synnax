@@ -1015,7 +1015,7 @@ func tryAnalyzeFmtStrLiteral(
 		Inputs:   sym.Type.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	wireVarEdges(ctx, shell, key, sym.Type.Inputs)
+	wireVarEdges(ctx, shell, kg, key, sym.Type.Inputs)
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true, true
 }
 
@@ -1038,8 +1038,7 @@ func analyzeExpression(
 
 	if sym.Kind == symbol.KindConstant {
 		outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
-		literalCtx := parser.GetLiteral(ctx.AST)
-		parsedValue, err := literal.Parse(literalCtx, outputType)
+		parsedValue, err := literal.ParseConst(ctx.AST, outputType)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return nodeResult{}, false
@@ -1077,7 +1076,7 @@ func analyzeExpression(
 		Inputs:   freshType.Inputs,
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 	}
-	wireVarEdges(ctx, shell, key, freshType.Inputs)
+	wireVarEdges(ctx, shell, kg, key, freshType.Inputs)
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
@@ -1085,6 +1084,7 @@ func analyzeExpression(
 func wireVarEdges(
 	ctx acontext.Context[parser.IExpressionContext],
 	shell *shellBuilder,
+	kg *keyGenerator,
 	nodeKey string,
 	inputs types.Params,
 ) {
@@ -1093,9 +1093,26 @@ func wireVarEdges(
 		if err != nil {
 			continue
 		}
-		src := shell.varNodes[vsym].deref
+		e := shell.varNodes[vsym]
+		// An alias lifts behind a register-bound read node, so the param
+		// follows rebinds and gates on data arrival.
+		if vsym.Type.Kind == types.KindChan && vsym.SourceID != nil && e.register != nil {
+			r, ok := buildChannelReadNode(p.Name, vsym, kg)
+			if !ok {
+				continue
+			}
+			bindReadToAlias(shell, e.register, &r.node, vsym)
+			shell.rootNodes = append(shell.rootNodes, &r.node)
+			shell.varEdges = append(shell.varEdges, ir.Edge{
+				Source: r.output,
+				Target: ir.Handle{Node: nodeKey, Param: p.Name},
+				Kind:   ir.EdgeKindContinuous,
+			})
+			continue
+		}
+		src := e.deref
 		if src == nil {
-			src = shell.varNodes[vsym].register
+			src = e.register
 		}
 		if src != nil {
 			shell.varEdges = append(shell.varEdges, ir.Edge{

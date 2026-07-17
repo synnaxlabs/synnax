@@ -103,7 +103,7 @@ func (v *register) Next(ctx node.Context) {
 }
 
 // exprRead derefs its variable's register: sel carries the active derivation's
-// index, and only that feeder's value changes emit.
+// index, and only that feeder's values emit.
 type exprRead struct {
 	*node.State
 	clock  telem.MonoClock
@@ -114,17 +114,20 @@ type exprRead struct {
 var _ node.Node = (*exprRead)(nil)
 
 // Next re-points on sel first: a re-point is not itself a value, and inactive
-// feeders drain silently.
+// feeders drain silently. Values pending at a re-point predate it, so they
+// are absorbed without emitting; only values arriving afterward fire.
 func (v *exprRead) Next(ctx node.Context) {
+	repointed := false
 	if s, ok := v.ConsumeInput(v.selIdx); ok && s.Len() > 0 {
 		v.active = int(telem.ValueAt[uint32](s, -1))
+		repointed = true
 	}
 	for i := range v.InputCount() {
 		if i == v.selIdx {
 			continue
 		}
 		data, ok := v.ConsumeInput(i)
-		if !ok || i != v.active {
+		if !ok || i != v.active || repointed {
 			continue
 		}
 		// A derivation only changes when its value does; recomputes are not events.

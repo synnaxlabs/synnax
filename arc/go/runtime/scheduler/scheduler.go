@@ -237,6 +237,10 @@ func (s *Scheduler) walkSequential(ss *scope) {
 		if !s.evaluateTransitions(ss) {
 			return
 		}
+		// The next step runs on the settle pass so it observes prior writes.
+		if !s.settled {
+			return
+		}
 	}
 }
 

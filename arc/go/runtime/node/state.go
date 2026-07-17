@@ -64,7 +64,7 @@ func (s *ProgramState) Node(key string) *State {
 	for i := range alignedData {
 		alignedTime[i] = telem.Series{DataType: telem.TimeStampT}
 	}
-	hasEdgeFed, hasValueFed := false, false
+	hasEdgeFed := false
 	for i, p := range n.Inputs {
 		// A channel input is a reference resolved by key in the host functions, not
 		// a value stream. It carries no data series and never gates execution.
@@ -89,7 +89,6 @@ func (s *ProgramState) Node(key string) *State {
 			}
 			inputSources[i] = s.outputs[edge.Source]
 		} else {
-			hasValueFed = true
 			syntheticSource := ir.Handle{
 				Node:  "__default_" + key + "_" + p.Name,
 				Param: ir.DefaultOutputParam,
@@ -115,11 +114,11 @@ func (s *ProgramState) Node(key string) *State {
 		}
 	}
 
-	// A node fed only by input values would consume them once and never re-run;
-	// its trigger edges register as gating-only entries so each fire re-arms it.
+	// A node with no edge-fed data input never re-arms on its own; its trigger
+	// edges register as gating-only entries so each fire re-runs it exactly once.
 	// SY-4495: registering unconditionally would make multi-trigger nodes await
 	// fresh values on every trigger before running.
-	if !hasEdgeFed && hasValueFed {
+	if !hasEdgeFed {
 		for _, e := range s.ir.Edges {
 			if e.Target.Node != key {
 				continue
@@ -136,7 +135,8 @@ func (s *ProgramState) Node(key string) *State {
 		}
 	}
 
-	// Variable reads re-arm on fresh values only; self-write feeders on Reset only.
+	// Register reads re-arm on fresh values; deref reads on post-entry values;
+	// self-write feeders on Reset only.
 	rearm := make([]rearmRule, len(inputs))
 	for i := range inputs {
 		srcNode, found := s.ir.Nodes.Find(inputs[i].Source.Node)
@@ -145,6 +145,9 @@ func (s *ProgramState) Node(key string) *State {
 			continue
 		}
 		rearm[i] = rearmOnFresh
+		if len(srcNode.Inputs) > 0 && srcNode.Inputs[0].Value == nil {
+			rearm[i] = rearmOnArrival
+		}
 		for _, e := range s.ir.Edges {
 			if e.Target.Node == srcNode.Key && e.Source.Node == key {
 				rearm[i] = rearmOnReset
@@ -198,6 +201,8 @@ const (
 	rearmOnFresh
 	// rearmOnReset re-arms only on scope Reset: self-writes fire once per entry.
 	rearmOnReset
+	// rearmOnArrival absorbs pending data on Reset: only post-entry values fire.
+	rearmOnArrival
 )
 
 // State provides node-specific access to state, handling input alignment and
@@ -228,11 +233,14 @@ type State struct {
 // whose gating inputs are all literal-valued re-runs instead of staying consumed.
 func (n *State) Reset() {
 	for i := range n.accumulated {
-		if n.rearm[i] == rearmOnFresh {
-			continue
+		switch n.rearm[i] {
+		case rearmOnFresh:
+		case rearmOnArrival:
+			n.absorbInput(i)
+		default:
+			n.accumulated[i].consumed = false
+			n.accumulated[i].lastTimestamp = 0
 		}
-		n.accumulated[i].consumed = false
-		n.accumulated[i].lastTimestamp = 0
 	}
 }
 
@@ -306,23 +314,28 @@ func (n *State) RefInput(paramIndex int) telem.Series {
 // so only writes after this call re-fire the node.
 func (n *State) AbsorbInputs() {
 	for i := range n.ir.inputs {
-		if n.isReference[i] {
-			continue
-		}
-		src := n.inputSources[i]
-		if src == nil {
-			continue
-		}
-		ts := telem.TimeStamp(0)
-		if src.time.Len() > 0 {
-			ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
-		}
-		n.accumulated[i] = inputEntry{
-			data:          src.data,
-			time:          src.time,
-			lastTimestamp: ts,
-			consumed:      true,
-		}
+		n.absorbInput(i)
+	}
+}
+
+// absorbInput marks input i consumed at its current source timestamp.
+func (n *State) absorbInput(i int) {
+	if n.isReference[i] {
+		return
+	}
+	src := n.inputSources[i]
+	if src == nil {
+		return
+	}
+	ts := telem.TimeStamp(0)
+	if src.time.Len() > 0 {
+		ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+	}
+	n.accumulated[i] = inputEntry{
+		data:          src.data,
+		time:          src.time,
+		lastTimestamp: ts,
+		consumed:      true,
 	}
 }
 

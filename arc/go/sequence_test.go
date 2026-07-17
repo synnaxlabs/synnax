@@ -3049,6 +3049,102 @@ var _ = Describe("Sequence", func() {
 			}
 			Expect(logged).To(Equal([]string{"0", "1", "2", "3", "4"}))
 		})
+
+		It("Coalesces repeated derivations of the same value", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"cpu": {types.U8(), 201},
+				"out": {types.U8(), 202},
+			})
+			h := newRuntimeHarness(ctx, `
+				stage {
+				    x := cpu * 2
+				    x -> out
+				}`, resolver,
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+				channels.Digest{Key: 202, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			for range 4 {
+				h.Ingest(201, telem.NewSeriesV[uint8](5))
+			}
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			total := int64(0)
+			for _, s := range out.Get(202).Series {
+				total += s.Len()
+			}
+			Expect(total).To(Equal(int64(1)))
+			Expect(lastU8(out, 202)).To(Equal(uint8(10)))
+		})
+
+		It("Re-fires a derivation only when its value changes", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"cpu": {types.U8(), 201},
+				"out": {types.U8(), 202},
+			})
+			h := newRuntimeHarness(ctx, `
+				stage {
+				    x := cpu * 2
+				    x -> out
+				}`, resolver,
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+				channels.Digest{Key: 202, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			var got []uint8
+			feed := func(v uint8) {
+				h.Ingest(201, telem.NewSeriesV[uint8](v))
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ := h.Flush()
+				for _, s := range out.Get(202).Series {
+					got = append(got, telem.UnmarshalSeries[uint8](s)...)
+				}
+			}
+			feed(5)
+			feed(5)
+			feed(7)
+			feed(7)
+			feed(5)
+			Expect(got).To(Equal([]uint8{10, 14, 10}))
+		})
+
+		It("Coalesces repeated format-string derivations", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"cpu": {types.U8(), 201},
+				"out": {types.String(), 202},
+			})
+			h := newRuntimeHarness(ctx, `
+				stage {
+				    x := "v: " + str(cpu)
+				    x -> out
+				}`, resolver,
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+				channels.Digest{Key: 202, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			var got []string
+			feed := func(v uint8) {
+				h.Ingest(201, telem.NewSeriesV[uint8](v))
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ := h.Flush()
+				for _, s := range out.Get(202).Series {
+					got = append(got, telem.UnmarshalSeries[string](s)...)
+				}
+			}
+			feed(5)
+			feed(5)
+			feed(7)
+			Expect(got).To(Equal([]string{"v: 5", "v: 7"}))
+		})
 	})
 
 	Describe("Variable reassignment", func() {
@@ -3194,6 +3290,7 @@ var _ = Describe("Sequence", func() {
 		It("Rebinds an alias inside a stage body", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
+				"trig":      {types.U8(), 105},
 				"out_a":     {types.U8(), 201},
 				"out_b":     {types.U8(), 202},
 			})
@@ -3202,7 +3299,7 @@ var _ = Describe("Sequence", func() {
 				    stage w {
 				        sink := out_a
 				        sink = out_b
-				        u8(2) -> sink
+				        trig -> sink
 				    }
 				}
 				start_cmd => s`, resolver,
@@ -3212,6 +3309,8 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 
 			trigger(h, ctx, 100)
+			h.Ingest(105, telem.NewSeriesV[uint8](2))
+			advance(h, ctx, telem.Millisecond)
 			out, _ := h.Flush()
 			Expect(lastU8(out, 202)).To(Equal(uint8(2)))
 		})
@@ -3423,6 +3522,185 @@ var _ = Describe("Sequence", func() {
 			step(10)  // first reader: in=10 -> r=11
 			step(100) // second reader (post re-expr): in=100 -> r=200, must not surface stale 11
 			Expect(got).To(Equal([]uint8{11, 200}))
+		})
+
+		It("Re-fires on an equal input value after re-expression", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_val":    {types.U8(), 200},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    r := in_val + u8(1)
+				    r -> out
+				    r = in_val + u8(100)
+				    r -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(200, telem.NewSeriesV[uint8](2))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			h.Ingest(200, telem.NewSeriesV[uint8](2))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(102)))
+		})
+
+		It("Computes an expression over a rebound alias", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"sensor_a":  {types.U8(), 201},
+				"sensor_b":  {types.U8(), 202},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    src := sensor_a
+				    src = sensor_b
+				    src + u8(1) -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(201, telem.NewSeriesV[uint8](3))
+			h.Ingest(202, telem.NewSeriesV[uint8](7))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(8)))
+		})
+
+		It("Computes an expression mixing a static and a rebound alias", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"sensor_a":  {types.U8(), 201},
+				"sensor_b":  {types.U8(), 202},
+				"sensor_c":  {types.U8(), 203},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    a := sensor_a
+				    b := sensor_b
+				    b = sensor_c
+				    a + b -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(201, telem.NewSeriesV[uint8](1))
+			h.Ingest(203, telem.NewSeriesV[uint8](5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(6)))
+		})
+
+		It("Does not replay a derivation into a re-entered stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_val":    {types.U8(), 200},
+				"out":       {types.U8(), 101},
+				"go2":       {types.U8(), 102},
+				"go1":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    r := in_val + u8(1)
+				    stage s1 {
+				        r -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			var got []uint8
+			drain := func() {
+				out, _ := h.Flush()
+				for _, s := range out.Get(101).Series {
+					got = append(got, telem.UnmarshalSeries[uint8](s)...)
+				}
+			}
+			trigger(h, ctx, 100)
+			h.Ingest(200, telem.NewSeriesV[uint8](5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			drain()
+			Expect(got).To(Equal([]uint8{6}))
+
+			trigger(h, ctx, 102) // s1 -> s2
+			trigger(h, ctx, 103) // s2 -> s1 re-entry
+			drain()
+			Expect(got).To(Equal([]uint8{6}), "re-entry must not replay the stale value")
+
+			h.Ingest(200, telem.NewSeriesV[uint8](9))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			drain()
+			Expect(got).To(Equal([]uint8{6, 10}))
+		})
+
+		It("Swallows a derivation value pending at the re-point", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_val":    {types.U8(), 200},
+				"gate":      {types.U8(), 104},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    r := in_val + u8(1)
+				    u8(1) -> gate
+				    r = in_val + u8(100)
+				    r -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 104, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			// Data lands on the same tick the sequence enters, so the pre-rebind
+			// derivation value is pending exactly when the re-point arrives.
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Ingest(200, telem.NewSeriesV[uint8](5))
+			for range 6 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(), "a value predating the re-point must not fire")
+
+			h.Ingest(200, telem.NewSeriesV[uint8](7))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(107)))
 		})
 	})
 
