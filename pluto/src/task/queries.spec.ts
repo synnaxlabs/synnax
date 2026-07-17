@@ -576,8 +576,11 @@ describe("queries", () => {
       );
       expect(children.length).toBeGreaterThan(0);
 
-      const snapshotChild = children.find(
-        (c) => c.name === `${originalTask.name} (Snapshot)`,
+      const tasks = await client.tasks.retrieve({
+        keys: children.filter((c) => c.id.type === "task").map((c) => c.id.key),
+      });
+      const snapshotChild = tasks.find(
+        (t) => t.name === `${originalTask.name} (Snapshot)`,
       );
       expect(snapshotChild).toBeDefined();
     });

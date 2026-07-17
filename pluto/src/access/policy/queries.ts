@@ -109,9 +109,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<
     const { key, name } = data;
     const existing = await retrieveSingle({ client, query: { key }, store });
     rollbacks.push(Flux.partialUpdate(store.policies, key, { name }));
-    rollbacks.push(
-      Ontology.renameFluxResource(store, access.policy.ontologyID(key), name),
-    );
     await onOptimisticComplete(data);
     const updated = await client.access.policies.create({ ...existing, name });
     store.policies.set(key, updated);

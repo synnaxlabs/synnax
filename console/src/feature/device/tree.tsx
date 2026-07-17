@@ -29,10 +29,14 @@ import { Group } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 
+const useName: Tree.UseName = (id) =>
+  Device.useRetrieve({ key: id.key }).data?.name ?? "";
+
 const useDelete = Tree.createUseDelete({
   type: "Device",
   query: Device.useDelete,
   convertKey: String,
+  useName,
 });
 
 const useRename = Tree.createUseRename({
@@ -55,8 +59,9 @@ const retrieveProperties = async ({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getName, shape },
+    state: { shape },
   } = props;
+  const name = useName(ids[0]);
   const ontologyIDs = useMemo(() => ids.map((id) => device.ontologyID(id.key)), [ids]);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
@@ -100,7 +105,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           <Link.CopyContextMenuItem
             onClick={() =>
               handleLink({
-                name: getName(ids[0]),
+                name,
                 ontologyID: device.ontologyID(ids[0].key),
               })
             }
@@ -151,6 +156,7 @@ const Content = ({ id, name, className, icon: _icon, ...rest }: Tree.ContentProp
 const TreeItem = Tree.createItem({
   type: "device",
   icon: getIcon(null),
+  useName,
   ContextMenu: TreeContextMenu,
   Content,
 });

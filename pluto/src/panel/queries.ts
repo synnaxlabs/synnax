@@ -498,7 +498,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.panels, key, { name }));
-    rollbacks.push(Ontology.renameFluxResource(store, panel.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.panels.rename(key, name);
     return data;

@@ -74,7 +74,7 @@ export const parseIDs = (
 };
 
 export const resourceZ = z
-  .object({ id: idZ, name: z.string() })
+  .object({ id: idZ })
   .transform((resource) => ({ key: idToString(resource.id), ...resource }));
 export interface Resource extends z.infer<typeof resourceZ> {}
 

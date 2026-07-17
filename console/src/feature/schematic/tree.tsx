@@ -36,10 +36,14 @@ import { Schematic } from "@/platform/schematic";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
+const useName: Tree.UseName = (id) =>
+  Base.useRetrieve({ key: id.key }).data?.name ?? "";
+
 const useDelete = Tree.createUseDelete({
   type: "Schematic",
   query: Base.useDelete,
   convertKey: String,
+  useName,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
     store.dispatch(Session.Schematic.remove({ keys: array.toArray(data) }));
@@ -50,8 +54,8 @@ const useDelete = Tree.createUseDelete({
 const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
   const {
     selection: { ids },
-    state: { getName },
   } = props;
+  const schematics = Base.useRetrieveMultiple({ keys: ids.map((id) => id.key) }).data;
   const rename = Base.useRename();
   const copy = Base.useCopy({
     afterSuccess: useCallback(
@@ -68,8 +72,8 @@ const useCopy = (props: Tree.ContextMenuProps): (() => void) => {
   });
   return () =>
     ids.map((id) => {
-      const name = `${getName(id)} (copy)`;
-      copy.update({ key: id.key, name, snapshot: false });
+      const current = schematics?.find((s) => s.key === id.key)?.name ?? "";
+      copy.update({ key: id.key, name: `${current} (copy)`, snapshot: false });
     });
 };
 
@@ -96,16 +100,12 @@ export const useRangeSnapshot = () => {
     afterFailure: ({ status, data }: Flux.AfterFailureParams<Base.SnapshotParams>) =>
       addStatus({ ...status, message: `Failed to snapshot ${buildMessage(data)}` }),
   });
-  return ({ selection: { ids }, state: { getName } }: Tree.ContextMenuProps) => {
+  return (schematics: { key: string; name: string }[]) => {
     if (rng == null)
       return addStatus({
         variant: "error",
         message: "Cannot snapshot schematics without an active range",
       });
-    const schematics = ids.map((id) => ({
-      key: id.key,
-      name: getName(id),
-    }));
     const parentID = ranger.ontologyID(rng.key);
     update({ schematics, parentID });
   };
@@ -115,6 +115,7 @@ const useRename = Tree.createUseRename({
   query: Base.useRename,
   ontologyID: schematic.ontologyID,
   convertKey: String,
+  useName,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
     store.dispatch(Session.Layout.rename({ key, name }));
@@ -137,7 +138,7 @@ const retrieveProperties = async ({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getName, shape },
+    state: { shape },
   } = props;
   const activeRange = Session.Range.useSelectState();
   const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
@@ -154,6 +155,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const schematics = Base.useRetrieveMultiple({
     keys: ids.map((id) => id.key),
   }).data;
+  const nameOf = (id: ontology.ID) =>
+    schematics?.find((s) => s.key === id.key)?.name ?? "";
   const hasNoSnapshots = schematics?.every((s) => s.snapshot === false) ?? false;
   return (
     <ContextMenu.Menu>
@@ -172,7 +175,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       {hasNoSnapshots && hasCreatePermission && (
         <>
-          <Range.SnapshotMenuItem range={activeRange} onClick={() => snapshot(props)} />
+          <Range.SnapshotMenuItem
+            range={activeRange}
+            onClick={() =>
+              snapshot(ids.map((id) => ({ key: id.key, name: nameOf(id) })))
+            }
+          />
           <Menu.Item itemKey="copy" onClick={handleCopy}>
             <Icon.Copy />
             Copy
@@ -182,7 +190,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       <Export.ContextMenuItem onClick={() => handleExport(firstID.key)} />
       <Link.CopyContextMenuItem
-        onClick={() => handleLink({ name: getName(firstID), ontologyID: firstID })}
+        onClick={() => handleLink({ name: nameOf(firstID), ontologyID: firstID })}
       />
       <Tree.CopyPropertiesContextMenuItem
         {...props}
@@ -221,6 +229,7 @@ const TreeItem = Tree.createItem({
   type: "schematic",
   icon: <Icon.Schematic />,
   hasChildren: false,
+  useName,
   useOnSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,

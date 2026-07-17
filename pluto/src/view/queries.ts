@@ -163,7 +163,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
         state.skipUndefined((p) => ({ ...p, name })),
       ),
     );
-    rollbacks.push(Ontology.renameFluxResource(store, view.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.views.create({ ...v, name });
     return data;

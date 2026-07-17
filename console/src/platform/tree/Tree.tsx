@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Component,
   context,
@@ -24,7 +24,7 @@ import {
   useInitializerRef,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
-import { array, type observe } from "@synnaxlabs/x";
+import { type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,
   type ReactElement,
@@ -45,7 +45,6 @@ import { useItems } from "@/platform/tree/Provider";
 import {
   type BaseProps,
   type ContextMenuProps,
-  type GetName,
   type TreeState,
 } from "@/platform/tree/types";
 import { type Action, type State } from "@/session/store";
@@ -60,6 +59,7 @@ interface ContextValue {
   onDragStart: (itemKey: string) => void;
   onDragEnd: (e: DragEvent) => void;
   useLoading: (key: string) => boolean;
+  registerName: (key: string, name: string) => void;
 }
 
 const [Context, useContext] = context.create<ContextValue>({
@@ -73,11 +73,15 @@ const itemRenderProp = Component.renderProp(
     const id = ontology.idZ.parse(itemKey);
     const resource = List.useItem<string, ontology.Resource>(itemKey);
     const Item = useItems()[id.type] ?? DefaultItem;
-    const { onDrop, useLoading, onDragStart, onDragEnd } =
+    const { onDrop, useLoading, onDragStart, onDragEnd, registerName } =
       useContext("Tree.itemRenderProp");
     const handleDragStart = useCallback(
       () => onDragStart(itemKey),
       [onDragStart, itemKey],
+    );
+    const handleName = useCallback(
+      (name: string) => registerName(itemKey, name),
+      [registerName, itemKey],
     );
     const loading = useLoading(itemKey);
 
@@ -107,7 +111,7 @@ const itemRenderProp = Component.renderProp(
         onDragLeave={() => setDraggingOver(false)}
         onDragEnd={onDragEnd}
         id={id}
-        name={resource.name}
+        onName={handleName}
         loading={loading}
       />
     );
@@ -128,6 +132,17 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
+
+  // names caches each item's per-type resolved display name, reported by Items via
+  // registerName, so siblings can be sorted alphabetically. Best-effort: a node sorts
+  // by key until its name resolves, then nameVersion bumps to re-sort.
+  const namesRef = useInitializerRef(() => new Map<string, string>());
+  const [nameVersion, setNameVersion] = useState(0);
+  const registerName = useCallback((key: string, name: string) => {
+    if (namesRef.current.get(key) === name) return;
+    namesRef.current.set(key, name);
+    setNameVersion((v) => v + 1);
+  }, []);
 
   const retrieveChildren = Ontology.useRetrieveObservableChildren({
     onChange: useCallback(
@@ -254,30 +269,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     retrieveChildren.retrieve({ id: clickedID });
   }, []);
 
-  const getName = useCallback(
-    ((id: ontology.ID | ontology.ID[] | string | string[]) => {
-      const isSingle = !Array.isArray(id);
-      const ids = array.toArray(id);
-      const stringIDs = ontology.idToString(ids);
-      const resources = resourceStore.get(stringIDs);
-      if (isSingle) {
-        if (resources[0] == null)
-          throw new NotFoundError(`Resource ${ontology.idToString(id)} not found`);
-        return resources[0].name;
-      }
-      return resources.map((r) => r?.name ?? "");
-    }) as GetName,
-    [resourceStore],
-  );
-
   const subscribe = useCallback(
     (callback: () => void, key: string) => resourceStore.onSet(callback, key),
-    [resourceStore],
-  );
-
-  const setName = useCallback(
-    (id: ontology.ID, name: string) =>
-      resourceStore.set({ key: ontology.idToString(id), id, name }),
     [resourceStore],
   );
 
@@ -289,9 +282,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (bResource == null) return -1;
       if (aResource.id.type === "group" && bResource.id.type !== "group") return -1;
       if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
-      return aResource.name.localeCompare(bResource.name);
+      const aName = namesRef.current.get(a.key) ?? "";
+      const bName = namesRef.current.get(b.key) ?? "";
+      return aName.localeCompare(bName);
     },
-    [resourceStore],
+    // nameVersion re-creates the comparator when a name resolves so the tree re-sorts.
+    [resourceStore, nameVersion],
   );
 
   const treeProps = Base.use({
@@ -312,11 +308,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       expand,
       contract,
       setLoading,
-      setName,
-      getName,
       setSelection: setSelected,
     }),
-    [expand, contract, setLoading, handleError, setName, getName, nodesRef, setNodes],
+    [expand, contract, setLoading, nodesRef, setNodes, setSelected, shapeRef],
   );
 
   const placeLayout = Layout.usePlacer();
@@ -455,8 +449,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       useLoading,
       onDragStart: handleDragStart,
       onDragEnd,
+      registerName,
     }),
-    [handleDrop, handleDragStart, useLoading, onDragEnd],
+    [handleDrop, handleDragStart, useLoading, onDragEnd, registerName],
   );
 
   return (

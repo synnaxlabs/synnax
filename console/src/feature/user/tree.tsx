@@ -15,18 +15,22 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Tree } from "@/platform/tree";
 import { User as PlatformUser } from "@/platform/user";
 
+const useName: Tree.UseName = (id) =>
+  User.useRetrieve({ key: id.key }).data?.username ?? "";
+
 const useDelete = Tree.createUseDelete({
   type: "User",
   query: User.useDelete,
   convertKey: String,
+  useName,
 });
 
 const useRename = ({
   selection: {
     ids: [firstID],
   },
-  state: { getName },
 }: Tree.ContextMenuProps): (() => void) => {
+  const username = useName(firstID);
   const beforeUpdate = useCallback(
     async ({ data }: Flux.BeforeUpdateParams<User.ChangeUsernameParams>) => {
       const [username, renamed] = await Text.asyncEdit(
@@ -39,17 +43,17 @@ const useRename = ({
   );
   const { update } = User.useRename({ beforeUpdate });
   return useCallback(
-    () => update({ key: firstID.key, username: getName(firstID) }),
-    [update, firstID, getName],
+    () => update({ key: firstID.key, username }),
+    [update, firstID, username],
   );
 };
 
-const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
+const useAssignRole = (): ((props: Tree.ContextMenuProps, name: string) => void) => {
   const openAssignRole = PlatformUser.useAssignRoleModal();
 
   return useCallback(
-    ({ selection: { ids }, state: { getName } }: Tree.ContextMenuProps) => {
-      openAssignRole({ userKey: ids[0].key, title: `Role.Assign.${getName(ids[0])}` });
+    ({ selection: { ids } }: Tree.ContextMenuProps, name: string) => {
+      openAssignRole({ userKey: ids[0].key, title: `Role.Assign.${name}` });
     },
     [openAssignRole],
   );
@@ -69,16 +73,16 @@ const retrieveProperties = async ({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     client,
-    state: { getName },
     selection: { ids },
   } = props;
+  const name = useName(ids[0]);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
   const singleResource = ids.length === 1;
-  const isNotCurrentUser = getName(ids[0]) !== client.params.username;
+  const isNotCurrentUser = name !== client.params.username;
   const isRootUser = User.useRetrieve({ key: ids[0]?.key }).data?.rootUser === true;
 
   return (
@@ -94,7 +98,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       )}
       {hasUpdatePermission && singleResource && !isRootUser && isNotCurrentUser && (
         <>
-          <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
+          <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props, name)}>
             <Icon.Role />
             Change role
           </Menu.Item>
@@ -121,17 +125,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const Content = (props: Tree.ContentProps) => {
-  User.useRetrieve({ key: props.id.key });
-  return <Tree.DefaultRow {...props} />;
-};
-
 const TreeItem = Tree.createItem({
   type: "user",
   icon: <Icon.User />,
+  useName,
   ContextMenu: TreeContextMenu,
   hasChildren: false,
-  Content,
   haulItems: ({ id }, store) => {
     const user = (store as User.FluxSubStore).users.get(id.key);
     return user == null ? [] : [User.createHaulItem(user)];

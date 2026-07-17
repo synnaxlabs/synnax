@@ -12,12 +12,16 @@ import { type Flux, List, Text } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
+import { type UseName } from "@/platform/tree/item";
 import { type ContextMenuProps } from "@/platform/tree/types";
 
 export interface CreateUseRenameArgs<K extends record.Key> {
   query: Flux.UseUpdate<record.KeyedNamed<K>>;
   ontologyID: (key: K) => ontology.ID;
   convertKey: (key: string) => K;
+  // useName resolves the current name, seeded as oldName for beforeUpdate. Only needed
+  // by types whose beforeUpdate rolls back to the old name.
+  useName?: UseName;
   beforeUpdate?: (
     query: Flux.BeforeUpdateParams<record.KeyedNamed<K>> &
       ContextMenuProps & { oldName: string },
@@ -29,6 +33,7 @@ export const createUseRename =
     query,
     ontologyID,
     convertKey,
+    useName = () => "",
     beforeUpdate,
   }: CreateUseRenameArgs<K>): ((props: ContextMenuProps) => () => void) =>
   (props: ContextMenuProps) => {
@@ -36,8 +41,8 @@ export const createUseRename =
       selection: {
         ids: [firstID],
       },
-      state: { getName },
     } = props;
+    const oldName = useName(firstID);
     const { update } = query({
       beforeUpdate: useCallback(
         async (query: Flux.BeforeUpdateParams<record.KeyedNamed<K>>) => {
@@ -60,7 +65,9 @@ export const createUseRename =
       ),
     });
     return useCallback(
-      () => update({ key: convertKey(firstID.key), name: getName(firstID) }),
-      [firstID, getName],
+      // The new name is read from the inline editor in beforeUpdate; this seed only
+      // carries the old name through to a type's beforeUpdate for rollback.
+      () => update({ key: convertKey(firstID.key), name: oldName }),
+      [firstID, update, convertKey, oldName],
     );
   };

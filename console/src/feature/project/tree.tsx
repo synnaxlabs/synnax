@@ -44,10 +44,14 @@ import { Table } from "@/platform/table";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
+const useName: Tree.UseName = (id) =>
+  Base.useRetrieve({ key: id.key }).data?.name ?? "";
+
 const useDelete = Tree.createUseDelete({
   type: "Project",
   query: Base.useDelete,
   convertKey: String,
+  useName,
   afterSuccess: ({ data, store }) => {
     const s = store.getState();
     const activeKey = Session.Project.selectOptionalSelected(s);
@@ -79,8 +83,9 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const {
     selection,
     selection: { ids, rootID },
-    state: { getName, shape },
+    state: { shape },
   } = props;
+  const name = useName(ids[0]);
   const handleDelete = useDelete(props);
   const group = Group.useCreateFromSelection();
   const projectKey = ids[0].key;
@@ -158,7 +163,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           <Menu.Divider />
           <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: getName(ids[0]), ontologyID: ids[0] })}
+            onClick={() => handleLink({ name, ontologyID: ids[0] })}
           />
           <Tree.CopyPropertiesContextMenuItem
             {...props}
@@ -204,6 +209,7 @@ const VALID_CHILDREN: ontology.ResourceType[] = [
 const TreeItem = Tree.createItem({
   type: "project",
   icon: <Icon.Project />,
+  useName,
   useOnSelect,
   ContextMenu: TreeContextMenu,
   canDrop: ({ items }) =>

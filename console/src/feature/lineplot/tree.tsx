@@ -31,11 +31,15 @@ import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
+const useName: Tree.UseName = (id) =>
+  Base.useRetrieve({ key: id.key }).data?.name ?? "";
+
 const useDelete = Tree.createUseDelete({
   type: "Line Plot",
   icon: "LinePlot",
   query: Base.useDelete,
   convertKey: String,
+  useName,
   beforeUpdate: async ({ data, removeLayout, store }) => {
     removeLayout(...data);
     store.dispatch(Session.LinePlot.remove({ keys: array.toArray(data) }));
@@ -47,6 +51,7 @@ const useRename = Tree.createUseRename({
   query: Base.useRename,
   ontologyID: lineplot.ontologyID,
   convertKey: String,
+  useName,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
     store.dispatch(Session.Layout.rename({ key, name }));
@@ -69,8 +74,9 @@ const retrieveProperties = async ({
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getName, shape },
+    state: { shape },
   } = props;
+  const name = useName(ids[0]);
   const handleDelete = useDelete(props);
   const handleLink = Cluster.useCopyLinkToClipboard();
   const handleExport = useExport();
@@ -104,7 +110,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Export.ContextMenuItem onClick={() => handleExport(firstID.key)} />
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: getName(firstID), ontologyID: firstID })}
+            onClick={() => handleLink({ name, ontologyID: firstID })}
           />
           <Tree.CopyPropertiesContextMenuItem
             {...props}
@@ -138,6 +144,7 @@ const TreeItem = Tree.createItem({
   type: "lineplot",
   icon: <Icon.LinePlot />,
   hasChildren: false,
+  useName,
   useOnSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,

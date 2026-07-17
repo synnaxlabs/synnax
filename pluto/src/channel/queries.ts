@@ -450,7 +450,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
         state.skipUndefined((p) => client.channels.sugar({ ...p, name })),
       ),
     );
-    rollbacks.push(Ontology.renameFluxResource(store, channel.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.channels.rename(key, name);
     return data;

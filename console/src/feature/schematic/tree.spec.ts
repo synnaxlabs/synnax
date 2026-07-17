@@ -21,12 +21,7 @@ import {
 } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
-import {
-  createBaseProps,
-  createEntry,
-  createSelection,
-  createState,
-} from "@/platform/tree/testutil";
+import { createEntry } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
@@ -34,7 +29,6 @@ import {
   captureBrowserDownloads,
   commitTextEdit,
   createTestFluxStore,
-  createTestStore,
   renderHookWithConsole,
   uniqueName,
 } from "@/testutil";
@@ -73,7 +67,6 @@ describe("Schematic.TREE_ITEMS", () => {
 describe("Schematic.useRangeSnapshot", () => {
   it("raises an error status when there is no active range", async () => {
     const s = await createSchematic();
-    const store = await createTestStore();
     const { result } = await renderHookWithConsole(
       () => ({
         snapshot: Schematic.useRangeSnapshot(),
@@ -81,12 +74,7 @@ describe("Schematic.useRangeSnapshot", () => {
       }),
       { client },
     );
-    const id = schematic.ontologyID(s.key);
-    result.current.snapshot({
-      ...createBaseProps({ client, store }),
-      selection: createSelection({ ids: [id] }),
-      state: createState([createEntry(id, s.name)]),
-    });
+    result.current.snapshot([{ key: s.key, name: s.name }]);
     await waitFor(() =>
       expect(
         result.current.notifications.statuses.some(
@@ -101,7 +89,6 @@ describe("Schematic.useRangeSnapshot", () => {
   it("snapshots the selected schematics under the active range", async () => {
     const s = await createSchematic();
     const rng = await createTestRange(client);
-    const store = await createTestStore();
     const { result } = await renderHookWithConsole(
       () => ({
         snapshot: Schematic.useRangeSnapshot(),
@@ -130,17 +117,15 @@ describe("Schematic.useRangeSnapshot", () => {
         },
       },
     );
-    const id = schematic.ontologyID(s.key);
-    result.current.snapshot({
-      ...createBaseProps({ client, store }),
-      selection: createSelection({ ids: [id] }),
-      state: createState([createEntry(id, s.name)]),
-    });
+    result.current.snapshot([{ key: s.key, name: s.name }]);
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(
         ranger.ontologyID(rng.key),
       );
-      expect(children.map((c) => c.name)).toContain(`${s.name} (Snapshot)`);
+      const schematics = await client.schematics.retrieve({
+        keys: children.filter((c) => c.id.type === "schematic").map((c) => c.id.key),
+      });
+      expect(schematics.map((sc) => sc.name)).toContain(`${s.name} (Snapshot)`);
     });
     await waitFor(() =>
       expect(
@@ -189,9 +174,12 @@ describe("Schematic TreeContextMenu", () => {
     let copyKey = "";
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(rootID);
-      const copy = children.find((c) => c.name === `${s.name} (copy)`);
+      const schematics = await client.schematics.retrieve({
+        keys: children.filter((c) => c.id.type === "schematic").map((c) => c.id.key),
+      });
+      const copy = schematics.find((sc) => sc.name === `${s.name} (copy)`);
       if (copy == null) throw new Error("copy not created yet");
-      copyKey = copy.id.key;
+      copyKey = copy.key;
     });
     const editable = await awaitTextEditingElement();
     const renamed = uniqueName("copy_renamed");

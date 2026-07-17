@@ -255,9 +255,9 @@ describe("Group queries", () => {
         expect(result.current.data?.name).toBe("created-group");
       });
 
-      const retrieved = await client.ontology.retrieve(
-        group.ontologyID(result.current.data?.key as string),
-      );
+      const retrieved = await client.groups.retrieve({
+        key: result.current.data?.key as string,
+      });
       expect(retrieved.name).toBe("created-group");
     });
 
@@ -281,7 +281,7 @@ describe("Group queries", () => {
         });
       });
 
-      const retrieved = await client.ontology.retrieve(group.ontologyID(g.key));
+      const retrieved = await client.groups.retrieve({ key: g.key });
       expect(retrieved.name).toBe("updated-name");
     });
   });
@@ -307,7 +307,7 @@ describe("Group queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.ontology.retrieve(group.ontologyID(testGroup.key));
+      const retrieved = await client.groups.retrieve({ key: testGroup.key });
       expect(retrieved.name).toBe("new-name");
     });
   });

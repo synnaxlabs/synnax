@@ -227,12 +227,6 @@ export const { useUpdate: useMoveChildren } = Flux.createUpdate<
   },
 });
 
-export const renameFluxResource = (
-  store: FluxSubStore,
-  id: ontology.ID,
-  name: string,
-) => Flux.partialUpdate(store.resources, ontology.idToString(id), { name });
-
 export type RetrieveChildrenQuery = {
   [K in keyof ontology.RetrieveOptions]: ontology.RetrieveOptions[K];
 } & {

@@ -142,9 +142,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<
     const updated = { ...existing, name };
     await client.access.roles.create(updated);
     rollbacks.push(Flux.partialUpdate(store.roles, key, { name }));
-    rollbacks.push(
-      Ontology.renameFluxResource(store, access.role.ontologyID(key), name),
-    );
     return data;
   },
 });
@@ -264,9 +261,7 @@ export const useForm = Flux.createForm<
     let r: access.role.Role = access.role.roleZ.parse(v);
     const otgID = access.role.ontologyID(r.key);
     const otgKey = ontology.idToString(otgID);
-    rollbacks.push(
-      store.resources.set(otgKey, { key: otgKey, id: otgID, name: r.name }),
-    );
+    rollbacks.push(store.resources.set(otgKey, { key: otgKey, id: otgID }));
     rollbacks.push(store.roles.set(r.key, r));
     if (v.policies.length > 0) {
       await client.ontology.addChildren(

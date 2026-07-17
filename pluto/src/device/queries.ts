@@ -296,18 +296,15 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
 >({
   name: "Device Group",
   retrieve: async ({ client, store }) => {
-    const rels = store.relationships.get((rel) =>
-      ontology.matchRelationship(rel, {
-        from: ontology.ROOT_ID,
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      }),
-    );
-    const groups = store.resources.get(rels.map((rel) => ontology.idToString(rel.to)));
-    const cachedRes = groups.find((group) => group.name === "Devices");
-    if (cachedRes != null) return cachedRes.id;
-    const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-    store.resources.set(res);
-    return res.find((r) => r.name === "Devices")?.id;
+    const children = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+    store.resources.set(children);
+    const groupChildren = children.filter((r) => r.id.type === "group");
+    if (groupChildren.length === 0) return undefined;
+    const groups = await client.groups.retrieve({
+      keys: groupChildren.map((r) => r.id.key),
+    });
+    const devicesGroup = groups.find((g) => g.name === "Devices");
+    return groupChildren.find((r) => r.id.key === devicesGroup?.key)?.id;
   },
 });
 

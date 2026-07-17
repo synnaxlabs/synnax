@@ -55,9 +55,10 @@ describe("useCreateEmpty", () => {
     });
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(parentID);
-      const created = children.find((c) => c.name === name);
-      expect(created).toBeDefined();
-      expect(created?.id.type).toBe("group");
+      const groups = await client.groups.retrieve({
+        keys: children.filter((c) => c.id.type === "group").map((c) => c.id.key),
+      });
+      expect(groups.some((g) => g.name === name)).toBe(true);
     });
   });
 
@@ -102,9 +103,10 @@ describe("useCreateEmpty", () => {
       const children = await client.ontology.retrieveChildren(
         group.ontologyID(child.key),
       );
-      const created = children.find((c) => c.name === name);
-      expect(created).toBeDefined();
-      expect(created?.id.type).toBe("group");
+      const groups = await client.groups.retrieve({
+        keys: children.filter((c) => c.id.type === "group").map((c) => c.id.key),
+      });
+      expect(groups.some((g) => g.name === name)).toBe(true);
     });
   });
 

@@ -10,7 +10,7 @@
 import { group, ontology } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
+import { type Ontology } from "@/ontology";
 
 export const FLUX_STORE_KEY = "groups";
 export const RESOURCE_NAME = "group";
@@ -55,6 +55,18 @@ export const retrieveSingle = async ({
   store.groups.set(key, res);
   return res;
 };
+
+export const { useRetrieve } = Flux.createRetrieve<
+  RetrieveQuery,
+  group.Group,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, query: { key }, onChange }) => [
+    store.groups.onSet(onChange, key),
+  ],
+});
 
 export interface CreateParams extends group.CreateArgs {}
 
@@ -161,7 +173,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.groups, key, { name }));
-    rollbacks.push(Ontology.renameFluxResource(store, group.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.groups.rename(key, name);
     return data;

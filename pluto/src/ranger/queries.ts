@@ -916,7 +916,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
         state.skipUndefined((p) => client.ranges.sugarOne({ ...p, name })),
       ),
     );
-    rollbacks.push(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.ranges.rename(key, name);
     return data;

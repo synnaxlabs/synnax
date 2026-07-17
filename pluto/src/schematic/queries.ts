@@ -394,7 +394,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const current = store.schematics.get(key);
     if (current != null)
       rollbacks.push(store.schematics.set(key, { ...current, name }));
-    rollbacks.push(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.schematics.rename(key, name);
     return data;

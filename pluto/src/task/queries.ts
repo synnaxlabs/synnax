@@ -418,7 +418,6 @@ export const rename = async (
       state.skipUndefined((p) => client.tasks.sugar({ ...p.payload, name })),
     ),
   );
-  rollbacks.push(Ontology.renameFluxResource(store, task.ontologyID(key), name));
   await onOptimisticComplete(data);
   const t = await retrieveSingle({ ...params, query: { key } });
   await client.tasks.create({ ...t.payload, name });

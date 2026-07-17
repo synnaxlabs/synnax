@@ -127,7 +127,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const { key, name } = data;
     await client.projects.rename(key, name);
     rollbacks.push(Flux.partialUpdate(store.projects, key, { name }));
-    rollbacks.push(Ontology.renameFluxResource(store, project.ontologyID(key), name));
     return data;
   },
 });
@@ -141,18 +140,15 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
 >({
   name: "Project Group",
   retrieve: async ({ client, store }) => {
-    const rels = store.relationships.get((rel) =>
-      ontology.matchRelationship(rel, {
-        from: ontology.ROOT_ID,
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      }),
-    );
-    const groups = store.resources.get(rels.map((rel) => ontology.idToString(rel.to)));
-    const cachedRes = groups.find((group) => group.name === "Projects");
-    if (cachedRes != null) return cachedRes.id;
-    const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-    store.resources.set(res);
-    return res.find((r) => r.name === "Projects")?.id;
+    const children = await client.ontology.retrieveChildren(ontology.ROOT_ID);
+    store.resources.set(children);
+    const groupChildren = children.filter((r) => r.id.type === "group");
+    if (groupChildren.length === 0) return undefined;
+    const groups = await client.groups.retrieve({
+      keys: groupChildren.map((r) => r.id.key),
+    });
+    const projectsGroup = groups.find((g) => g.name === "Projects");
+    return groupChildren.find((r) => r.id.key === projectsGroup?.key)?.id;
   },
 });
 
@@ -211,22 +207,40 @@ export type RetrieveChildrenQuery = {
   types: ontology.ResourceType[];
 };
 
+const collectChildIDs = async (
+  client: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>["client"],
+  parentID: ontology.ID,
+  types: ontology.ResourceType[],
+  exclude?: string,
+): Promise<ontology.ID[]> => {
+  const children = await client.ontology.retrieveChildren(parentID, {
+    types: [...types, "group"],
+  });
+  const results: ontology.ID[] = [];
+  for (const child of children)
+    if (types.includes(child.id.type) && child.id.key !== exclude)
+      results.push(child.id);
+    else if (child.id.type === "group")
+      results.push(...(await collectChildIDs(client, child.id, types, exclude)));
+  return results;
+};
+
 const collectChildren = async (
   client: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>["client"],
   parentID: ontology.ID,
   types: ontology.ResourceType[],
   exclude?: string,
 ): Promise<record.KeyedNamed[]> => {
-  const children = await client.ontology.retrieveChildren(parentID, {
-    types: [...types, "group"],
-  });
-  const results: record.KeyedNamed[] = [];
-  for (const child of children)
-    if (types.includes(child.id.type) && child.id.key !== exclude)
-      results.push({ key: child.id.key, name: child.name });
-    else if (child.id.type === "group")
-      results.push(...(await collectChildren(client, child.id, types, exclude)));
-  return results;
+  const ids = await collectChildIDs(client, parentID, types, exclude);
+  // Only schematics are requested today; resolve their names in bulk. Other types
+  // fall back to their key.
+  const schematicKeys = ids.filter((id) => id.type === "schematic").map((id) => id.key);
+  const schematics =
+    schematicKeys.length > 0
+      ? await client.schematics.retrieve({ keys: schematicKeys })
+      : [];
+  const names = new Map(schematics.map((s) => [s.key, s.name]));
+  return ids.map((id) => ({ key: id.key, name: names.get(id.key) ?? id.key }));
 };
 
 const findProjectAncestor = async (

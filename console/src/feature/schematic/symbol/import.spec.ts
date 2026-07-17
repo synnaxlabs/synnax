@@ -33,8 +33,13 @@ const createSymbolGroup = async (): Promise<group.Group> => {
   });
 };
 
-const childNames = async (id: ontology.ID): Promise<string[]> =>
-  (await client.ontology.retrieveChildren(id)).map((c) => c.name);
+const childNames = async (id: ontology.ID): Promise<string[]> => {
+  const children = await client.ontology.retrieveChildren(id);
+  const symbols = await client.schematics.symbols.retrieve({
+    keys: children.map((c) => c.id.key),
+  });
+  return symbols.map((s) => s.name);
+};
 
 describe("Schematic.Symbol.useImport", () => {
   it("imports a picked symbol file into the given group", async () => {
@@ -154,10 +159,13 @@ describe("Schematic.Symbol.useImportGroup", () => {
       ).toBe(true),
     );
     const root = await client.schematics.symbols.retrieveGroup();
-    const groups = await client.ontology.retrieveChildren(group.ontologyID(root.key));
+    const children = await client.ontology.retrieveChildren(group.ontologyID(root.key));
+    const groups = await client.groups.retrieve({
+      keys: children.filter((c) => c.id.type === "group").map((c) => c.id.key),
+    });
     const created = groups.find((g) => g.name === groupName);
     if (created == null) throw new Error("imported group not found");
-    expect(await childNames(created.id)).toContain(symbolName);
+    expect(await childNames(group.ontologyID(created.key))).toContain(symbolName);
   });
 
   it("raises an error when the directory has no manifest", async () => {

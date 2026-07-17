@@ -81,8 +81,8 @@ describe("group ontology service", () => {
     fireEvent.click(await screen.findByText("Ungroup"));
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(parentID);
-      expect(children.some((r) => r.name === grandchild.name)).toBe(true);
-      expect(children.some((r) => r.name === child.name)).toBe(false);
+      expect(children.some((r) => r.id.key === grandchild.key)).toBe(true);
+      expect(children.some((r) => r.id.key === child.key)).toBe(false);
     });
   });
 

@@ -293,7 +293,10 @@ describe("Symbol queries", () => {
       );
       expect(children.length).toBe(1);
       expect(children[0].id.key).toBe(retrieved.key);
-      expect(children[0].name).toBe("created-symbol");
+      const child = await client.schematics.symbols.retrieve({
+        key: children[0].id.key,
+      });
+      expect(child.name).toBe("created-symbol");
     });
 
     it("should update an existing symbol", async () => {

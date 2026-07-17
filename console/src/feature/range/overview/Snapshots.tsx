@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger } from "@synnaxlabs/client";
+import { type ontology, ranger } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -54,20 +54,22 @@ const SnapshotsListItemContent = ({
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const promptConfirm = Tree.useConfirmDelete({ type: "Snapshot" });
-  const { id, name } = entry;
+  const { id } = entry;
+  const name = Tree.useName(id);
   const isSnapshot = svc.useIsSnapshot(id.key);
   if (!isSnapshot) return null;
+  const namedEntry = { ...entry, name };
   const handleSelect = () => {
     handleError(
-      svc.onClick(entry, { client, placeLayout }),
-      `Failed to open ${entry.name}`,
+      svc.onClick(namedEntry, { client, placeLayout }),
+      `Failed to open ${name}`,
     );
   };
   const handleDelete = () => {
     handleError(async () => {
       const confirmed = await promptConfirm({ name });
       if (!confirmed) return;
-      await svc.onDelete(entry, { client, placeLayout });
+      await svc.onDelete(namedEntry, { client, placeLayout });
     }, `Failed to delete ${name}`);
   };
   return (
@@ -103,7 +105,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const { data, getItem, subscribe, retrieve, status } = Ontology.useListChildren({
     initialQuery: { id: ranger.ontologyID(rangeKey) },
     filter: useCallback(
-      (item: Tree.Entry) => services[item.id.type] != null,
+      (item: ontology.Resource) => services[item.id.type] != null,
       [services],
     ),
   });

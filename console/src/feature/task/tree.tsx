@@ -57,10 +57,14 @@ const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   );
 };
 
+const useName: Tree.UseName = (id) =>
+  Base.useRetrieve({ key: id.key }).data?.name ?? "";
+
 const useDelete = Tree.createUseDelete({
   type: "Task",
   query: Base.useDelete,
   convertKey: String,
+  useName,
   beforeUpdate: async ({ data, removeLayout }) => {
     removeLayout(...data);
     return data;
@@ -71,6 +75,7 @@ export const useRename = Tree.createUseRename({
   query: Base.useRename,
   ontologyID: task.ontologyID,
   convertKey: String,
+  useName,
   beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
     const { key, name } = data;
     const layout = Session.Layout.selectByFilter(
@@ -91,7 +96,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     client,
     placeLayout,
     handleError,
-    state: { getName, shape },
+    state: { shape },
   } = props;
   const { ids, rootID } = selection;
   const handleDelete = useDelete(props);
@@ -105,14 +110,14 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
   const hasDeletePermission = Access.useDeleteGranted(ontologyIDs);
   const hasUpdatePermission = Access.useUpdateGranted(ontologyIDs);
-  const handleEdit = () => {
-    if (client == null) return;
-    openTask(client, ids[0].key, getName(ids[0]), placeLayout, handleError);
-  };
-  const singleResource = ids.length === 1;
   const tasks = Base.useRetrieveMultiple({ keys: ids.map((id) => id.key) }).data;
   const hasNoSnapshots = tasks?.every((t) => t.snapshot === false) ?? false;
   const firstTask = tasks?.find((t) => t.key === ids[0]?.key);
+  const handleEdit = () => {
+    if (client == null) return;
+    openTask(client, ids[0].key, firstTask?.name ?? "", placeLayout, handleError);
+  };
+  const singleResource = ids.length === 1;
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && (
@@ -138,7 +143,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             range={range}
             onClick={() =>
               snap({
-                tasks: ids.map((id) => ({ key: id.key, name: getName(id) })),
+                tasks: ids.map((id) => ({
+                  key: id.key,
+                  name: tasks?.find((t) => t.key === id.key)?.name ?? "",
+                })),
               })
             }
           />
@@ -157,7 +165,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: getName(ids[0]), ontologyID: ids[0] })}
+            onClick={() =>
+              handleLink({ name: firstTask?.name ?? "", ontologyID: ids[0] })
+            }
           />
           <Export.ContextMenuItem onClick={() => handleExport(ids[0].key)} />
           <Menu.Divider />
@@ -178,6 +188,7 @@ const TreeItem = Tree.createItem({
   type: "task",
   icon: <Icon.Task />,
   hasChildren: false,
+  useName,
   useOnSelect,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,

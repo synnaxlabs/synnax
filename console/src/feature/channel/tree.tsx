@@ -70,7 +70,9 @@ const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   );
 };
 
-const haulItems = ({ name, id: otgID }: Tree.Entry, store: Flux.Store): Haul.Item[] => {
+const haulItems = (resource: ontology.Resource, store: Flux.Store): Haul.Item[] => {
+  const channelKey = Number(resource.id.key);
+  const ch = (store as PChannel.FluxSubStore).channels.get(channelKey);
   const t = telem.sourcePipeline("string", {
     connections: [
       {
@@ -79,14 +81,14 @@ const haulItems = ({ name, id: otgID }: Tree.Entry, store: Flux.Store): Haul.Ite
       },
     ],
     segments: {
-      valueStream: telem.streamChannelValue({ channel: Number(otgID.key) }),
+      valueStream: telem.streamChannelValue({ channel: channelKey }),
       stringifier: telem.stringifyNumber({ precision: 2 }),
     },
     outlet: "stringifier",
   });
   const nodeConfig: PSchematic.Node.ConfigOf<"value"> = {
     variant: "value",
-    label: { label: name, level: "p" },
+    label: { label: ch?.name ?? "", level: "p" },
     telem: t,
   };
   const items = [
@@ -96,15 +98,18 @@ const haulItems = ({ name, id: otgID }: Tree.Entry, store: Flux.Store): Haul.Ite
       config: nodeConfig,
     }),
   ];
-  const ch = (store as PChannel.FluxSubStore).channels.get(Number(otgID.key));
   if (ch?.internal === true) return items;
-  return [PChannel.createHaulItem(Number(otgID.key))];
+  return [PChannel.createHaulItem(channelKey)];
 };
+
+const useName: Tree.UseName = (id) =>
+  PChannel.useRetrieve({ key: Number(id.key) }).data?.name ?? "";
 
 export const useDelete = Tree.createUseDelete({
   type: "Channel",
   query: PChannel.useDelete,
   convertKey: Number,
+  useName,
 });
 
 const beforeSetAlias = async ({
@@ -181,7 +186,7 @@ const useEditCalculated = () => {
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID },
-    state: { getName, shape },
+    state: { shape },
   } = props;
   const activeRange = Session.Range.useSelectState();
   const groupFromSelection = Group.useCreateFromSelection();
@@ -269,7 +274,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: getName(ids[0]), ontologyID: ids[0] })}
+            onClick={() =>
+              handleLink({ name: firstChannel?.name ?? "", ontologyID: ids[0] })
+            }
           />
           <Tree.CopyPropertiesContextMenuItem
             {...props}
@@ -323,6 +330,7 @@ const TreeItem = Tree.createItem({
   type: "channel",
   icon: <Icon.Channel />,
   hasChildren: false,
+  useName,
   useOnSelect,
   haulItems,
   Content,

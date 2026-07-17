@@ -38,7 +38,7 @@ describe("Group", () => {
         key: g.key,
         name: "updated-name",
       });
-      const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
+      const g2 = await client.groups.retrieve({ key: g.key });
       expect(g2.name).toEqual("updated-name");
     });
   });
@@ -74,7 +74,7 @@ describe("Group", () => {
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const newName = `group-${Math.random()}`;
       await client.groups.rename(g.key, newName);
-      const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
+      const g2 = await client.groups.retrieve({ key: g.key });
       expect(g2.name).toEqual(newName);
     });
   });

@@ -8,12 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
-import { Icon, Status, Synnax } from "@synnaxlabs/pluto";
+import { Arc as PArc, Icon, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Arc } from "@/platform/arc";
 import { Layout } from "@/platform/layout";
 import { Tree } from "@/platform/tree";
+
+const useName: Tree.UseName = (id: ontology.ID) =>
+  PArc.useRetrieve({ key: id.key }).data?.name ?? "";
 
 const load = async (client: Client, id: ontology.ID, placeLayout: Layout.Placer) => {
   const { name, key } = await client.arcs.retrieve({ key: id.key });
@@ -39,6 +42,7 @@ const TreeItem = Tree.createItem({
   type: "arc",
   icon: <Icon.Arc />,
   canDrop: () => true,
+  useName,
   useOnSelect,
 });
 

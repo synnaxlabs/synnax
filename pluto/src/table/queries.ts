@@ -236,7 +236,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSub
   update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.tables, key, { name }));
-    rollbacks.push(Ontology.renameFluxResource(store, table.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.tables.rename(key, name);
     return data;

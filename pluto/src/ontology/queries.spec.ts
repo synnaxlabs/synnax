@@ -144,8 +144,14 @@ describe("Ontology Queries", () => {
 
   describe("useResourceList", () => {
     it("should return all resources when no parameters are provided", async () => {
-      await client.groups.create({ parent: ontology.ROOT_ID, name: "group1" });
-      await client.groups.create({ parent: ontology.ROOT_ID, name: "group2" });
+      const g1 = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "group1",
+      });
+      const g2 = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "group2",
+      });
 
       const { result } = renderHook(() => Ontology.useResourceList({}), {
         wrapper,
@@ -157,11 +163,11 @@ describe("Ontology Queries", () => {
 
       await waitFor(() => {
         expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-        const groupNames = result.current
+        const groupKeys = result.current
           .getItem(result.current.data)
-          .map((r) => r.name);
-        expect(groupNames).toContain("group1");
-        expect(groupNames).toContain("group2");
+          .map((r) => r.id.key);
+        expect(groupKeys).toContain(g1.key);
+        expect(groupKeys).toContain(g2.key);
       });
     });
 
@@ -207,11 +213,11 @@ describe("Ontology Queries", () => {
     });
 
     it("should filter resources by search term", async () => {
-      await client.groups.create({
+      const matching = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "matching-group",
       });
-      await client.groups.create({
+      const different = await client.groups.create({
         parent: ontology.ROOT_ID,
         name: "different-name",
       });
@@ -226,11 +232,11 @@ describe("Ontology Queries", () => {
 
       await waitFor(() => {
         expect(result.current.data.length).toBeGreaterThanOrEqual(1);
-        const groupNames = result.current.data.map(
-          (r) => result.current.getItem(r)?.name,
+        const groupKeys = result.current.data.map(
+          (r) => result.current.getItem(r)?.id.key,
         );
-        expect(groupNames).toContain("matching-group");
-        expect(groupNames).not.toContain("different-name");
+        expect(groupKeys).toContain(matching.key);
+        expect(groupKeys).not.toContain(different.key);
       });
     });
 
@@ -257,7 +263,7 @@ describe("Ontology Queries", () => {
         const item = result.current.getItem(
           ontology.idToString(group.ontologyID(newGroup.key)),
         );
-        expect(item?.name).toBe(newGroupName);
+        expect(item?.id.key).toBe(newGroup.key);
       });
     });
   });

@@ -52,7 +52,6 @@ describe("Ontology", () => {
     it("should extract ID from a single Resource object", () => {
       const resource: ontology.Resource = {
         id: { type: "group", key: "test-key" },
-        name: "Test Resource",
         key: "group:test-key",
       };
       const result = ontology.parseIDs(resource);
@@ -63,12 +62,10 @@ describe("Ontology", () => {
       const resources: ontology.Resource[] = [
         {
           id: { type: "group", key: "test-key-1" },
-          name: "Test Resource 1",
           key: "group:test-key-1",
         },
         {
           id: { type: "channel", key: "test-key-2" },
-          name: "Test Resource 2",
           key: "channel:test-key-2",
         },
       ];
@@ -94,12 +91,10 @@ describe("Ontology", () => {
       const resources: ontology.Resource[] = [
         {
           id: { type: "group", key: "test-key-1" },
-          name: "Test Resource 1",
           key: "group:test-key-1",
         },
         {
           id: { type: "channel", key: "test-key-2" },
-          name: "Test Resource 2",
           key: "channel:test-key-2",
         },
       ];
@@ -126,19 +121,19 @@ describe("Ontology", () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
-      expect(g2.name).toEqual(name);
+      expect(g2.id).toEqual(group.ontologyID(g.key));
     });
     test("retrieve children", async () => {
       const name = randomName();
       const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       const name2 = randomName();
-      await client.groups.create({
+      const child = await client.groups.create({
         parent: group.ontologyID(g.key),
         name: name2,
       });
       const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
       expect(children.length).toEqual(1);
-      expect(children[0].name).toEqual(name2);
+      expect(children[0].id.key).toEqual(child.key);
     });
     test("retrieve parents", async () => {
       const name = randomName();
@@ -150,7 +145,7 @@ describe("Ontology", () => {
       });
       const parents = await client.ontology.retrieveParents(group.ontologyID(g2.key));
       expect(parents.length).toEqual(1);
-      expect(parents[0].name).toEqual(name);
+      expect(parents[0].id.key).toEqual(g.key);
     });
     test("retrieve by search term", async () => {
       const name = randomName();
@@ -160,7 +155,7 @@ describe("Ontology", () => {
           const results = await client.ontology.retrieve({ searchTerm: name });
           return results.find((r) => r.id.key === g.key);
         })
-        .toMatchObject({ name, id: { type: "group", key: g.key } });
+        .toMatchObject({ id: { type: "group", key: g.key } });
     });
   });
 
@@ -179,7 +174,7 @@ describe("Ontology", () => {
       );
       const children = await client.ontology.retrieveChildren(group.ontologyID(g.key));
       expect(children.length).toEqual(1);
-      expect(children[0].name).toEqual(name2);
+      expect(children[0].id.key).toEqual(g2.key);
     });
     test("remove children", async () => {
       const name = randomName();

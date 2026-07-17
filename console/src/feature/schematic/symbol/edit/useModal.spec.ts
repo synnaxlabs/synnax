@@ -48,8 +48,13 @@ const createParentGroup = async (): Promise<group.Group> => {
   });
 };
 
-const childNames = async (id: ontology.ID): Promise<string[]> =>
-  (await client.ontology.retrieveChildren(id)).map((c) => c.name);
+const childNames = async (id: ontology.ID): Promise<string[]> => {
+  const children = await client.ontology.retrieveChildren(id);
+  const symbols = await client.schematics.symbols.retrieve({
+    keys: children.map((c) => c.id.key),
+  });
+  return symbols.map((s) => s.name);
+};
 
 const openCreateModal = async (createKey?: string) => {
   const grp = await createParentGroup();

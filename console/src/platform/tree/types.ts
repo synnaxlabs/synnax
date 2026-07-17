@@ -14,9 +14,9 @@ import { type FC } from "react";
 import { type Layout } from "@/platform/layout";
 import { type Session } from "@/session";
 
-// Entry is the identity and display name of an item in the resource tree — the only
-// ontology-derived fields console feature code consumes. Anything beyond the id and
-// name comes from the resource type's own client and flux store.
+// Entry is the identity and display name of an item passed to a resource type's select
+// handler. The name is resolved by the type's own Item from its flux store, not carried
+// on the ontology resource.
 export interface Entry {
   // key is the string form of id, matching the tree's node and list keys.
   key: string;
@@ -24,19 +24,10 @@ export interface Entry {
   name: string;
 }
 
-export interface GetName {
-  (id: ontology.ID | string): string;
-  (ids: (ontology.ID | string)[]): string[];
-}
-
 export interface TreeState {
   nodes: Tree.Node[];
   shape: Tree.Shape;
   setNodes: (nodes: Tree.Node[]) => void;
-  // setName registers or updates the display name for the given id, so nodes added
-  // optimistically (before the cluster confirms them) can render.
-  setName: (id: ontology.ID, name: string) => void;
-  getName: GetName;
   setSelection: (keys: string[]) => void;
   expand: (key: string) => void;
   contract: (key: string) => void;

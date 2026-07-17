@@ -29,13 +29,11 @@ export interface CopyPropertiesContextMenuItemProps extends ContextMenuProps {
 export const CopyPropertiesContextMenuItem = ({
   client,
   selection: { ids },
-  state: { getName },
   retrieveProperties,
 }: CopyPropertiesContextMenuItemProps): ReactElement | null => {
   const store = Flux.useStore();
   if (ids.length !== 1) return null;
   const id = ids[0];
-  const name = getName(id);
   const getText = useCallback(
     async () => JSON.stringify(await retrieveProperties({ client, store, id })),
     [client, store, id, retrieveProperties],
@@ -44,7 +42,7 @@ export const CopyPropertiesContextMenuItem = ({
     <Menu.CopyItem
       itemKey="copyData"
       text={getText}
-      successMessage={`Copied properties for ${name} to clipboard`}
+      successMessage="Copied properties to clipboard"
     >
       Copy properties
     </Menu.CopyItem>

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,14 +19,13 @@ const client = createTestClient();
 
 describe("project toolbar", () => {
   it("should list projects in the tree", async () => {
-    await client.projects.create({ name: uniqueName("project"), layout: {} });
-    const roots = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-    const projectsGroup = roots.find((r) => r.name === "Projects");
-    if (projectsGroup == null) throw new Error("Projects group not found");
-    const [firstChild] = await client.ontology.retrieveChildren(projectsGroup.id);
+    const proj = await client.projects.create({
+      name: uniqueName("project"),
+      layout: {},
+    });
     await renderToolbar(Project.TOOLBAR.content, { client });
     expect(screen.getByText("Projects")).toBeTruthy();
-    expect(await screen.findByText(firstChild.name)).toBeTruthy();
+    expect(await screen.findByText(proj.name)).toBeTruthy();
   });
 
   it("should open the create modal from the create action", async () => {

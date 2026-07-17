@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ontology } from "@synnaxlabs/client";
 import { type Flux, type Haul, Icon, Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -34,23 +35,21 @@ const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   );
 };
 
-const haulItems = (entry: Tree.Entry, store: Flux.Store): Haul.Item[] => {
-  const range = (store as Ranger.FluxSubStore).ranges.get(entry.id.key);
+const haulItems = (resource: ontology.Resource, store: Flux.Store): Haul.Item[] => {
+  const range = (store as Ranger.FluxSubStore).ranges.get(resource.id.key);
   if (range == null) return [];
   return [Ranger.createHaulItem(range)];
 };
 
-const Content = (props: Tree.ContentProps) => {
-  Ranger.useRetrieve({ key: props.id.key });
-  return <Tree.DefaultRow {...props} />;
-};
+const useName: Tree.UseName = (id) =>
+  Ranger.useRetrieve({ key: id.key }).data?.name ?? "";
 
 const TreeItem = Tree.createItem({
   type: "range",
   icon: <Icon.Range />,
+  useName,
   useOnSelect,
   canDrop: () => true,
-  Content,
   haulItems,
 });
 

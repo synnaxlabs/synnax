@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ontology } from "@synnaxlabs/client";
 import { Component, Icon, List as Base, Ontology, Text } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 
@@ -27,7 +28,7 @@ export interface ListProps extends Palette.ListProps<Tree.Entry> {
 
 export const List = ({ items, ...rest }: ListProps): ReactElement => {
   const filter = useCallback(
-    (item: Tree.Entry) => items[item.id.type] != null,
+    (item: ontology.Resource) => items[item.id.type] != null,
     [items],
   );
   const listItem = useMemo(() => {

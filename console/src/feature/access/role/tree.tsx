@@ -13,10 +13,14 @@ import { Access, Icon, Menu, User } from "@synnaxlabs/pluto";
 import { ContextMenu } from "@/platform/context-menu";
 import { Tree } from "@/platform/tree";
 
+const useName: Tree.UseName = (id) =>
+  Access.Role.useRetrieve({ key: id.key }).data?.name ?? "";
+
 const useDelete = Tree.createUseDelete({
   type: "Role",
   query: Access.Role.useDelete,
   convertKey: String,
+  useName,
 });
 
 const useRename = Tree.createUseRename({
@@ -78,6 +82,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 const TreeItem = Tree.createItem({
   type: "role",
   icon: <Icon.Role />,
+  useName,
   ContextMenu: TreeContextMenu,
   hasChildren: true,
   canDrop: ({ items }) => {

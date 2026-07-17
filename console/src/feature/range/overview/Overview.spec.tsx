@@ -118,7 +118,9 @@ describe("range/overview/Overview", () => {
     const rng = await createTestRange(client);
     const snapID = await createSnapshot(rng);
     const { onSnapshotClick } = await renderOverview(rng.key);
-    const item = await screen.findByText((await client.ontology.retrieve(snapID)).name);
+    const item = await screen.findByText(
+      (await client.schematics.retrieve({ key: snapID.key })).name,
+    );
     fireEvent.click(item);
     await waitFor(() => expect(onSnapshotClick).toHaveBeenCalledTimes(1));
     const [entry] = onSnapshotClick.mock.calls[0] as [Tree.Entry];
@@ -128,7 +130,7 @@ describe("range/overview/Overview", () => {
   it("deletes a snapshot through its service after confirmation", async () => {
     const rng = await createTestRange(client);
     const snapID = await createSnapshot(rng);
-    const name = (await client.ontology.retrieve(snapID)).name;
+    const name = (await client.schematics.retrieve({ key: snapID.key })).name;
     const { onSnapshotDelete } = await renderOverview(rng.key);
     await screen.findByText(name);
     fireEvent.click(await waitFor(() => getIconButton(document.body, "delete")));

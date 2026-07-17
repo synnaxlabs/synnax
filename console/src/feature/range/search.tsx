@@ -27,7 +27,7 @@ const SearchListItem: Search.ListItem = (props) => {
   const placeLayout = Layout.usePlacer();
   const handleError = Status.useErrorHandler();
   const handleSelect = () => {
-    const name = resource?.name ?? "range";
+    const name = range?.name ?? "range";
     handleError(async () => {
       if (client == null || resource == null) return;
       const { id } = resource;
@@ -42,7 +42,7 @@ const SearchListItem: Search.ListItem = (props) => {
     <Palette.ListItem gap="tiny" justify="between" {...props} onSelect={handleSelect}>
       <Text.Text weight={450} gap="medium">
         <Icon.Range />
-        {resource?.name}
+        {range?.name}
       </Text.Text>
       {range != null && (
         <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>

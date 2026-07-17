@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { type Icon, List, Text } from "@synnaxlabs/pluto";
 import { type FC, useCallback } from "react";
 
 import { Palette } from "@/platform/palette";
-import { type Tree } from "@/platform/tree";
+import { Tree } from "@/platform/tree";
 
 interface BaseListItemProps extends Omit<Palette.ListItemProps, "onSelect"> {
   icon: Icon.ReactElement;
@@ -22,9 +22,14 @@ interface BaseListItemProps extends Omit<Palette.ListItemProps, "onSelect"> {
 export const BaseListItem = ({ icon, onSelect, ...rest }: BaseListItemProps) => {
   const { itemKey } = rest;
   const item = List.useItem<string, Tree.Entry>(itemKey);
+  // Derive the id from the stable itemKey so the resolved name hook doesn't switch
+  // types between the loading and loaded render.
+  const name = Tree.useName(ontology.idZ.parse(itemKey));
+  const handleSelect = useCallback(
+    () => item != null && onSelect({ ...item, name }),
+    [onSelect, item, name],
+  );
   if (item == null) return null;
-  const { name } = item;
-  const handleSelect = useCallback(() => onSelect(item), [onSelect, item]);
   return (
     <Palette.ListItem {...rest} onSelect={handleSelect}>
       <Text.Text weight={450} gap="medium">

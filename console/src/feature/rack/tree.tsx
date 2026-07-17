@@ -23,6 +23,9 @@ const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,
 });
 
+const useName: Tree.UseName = (id) =>
+  Rack.useRetrieve({ key: Number(id.key) }).data?.name ?? "";
+
 const useRename = Tree.createUseRename({
   query: Rack.useRename,
   ontologyID: rack.ontologyID,
@@ -55,6 +58,7 @@ const useDelete = Tree.createUseDelete({
   type: "Rack",
   query: Rack.useDelete,
   convertKey: Number,
+  useName,
 });
 
 const retrieveProperties = async ({
@@ -141,6 +145,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 const TreeItem = Tree.createItem({
   type: "rack",
   icon: <Icon.Rack />,
+  useName,
   ContextMenu: TreeContextMenu,
   Content,
 });

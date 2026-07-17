@@ -137,7 +137,7 @@ describe("Schematic toolbar Symbols", () => {
     fireEvent.change(input, { target: { value: renamed } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(async () => {
-      const resource = await client.ontology.retrieve(group.ontologyID(grp.key));
+      const resource = await client.groups.retrieve({ key: grp.key });
       expect(resource.name).toBe(renamed);
     });
   });
@@ -167,7 +167,10 @@ describe("Schematic toolbar Symbols", () => {
       const children = await client.ontology.retrieveChildren(
         group.ontologyID(root.key),
       );
-      expect(children.map((c) => c.name)).toContain(name);
+      const groups = await client.groups.retrieve({
+        keys: children.filter((c) => c.id.type === "group").map((c) => c.id.key),
+      });
+      expect(groups.map((g) => g.name)).toContain(name);
     });
   });
 });

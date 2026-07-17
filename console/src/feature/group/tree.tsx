@@ -16,6 +16,9 @@ import { Group as PlatformGroup } from "@/platform/group";
 import { Link } from "@/platform/link";
 import { Tree } from "@/platform/tree";
 
+const useName: Tree.UseName = (id) =>
+  Group.useRetrieve({ key: id.key }).data?.name ?? "";
+
 const useRename = Tree.createUseRename({
   query: Group.useRename,
   ontologyID: group.ontologyID,
@@ -38,7 +41,8 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
     selection: { ids, rootID },
     state,
   } = props;
-  const { getName, nodes, shape } = state;
+  const { nodes, shape } = state;
+  const name = useName(ids[0]);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const ungroup = useUngroupSelection();
@@ -98,7 +102,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
       {isSingle && (
         <>
           <Link.CopyContextMenuItem
-            onClick={() => handleLink({ name: getName(firstID), ontologyID: firstID })}
+            onClick={() => handleLink({ name, ontologyID: firstID })}
           />
           <Tree.CopyPropertiesContextMenuItem
             {...props}
@@ -195,6 +199,7 @@ const useUngroupSelection = () =>
 const TreeItem = Tree.createItem({
   type: "group",
   icon: <Icon.Group />,
+  useName,
   canDrop: () => true,
   // This haul item allows the group to be dragged between nodes in the tree.
   haulItems: ({ id }) => [id],

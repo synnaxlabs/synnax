@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, NotFoundError, ontology, type project } from "@synnaxlabs/client";
+import { lineplot, NotFoundError, type project } from "@synnaxlabs/client";
 import {
   array,
   color,
@@ -24,7 +24,6 @@ import { Flux } from "@/flux";
 import { useSyncedRef } from "@/hooks/ref";
 import { Scope } from "@/lineplot/scope";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
 import { Theming } from "@/theming";
 
 export const FLUX_STORE_KEY = "lineplots";
@@ -66,10 +65,6 @@ export const {
   retrieve: retrieveSingle,
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.lineplots.onSet(onChange, key),
-    store.resources.onSet(
-      ({ name }) => onChange(state.skipUndefined((p) => ({ ...p, name }))),
-      ontology.idToString(lineplot.ontologyID(key)),
-    ),
   ],
 });
 
@@ -548,7 +543,6 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     const { key, name } = data;
     const current = store.lineplots.get(key);
     if (current != null) rollbacks.push(store.lineplots.set(key, { ...current, name }));
-    rollbacks.push(Ontology.renameFluxResource(store, lineplot.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.lineplots.rename(key, name);
     return data;

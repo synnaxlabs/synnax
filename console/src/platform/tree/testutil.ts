@@ -15,29 +15,18 @@ import { type Tree } from "@/platform/tree";
 import { type Session } from "@/session";
 
 /**
- * Builds a {@link Tree.TreeState} backed by the given entries. getName resolves
- * against the supplied entries; the mutating members are no-ops unless overridden.
+ * Builds a {@link Tree.TreeState} backed by the given entries. The mutating members are
+ * no-ops unless overridden.
  */
 export const createState = (
   entries: Tree.Entry[],
   overrides: Partial<Tree.TreeState> = {},
 ): Tree.TreeState => {
-  const byKey = new Map(entries.map((e) => [e.key, e]));
-  const resolve = (id: ontology.ID | string): string => {
-    const key = typeof id === "string" ? id : ontology.idToString(id);
-    const entry = byKey.get(key);
-    if (entry == null) throw new Error(`entry ${key} not found in test state`);
-    return entry.name;
-  };
-  const getName = ((id: ontology.ID | string | (ontology.ID | string)[]) =>
-    Array.isArray(id) ? id.map(resolve) : resolve(id)) as Tree.GetName;
   const nodes = entries.map((e) => ({ key: e.key }));
   return {
     nodes,
     shape: PTree.flatten({ nodes, expanded: [] }),
     setNodes: () => {},
-    setName: () => {},
-    getName,
     setSelection: () => {},
     expand: () => {},
     contract: () => {},

@@ -23,7 +23,7 @@ export interface UseCreateEmptyProps {
 export const useCreateEmpty = ({
   parent,
   root,
-  state: { nodes: tree, setNodes, setName, expand },
+  state: { nodes: tree, setNodes, expand },
 }: UseCreateEmptyProps): (() => void) => {
   const { update } = Group.useCreate({
     beforeUpdate: useCallback(
@@ -31,7 +31,6 @@ export const useCreateEmpty = ({
         const newID = group.ontologyID(uuid.create());
         const newIDString = ontology.idToString(newID);
         const node: PTree.Node<string> = { key: newIDString, children: [] };
-        setName(newID, "");
         const destination = ontology.idsEqual(data.parent, root)
           ? null
           : ontology.idToString(data.parent);
@@ -44,7 +43,7 @@ export const useCreateEmpty = ({
         if (!renamed || name === "") return false;
         return { ...data, key: newID.key, name };
       },
-      [tree, setNodes, setName, expand],
+      [tree, setNodes, expand],
     ),
   });
   return useCallback(

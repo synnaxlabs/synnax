@@ -58,6 +58,18 @@ export const retrieveSingle = async ({
   return label;
 };
 
+export const { useRetrieve } = Flux.createRetrieve<
+  RetrieveQuery,
+  label.Label,
+  FluxSubStore
+>({
+  name: RESOURCE_NAME,
+  retrieve: retrieveSingle,
+  mountListeners: ({ store, query: { key }, onChange }) => [
+    store.labels.onSet(onChange, key),
+  ],
+});
+
 export const matchRelationship = (rel: ontology.Relationship, id: ontology.ID) =>
   ontology.matchRelationship(rel, {
     from: id,

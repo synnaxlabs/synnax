@@ -121,7 +121,8 @@ describe("User queries", () => {
       });
 
       expect(result.current.data).toBeDefined();
-      const res = await client.ontology.retrieve(result.current.data as ontology.ID);
+      const id = result.current.data as ontology.ID;
+      const res = await client.groups.retrieve({ key: id.key });
       expect(res.name).toBe("Users");
     });
   });
