@@ -22,6 +22,7 @@ import (
 	aspentransport "github.com/synnaxlabs/aspen/transport/grpc"
 	"github.com/synnaxlabs/freighter/http"
 	cmdcert "github.com/synnaxlabs/synnax/cmd/cert"
+	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/console"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -58,7 +59,7 @@ type CoreConfig struct {
 	dataPath             string
 	verifier             string
 	rootCredentials      auth.Credentials
-	listenAddress        address.Address
+	listeners            listener.Configs
 	peers                []address.Address
 	disabledIntegrations []string
 	enabledIntegrations  []string
@@ -82,7 +83,10 @@ func (c CoreConfig) Validate() error {
 	validate.NotNil(v, "debug", c.debug)
 	validate.NotNil(v, "auto_cert", c.autoCert)
 	validate.NotNil(v, "mem_backed", c.memBacked)
-	validate.NotEmptyString(v, "listen_address", c.listenAddress)
+	v.Exec(c.listeners.Validate)
+	if c.insecure != nil && !*c.insecure {
+		v.Exec(c.listeners.ValidateAdvertiseSource)
+	}
 	validate.NotEmptyString(v, "data_path", c.dataPath)
 	validate.NonZero(v, "slow_consumer_timeout", c.slowConsumerTimeout)
 	validate.NotNil(v, "no_driver", c.noDriver)
@@ -104,7 +108,7 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		autoCert:             override.Nil(c.autoCert, other.autoCert),
 		verifier:             override.String(c.verifier, other.verifier),
 		memBacked:            override.Nil(c.memBacked, other.memBacked),
-		listenAddress:        override.String(c.listenAddress, other.listenAddress),
+		listeners:            override.Slice(c.listeners, other.listeners),
 		peers:                override.Slice(c.peers, other.peers),
 		dataPath:             override.String(c.dataPath, other.dataPath),
 		slowConsumerTimeout:  override.Numeric(c.slowConsumerTimeout, other.slowConsumerTimeout),
@@ -193,7 +197,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 
 	distributionLayer, err := distribution.OpenLayer(ctx, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
-		AdvertiseAddress: cfg.listenAddress,
+		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
 		PeerAddresses:    cfg.peers,
 		AspenTransport:   aspenTransport,
 		Transport:        distTransport,
@@ -247,6 +251,11 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 		return err
 	}
 
+	serverListeners, err := cfg.listeners.Resolve(securityProvider, cfg.certFactoryConfig, *cfg.insecure)
+	if !ok(err, nil) {
+		return err
+	}
+
 	if rootServer, err := server.Serve(
 		server.Config{
 			Branches: []server.Branch{
@@ -261,12 +270,9 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 				server.NewHTTPRedirectBranch(),
 			},
 			Debug:           cfg.debug,
-			ListenAddress:   cfg.listenAddress,
+			Listeners:       serverListeners,
 			Instrumentation: cfg.Child("server"),
-			Security: server.SecurityConfig{
-				TLS:      securityProvider.TLS(),
-				Insecure: cfg.insecure,
-			},
+			Security:        server.SecurityConfig{Insecure: cfg.insecure},
 		},
 	); !ok(err, rootServer) {
 		return err
@@ -292,7 +298,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 			Insecure:            cfg.insecure,
 			Integrations:        parseIntegrations(cfg.enabledIntegrations, cfg.disabledIntegrations),
 			Instrumentation:     cfg.Child("driver"),
-			Address:             cfg.listenAddress,
+			Address:             cfg.listeners.AdvertiseAddress(),
 			RackKey:             serviceLayer.Rack.EmbeddedKey,
 			ClusterKey:          distributionLayer.Cluster.Key(),
 			Credentials:         cfg.rootCredentials,
@@ -312,7 +318,7 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 
 	cfg.L.Infof(
 		"\033[32mSynnax is running and available at %v \033[0m",
-		cfg.listenAddress,
+		cfg.listeners.AdvertiseAddress(),
 	)
 
 	if onServerStarted != nil {
