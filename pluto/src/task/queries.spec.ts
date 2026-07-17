@@ -577,7 +577,7 @@ describe("queries", () => {
       expect(children.length).toBeGreaterThan(0);
 
       const tasks = await client.tasks.retrieve({
-        keys: children.filter((c) => c.id.type === "task").map((c) => c.id.key),
+        keys: children.filter((c) => c.type === "task").map((c) => c.key),
       });
       const snapshotChild = tasks.find(
         (t) => t.name === `${originalTask.name} (Snapshot)`,

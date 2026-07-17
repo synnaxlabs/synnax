@@ -179,13 +179,13 @@ const retrieveUserRole = async ({
 
   const parent = parents[0];
   const rel: ontology.Relationship = {
-    from: parent.id,
+    from: parent,
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to: userID,
   };
   store.relationships.set(ontology.relationshipToString(rel), rel);
 
-  const r = await retrieveSingle({ client, store, query: { key: parent.id.key } });
+  const r = await retrieveSingle({ client, store, query: { key: parent.key } });
   return r.key;
 };
 
@@ -261,7 +261,7 @@ export const useForm = Flux.createForm<
     let r: access.role.Role = access.role.roleZ.parse(v);
     const otgID = access.role.ontologyID(r.key);
     const otgKey = ontology.idToString(otgID);
-    rollbacks.push(store.resources.set(otgKey, { key: otgKey, id: otgID }));
+    rollbacks.push(store.resources.set(otgKey, otgID));
     rollbacks.push(store.roles.set(r.key, r));
     if (v.policies.length > 0) {
       await client.ontology.addChildren(

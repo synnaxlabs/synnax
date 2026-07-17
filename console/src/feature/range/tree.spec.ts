@@ -62,14 +62,14 @@ describe("range/ontology", () => {
       const store = createTestFluxStore();
       store.ranges.set(rng.key, rng);
       const entry = createEntry(ranger.ontologyID(rng.key), rng.name);
-      const items = Item.haulItems(entry, store);
+      const items = Item.haulItems(entry.id, store);
       expect(items).toHaveLength(1);
       expect(items[0].key).toBe(rng.key);
     });
 
     it("returns nothing when the range is not in the store", () => {
       const entry = createEntry(ranger.ontologyID("some-key"), "no-data");
-      expect(Item.haulItems(entry, createTestFluxStore())).toHaveLength(0);
+      expect(Item.haulItems(entry.id, createTestFluxStore())).toHaveLength(0);
     });
   });
 });

@@ -12,15 +12,7 @@ import { array, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { QueryError } from "@/errors";
-import {
-  type ID,
-  idToString,
-  idZ,
-  parseIDs,
-  type Resource,
-  resourceTypeZ,
-  resourceZ,
-} from "@/ontology/payload";
+import { type ID, idToString, idZ, parseIDs, resourceTypeZ } from "@/ontology/payload";
 import { Writer } from "@/ontology/writer";
 
 const retrieveReqZ = z.object({
@@ -39,11 +31,11 @@ export interface RetrieveOptions extends Pick<
   "types" | "children" | "parents"
 > {}
 
-// Resource has no data field in the TypeScript client, so every retrieval asks the
-// server to omit field data from the response.
-const retrieveWireReqZ = retrieveReqZ.extend({ excludeFieldData: z.literal(true) });
-
-const retrieveResZ = z.object({ resources: resourceZ.array() });
+// A resource in the ontology is just its ID; the server response wraps each in an
+// object, which we flatten to the bare ID array.
+const retrieveResZ = z
+  .object({ resources: z.object({ id: idZ }).array() })
+  .transform(({ resources }) => resources.map((r) => r.id));
 
 /** The main client class for executing queries against a Synnax cluster ontology */
 export class Client {
@@ -63,7 +55,7 @@ export class Client {
    * @returns The resource with the given ID.
    * @throws {QueryError} If no resource is found with the given ID.
    */
-  async retrieve(id: ID, options?: RetrieveOptions): Promise<Resource>;
+  async retrieve(id: ID, options?: RetrieveOptions): Promise<ID>;
 
   /**
    * Retrieves the resources in the ontology with the given IDs.
@@ -73,14 +65,14 @@ export class Client {
    * @returns The resources with the given IDs.
    * @throws {QueryError} If no resource is found with any of the given IDs.
    */
-  async retrieve(ids: ID[], options?: RetrieveOptions): Promise<Resource[]>;
+  async retrieve(ids: ID[], options?: RetrieveOptions): Promise<ID[]>;
 
-  async retrieve(params: RetrieveRequest): Promise<Resource[]>;
+  async retrieve(params: RetrieveRequest): Promise<ID[]>;
 
   async retrieve(
     ids: ID | ID[] | RetrieveRequest,
     options?: RetrieveOptions,
-  ): Promise<Resource | Resource[]> {
+  ): Promise<ID | ID[]> {
     if (!Array.isArray(ids) && typeof ids === "object" && !("key" in ids))
       return await this.execRetrieve(ids);
     const parsedIDs = parseIDs(ids);
@@ -102,10 +94,7 @@ export class Client {
    * the results.
    * @returns The children of the resources with the given IDs.
    */
-  async retrieveChildren(
-    ids: ID | ID[],
-    options?: RetrieveOptions,
-  ): Promise<Resource[]> {
+  async retrieveChildren(ids: ID | ID[], options?: RetrieveOptions): Promise<ID[]> {
     return await this.execRetrieve({
       ids: array.toArray(ids),
       children: true,
@@ -120,10 +109,7 @@ export class Client {
    * @param options - additional options for the retrieval
    * @returns the parents of the resources with the given IDs
    */
-  async retrieveParents(
-    ids: ID | ID[],
-    options?: RetrieveOptions,
-  ): Promise<Resource[]> {
+  async retrieveParents(ids: ID | ID[], options?: RetrieveOptions): Promise<ID[]> {
     return await this.execRetrieve({
       ids: array.toArray(ids),
       parents: true,
@@ -159,14 +145,13 @@ export class Client {
     return await this.writer.moveChildren(from, to, ...children);
   }
 
-  private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {
-    const { resources } = await this.client.send(
+  private async execRetrieve(request: RetrieveRequest): Promise<ID[]> {
+    return await this.client.send(
       "/ontology/retrieve",
-      { ...request, excludeFieldData: true },
-      retrieveWireReqZ,
+      request,
+      retrieveReqZ,
       retrieveResZ,
     );
-    return resources;
   }
 }
 

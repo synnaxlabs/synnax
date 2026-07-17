@@ -14,9 +14,6 @@ import { RESOURCE_TYPES, type ResourceType, resourceTypeZ } from "@/ontology/typ
 
 export { RESOURCE_TYPES, type ResourceType, resourceTypeZ };
 
-export type ResourceChange = change.Change<ID, Resource>;
-export interface ResourceSet extends change.Set<ID, Resource> {}
-export interface ResourceDelete extends change.Delete<ID, Resource> {}
 export type RelationshipChange = change.Change<Relationship, undefined>;
 export interface RelationshipSet extends change.Set<Relationship, undefined> {}
 export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
@@ -63,20 +60,8 @@ export const idToString = ((id: ID | string | (ID | string)[]) => {
 
 export const idsEqual = (a: ID, b: ID) => a.type === b.type && a.key === b.key;
 
-export const parseIDs = (
-  ids: ID | string | Resource | (ID | string | Resource)[],
-): ID[] => {
-  const arr = array.toArray(ids);
-  if (arr.length === 0) return [];
-  if (typeof arr[0] === "object" && "id" in arr[0])
-    return (arr as Resource[]).map(({ id }) => id);
-  return arr.map((id) => idZ.parse(id));
-};
-
-export const resourceZ = z
-  .object({ id: idZ })
-  .transform((resource) => ({ key: idToString(resource.id), ...resource }));
-export interface Resource extends z.infer<typeof resourceZ> {}
+export const parseIDs = (ids: ID | string | (ID | string)[]): ID[] =>
+  array.toArray(ids).map((id) => idZ.parse(id));
 
 export type RelationshipDirection = "to" | "from";
 

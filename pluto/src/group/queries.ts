@@ -106,7 +106,7 @@ export const useList = Flux.createList<ListQuery, group.Key, group.Group, FluxSu
         types: ["group"],
       });
       if (res.length === 0) return [];
-      const groups = await client.groups.retrieve({ keys: res.map((r) => r.id.key) });
+      const groups = await client.groups.retrieve({ keys: res.map((r) => r.key) });
       store.groups.set(groups);
       groups.forEach((g) => {
         const rel = {

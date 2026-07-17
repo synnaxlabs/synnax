@@ -41,8 +41,8 @@ const exportGroup = async ({
   if (client == null) throw new DisconnectedError();
   const children = await client.ontology.retrieveChildren(group.ontologyID(key));
   const symbolKeys = children
-    .filter((c) => c.id.type === "schematic_symbol")
-    .map((c) => c.id.key);
+    .filter((c) => c.type === "schematic_symbol")
+    .map((c) => c.key);
 
   if (symbolKeys.length === 0)
     return addStatus({

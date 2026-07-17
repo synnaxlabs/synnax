@@ -26,7 +26,7 @@ const placedLog = (store: TestStore): Session.Layout.State | undefined =>
   Session.Layout.selectByFilter(store.getState(), (l) => l.type === Log.LAYOUT_TYPE);
 
 const projectParents = async (logKey: string): Promise<string[]> =>
-  (await client.ontology.retrieveParents(log.ontologyID(logKey))).map((r) => r.id.key);
+  (await client.ontology.retrieveParents(log.ontologyID(logKey))).map((r) => r.key);
 
 describe("createUseCreate", () => {
   let projectA: project.Project;

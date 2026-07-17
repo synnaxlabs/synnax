@@ -32,7 +32,7 @@ describe("group ontology service", () => {
   it("should always accept drops and haul the group's own id", () => {
     expect(Item.canDrop({ source: { key: "s", type: "t" }, items: [] })).toBe(true);
     const entry = groupEntry("g1", "g");
-    expect(Item.haulItems(entry, createTestFluxStore())).toEqual([entry.id]);
+    expect(Item.haulItems(entry.id, createTestFluxStore())).toEqual([entry.id]);
   });
 
   it("should hide rename and ungroup for a zero-depth selection", async () => {
@@ -81,8 +81,8 @@ describe("group ontology service", () => {
     fireEvent.click(await screen.findByText("Ungroup"));
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(parentID);
-      expect(children.some((r) => r.id.key === grandchild.key)).toBe(true);
-      expect(children.some((r) => r.id.key === child.key)).toBe(false);
+      expect(children.some((r) => r.key === grandchild.key)).toBe(true);
+      expect(children.some((r) => r.key === child.key)).toBe(false);
     });
   });
 

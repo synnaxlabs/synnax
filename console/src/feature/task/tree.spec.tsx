@@ -59,11 +59,7 @@ const renderTaskTree = async (t: task.Task) => {
     parent: ontology.ROOT_ID,
     name: uniqueName("taskgrp"),
   });
-  await client.ontology.moveChildren(
-    parent.id,
-    group.ontologyID(grp.key),
-    t.ontologyID,
-  );
+  await client.ontology.moveChildren(parent, group.ontologyID(grp.key), t.ontologyID);
   return await renderOntologyTree({
     client,
     root: group.ontologyID(grp.key),
@@ -223,7 +219,7 @@ describe("task ontology", () => {
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
         const children = await client.ontology.retrieveChildren(rng.ontologyID);
-        expect(children.some((c) => c.id.type === "task")).toBe(true);
+        expect(children.some((c) => c.type === "task")).toBe(true);
       });
     });
   });

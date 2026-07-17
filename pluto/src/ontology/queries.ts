@@ -18,9 +18,12 @@ const RESOURCE_RESOURCE_NAME = "resource";
 const PLURAL_RESOURCE_RESOURCE_NAME = "resources";
 const PLURAL_CHILDREN_RESOURCE_NAME = "children";
 
-export const useResourceSetSynchronizer = (
-  onSet: (resource: ontology.Resource) => void,
-): void => {
+// setResources writes each ID into the resources store keyed by its string form, since
+// an ID's own key is only unique within its type.
+export const setResources = (store: FluxSubStore, ids: ontology.ID[]): void =>
+  ids.forEach((id) => store.resources.set(ontology.idToString(id), id));
+
+export const useResourceSetSynchronizer = (onSet: (id: ontology.ID) => void): void => {
   const store = Flux.useStore<FluxSubStore>();
   useEffect(() => store.resources.onSet(onSet), [store.resources]);
 };
@@ -63,7 +66,7 @@ export const createDependentsListHook = (
   direction: ontology.RelationshipDirection,
   name: string,
 ) =>
-  Flux.createList<DependentQuery, string, ontology.Resource, FluxSubStore>({
+  Flux.createList<DependentQuery, string, ontology.ID, FluxSubStore>({
     name,
     retrieve: async ({ client, query: { id } }) => {
       if (id == null) return [];
@@ -83,7 +86,7 @@ export const createDependentsListHook = (
           })
         ) {
           const dependent = await client.ontology.retrieve(relationship[direction]);
-          onChange(dependent.key, dependent);
+          onChange(ontology.idToString(dependent), dependent);
         }
       }),
       store.relationships.onDelete((relationship) => {
@@ -96,13 +99,12 @@ export const createDependentsListHook = (
         )
           onDelete(ontology.idToString(rel[direction]));
       }),
+      // Default to null when the resource is not already in the list, so we don't add
+      // non-children.
       store.resources.onSet((resource) =>
-        onChange(resource.key, (prev) => {
-          // Default to null if the resource is not in the list,
-          // as we don't want to add any non-children.
-          if (prev == null) return null;
-          return { ...prev, ...resource };
-        }),
+        onChange(ontology.idToString(resource), (prev) =>
+          prev == null ? null : resource,
+        ),
       ),
       store.resources.onDelete(async (resource) => onDelete(resource)),
     ],
@@ -118,14 +120,14 @@ export type ListQuery = ontology.RetrieveRequest;
 export const useResourceList = Flux.createList<
   ListQuery,
   string,
-  ontology.Resource,
+  ontology.ID,
   FluxSubStore
 >({
   name: PLURAL_RESOURCE_RESOURCE_NAME,
   retrieveCached: ({ store }) => store.resources.list(),
   retrieve: async ({ client, query, store }) => {
     const res = await client.ontology.retrieve(query);
-    res.forEach((r) => store.resources.set(r.key, r));
+    setResources(store, res);
     return res;
   },
   retrieveByKey: async ({ client, key, store }) => {
@@ -134,7 +136,7 @@ export const useResourceList = Flux.createList<
     return res;
   },
   mountListeners: ({ store, onChange, onDelete }) => [
-    store.resources.onSet(async (r) => onChange(r.key, r)),
+    store.resources.onSet(async (r) => onChange(ontology.idToString(r), r)),
     store.resources.onDelete(async (key) => onDelete(key)),
   ],
 });
@@ -165,14 +167,14 @@ export const retrieveParentID = async ({
   const cached = retrieveCachedParentID(store, id);
   if (cached != null) return cached;
   const res = await client.ontology.retrieveParents(id);
-  store.resources.set(res);
+  setResources(store, res);
   const rel: ontology.Relationship = {
-    from: res[0].id,
+    from: res[0],
     type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
     to: id,
   };
   store.relationships.set(ontology.relationshipToString(rel), rel);
-  return res[0].id;
+  return res[0];
 };
 
 export const filterRelationshipsThatHaveIDs =
@@ -236,11 +238,11 @@ export type RetrieveChildrenQuery = {
 export const {
   useRetrieve: useRetrieveChildren,
   useRetrieveObservable: useRetrieveObservableChildren,
-} = Flux.createRetrieve<RetrieveChildrenQuery, ontology.Resource[], FluxSubStore>({
+} = Flux.createRetrieve<RetrieveChildrenQuery, ontology.ID[], FluxSubStore>({
   name: RESOURCE_RESOURCE_NAME,
   retrieve: async ({ client, query, store }) => {
     const children = await client.ontology.retrieveChildren(query.id, query);
-    store.resources.set(children);
+    setResources(store, children);
     return children;
   },
 });
@@ -252,13 +254,13 @@ type RetrieveResourceQuery = {
 export const {
   useRetrieve: useRetrieveResource,
   useRetrieveObservable: useRetrieveObservableResource,
-} = Flux.createRetrieve<RetrieveResourceQuery, ontology.Resource[], FluxSubStore>({
+} = Flux.createRetrieve<RetrieveResourceQuery, ontology.ID[], FluxSubStore>({
   name: RESOURCE_RESOURCE_NAME,
   retrieve: async ({ client, query: { ids }, store }) => {
     const cached = store.resources.get(ontology.idToString(ids));
     if (cached.length === ids.length) return cached;
-    const resource = await client.ontology.retrieve(ids);
-    store.resources.set(resource);
-    return resource;
+    const resources = await client.ontology.retrieve(ids);
+    setResources(store, resources);
+    return resources;
   },
 });

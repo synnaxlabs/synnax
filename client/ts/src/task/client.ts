@@ -189,7 +189,7 @@ export class Task<S extends Schemas = Schemas> {
     }
   }
 
-  async snapshottedTo(): Promise<ontology.Resource | null> {
+  async snapshottedTo(): Promise<ontology.ID | null> {
     if (this.ontologyClient == null || this.rangeClient == null)
       throw new Error("Task not created");
     if (!this.snapshot) return null;
@@ -344,7 +344,7 @@ export class Client {
     return await this.retrieve(params);
   }
 
-  async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
+  async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.ID | null> {
     if (this.ontologyClient == null) throw new Error("Task not created");
     return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
   }

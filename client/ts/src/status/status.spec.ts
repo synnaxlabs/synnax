@@ -102,7 +102,7 @@ describe("Status", () => {
 
       const resources = await client.ontology.retrieveChildren(parentOntologyID);
 
-      const statusResource = resources.find((r) => r.id.key === "child-status");
+      const statusResource = resources.find((r) => r.key === "child-status");
       expect(statusResource).toBeDefined();
     });
   });

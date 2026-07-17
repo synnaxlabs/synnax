@@ -221,7 +221,7 @@ describe("lineplot/ontology", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientLineplot.ontologyID("11111111-1111-1111-1111-111111111111");
-      const items = Item.haulItems(createEntry(id, "My Plot"), createTestFluxStore());
+      const items = Item.haulItems(id, createTestFluxStore());
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("lineplot:11111111-1111-1111-1111-111111111111");
     });

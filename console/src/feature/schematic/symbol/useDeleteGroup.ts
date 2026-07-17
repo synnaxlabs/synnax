@@ -28,8 +28,8 @@ export const useDeleteGroup = (): ((group: group.Group) => void) => {
           group.ontologyID(g.key),
         );
         const symbolKeys = children
-          .filter((c) => c.id.type === "schematic_symbol")
-          .map((c) => c.id.key);
+          .filter((c) => c.type === "schematic_symbol")
+          .map((c) => c.key);
         if (symbolKeys.length > 0) await client.schematics.symbols.delete(symbolKeys);
         await client.groups.delete(g.key);
         addStatus({

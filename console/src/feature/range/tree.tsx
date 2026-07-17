@@ -35,8 +35,8 @@ const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   );
 };
 
-const haulItems = (resource: ontology.Resource, store: Flux.Store): Haul.Item[] => {
-  const range = (store as Ranger.FluxSubStore).ranges.get(resource.id.key);
+const haulItems = (resource: ontology.ID, store: Flux.Store): Haul.Item[] => {
+  const range = (store as Ranger.FluxSubStore).ranges.get(resource.key);
   if (range == null) return [];
   return [Ranger.createHaulItem(range)];
 };

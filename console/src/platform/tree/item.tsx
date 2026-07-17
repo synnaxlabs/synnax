@@ -54,7 +54,7 @@ export interface Item extends FC<ItemProps> {
   useName: UseName;
   hasChildren: boolean;
   canDrop: Haul.CanDrop;
-  haulItems: (resource: ontology.Resource, store: Flux.Store) => Haul.Item[];
+  haulItems: (resource: ontology.ID, store: Flux.Store) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (id: ontology.ID) => boolean;
 }
@@ -94,7 +94,7 @@ export interface CreateItemArgs {
   useOnSelect?: () => (entry: Entry) => void;
   hasChildren?: boolean;
   canDrop?: Haul.CanDrop;
-  haulItems?: (resource: ontology.Resource, store: Flux.Store) => Haul.Item[];
+  haulItems?: (resource: ontology.ID, store: Flux.Store) => Haul.Item[];
   ContextMenu?: ContextMenu;
   visible?: (id: ontology.ID) => boolean;
   Content?: Content;

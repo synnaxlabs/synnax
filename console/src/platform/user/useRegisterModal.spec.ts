@@ -72,6 +72,6 @@ describe("User.useRegisterModal", () => {
       user.ontologyID(created.key),
       { types: ["role"] },
     );
-    expect(parents.map((p) => p.id.key)).toContain(role.key);
+    expect(parents.map((p) => p.key)).toContain(role.key);
   });
 });

@@ -163,9 +163,7 @@ describe("Ontology Queries", () => {
 
       await waitFor(() => {
         expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-        const groupKeys = result.current
-          .getItem(result.current.data)
-          .map((r) => r.id.key);
+        const groupKeys = result.current.getItem(result.current.data).map((r) => r.key);
         expect(groupKeys).toContain(g1.key);
         expect(groupKeys).toContain(g2.key);
       });
@@ -187,7 +185,7 @@ describe("Ontology Queries", () => {
       const { result } = renderHook(
         () =>
           Ontology.useResourceList({
-            filter: (r) => groupIDStrings.includes(ontology.idToString(r.id)),
+            filter: (r) => groupIDStrings.includes(ontology.idToString(r)),
             useCachedList: false,
           }),
         {
@@ -233,7 +231,7 @@ describe("Ontology Queries", () => {
       await waitFor(() => {
         expect(result.current.data.length).toBeGreaterThanOrEqual(1);
         const groupKeys = result.current.data.map(
-          (r) => result.current.getItem(r)?.id.key,
+          (r) => result.current.getItem(r)?.key,
         );
         expect(groupKeys).toContain(matching.key);
         expect(groupKeys).not.toContain(different.key);
@@ -263,7 +261,7 @@ describe("Ontology Queries", () => {
         const item = result.current.getItem(
           ontology.idToString(group.ontologyID(newGroup.key)),
         );
-        expect(item?.id.key).toBe(newGroup.key);
+        expect(item?.key).toBe(newGroup.key);
       });
     });
   });

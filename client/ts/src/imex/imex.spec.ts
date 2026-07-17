@@ -130,7 +130,7 @@ describe("Imex", () => {
       const children = await client.ontology.retrieveChildren(
         project.ontologyID(proj.key),
       );
-      expect(children.map((child) => child.id.key)).toContain(oid.key);
+      expect(children.map((child) => child.key)).toContain(oid.key);
     });
 
     it("should throw an error when the parent does not exist", async () => {

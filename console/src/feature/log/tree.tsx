@@ -138,7 +138,7 @@ const TreeItem = Tree.createItem({
   hasChildren: false,
   useName,
   useOnSelect,
-  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
+  haulItems: (id) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
 

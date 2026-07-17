@@ -193,7 +193,7 @@ describe("Panel queries", () => {
       });
 
       const children = await client.ontology.retrieveChildren(parent);
-      expect(children.map((c) => c.id.key)).toContain(key);
+      expect(children.map((c) => c.key)).toContain(key);
     });
   });
 

@@ -71,18 +71,18 @@ describe("useCreateFromSelection", () => {
     let newKey = "";
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(parentID);
-      const keys = children.map((c) => c.id.key);
+      const keys = children.map((c) => c.key);
       expect(keys).not.toContain(a.key);
       expect(keys).not.toContain(b.key);
       const groups = await client.groups.retrieve({
-        keys: children.filter((c) => c.id.type === "group").map((c) => c.id.key),
+        keys: children.filter((c) => c.type === "group").map((c) => c.key),
       });
       const created = groups.find((g) => g.name === name);
       expect(created).toBeDefined();
       newKey = created?.key ?? "";
     });
     const grouped = await client.ontology.retrieveChildren(group.ontologyID(newKey));
-    expect(grouped.map((c) => c.id.key).sort()).toEqual([a.key, b.key].sort());
+    expect(grouped.map((c) => c.key).sort()).toEqual([a.key, b.key].sort());
   });
 
   it("should group a nested selection under its non-root parent", async () => {
@@ -119,12 +119,12 @@ describe("useCreateFromSelection", () => {
     await waitFor(async () => {
       const subChildren = await client.ontology.retrieveChildren(subID);
       expect(subChildren).toHaveLength(1);
-      const created = await client.groups.retrieve({ key: subChildren[0].id.key });
+      const created = await client.groups.retrieve({ key: subChildren[0].key });
       expect(created.name).toBe(name);
-      newKey = subChildren[0].id.key;
+      newKey = subChildren[0].key;
     });
     const grouped = await client.ontology.retrieveChildren(group.ontologyID(newKey));
-    expect(grouped.map((c) => c.id.key).sort()).toEqual([a.key, b.key].sort());
+    expect(grouped.map((c) => c.key).sort()).toEqual([a.key, b.key].sort());
   });
 
   it("should not create a group and should restore the tree when the rename is escaped", async () => {
@@ -138,6 +138,6 @@ describe("useCreateFromSelection", () => {
       expect(screen.getByText(b.name)).toBeTruthy();
     });
     const children = await client.ontology.retrieveChildren(parentID);
-    expect(children.map((c) => c.id.key).sort()).toEqual([a.key, b.key].sort());
+    expect(children.map((c) => c.key).sort()).toEqual([a.key, b.key].sort());
   });
 });

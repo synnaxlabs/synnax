@@ -21,7 +21,6 @@ import {
 } from "@/feature/schematic/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
-import { createEntry } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
 import {
@@ -43,7 +42,7 @@ describe("Schematic.TREE_ITEMS", () => {
   it("hauls a mosaic tab create item keyed by the ontology id", async () => {
     const s = await createSchematic();
     const id = schematic.ontologyID(s.key);
-    const items = Item.haulItems(createEntry(id, s.name), createTestFluxStore());
+    const items = Item.haulItems(id, createTestFluxStore());
     expect(items).toHaveLength(1);
     expect(items[0].key).toContain(s.key);
   });
@@ -123,7 +122,7 @@ describe("Schematic.useRangeSnapshot", () => {
         ranger.ontologyID(rng.key),
       );
       const schematics = await client.schematics.retrieve({
-        keys: children.filter((c) => c.id.type === "schematic").map((c) => c.id.key),
+        keys: children.filter((c) => c.type === "schematic").map((c) => c.key),
       });
       expect(schematics.map((sc) => sc.name)).toContain(`${s.name} (Snapshot)`);
     });
@@ -175,7 +174,7 @@ describe("Schematic TreeContextMenu", () => {
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(rootID);
       const schematics = await client.schematics.retrieve({
-        keys: children.filter((c) => c.id.type === "schematic").map((c) => c.id.key),
+        keys: children.filter((c) => c.type === "schematic").map((c) => c.key),
       });
       const copy = schematics.find((sc) => sc.name === `${s.name} (copy)`);
       if (copy == null) throw new Error("copy not created yet");

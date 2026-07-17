@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology } from "@synnaxlabs/client";
-import { deep } from "@synnaxlabs/x";
+import { z } from "zod";
 
 import { type flux } from "@/flux/aether";
 
@@ -17,7 +17,12 @@ export interface RelationshipFluxStore extends flux.UnaryStore<
   ontology.Relationship
 > {}
 
-export interface ResourceFluxStore extends flux.UnaryStore<string, ontology.Resource> {}
+// A resource in the ontology is just its ID; the store keys each ID by its string form.
+export interface ResourceFluxStore extends flux.UnaryStore<string, ontology.ID> {}
+
+// resourceSetZ parses a resource-set channel payload (a full resource) down to its ID,
+// which is all the store tracks.
+const resourceSetZ = z.object({ id: ontology.idZ }).transform(({ id }) => id);
 
 export const RELATIONSHIPS_FLUX_STORE_KEY = "relationships";
 export const RESOURCES_FLUX_STORE_KEY = "resources";
@@ -60,17 +65,11 @@ export const RELATIONSHIP_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
   listeners: [RELATIONSHIP_SET_LISTENER, RELATIONSHIP_DELETE_LISTENER],
 };
 
-const RESOURCE_SET_LISTENER: flux.ChannelListener<
-  FluxSubStore,
-  typeof ontology.resourceZ
-> = {
+const RESOURCE_SET_LISTENER: flux.ChannelListener<FluxSubStore, typeof resourceSetZ> = {
   channel: ontology.RESOURCE_SET_CHANNEL_NAME,
-  schema: ontology.resourceZ,
-  onChange: async ({ store, changed }) => {
-    store.resources.set(changed.key, (p) =>
-      p == null ? changed : { ...p, ...changed },
-    );
-  },
+  schema: resourceSetZ,
+  onChange: ({ store, changed }) =>
+    store.resources.set(ontology.idToString(changed), changed),
 };
 
 const RESOURCE_DELETE_LISTENER: flux.ChannelListener<
@@ -79,10 +78,15 @@ const RESOURCE_DELETE_LISTENER: flux.ChannelListener<
 > = {
   channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
   schema: ontology.idZ,
-  onChange: ({ store, changed }) => store.resources.delete(changed.key),
+  onChange: ({ store, changed }) =>
+    store.resources.delete(ontology.idToString(changed)),
 };
 
-export const RESOURCE_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<FluxSubStore> = {
-  equal: (a, b) => deep.equal(a, b),
+export const RESOURCE_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<
+  FluxSubStore,
+  string,
+  ontology.ID
+> = {
+  equal: (a, b) => ontology.idsEqual(a, b),
   listeners: [RESOURCE_SET_LISTENER, RESOURCE_DELETE_LISTENER],
 };

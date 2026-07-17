@@ -292,9 +292,9 @@ describe("Symbol queries", () => {
         group.ontologyID(parent.key),
       );
       expect(children.length).toBe(1);
-      expect(children[0].id.key).toBe(retrieved.key);
+      expect(children[0].key).toBe(retrieved.key);
       const child = await client.schematics.symbols.retrieve({
-        key: children[0].id.key,
+        key: children[0].key,
       });
       expect(child.name).toBe("created-symbol");
     });

@@ -105,7 +105,7 @@ describe("project ontology service", () => {
     const [parent] = await client.ontology.retrieveParents(project.ontologyID(p.key));
     const { store } = await renderOntologyTree({
       client,
-      root: parent.id,
+      root: parent,
       items: Project.TREE_ITEMS,
     });
     fireEvent.doubleClick(await findTreeRow(p.name));

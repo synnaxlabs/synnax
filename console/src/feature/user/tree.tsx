@@ -131,7 +131,7 @@ const TreeItem = Tree.createItem({
   useName,
   ContextMenu: TreeContextMenu,
   hasChildren: false,
-  haulItems: ({ id }, store) => {
+  haulItems: (id, store) => {
     const user = (store as User.FluxSubStore).users.get(id.key);
     return user == null ? [] : [User.createHaulItem(user)];
   },

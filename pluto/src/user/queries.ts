@@ -19,7 +19,6 @@ import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
 
 export type UseDeleteArgs = user.Key | user.Key[];
 
@@ -82,16 +81,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  update: async ({ client, data }) => {
     const { key, username } = data;
     await client.users.changeUsername(key, username);
-    const id = user.ontologyID(key);
-    rollbacks.push(
-      store.resources.set(
-        ontology.idToString(id),
-        state.skipUndefined((r) => ({ ...r, username })),
-      ),
-    );
     return data;
   },
 });
@@ -106,14 +98,14 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   name: "User Group",
   retrieve: async ({ client, store }) => {
     const children = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-    store.resources.set(children);
-    const groupChildren = children.filter((r) => r.id.type === "group");
+    Ontology.setResources(store, children);
+    const groupChildren = children.filter((r) => r.type === "group");
     if (groupChildren.length === 0) return undefined;
     const groups = await client.groups.retrieve({
-      keys: groupChildren.map((r) => r.id.key),
+      keys: groupChildren.map((r) => r.key),
     });
     const usersGroup = groups.find((g) => g.name === "Users");
-    return groupChildren.find((r) => r.id.key === usersGroup?.key)?.id;
+    return groupChildren.find((r) => r.key === usersGroup?.key);
   },
 });
 

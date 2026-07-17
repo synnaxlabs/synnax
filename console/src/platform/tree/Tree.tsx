@@ -71,7 +71,7 @@ const itemRenderProp = Component.renderProp(
   ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
     const { itemKey } = rest;
     const id = ontology.idZ.parse(itemKey);
-    const resource = List.useItem<string, ontology.Resource>(itemKey);
+    const resource = List.useItem<string, ontology.ID>(itemKey);
     const Item = useItems()[id.type] ?? DefaultItem;
     const { onDrop, useLoading, onDragStart, onDragEnd, registerName } =
       useContext("Tree.itemRenderProp");
@@ -149,14 +149,14 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       ({ data: resources, variant }, { id }) => {
         if (variant == "success") {
           const filtered = resources.filter((r) => {
-            const svc = resolveItem(r.id.type);
-            return svc.visible == null || svc.visible(r.id);
+            const svc = resolveItem(r.type);
+            return svc.visible == null || svc.visible(r);
           });
           const converted = filtered.map((r) => ({
-            key: ontology.idToString(r.id),
-            children: resolveItem(r.id.type).hasChildren ? [] : undefined,
+            key: ontology.idToString(r),
+            children: resolveItem(r.type).hasChildren ? [] : undefined,
           }));
-          const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
+          const ids = new Set(filtered.map((r) => ontology.idToString(r)));
           setNodes((prevNodes) => [
             ...Base.updateNodeChildren({
               tree: prevNodes,
@@ -198,15 +198,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     async (signal) => {
       if (client == null) return;
       const resources = await client.ontology.retrieveChildren(root);
-      resources.forEach((r) => resourceStore.set(r));
+      resources.forEach((r) => resourceStore.set(ontology.idToString(r), r));
       if (signal.aborted) return;
       const filtered = resources.filter((r) => {
-        const svc = resolveItem(r.id.type);
-        return svc.visible == null || svc.visible(r.id);
+        const svc = resolveItem(r.type);
+        return svc.visible == null || svc.visible(r);
       });
       const nodes = filtered.map((c) => ({
-        key: ontology.idToString(c.id),
-        children: resolveItem(c.id.type).hasChildren ? [] : undefined,
+        key: ontology.idToString(c),
+        children: resolveItem(c.type).hasChildren ? [] : undefined,
       }));
       setNodes(nodes);
     },
@@ -280,8 +280,8 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (aResource == null && bResource == null) return 0;
       if (aResource == null) return 1;
       if (bResource == null) return -1;
-      if (aResource.id.type === "group" && bResource.id.type !== "group") return -1;
-      if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
+      if (aResource.type === "group" && bResource.type !== "group") return -1;
+      if (aResource.type !== "group" && bResource.type === "group") return 1;
       const aName = namesRef.current.get(a.key) ?? "";
       const bName = namesRef.current.get(b.key) ?? "";
       return aName.localeCompare(bName);
@@ -371,9 +371,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         const selectedHaulItems = selectedResources.flatMap((res) => {
           const depth = Base.getDepth(itemKey, shapeRef.current);
           const items: Haul.Item[] = [
-            Base.createHaulItem(ontology.idToString(res.id), depth),
+            Base.createHaulItem(ontology.idToString(res), depth),
           ];
-          const svcItems = resolveItem(res.id.type).haulItems(res, fluxStore);
+          const svcItems = resolveItem(res.type).haulItems(res, fluxStore);
           if (svcItems != null) items.push(...svcItems);
           return items;
         });
@@ -382,7 +382,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       const depth = Base.getDepth(itemKey, shapeRef.current);
       const [resource] = resourceStore.get([itemKey]);
       if (resource == null) return;
-      const haulItems = resolveItem(resource.id.type).haulItems(resource, fluxStore);
+      const haulItems = resolveItem(resource.type).haulItems(resource, fluxStore);
       startDrag([Base.createHaulItem(itemKey, depth), ...haulItems]);
     },
     [resourceStore, selectedRef, fluxStore],
@@ -457,7 +457,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   return (
     <Context value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
-      <Base.Tree<string, ontology.Resource>
+      <Base.Tree<string, ontology.ID>
         {...treeProps}
         showRules
         shape={shape}

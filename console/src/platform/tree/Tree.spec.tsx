@@ -150,13 +150,13 @@ describe("Tree.Tree", () => {
       const children = await client.ontology.retrieveChildren(
         group.ontologyID(destination.key),
       );
-      expect(children.map((c) => c.id.key)).toContain(moved.key);
+      expect(children.map((c) => c.key)).toContain(moved.key);
     });
     await waitFor(async () => {
       const children = await client.ontology.retrieveChildren(
         group.ontologyID(source.key),
       );
-      expect(children.map((c) => c.id.key)).not.toContain(moved.key);
+      expect(children.map((c) => c.key)).not.toContain(moved.key);
     });
   });
 

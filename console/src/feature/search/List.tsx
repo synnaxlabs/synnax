@@ -13,7 +13,6 @@ import { type ReactElement, useCallback, useMemo } from "react";
 
 import { Palette } from "@/platform/palette";
 import { type Search } from "@/platform/search";
-import { type Tree } from "@/platform/tree";
 
 const emptyContent = (
   <Text.Text status="disabled" center level="h4">
@@ -22,20 +21,17 @@ const emptyContent = (
   </Text.Text>
 );
 
-export interface ListProps extends Palette.ListProps<Tree.Entry> {
+export interface ListProps extends Palette.ListProps<ontology.ID> {
   items: Search.ListItems;
 }
 
 export const List = ({ items, ...rest }: ListProps): ReactElement => {
-  const filter = useCallback(
-    (item: ontology.Resource) => items[item.id.type] != null,
-    [items],
-  );
+  const filter = useCallback((item: ontology.ID) => items[item.type] != null, [items]);
   const listItem = useMemo(() => {
     const ListItem = (props: Base.ItemProps<string>) => {
-      const item = Base.useItem<string, Tree.Entry>(props.itemKey);
+      const item = Base.useItem<string, ontology.ID>(props.itemKey);
       if (item == null) return null;
-      const Item = items[item.id.type];
+      const Item = items[item.type];
       if (Item == null) return null;
       return <Item {...props} />;
     };

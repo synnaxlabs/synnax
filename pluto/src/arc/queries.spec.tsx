@@ -407,7 +407,7 @@ describe("Arc queries", () => {
         const children = await client.ontology.retrieveChildren(
           arc.ontologyID(createdArc.key),
         );
-        const taskChildren = children.filter((c) => c.id.type === "task");
+        const taskChildren = children.filter((c) => c.type === "task");
         expect(taskChildren).toHaveLength(0);
       });
     });
@@ -464,7 +464,7 @@ describe("Arc queries", () => {
             { types: ["task"] },
           );
           expect(children).toHaveLength(1);
-          const taskKey = children[0].id.key;
+          const taskKey = children[0].key;
           const retrievedTask = await client.tasks.retrieve({ key: taskKey });
           expect(retrievedTask.type).toBe("arc");
           expect(retrievedTask.config).toEqual({ arcKey: createdArc.key });
@@ -500,9 +500,9 @@ describe("Arc queries", () => {
             const children = await client.ontology.retrieveChildren(
               arc.ontologyID(existingArc.key),
             );
-            const taskChildren = children.filter((c) => c.id.type === "task");
+            const taskChildren = children.filter((c) => c.type === "task");
             expect(taskChildren).toHaveLength(1);
-            expect(task.rackKey(taskChildren[0].id.key)).toBe(testRack.key);
+            expect(task.rackKey(taskChildren[0].key)).toBe(testRack.key);
           });
         });
 
@@ -535,7 +535,7 @@ describe("Arc queries", () => {
               { types: ["task"] },
             );
             expect(childrenBefore).toHaveLength(1);
-            originalTaskKey = childrenBefore[0].id.key;
+            originalTaskKey = childrenBefore[0].key;
           });
 
           const { result: updateResult } = renderHook(() => Arc.useCreate(), {
@@ -558,7 +558,7 @@ describe("Arc queries", () => {
               { types: ["task"] },
             );
             expect(childrenAfter).toHaveLength(1);
-            expect(childrenAfter[0].id.key).toBe(originalTaskKey);
+            expect(childrenAfter[0].key).toBe(originalTaskKey);
           });
         });
 
@@ -590,7 +590,7 @@ describe("Arc queries", () => {
               { types: ["task"] },
             );
             expect(childrenBefore).toHaveLength(1);
-            originalTaskKey = childrenBefore[0].id.key;
+            originalTaskKey = childrenBefore[0].key;
             expect(task.rackKey(originalTaskKey)).toBe(rack1.key);
           });
 
@@ -614,7 +614,7 @@ describe("Arc queries", () => {
               { types: ["task"] },
             );
             expect(childrenAfter).toHaveLength(1);
-            const newTaskKey = childrenAfter[0].id.key;
+            const newTaskKey = childrenAfter[0].key;
             expect(newTaskKey).not.toBe(originalTaskKey);
             expect(task.rackKey(newTaskKey)).toBe(rack2.key);
           });
@@ -650,7 +650,7 @@ describe("Arc queries", () => {
               { types: ["task"] },
             );
             expect(childrenBefore).toHaveLength(1);
-            originalTaskKey = childrenBefore[0].id.key;
+            originalTaskKey = childrenBefore[0].key;
           });
 
           const { result: updateResult } = renderHook(() => Arc.useCreate(), {

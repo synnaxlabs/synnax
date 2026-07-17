@@ -133,10 +133,8 @@ export class Range {
 
   async retrieveChildren(): Promise<Range[]> {
     const res = (
-      await this.ontologyClient.retrieveChildren(this.ontologyID, {
-        types: ["range"],
-      })
-    ).map((r) => r.id.key);
+      await this.ontologyClient.retrieveChildren(this.ontologyID, { types: ["range"] })
+    ).map((r) => r.key);
     return await this.rangeClient.retrieve(res);
   }
 
@@ -265,8 +263,8 @@ export class Client {
     const res = await this.ontologyClient.retrieveParents(ontologyID(range));
     if (res.length === 0) return null;
     const first = res[0];
-    if (first.id.type !== "range") return null;
-    return await this.retrieve(first.id.key);
+    if (first.type !== "range") return null;
+    return await this.retrieve(first.key);
   }
 
   async retrieveAlias(range: Key, channel: channel.Key): Promise<string> {

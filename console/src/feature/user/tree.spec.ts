@@ -85,9 +85,9 @@ describe("user ontology service", () => {
     const u = await createUser();
     const store = createTestFluxStore();
     store.users.set(u.key, u);
-    const items = Item.haulItems(userEntry(u.key, u.username), store);
+    const items = Item.haulItems(user.ontologyID(u.key), store);
     expect(items).toHaveLength(1);
     expect(items[0].key).toBe(u.key);
-    expect(Item.haulItems(userEntry("missing", "missing"), store)).toHaveLength(0);
+    expect(Item.haulItems(user.ontologyID("missing"), store)).toHaveLength(0);
   });
 });

@@ -120,7 +120,7 @@ export const useList = Flux.createList<
   retrieve: async ({ client, store, query: { parent, ...rest } }) => {
     if (parent != null) {
       const children = await client.ontology.retrieveChildren(parent);
-      const keys = children.map((c) => c.id.key);
+      const keys = children.map((c) => c.key);
       if (keys.length === 0) return [];
       const symbols = await client.schematics.symbols.retrieve({
         ...rest,

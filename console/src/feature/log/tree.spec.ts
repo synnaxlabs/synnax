@@ -87,7 +87,7 @@ describe("log ontology service", () => {
 
   it("should haul a mosaic tab creation item", () => {
     const entry = logEntry("abc", "l");
-    const items = Item.haulItems(entry, createTestFluxStore());
+    const items = Item.haulItems(entry.id, createTestFluxStore());
     expect(items).toHaveLength(1);
   });
 });

@@ -141,14 +141,14 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   name: "Project Group",
   retrieve: async ({ client, store }) => {
     const children = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-    store.resources.set(children);
-    const groupChildren = children.filter((r) => r.id.type === "group");
+    Ontology.setResources(store, children);
+    const groupChildren = children.filter((r) => r.type === "group");
     if (groupChildren.length === 0) return undefined;
     const groups = await client.groups.retrieve({
-      keys: groupChildren.map((r) => r.id.key),
+      keys: groupChildren.map((r) => r.key),
     });
     const projectsGroup = groups.find((g) => g.name === "Projects");
-    return groupChildren.find((r) => r.id.key === projectsGroup?.key)?.id;
+    return groupChildren.find((r) => r.key === projectsGroup?.key);
   },
 });
 
@@ -218,10 +218,9 @@ const collectChildIDs = async (
   });
   const results: ontology.ID[] = [];
   for (const child of children)
-    if (types.includes(child.id.type) && child.id.key !== exclude)
-      results.push(child.id);
-    else if (child.id.type === "group")
-      results.push(...(await collectChildIDs(client, child.id, types, exclude)));
+    if (types.includes(child.type) && child.key !== exclude) results.push(child);
+    else if (child.type === "group")
+      results.push(...(await collectChildIDs(client, child, types, exclude)));
   return results;
 };
 
@@ -249,8 +248,8 @@ const findProjectAncestor = async (
 ): Promise<ontology.ID | null> => {
   const parents = await client.ontology.retrieveParents(resourceID);
   for (const parent of parents) {
-    if (parent.id.type === "project") return parent.id;
-    if (parent.id.type === "group") return await findProjectAncestor(client, parent.id);
+    if (parent.type === "project") return parent;
+    if (parent.type === "group") return await findProjectAncestor(client, parent);
   }
   return null;
 };

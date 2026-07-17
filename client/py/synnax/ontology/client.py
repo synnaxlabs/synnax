@@ -18,7 +18,6 @@ class RetrieveReq(BaseModel):
     ids: list[ID]
     children: bool = False
     parents: bool = False
-    exclude_field_data: bool = True
 
 
 class AddChildrenReq(BaseModel):

@@ -23,7 +23,6 @@ import { placeLayout } from "@/platform/layout/testutil";
 import { LinePlot } from "@/platform/lineplot";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
-import { createEntry } from "@/platform/tree/testutil";
 import {
   findTreeRow,
   openTreeRowContextMenu,
@@ -78,10 +77,7 @@ describe("channel/ontology", () => {
       const ch = await createChannel();
       const store = createTestFluxStore();
       store.channels.set(ch.key, ch);
-      const items = Item.haulItems(
-        createEntry(channelClient.ontologyID(ch.key), ch.name),
-        store,
-      );
+      const items = Item.haulItems(channelClient.ontologyID(ch.key), store);
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("channel");
       expect(items[0].key).toBe(ch.key);
@@ -92,10 +88,7 @@ describe("channel/ontology", () => {
       expect(ch.internal).toBe(true);
       const store = createTestFluxStore();
       store.channels.set(ch.key, ch);
-      const items = Item.haulItems(
-        createEntry(channelClient.ontologyID(ch.key), ch.name),
-        store,
-      );
+      const items = Item.haulItems(channelClient.ontologyID(ch.key), store);
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("schematic-element");
     });

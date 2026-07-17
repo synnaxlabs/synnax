@@ -70,8 +70,8 @@ const useOnSelect = (): ((entry: Tree.Entry) => void) => {
   );
 };
 
-const haulItems = (resource: ontology.Resource, store: Flux.Store): Haul.Item[] => {
-  const channelKey = Number(resource.id.key);
+const haulItems = (resource: ontology.ID, store: Flux.Store): Haul.Item[] => {
+  const channelKey = Number(resource.key);
   const ch = (store as PChannel.FluxSubStore).channels.get(channelKey);
   const t = telem.sourcePipeline("string", {
     connections: [

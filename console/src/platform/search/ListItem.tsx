@@ -21,13 +21,14 @@ interface BaseListItemProps extends Omit<Palette.ListItemProps, "onSelect"> {
 
 export const BaseListItem = ({ icon, onSelect, ...rest }: BaseListItemProps) => {
   const { itemKey } = rest;
-  const item = List.useItem<string, Tree.Entry>(itemKey);
+  const item = List.useItem<string, ontology.ID>(itemKey);
   // Derive the id from the stable itemKey so the resolved name hook doesn't switch
   // types between the loading and loaded render.
-  const name = Tree.useName(ontology.idZ.parse(itemKey));
+  const id = ontology.idZ.parse(itemKey);
+  const name = Tree.useName(id);
   const handleSelect = useCallback(
-    () => item != null && onSelect({ ...item, name }),
-    [onSelect, item, name],
+    () => item != null && onSelect({ key: itemKey, id, name }),
+    [onSelect, item, itemKey, id, name],
   );
   if (item == null) return null;
   return (

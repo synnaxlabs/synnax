@@ -168,7 +168,7 @@ describe("Schematic toolbar Symbols", () => {
         group.ontologyID(root.key),
       );
       const groups = await client.groups.retrieve({
-        keys: children.filter((c) => c.id.type === "group").map((c) => c.id.key),
+        keys: children.filter((c) => c.type === "group").map((c) => c.key),
       });
       expect(groups.map((g) => g.name)).toContain(name);
     });

@@ -297,14 +297,14 @@ export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   name: "Device Group",
   retrieve: async ({ client, store }) => {
     const children = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-    store.resources.set(children);
-    const groupChildren = children.filter((r) => r.id.type === "group");
+    Ontology.setResources(store, children);
+    const groupChildren = children.filter((r) => r.type === "group");
     if (groupChildren.length === 0) return undefined;
     const groups = await client.groups.retrieve({
-      keys: groupChildren.map((r) => r.id.key),
+      keys: groupChildren.map((r) => r.key),
     });
     const devicesGroup = groups.find((g) => g.name === "Devices");
-    return groupChildren.find((r) => r.id.key === devicesGroup?.key)?.id;
+    return groupChildren.find((r) => r.key === devicesGroup?.key);
   },
 });
 

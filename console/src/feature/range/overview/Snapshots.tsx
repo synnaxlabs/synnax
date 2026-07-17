@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, ranger } from "@synnaxlabs/client";
+import { ontology, ranger } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -29,36 +29,40 @@ import { Tree } from "@/platform/tree";
 
 const SnapshotsListItem = ({ className, ...rest }: List.ItemProps<string>) => {
   const { itemKey } = rest;
-  const entry = List.useItem<string, Tree.Entry>(itemKey);
+  const id = List.useItem<string, ontology.ID>(itemKey);
   const services = Range.useSnapshotServices();
-  if (entry == null) return null;
-  const svc = services[entry.id.type];
+  if (id == null) return null;
+  const svc = services[id.type];
   if (svc == null) return null;
   return (
-    <SnapshotsListItemContent {...rest} className={className} svc={svc} entry={entry} />
+    <SnapshotsListItemContent
+      {...rest}
+      className={className}
+      svc={svc}
+      resourceID={id}
+    />
   );
 };
 
 interface SnapshotsListItemContentProps extends List.ItemProps<string> {
   svc: Range.SnapshotService;
-  entry: Tree.Entry;
+  resourceID: ontology.ID;
 }
 
 const SnapshotsListItemContent = ({
   className,
   svc,
-  entry,
+  resourceID: id,
   ...rest
 }: SnapshotsListItemContentProps) => {
   const placeLayout = Layout.usePlacer();
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const promptConfirm = Tree.useConfirmDelete({ type: "Snapshot" });
-  const { id } = entry;
   const name = Tree.useName(id);
   const isSnapshot = svc.useIsSnapshot(id.key);
   if (!isSnapshot) return null;
-  const namedEntry = { ...entry, name };
+  const namedEntry: Tree.Entry = { key: ontology.idToString(id), id, name };
   const handleSelect = () => {
     handleError(
       svc.onClick(namedEntry, { client, placeLayout }),
@@ -104,10 +108,7 @@ export const Snapshots: FC<SnapshotsProps> = ({ rangeKey }) => {
   const services = Range.useSnapshotServices();
   const { data, getItem, subscribe, retrieve, status } = Ontology.useListChildren({
     initialQuery: { id: ranger.ontologyID(rangeKey) },
-    filter: useCallback(
-      (item: ontology.Resource) => services[item.id.type] != null,
-      [services],
-    ),
+    filter: useCallback((item: ontology.ID) => services[item.type] != null, [services]),
   });
   const { fetchMore } = List.usePager({ retrieve });
   if (status.variant === "error") return null;

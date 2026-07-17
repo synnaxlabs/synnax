@@ -353,7 +353,7 @@ describe("queries", () => {
         { types: ["role"] },
       );
       expect(parents.length).toEqual(1);
-      expect(parents[0].id.key).toEqual(role2.key);
+      expect(parents[0].key).toEqual(role2.key);
     });
 
     it("should assign a role to a user with no previous role", async () => {
@@ -393,7 +393,7 @@ describe("queries", () => {
         { types: ["role"] },
       );
       expect(parents.length).toEqual(1);
-      expect(parents[0].id.key).toEqual(role.key);
+      expect(parents[0].key).toEqual(role.key);
     });
   });
 });

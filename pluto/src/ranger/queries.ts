@@ -216,7 +216,7 @@ export const useListChildren = Flux.createList<
       types: ["range"],
     });
     if (resources.length === 0) return [];
-    const query = { keys: resources.map(({ id: { key } }) => key) };
+    const query = { keys: resources.map(({ key }) => key) };
     return await retrieveMultiple({ client, store, query });
   },
   retrieveByKey: async ({ key, ...rest }) =>
@@ -283,9 +283,9 @@ export const {
   name: PARENT_RESOURCE_NAME,
   retrieve: async ({ client, query: { id } }) => {
     const res = await client.ontology.retrieveParents(id);
-    const parent = res.find(({ id: { type } }) => type === "range");
+    const parent = res.find(({ type }) => type === "range");
     if (parent == null) return null;
-    return await client.ranges.retrieve(parent.id.key);
+    return await client.ranges.retrieve(parent.key);
   },
   mountListeners: ({ store, onChange, client, query: { id } }) => [
     store.ranges.onSet((NextParent) => {

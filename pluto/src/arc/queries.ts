@@ -470,7 +470,7 @@ export const retrieveTask = async ({
   let taskKey = cachedChild?.to.key;
 
   if (taskKey == null) {
-    let children: ontology.Resource[];
+    let children: ontology.ID[];
     try {
       children = await client.ontology.retrieveChildren(arcOntologyID, {
         types: ["task"],
@@ -484,12 +484,12 @@ export const retrieveTask = async ({
       const rel: ontology.Relationship = {
         from: arcOntologyID,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: c.id,
+        to: c,
       };
       store.relationships.set(ontology.relationshipToString(rel), rel);
     });
     if (children.length === 0) return undefined;
-    taskKey = children[0].id.key;
+    taskKey = children[0].key;
   }
 
   return await Task.retrieveSingle({ store, client, query: { key: taskKey } });

@@ -250,7 +250,7 @@ describe("task/Toolbar", () => {
       fireEvent.click(await screen.findByText(`Snapshot to ${rng.name}`));
       await waitFor(async () => {
         const children = await client.ontology.retrieveChildren(rng.ontologyID);
-        expect(children.some((c) => c.id.type === "task")).toBe(true);
+        expect(children.some((c) => c.type === "task")).toBe(true);
       });
     });
   });

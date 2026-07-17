@@ -87,13 +87,13 @@ export const retrieveForSubject = async ({
     );
     roles.forEach((r) => {
       const rel = {
-        from: r.id,
+        from: r,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: access.policy.ontologyID(p.key),
       };
       store.relationships.set(ontology.relationshipToString(rel), rel);
       const subjectRel = {
-        from: r.id,
+        from: r,
         type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
         to: subject,
       };
