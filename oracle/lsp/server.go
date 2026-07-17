@@ -104,11 +104,6 @@ func (s *Server) Initialize(_ context.Context, params *protocol.InitializeParams
 	}, nil
 }
 
-// Initialized handles the initialized notification.
-func (s *Server) Initialized(context.Context, *protocol.InitializedParams) error {
-	return nil
-}
-
 // Shutdown handles the shutdown request.
 func (s *Server) Shutdown(_ context.Context) error {
 	return nil
