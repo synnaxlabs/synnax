@@ -17,7 +17,7 @@ import (
 	"context"
 
 	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 

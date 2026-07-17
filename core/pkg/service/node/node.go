@@ -11,7 +11,7 @@ package node
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
 )
 
 // Re-exports of the node domain primitives defined in pkg/distribution/node. Consumers

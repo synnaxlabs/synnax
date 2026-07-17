@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v0 "github.com/synnaxlabs/x/telem/types/v0"
+	"github.com/synnaxlabs/x/telem/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 

@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/x/color/types/v0"
+	"github.com/synnaxlabs/x/color/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )

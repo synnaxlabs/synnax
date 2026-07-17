@@ -12,7 +12,7 @@ package ontology
 import (
 	"strings"
 
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )

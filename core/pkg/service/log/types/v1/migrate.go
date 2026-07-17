@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/legacy"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/types/legacy/v1"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/log/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/log/types/v0"
 	"github.com/synnaxlabs/x/color"
 )
 

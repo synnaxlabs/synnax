@@ -10,7 +10,7 @@
 package text
 
 import (
-	v1 "github.com/synnaxlabs/arc/text/types/v1"
+	"github.com/synnaxlabs/arc/text/types/v1"
 	"github.com/synnaxlabs/x/crdt"
 )
 

@@ -12,7 +12,7 @@ package v2_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )

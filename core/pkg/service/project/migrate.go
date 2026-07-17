@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )

@@ -16,7 +16,7 @@ package v2
 import (
 	"context"
 
-	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 )
 
 func MigrateRack(ctx context.Context, old v1.Rack) (Rack, error) {

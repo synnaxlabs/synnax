@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/user/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/user/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )

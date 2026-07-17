@@ -16,7 +16,7 @@ package v2
 import (
 	"context"
 
-	v1 "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
 )
 
 func MigrateTask(ctx context.Context, old v1.Task) (Task, error) {

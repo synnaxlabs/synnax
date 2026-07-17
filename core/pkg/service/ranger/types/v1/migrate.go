@@ -12,7 +12,7 @@ package v1
 import (
 	"context"
 
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 )

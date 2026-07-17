@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	. "github.com/synnaxlabs/x/testutil"
 )
 

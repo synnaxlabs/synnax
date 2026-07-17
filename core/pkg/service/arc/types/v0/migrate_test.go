@@ -17,7 +17,7 @@ import (
 	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	arcv1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
 	arcv2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"

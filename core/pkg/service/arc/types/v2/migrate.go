@@ -17,7 +17,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/arc/text"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
 )
 
 func MigrateArc(ctx context.Context, old v1.Arc) (Arc, error) {

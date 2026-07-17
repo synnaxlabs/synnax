@@ -14,9 +14,9 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
