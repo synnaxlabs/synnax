@@ -47,6 +47,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/slack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -580,6 +581,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if !ok(err, nil) {
 		return nil, err
 	}
+	slackFactory, err := slack.NewFactory(slack.FactoryConfig{
+		Instrumentation: cfg.Child("slack"),
+		Status:          l.Status,
+		Device:          l.Device,
+	})
+	if !ok(err, nil) {
+		return nil, err
+	}
 	if l.Driver, err = driver.Open(ctx, driver.Config{
 		Instrumentation: cfg.Child("driver"),
 		DB:              cfg.Distribution.DB,
@@ -588,7 +597,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Framer:          l.Framer,
 		Channel:         l.Channel,
 		Status:          l.Status,
-		Factories:       []driver.Factory{arcFactory, pdFactory},
+		Factories:       []driver.Factory{arcFactory, pdFactory, slackFactory},
 		Host:            cfg.Distribution.Cluster,
 	}); !ok(err, l.Driver) {
 		return nil, err
