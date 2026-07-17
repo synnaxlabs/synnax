@@ -42,12 +42,9 @@ func (m *MockClient) PublishCount() int {
 	return m.publishCount
 }
 
-// WaitForDiagnostics blocks until publishCount changes from the given
-// baseline value or timeout elapses. Returns true if a new publish was observed.
-func (m *MockClient) WaitForDiagnostics(
-	baseline int,
-	timeout time.Duration,
-) bool {
+// WaitForDiagnostics blocks until publishCount changes from the given baseline value or
+// timeout elapses. Returns true if a new publish was observed.
+func (m *MockClient) WaitForDiagnostics(baseline int, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
 		if m.PublishCount() != baseline {
@@ -59,7 +56,10 @@ func (m *MockClient) WaitForDiagnostics(
 }
 
 // PublishDiagnostics stores the diagnostics and increments the publish count.
-func (m *MockClient) PublishDiagnostics(_ context.Context, params *protocol.PublishDiagnosticsParams) error {
+func (m *MockClient) PublishDiagnostics(
+	_ context.Context,
+	params *protocol.PublishDiagnosticsParams,
+) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.diagnostics = params.Diagnostics
@@ -75,15 +75,16 @@ func (m *MockClient) SemanticTokensRefresh(context.Context) error {
 	return nil
 }
 
-// SemanticRefreshCount returns the number of times SemanticTokensRefresh has been called.
+// SemanticRefreshCount returns the number of times SemanticTokensRefresh has been
+// called.
 func (m *MockClient) SemanticRefreshCount() int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.semanticRefreshCount
 }
 
-// WaitForSemanticRefresh blocks until semanticRefreshCount changes from the
-// given baseline value or timeout elapses.
+// WaitForSemanticRefresh blocks until semanticRefreshCount changes from the given
+// baseline value or timeout elapses.
 func (m *MockClient) WaitForSemanticRefresh(baseline int, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
