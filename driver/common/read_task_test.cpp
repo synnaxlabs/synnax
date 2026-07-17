@@ -59,7 +59,7 @@ public:
 TEST(TestCommonReadTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -98,7 +98,7 @@ TEST(TestCommonReadTask, testBasicOperation) {
 TEST(TestCommonReadTask, testErrorOnStart) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -130,7 +130,7 @@ TEST(TestCommonReadTask, testErrorOnStart) {
 TEST(TestCommonReadTask, testErrorOnStop) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -172,7 +172,7 @@ TEST(TestCommonReadTask, testErrorOnStop) {
 TEST(TestCommonReadTask, testMultiStartStop) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
 
@@ -242,7 +242,7 @@ TEST(TestCommonReadTask, testMultiStartStop) {
 TEST(TestCommonReadTask, testReadError) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -298,7 +298,7 @@ TEST(TestCommonReadTask, testReadError) {
 TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -361,7 +361,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
 TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -443,7 +443,7 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
 TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     const auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
     synnax::task::Task t;
-    t.key = 12345;
+    t.key = x::uuid::create();
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
