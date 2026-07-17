@@ -55,6 +55,11 @@ needing broader context:
   One blessed exception: a package's core item may share the package's exact name
   (`channel.Channel`) — no extra words around it.
 
+- **Capitalize component names in prose.** In docs, RFCs, comments, and PR text, the
+  Synnax components — Core, Console, Cesium, Arc, Oracle, Gorp, Pluto, Drift, Aspen,
+  Alamos, Driver, Freighter, and X — are proper nouns: capitalize them. Keep them
+  lowercase only inside a path, package name, or code identifier (`core/pkg/...`,
+  `driver.Factory`, `import "gorp"`).
 - **`common/`, never `shared/`**, for directories holding utilities reused by sibling
   modules. All languages.
 
