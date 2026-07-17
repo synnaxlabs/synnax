@@ -172,8 +172,9 @@ var _ = Describe("Initialize", func() {
 			&protocol.InitializeParams{},
 		))
 		Expect(result.ServerInfo.Name).To(Equal("oracle-lsp"))
-		Expect(result.Capabilities.HoverProvider).To(Equal(protocol.Boolean(true)))
-		Expect(result.Capabilities.DocumentFormattingProvider).To(Equal(protocol.Boolean(true)))
+		Expect(bool(result.Capabilities.HoverProvider.(protocol.Boolean))).To(BeTrue())
+		Expect(bool(result.Capabilities.DocumentFormattingProvider.(protocol.Boolean))).
+			To(BeTrue())
 	})
 })
 
