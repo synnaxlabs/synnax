@@ -31,7 +31,7 @@ import (
 
 // Server implements the Language Server Protocol for Oracle schema files.
 type Server struct {
-	xlsp.NoopServer
+	protocol.UnimplementedServer
 	capabilities protocol.ServerCapabilities
 	documents    map[uri.URI]*Document
 	client       protocol.Client

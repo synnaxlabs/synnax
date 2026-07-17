@@ -124,7 +124,7 @@ var translateCfg = lsp.TranslateConfig{Source: "arc-analyzer"}
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
-	lsp.NoopServer
+	protocol.UnimplementedServer
 	capabilities             protocol.ServerCapabilities
 	client                   protocol.Client
 	documents                map[uri.URI]*Document
@@ -167,7 +167,6 @@ func New(cfgs ...Config) (*Server, error) {
 				},
 			},
 			DefinitionProvider:              protocol.Boolean(true),
-			DocumentSymbolProvider:          protocol.Boolean(true),
 			DocumentFormattingProvider:      protocol.Boolean(true),
 			DocumentRangeFormattingProvider: protocol.Boolean(true),
 			FoldingRangeProvider:            protocol.Boolean(true),
