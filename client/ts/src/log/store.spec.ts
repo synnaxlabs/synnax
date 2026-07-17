@@ -22,11 +22,12 @@ describe("log store", () => {
     await client.cache.engine.ensureStreaming();
     const project = await client.projects.create({ name: `log-${id.create()}` });
     const log = await client.logs.create(project.key, { name: `log-${id.create()}` });
-    client.cache.engine.store<Key, Log>(STORE_KEY).set(log.key, log);
+    const store = client.cache.engine.store<Key, Log>(STORE_KEY);
+    store.set(log.key, log);
     await client.logs.delete(log.key);
     await expect
-      .poll(() => client.logs.store.status(log.key), { timeout: 5000 })
+      .poll(() => store.status(log.key), { timeout: 5000 })
       .toBe("tombstoned");
-    expect(client.logs.store.getTombstone(log.key)?.corpse.name).toEqual(log.name);
+    expect(store.getTombstone(log.key)?.corpse.name).toEqual(log.name);
   }, 20000);
 });

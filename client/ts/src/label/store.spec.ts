@@ -10,6 +10,8 @@
 import { id } from "@synnaxlabs/x";
 import { afterAll, describe, expect, it } from "vitest";
 
+import { STORE_KEY } from "@/label/store";
+import { type Key, type Label } from "@/label/types.gen";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -18,19 +20,18 @@ afterAll(() => client.close());
 describe("label store", () => {
   it("caches sets and corpses deletes from live signals", async () => {
     await client.cache.engine.ensureStreaming();
+    const store = client.cache.engine.store<Key, Label>(STORE_KEY);
     const label = await client.labels.create({
       name: `label-${id.create()}`,
       color: "#12E774",
     });
     await expect
-      .poll(() => client.labels.store.get(label.key)?.name, { timeout: 5000 })
+      .poll(() => store.get(label.key)?.name, { timeout: 5000 })
       .toEqual(label.name);
     await client.labels.delete(label.key);
     await expect
-      .poll(() => client.labels.store.status(label.key), { timeout: 5000 })
+      .poll(() => store.status(label.key), { timeout: 5000 })
       .toBe("tombstoned");
-    expect(client.labels.store.getTombstone(label.key)?.corpse.name).toEqual(
-      label.name,
-    );
+    expect(store.getTombstone(label.key)?.corpse.name).toEqual(label.name);
   }, 20000);
 });

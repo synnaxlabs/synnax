@@ -140,7 +140,20 @@ export default class Synnax extends framer.Client {
     );
     super(transport.stream, transport.unary, chRetriever);
     const engine = parsedParams.cache
-      ? new cache.Engine({ openStreamer: (config) => this.openStreamer(config) })
+      ? new cache.Engine({
+          openStreamer: async (channels, { onOpen, onReopen }) => {
+            const hardened = await framer.HardenedStreamer.open(
+              (config) => this.openStreamer(config),
+              channels,
+              undefined,
+              onReopen,
+            );
+            // Reads start when the ObservableStreamer is constructed below,
+            // so onOpen fires strictly before any frame or reconnect.
+            onOpen?.();
+            return new framer.ObservableStreamer(hardened);
+          },
+        })
       : undefined;
     this.cache = new cache.Handle(engine ?? null);
     this.auth = new auth.Client(transport.unary, { username, password });
@@ -150,11 +163,28 @@ export default class Synnax extends framer.Client {
     this.createdAt = TimeStamp.now();
     this.params = parsedParams;
     this.transport = transport;
+    this.ontology = new ontology.Client(this.transport.unary, engine);
+    const rangeWriter = new ranger.Writer(this.transport.unary);
+    this.labels = new label.Client(this.transport.unary, engine);
+    this.statuses = new status.Client(this.transport.unary, this.labels, engine);
+    this.ranges = new ranger.Client(
+      this,
+      rangeWriter,
+      this.transport.unary,
+      chRetriever,
+      this.labels,
+      this.ontology,
+      (key: ranger.Key) => new alias.Client(key, this.transport.unary),
+      (key: ranger.Key) => new kv.Client(key, this.transport.unary, engine),
+      engine,
+    );
     this.channels = new channel.Client(
       this,
       chRetriever,
       transport.unary,
       chCreator,
+      this.statuses,
+      this.ranges,
       engine,
     );
     this.connectivity = new connection.Checker(
@@ -165,21 +195,6 @@ export default class Synnax extends framer.Client {
       clockSkewThreshold,
     );
     this.control = new control.Client(this);
-    this.ontology = new ontology.Client(this.transport.unary, engine);
-    const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(this.transport.unary, engine);
-    this.statuses = new status.Client(this.transport.unary, engine);
-    this.ranges = new ranger.Client(
-      this,
-      rangeWriter,
-      this.transport.unary,
-      chRetriever,
-      this.labels,
-      this.ontology,
-      (key: ranger.Key) => new alias.Client(key, this.transport.unary),
-      (key: ranger.Key) => new kv.Client(key, this.transport.unary),
-      engine,
-    );
     this.access = new access.Client(this.transport.unary, engine);
     this.users = new user.Client(this.transport.unary, engine);
     this.projects = new project.Client(this.transport.unary, engine);
@@ -192,14 +207,20 @@ export default class Synnax extends framer.Client {
     );
     this.racks = new rack.Client(this.transport.unary, this.tasks, engine);
     this.devices = new device.Client(this.transport.unary, engine);
-    this.arcs = new arc.Client(this.transport.unary, this.transport.stream, engine);
+    this.arcs = new arc.Client(
+      this.transport.unary,
+      this.transport.stream,
+      this.ontology,
+      this.tasks,
+      engine,
+    );
     this.views = new view.Client(this.transport.unary, engine);
-    this.schematics = new schematic.Client(this.transport.unary, engine);
+    this.schematics = new schematic.Client(this.transport.unary, this.ontology, engine);
     this.lineplots = new lineplot.Client(this.transport.unary, engine);
     this.panels = new panel.Client(this.transport.unary, engine);
     this.logs = new log.Client(this.transport.unary, engine);
     this.tables = new table.Client(this.transport.unary, engine);
-    this.groups = new group.Client(this.transport.unary, engine);
+    this.groups = new group.Client(this.transport.unary, this.ontology, engine);
     this.imex = new imex.Client(this.transport.file);
   }
 

@@ -7,20 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, errors, id, type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
+import { type dispatch, type Synnax as Client } from "@synnaxlabs/client";
+import { type record } from "@synnaxlabs/x";
+import { useCallback, useSyncExternalStore } from "react";
 
 import { type base } from "@/flux/base";
-import {
-  type ReplayResult,
-  type Transaction,
-  type UndoableUnaryStore,
-} from "@/flux/base/undoable";
-import { useStore } from "@/flux/Provider";
 import { errorResult } from "@/flux/result";
-import { createSelector } from "@/flux/select";
-import { type Adder, useAdder } from "@/status/base/Aggregator";
+import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface DispatchInput<Key extends record.Key, Action> {
@@ -28,7 +21,7 @@ export interface DispatchInput<Key extends record.Key, Action> {
   actions: Action | Action[];
 }
 
-const INERT_TX: Transaction<never> = {
+const INERT_TX: dispatch.Transaction<never> = {
   add: () => {},
   commit: async () => false,
   abort: () => {},
@@ -38,108 +31,91 @@ export interface CreateDispatchParams<
   Key extends record.Key,
   State extends base.Data,
   Action,
-  SK extends string,
 > {
-  storeKey: SK;
-  send: (params: {
-    client: Client;
-    key: Key;
-    actions: Action[];
-    dispatchKey: string;
-  }) => Promise<void>;
+  /** Selects the domain's dispatch surface off the client. */
+  domain: (client: Client) => dispatch.Domain<Key, State, Action>;
   /**
    * Rewrites an action batch against the current document before replay and
-   * send. Lives here rather than on the domain's dispatch controller when the
-   * rewrite needs visualization-layer context (e.g. diagram geometry).
+   * send. Lives here rather than in the domain client when the rewrite needs
+   * visualization-layer context (e.g. diagram geometry).
    */
-  preprocess?: (state: State, actions: Action[]) => Action[];
+  preprocess?: dispatch.Preprocess<State, Action>;
+}
+
+export interface UseDispatchReturn<Key extends record.Key, Action> {
+  dispatch: (input: DispatchInput<Key, Action>) => void;
+  dispatchAsync: (input: DispatchInput<Key, Action>) => Promise<boolean>;
+  beginTransaction: (input: {
+    key: Key;
+    kind?: string;
+  }) => dispatch.Transaction<Action>;
+}
+
+export interface UseUndoReturn {
+  undo: () => void;
+  canUndo: boolean;
+}
+
+export interface UseRedoReturn {
+  redo: () => void;
+  canRedo: boolean;
+}
+
+export interface CreateDispatchReturn<Key extends record.Key, Action> {
+  useDispatch: () => UseDispatchReturn<Key, Action>;
+  useUndo: (params: { key: Key }) => UseUndoReturn;
+  useRedo: (params: record.Keyed<Key>) => UseRedoReturn;
+  useSingleDispatch: (params: record.Keyed<Key>) => (action: Action | Action[]) => void;
 }
 
 export const createDispatch = <
   Key extends record.Key,
   State extends base.Data,
   Action,
-  SK extends string,
-  ScopedStore extends base.Store & Record<SK, UndoableUnaryStore<Key, State, Action>>,
 >({
-  storeKey,
-  send,
+  domain,
   preprocess,
-}: CreateDispatchParams<Key, State, Action, SK>) => {
-  // Reduce + send with rollback. Used by dispatch, undo, and redo. The
-  // `commitStack` closure applies the per-op stack mutation (push entry on
-  // dispatch; transition undo↔redo on undo/redo) and returns its rollback.
-  // A fresh dispatchKey is generated per batch and registered as outstanding
-  // *before* the network send: the broadcast echo can race with the HTTP
-  // response back to us, and registering up front means the echo will always
-  // find the entry and skip its redundant reduce.
-  const apply = async (
-    store: ScopedStore,
-    client: Client,
-    key: Key,
-    actions: Action[],
-    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
-    addStatus: Adder,
-    op: string,
-    skipPreprocess = false,
-  ): Promise<boolean> => {
-    const undoable = store[storeKey];
-    const current = undoable.get(key);
-    if (current == null) return false;
-    const processed =
-      skipPreprocess || preprocess == null ? actions : preprocess(current, actions);
-    const r = undoable.replay(key, processed, { skipPreprocess: true });
-    if (r == null) return false;
-    const stackRollback = commitStack(r);
-    // A replay that left the state untouched has nothing for the server: no
-    // document change, no broadcast worth echoing. The stack mutation still
-    // runs above so undo/redo consume their entry instead of pinning it.
-    if (!r.changed) return true;
-    const dispatchKey = id.create();
-    store[storeKey].registerOutstandingDispatch(key, dispatchKey);
-    try {
-      await send({ client, key, actions: r.processed, dispatchKey });
-      return true;
-    } catch (e) {
-      stackRollback();
-      r.rollback();
-      addStatus(errorResult(op, e).status);
-      return false;
-    }
+}: CreateDispatchParams<Key, State, Action>): CreateDispatchReturn<Key, Action> => {
+  const useCanReverse = ({
+    key,
+    side,
+  }: {
+    key: Key;
+    side: "undo" | "redo";
+  }): boolean => {
+    const client = Synnax.use();
+    const subscribe = useCallback(
+      (onStoreChange: () => void) => {
+        if (client == null) return () => {};
+        return domain(client).onUndoStateChange(onStoreChange, key);
+      },
+      [client, key],
+    );
+    const getSnapshot = useCallback(() => {
+      if (client == null) return false;
+      const d = domain(client);
+      return side === "undo" ? d.hasUndo(key) : d.hasRedo(key);
+    }, [client, key, side]);
+    return useSyncExternalStore(subscribe, getSnapshot);
   };
 
-  const [useCanReverse] = createSelector<
-    ScopedStore,
-    { key: Key; side: "undo" | "redo" },
-    boolean
-  >({
-    subscribe: (s, { key }, notify) => s[storeKey].onUndoStateChange(notify, key),
-    select: (s, { key, side }) =>
-      side === "undo" ? s[storeKey].hasUndo(key) : s[storeKey].hasRedo(key),
-  });
-
   const useDispatch = () => {
-    const store = useStore<ScopedStore>();
     const client = Synnax.use();
     const addStatus = useAdder();
 
     const dispatchAsync = useCallback(
       async (input: DispatchInput<Key, Action>): Promise<boolean> => {
         if (client == null) return false;
-        const actions = Array.isArray(input.actions) ? input.actions : [input.actions];
-        if (actions.length === 0) return true;
-        return await apply(
-          store,
-          client,
-          input.key,
-          actions,
-          ({ processed, inverse, targets }) =>
-            store[storeKey].recordEntry(input.key, processed, inverse, targets),
-          addStatus,
-          "dispatch action",
-        );
+        try {
+          return await domain(client).dispatch(input.key, input.actions, {
+            preprocess,
+          });
+        } catch (e) {
+          addStatus(errorResult("dispatch action", e).status);
+          return false;
+        }
       },
-      [store, client, addStatus],
+      [client, addStatus],
     );
 
     const dispatch = useCallback(
@@ -148,74 +124,52 @@ export const createDispatch = <
     );
 
     const beginTransaction = useCallback(
-      (input: { key: Key; kind?: string }): Transaction<Action> => {
-        if (client == null) return INERT_TX as Transaction<Action>;
-        // Wrap `send` so the substrate's rollback runs as before, but the
-        // error also surfaces to the user via the status aggregator. A
-        // dispatchKey is allocated per commit (one batch, one outstanding
-        // entry) and registered before the network send so the broadcast
-        // echo wins the race.
-        const wrappedSend = async (actions: Action[]) => {
-          const dispatchKey = id.create();
-          store[storeKey].registerOutstandingDispatch(input.key, dispatchKey);
-          try {
-            await send({ client, key: input.key, actions, dispatchKey });
-          } catch (e) {
-            addStatus(errorResult("commit transaction", e).status);
-            throw errors.fromUnknown(e);
-          }
+      (input: { key: Key; kind?: string }): dispatch.Transaction<Action> => {
+        if (client == null) return INERT_TX as dispatch.Transaction<Action>;
+        const tx = domain(client).beginTransaction(input.key, input.kind);
+        return {
+          ...tx,
+          // The substrate rolls back before rethrowing; surface the error to
+          // the user and preserve the resolve-false contract for callers.
+          commit: async () => {
+            try {
+              return await tx.commit();
+            } catch (e) {
+              addStatus(errorResult("commit transaction", e).status);
+              return false;
+            }
+          },
         };
-        return store[storeKey].beginTransaction(input.key, wrappedSend, input.kind);
       },
-      [store, client, addStatus],
+      [client, addStatus],
     );
 
     return { dispatch, dispatchAsync, beginTransaction };
   };
 
   const useUndo = ({ key }: { key: Key }) => {
-    const store = useStore<ScopedStore>();
     const client = Synnax.use();
     const addStatus = useAdder();
     const canUndo = useCanReverse({ key, side: "undo" });
     const undo = useCallback(() => {
       if (client == null) return;
-      const prepared = store[storeKey].prepareUndo(key);
-      if (prepared == null) return;
-      void apply(
-        store,
-        client,
-        key,
-        prepared.actions,
-        () => prepared.commit(),
-        addStatus,
-        "undo action",
-        true,
-      );
-    }, [store, client, key, addStatus]);
+      domain(client)
+        .undo(key)
+        .catch((e: unknown) => addStatus(errorResult("undo action", e).status));
+    }, [client, key, addStatus]);
     return { undo, canUndo };
   };
 
   const useRedo = ({ key }: record.Keyed<Key>) => {
-    const store = useStore<ScopedStore>();
     const client = Synnax.use();
     const addStatus = useAdder();
     const canRedo = useCanReverse({ key, side: "redo" });
     const redo = useCallback(() => {
       if (client == null) return;
-      const prepared = store[storeKey].prepareRedo(key);
-      if (prepared == null) return;
-      void apply(
-        store,
-        client,
-        key,
-        prepared.actions,
-        () => prepared.commit(),
-        addStatus,
-        "redo action",
-        true,
-      );
-    }, [store, client, key, addStatus]);
+      domain(client)
+        .redo(key)
+        .catch((e: unknown) => addStatus(errorResult("redo action", e).status));
+    }, [client, key, addStatus]);
     return { redo, canRedo };
   };
 

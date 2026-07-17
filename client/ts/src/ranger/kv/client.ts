@@ -11,6 +11,9 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type cache } from "@/cache";
+import { createPairKey } from "@/ranger/kv/payload";
+import { STORE_KEY } from "@/ranger/kv/store";
 import { type Pair, pairZ } from "@/ranger/kv/types.gen";
 import { type Key, keyZ } from "@/ranger/types.gen";
 
@@ -22,10 +25,12 @@ const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export class Client {
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
+  private readonly engine_?: cache.Engine;
 
-  constructor(rng: Key, client: UnaryClient) {
+  constructor(rng: Key, client: UnaryClient, engine?: cache.Engine) {
     this.rangeKey = rng;
     this.client = client;
+    this.engine_ = engine;
   }
 
   async get(key: string): Promise<string>;
@@ -63,14 +68,26 @@ export class Client {
       setReqZ,
       z.unknown(),
     );
+    const writes = this.writes;
+    // Pair.key is the bare key; the store is keyed by createPairKey, so an
+    // array set would mis-key entries.
+    if (writes != null) pairs.forEach((p) => writes.set(createPairKey(p), p));
   }
 
   async delete(key: string | string[]): Promise<void> {
+    const keys = array.toArray(key);
     await this.client.send(
       "/range/kv/delete",
-      { range: this.rangeKey, keys: array.toArray(key) },
+      { range: this.rangeKey, keys },
       deleteReqZ,
       z.unknown(),
     );
+    this.writes?.delete(
+      keys.map((k) => createPairKey({ range: this.rangeKey, key: k })),
+    );
+  }
+
+  private get writes(): cache.UnaryStore<string, Pair> | undefined {
+    return this.engine_?.store(STORE_KEY);
   }
 }

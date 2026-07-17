@@ -21,8 +21,6 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { flux } from "@/flux/aether";
-import { type ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
@@ -60,10 +58,6 @@ interface ProviderProps {
   timeRange: TimeRange;
 }
 
-interface Store extends flux.Store {
-  ranges: aetherRanger.FluxStore;
-}
-
 export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> {
   static readonly TYPE = "range-provider";
   schema = providerStateZ;
@@ -80,16 +74,14 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     i.requestRender("tool");
     if (client == null) return;
     i.client = client;
-    const store = flux.useStore<Store>(ctx, this.key);
     i.removeListener?.();
-    const removeOnSet = store.ranges.onSet((changed) => {
-      if (i.client == null) return;
-      if (color.isCrude(changed.color))
-        i.ranges.set(changed.key, i.client.ranges.sugarOne(changed));
+    if (!client.cache.enabled) return;
+    const removeOnSet = client.ranges.onSet((changed) => {
+      if (color.isCrude(changed.color)) i.ranges.set(changed.key, changed);
       i.requestRender("tool");
     });
-    const removeOnDelete = store.ranges.onDelete(async (changed) => {
-      i.ranges.delete(changed);
+    const removeOnDelete = client.ranges.onDelete((key) => {
+      i.ranges.delete(key);
       i.requestRender("tool");
     });
     i.removeListener = () => {

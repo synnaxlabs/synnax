@@ -16,7 +16,7 @@ import {
   table,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Access, Flux, type Pluto } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -109,7 +109,6 @@ const legacyLayoutSlice = (): unknown => ({
 
 interface HarnessValue {
   openTab: Panel.OpenTab;
-  fluxStore: Pluto.FluxStore;
   granted: boolean;
 }
 
@@ -130,7 +129,6 @@ describe("project import", () => {
     const { result } = renderHook<HarnessValue, unknown>(
       () => ({
         openTab: Panel.useOpenTab(),
-        fluxStore: Flux.useStore<Pluto.FluxStore>(),
         granted: Access.useUpdateGranted(project.TYPE_ONTOLOGY_ID),
       }),
       { wrapper },
@@ -142,7 +140,6 @@ describe("project import", () => {
         fileIngesters: FILE_INGESTERS,
         openTab: result.current.openTab,
         store,
-        fluxStore: result.current.fluxStore,
       });
     });
     return store;

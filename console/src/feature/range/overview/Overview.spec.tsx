@@ -15,16 +15,9 @@ import {
   schematic,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Flux, Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
+import { Icon, Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-  waitFor,
-} from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/feature/range";
@@ -74,12 +67,7 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
       ],
     },
   });
-  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-    wrapper,
-  });
-  act(() => {
-    result.current.panels.set(doc);
-  });
+  await client.panels.create(doc);
   render(
     <PlutoPanel.Scope.Provider value={doc.key}>
       <PlutoPanel.TabScope.Provider value={tabKey}>

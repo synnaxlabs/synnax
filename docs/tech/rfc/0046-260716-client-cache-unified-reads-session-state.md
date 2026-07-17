@@ -16,9 +16,8 @@ systems. This RFC restructures the whole seam:
    client owns one cache with change-stream invalidation, connection-epoch
    reconciliation, first-class deletion states, and optimistic write-through. Every
    client consumer, console or customer, inherits the same cache.
-2. Flux becomes a React binding layer over the client cache, and its read path
-   collapses to one surface: `createRetrieve` returns exactly three hooks plus a
-   selector factory.
+2. Flux becomes a React binding layer over the client cache, and its read path collapses
+   to one surface: `createRetrieve` returns exactly three hooks plus a selector factory.
 
    ```ts
    useRetrieve(query: Query): Data;                                // reactive, suspends
@@ -29,10 +28,11 @@ systems. This RFC restructures the whole seam:
 
    The observable substrate (`useRetrieveStateful`, `useRetrieveEffect`,
    `useRetrieveObservable`, the `Result`-returning `useRetrieve`) is deleted. The
-   standalone store-subscribing `Flux.createSelector` is deleted. `createForm`'s
-   bespoke retrieve leg moves onto the cache. `Result<T>` survives only on mutations.
-   This reverses RFC 0036's Resolved Decision 1 and completes the migration that RFC
+   standalone store-subscribing `Flux.createSelector` is deleted. `createForm`'s bespoke
+   retrieve leg moves onto the cache. `Result<T>` survives only on mutations. This
+   reverses RFC 0036's Resolved Decision 1 and completes the migration that RFC
    deferred.
+
 3. Session state converges to document truth through dispatched actions, never through
    intentional divergence. Deleted-while-open documents tombstone in place instead of
    tearing down views. Persisted session state is partitioned into global, per-cluster,
@@ -42,21 +42,21 @@ systems. This RFC restructures the whole seam:
 
 ## 1.1 - Deletion is the sharpest edge of the split brain
 
-- A remote delete reaches a suspense view only as a thrown 404 after cache
-  invalidation (`pluto/src/flux/retrieve.ts:430-454`), indistinguishable from a network
-  failure. The open tab degrades to a generic "Not found" fallback
+- A remote delete reaches a suspense view only as a thrown 404 after cache invalidation
+  (`pluto/src/flux/retrieve.ts:430-454`), indistinguishable from a network failure. The
+  open tab degrades to a generic "Not found" fallback
   (`console/src/feature/panel/Mosaic.tsx:33-50`).
 - Non-suspense `useRetrieve` never observes deletion at all: a listener yielding null
   keeps the previous value (`pluto/src/flux/retrieve.ts:245-249`).
 - Delivery is lossy even while running. `HardenedStreamer.read` silently reopens the
-  stream on failure (`client/ts/src/framer/streamer.ts:284-293`); frames lost in the
-  gap are never replayed, and the flux client does nothing on reconnect
+  stream on failure (`client/ts/src/framer/streamer.ts:284-293`); frames lost in the gap
+  are never replayed, and the flux client does nothing on reconnect
   (`pluto/src/flux/base/client.ts:56-62`). A delete missed in a gap leaves a
   live-looking document forever.
 - Session repair is hand-wired per domain and incomplete: range and status prune on
   remote deletes, but no panel delete synchronizer exists, the five document-keyed
-  slices (schematic, line, table, arc, log) prune only on console-initiated deletes,
-  and `cluster.remove` leaves a dangling selection.
+  slices (schematic, line, table, arc, log) prune only on console-initiated deletes, and
+  `cluster.remove` leaves a dangling selection.
 - Persisted session state reloads stale keys unreconciled, and the persistence engine's
   migrator hook is never wired (`console/src/session/persist/state.ts`).
 
@@ -78,12 +78,12 @@ Three costs recur:
    showing loading state. Only ~5 sites branch on `.variant` correctly. The wrapper
    taxes every call site and pays off almost nowhere.
 2. **Selectors have no lifecycle.** The ~60 store-subscribing `Flux.createSelector`
-   definitions read synchronously; a selector on an unfetched record returns
-   `undefined` or throws. The workaround, a parent calling `useEnsureRetrieved` so
-   children can select, works only when someone remembered the pre-warm.
-3. **No sanctioned non-reactive read.** 62 event callbacks and 16 service utilities
-   call `client.*.retrieve` directly, bypassing the cache entirely. Each re-fetches
-   data flux often already holds.
+   definitions read synchronously; a selector on an unfetched record returns `undefined`
+   or throws. The workaround, a parent calling `useEnsureRetrieved` so children can
+   select, works only when someone remembered the pre-warm.
+3. **No sanctioned non-reactive read.** 62 event callbacks and 16 service utilities call
+   `client.*.retrieve` directly, bypassing the cache entirely. Each re-fetches data flux
+   often already holds.
 
 Each hole in 1.1 was patched locally as found; each variant in 1.2 was added locally as
 needed. This RFC replaces patchwork with a structure in which the holes cannot exist.
@@ -102,9 +102,8 @@ needed. This RFC replaces patchwork with a structure in which the holes cannot e
   reconnect starts a new epoch; events between epochs are lost, never replayed.
 - **Convergence**: the session store is repaired by dispatched actions so that the
   stored state is the state the UI renders.
-- **Projection**: stored session intent resolved against document structure at read
-  time by a pure function. Legal only where intent is defined over client-owned
-  structure.
+- **Projection**: stored session intent resolved against document structure at read time
+  by a pure function. Legal only where intent is defined over client-owned structure.
 - **Context**: the exclusive (cluster, project) pair the console is operating in. L0
   state is context-free, L1 is per-cluster, L2 is per-cluster-per-project.
 - **Reactive read**: retrieval whose result renders; the component re-renders when the
@@ -112,55 +111,54 @@ needed. This RFC replaces patchwork with a structure in which the holes cannot e
 - **Non-reactive read**: retrieval inside an event callback or service utility; the
   result is used once, nothing subscribes. Always `useGet`.
 - **Derived selector**: a `[useSelect, useGet]` pair created from a retrieve via
-  `createSelector`, reading a slice of the query's data with equality-gated
-  re-renders.
+  `createSelector`, reading a slice of the query's data with equality-gated re-renders.
 
 # 3 - Prior Art
 
-**Deletion UX.** VS Code keeps a remotely-deleted file's tab open with the buffer
-frozen and closes tabs on local deletes; JetBrains eagerly closes on any delete and its
+**Deletion UX.** VS Code keeps a remotely-deleted file's tab open with the buffer frozen
+and closes tabs on local deletes; JetBrains eagerly closes on any delete and its
 trackers collect complaints about it; Notion renders deleted pages in place with a
 restore banner; Grafana surfaces deletion only on next navigation and retrofitted soft
 delete in 2026. We align with the VS Code and Notion camp (tombstone remote, close
 local, no modals) and adapt restore to autosave: the corpse in the cache plays the role
-of VS Code's dirty buffer. Per-context state swap follows VS Code's per-workspace
-window state. Server-side trash, the industry substrate, is deliberately deferred (§7).
+of VS Code's dirty buffer. Per-context state swap follows VS Code's per-workspace window
+state. Server-side trash, the industry substrate, is deliberately deferred (§7).
 
 **Read path.** react-query (`useSuspenseQuery` + per-query `select`), Apollo
 (`useSuspenseQuery`/`useReadQuery`), Relay (suspense-first fragments), and SWR
 (`suspense: true`) have converged on suspense as the default read shape with
 selector-style derived subscriptions for render granularity. We align with that
 consensus. We diverge in one respect: granularity is expressed only through named
-derived selectors (`useSelectName`), never an inline `select` argument on the read
-hook. One pattern, matching the naming convention the codebase already uses.
+derived selectors (`useSelectName`), never an inline `select` argument on the read hook.
+One pattern, matching the naming convention the codebase already uses.
 
 # 4 - Principles
 
 1. **One cache, owned by the client.** Caching, invalidation, deletion states, and
    reconciliation live in `client/ts`, beside the connection machinery that knows when
    they are needed. Nothing above the client caches document state.
-2. **Deletes are delivered or reconciled, never assumed.** Every trust the UI places
-   in a deletion state is backed by either a live change-stream event or a
-   connection-epoch reconciliation pass.
+2. **Deletes are delivered or reconciled, never assumed.** Every trust the UI places in
+   a deletion state is backed by either a live change-stream event or a connection-epoch
+   reconciliation pass.
 3. **A remote delete of an open document mutates no session state.** The change is a
-   document-state transition (present to tombstoned). Views re-render from it; focus
-   and selection never shift.
+   document-state transition (present to tombstoned). Views re-render from it; focus and
+   selection never shift.
 4. **Two read patterns, total.** Reactive reads suspend; non-reactive reads are async
    getters. Nothing else. A third pattern is a design defect.
 5. **One read substrate.** Every read, whether hook, selector, or form load, flows
-   through the client cache. Per-record caches remain canonical value plumbing; they
-   are not a read API.
-6. **Lifecycle lives in boundaries.** Loading renders at `<Suspense>` fallbacks;
-   errors, disconnection, and deletion render at error boundaries. Call sites never
-   branch on load state. `Result<T>` is a mutation shape.
-7. **Session state converges.** What Redux holds is what the UI renders; the action
-   log is the complete causal history of every repair. Divergence is a bug with a
-   visible signature, not a design feature.
+   through the client cache. Per-record caches remain canonical value plumbing; they are
+   not a read API.
+6. **Lifecycle lives in boundaries.** Loading renders at `<Suspense>` fallbacks; errors,
+   disconnection, and deletion render at error boundaries. Call sites never branch on
+   load state. `Result<T>` is a mutation shape.
+7. **Session state converges.** What Redux holds is what the UI renders; the action log
+   is the complete causal history of every repair. Divergence is a bug with a visible
+   signature, not a design feature.
 8. **Unreachable is not deleted.** No pruning without a healthy connection to judge
    against.
 9. **Projection is fenced.** Read-time resolution of stored intent is legal only where
-   the intent is defined over client-owned structure, and each use carries a
-   documented stored-versus-resolved contract.
+   the intent is defined over client-owned structure, and each use carries a documented
+   stored-versus-resolved contract.
 10. **Session state is context-scoped by swap, not by shape.** Slices stay
     single-cluster and single-project; the persistence layer swaps whole files on
     context switch.
@@ -169,48 +167,114 @@ hook. One pattern, matching the naming convention the codebase already uses.
 
 ## 5.0 - The layer boundary
 
-| Layer | Owns | Never does |
-| --- | --- | --- |
-| `client/ts` | Resource caches, change-stream subscription, epochs and diff reconciliation, tombstones, optimistic write-through and rollback | React, Redux |
-| flux (pluto) | The read surface (`useRetrieve`, `useGet`, derived selectors), suspense bindings, `Result` mutation orchestration, forms | Caching, invalidation |
-| `console/src/session/` | Redux slices, reducers owning repair policy, persistence and swap | Fetching, caching |
+| Layer                  | Owns                                                                                                                                                                                            | Never does                                                  |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `client/ts`            | Resource caches, query lifecycle (dedup, promise handling, freshness), change-stream subscription, epochs and diff reconciliation, tombstones, optimistic write-through and rollback, undo/redo | React, Redux                                                |
+| flux (pluto)           | React subscription bindings (`useRetrieve`, `useGet`, derived selectors, suspense), `Result` mutation orchestration, forms                                                                      | Caching, invalidation, query lifecycle, promise bookkeeping |
+| `console/src/session/` | Redux slices, reducers owning repair policy, persistence and swap                                                                                                                               | Fetching, caching                                           |
+
+Pluto is cache-blind: nothing above `client/ts` knows a cache exists. A domain client's
+read behavior is fully described by three members (§5.1a); caching is an implementation
+detail invisible in their signatures.
 
 ## 5.1 - The client cache
 
-The per-resource unary stores, the streamer adapter, and the query cache that today
-live under `pluto/src/flux/base/` move into `client/ts` as a single cache subsystem.
-Framework-free; observed through per-key and store-wide `onSet` and `onDelete`
-subscriptions, the same seam flux listeners use today.
+The per-resource unary stores, the streamer adapter, the query cache, and the entire
+query lifecycle that today live under `pluto/src/flux/base/` and
+`pluto/src/flux/retrieve.ts` move into `client/ts` as a single cache subsystem.
+Framework-free; observed only through the per-domain `onChange` surface (§5.1a). Stores,
+query entries, scopes, tombstones, and epochs are internals of the domain client,
+reachable by nothing outside it.
 
 **Composition.** A framework-free core engine owns the mechanism: keyed stores, the
 scope registry, the streamer loop, epochs and reconciliation, and query lifecycle. It
 has zero domain knowledge. The `Synnax` constructor injects the engine (alongside
-dependent clients) into each domain client, which binds its own store configuration
-and exposes a typed sub-store plus read-through retrieves. There is no `client.store`
-namespace and no privileged flux backdoor: flux consumes the same per-domain surface
-any client user gets.
+dependent clients) into each domain client, which binds its own store configuration and
+its query-freshness rules. There is no `client.store` namespace, no per-domain `store`
+getter, and no privileged flux backdoor: flux consumes the same three read members any
+client user gets.
 
-**Entry states.** A cache entry is absent, present, or tombstoned. Tombstones live in
-a map parallel to the entries map: `delete` moves the value there with a deletion
-timestamp, `set` clears it, and `get` semantics are unchanged. `status(key)` and
-`getTombstone(key)` expose the distinction, so consumers can tell "never fetched",
-"exists", and "was deleted" apart without inference from errors.
+**Entry states.** A cache entry is absent, present, or tombstoned. Tombstones live in a
+map parallel to the entries map: `delete` moves the value there with a deletion
+timestamp, `set` clears it. The distinction never surfaces as API: "was deleted" reaches
+consumers only as the `deleted` variant of `onChange`/`getCached` (§5.1a), carrying the
+corpse. There is no public tombstone accessor.
 
 **One store kind.** `UndoableUnaryStore` does not move; it dissolves. Undo/redo stacks
 and dispatch bookkeeping become a dispatch subsystem operating on plain domain stores,
 landing beside the action codecs in `client/ts/src/actions/`. Stacks are session-local
-and dropped when a tombstone replaces their entry. The query cache shrinks to lifecycle
-only: promise dedup and loading/error transitions, driven by store events; epoch
-reconciliation touches stores only. `channel.CacheRetriever` is absorbed.
+and dropped when a tombstone replaces their entry. The dispatch subsystem is itself
+internal: consoles reach undo through domain methods (§5.1b), never through a dispatcher
+handle. The query cache shrinks to lifecycle only: promise dedup and loading/error
+transitions, driven by store events; epoch reconciliation touches stores only.
+`channel.CacheRetriever` is absorbed.
+
+## 5.1a - The domain read surface
+
+Every domain client exposes exactly three read members. This is the whole read API;
+pluto sees nothing else.
+
+```ts
+retrieve(query): Promise<Data>;           // signature unchanged from today
+onChange(query, handler): Destructor;     // query-scoped subscription
+getCached(query): Cached<Data> | undefined; // synchronous, no promise
+
+type Cached<Data> =
+  | { variant: "changed"; data: Data }
+  | { variant: "deleted"; corpse: Data };
+```
+
+- **`retrieve`** is the cached path: it hashes the query, dedupes against an in-flight
+  promise, resolves instantly on a hit, and on a miss fetches, populates the record
+  store, and settles the query entry. A deleted key rejects with a plain
+  `NotFoundError`: mount-after-delete is "not found". Errors never flow through
+  `onChange`. Settled entries are served only while the query has subscribers, because
+  only a mounted query has freshness listeners; an unsubscribed repeat retrieve
+  refetches (keyed reads stay instant through the record-store fast path, which the
+  always-on channel listeners and write-through keep fresh).
+- **`onChange`** fires with the new result whenever the cached answer to that query
+  changes: a matching record set or deleted, or the entry repaired by epoch
+  reconciliation. Query-scoped is the primitive because "which changes affect this
+  query" is domain knowledge; a domain-global subscription would push that judgment back
+  onto subscribers, recreating flux's `mountListeners` one layer up.
+- **`getCached`** is the pull side of the same contract: it returns exactly the value
+  `onChange` last pushed (or would push). A corpse is never returned as bare `Data`; the
+  tagged union makes deletion impossible to mistake for live data and lets a remounted
+  tombstone view rehydrate from the pull side after its `deleted` event is gone.
+
+**Freshness.** Where the client can evaluate a query locally with certainty
+(key-addressed, parent-of, exact field equality), change events update cached answers in
+place. For server-computed shapes (fuzzy search), today's client-side approximation
+migrates as-is from the flux list listeners: the client applies the same heuristics,
+accepting the same drift. Refetch-on-relevant-change is a future improvement that swaps
+in behind this API without touching any consumer.
+
+**Read-your-writes.** Every local write mirrors into the engine stores after the server
+acks: created/renamed/deleted records, attached labels, and parent relationships land
+synchronously, so a composed read issued right after a write sees it without waiting on
+the change stream. Composition (labels, parent) is derived exclusively from the
+relationship and label stores; event handlers recompose rather than trust payload
+fields, and channel listeners never write results of their own network fetches back into
+stores (a stale async write would clobber fresher compositions).
+
+## 5.1b - Writes and undo
+
+Writes are plain domain methods (`create`, `update`, `delete`, `rename`, ...) taking
+options where the caller needs control: undoable or not, transaction membership. The
+undoable domains additionally expose `undo(key)` and `redo(key)`. Undo entries carry
+their domain so a future top-level `client.undo`/`client.redo` (last action across
+domains) can delegate without redesign; the global surface itself is out of scope. The
+dispatch machinery PR1 threaded through pluto (`preprocess` for schematic edge segments,
+`kindOf` coalescing policy) moves client-side with it.
 
 **Change streams.** The cache subscribes to the `sy_<resource>_set` and
 `sy_<resource>_delete` signal channels through `HardenedStreamer`. Delete channels are
 processed before set channels within a frame, preserving the delete-then-recreate
 ordering guarantee (`pluto/src/flux/base/streamer.ts:26-32` moves with the subsystem).
 Four domains (schematic, lineplot, log, table) have no delete signal channel today;
-adding `sy_<x>_delete` in the Go core is the program's opening move. The streamer
-opens lazily on first cache demand, encoded in the streamer layer itself, so
-constructing a client never opens a stream nothing reads from.
+adding `sy_<x>_delete` in the Go core is the program's opening move. The streamer opens
+lazily on first cache demand, encoded in the streamer layer itself, so constructing a
+client never opens a stream nothing reads from.
 
 **Connection epochs.** `HardenedStreamer` stops recovering silently: each reconnect
 surfaces as a new epoch. On every epoch the cache runs a diff reconciliation: bulk
@@ -236,11 +300,16 @@ application, made once at the construction boundary.
 
 ## 5.2 - The read surface
 
-`createRetrieve` config is unchanged: `{ name, retrieve, mountListeners?,
-allowDisconnected? }`. Its return becomes:
+`createRetrieve` config shrinks to `{ name, retrieve, allowDisconnected? }`.
+`mountListeners` is deleted from every definition: the store-event-to-query-freshness
+wiring it carried (~25 queries.ts files) is exactly the domain knowledge §5.1a moves
+into the domain clients, written once. The return becomes:
 
 ```ts
-export interface CreateRetrieveReturn<Query extends base.Query, Data extends state.State> {
+export interface CreateRetrieveReturn<
+  Query extends base.Query,
+  Data extends state.State,
+> {
   useRetrieve(query: Query): Data;
   useGet(): (query: Query, opts?: base.FetchOptions) => Promise<Data>;
   useEnsureRetrieved(query: Query): void;
@@ -251,8 +320,10 @@ export interface CreateRetrieveReturn<Query extends base.Query, Data extends sta
 }
 ```
 
-All four bind to the client cache via `useSyncExternalStore`; flux holds no state of
-its own.
+All four are thin `useSyncExternalStore` bindings over the domain client's three read
+members: subscribe = `onChange`, snapshot = `getCached`, fetch = `retrieve`. Flux holds
+no state, mounts no listeners, and touches no cache; `useStore`, `useQueryCache`, and
+the flux-side query lifecycle in `retrieve.ts` are deleted.
 
 - **`useRetrieve`** is today's `useRetrieveSuspended` promoted to the primary name:
   returns the value or suspends on the in-flight promise; errors throw to the boundary;
@@ -268,8 +339,8 @@ its own.
 - **`createSelector`** replaces the standalone store-subscribing factory. `useSelect`
   subscribes to the cache entry, suspends when unfetched (fetching via the retrieve),
   and re-renders only when `select`'s output changes under `equal`. `useGet` (the
-  selected form) is a synchronous cache read returning `S | undefined`; the
-  load-bearing consumers are redux slice code and navigation (`Panel.useGetTab` at
+  selected form) is a synchronous cache read returning `S | undefined`; the load-bearing
+  consumers are redux slice code and navigation (`Panel.useGetTab` at
   `console/src/session/lineplot/selectors.ts:121`, `useGetTabLeaf` at
   `console/src/session/panel/slice.ts:153`).
 
@@ -286,9 +357,9 @@ refuses to store.
 
 All ~60 standalone `Flux.createSelector` definitions are server-backed document-field
 selectors (lineplot 20, panel 13, schematic 7, arc 7, log 7, table 5, ranger 1,
-ethercat 1) subscribing per-key to a store a `createRetrieve` + streamer populates.
-Each migrates mechanically to the domain retrieve's `createSelector`: exported names
-and `select` bodies survive; the `subscribe` implementations, per-key `store.onSet`
+ethercat 1) subscribing per-key to a store a `createRetrieve` + streamer populates. Each
+migrates mechanically to the domain retrieve's `createSelector`: exported names and
+`select` bodies survive; the `subscribe` implementations, per-key `store.onSet`
 plumbing, are deleted because the retrieve's `mountListeners` already forwards cache
 events.
 
@@ -296,8 +367,8 @@ events.
 choreography: children no longer depend on a parent having pre-warmed the cache.
 
 The console session selectors (`console/src/session/*/selectors.ts`) are react-redux
-over the Drift session store, a different system holding client-local UI state. They
-are governed by §5.8, not by this migration. `useCanReverse` inside `createDispatch`
+over the Drift session store, a different system holding client-local UI state. They are
+governed by §5.8, not by this migration. `useCanReverse` inside `createDispatch`
 (`pluto/src/flux/dispatch.ts:98`) is internal machinery over the undo stack, not a
 public selector; it keeps its subscription.
 
@@ -321,14 +392,15 @@ export extractors, import, `loadSchematic`). All migrate to `useGet`:
 `createForm`'s retrieve leg (`pluto/src/flux/form.ts:187-214`), its own
 `retrieveAsync` + `useAsyncEffect` + listener mounting, moves onto the cache:
 
-- `useForm` suspends until the record arrives, then seeds `Form.use` with mapped
-  values. The config's `retrieve` returns values rather than imperatively calling
-  `reset` into the form.
+- `useForm` suspends until the record arrives, then seeds `Form.use` with mapped values.
+  The config's `retrieve` returns values rather than imperatively calling `reset` into
+  the form.
 - Create-mode (`key == null`) short-circuits to `initialValues` without suspending.
 - The save leg keeps `Result`: it is a mutation, same contract as `createUpdate`. The
   conflation of load state and save state in one `Result` ends; `useForm` returns save
   state only.
-- `mountListeners` (server echo → form `set`/`reset`) is unchanged.
+- The server-echo wiring (remote change → form `set`/`reset`) rides the domain client's
+  `onChange` instead of form-owned listeners.
 
 ## 5.6 - Disconnection and deletion at boundaries
 
@@ -339,11 +411,12 @@ following `x/ts/src/errors`) to the boundary. The console fallback matches the t
 renders a standard "no core connected" state. Signatures do not change: no
 `Data | undefined`.
 
-Deletion follows the same shape: a read of a tombstoned entry throws a typed
-`DeletedError` carrying the resource identity and access to the corpse. Boundaries that
-know about deletion (the mosaic tab boundary) render the tombstone state (§5.7); plain
-boundaries render a generic deleted fallback. `useGet` rejects with the same typed
-error so callbacks can branch on it.
+Deletion follows the same shape one layer up: when `getCached` returns the `deleted`
+variant, the flux binding throws a typed `DeletedError` carrying the resource identity
+and the corpse. Boundaries that know about deletion (the mosaic tab boundary) render the
+tombstone state (§5.7); plain boundaries render a generic deleted fallback. The client
+itself stays error-neutral: `retrieve` on a deleted key is a plain `NotFoundError`
+rejection, and `useGet` surfaces that directly so callbacks can branch on it.
 
 Reconnection: error boundaries do not auto-reset, so the console boundary resets keyed
 on client identity; the flux `Provider` already swap-rebuilds when the Synnax client
@@ -353,8 +426,8 @@ silent stream recoveries beneath that.
 No new boundary infrastructure is required. `Errors.SuspenseBoundary`
 (`pluto/src/errors/SuspenseBoundary.tsx`) and the console's panelKey-annotated wrapper
 already sit at the consumer seams: modal bodies, mosaic panel content and tab names,
-toolbars. Migration adds boundaries only where a migrated read has no ancestor
-boundary; placement remains a per-surface UX decision per RFC 0036.
+toolbars. Migration adds boundaries only where a migrated read has no ancestor boundary;
+placement remains a per-surface UX decision per RFC 0036.
 
 ## 5.7 - Deleted-document UX
 
@@ -362,9 +435,9 @@ boundary; placement remains a per-surface UX decision per RFC 0036.
 `beforeUpdate` session dispatches that close affected views remain the mechanism.
 
 **Remote delete tombstones in place.** When the cache tombstones an open document, the
-view stays. The tab renders a deleted state: frozen corpse content, a banner naming
-what happened, a Close affordance, and Restore. No modal, no focus shift, no session
-mutation (Principle 3). An operator mid-run never has a surface yanked from under them.
+view stays. The tab renders a deleted state: frozen corpse content, a banner naming what
+happened, a Close affordance, and Restore. No modal, no focus shift, no session mutation
+(Principle 3). An operator mid-run never has a surface yanked from under them.
 
 **Restore recreates from the corpse.** The console still holds the document's last
 state; Restore writes it back to the cluster as a new document. Key and name-collision
@@ -386,13 +459,13 @@ visible in the action log.
 
 **The synchronizer registry.** Each domain exports a synchronizer hook that mounts its
 own listening and reconciliation however it needs. The hooks compose in a module-level
-const registry consumed by one mount site, replacing the scattered
-`useListenForChanges` mounts in `Primary.tsx`. The registry contract: every hook covers
-both triggers. A slice holding cluster references without a registry entry is a
-review-visible structural omission, not a silent runtime hole.
+const registry consumed by one mount site, replacing the scattered `useListenForChanges`
+mounts in `Primary.tsx`. The registry contract: every hook covers both triggers. A slice
+holding cluster references without a registry entry is a review-visible structural
+omission, not a silent runtime hole.
 
-**The projection exception.** Panel tab selection stays a projection: the slice stores
-a recency-ordered intent list, and `useSelectSelection`
+**The projection exception.** Panel tab selection stays a projection: the slice stores a
+recency-ordered intent list, and `useSelectSelection`
 (`pluto/src/panel/queries.ts:295-336`) resolves it against the live tree. The
 justification is structural, not delete-driven: the tree changes for reasons session
 never initiates (drags between leaves, splits, panels loading after session hydrates),
@@ -407,10 +480,10 @@ justification in review.
 Persisted session state is partitioned by scope and swapped on context switch. The live
 store shape never changes; the persistence layer keys partitions by scope:
 
-| Scope | Slices |
-| --- | --- |
-| L0 (global) | `theme`, `docs`, `color`, `cluster` |
-| L1 (per-cluster) | `project`, `status` |
+| Scope                        | Slices                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------------ |
+| L0 (global)                  | `theme`, `docs`, `color`, `cluster`                                                  |
+| L1 (per-cluster)             | `project`, `status`                                                                  |
 | L2 (per-cluster-per-project) | `panel`, `nav`, `drift`, `range`, `schematic`, `line`, `table`, `arc`, `log`, `haul` |
 
 - L0 exists outside any cluster: preferences plus the cluster registry and selection
@@ -432,16 +505,16 @@ store shape never changes; the persistence layer keys partitions by scope:
   `Panel.reset()` on project switch from destroy to preserve-and-restore.
 - **Drift carve-out.** Drift merges rather than replaces: the swap keeps live
   main-window bookkeeping (label, config, main-window record) and adopts the stored
-  project windows, which the drift sync middleware then reopens from the state diff.
-  The reserved-window filter in `resetInitialState` is the precedent.
+  project windows, which the drift sync middleware then reopens from the state diff. The
+  reserved-window filter in `resetInitialState` is the precedent.
 - **Reconciliation simplifies.** The live store only ever contains keys from the
   connected context, so the epoch sweep judges everything it sees. No cluster-awareness
   in any reconciler. Project deletion drops the project's partition instead of pruning
   surgically.
 - **Migrations wire in.** Loaded partitions pass through slice migrators before
   hydration, activating the existing unwired `migrator` hook. The current single
-  persisted blob migrates once into the partitioned layout (its contents become L0
-  plus the current cluster and project's L1/L2 partitions).
+  persisted blob migrates once into the partitioned layout (its contents become L0 plus
+  the current cluster and project's L1/L2 partitions).
 
 # 6 - Implementation Phases
 
@@ -450,16 +523,24 @@ read-surface cutover, the widest-touch migration, comes last.
 
 **Phase 1 — client cache subsystem.** Opens with the Go core change adding the four
 missing delete signal channels (`sy_schematic_delete`, `sy_lineplot_delete`,
-`sy_log_delete`, `sy_table_delete`) so every cached domain has a uniform delete
-signal. Then: caches, change-stream wiring, epochs with diff reconciliation,
-tombstones, optimistic write-through, scope-qualified entries, construction opt-out.
-Additive in `client/ts` with a live-core test suite; nothing above changes. Buys risk
-isolation and a green boundary.
+`sy_log_delete`, `sy_table_delete`) so every cached domain has a uniform delete signal.
+Then: caches, change-stream wiring, epochs with diff reconciliation, tombstones,
+optimistic write-through, scope-qualified entries, construction opt-out. Additive in
+`client/ts` with a live-core test suite; nothing above changes. Buys risk isolation and
+a green boundary.
 
-**Phase 2 — flux rebind.** Flux binds its existing hook surface to the client cache;
-the flux store, streamer adapter, and query cache in pluto are deleted (zero
-coexistence). `DisconnectedError`/`DeletedError` and boundary fallbacks land here.
+**Phase 2 — the domain surface and flux collapse.** Domain clients gain the three read
+members (§5.1a), write options, and per-domain undo/redo (§5.1b); the ~25
+`mountListeners` definitions migrate into their domain clients; store and dispatcher
+getters, `Engine.getCache`/`unscoped`/`scopedStores`, and the public query cache go
+internal. Flux hooks become pure `useSyncExternalStore` bindings; the flux store,
+streamer adapter, query cache, and query lifecycle in pluto are deleted (zero
+coexistence). Lists rebind onto the same three members, keeping their imperative hook
+UX. `DisconnectedError`/`DeletedError` and boundary fallbacks land here.
 Behavior-preserving for consumers; buys a reviewable unit along the flux/client seam.
+Phases 1 and 2 ship as one PR: a first cut that moved the cache code while leaving the
+query lifecycle in flux was built and rejected mid-review as a half measure (Resolved
+Decision 15), and is reworked in place rather than stacked on.
 
 **Phase 3 — deletion UX and session convergence.** Tombstone view state with Restore,
 local-close wiring review, synchronizer registry with both triggers, reducer repair
@@ -468,50 +549,49 @@ reload-free hydrate swap and the one-time layout migration, migrator wiring, sta
 close-on-reconcile. This completes the SY-4493 scope.
 
 **Phase 4 — read cutover (atomic).** Migrate all reactive read sites: ~45 `useRetrieve`
-+ aliases onto suspended semantics, 13 stateful/effect/observable sites onto
-`useRetrieve`/`useGet`, ~60 selector definitions onto derived selectors, access
-`useGranted` internals (136 boolean wrapper call sites keep their signatures). Delete
-the observable substrate, the standalone `Flux.createSelector`, the `Result`-returning
-read path, and dead exports. Zero coexistence after this lands.
+
+- aliases onto suspended semantics, 13 stateful/effect/observable sites onto
+  `useRetrieve`/`useGet`, ~60 selector definitions onto derived selectors, access
+  `useGranted` internals (136 boolean wrapper call sites keep their signatures). Delete
+  the observable substrate, the standalone `Flux.createSelector`, the `Result`-returning
+  read path, and dead exports. Zero coexistence after this lands.
 
 **Phase 5 — forms and callbacks.** `createForm` retrieve leg onto the cache (16
 definitions); 78 callback/utility direct-client sites onto `useGet`. Separated from
 phase 4 because it changes behavior (fetch-on-submit becomes cache-first) rather than
 read mechanics, so a bisection points at the right culprit.
 
-Compatibility: no wire-format changes; the four delete signal channels are additive.
-The only persisted-state change is the one-way, idempotent session-layout migration in
-phase 3. Console and pluto specs migrate with
-their subjects; live-core query specs exercise the same production paths through the
-new substrate.
+Compatibility: no wire-format changes; the four delete signal channels are additive. The
+only persisted-state change is the one-way, idempotent session-layout migration in
+phase 3. Console and pluto specs migrate with their subjects; live-core query specs
+exercise the same production paths through the new substrate.
 
 # 7 - What This RFC Does Not Cover
 
-- **Lists.** `createList`/`useList` (19 definitions, 28 call sites) keep their
-  imperative, `Result`-shaped API. Lists' query lifecycle is event-driven (search
-  debounce, append-mode pagination `pluto/src/flux/list.ts:345-349`), suspending an
-  already-rendered list on re-query is a UX regression, and inline pending state is one
-  of the legitimate `Result` uses. List modernization is a separate later project;
-  lists do rebind to the client cache in phase 2.
-- **Server-side soft delete and trash.** Restore-from-corpse is designed so a core
-  trash can later back it without rework.
+- **List hook UX.** `createList`/`useList` (19 definitions, 28 call sites) keep their
+  imperative, `Result`-shaped API: suspending an already-rendered list on re-query is a
+  UX regression, and inline pending state is one of the legitimate `Result` uses. Their
+  _sourcing_ is in scope: a list is just a query to the domain client, and `useList`
+  becomes pure React (virtualization, paging state) over the three read members in
+  phase 2. Only the hook-surface modernization stays out.
+- **Server-side soft delete and trash.** Restore-from-corpse is designed so a core trash
+  can later back it without rework.
 - **Cache parity in the Python, Go, or C++ clients.**
 - **Mutations.** `createUpdate` and `createDispatch` keep their surfaces; only their
   cache writes relocate.
 - **Aether-worker reads.** The two worker-side direct retrieves
   (`pluto/src/lineplot/range/aether/provider.ts:113`,
-  `pluto/src/telem/client/client.ts:137`) predate this design and live outside the
-  React read path.
+  `pluto/src/telem/client/client.ts:137`) predate this design and live outside the React
+  read path.
 - **Multiplayer presence, conflict resolution, operational transformation** (RFC 0040
   §3.8 remains the seam).
 - **Notification polish** for reconciliation prunes and startup closes.
 
 # 8 - Resolved Decisions
 
-1. **Eager teardown on remote delete, rejected.** Closing views on remote deletes is
-   the most user-complained-about behavior in surveyed tools and unacceptable
-   mid-operation. The trade is real: tombstones keep dead surfaces on screen until
-   dismissed.
+1. **Eager teardown on remote delete, rejected.** Closing views on remote deletes is the
+   most user-complained-about behavior in surveyed tools and unacceptable mid-operation.
+   The trade is real: tombstones keep dead surfaces on screen until dismissed.
 2. **Server-side trash, deferred; local trash, rejected.** Restore-from-corpse covers
    the accidental-remote-delete case without a core lifecycle program. A client-side
    trash for unopened documents would put persisted document state on the wrong side of
@@ -522,8 +602,7 @@ new substrate.
    a GC mechanism needed anyway. Convergence with epoch reconciliation keeps one truth
    and a causal action log. Projection survives only as the fenced exception in §5.8.
 4. **Nuke-and-refetch epoch handling, rejected.** Re-suspends every open view on any
-   blip and cannot distinguish deleted from evicted, which tombstone integrity
-   requires.
+   blip and cannot distinguish deleted from evicted, which tombstone integrity requires.
 5. **Cluster-scoping the session state shape, rejected.** Namespacing slices by cluster
    or project contaminates every reducer and selector for a concern the persistence
    layer can own entirely via file swap.
@@ -531,10 +610,9 @@ new substrate.
    was proposed; per-domain synchronizer hooks in a const registry won for flexibility
    (each domain mounts what it needs) while keeping the forgot-a-wire failure
    structural.
-7. **Opt-in caching, rejected.** Cache is the transparent default with
-   construction-time opt-out. The trade is real: existing scripts gain a background
-   stream unless they opt out, and cached reads during a gap can be briefly stale until
-   the epoch pass repairs.
+7. **Opt-in caching, rejected.** Cache is the transparent default with construction-time
+   opt-out. The trade is real: existing scripts gain a background stream unless they opt
+   out, and cached reads during a gap can be briefly stale until the epoch pass repairs.
 8. **Suspended semantics take the primary name; the `Result` read path dies.** Keeping
    both (RFC 0036's additive bet) produced one suspended call site in fourteen months
    while the `Result` path grew. The trade is real: ~5 call sites that branched on
@@ -545,12 +623,13 @@ new substrate.
    Two granularity idioms (inline + named selectors) is exactly the two-pattern problem
    this RFC exists to kill. Named derived selectors match the codebase's existing
    `useSelectName` convention and keep selector definitions co-located in query files.
-10. **Selectors read the cache, not per-record stores.** Composed query results (a
-    range sugared with labels and parent) exist only as query results, never as single
-    store records, so store-keyed selectors cannot express them. Per-record caches
-    remain canonical plumbing; the query cache is the read surface.
-11. **Lists stay imperative.** Suspense-on-requery would blow away rendered rows under
-    a boundary fallback on every keystroke; React's remedy (transitions over suspense
+10. **Selectors read the cache, not per-record stores.** Composed query results (a range
+    sugared with labels and parent) exist only as query results, never as single store
+    records, so store-keyed selectors cannot express them. Per-record caches remain
+    canonical plumbing; query results, read through `getCached`/`onChange`, are the read
+    surface.
+11. **Lists stay imperative.** Suspense-on-requery would blow away rendered rows under a
+    boundary fallback on every keystroke; React's remedy (transitions over suspense
     caches) is heavy machinery for zero user-visible gain. The codebase ends with two
     read idioms, suspended records and imperative collections, and the split is judged
     real, not incidental.
@@ -565,6 +644,32 @@ new substrate.
     RFC (briefly numbered 0046 in its own worktree): the read surface and the cache it
     reads are one design, and sequencing them independently invited the substrate being
     built twice.
+15. **Moving the cache without moving the responsibility, rejected.** The first phase
+    1+2 cut relocated stores, query cache, and engine into `client/ts` but left the
+    query lifecycle (hashing, promise handling, freshness listeners) in flux, exposing
+    store getters, `Engine.getCache`, scopes, and the query cache publicly so flux could
+    keep operating them. That is a shallow module: a massive leaked surface over a
+    client that is just a bag of stores, with flux complexity unchanged. Rejected
+    mid-review; the domain client owns the lifecycle end to end and exposes the three
+    read members only.
+16. **Domain-global `onChange`, rejected as the primitive.** "Which changes affect this
+    query" is domain knowledge; a global feed pushes that judgment onto every
+    subscriber, recreating `mountListeners` one layer up. Query-scoped subscription is
+    the primitive; a global feed can be added later as sugar over it.
+17. **`getCached` returning bare `Data`, rejected.** A corpse indistinguishable from a
+    live record lets UI silently render deleted data as real, and push-only corpse
+    delivery cannot survive a remount. `getCached` returns the same tagged union
+    `onChange` pushes; pull and push are one contract.
+18. **Pluto-visible dispatch seam, rejected.** Dispatcher getters die with store
+    getters: writes are domain methods with options (undoable, transaction), undo/redo
+    are per-domain methods, and a future global `client.undo` delegates via
+    domain-tagged entries. The trade is real: console transaction/coalescing policy is
+    now expressed through call options rather than injected callbacks.
+19. **Refetch-on-change freshness for search queries, deferred.** The client cannot
+    replicate core's fuzzy matcher, but today's client-side approximation is kept,
+    migrated as-is, accepting its known drift. The three-member API is the seam; the
+    freshness strategy can swap to refetch-on-relevant-change later without touching a
+    consumer.
 
 # 9 - Open Questions
 
@@ -574,12 +679,11 @@ new substrate.
 3. Bulk existence-check API shape per resource type for epoch reconciliation.
 4. Cache memory bounds: entry eviction interacts with corpse retention (RFC 0036 left
    eviction open; tombstones sharpen it).
-5. Error-reactive side effects: `console/src/feature/status/Toolbar.tsx:74` dispatches
-   a remove-favorite when its status 404s. Candidate shapes: boundary `onError`
-   callback, or branching on `DeletedError`. Decide during phase 4 on the concrete
-   site.
-6. Getter plumbing depth for plain utilities: how far a `useGet`-obtained getter
-   threads into non-React code before the indirection costs more than the `client`
-   bypass it removes. Decide per-site in phase 5.
+5. Error-reactive side effects: `console/src/feature/status/Toolbar.tsx:74` dispatches a
+   remove-favorite when its status 404s. Candidate shapes: boundary `onError` callback,
+   or branching on `DeletedError`. Decide during phase 4 on the concrete site.
+6. Getter plumbing depth for plain utilities: how far a `useGet`-obtained getter threads
+   into non-React code before the indirection costs more than the `client` bypass it
+   removes. Decide per-site in phase 5.
 7. Selector `equal` default: deep-equal (matching `useMemoDeepEqual` conventions) vs
    `Object.is`. Benchmark on the lineplot selectors, the widest fan-out.

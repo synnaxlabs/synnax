@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x";
+import { deep, type destructor } from "@synnaxlabs/x";
 
-import { type cache } from "@/cache";
+import { cache } from "@/cache";
 import {
   type ID,
   idsEqual,
   idToString,
   idZ,
+  matchRelationship,
+  PARENT_OF_RELATIONSHIP_TYPE,
   parseIDs,
   type Relationship,
   relationshipToString,
@@ -30,6 +32,66 @@ export const RELATIONSHIP_DELETE_CHANNEL_NAME = "sy_ontology_relationship_delete
 
 export const RELATIONSHIPS_STORE_KEY = "relationships";
 export const RESOURCES_STORE_KEY = "resources";
+
+/** Returns the cached parent ID of the given ontology ID, or null if unknown. */
+export const cachedParentID = (
+  relationships: cache.Store<string, Relationship>,
+  id: ID,
+): ID | null => {
+  const res = relationships.get((r) =>
+    matchRelationship(r, { type: PARENT_OF_RELATIONSHIP_TYPE, to: id }),
+  );
+  if (res.length === 0) return null;
+  return res[0].from;
+};
+
+/**
+ * Optimistically renames the cached resource for the given ID. Returns a
+ * rollback restoring the prior name. A no-op when the resource isn't cached.
+ */
+export const renameCachedResource = (
+  engine: cache.Engine,
+  id: ID,
+  name: string,
+): destructor.Destructor =>
+  cache.partialUpdate(
+    engine.store<string, Resource>(RESOURCES_STORE_KEY),
+    idToString(id),
+    { name },
+  );
+
+/**
+ * Optimistically drops every cached relationship touching the given IDs.
+ * Returns a rollback restoring them.
+ */
+export const deleteCachedRelationships = (
+  engine: cache.Engine,
+  ids: ID | ID[],
+): destructor.Destructor => {
+  const idsArr = Array.isArray(ids) ? ids : [ids];
+  const relationships = engine.store<string, Relationship>(RELATIONSHIPS_STORE_KEY);
+  return relationships.delete((rel) =>
+    idsArr.some((id) => idsEqual(rel.to, id) || idsEqual(rel.from, id)),
+  );
+};
+
+/**
+ * Optimistically drops the cached resources for the given IDs along with every
+ * relationship touching them. Returns a rollback restoring both.
+ */
+export const deleteCachedResources = (
+  engine: cache.Engine,
+  ids: ID | ID[],
+): destructor.Destructor => {
+  const idsArr = Array.isArray(ids) ? ids : [ids];
+  const resources = engine.store<string, Resource>(RESOURCES_STORE_KEY);
+  const undoRels = deleteCachedRelationships(engine, idsArr);
+  const undoResources = resources.delete(idToString(idsArr));
+  return () => {
+    undoResources();
+    undoRels();
+  };
+};
 
 /** Registers the relationship and resource stores on the given engine. */
 export const bindStores = (

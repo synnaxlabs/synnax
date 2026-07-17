@@ -21,7 +21,7 @@ import {
   type ParamAnalysisResult,
 } from "@/util/retrieve";
 
-const reqZ = z.object({
+export const retrieveRequestZ = z.object({
   nodeKey: zod.uint12.optional(),
   keys: keyZ.array().optional(),
   names: z.string().array().optional(),
@@ -36,7 +36,7 @@ const reqZ = z.object({
   internal: z.boolean().optional(),
   legacyCalculated: z.boolean().optional(),
 });
-export type RetrieveRequest = z.input<typeof reqZ>;
+export type RetrieveRequest = z.input<typeof retrieveRequestZ>;
 
 export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">;
 export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
@@ -83,7 +83,12 @@ export class ClusterRetriever implements Retriever {
   }
 
   private async execute(request: RetrieveRequest): Promise<Payload[]> {
-    const res = await this.client.send("/channel/retrieve", request, reqZ, resZ);
+    const res = await this.client.send(
+      "/channel/retrieve",
+      request,
+      retrieveRequestZ,
+      resZ,
+    );
     return res.channels;
   }
 }

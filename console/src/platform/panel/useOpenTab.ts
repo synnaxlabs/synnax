@@ -37,14 +37,23 @@ export const useOpenTab = (): OpenTab => {
       ({
         data: { key, root },
         rollbacks,
-      }: Flux.AfterOptimisticParams<panel.Panel, false, Panel.FluxSubStore>) => {
+      }: Flux.AfterOptimisticParams<panel.Panel>) => {
         dispatchSession(Session.Panel.select({ key }));
         rollbacks.push(() => dispatchSession(Session.Panel.clearSelected({})));
         // This hook only creates panels with a single-tab leaf root (below), so the
-        // tab to focus is the one seeded into the root.
-        if (root.variant === "leaf") selectTab(root.tabs[0].key, key);
+        // tab to focus is the one seeded into the root. Focus is dispatched
+        // directly: the panel is not yet retrievable, so useSelectTab's cached
+        // leaf lookup would fail.
+        if (root.variant === "leaf")
+          dispatchSession(
+            Session.Panel.internalSelectTab({
+              key,
+              tabKey: root.tabs[0].key,
+              otherTabKeys: root.tabs.map((t) => t.key),
+            }),
+          );
       },
-      [dispatchSession, selectTab],
+      [dispatchSession],
     ),
   });
   return useCallback(

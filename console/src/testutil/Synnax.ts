@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache, status, type Synnax as Client } from "@synnaxlabs/client";
-import { Flux, Pluto } from "@synnaxlabs/pluto";
+import { status } from "@synnaxlabs/client";
 import {
   createAsyncSynnaxWrapper as pCreateAsyncSynnaxWrapper,
   createSynnaxWrapper as pCreateSynnaxWrapper,
@@ -135,42 +134,17 @@ const withConsoleErrorHandlers = (
  * Builds a provider wrapper backed by the given client, wired with the console's verbose
  * test error formatter (which prints the status variant, a pretty-printed description,
  * and any captured stack trace). Pass a real client from createTestClient for a live-core
- * test, or null to exercise flux against preloaded state.
+ * test, or null for offline renders.
  */
 export const createSynnaxWrapper = (
   params: CreateSynnaxWrapperParams,
 ): FC<PropsWithChildren> => pCreateSynnaxWrapper(withConsoleErrorHandlers(params));
 
 /**
- * Like createSynnaxWrapper, but awaits flux store initialization before returning so
- * listeners are live. Use for tests that read live data immediately after mount.
+ * Like createSynnaxWrapper, but awaits the client's change streaming before returning
+ * so cache listeners are live. Use for tests that read live data right after mount.
  */
 export const createAsyncSynnaxWrapper = async (
   params: CreateSynnaxWrapperParams,
 ): Promise<FC<PropsWithChildren>> =>
   await pCreateAsyncSynnaxWrapper(withConsoleErrorHandlers(params));
-
-/**
- * Builds a real pluto flux store backed by the client's cache engine (or a detached
- * engine when no client is given), for code that takes a Pluto.FluxStore directly
- * instead of reading it from the provider stack. Pass a real client for live-core
- * specs, or null (the default) for offline ones.
- */
-export const createTestFluxStore = (client: Client | null = null): Pluto.FluxStore => {
-  const attached = client != null && client.cache.enabled;
-  const engine = attached
-    ? client.cache.engine
-    : new cache.Engine({ openStreamer: null });
-  engine.setErrorHandlers(
-    createErrorHandler(console.error),
-    createAsyncErrorHandler(console.error),
-  );
-  const controllers = Object.fromEntries(
-    Object.entries(Pluto.STORE_COMPOSERS).map(([key, compose]) => [
-      key,
-      compose({ client: attached ? client : null, engine }),
-    ]),
-  );
-  if (attached) void engine.ensureStreaming();
-  return Flux.createScopedStore<Pluto.FluxStore>(engine, controllers, "");
-};

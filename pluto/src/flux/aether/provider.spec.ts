@@ -103,15 +103,13 @@ describe("flux.aether.Provider", () => {
     tree.synnaxProvider._delete([`${key}-synnax`]);
   });
 
-  it("binds a detached engine when no client is connected", async () => {
+  it("does not start streaming when no client is connected", () => {
     const key = "flux-provider-detached";
     const spy = vi.spyOn(cache.Engine.prototype, "ensureStreaming");
     const tree = makeTree(key, null);
     updateFlux(tree, key);
 
-    await expect.poll(() => spy.mock.calls.length).toBeGreaterThan(0);
-    const engines = spy.mock.instances as unknown as cache.Engine[];
-    expect(engines.every((engine) => engine.detached)).toBe(true);
+    expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
 
     tree.flux._delete([`${key}-flux`]);

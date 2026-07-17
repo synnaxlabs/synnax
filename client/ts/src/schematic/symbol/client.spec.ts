@@ -10,11 +10,28 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { type cache } from "@/cache";
 import { group } from "@/group";
 import { ontology } from "@/ontology";
+import { type schematic } from "@/schematic";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
+
+const SYMBOL_DATA: schematic.symbol.New["data"] = {
+  svg: "<svg></svg>",
+  states: [],
+  handles: [],
+  variant: "sensor",
+};
+
+const createParent = async (): Promise<ontology.ID> => {
+  const parent = await client.groups.create({
+    parent: ontology.ROOT_ID,
+    name: `symbol-parent-${id.create()}`,
+  });
+  return group.ontologyID(parent.key);
+};
 
 describe("Symbol Client", () => {
   let symbolGroup: group.Group;
@@ -114,6 +131,116 @@ describe("Symbol Client", () => {
           return results.map((s) => s.name).sort();
         })
         .toEqual(names);
+    });
+  });
+
+  describe("parent-scoped retrieve", () => {
+    it("should retrieve only the symbols under the given parent", async () => {
+      const parent = await createParent();
+      const other = await createParent();
+      const created = await client.schematics.symbols.create({
+        symbols: [
+          { name: "child-1", data: SYMBOL_DATA },
+          { name: "child-2", data: SYMBOL_DATA },
+        ],
+        parent,
+      });
+      await client.schematics.symbols.create({
+        name: "outsider",
+        data: SYMBOL_DATA,
+        parent: other,
+      });
+
+      const retrieved = await client.schematics.symbols.retrieve({ parent });
+      expect(retrieved.map((s) => s.key).sort()).toEqual(
+        created.map((s) => s.key).sort(),
+      );
+    });
+
+    it("should combine a parent scope with a search term", async () => {
+      const parent = await createParent();
+      const prefix = `scoped-${id.create()}`;
+      await client.schematics.symbols.create({
+        symbols: [
+          { name: `${prefix}-valve`, data: SYMBOL_DATA },
+          { name: "pump", data: SYMBOL_DATA },
+        ],
+        parent,
+      });
+      await expect
+        .poll(async () => {
+          const results = await client.schematics.symbols.retrieve({
+            parent,
+            searchTerm: prefix,
+          });
+          return results.map((s) => s.name);
+        })
+        .toEqual([`${prefix}-valve`]);
+    });
+
+    it("should return an empty list for a childless parent", async () => {
+      const parent = await createParent();
+      expect(await client.schematics.symbols.retrieve({ parent })).toEqual([]);
+    });
+
+    it("should deliver newly created children to parent subscribers", async () => {
+      const parent = await createParent();
+      await client.schematics.symbols.create({
+        name: "first",
+        data: SYMBOL_DATA,
+        parent,
+      });
+      const answers: schematic.symbol.Symbol[][] = [];
+      const stop = client.schematics.symbols.onChange({ parent }, (cached) => {
+        if (cached?.variant === "changed") answers.push(cached.data);
+      });
+      try {
+        await client.schematics.symbols.retrieve({ parent });
+        await client.schematics.symbols.create({
+          name: "second",
+          data: SYMBOL_DATA,
+          parent,
+        });
+        await expect
+          .poll(() =>
+            answers
+              .at(-1)
+              ?.map((s) => s.name)
+              .sort(),
+          )
+          .toEqual(["first", "second"]);
+      } finally {
+        stop();
+      }
+    });
+
+    it("should drop deleted children from parent subscribers", async () => {
+      const parent = await createParent();
+      const created = await client.schematics.symbols.create({
+        symbols: [
+          { name: "keep", data: SYMBOL_DATA },
+          { name: "drop", data: SYMBOL_DATA },
+        ],
+        parent,
+      });
+      let latest: cache.Cached<schematic.symbol.Symbol[]> | undefined;
+      const stop = client.schematics.symbols.onChange({ parent }, (cached) => {
+        latest = cached;
+      });
+      try {
+        await client.schematics.symbols.retrieve({ parent });
+        const doomed = created.find(
+          (s) => s.name === "drop",
+        ) as schematic.symbol.Symbol;
+        await client.schematics.symbols.delete(doomed.key);
+        await expect
+          .poll(() =>
+            latest?.variant === "changed" ? latest.data.map((s) => s.name) : undefined,
+          )
+          .toEqual(["keep"]);
+      } finally {
+        stop();
+      }
     });
   });
 

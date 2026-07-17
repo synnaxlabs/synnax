@@ -10,7 +10,6 @@
 import { panel, project, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import {
-  Flux,
   Haul,
   Panel as PlutoPanel,
   Schematic as PSchematic,
@@ -18,7 +17,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { id, uuid } from "@synnaxlabs/x";
-import { act, render, renderHook, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -92,13 +91,12 @@ const loadSchematic = async (
   await within(utils.container).findByTestId("loaded");
 };
 
-// createResourceTab seeds a single-leaf panel holding one resource tab that backs the
-// given schematic into the wrapper's flux store, so the panel scope hooks a mounted
-// tab content reads (useSelectTabResource) resolve to the schematic's ontology ID.
-const createResourceTab = (
-  Wrapper: FC<PropsWithChildren>,
+// createResourceTab creates a single-leaf panel holding one resource tab that backs
+// the given schematic on the cluster, so the panel scope hooks a mounted tab content
+// reads (useSelectTabResource) resolve to the schematic's ontology ID.
+const createResourceTab = async (
   key: string,
-): { panelKey: string; tabKey: string } => {
+): Promise<{ panelKey: string; tabKey: string }> => {
   const tabKey = uuid.create();
   const doc = panel.panelZ.parse({
     key: uuid.create(),
@@ -108,10 +106,9 @@ const createResourceTab = (
       tabs: [{ variant: "resource", key: tabKey, resource: schematic.ontologyID(key) }],
     },
   });
-  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-    wrapper: Wrapper,
-  });
-  act(() => void result.current.panels.set(doc));
+  await client.panels.create(doc);
+  // Prime the query cache the way the mosaic's retrieve does.
+  await client.panels.retrieve(doc.key);
   return { panelKey: doc.key, tabKey };
 };
 
@@ -143,7 +140,7 @@ export const renderSchematic = async (
     additionalRegistry,
   });
   await loadSchematic(Wrapper, created.key);
-  const { panelKey, tabKey } = createResourceTab(Wrapper, created.key);
+  const { panelKey, tabKey } = await createResourceTab(created.key);
   const result = render(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>

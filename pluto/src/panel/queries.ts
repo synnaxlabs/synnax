@@ -11,6 +11,7 @@ import {
   NotFoundError,
   type ontology,
   panel,
+  type Synnax as Client,
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { array, compare, deep, type optional, type record } from "@synnaxlabs/x";
@@ -18,60 +19,43 @@ import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
 import { Scope, TabScope } from "@/panel/scope";
 
-export const FLUX_STORE_KEY = "panels";
 const RESOURCE_NAME = "panel";
 const PLURAL_RESOURCE_NAME = "panels";
 
-export interface FluxStore extends Flux.UndoableUnaryStore<
-  panel.Key,
-  panel.Panel,
-  panel.Action
-> {}
-
-export interface FluxSubStore extends Flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-}
-
-export const STORE_COMPOSER: Flux.StoreComposer = ({ client, engine }) =>
-  client?.panels.dispatcher ?? panel.bindStore(engine);
-
 export type RetrieveQuery = { key: panel.Key };
 
-const retrieveSingle = async ({
-  client,
-  query: { key },
-  store,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const cached = store.panels.get(key);
-  if (cached != null) return cached;
-  const p = await client.panels.retrieve(key);
-  store.panels.set(p.key, p);
-  return p;
-};
-
 export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
-  Flux.createRetrieve<RetrieveQuery, panel.Panel, FluxSubStore>({
+  Flux.createRetrieve<RetrieveQuery, panel.Panel>({
     name: RESOURCE_NAME,
-    retrieve: retrieveSingle,
-    mountListeners: ({ store, query: { key }, onChange }) => [
-      store.panels.onSet(onChange, key),
-    ],
+    retrieve: async ({ client, query: { key } }) => await client.panels.retrieve(key),
+    subscribe: ({ client, query: { key } }, handler) =>
+      client.panels.onChange(key, handler),
+    getCached: ({ client, query: { key } }) => client.panels.getCached(key),
   });
 
 export interface SelectKeyParams {
   key: panel.Key;
 }
 
-const requirePanel = (store: FluxSubStore, key: panel.Key): panel.Panel => {
-  const p = store.panels.get(key);
-  if (p == null) throw new NotFoundError(`Panel with key ${key} not found`);
-  return p;
+const requirePanel = (client: Client | null, key: panel.Key): panel.Panel => {
+  const cached = client?.panels.getCached(key);
+  if (cached == null || cached.variant === "deleted")
+    throw new NotFoundError(`Panel with key ${key} not found`);
+  return cached.data;
 };
+
+const getPanel = (client: Client | null, key: panel.Key): panel.Panel | undefined => {
+  const cached = client?.panels.getCached(key);
+  if (cached == null || cached.variant === "deleted") return undefined;
+  return cached.data;
+};
+
+const subscribe = (
+  { client, args: { key } }: Flux.SelectorParams<SelectKeyParams>,
+  notify: () => void,
+) => (client == null ? () => {} : client.panels.onChange(key, notify));
 
 export interface SelectTabContentParams {
   key: panel.Key;
@@ -79,10 +63,10 @@ export interface SelectTabContentParams {
 }
 
 const selectRequiredTab = (
-  store: FluxSubStore,
+  client: Client | null,
   { key, tabKey }: SelectTabContentParams,
 ): panel.Tab => {
-  const tab = panel.findTab(requirePanel(store, key).root, tabKey);
+  const tab = panel.findTab(requirePanel(client, key).root, tabKey);
   if (tab == null)
     throw new NotFoundError(`Tab with key ${tabKey} not found in panel ${key}`);
   return tab;
@@ -141,10 +125,10 @@ export interface SelectNodeParams extends SelectKeyParams {
 // component that branches on split-vs-leaf does not re-render on structure changes
 // within the same variant.
 export const [useSelectNodeVariant, useGetNodeVariant] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodeParams, panel.Node["variant"]>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key, nodeKey }) => {
-      const node = panel.findNode(requirePanel(store, key).root, nodeKey);
+  Flux.createSelector<SelectNodeParams, panel.Node["variant"]>({
+    subscribe,
+    select: ({ client, args: { key, nodeKey } }) => {
+      const node = panel.findNode(requirePanel(client, key).root, nodeKey);
       if (node == null) throw new NotFoundError(`Node at path ${nodeKey} not found`);
       return node.variant;
     },
@@ -154,14 +138,13 @@ export const [useSelectNodeVariant, useGetNodeVariant] = Scope.bindSelector(
 // useSelectLeafNode selects the leaf node at the given path, including its tab keys.
 export const [useSelectLeafNode, useGetLeafNode] = Scope.bindSelector(
   Flux.createSelector<
-    FluxSubStore,
     SelectNodeParams,
     Omit<panel.NodeLeaf, "tabs"> & { tabs: panel.TabKey[] },
     panel.Node
   >({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key, nodeKey }) => {
-      const node = panel.findNode(requirePanel(store, key).root, nodeKey);
+    subscribe,
+    select: ({ client, args: { key, nodeKey } }) => {
+      const node = panel.findNode(requirePanel(client, key).root, nodeKey);
       if (node == null) throw new NotFoundError(`Node at path ${nodeKey} not found`);
       return node;
     },
@@ -176,10 +159,10 @@ export const [useSelectLeafNode, useGetLeafNode] = Scope.bindSelector(
 // useSelectSplitNode selects the split node at the given path, including its direction
 // and size.
 export const [useSelectSplitNode, useGetSplitNode] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodeParams, panel.NodeSplit, panel.Node>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key, nodeKey }) => {
-      const node = panel.findNode(requirePanel(store, key).root, nodeKey);
+  Flux.createSelector<SelectNodeParams, panel.NodeSplit, panel.Node>({
+    subscribe,
+    select: ({ client, args: { key, nodeKey } }) => {
+      const node = panel.findNode(requirePanel(client, key).root, nodeKey);
       if (node == null) throw new NotFoundError(`Node at path ${nodeKey} not found`);
       return node;
     },
@@ -191,8 +174,8 @@ export const [useSelectSplitNode, useGetSplitNode] = Scope.bindSelector(
   }),
 );
 
-const tabKeys = (store: FluxSubStore, key: panel.Key): string[] => {
-  const p = store.panels.get(key);
+const tabKeys = (client: Client | null, key: panel.Key): string[] => {
+  const p = getPanel(client, key);
   if (p == null) return [];
   const tabKeys: string[] = [];
   const visit = (node: panel.Node | undefined) => {
@@ -207,38 +190,37 @@ const tabKeys = (store: FluxSubStore, key: panel.Key): string[] => {
 };
 
 // useSelectLeafTabGroups selects each leaf's tab keys, deep-equal compared so the mosaic
-// root re-renders only when tab membership changes — not on a resize or a content change.
+// root re-renders only when tab membership changes, not on a resize or a content change.
 export const [useSelectTabKeys, useGetTabKeys] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, string[]>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key }) => tabKeys(store, key),
+  Flux.createSelector<SelectKeyParams, string[]>({
+    subscribe,
+    select: ({ client, args: { key } }) => tabKeys(client, key),
     equal: compare.arraysEqual,
   }),
 );
 
 // useSelectRoot selects the panel's raw stored tree root.
 export const [useSelectRoot, useGetRoot] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, panel.Node>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key }) => requirePanel(store, key).root,
+  Flux.createSelector<SelectKeyParams, panel.Node>({
+    subscribe,
+    select: ({ client, args: { key } }) => requirePanel(client, key).root,
   }),
 );
 
-// useSelectRoot selects the panel's raw stored tree root.
 export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, { key }) => requirePanel(store, key).name,
+  Flux.createSelector<SelectKeyParams, string>({
+    subscribe,
+    select: ({ client, args: { key } }) => requirePanel(client, key).name,
   }),
 );
 
 // leafTabGroups returns each leaf's ordered tab keys, or null when the panel is not
 // cached.
 const leafTabGroups = (
-  store: FluxSubStore,
+  client: Client | null,
   key: panel.Key,
 ): panel.TabKey[][] | null => {
-  const p = store.panels.get(key);
+  const p = getPanel(client, key);
   if (p == null) return null;
   const groups: panel.TabKey[][] = [];
   const visit = (node: panel.Node | undefined) => {
@@ -260,14 +242,14 @@ export interface SelectSelectionParams {
 const NOOP = () => {};
 
 const [useSelectSelectionBase, useGetSelectionBase] = Flux.createSelector<
-  FluxSubStore,
   SelectSelectionParams,
   panel.TabKey[],
   panel.TabKey[][] | null
 >({
-  subscribe: (store, { key }, notify) =>
-    key == null ? NOOP : store.panels.onSet(notify, key),
-  select: (store, { key }) => (key == null ? null : leafTabGroups(store, key)),
+  subscribe: ({ client, args: { key } }, notify) =>
+    client == null || key == null ? NOOP : client.panels.onChange(key, notify),
+  select: ({ client, args: { key } }) =>
+    key == null ? null : leafTabGroups(client, key),
   transform: (groups, { selected }) => {
     if (groups == null) return selected;
     const leafOf = new Map<panel.TabKey, number>();
@@ -315,17 +297,17 @@ export const useGetSelection = (): ((
 };
 
 export const [useSelectTab, useGetTab] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.Tab>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, params) => selectRequiredTab(store, params),
+  Flux.createSelector<SelectTabContentParams, panel.Tab>({
+    subscribe,
+    select: ({ client, args }) => selectRequiredTab(client, args),
   }),
 );
 
 const selectRequiredTabLeaf = (
-  store: FluxSubStore,
+  client: Client | null,
   { key, tabKey }: SelectTabContentParams,
 ): panel.NodeLeaf => {
-  const leaf = panel.findTabLeaf(requirePanel(store, key).root, tabKey);
+  const leaf = panel.findTabLeaf(requirePanel(client, key).root, tabKey);
   if (leaf == null)
     throw new NotFoundError(`Leaf holding tab ${tabKey} not found in panel ${key}`);
   return leaf;
@@ -335,9 +317,9 @@ const selectRequiredTabLeaf = (
 // reference into the stored tree, so immer's structural sharing gives it stable
 // identity across dispatches that don't touch it.
 export const [useSelectTabLeaf, useGetTabLeaf] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.NodeLeaf>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, params) => selectRequiredTabLeaf(store, params),
+  Flux.createSelector<SelectTabContentParams, panel.NodeLeaf>({
+    subscribe,
+    select: ({ client, args }) => selectRequiredTabLeaf(client, args),
   }),
 );
 
@@ -345,9 +327,9 @@ export const [useSelectTabLeaf, useGetTabLeaf] = bindTabSelector(
 // component that branches on resource-vs-view does not re-render on content edits
 // within the same variant.
 export const [useSelectTabVariant, useGetTabVariant] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentParams, panel.TabType>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, params) => selectRequiredTab(store, params).variant,
+  Flux.createSelector<SelectTabContentParams, panel.TabType>({
+    subscribe,
+    select: ({ client, args }) => selectRequiredTab(client, args).variant,
   }),
 );
 
@@ -355,10 +337,10 @@ export const [useSelectTabVariant, useGetTabVariant] = bindTabSelector(
 // ontology type for resource tabs, the view type for view tabs. Components that
 // render by type do not re-render when a view's args change.
 export const [useSelectTabType, useGetTabType] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentParams, string>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, params) => {
-      const tab = selectRequiredTab(store, params);
+  Flux.createSelector<SelectTabContentParams, string>({
+    subscribe,
+    select: ({ client, args }) => {
+      const tab = selectRequiredTab(client, args);
       return tab.variant === "resource" ? tab.resource.type : tab.type;
     },
   }),
@@ -374,10 +356,10 @@ export interface SelectMaybeTabTypeParams {
 // UnexpectedError when the active tab is not a resource tab: only renderers mounted
 // for a resource tab may call this, so a wrong-variant read is a programmer bug.
 export const [useSelectTabResource, useGetTabResource] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentParams, ontology.ID>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, params) => {
-      const tab = selectRequiredTab(store, params);
+  Flux.createSelector<SelectTabContentParams, ontology.ID>({
+    subscribe,
+    select: ({ client, args }) => {
+      const tab = selectRequiredTab(client, args);
       if (tab.variant !== "resource")
         throw new UnexpectedError(
           `attempted to select resource on view tab ${tab.key}`,
@@ -392,10 +374,10 @@ export const [useSelectTabResource, useGetTabResource] = bindTabSelector(
 // compared so it re-renders only when the args contents actually change. Throws
 // UnexpectedError when the active tab is not a view tab (see useSelectTabResource).
 export const [useSelectTabArgs, useGetTabArgs] = bindTabSelector(
-  Flux.createSelector<FluxSubStore, SelectTabContentParams, record.Unknown>({
-    subscribe: (store, { key }, notify) => store.panels.onSet(notify, key),
-    select: (store, params) => {
-      const tab = selectRequiredTab(store, params);
+  Flux.createSelector<SelectTabContentParams, record.Unknown>({
+    subscribe,
+    select: ({ client, args }) => {
+      const tab = selectRequiredTab(client, args);
       if (tab.variant !== "view")
         throw new UnexpectedError(
           `attempted to select args on resource tab ${tab.key}`,
@@ -418,56 +400,33 @@ export const createSelectTabArgs =
 
 export interface ListParams extends Pick<panel.RetrieveRequest, "offset" | "limit"> {}
 
-export const useList = Flux.createList<
-  ListParams,
-  panel.Key,
-  panel.Panel,
-  FluxSubStore
->({
+export const useList = Flux.createList<ListParams, panel.Key, panel.Panel>({
   name: PLURAL_RESOURCE_NAME,
-  retrieveCached: ({ store }) => store.panels.list(),
   retrieve: async ({ client, query }) => await client.panels.retrieve(query),
-  retrieveByKey: async ({ key, ...rest }) =>
-    await retrieveSingle({ ...rest, query: { key } }),
-  mountListeners: ({ store, onChange, onDelete }) => [
-    store.panels.onSet(onChange),
-    store.panels.onDelete(onDelete),
-  ],
+  retrieveByKey: async ({ client, key }) => await client.panels.retrieve(key),
+  subscribe: ({ client, query }, handler) => client.panels.onChange(query, handler),
+  subscribeByKey: ({ client, key }, handler) => client.panels.onChange(key, handler),
+  getCached: ({ client, query }) => client.panels.getCached(query),
 });
 
 export interface CreateParams extends panel.New {}
 
-export const { useUpdate: useCreate } = Flux.createUpdate<
-  CreateParams,
-  FluxSubStore,
-  panel.Panel
->({
+export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, panel.Panel>({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
-    const optimistic = panel.panelZ.parse(data);
-    rollbacks.push(store.panels.set(optimistic));
-    await onOptimisticComplete(optimistic);
-    // onOptimisticComplete may have dispatched further local mutations against this
-    // same key (e.g. inserting a tab) before the panel exists on the cluster. Send the
-    // latest cached doc rather than the pre-mutation snapshot, or the server response
-    // below would stomp those local changes back out.
-    const latest = store.panels.get(optimistic.key) ?? optimistic;
-    const created = await client.panels.create(latest);
-    store.panels.set(created);
-    return created;
-  },
+  update: async ({ client, data, onOptimisticComplete }) =>
+    await client.panels.create(data, {
+      onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
+    }),
 });
 
 export interface RenameParams extends Pick<panel.Panel, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
-    rollbacks.push(Flux.partialUpdate(store.panels, key, { name }));
-    rollbacks.push(Ontology.renameFluxResource(store, panel.ontologyID(key), name));
     await onOptimisticComplete(data);
     await client.panels.rename(key, name);
     return data;
@@ -476,18 +435,13 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 
 export type DeleteParams = panel.Key | panel.Key[];
 
-export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
+export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
-    const keys = array.toArray(data);
-    const ids = panel.ontologyID(keys);
-    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.push(store.relationships.delete(relFilter));
-    rollbacks.push(store.resources.delete(keys));
-    rollbacks.push(store.panels.delete(keys));
-    await onOptimisticComplete(data);
-    await client.panels.delete(keys);
+  update: async ({ client, data, onOptimisticComplete }) => {
+    await client.panels.delete(array.toArray(data), {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -497,16 +451,8 @@ export const {
   useSingleDispatch: useSingleDispatchBase,
   useUndo: useUndoBase,
   useRedo: useRedoBase,
-} = Flux.createDispatch<
-  panel.Key,
-  panel.Panel,
-  panel.Action,
-  typeof FLUX_STORE_KEY,
-  FluxSubStore
->({
-  storeKey: FLUX_STORE_KEY,
-  send: ({ client, key, actions, dispatchKey }) =>
-    client.panels.dispatch(key, dispatchKey, actions),
+} = Flux.createDispatch<panel.Key, panel.Panel, panel.Action>({
+  domain: (client) => client.panels,
 });
 
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);

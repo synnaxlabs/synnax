@@ -24,13 +24,12 @@ describe("schematic store", () => {
     const schematic = await client.schematics.create(project.key, {
       name: `schematic-${id.create()}`,
     });
-    client.cache.engine.store<Key, Schematic>(STORE_KEY).set(schematic.key, schematic);
+    const store = client.cache.engine.store<Key, Schematic>(STORE_KEY);
+    store.set(schematic.key, schematic);
     await client.schematics.delete(schematic.key);
     await expect
-      .poll(() => client.schematics.store.status(schematic.key), { timeout: 5000 })
+      .poll(() => store.status(schematic.key), { timeout: 5000 })
       .toBe("tombstoned");
-    expect(client.schematics.store.getTombstone(schematic.key)?.corpse.name).toEqual(
-      schematic.name,
-    );
+    expect(store.getTombstone(schematic.key)?.corpse.name).toEqual(schematic.name);
   }, 20000);
 });

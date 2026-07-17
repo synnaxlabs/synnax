@@ -25,6 +25,9 @@ import { Panel } from "@/panel";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
+// writer is a second connected client used to emit changes the wrapper client
+// must pick up through the action channel.
+const writer = createTestClient();
 
 const ROUND_TRIP = { timeout: 5000 };
 
@@ -55,7 +58,6 @@ const createPanel = async (...tabs: panel.Tab[]): Promise<panel.Panel> => {
   if (tabs.length > 0)
     await client.panels.dispatch(
       created.key,
-      "",
       tabs.map((tab) => panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY })),
     );
   return created;
@@ -125,7 +127,7 @@ const TabKeyNameProbe = (): ReactElement => {
 
 const children: Panel.MosaicProps["children"] = () => <TabContentProbe />;
 
-// Bootstrap pre-warms the flux cache with the suspending hook alone, so the
+// Bootstrap pre-warms the cache with the suspending hook alone, so the
 // mosaic mounts against a cached document. Suspending inside Mosaic itself
 // trips a React 19 dev-mode replay bug for hooks declared after the
 // suspension point.
@@ -233,14 +235,14 @@ describe("Panel.Mosaic", () => {
     b2: panel.Tab,
   ): Promise<panel.Panel> => {
     const p = await createPanel(a1, a2, b1, b2);
-    await client.panels.dispatch(p.key, "", [
+    await client.panels.dispatch(p.key, [
       panel.moveTab({
         key: b1.key,
         targetLeaf: panel.ROOT_NODE_KEY,
         location: "right",
       }),
     ]);
-    await client.panels.dispatch(p.key, "", [
+    await client.panels.dispatch(p.key, [
       panel.moveTab({
         key: b2.key,
         targetLeaf: panel.childNodeKey(panel.ROOT_NODE_KEY, "last"),
@@ -521,7 +523,8 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
       expect(utils.queryByText(contentText(b))).toBeNull();
 
-      await client.panels.dispatch(p.key, "", [
+      await writer.panels.retrieve(p.key);
+      await writer.panels.dispatch(p.key, [
         panel.moveTab({
           key: b.key,
           targetLeaf: panel.ROOT_NODE_KEY,
@@ -544,7 +547,8 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(tab))).toBeTruthy());
 
       const resource = { type: "lineplot", key: uuid.create() } as const;
-      await client.panels.dispatch(p.key, "", [
+      await writer.panels.retrieve(p.key);
+      await writer.panels.dispatch(p.key, [
         panel.setTabResource({ key: tab.key, resource }),
       ]);
 
@@ -562,7 +566,8 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
       expect(utils.getAllByLabelText("Close")).toHaveLength(2);
 
-      await client.panels.dispatch(p.key, "", [panel.removeTab({ key: b.key })]);
+      await writer.panels.retrieve(p.key);
+      await writer.panels.dispatch(p.key, [panel.removeTab({ key: b.key })]);
 
       await waitFor(
         () => expect(utils.getAllByLabelText("Close")).toHaveLength(1),

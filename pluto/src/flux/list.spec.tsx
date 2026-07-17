@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache, type ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { type cache, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -16,9 +16,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
-import { flux } from "@/flux/aether";
-import { type base } from "@/flux/base";
-import { type ranger as aetherRanger } from "@/ranger/aether";
 import { status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
@@ -542,17 +539,15 @@ describe("list", () => {
     });
   });
 
-  interface FluxStore extends Flux.Store {
-    ranges: aetherRanger.FluxStore;
-  }
+  const changed = <E,>(data: E[]): cache.Cached<E[]> => ({ variant: "changed", data });
 
-  describe("retrieveCached", () => {
+  describe("getCached", () => {
     it("should use cached data as initial state when available", () => {
       const cachedItems = [
         { key: 1, value: "cached-1" },
         { key: 2, value: "cached-2" },
       ];
-      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
       const retrieve = vi.fn().mockResolvedValue([
         { key: 1, value: "fresh-1" },
         { key: 2, value: "fresh-2" },
@@ -564,18 +559,18 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
-            retrieveCached,
+            getCached,
           })(),
         { wrapper },
       );
 
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([1, 2]);
-      expect(retrieveCached).toHaveBeenCalledTimes(1);
+      expect(getCached).toHaveBeenCalledTimes(1);
     });
 
-    it("should not use cached data when empty array is returned", () => {
-      const retrieveCached = vi.fn().mockReturnValue([]);
+    it("should not use cached data when the cached answer is empty", () => {
+      const getCached = vi.fn().mockReturnValue(changed([]));
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
 
       const { result } = renderHook(
@@ -584,7 +579,25 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            retrieveCached,
+            getCached,
+          })(),
+        { wrapper },
+      );
+
+      expect(result.current.variant).toEqual("loading");
+      expect(result.current.data).toEqual([]);
+    });
+
+    it("should not use cached data when nothing is cached", () => {
+      const getCached = vi.fn().mockReturnValue(undefined);
+
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve: async () => [],
+            retrieveByKey: async ({ key }) => ({ key }),
+            getCached,
           })(),
         { wrapper },
       );
@@ -600,7 +613,7 @@ describe("list", () => {
         { key: 3, value: "odd" },
         { key: 4, value: "even" },
       ];
-      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
 
       const { result } = renderHook(
         () =>
@@ -608,7 +621,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
-            retrieveCached,
+            getCached,
           })({ filter: (item) => item.key % 2 === 0 }), // Only even keys
         { wrapper },
       );
@@ -620,7 +633,7 @@ describe("list", () => {
         searchTerm?: string;
       };
       const cachedItems = [{ key: 1 }, { key: 2 }];
-      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
 
       renderHook(
         () =>
@@ -628,14 +641,14 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
-            retrieveCached,
+            getCached,
           })({ initialQuery: { searchTerm: "test" } }),
         { wrapper },
       );
 
-      expect(retrieveCached).toHaveBeenCalledWith({
+      expect(getCached).toHaveBeenCalledWith({
         query: { searchTerm: "test" },
-        store: expect.any(Object),
+        client: expect.any(Object),
       });
     });
 
@@ -649,7 +662,7 @@ describe("list", () => {
         { key: 2, value: "fresh-2" },
         { key: 3, value: "fresh-3" },
       ];
-      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
       const retrieve = vi.fn().mockResolvedValue(freshItems);
 
       const { result } = renderHook(
@@ -658,7 +671,7 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key, value: `item-${key}` }),
-            retrieveCached,
+            getCached,
           })(),
         { wrapper },
       );
@@ -677,7 +690,7 @@ describe("list", () => {
       });
     });
 
-    it("should work without retrieveCached defined", async () => {
+    it("should work without getCached defined", async () => {
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }, { key: 2 }]);
 
       const { result } = renderHook(
@@ -686,7 +699,7 @@ describe("list", () => {
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            // No retrieveCached provided
+            // No getCached provided
           })(),
         { wrapper },
       );
@@ -715,7 +728,7 @@ describe("list", () => {
         { key: 1, priority: 1 },
         { key: 2, priority: 2 },
       ];
-      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
 
       const { result } = renderHook(
         () =>
@@ -723,7 +736,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key, priority: key }),
-            retrieveCached,
+            getCached,
           })({ sort: (a, b) => a.priority - b.priority }),
         { wrapper },
       );
@@ -743,7 +756,7 @@ describe("list", () => {
         { key: 2, name: "Charlie" },
         { key: 3, name: "Bravo" },
       ];
-      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
 
       const { result } = renderHook(
         () =>
@@ -751,7 +764,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key, name: `item-${key}` }),
-            retrieveCached,
+            getCached,
           })({ sort: (a, b) => b.name.localeCompare(a.name) }), // Descending order
         { wrapper },
       );
@@ -773,7 +786,7 @@ describe("list", () => {
         { key: 3, value: 75, active: true },
         { key: 4, value: 25, active: true },
       ];
-      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+      const getCached = vi.fn().mockReturnValue(changed(cachedItems));
 
       const { result } = renderHook(
         () =>
@@ -781,7 +794,7 @@ describe("list", () => {
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key, value: key * 10, active: true }),
-            retrieveCached,
+            getCached,
           })({
             filter: (item) => item.active,
             sort: (a, b) => a.value - b.value,
@@ -794,71 +807,71 @@ describe("list", () => {
     });
   });
 
-  describe("listener synchronization", () => {
-    it("should mount listeners on first retrieve", async () => {
-      const mountListeners = vi.fn();
+  describe("subscription lifecycle", () => {
+    it("should subscribe to the query on first retrieve", async () => {
+      const subscribe = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+          Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            mountListeners,
+            subscribe,
           })(),
         { wrapper },
       );
 
-      expect(mountListeners).not.toHaveBeenCalled();
+      expect(subscribe).not.toHaveBeenCalled();
 
       act(() => {
         result.current.retrieve({}, { signal: controller.signal });
       });
 
       await waitFor(() => {
-        expect(mountListeners).toHaveBeenCalledTimes(1);
+        expect(subscribe).toHaveBeenCalledTimes(1);
       });
     });
 
-    it("should mount listeners when retrieving single item before list", async () => {
-      const mountListeners = vi.fn();
+    it("should subscribe to an item when retrieving it before any list", async () => {
+      const subscribeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+          Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
-            mountListeners,
+            subscribeByKey,
           })(),
         { wrapper },
       );
 
-      expect(mountListeners).not.toHaveBeenCalled();
+      expect(subscribeByKey).not.toHaveBeenCalled();
 
       act(() => {
         result.current.getItem(1);
       });
 
       await waitFor(() => {
-        expect(mountListeners).toHaveBeenCalledTimes(1);
+        expect(subscribeByKey).toHaveBeenCalledTimes(1);
         expect(retrieveByKey).toHaveBeenCalled();
       });
     });
 
-    it("should not remount listeners on subsequent calls to getItem", async () => {
-      const mountListeners = vi.fn();
+    it("should not re-subscribe on subsequent calls to getItem", async () => {
+      const subscribeByKey = vi.fn().mockReturnValue(() => {});
       const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+          Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey,
-            mountListeners,
+            subscribeByKey,
           })(),
         { wrapper },
       );
@@ -866,26 +879,28 @@ describe("list", () => {
         result.current.getItem(1);
       });
       await waitFor(() => {
-        expect(mountListeners).toHaveBeenCalledTimes(1);
+        expect(subscribeByKey).toHaveBeenCalledTimes(1);
       });
       act(() => {
         result.current.getItem(1);
       });
       await testutil.expectAlways(() => {
-        expect(mountListeners).toHaveBeenCalledTimes(1);
+        expect(subscribeByKey).toHaveBeenCalledTimes(1);
       });
     });
 
-    it("should not remount listeners when getItem is called AFTER retrieve", async () => {
-      const mountListeners = vi.fn();
+    it("should not open an item subscription for a page member served by getItem", async () => {
+      const subscribe = vi.fn().mockReturnValue(() => {});
+      const subscribeByKey = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+          Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            mountListeners,
+            subscribe,
+            subscribeByKey,
           })(),
         { wrapper },
       );
@@ -893,27 +908,28 @@ describe("list", () => {
         await result.current.retrieveAsync({}, { signal: controller.signal });
       });
       await waitFor(() => {
-        expect(mountListeners).toHaveBeenCalledTimes(1);
+        expect(subscribe).toHaveBeenCalledTimes(1);
       });
       act(() => {
         result.current.getItem(1);
       });
       await testutil.expectAlways(() => {
-        expect(mountListeners).toHaveBeenCalledTimes(1);
+        expect(subscribe).toHaveBeenCalledTimes(1);
+        expect(subscribeByKey).not.toHaveBeenCalled();
       });
     });
 
-    it("should remount listeners on subsequent retrieves", async () => {
-      const mountListeners = vi.fn();
+    it("should re-subscribe on subsequent replace-mode retrieves", async () => {
+      const subscribe = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+          Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            mountListeners,
+            subscribe,
           })(),
         { wrapper },
       );
@@ -923,7 +939,7 @@ describe("list", () => {
       });
 
       await waitFor(() => {
-        expect(mountListeners).toHaveBeenCalledTimes(1);
+        expect(subscribe).toHaveBeenCalledTimes(1);
       });
 
       act(() => {
@@ -931,24 +947,24 @@ describe("list", () => {
       });
 
       await waitFor(() => {
-        expect(mountListeners).toHaveBeenCalledTimes(2);
+        expect(subscribe).toHaveBeenCalledTimes(2);
       });
     });
 
-    it("should pass correct params to mountListeners", async () => {
+    it("should pass the current query to subscribeByKey", async () => {
       type TestParams = {
         filter?: string;
       };
-      const mountListeners = vi.fn();
+      const subscribeByKey = vi.fn().mockReturnValue(() => {});
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
 
       const { result } = renderHook(
         () =>
-          Flux.createList<TestParams, number, record.Keyed<number>, FluxStore>({
+          Flux.createList<TestParams, number, record.Keyed<number>>({
             name: "Resource",
             retrieve,
             retrieveByKey: async ({ key }) => ({ key }),
-            mountListeners,
+            subscribeByKey,
           })({ initialQuery: { filter: "active" } }),
         { wrapper },
       );
@@ -958,51 +974,53 @@ describe("list", () => {
       });
 
       await waitFor(() => {
-        const firstCall = mountListeners.mock.calls[0];
+        const firstCall = subscribeByKey.mock.calls[0];
         expect(firstCall[0].query).toEqual({ filter: "active" });
       });
     });
 
-    it("should not mount listeners immediately when retrieveCached returns data", () => {
-      const mountListeners = vi.fn();
-      const cachedItems = [{ key: 1 }, { key: 2 }];
-      const retrieveCached = vi.fn().mockReturnValue(cachedItems);
+    it("should not subscribe immediately when getCached returns data", () => {
+      const subscribe = vi.fn().mockReturnValue(() => {});
+      const getCached = vi.fn().mockReturnValue(changed([{ key: 1 }, { key: 2 }]));
 
       renderHook(
         () =>
-          Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+          Flux.createList<{}, number, record.Keyed<number>>({
             name: "Resource",
             retrieve: async () => [],
             retrieveByKey: async ({ key }) => ({ key }),
-            retrieveCached,
-            mountListeners,
+            getCached,
+            subscribe,
           })(),
         { wrapper },
       );
 
-      expect(mountListeners).not.toHaveBeenCalled();
+      expect(subscribe).not.toHaveBeenCalled();
     });
 
-    it("should mount listeners when getItem is called before retrieve AND the result of getItem is cached", () => {
-      const mountListeners = vi.fn();
-      const useList = Flux.createList<{}, number, record.Keyed<number>, FluxStore>({
+    it("should serve getItem from cached initial data without fetching", async () => {
+      const retrieveByKey = vi.fn().mockResolvedValue({ key: 1 });
+      const useList = Flux.createList<{}, number, record.Keyed<number>>({
         name: "Resource",
         retrieve: async () => [],
-        retrieveByKey: async ({ key }) => ({ key }),
-        retrieveCached: () => [{ key: 1 }],
-        mountListeners,
+        retrieveByKey,
+        getCached: () => changed([{ key: 1 }]),
       });
 
       const { result } = renderHook(useList, { wrapper });
+      let item: record.Keyed<number> | undefined;
       act(() => {
-        result.current.getItem(1);
+        item = result.current.getItem(1);
       });
-      expect(mountListeners).toHaveBeenCalledTimes(1);
+      expect(item).toEqual({ key: 1 });
+      await testutil.expectAlways(() => {
+        expect(retrieveByKey).not.toHaveBeenCalled();
+      });
     });
   });
 
-  describe("listeners", () => {
-    it("should correctly update a list item when the listener changes", async () => {
+  describe("subscriptions against a live client", () => {
+    it("should correctly update a list item when the subscribed answer changes", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
         timeRange: new TimeRange({
@@ -1016,16 +1034,16 @@ describe("list", () => {
           const { getItem, subscribe, retrieve } = Flux.createList<
             {},
             ranger.Key,
-            ranger.Payload,
-            FluxStore
+            ranger.Range
           >({
             name: "Resource",
-            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieve: async ({ client }) =>
+              await client.ranges.retrieve({ keys: [rng.key] }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            mountListeners: ({ store, onChange }) =>
-              store.ranges.onSet((changed) => onChange(changed.key, () => changed)),
+            subscribe: ({ client }, handler) =>
+              client.ranges.onChange({ keys: [rng.key] }, handler),
           })();
-          const value = Flux.useListItem<ranger.Key, ranger.Payload>({
+          const value = Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
             getItem,
             key: rng.key,
@@ -1050,7 +1068,7 @@ describe("list", () => {
       });
     });
 
-    it("should accept a keyed record as the argument to onChange", async () => {
+    it("should update an item fetched by key when its subscription changes", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
         timeRange: new TimeRange({
@@ -1061,30 +1079,22 @@ describe("list", () => {
 
       const { result } = renderHook(
         () => {
-          const { getItem, subscribe, retrieve } = Flux.createList<
-            {},
-            ranger.Key,
-            ranger.Payload,
-            FluxStore
-          >({
+          const { getItem, subscribe } = Flux.createList<{}, ranger.Key, ranger.Range>({
             name: "Resource",
-            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieve: async () => [],
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            mountListeners: ({ store, onChange }) => store.ranges.onSet(onChange),
+            subscribeByKey: ({ client, key }, handler) =>
+              client.ranges.onChange(key, handler),
           })();
-          const value = Flux.useListItem<ranger.Key, ranger.Payload>({
+          const value = Flux.useListItem<ranger.Key, ranger.Range>({
             subscribe,
             getItem,
             key: rng.key,
           });
-          return { retrieve, value };
+          return { value };
         },
         { wrapper },
       );
-
-      act(() => {
-        result.current.retrieve({}, { signal: controller.signal });
-      });
 
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range");
@@ -1110,13 +1120,14 @@ describe("list", () => {
           const { getItem, retrieveAsync } = Flux.createList<
             {},
             ranger.Key,
-            ranger.Payload,
-            FluxStore
+            ranger.Range
           >({
             name: "Resource",
-            retrieve: async ({ client }) => [await client.ranges.retrieve(rng.key)],
+            retrieve: async ({ client }) =>
+              await client.ranges.retrieve({ keys: [rng.key] }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            mountListeners: ({ store, onDelete }) => store.ranges.onDelete(onDelete),
+            subscribe: ({ client }, handler) =>
+              client.ranges.onChange({ keys: [rng.key] }, handler),
           })();
           return { retrieveAsync, value: getItem(rng.key) };
         },
@@ -1134,7 +1145,7 @@ describe("list", () => {
       await waitFor(() => expect(result.current.value?.key).not.toEqual(rng.key));
     });
 
-    it("should maintain sort order when items are updated through listeners", async () => {
+    it("should maintain sort order when items are updated through subscriptions", async () => {
       const rng1 = await client.ranges.create({
         name: "B Range",
         timeRange: new TimeRange({
@@ -1150,18 +1161,16 @@ describe("list", () => {
           end: TimeSpan.seconds(13),
         }),
       });
+      const keys = [rng1.key, rng2.key];
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, FluxStore>({
+          Flux.createList<{}, ranger.Key, ranger.Range>({
             name: "Resource",
-            retrieve: async ({ client }) => [
-              await client.ranges.retrieve(rng1.key),
-              await client.ranges.retrieve(rng2.key),
-            ],
+            retrieve: async ({ client }) => await client.ranges.retrieve({ keys }),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            mountListeners: ({ store, onChange }) =>
-              store.ranges.onSet((changed) => onChange(changed.key, () => changed)),
+            subscribe: ({ client }, handler) =>
+              client.ranges.onChange({ keys }, handler),
           })({ sort: (a, b) => a.name.localeCompare(b.name) }),
         { wrapper },
       );
@@ -1185,7 +1194,7 @@ describe("list", () => {
       });
     });
 
-    it("should insert new items in correct sorted position through listeners", async () => {
+    it("should insert new items in correct sorted position through subscriptions", async () => {
       const rng1 = await client.ranges.create({
         name: "A Range",
         timeRange: new TimeRange({
@@ -1202,22 +1211,27 @@ describe("list", () => {
         }),
       });
       const rng3Key = uuid.create();
-      const rangeKeys = new Set([rng1.key, rng2.key, rng3Key]);
+      const keySet = new Set([rng1.key, rng2.key, rng3Key]);
+      // rng3 does not exist yet, so the query is a permissive overlap window
+      // and the hook-level filter narrows the answer to the test's ranges.
+      const query = {
+        overlapsWith: new TimeRange({
+          start: TimeSpan.seconds(9),
+          end: TimeSpan.seconds(16),
+        }),
+      };
 
       const { result } = renderHook(
         () =>
-          Flux.createList<{}, ranger.Key, ranger.Payload, FluxStore>({
+          Flux.createList<{}, ranger.Key, ranger.Range>({
             name: "Resource",
-            retrieve: async ({ client }) => [
-              await client.ranges.retrieve(rng1.key),
-              await client.ranges.retrieve(rng2.key),
-            ],
+            retrieve: async ({ client }) => await client.ranges.retrieve(query),
             retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-            mountListeners: ({ store, onChange }) =>
-              store.ranges.onSet((changed) => {
-                if (rangeKeys.has(changed.key)) onChange(changed.key, changed);
-              }),
-          })({ sort: (a, b) => a.name.localeCompare(b.name) }),
+            subscribe: ({ client }, handler) => client.ranges.onChange(query, handler),
+          })({
+            sort: (a, b) => a.name.localeCompare(b.name),
+            filter: (r) => keySet.has(r.key),
+          }),
         { wrapper },
       );
 
@@ -1249,62 +1263,87 @@ describe("list", () => {
       key: string;
       name: string;
     }
-    interface ReconnectStore extends base.Store {
-      docs: base.UnaryStore<string, Doc>;
-    }
     const ReconnectAetherProvider = aetherTest.createProvider({
       ...synnax.REGISTRY,
       ...status.REGISTRY,
-      ...flux.createRegistry(),
     });
-    const setDoc = (engine: cache.Engine, doc: Doc): void => {
-      engine.store<string, Doc>("docs", "test-writer").set(doc.key, doc);
-    };
-    const newEngine = (): cache.Engine => new cache.Engine({ openStreamer: null });
 
-    // Flux.Provider rebinds its stores when the Synnax client key changes;
-    // only key is read here, so a minimal stub stands in for a full client.
+    // The hooks only read `key` off the client; a minimal stub models the swap.
     const clientWithKey = (key: string): Client => ({ key }) as unknown as Client;
 
+    /** A fake per-client domain: answers by client key, push notifies subs. */
+    interface FakeDomain {
+      answers: Record<string, Doc[]>;
+      push: (clientKey: string, docs: Doc[]) => void;
+      pushItem: (clientKey: string, doc: Doc) => void;
+      subscribe: (clientKey: string, handler: cache.ChangeHandler<Doc[]>) => () => void;
+      subscribeItem: (
+        clientKey: string,
+        key: string,
+        handler: cache.ChangeHandler<Doc>,
+      ) => () => void;
+    }
+
+    const createFakeDomain = (): FakeDomain => {
+      const answers: Record<string, Doc[]> = { a: [], b: [] };
+      const subs = new Map<string, Set<cache.ChangeHandler<Doc[]>>>();
+      const itemSubs = new Map<string, Set<cache.ChangeHandler<Doc>>>();
+      return {
+        answers,
+        push: (clientKey, docs) => {
+          answers[clientKey] = docs;
+          subs.get(clientKey)?.forEach((h) => h({ variant: "changed", data: docs }));
+        },
+        pushItem: (clientKey, doc) => {
+          itemSubs
+            .get(`${clientKey}:${doc.key}`)
+            ?.forEach((h) => h({ variant: "changed", data: doc }));
+        },
+        subscribe: (clientKey, handler) => {
+          const set = subs.get(clientKey) ?? new Set();
+          set.add(handler);
+          subs.set(clientKey, set);
+          return () => set.delete(handler);
+        },
+        subscribeItem: (clientKey, key, handler) => {
+          const mapKey = `${clientKey}:${key}`;
+          const set = itemSubs.get(mapKey) ?? new Set();
+          set.add(handler);
+          itemSubs.set(mapKey, set);
+          return () => set.delete(handler);
+        },
+      };
+    };
+
     interface ReconnectSetup {
-      fluxA: cache.Engine;
-      fluxB: cache.Engine;
+      domain: FakeDomain;
       wrapper: React.FC<PropsWithChildren>;
       reconnect: () => void;
     }
 
     const createReconnectSetup = (): ReconnectSetup => {
-      const fluxA = newEngine();
-      const fluxB = newEngine();
-      // Distinct keys model the client swap.
-      let activeFlux = fluxA;
+      const domain = createFakeDomain();
       let activeSynnax = clientWithKey("a");
       const wrapper = ({ children }: PropsWithChildren): ReactElement => (
         <ReconnectAetherProvider>
           <Status.Aggregator>
-            <Synnax.TestProvider client={activeSynnax}>
-              <Flux.Provider engine={activeFlux}>{children}</Flux.Provider>
-            </Synnax.TestProvider>
+            <Synnax.TestProvider client={activeSynnax}>{children}</Synnax.TestProvider>
           </Status.Aggregator>
         </ReconnectAetherProvider>
       );
       const reconnect = (): void => {
-        activeFlux = fluxB;
         activeSynnax = clientWithKey("b");
       };
-      return { fluxA, fluxB, wrapper, reconnect };
+      return { domain, wrapper, reconnect };
     };
 
-    it("should refetch and re-subscribe listeners to the new store after the client changes", async () => {
-      const { fluxA, fluxB, wrapper, reconnect } = createReconnectSetup();
-      const useList = Flux.createList<{}, string, Doc, ReconnectStore>({
+    it("should refetch and re-subscribe onto the new client after the client changes", async () => {
+      const { domain, wrapper, reconnect } = createReconnectSetup();
+      const useList = Flux.createList<{}, string, Doc>({
         name: "Doc",
-        retrieve: async () => [],
+        retrieve: async ({ client }) => domain.answers[client.key],
         retrieveByKey: async ({ key }) => ({ key, name: key }),
-        mountListeners: ({ store, onChange, onDelete }) => [
-          store.docs.onSet((doc) => onChange(doc.key, doc)),
-          store.docs.onDelete(onDelete),
-        ],
+        subscribe: ({ client }, handler) => domain.subscribe(client.key, handler),
       });
 
       const { result, rerender } = renderHook(() => useList(), { wrapper });
@@ -1314,7 +1353,7 @@ describe("list", () => {
           await result.current.retrieveAsync({}, { signal: controller.signal }),
       );
 
-      act(() => setDoc(fluxA, { key: "before", name: "Before" }));
+      act(() => domain.push("a", [{ key: "before", name: "Before" }]));
       await waitFor(() => expect(result.current.data).toContain("before"));
 
       reconnect();
@@ -1323,21 +1362,19 @@ describe("list", () => {
       // Refetch against the new (empty) client replaces the old data.
       await waitFor(() => expect(result.current.data).not.toContain("before"));
 
-      act(() => setDoc(fluxB, { key: "after", name: "After" }));
+      act(() => domain.push("b", [{ key: "after", name: "After" }]));
       await waitFor(() => expect(result.current.data).toContain("after"));
     });
 
     it("should re-subscribe item lookups without running a list retrieve when no query was issued", async () => {
-      const { fluxA, fluxB, wrapper, reconnect } = createReconnectSetup();
+      const { domain, wrapper, reconnect } = createReconnectSetup();
       const retrieve = vi.fn(async () => [] as Doc[]);
-      const useList = Flux.createList<{}, string, Doc, ReconnectStore>({
+      const useList = Flux.createList<{}, string, Doc>({
         name: "Doc",
         retrieve,
         retrieveByKey: async ({ key }) => ({ key, name: key }),
-        mountListeners: ({ store, onChange, onDelete }) => [
-          store.docs.onSet((doc) => onChange(doc.key, doc)),
-          store.docs.onDelete(onDelete),
-        ],
+        subscribeByKey: ({ client, key }, handler) =>
+          domain.subscribeItem(client.key, key, handler),
       });
 
       const { result, rerender } = renderHook(
@@ -1354,14 +1391,14 @@ describe("list", () => {
       );
 
       await waitFor(() => expect(result.current.value?.name).toBe("k"));
-      act(() => setDoc(fluxA, { key: "k", name: "A" }));
+      act(() => domain.pushItem("a", { key: "k", name: "A" }));
       await waitFor(() => expect(result.current.value?.name).toBe("A"));
 
       reconnect();
       rerender();
 
-      // getItem-only: re-subscribe onto the new store without a list fetch.
-      act(() => setDoc(fluxB, { key: "k", name: "B" }));
+      // getItem-only: re-subscribe onto the new client without a list fetch.
+      act(() => domain.pushItem("b", { key: "k", name: "B" }));
       await waitFor(() => expect(result.current.value?.name).toBe("B"));
       expect(result.current.list.data).toEqual([]);
       expect(retrieve).not.toHaveBeenCalled();

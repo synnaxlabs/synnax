@@ -16,7 +16,7 @@ import {
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Access, Flux, type Pluto, Status, Synnax } from "@synnaxlabs/pluto";
+import { Access, Status, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
 import { deep, id } from "@synnaxlabs/x";
 import {
@@ -276,27 +276,22 @@ export const createConsoleWrapper = async ({
 };
 
 /**
- * Builds a flux store whose permission cache has resolved a grant for `action` on `id`
- * against the given client, so synchronous Access checks (createGranted,
- * updateGranted) used by file ingesters pass exactly as they do in a running app.
+ * Warms the client's permission cache with a resolved grant for `action` on `id`, so
+ * synchronous Access checks (createGranted, updateGranted) used by file ingesters pass
+ * exactly as they do in a running app.
  */
-export const createGrantedFluxStore = async (
+export const awaitGranted = async (
   client: Client,
   id: ontology.ID,
   action: access.Action = "create",
-): Promise<Pluto.FluxStore> => {
+): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
-  const { result } = renderHook(
-    () => ({
-      store: Flux.useStore<Pluto.FluxStore>(),
-      granted: Access.useGranted({ objects: id, action }),
-    }),
-    { wrapper },
-  );
-  await waitFor(() => {
-    if (!result.current.granted) throw new Error(`${action} grant did not resolve`);
+  const { result } = renderHook(() => Access.useGranted({ objects: id, action }), {
+    wrapper,
   });
-  return result.current.store;
+  await waitFor(() => {
+    if (!result.current) throw new Error(`${action} grant did not resolve`);
+  });
 };
 
 export interface CreateConnectedConsoleWrapperParams extends CreateConsoleWrapperParams {

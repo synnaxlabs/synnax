@@ -15,8 +15,7 @@ import z from "zod";
 import { type cache } from "@/cache";
 import { createStreamer, type StreamerParams } from "@/cache/streamer";
 import { type channel } from "@/channel";
-import { type framer } from "@/framer";
-import { Frame } from "@/framer/frame";
+import { framer } from "@/framer";
 
 class MockHardenedStreamer implements framer.Streamer {
   private keysI: channel.Params[];
@@ -105,13 +104,27 @@ const createBasicErrorHandler = (): Mock =>
       })();
   });
 
-const createFrameStreamer = (frames: framer.Frame[]) => async () => {
-  let i = 0;
-  return new MockHardenedStreamer([], async () => {
-    if (i >= frames.length) return { done: true, value: undefined };
-    return { done: false, value: frames[i++] };
+const wrapOpener =
+  (opener: framer.StreamOpener): cache.StreamOpener =>
+  async (channels, { onOpen, onReopen }) => {
+    const hardened = await framer.HardenedStreamer.open(
+      opener,
+      channels,
+      undefined,
+      onReopen,
+    );
+    onOpen?.();
+    return new framer.ObservableStreamer(hardened);
+  };
+
+const createFrameStreamer = (frames: framer.Frame[]) =>
+  wrapOpener(async () => {
+    let i = 0;
+    return new MockHardenedStreamer([], async () => {
+      if (i >= frames.length) return { done: true, value: undefined };
+      return { done: false, value: frames[i++] };
+    });
   });
-};
 
 const createStoreConfig = <T>(
   channel: string,
@@ -127,7 +140,7 @@ const createStreamerArgs = (
   handleError: createBasicErrorHandler(),
   storeConfig: { labels: { listeners: [] } },
   store: {},
-  openStreamer: async () => new MockHardenedStreamer([]),
+  openStreamer: wrapOpener(async () => new MockHardenedStreamer([])),
   ...overrides,
 });
 
@@ -143,7 +156,7 @@ describe("openStreamer", () => {
   it("should open a streamer on a set of channels", async () => {
     const onChange = vi.fn();
     const schema = z.object({ name: z.string() });
-    const frames = [new Frame({ test: new Series([{ name: "test" }]) })];
+    const frames = [new framer.Frame({ test: new Series([{ name: "test" }]) })];
 
     const closeStreamer = await openStreamer(
       createStreamerArgs({
@@ -164,7 +177,7 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const handleError = createMockErrorHandler();
       const schema = z.object({ name: z.string(), age: z.number() });
-      const frames = [new Frame({ test: new Series([{ name: "test" }]) })];
+      const frames = [new framer.Frame({ test: new Series([{ name: "test" }]) })];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
@@ -186,11 +199,11 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       const frames = [
-        new Frame({
+        new framer.Frame({
           test: new Series([{ value: 1 }]),
           test2: new Series([{ value: 2 }]),
         }),
-        new Frame({ test2: new Series([{ value: 3 }]) }),
+        new framer.Frame({ test2: new Series([{ value: 3 }]) }),
       ];
 
       const storeConfig: cache.StoreConfig<cache.Stores> = {
@@ -225,14 +238,14 @@ describe("openStreamer", () => {
         createStreamerArgs({
           handleError,
           storeConfig: createStoreConfig("test", schema, onChange),
-          openStreamer: async () => {
+          openStreamer: wrapOpener(async () => {
             let i = 0;
             return new MockHardenedStreamer([], async () => {
               if (i === 0) {
                 i++;
                 return {
                   done: false,
-                  value: new Frame({ test: new Series([{ value: 1 }]) }),
+                  value: new framer.Frame({ test: new Series([{ value: 1 }]) }),
                 };
               }
               if (i === 1) {
@@ -241,7 +254,7 @@ describe("openStreamer", () => {
               }
               return { done: true, value: undefined };
             });
-          },
+          }),
         }),
       );
 
@@ -259,8 +272,8 @@ describe("openStreamer", () => {
       const listener2 = vi.fn();
       const schema = z.object({ value: z.number() });
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
       ];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
@@ -291,9 +304,9 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
-        new Frame({ test: new Series([{ value: 3 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -331,8 +344,8 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -375,8 +388,8 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -429,9 +442,9 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
-        new Frame({ test: new Series([{ value: 3 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -479,10 +492,10 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
-        new Frame({ test: new Series([{ value: 3 }]) }),
-        new Frame({ test: new Series([{ value: 4 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 3 }]) }),
+        new framer.Frame({ test: new Series([{ value: 4 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -530,7 +543,7 @@ describe("openStreamer", () => {
       };
 
       // Data that satisfies schema1 but not schema2
-      const frames = [new Frame({ test: new Series([{ value: 123 }]) })];
+      const frames = [new framer.Frame({ test: new Series([{ value: 123 }]) })];
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
@@ -580,7 +593,7 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({
+        new framer.Frame({
           user_create: new Series([{ id: 1 }]),
           user_update: new Series([{ id: 2 }]),
           user_delete: new Series([{ id: 3 }]),
@@ -631,7 +644,7 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame(
+        new framer.Frame(
           Object.fromEntries(
             channels.map((channel, index) => [channel, new Series([{ id: index }])]),
           ),
@@ -696,7 +709,7 @@ describe("openStreamer", () => {
 
       // Simulate updating a relationship (delete old, create new)
       const frames = [
-        new Frame({
+        new framer.Frame({
           relationship_create: new Series([
             { parentId: 1, childId: 2, type: "updated" },
           ]),
@@ -751,7 +764,7 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({
+        new framer.Frame({
           user_delete: new Series([{ id: 1 }]),
           role_delete: new Series([{ id: 2 }]),
           permission_delete: new Series([{ id: 3 }]),
@@ -793,7 +806,7 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({
+        new framer.Frame({
           user_create: new Series([{ id: 1 }]),
           role_update: new Series([{ id: 2 }]),
           permission_grant: new Series([{ id: 3 }]),
@@ -842,7 +855,7 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame(
+        new framer.Frame(
           Object.fromEntries(
             channels.map((channel, index) => [channel, new Series([{ id: index }])]),
           ),
@@ -886,7 +899,9 @@ describe("openStreamer", () => {
       ];
 
       const frames = [
-        new Frame({ test: new Series({ data: jsonData, dataType: DataType.JSON }) }),
+        new framer.Frame({
+          test: new Series({ data: jsonData, dataType: DataType.JSON }),
+        }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -917,7 +932,9 @@ describe("openStreamer", () => {
       const schema = z.number();
 
       const frames = [
-        new Frame({ test: new Series({ data: [42, 84], dataType: DataType.FLOAT64 }) }),
+        new framer.Frame({
+          test: new Series({ data: [42, 84], dataType: DataType.FLOAT64 }),
+        }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -940,7 +957,7 @@ describe("openStreamer", () => {
       const schema = z.string();
 
       const frames = [
-        new Frame({
+        new framer.Frame({
           test: new Series({
             data: ["hello", "world"],
             dataType: DataType.STRING,
@@ -966,7 +983,7 @@ describe("openStreamer", () => {
     it("should handle empty series gracefully", async () => {
       const onChange = vi.fn();
       const schema = z.object({ value: z.number() });
-      const frames = [new Frame({ other_channel: new Series([{ value: 42 }]) })];
+      const frames = [new framer.Frame({ other_channel: new Series([{ value: 42 }]) })];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
@@ -982,7 +999,7 @@ describe("openStreamer", () => {
       const onChange = vi.fn();
       const handleError = createMockErrorHandler();
       const schema = z.object({ value: z.number() });
-      const frames = [new Frame({ test: new Series([{ invalid: "data" }]) })];
+      const frames = [new framer.Frame({ test: new Series([{ invalid: "data" }]) })];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           handleError,
@@ -1017,7 +1034,7 @@ describe("openStreamer", () => {
       };
 
       const frames = [
-        new Frame({
+        new framer.Frame({
           json_channel: new Series({
             data: [{ id: 1, name: "test" }],
             dataType: DataType.JSON,
@@ -1051,7 +1068,7 @@ describe("openStreamer", () => {
       const handleError = createMockErrorHandler();
       const schema = z.number();
       const frames = [
-        new Frame({
+        new framer.Frame({
           test: new Series({
             data: ["not_a_number"],
             dataType: DataType.STRING,
@@ -1084,10 +1101,10 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
-          openStreamer: async () => {
+          openStreamer: wrapOpener(async () => {
             mockStreamer = new MockHardenedStreamer([]);
             return mockStreamer;
-          },
+          }),
         }),
       );
 
@@ -1108,8 +1125,8 @@ describe("openStreamer", () => {
 
       // Simple test with fixed frames
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
       ];
 
       const closeStreamer = await openStreamer(
@@ -1140,7 +1157,7 @@ describe("openStreamer", () => {
       const schema = z.object({ value: z.number() });
 
       // First streamer
-      const frames1 = [new Frame({ test: new Series([{ value: 1 }]) })];
+      const frames1 = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
       const closeStreamer1 = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange1),
@@ -1155,7 +1172,7 @@ describe("openStreamer", () => {
       await closeStreamer1();
 
       // Second streamer with different data
-      const frames2 = [new Frame({ test: new Series([{ value: 2 }]) })];
+      const frames2 = [new framer.Frame({ test: new Series([{ value: 2 }]) })];
       const closeStreamer2 = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange2),
@@ -1180,10 +1197,10 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
-          openStreamer: async () => {
+          openStreamer: wrapOpener(async () => {
             mockStreamer = new MockHardenedStreamer([]);
             return mockStreamer;
-          },
+          }),
         }),
       );
 
@@ -1205,14 +1222,14 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           storeConfig: createStoreConfig("test", schema, onChange),
-          openStreamer: async () => {
+          openStreamer: wrapOpener(async () => {
             const mockStreamer = new MockHardenedStreamer([]);
             // Make close throw an error
             mockStreamer.closeVi.mockImplementation(() => {
               throw new Error("Close error");
             });
             return mockStreamer;
-          },
+          }),
         }),
       );
 
@@ -1226,9 +1243,9 @@ describe("openStreamer", () => {
 
       // Use a simple frame sequence
       const frames = [
-        new Frame({ test: new Series([{ value: 1 }]) }),
-        new Frame({ test: new Series([{ value: 2 }]) }),
-        new Frame({ test: new Series([{ value: 3 }]) }),
+        new framer.Frame({ test: new Series([{ value: 1 }]) }),
+        new framer.Frame({ test: new Series([{ value: 2 }]) }),
+        new framer.Frame({ test: new Series([{ value: 3 }]) }),
       ];
 
       const closeStreamer = await openStreamer(

@@ -11,7 +11,6 @@ import {
   checkConnection,
   type CheckConnectionParams,
   type connection,
-  newConnectionChecker,
 } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
@@ -21,15 +20,9 @@ export type UseConnectionStateQuery = CheckConnectionParams;
 export const { useRetrieve: useConnectionState } = Flux.createRetrieve<
   UseConnectionStateQuery,
   connection.State,
-  {},
   true
 >({
   name: "connectionState",
   allowDisconnected: true,
   retrieve: async ({ query }) => await checkConnection(query),
-  mountListeners: ({ onChange, query }) => {
-    const checker = newConnectionChecker(query);
-    checker.onChange(onChange);
-    return () => checker.stop();
-  },
 });

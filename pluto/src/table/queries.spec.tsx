@@ -96,7 +96,7 @@ describe("table queries", () => {
       expect(retrieved.name).toEqual("created_table");
     });
 
-    it("should store created table in flux store", async () => {
+    it("should cache the created table for subsequent retrieves", async () => {
       const project = await client.projects.create({
         name: "store_project",
         layout: {},
@@ -543,7 +543,7 @@ describe("table queries", () => {
       await utils.findByTestId("loaded");
     };
 
-    it("populates the store so downstream selectors resolve", async () => {
+    it("populates the cache so downstream selectors resolve", async () => {
       const proj = await client.projects.create({
         name: `ensure_ws_${uuid.create()}`,
         layout: {},

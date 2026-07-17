@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Schematic } from "@/feature/schematic";
 import { type Panel } from "@/platform/panel";
-import { createGrantedFluxStore, createTestFluxStore, uniqueName } from "@/testutil";
+import { awaitGranted, uniqueName } from "@/testutil";
 
 const V0_ZERO = {
   version: "0.0.0",
@@ -389,11 +389,7 @@ describe("schematic import", () => {
   describe("ingest", () => {
     it("creates the schematic on the cluster and opens its tab", async () => {
       const client = createTestClient();
-      const store = await createGrantedFluxStore(
-        client,
-        schematic.TYPE_ONTOLOGY_ID,
-        "update",
-      );
+      await awaitGranted(client, schematic.TYPE_ONTOLOGY_ID, "update");
       const project = await client.projects.create({
         name: uniqueName("proj"),
         layout: {},
@@ -403,7 +399,6 @@ describe("schematic import", () => {
       const id = await Schematic.ingest(TYPED_EXPORT, {
         name,
         openTab,
-        store,
         client,
         projectKey: project.key,
         fileName: "test.json",
@@ -414,16 +409,17 @@ describe("schematic import", () => {
       const created = await client.schematics.retrieve({ key: id.key });
       expect(created.name).toBe(name);
       expect(created.nodes).toHaveLength(1);
-      expect(store.schematics.get(id.key)?.name).toBe(name);
+      const cached = client.schematics.getCached({ key: id.key });
+      if (cached?.variant !== "changed")
+        throw new Error("expected a cached schematic");
+      expect(cached.data.name).toBe(name);
     });
 
     it("rejects the import when the permission cache has no grant", async () => {
-      const store = createTestFluxStore(null);
       await expect(
         Schematic.ingest(TYPED_EXPORT, {
           name: "denied",
           openTab: vi.fn<Panel.OpenTab>(),
-          store,
           client: null,
           projectKey: "project-1",
           fileName: "test.json",

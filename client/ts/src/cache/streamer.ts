@@ -13,7 +13,7 @@ import type z from "zod";
 import { type ChannelListener, type StoreConfig, type Stores } from "@/cache/store";
 import { type AsyncErrorHandler } from "@/cache/types";
 import { NotFoundError } from "@/errors";
-import { framer } from "@/framer";
+import { type framer } from "@/framer";
 
 /**
  * Sorts channel names to ensure deletions are processed before other changes.
@@ -32,6 +32,30 @@ const channelNameSort = (a: string, b: string) => {
   return 0;
 };
 
+/** An opened change stream: frame notifications plus close. */
+export interface ObservableStream {
+  onChange: (handler: (frame: framer.Frame) => void) => void;
+  close: () => Promise<void>;
+}
+
+/**
+ * Hooks passed to a {@link StreamOpener}. The implementation must fire onOpen
+ * after the stream is live but before any frame is delivered, and onReopen
+ * after every successful reconnect (not the initial open).
+ */
+export interface StreamOpenerHooks {
+  onOpen?: () => void;
+  onReopen?: () => void;
+}
+
+/**
+ * Opens a change stream over the given channels. Injected at construction so
+ * the cache carries no dependency on the streaming transport.
+ */
+export interface StreamOpener {
+  (channels: string[], hooks: StreamOpenerHooks): Promise<ObservableStream>;
+}
+
 /**
  * Arguments for opening a cache streamer.
  *
@@ -42,8 +66,8 @@ export interface StreamerParams<ScopedStores extends Stores> {
   handleError: AsyncErrorHandler;
   /** Configuration defining store structure and listeners */
   storeConfig: StoreConfig<ScopedStores>;
-  /** Function to open a frame streamer */
-  openStreamer: framer.StreamOpener;
+  /** Function to open the change stream */
+  openStreamer: StreamOpener;
   /** The stores to update with streamed data */
   store: ScopedStores;
   /**
@@ -88,8 +112,8 @@ export const createStreamer = <ScopedStores extends Stores>({
   onOpen,
   onReopen,
 }: StreamerParams<ScopedStores>): Streamer => {
-  let opened: Promise<framer.ObservableStreamer> | null = null;
-  const open = async (): Promise<framer.ObservableStreamer> => {
+  let opened: Promise<ObservableStream> | null = null;
+  const open = async (): Promise<ObservableStream> => {
     const configValues = Object.values(storeConfig);
     const channels = unique.unique(
       configValues.flatMap(({ listeners }) => listeners.map(({ channel }) => channel)),
@@ -104,16 +128,7 @@ export const createStreamer = <ScopedStores extends Stores>({
         listenersForChannels[channel] = [...(listenersForChannels[channel] || []), lis];
       }),
     );
-    const hardenedStreamer = await framer.HardenedStreamer.open(
-      streamOpener,
-      channels,
-      undefined,
-      onReopen,
-    );
-    // Reads start when the ObservableStreamer is constructed below, so this
-    // fires strictly before any frame or reconnect callback.
-    onOpen?.();
-    const observableStreamer = new framer.ObservableStreamer(hardenedStreamer);
+    const stream = await streamOpener(channels, { onOpen, onReopen });
     const handleChange = (frame: framer.Frame) => {
       const namesInFrame = [...frame.uniqueNames];
       namesInFrame.sort(channelNameSort);
@@ -141,8 +156,8 @@ export const createStreamer = <ScopedStores extends Stores>({
         `Failed to handle streamer change for ${strings.naturalLanguageJoin(namesInFrame)}`,
       );
     };
-    observableStreamer.onChange(handleChange);
-    return observableStreamer;
+    stream.onChange(handleChange);
+    return stream;
   };
   return {
     demand: async () => {

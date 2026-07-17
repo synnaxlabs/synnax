@@ -17,6 +17,16 @@ export interface FetchOptions {
   signal?: AbortSignal;
 }
 
+/** Options for write methods that apply the change locally before the send. */
+export interface WriteOptions<T = void> {
+  /**
+   * Called after the optimistic cache apply and before the network send, with
+   * the optimistically applied value. UI layers use it to react to a write
+   * (e.g. open a tab) without waiting on the server.
+   */
+  onOptimistic?: (value: T) => Promise<void> | void;
+}
+
 /**
  * Plain-data shape used to address a record in the cache query system. Queries
  * are hashed by {@link hashQuery} to produce stable cache keys, so they must be

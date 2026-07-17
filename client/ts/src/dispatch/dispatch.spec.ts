@@ -595,8 +595,7 @@ describe("dispatch.Controller", () => {
       prime(store, "k", { a: 0 });
       const tx = store.beginTransaction("k", send);
       tx.add({ type: "set", key: "a", value: 1 });
-      const ok = await tx.commit();
-      expect(ok).toBe(false);
+      await expect(tx.commit()).rejects.toThrow("boom");
       expect(store.get("k")).toEqual({ values: { a: 0 } });
       expect(store.hasUndo("k")).toBe(false);
     });

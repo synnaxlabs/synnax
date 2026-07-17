@@ -10,8 +10,8 @@
 import { type record } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type cache } from "@/cache";
-import { createStore, orderByKeys, ScopedUnaryStore, scopeStore } from "@/cache/store";
+import { cache } from "@/cache";
+import { createStore, scopeStore } from "@/cache/store";
 
 const basicHandleError = vi.fn((excOrFunc: any, _?: string) => {
   if (typeof excOrFunc === "function") void excOrFunc();
@@ -36,9 +36,9 @@ describe("Base Store", () => {
     describe("Basic Operations", () => {
       describe("Set and Get", () => {
         it("should set and get a value", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           expect(store.get("key1")).toBe("value1");
         });
@@ -48,7 +48,7 @@ describe("Base Store", () => {
             key: string;
             value: string;
           }
-          const store = new ScopedUnaryStore<string, KeyedValue>(
+          const store = new cache.ScopedUnaryStore<string, KeyedValue>(
             basicHandleError,
           ).scope("scope");
 
@@ -63,7 +63,7 @@ describe("Base Store", () => {
             key: string;
             value: string;
           }
-          const store = new ScopedUnaryStore<string, KeyedValue>(
+          const store = new cache.ScopedUnaryStore<string, KeyedValue>(
             basicHandleError,
           ).scope("scope");
 
@@ -80,34 +80,34 @@ describe("Base Store", () => {
         });
 
         it("should update an existing value", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key1", "value2");
           expect(store.get("key1")).toBe("value2");
         });
 
         it("should handle setter functions", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "initial");
           store.set("key1", (prev) => `${prev}_updated`);
           expect(store.get("key1")).toBe("initial_updated");
         });
 
         it("should return undefined for non-existent keys", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           expect(store.get("nonexistent")).toBeUndefined();
         });
 
         it("should get multiple values by keys array", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key2", "value2");
           store.set("key3", "value3");
@@ -117,9 +117,9 @@ describe("Base Store", () => {
         });
 
         it("should filter values using a predicate", () => {
-          const store = new ScopedUnaryStore<string, number>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, number>(
+            basicHandleError,
+          ).scope("scope");
           store.set("a", 1);
           store.set("b", 2);
           store.set("c", 3);
@@ -130,9 +130,9 @@ describe("Base Store", () => {
         });
 
         it("should not set null values", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key1", () => null as any);
           expect(store.get("key1")).toBe("value1");
@@ -146,7 +146,7 @@ describe("Base Store", () => {
             data: number;
           }
 
-          const store = new ScopedUnaryStore<string, ComplexValue>(
+          const store = new cache.ScopedUnaryStore<string, ComplexValue>(
             basicHandleError,
           ).scope("scope");
 
@@ -177,9 +177,9 @@ describe("Base Store", () => {
             value: number;
           }
 
-          const store = new ScopedUnaryStore<string, KeyedData>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, KeyedData>(
+            basicHandleError,
+          ).scope("scope");
 
           // Set using key-value pair
           store.set("key1", { key: "key1", value: 100 });
@@ -207,7 +207,7 @@ describe("Base Store", () => {
         }
 
         it("should insert a single value when the key is absent", () => {
-          const store = new ScopedUnaryStore<string, KeyedValue>(
+          const store = new cache.ScopedUnaryStore<string, KeyedValue>(
             basicHandleError,
           ).scope("scope");
           store.setIfAbsent({ key: "key1", value: "value1" });
@@ -215,7 +215,7 @@ describe("Base Store", () => {
         });
 
         it("should leave an existing value untouched", () => {
-          const store = new ScopedUnaryStore<string, KeyedValue>(
+          const store = new cache.ScopedUnaryStore<string, KeyedValue>(
             basicHandleError,
           ).scope("scope");
           store.set({ key: "key1", value: "original" });
@@ -224,7 +224,7 @@ describe("Base Store", () => {
         });
 
         it("should insert only the absent keys from an array", () => {
-          const store = new ScopedUnaryStore<string, KeyedValue>(
+          const store = new cache.ScopedUnaryStore<string, KeyedValue>(
             basicHandleError,
           ).scope("scope");
           store.set({ key: "key1", value: "original" });
@@ -237,7 +237,9 @@ describe("Base Store", () => {
         });
 
         it("should not notify set listeners for keys that already exist", () => {
-          const baseStore = new ScopedUnaryStore<string, KeyedValue>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, KeyedValue>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const setListener = vi.fn();
@@ -257,7 +259,7 @@ describe("Base Store", () => {
         });
 
         it("should only roll back the keys it inserted", () => {
-          const store = new ScopedUnaryStore<string, KeyedValue>(
+          const store = new cache.ScopedUnaryStore<string, KeyedValue>(
             basicHandleError,
           ).scope("scope");
           store.set({ key: "key1", value: "original" });
@@ -275,9 +277,9 @@ describe("Base Store", () => {
       describe("Rollback Functionality", () => {
         describe("Set Rollback", () => {
           it("should rollback a set operation for new entry", () => {
-            const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-              "scope",
-            );
+            const store = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            ).scope("scope");
             const rollback = store.set("key1", "value1");
             expect(store.get("key1")).toBe("value1");
 
@@ -286,9 +288,9 @@ describe("Base Store", () => {
           });
 
           it("should rollback a set operation for existing entry", () => {
-            const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-              "scope",
-            );
+            const store = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            ).scope("scope");
             store.set("key1", "initial");
             const rollback = store.set("key1", "updated");
             expect(store.get("key1")).toBe("updated");
@@ -302,7 +304,7 @@ describe("Base Store", () => {
               key: string;
               value: string;
             }
-            const store = new ScopedUnaryStore<string, KeyedString>(
+            const store = new cache.ScopedUnaryStore<string, KeyedString>(
               basicHandleError,
             ).scope("scope");
             const rollback = store.set([
@@ -326,7 +328,7 @@ describe("Base Store", () => {
               key: string;
               value: string;
             }
-            const store = new ScopedUnaryStore<string, KeyedString>(
+            const store = new cache.ScopedUnaryStore<string, KeyedString>(
               basicHandleError,
             ).scope("scope");
 
@@ -344,7 +346,7 @@ describe("Base Store", () => {
               key: string;
               value: string;
             }
-            const store = new ScopedUnaryStore<string, KeyedString>(
+            const store = new cache.ScopedUnaryStore<string, KeyedString>(
               basicHandleError,
             ).scope("scope");
 
@@ -358,7 +360,9 @@ describe("Base Store", () => {
           });
 
           it("should notify delete listeners when rolling back new entry", () => {
-            const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+            const baseStore = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            );
             const scope1 = baseStore.scope("scope1");
             const scope2 = baseStore.scope("scope2");
             const deleteListener = vi.fn();
@@ -372,7 +376,9 @@ describe("Base Store", () => {
           });
 
           it("should notify set listeners when rolling back updated entry", () => {
-            const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+            const baseStore = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            );
             const scope1 = baseStore.scope("scope1");
             const scope2 = baseStore.scope("scope2");
             const setListener = vi.fn();
@@ -390,9 +396,9 @@ describe("Base Store", () => {
 
         describe("Delete Rollback", () => {
           it("should rollback a delete operation", () => {
-            const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-              "scope",
-            );
+            const store = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            ).scope("scope");
             store.set("key1", "value1");
             const rollback = store.delete("key1");
             expect(store.get("key1")).toBeUndefined();
@@ -402,9 +408,9 @@ describe("Base Store", () => {
           });
 
           it("should rollback multiple delete operations", () => {
-            const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-              "scope",
-            );
+            const store = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            ).scope("scope");
             store.set("key1", "value1");
             store.set("key2", "value2");
             store.set("key3", "value3");
@@ -421,9 +427,9 @@ describe("Base Store", () => {
           });
 
           it("should rollback filter-based delete", () => {
-            const store = new ScopedUnaryStore<string, number>(basicHandleError).scope(
-              "scope",
-            );
+            const store = new cache.ScopedUnaryStore<string, number>(
+              basicHandleError,
+            ).scope("scope");
             store.set("a", 1);
             store.set("b", 2);
             store.set("c", 3);
@@ -443,7 +449,9 @@ describe("Base Store", () => {
           });
 
           it("should notify set listeners when rolling back delete", () => {
-            const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+            const baseStore = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            );
             const scope1 = baseStore.scope("scope1");
             const scope2 = baseStore.scope("scope2");
             const setListener = vi.fn();
@@ -458,7 +466,7 @@ describe("Base Store", () => {
           });
 
           it("should preserve variant during delete rollback", () => {
-            const baseStore = new ScopedUnaryStore<string, string, "variant">(
+            const baseStore = new cache.ScopedUnaryStore<string, string, "variant">(
               basicHandleError,
             );
             const scope1 = baseStore.scope("scope1");
@@ -477,9 +485,9 @@ describe("Base Store", () => {
 
         describe("Complex Rollback Scenarios", () => {
           it("should handle nested rollbacks", () => {
-            const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-              "scope",
-            );
+            const store = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            ).scope("scope");
             const rollback1 = store.set("key1", "value1");
             const rollback2 = store.set("key1", "value2");
             const rollback3 = store.delete("key1");
@@ -497,7 +505,7 @@ describe("Base Store", () => {
           });
 
           it("should handle rollback of no-op operations", () => {
-            const store = new ScopedUnaryStore<string, string>(
+            const store = new cache.ScopedUnaryStore<string, string>(
               basicHandleError,
               (a, b) => a === b,
             ).scope("scope");
@@ -510,9 +518,9 @@ describe("Base Store", () => {
           });
 
           it("should handle rollback of delete on non-existent keys", () => {
-            const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-              "scope",
-            );
+            const store = new cache.ScopedUnaryStore<string, string>(
+              basicHandleError,
+            ).scope("scope");
             const rollback = store.delete("nonexistent");
 
             expect(() => rollback()).not.toThrow();
@@ -523,9 +531,9 @@ describe("Base Store", () => {
 
       describe("Delete", () => {
         it("should delete an entry", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           expect(store.get("key1")).toBe("value1");
 
@@ -534,16 +542,16 @@ describe("Base Store", () => {
         });
 
         it("should handle deleting non-existent keys", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           expect(() => store.delete("nonexistent")).not.toThrow();
         });
 
         it("should delete entries using a filter function", () => {
-          const store = new ScopedUnaryStore<string, number>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, number>(
+            basicHandleError,
+          ).scope("scope");
           store.set("a", 1);
           store.set("b", 2);
           store.set("c", 3);
@@ -560,9 +568,9 @@ describe("Base Store", () => {
         });
 
         it("should delete entries using a filter with key parameter", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key2", "value2");
           store.set("test1", "test1");
@@ -583,9 +591,9 @@ describe("Base Store", () => {
             age: number;
           }
 
-          const store = new ScopedUnaryStore<string, User>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, User>(
+            basicHandleError,
+          ).scope("scope");
 
           store.set("user1", { id: "1", name: "Alice", age: 25 });
           store.set("user2", { id: "2", name: "Bob", age: 35 });
@@ -601,9 +609,9 @@ describe("Base Store", () => {
         });
 
         it("should delete nothing when filter matches no entries", () => {
-          const store = new ScopedUnaryStore<string, number>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, number>(
+            basicHandleError,
+          ).scope("scope");
           store.set("a", 1);
           store.set("b", 2);
           store.set("c", 3);
@@ -616,9 +624,9 @@ describe("Base Store", () => {
         });
 
         it("should delete all entries when filter matches all", () => {
-          const store = new ScopedUnaryStore<string, number>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, number>(
+            basicHandleError,
+          ).scope("scope");
           store.set("a", 1);
           store.set("b", 2);
           store.set("c", 3);
@@ -632,7 +640,7 @@ describe("Base Store", () => {
         });
 
         it("should combine filter with value and key checks", () => {
-          const store = new ScopedUnaryStore<
+          const store = new cache.ScopedUnaryStore<
             string,
             { value: number; active: boolean }
           >(basicHandleError).scope("scope");
@@ -653,16 +661,16 @@ describe("Base Store", () => {
 
       describe("List", () => {
         it("should return empty array when store is empty", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           expect(store.list()).toEqual([]);
         });
 
         it("should return all values in the store", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key2", "value2");
           store.set("key3", "value3");
@@ -675,9 +683,9 @@ describe("Base Store", () => {
         });
 
         it("should return values after deletions", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key2", "value2");
           store.set("key3", "value3");
@@ -691,9 +699,9 @@ describe("Base Store", () => {
         });
 
         it("should return values after updates", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key2", "value2");
           store.set("key1", "updated1");
@@ -712,9 +720,9 @@ describe("Base Store", () => {
             age: number;
           }
 
-          const store = new ScopedUnaryStore<string, User>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, User>(
+            basicHandleError,
+          ).scope("scope");
           const user1: User = { id: "1", name: "John", age: 30 };
           const user2: User = { id: "2", name: "Jane", age: 25 };
           const user3: User = { id: "3", name: "Bob", age: 35 };
@@ -731,7 +739,9 @@ describe("Base Store", () => {
         });
 
         it("should return values across different scopes", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const scope3 = baseStore.scope("scope3");
@@ -754,9 +764,10 @@ describe("Base Store", () => {
         });
 
         it("should return values after bulk set operations", () => {
-          const store = new ScopedUnaryStore<string, { key: string; value: string }>(
-            basicHandleError,
-          ).scope("scope");
+          const store = new cache.ScopedUnaryStore<
+            string,
+            { key: string; value: string }
+          >(basicHandleError).scope("scope");
 
           const items = [
             { key: "key1", value: "value1" },
@@ -774,9 +785,9 @@ describe("Base Store", () => {
         });
 
         it("should return values after bulk delete operations", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key2", "value2");
           store.set("key3", "value3");
@@ -791,7 +802,9 @@ describe("Base Store", () => {
         });
 
         it("should return empty array after clear", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope = baseStore.scope("scope");
 
           scope.set("key1", "value1");
@@ -806,9 +819,9 @@ describe("Base Store", () => {
         });
 
         it("should work with number keys", () => {
-          const store = new ScopedUnaryStore<number, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<number, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set(1, "value1");
           store.set(2, "value2");
           store.set(3, "value3");
@@ -821,9 +834,9 @@ describe("Base Store", () => {
         });
 
         it("should handle mixed operations correctly", () => {
-          const store = new ScopedUnaryStore<string, number>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, number>(
+            basicHandleError,
+          ).scope("scope");
 
           store.set("a", 1);
           store.set("b", 2);
@@ -842,9 +855,9 @@ describe("Base Store", () => {
         });
 
         it("should return independent arrays on each call", () => {
-          const store = new ScopedUnaryStore<string, string>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          ).scope("scope");
           store.set("key1", "value1");
           store.set("key2", "value2");
 
@@ -863,7 +876,7 @@ describe("Base Store", () => {
         it("should preserve values with equal function check", () => {
           const equalFunc = (a: string, b: string) =>
             a.toLowerCase() === b.toLowerCase();
-          const store = new ScopedUnaryStore<string, string>(
+          const store = new cache.ScopedUnaryStore<string, string>(
             basicHandleError,
             equalFunc,
           ).scope("scope");
@@ -883,7 +896,9 @@ describe("Base Store", () => {
     describe("Event Listeners", () => {
       describe("OnSet Listeners", () => {
         it("should notify listeners from different scopes when a value is set", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener = vi.fn();
@@ -895,7 +910,9 @@ describe("Base Store", () => {
         });
 
         it("should not notify listeners from the same scope", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const listener = vi.fn();
 
@@ -906,7 +923,9 @@ describe("Base Store", () => {
         });
 
         it("should notify only for specific key when key filter is provided", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener1 = vi.fn();
@@ -925,7 +944,9 @@ describe("Base Store", () => {
         });
 
         it("should remove listener when destructor is called", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener = vi.fn();
@@ -940,7 +961,9 @@ describe("Base Store", () => {
         });
 
         it("should handle multiple listeners from different scopes", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const scope3 = baseStore.scope("scope3");
@@ -957,7 +980,9 @@ describe("Base Store", () => {
         });
 
         it("should handle mixed scope listeners correctly", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener1 = vi.fn();
@@ -981,7 +1006,7 @@ describe("Base Store", () => {
 
         it("should call error handler when a listener throws a synchronous error", async () => {
           const errorHandler = vi.fn();
-          const baseStore = new ScopedUnaryStore<string, string>(errorHandler);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(errorHandler);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const error = new Error("Listener error");
@@ -1002,7 +1027,7 @@ describe("Base Store", () => {
 
         it("should call error handler when a listener returns a rejected promise", async () => {
           const errorHandler = vi.fn();
-          const baseStore = new ScopedUnaryStore<string, string>(errorHandler);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(errorHandler);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const error = new Error("Async listener error");
@@ -1022,7 +1047,7 @@ describe("Base Store", () => {
         });
 
         it("should continue notifying other listeners when one throws an error", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(squashError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener1 = vi.fn(() => {
@@ -1044,7 +1069,7 @@ describe("Base Store", () => {
         });
 
         it("should handle errors from multiple listeners", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(squashError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener1 = vi.fn(() => {
@@ -1068,7 +1093,9 @@ describe("Base Store", () => {
 
       describe("OnDelete Listeners", () => {
         it("should notify listeners from different scopes when a value is deleted", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener = vi.fn();
@@ -1081,7 +1108,9 @@ describe("Base Store", () => {
         });
 
         it("should not notify listeners from the same scope when deleted", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const listener = vi.fn();
 
@@ -1093,7 +1122,9 @@ describe("Base Store", () => {
         });
 
         it("should notify only for specific key when key filter is provided", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener1 = vi.fn();
@@ -1115,7 +1146,9 @@ describe("Base Store", () => {
         });
 
         it("should remove listener when destructor is called", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener = vi.fn();
@@ -1133,7 +1166,7 @@ describe("Base Store", () => {
 
         it("should call error handler when a listener throws a synchronous error", async () => {
           const errorHandler = vi.fn();
-          const baseStore = new ScopedUnaryStore<string, string>(errorHandler);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(errorHandler);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const error = new Error("Delete listener error");
@@ -1155,7 +1188,7 @@ describe("Base Store", () => {
 
         it("should call error handler when a listener returns a rejected promise", async () => {
           const errorHandler = vi.fn();
-          const baseStore = new ScopedUnaryStore<string, string>(errorHandler);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(errorHandler);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const error = new Error("Async delete listener error");
@@ -1176,7 +1209,7 @@ describe("Base Store", () => {
         });
 
         it("should continue notifying other listeners when one throws an error", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(squashError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener1 = vi.fn(() => {
@@ -1199,7 +1232,7 @@ describe("Base Store", () => {
         });
 
         it("should handle errors from multiple delete listeners", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(squashError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(squashError);
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener1 = vi.fn(() => {
@@ -1222,7 +1255,9 @@ describe("Base Store", () => {
         });
 
         it("should handle mixed scope delete listeners correctly", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener1 = vi.fn();
@@ -1247,7 +1282,9 @@ describe("Base Store", () => {
         });
 
         it("should notify listeners for each item deleted by filter", () => {
-          const baseStore = new ScopedUnaryStore<string, number>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, number>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener = vi.fn();
@@ -1267,7 +1304,9 @@ describe("Base Store", () => {
         });
 
         it("should notify key-specific listeners only for matching filtered deletes", () => {
-          const baseStore = new ScopedUnaryStore<string, number>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, number>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listenerA = vi.fn();
@@ -1290,7 +1329,9 @@ describe("Base Store", () => {
         });
 
         it("should not notify any listeners when filter matches nothing", () => {
-          const baseStore = new ScopedUnaryStore<string, number>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, number>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const listener = vi.fn();
@@ -1307,7 +1348,9 @@ describe("Base Store", () => {
         });
 
         it("should handle filter delete with mixed listener types", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const globalListener = vi.fn();
@@ -1340,9 +1383,9 @@ describe("Base Store", () => {
         }
 
         it("should handle object state", () => {
-          const store = new ScopedUnaryStore<string, User>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, User>(
+            basicHandleError,
+          ).scope("scope");
           const user: User = { id: "1", name: "John", age: 30 };
 
           store.set("user1", user);
@@ -1350,9 +1393,9 @@ describe("Base Store", () => {
         });
 
         it("should update nested properties with setter function", () => {
-          const store = new ScopedUnaryStore<string, User>(basicHandleError).scope(
-            "scope",
-          );
+          const store = new cache.ScopedUnaryStore<string, User>(
+            basicHandleError,
+          ).scope("scope");
           const user: User = { id: "1", name: "John", age: 30 };
 
           store.set("user1", user);
@@ -1366,7 +1409,9 @@ describe("Base Store", () => {
 
       describe("Extra Arguments", () => {
         it("should allow the caller to pass extra arguments to listeners", () => {
-          const base = new ScopedUnaryStore<string, string, "cat">(basicHandleError);
+          const base = new cache.ScopedUnaryStore<string, string, "cat">(
+            basicHandleError,
+          );
           const scoped1 = base.scope("scope1");
           const scoped2 = base.scope("scope2");
           const listener = vi.fn();
@@ -1376,7 +1421,7 @@ describe("Base Store", () => {
         });
 
         it("should allow the caller to pass extra arguments on array sets", () => {
-          const base = new ScopedUnaryStore<string, record.Keyed<string>, "cat">(
+          const base = new cache.ScopedUnaryStore<string, record.Keyed<string>, "cat">(
             basicHandleError,
           );
           const scoped1 = base.scope("scope1");
@@ -1390,7 +1435,9 @@ describe("Base Store", () => {
 
       describe("Scoping and Cross-Scope Behavior", () => {
         it("should allow multiple scopes from the same base store", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const scope3 = baseStore.scope("scope3");
@@ -1405,7 +1452,9 @@ describe("Base Store", () => {
         });
 
         it("should properly handle cross-scope listener exclusion for sets", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const scope3 = baseStore.scope("scope3");
@@ -1435,7 +1484,9 @@ describe("Base Store", () => {
         });
 
         it("should properly handle cross-scope listener exclusion for deletes", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
           const scope3 = baseStore.scope("scope3");
@@ -1468,7 +1519,9 @@ describe("Base Store", () => {
         });
 
         it("should handle key-specific filtering with scoping exclusion", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
 
@@ -1492,7 +1545,9 @@ describe("Base Store", () => {
         });
 
         it("should handle listener cleanup correctly with scoping", () => {
-          const baseStore = new ScopedUnaryStore<string, string>(basicHandleError);
+          const baseStore = new cache.ScopedUnaryStore<string, string>(
+            basicHandleError,
+          );
           const scope1 = baseStore.scope("scope1");
           const scope2 = baseStore.scope("scope2");
 
@@ -1562,7 +1617,7 @@ describe("Base Store", () => {
         { key: 1, name: "a" },
         { key: 2, name: "b" },
       ];
-      const ordered = orderByKeys([1, 2, 3], items, getKey);
+      const ordered = cache.orderByKeys([1, 2, 3], items, getKey);
       expect(ordered.map((i) => i.name)).toEqual(["a", "b", "c"]);
     });
 
@@ -1571,7 +1626,7 @@ describe("Base Store", () => {
         { key: 1, name: "a" },
         { key: 3, name: "c" },
       ];
-      const ordered = orderByKeys([1, 2, 3], items, getKey);
+      const ordered = cache.orderByKeys([1, 2, 3], items, getKey);
       expect(ordered.map((i) => i.name)).toEqual(["a", "c"]);
     });
 
@@ -1580,17 +1635,17 @@ describe("Base Store", () => {
         { key: 1, name: "a" },
         { key: 2, name: "b" },
       ];
-      const ordered = orderByKeys([1, 2, 1, 2, 1], items, getKey);
+      const ordered = cache.orderByKeys([1, 2, 1, 2, 1], items, getKey);
       expect(ordered.map((i) => i.name)).toEqual(["a", "b"]);
     });
 
     it("should return an empty array when keys is empty", () => {
       const items: Item[] = [{ key: 1, name: "a" }];
-      expect(orderByKeys([], items, getKey)).toEqual([]);
+      expect(cache.orderByKeys([], items, getKey)).toEqual([]);
     });
 
     it("should return an empty array when items is empty", () => {
-      expect(orderByKeys([1, 2, 3], [], getKey)).toEqual([]);
+      expect(cache.orderByKeys([1, 2, 3], [], getKey)).toEqual([]);
     });
 
     it("should ignore items whose key is not present in keys", () => {
@@ -1598,7 +1653,7 @@ describe("Base Store", () => {
         { key: 1, name: "a" },
         { key: 99, name: "x" },
       ];
-      const ordered = orderByKeys([1], items, getKey);
+      const ordered = cache.orderByKeys([1], items, getKey);
       expect(ordered.map((i) => i.name)).toEqual(["a"]);
     });
 
@@ -1607,7 +1662,7 @@ describe("Base Store", () => {
         { key: "b", name: "two" },
         { key: "a", name: "one" },
       ];
-      const ordered = orderByKeys(["a", "b"], items, (i) => i.key);
+      const ordered = cache.orderByKeys(["a", "b"], items, (i) => i.key);
       expect(ordered.map((i) => i.name)).toEqual(["one", "two"]);
     });
 
@@ -1616,7 +1671,7 @@ describe("Base Store", () => {
         { key: 1, name: "first" },
         { key: 1, name: "second" },
       ];
-      const ordered = orderByKeys([1], items, getKey);
+      const ordered = cache.orderByKeys([1], items, getKey);
       // Map.set with the same key keeps the last value written — confirming contract.
       expect(ordered).toEqual([{ key: 1, name: "second" }]);
     });
@@ -1629,7 +1684,7 @@ describe("Tombstones", () => {
     name: string;
   }
   const newStore = () =>
-    new ScopedUnaryStore<string, Doc>(basicHandleError).scope("scope");
+    new cache.ScopedUnaryStore<string, Doc>(basicHandleError).scope("scope");
 
   it("should report unknown for a never-seen key", () => {
     const store = newStore();
@@ -1713,7 +1768,7 @@ describe("Tombstones", () => {
   });
 
   it("should clear tombstones on clear", () => {
-    const base = new ScopedUnaryStore<string, Doc>(basicHandleError);
+    const base = new cache.ScopedUnaryStore<string, Doc>(basicHandleError);
     const store = base.scope("scope");
     store.set({ key: "k1", name: "a" });
     store.delete("k1");

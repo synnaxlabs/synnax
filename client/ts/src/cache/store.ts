@@ -76,8 +76,6 @@ export class ScopedUnaryStore<
   SetExtra extends unknown | undefined = undefined,
 > {
   private readonly entries: Map<Key, Value> = new Map();
-  // Parallel to entries: a key is never in both maps. delete moves the value
-  // here; set clears it.
   private readonly tombstones: Map<Key, Tombstone<Value>> = new Map();
   private readonly setListeners: Map<SetHandler<Value, SetExtra>, ListenerScope<Key>> =
     new Map();

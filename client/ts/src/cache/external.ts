@@ -14,7 +14,16 @@ export {
   type EngineParams,
   Handle,
 } from "@/cache/engine";
-export { hashQuery, QueryCache, type QueryState } from "@/cache/queryCache";
+export {
+  type Cached,
+  type ChangeHandler,
+  hashQuery,
+  type MountParams,
+  Queries,
+  type QueriesParams,
+  type QueryState,
+} from "@/cache/queries";
+export { Rollback } from "@/cache/rollback";
 export {
   executeSetter,
   isSetter,
@@ -29,6 +38,7 @@ export {
   type EntryStatus,
   orderByKeys,
   partialUpdate,
+  ScopedUnaryStore,
   type SetHandler,
   type Store,
   type StoreConfig,
@@ -37,6 +47,11 @@ export {
   type UnaryStore,
   type UnaryStoreConfig,
 } from "@/cache/store";
+export {
+  type ObservableStream,
+  type StreamOpener,
+  type StreamOpenerHooks,
+} from "@/cache/streamer";
 export {
   type AsyncErrorHandler,
   COPY_VERBS,
@@ -52,4 +67,5 @@ export {
   SNAPSHOT_VERBS,
   UPDATE_VERBS,
   type Verbs,
+  type WriteOptions,
 } from "@/cache/types";

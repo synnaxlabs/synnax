@@ -450,15 +450,13 @@ export const parseImport = (
 
 export const ingest: Import.FileIngester = async (
   data,
-  { name, openTab, store, client, projectKey },
+  { name, openTab, client, projectKey },
 ) => {
-  if (!Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }))
+  if (!Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, client }))
     throw new Error("You do not have permission to import schematics");
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, name);
   const created = await client.schematics.create(projectKey, newPayload);
-  const { key } = created;
-  store.schematics.set(key, created);
-  openTab({ variant: "resource", resource: schematic.ontologyID(key) });
-  return schematic.ontologyID(key);
+  openTab({ variant: "resource", resource: schematic.ontologyID(created.key) });
+  return schematic.ontologyID(created.key);
 };

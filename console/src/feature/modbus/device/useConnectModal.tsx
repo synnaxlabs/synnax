@@ -52,11 +52,7 @@ const INITIAL_VALUES: Device = {
 const beforeValidate = ({
   get,
   set,
-}: Flux.BeforeValidateParams<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema,
-  PDevice.FluxSubStore
->) => {
+}: Flux.BeforeValidateParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
   const host = get<string>("properties.connection.host").value;
   const port = get<number>("properties.connection.port").value;
   set("location", `${host}:${port}`);
@@ -65,16 +61,10 @@ const beforeValidate = ({
 const beforeSave = async ({
   client,
   get,
-  store,
   set,
-}: Flux.FormBeforeSaveParams<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema,
-  PDevice.FluxSubStore
->) => {
+}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
   const scanTask = await Task.retrieveSingle({
     client,
-    store,
     query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
     schemas: SCAN_SCHEMAS,
   });

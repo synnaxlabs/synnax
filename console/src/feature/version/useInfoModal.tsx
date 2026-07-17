@@ -23,7 +23,6 @@ import { Session } from "@/session";
 const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
   {},
   Update | null,
-  {},
   true
 >({
   name: "Version",
@@ -44,7 +43,6 @@ interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
 const { useUpdate } = Flux.createUpdate<
   Update,
-  {},
   Update,
   typeof statusDetailsSchema,
   true

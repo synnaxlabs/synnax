@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
 import { type base } from "@/flux/base";
-import { useStore } from "@/flux/Provider";
 import {
   errorResult,
   loadingResult,
@@ -21,49 +21,42 @@ import {
   type ResultStatus,
   successResult,
 } from "@/flux/result";
-import {
-  type RetrieveMountListenersParams,
-  type RetrieveParams,
-} from "@/flux/retrieve";
 import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
 import { useAsyncEffect, useDestructors } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoDeepEqual } from "@/memo";
 import { state } from "@/state";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
-export interface FormUpdateParams<
-  Schema extends z.ZodType<base.Data>,
-  ScopedStore extends base.Store = {},
->
+export interface FormUpdateParams<Schema extends z.ZodType<base.Data>>
   extends
-    Omit<
-      UpdateParams<z.infer<Schema>, ScopedStore>,
-      "data" | "onChange" | "onOptimisticComplete"
-    >,
+    Omit<UpdateParams<z.infer<Schema>>, "data" | "onChange" | "onOptimisticComplete">,
     Omit<Form.UseReturn<Schema>, "setStatus"> {}
+
+/** Client and query handles for a form operation. */
+interface FormClientParams<Query extends base.Query> {
+  client: Client;
+  query: Query;
+}
 
 export interface FormRetrieveParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
-  Store extends base.Store = {},
 >
-  extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
+  extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 export interface CreateFormParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
 > {
   name: string;
   schema: Schema;
   initialValues: z.infer<Schema>;
-  update: (params: FormUpdateParams<Schema, Store>) => Promise<void>;
-  retrieve: (params: FormRetrieveParams<Query, Schema, Store>) => Promise<void>;
+  update: (params: FormUpdateParams<Schema>) => Promise<void>;
+  retrieve: (params: FormRetrieveParams<Query, Schema>) => Promise<void>;
   mountListeners?: (
-    params: FormMountListenersParams<Query, Schema, Store>,
+    params: FormMountListenersParams<Query, Schema>,
   ) => destructor.Destructor | destructor.Destructor[];
 }
 
@@ -78,53 +71,42 @@ export type UseFormReturn<Schema extends z.ZodType<base.Data>> = Omit<
 export interface FormBeforeSaveParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
 >
-  extends Form.UseReturn<Schema>, RetrieveParams<Query, Store> {}
+  extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 interface FormMountListenersParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
 >
-  extends
-    Form.UseReturn<Schema>,
-    Omit<RetrieveMountListenersParams<Query, base.Data, Store>, "onChange"> {}
+  extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 export interface AfterSaveParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
-> extends FormBeforeSaveParams<Query, Schema, Store> {}
+> extends FormBeforeSaveParams<Query, Schema> {}
 
 export interface BeforeValidateParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
-> extends FormBeforeSaveParams<Query, Schema, Store> {}
+> extends FormBeforeSaveParams<Query, Schema> {}
 
 export interface UseFormParams<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
 > extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
   query: Query;
-  beforeValidate?: (
-    params: BeforeValidateParams<Query, Schema, Store>,
-  ) => boolean | void;
-  beforeSave?: (params: FormBeforeSaveParams<Query, Schema, Store>) => Promise<boolean>;
-  afterSave?: (params: AfterSaveParams<Query, Schema, Store>) => void;
-  scope?: string;
+  beforeValidate?: (params: BeforeValidateParams<Query, Schema>) => boolean | void;
+  beforeSave?: (params: FormBeforeSaveParams<Query, Schema>) => Promise<boolean>;
+  afterSave?: (params: AfterSaveParams<Query, Schema>) => void;
 }
 
 export interface UseForm<
   Query extends base.Query,
   Schema extends z.ZodType<base.Data>,
-  Store extends base.Store,
 > {
-  (params: UseFormParams<Query, Schema, Store>): UseFormReturn<Schema>;
+  (params: UseFormParams<Query, Schema>): UseFormReturn<Schema>;
 }
 
 const DEFAULT_SET_OPTIONS: Form.SetOptions = {
@@ -133,18 +115,14 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
 };
 
 export const createForm =
-  <
-    Query extends base.Query,
-    Schema extends z.ZodType<base.Data>,
-    Store extends base.Store = {},
-  >({
+  <Query extends base.Query, Schema extends z.ZodType<base.Data>>({
     name,
     schema,
     retrieve,
     mountListeners,
     update,
     initialValues: baseInitialValues,
-  }: CreateFormParams<Query, Schema, Store>): UseForm<Query, Schema, Store> =>
+  }: CreateFormParams<Query, Schema>): UseForm<Query, Schema> =>
   ({
     query,
     initialValues,
@@ -155,14 +133,11 @@ export const createForm =
     sync,
     onHasTouched,
     mode,
-    scope: argsScope,
   }) => {
     const [result, setResult] = useState<Result<undefined>>(
       loadingResult(`retrieving ${name}`),
     );
-    const scope = useUniqueKey(argsScope);
     const client = Synnax.use();
-    const store = useStore<Store>(scope);
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
 
@@ -190,7 +165,7 @@ export const createForm =
             return setResult(nullClientResult<undefined>(`retrieve ${name}`));
           setResult((p) => loadingResult(`retrieving ${name}`, p.data));
           if (signal?.aborted) return;
-          const params = { client, query, store, ...form, set: noNotifySet };
+          const params = { client, query, ...form, set: noNotifySet };
           await retrieve(params);
           if (signal?.aborted) return;
           listeners.cleanup();
@@ -203,7 +178,7 @@ export const createForm =
           setResult(res);
         }
       },
-      [client, name, form, store, noNotifySet],
+      [client, name, form, noNotifySet],
     );
     const memoQuery = useMemoDeepEqual(query);
     useAsyncEffect(
@@ -214,13 +189,12 @@ export const createForm =
     const saveAsync = useCallback(
       async (opts: base.FetchOptions = {}): Promise<boolean> => {
         const { signal } = opts;
-        const rollbacks: destructor.Destructor[] = [];
         try {
           if (client == null) {
             setResult(nullClientResult<undefined>(`update ${name}`));
             return false;
           }
-          const params = { client, query, store, rollbacks, ...form, set: noNotifySet };
+          const params = { client, query, ...form, set: noNotifySet };
           if (beforeValidate?.(params) === false) return false;
           if (!(await form.validateAsync())) return false;
           setResult(loadingResult(`updating ${name}`, undefined));
@@ -244,11 +218,6 @@ export const createForm =
           if (afterSave != null) afterSave(params);
           return true;
         } catch (error) {
-          try {
-            rollbacks.reverse().forEach((rollback) => rollback());
-          } catch (rollbackError) {
-            console.error("Error rolling back changes:", rollbackError);
-          }
           if (signal?.aborted === true) return false;
           const res = errorResult(`update ${name}`, error);
           addStatus(res.status);

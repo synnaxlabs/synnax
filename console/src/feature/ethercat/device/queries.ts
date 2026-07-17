@@ -30,17 +30,24 @@ export interface SelectEnabledStateParams {
   keys: device.Key[];
 }
 
+const EMPTY_SLAVES: SlaveDevice[] = [];
+
 export const [useSelectEnabledState] = Flux.createSelector<
-  Device.FluxSubStore,
   SelectEnabledStateParams,
   EnabledState,
   SlaveDevice[]
 >({
-  subscribe: (store, { keys }, notify) => {
-    const destructors = keys.map((key) => store.devices.onSet(notify, key));
+  subscribe: ({ client, args: { keys } }, notify) => {
+    if (client == null) return () => {};
+    const destructors = keys.map((key) => client.devices.onChange({ key }, notify));
     return () => destructors.forEach((d) => d());
   },
-  select: (store, { keys }) => store.devices.get(keys) as SlaveDevice[],
+  select: ({ client, args: { keys } }) => {
+    if (client == null || keys.length === 0) return EMPTY_SLAVES;
+    const cached = client.devices.getCached({ keys });
+    if (cached?.variant !== "changed") return EMPTY_SLAVES;
+    return cached.data as unknown as SlaveDevice[];
+  },
   transform: (devices) => {
     const disabledCount = devices.filter((d) => !d.properties?.enabled).length;
     return {
@@ -72,19 +79,14 @@ export interface ToggleEnabledParams {
   enabled?: boolean;
 }
 
-export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
-  ToggleEnabledParams,
-  Device.FluxSubStore,
-  ToggleEnabledParams
->({
+export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
   name: "Toggle Enabled",
   verbs: Flux.UPDATE_VERBS,
-  update: async ({ data, client, store, rollbacks, onOptimisticComplete }) => {
+  update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
 
     const devices = await Device.retrieveMultiple({
       client,
-      store,
       query: { keys },
       schemas: SLAVE_SCHEMAS,
     });
@@ -95,9 +97,6 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
       ...dev,
       properties: { ...dev.properties, enabled: enabledValue },
     }));
-
-    rollbacks.push(store.devices.set(updated));
-    await onOptimisticComplete(data);
 
     await client.devices.create(updated);
 

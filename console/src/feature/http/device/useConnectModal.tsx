@@ -67,16 +67,10 @@ const useForm = PDevice.createForm(SCHEMAS);
 const beforeSave = async ({
   client,
   get,
-  store,
   set,
-}: Flux.FormBeforeSaveParams<
-  PDevice.RetrieveQuery,
-  typeof PDevice.formSchema,
-  PDevice.FluxSubStore
->) => {
+}: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
   const scanTask = await Task.retrieveSingle({
     client,
-    store,
     query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
     schemas: SCAN_SCHEMAS,
   });

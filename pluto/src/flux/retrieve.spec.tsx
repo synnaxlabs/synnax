@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label } from "@synnaxlabs/client";
+import { type cache, type label } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
@@ -95,7 +95,7 @@ describe("retrieve", () => {
       });
 
       it("should allow null client when allowDisconnected is true", async () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number, {}, true>({
+        const { useRetrieve } = Flux.createRetrieve<{}, number, true>({
           name: "Resource",
           retrieve: async ({ client }) => {
             if (client == null) return 42;
@@ -114,26 +114,21 @@ describe("retrieve", () => {
       });
     });
 
-    interface Store extends Flux.Store {
-      labels: Flux.UnaryStore<label.Key, label.Label>;
-    }
-
-    describe("listeners", () => {
-      it("should correctly update the resource when the listener changes", async () => {
+    describe("subscriptions", () => {
+      it("should update the result when the subscription pushes a change", async () => {
         const ch = await client.labels.create({
           name: "Test Label",
           color: color.construct("#000000"),
         });
-        const { useRetrieve } = Flux.createRetrieve<
-          { key: label.Key },
-          label.Label,
-          Store
-        >({
+        let handler: cache.ChangeHandler<label.Label> | null = null;
+        const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
           name: "Resource",
           retrieve: async ({ client, query: { key } }) =>
             await client.labels.retrieve({ key }),
-          mountListeners: ({ store, onChange, query: { key } }) =>
-            store.labels.onSet(onChange, key),
+          subscribe: (_, h) => {
+            handler = h;
+            return () => {};
+          },
         });
 
         const { result } = renderHook(() => useRetrieve({ key: ch.key }), {
@@ -142,12 +137,10 @@ describe("retrieve", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
           expect(result.current.data).toEqual(ch);
+          expect(handler).not.toBeNull();
         });
-        await act(async () => {
-          await client.labels.create({
-            ...ch,
-            name: "Test Label 2",
-          });
+        act(() => {
+          handler?.({ variant: "changed", data: { ...ch, name: "Test Label 2" } });
         });
         await waitFor(
           () => {
@@ -159,6 +152,35 @@ describe("retrieve", () => {
           },
           { timeout: 1000 },
         );
+      });
+
+      it("should move to an error result when the subscription reports a deletion", async () => {
+        const ch = await client.labels.create({
+          name: "Corpse Label",
+          color: color.construct("#000000"),
+        });
+        let handler: cache.ChangeHandler<label.Label> | null = null;
+        const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
+          name: "Resource",
+          retrieve: async ({ client, query: { key } }) =>
+            await client.labels.retrieve({ key }),
+          subscribe: (_, h) => {
+            handler = h;
+            return () => {};
+          },
+        });
+
+        const { result } = renderHook(() => useRetrieve({ key: ch.key }), {
+          wrapper: Wrapper,
+        });
+        await waitFor(() => expect(result.current.variant).toEqual("success"));
+        act(() => {
+          handler?.({ variant: "deleted", corpse: ch });
+        });
+        await waitFor(() => {
+          expect(result.current.variant).toEqual("error");
+          expect(result.current.status.description).toEqual("Resource was deleted");
+        });
       });
     });
   });
@@ -309,19 +331,22 @@ describe("useRetrieveSuspended", () => {
     expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
   });
 
-  it("invalidates the cache entry when a listener pushes undefined", async () => {
-    let capturedOnChange: ((v: number | undefined) => void) | null = null;
-    const retrieve = vi
-      .fn<() => Promise<number>>()
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(2);
+  it("refetches when the subscription reports an invalidated answer", async () => {
+    let capturedHandler: cache.ChangeHandler<number> | null = null;
+    let cached: cache.Cached<number> | undefined;
+    const retrieve = vi.fn(async () => {
+      const value = retrieve.mock.calls.length;
+      cached = { variant: "changed", data: value };
+      return value;
+    });
     const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
-      mountListeners: ({ onChange }) => {
-        capturedOnChange = onChange;
+      subscribe: (_, handler) => {
+        capturedHandler = handler;
         return () => {};
       },
+      getCached: () => cached,
     });
 
     const Display = (): ReactElement => {
@@ -343,7 +368,8 @@ describe("useRetrieveSuspended", () => {
     await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("1"));
 
     await act(async () => {
-      capturedOnChange!(undefined);
+      cached = undefined;
+      capturedHandler!(undefined);
     });
 
     await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("2"));

@@ -321,6 +321,59 @@ describe("Status", () => {
       expect(retrievedStat.key).toEqual(stat.key);
       expect(retrievedStat.labels).toHaveLength(2);
     });
+
+    it("should update a subscribed hasLabels answer when labels change", async () => {
+      const lbl = await client.labels.create({
+        name: "Membership Label",
+        color: color.construct("#00FF00"),
+      });
+      const member = uuid.create();
+      const joiner = uuid.create();
+      await client.statuses.set([
+        {
+          name: "Member",
+          key: member,
+          variant: "info",
+          message: "member",
+          time: TimeStamp.now(),
+        },
+        {
+          name: "Joiner",
+          key: joiner,
+          variant: "info",
+          message: "joiner",
+          time: TimeStamp.now(),
+        },
+      ]);
+      await client.labels.label(status.ontologyID(member), [lbl.key]);
+      const query = { hasLabels: [lbl.key] };
+      const off = client.statuses.onChange(query, () => {});
+      try {
+        const initial = await client.statuses.retrieve(query);
+        expect(initial.map((s) => s.key)).toEqual([member]);
+        await client.labels.label(status.ontologyID(joiner), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.statuses.getCached(query);
+            return (
+              cached?.variant === "changed" && cached.data.some((s) => s.key === joiner)
+            );
+          })
+          .toBe(true);
+        await client.labels.remove(status.ontologyID(member), [lbl.key]);
+        await expect
+          .poll(() => {
+            const cached = client.statuses.getCached(query);
+            return (
+              cached?.variant === "changed" &&
+              !cached.data.some((s) => s.key === member)
+            );
+          })
+          .toBe(true);
+      } finally {
+        off();
+      }
+    });
   });
 
   describe("retrieve with variants filter", () => {

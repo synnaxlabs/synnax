@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache, type Synnax as Client } from "@synnaxlabs/client";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
@@ -15,7 +15,6 @@ import { type aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
-import { Pluto } from "@/pluto";
 import { status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
@@ -53,26 +52,11 @@ const newWrapper = (
       : {}),
     ...additionalRegistry,
   });
-  // One detached engine per wrapper, not per mount: sequential renders under the
-  // same wrapper must share store state, as production providers outlive renders.
-  // Controllers are prebuilt for the same reason: binding is once-per-engine.
-  const detachedEngine =
-    client == null || !client.cache.enabled
-      ? new cache.Engine({ openStreamer: null })
-      : undefined;
-  let composers = Pluto.STORE_COMPOSERS;
-  if (detachedEngine != null)
-    composers = Object.fromEntries(
-      Object.entries(Pluto.STORE_COMPOSERS).map(([key, compose]) => {
-        const controller = compose({ client: null, engine: detachedEngine });
-        return [key, () => controller];
-      }),
-    );
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <AetherProvider>
       <Status.Aggregator>
         <Synnax.TestProvider client={client}>
-          <Flux.Provider composers={composers} engine={detachedEngine} {...handlers}>
+          <Flux.Provider {...handlers}>
             {renderContext == null ? (
               children
             ) : (

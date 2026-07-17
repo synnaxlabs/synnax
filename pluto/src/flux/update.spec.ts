@@ -10,6 +10,7 @@
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { type z } from "zod";
 
 import { Flux } from "@/flux";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
@@ -17,10 +18,7 @@ import { createSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
 
-const BASE_UPDATE_PARAMS: Pick<
-  Flux.CreateUpdateParams<number, {}>,
-  "name" | "verbs"
-> = {
+const BASE_UPDATE_PARAMS: Pick<Flux.CreateUpdateParams<number>, "name" | "verbs"> = {
   name: "Resource",
   verbs: Flux.UPDATE_VERBS,
 };
@@ -35,7 +33,7 @@ describe("update", () => {
   });
   describe("updateSync", () => {
     it("should return a success result as its initial state", () => {
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update: async () => 0,
       });
@@ -47,7 +45,7 @@ describe("update", () => {
 
     it("should call update function when the user calls update", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -61,7 +59,7 @@ describe("update", () => {
 
     it("should return an error result if the update function throws an error", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -78,7 +76,7 @@ describe("update", () => {
 
     it("should return an error result if the client is null and the update function is called", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -100,7 +98,7 @@ describe("update", () => {
         if (client == null) return 42;
         return 0;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}, number, never, true>({
+      const { useUpdate } = Flux.createUpdate<number, number, z.ZodNever, true>({
         ...BASE_UPDATE_PARAMS,
         update,
         allowDisconnected: true,
@@ -128,7 +126,7 @@ describe("update", () => {
           });
           return 0;
         };
-        const { useUpdate } = Flux.createUpdate<number, {}>({
+        const { useUpdate } = Flux.createUpdate<number>({
           ...BASE_UPDATE_PARAMS,
           update,
         });
@@ -149,7 +147,7 @@ describe("update", () => {
   describe("updateAsync", () => {
     it("should return true if the update function is successful", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -165,7 +163,7 @@ describe("update", () => {
 
     it("should return false if an error is thrown", async () => {
       const update = vi.fn().mockRejectedValue(new Error("test"));
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -181,7 +179,7 @@ describe("update", () => {
 
     it("should return false if the client is null", async () => {
       const update = vi.fn();
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -200,7 +198,7 @@ describe("update", () => {
     it("should return false if the update function is aborted", async () => {
       const update = vi.fn();
       const controller = new AbortController();
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -218,16 +216,17 @@ describe("update", () => {
     it("should execute rollbacks when update throws error", async () => {
       const rollback1 = vi.fn();
       const rollback2 = vi.fn();
-      const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
         rollbacks.push(rollback1);
         rollbacks.push(rollback2);
-        throw new Error("update failed");
+        return true;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const update = vi.fn().mockRejectedValue(new Error("update failed"));
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
-      const { result } = renderHook(useUpdate, { wrapper });
+      const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
       await act(async () => {
         await result.current.updateAsync(42, { signal: controller.signal });
       });
@@ -242,17 +241,18 @@ describe("update", () => {
       const rollback1 = vi.fn(() => order.push(1));
       const rollback2 = vi.fn(() => order.push(2));
       const rollback3 = vi.fn(() => order.push(3));
-      const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
         rollbacks.push(rollback1);
         rollbacks.push(rollback2);
         rollbacks.push(rollback3);
-        throw new Error("update failed");
+        return true;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const update = vi.fn().mockRejectedValue(new Error("update failed"));
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
-      const { result } = renderHook(useUpdate, { wrapper });
+      const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
       await act(async () => {
         await result.current.updateAsync(42, { signal: controller.signal });
       });
@@ -266,7 +266,7 @@ describe("update", () => {
         rollbacks.push(rollback);
         return false;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -279,15 +279,16 @@ describe("update", () => {
     });
     it("should execute rollbacks when update returns false", async () => {
       const rollback = vi.fn();
-      const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
         rollbacks.push(rollback);
-        return false;
+        return true;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const update = vi.fn().mockResolvedValue(false);
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
-      const { result } = renderHook(useUpdate, { wrapper });
+      const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
       const updated = await act(
         async () => await result.current.updateAsync(42, { signal: controller.signal }),
       );
@@ -296,15 +297,16 @@ describe("update", () => {
     });
     it("should not execute rollbacks on successful update", async () => {
       const rollback = vi.fn();
-      const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
         rollbacks.push(rollback);
-        return 42;
+        return true;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const update = vi.fn().mockResolvedValue(42);
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
-      const { result } = renderHook(useUpdate, { wrapper });
+      const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
       const updated = await act(
         async () => await result.current.updateAsync(42, { signal: controller.signal }),
       );
@@ -318,17 +320,18 @@ describe("update", () => {
       const rollback2 = vi.fn();
       const rollback3 = vi.fn();
       const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
-      const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
         rollbacks.push(rollback1);
         rollbacks.push(rollback2);
         rollbacks.push(rollback3);
-        throw new Error("update failed");
+        return true;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const update = vi.fn().mockRejectedValue(new Error("update failed"));
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
-      const { result } = renderHook(useUpdate, { wrapper });
+      const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
       await act(async () => {
         await result.current.updateAsync(42, { signal: controller.signal });
       });
@@ -344,16 +347,19 @@ describe("update", () => {
     it("should not execute rollbacks when aborted via signal", async () => {
       const rollback = vi.fn();
       const abortController = new AbortController();
-      const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
         rollbacks.push(rollback);
+        return true;
+      });
+      const update = vi.fn().mockImplementation(async () => {
         abortController.abort();
         return false;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
-      const { result } = renderHook(useUpdate, { wrapper });
+      const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
       await act(async () => {
         await result.current.updateAsync(42, { signal: abortController.signal });
       });
@@ -362,37 +368,16 @@ describe("update", () => {
 
     it("should handle store mutations in rollbacks", async () => {
       const store: { value?: number } = {};
-      const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
         const oldValue = store.value;
         store.value = 100;
         rollbacks.push(() => {
           store.value = oldValue;
         });
-        throw new Error("update failed");
-      });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
-        ...BASE_UPDATE_PARAMS,
-        update,
-      });
-      const { result } = renderHook(useUpdate, { wrapper });
-      await act(async () => {
-        await result.current.updateAsync(42, { signal: controller.signal });
-      });
-      expect(store.value).toBeUndefined();
-    });
-
-    it("should execute rollbacks from beforeUpdate when update throws", async () => {
-      const beforeRollback = vi.fn();
-      const updateRollback = vi.fn();
-      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
-        rollbacks.push(beforeRollback);
         return true;
       });
-      const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
-        rollbacks.push(updateRollback);
-        throw new Error("update failed");
-      });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const update = vi.fn().mockRejectedValue(new Error("update failed"));
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -400,14 +385,44 @@ describe("update", () => {
       await act(async () => {
         await result.current.updateAsync(42, { signal: controller.signal });
       });
+      expect(store.value).toBeUndefined();
+    });
+
+    it("should execute rollbacks from beforeUpdate and afterOptimistic when update throws", async () => {
+      const beforeRollback = vi.fn();
+      const optimisticRollback = vi.fn();
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
+        rollbacks.push(beforeRollback);
+        return true;
+      });
+      const afterOptimistic = vi.fn().mockImplementation(({ rollbacks }) => {
+        rollbacks.push(optimisticRollback);
+      });
+      const update = vi.fn().mockImplementation(async ({ onOptimisticComplete }) => {
+        await onOptimisticComplete(42);
+        throw new Error("update failed");
+      });
+      const { useUpdate } = Flux.createUpdate<number>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(
+        () => useUpdate({ beforeUpdate, afterOptimistic }),
+        {
+          wrapper,
+        },
+      );
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
+      });
       expect(beforeRollback).toHaveBeenCalled();
-      expect(updateRollback).toHaveBeenCalled();
+      expect(optimisticRollback).toHaveBeenCalled();
     });
 
     it("should pass modified data from beforeUpdate to update", async () => {
       const update = vi.fn().mockResolvedValue(100);
       const beforeUpdate = vi.fn().mockResolvedValue(99);
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -427,7 +442,7 @@ describe("update", () => {
         await onOptimisticComplete(42);
         return 42;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -441,7 +456,7 @@ describe("update", () => {
     it("should not call afterOptimistic when the update never invokes onOptimisticComplete", async () => {
       const afterOptimistic = vi.fn();
       const update = vi.fn().mockResolvedValue(42);
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -464,7 +479,7 @@ describe("update", () => {
         await onOptimisticComplete(42);
         return 42;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -478,13 +493,13 @@ describe("update", () => {
       expect(order).toEqual(["optimistic", "success"]);
     });
 
-    it("should pass the optimistic output, client, store, and rollbacks to afterOptimistic", async () => {
+    it("should pass the optimistic output, client, and rollbacks to afterOptimistic", async () => {
       const afterOptimistic = vi.fn();
       const update = vi.fn().mockImplementation(async ({ onOptimisticComplete }) => {
         await onOptimisticComplete(99);
         return 99;
       });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
@@ -496,7 +511,6 @@ describe("update", () => {
         expect.objectContaining({
           client,
           data: 99,
-          store: expect.anything(),
           rollbacks: expect.any(Array),
         }),
       );
@@ -504,19 +518,25 @@ describe("update", () => {
 
     it("should run rollbacks and surface an error when afterOptimistic throws", async () => {
       const rollback = vi.fn();
+      const beforeUpdate = vi.fn().mockImplementation(({ rollbacks }) => {
+        rollbacks.push(rollback);
+        return true;
+      });
       const afterOptimistic = vi.fn().mockRejectedValue(new Error("optimistic failed"));
-      const update = vi
-        .fn()
-        .mockImplementation(async ({ rollbacks, onOptimisticComplete }) => {
-          rollbacks.push(rollback);
-          await onOptimisticComplete(42);
-          return 42;
-        });
-      const { useUpdate } = Flux.createUpdate<number, {}>({
+      const update = vi.fn().mockImplementation(async ({ onOptimisticComplete }) => {
+        await onOptimisticComplete(42);
+        return 42;
+      });
+      const { useUpdate } = Flux.createUpdate<number>({
         ...BASE_UPDATE_PARAMS,
         update,
       });
-      const { result } = renderHook(() => useUpdate({ afterOptimistic }), { wrapper });
+      const { result } = renderHook(
+        () => useUpdate({ beforeUpdate, afterOptimistic }),
+        {
+          wrapper,
+        },
+      );
       await act(async () => {
         await result.current.updateAsync(42, { signal: controller.signal });
       });

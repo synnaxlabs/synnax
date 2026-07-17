@@ -8,12 +8,29 @@
 // included in the file licenses/APL.txt.
 
 import { type cache } from "@/cache";
+import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { type Key, keyZ, type Label, labelZ } from "@/label/types.gen";
+import { ontology } from "@/ontology";
 
 export const SET_CHANNEL_NAME = "sy_label_set";
 export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
 export const STORE_KEY = "labels";
+
+/** Reports whether the relationship labels the given ontology ID. */
+export const matchLabeledBy = (rel: ontology.Relationship, id: ontology.ID): boolean =>
+  ontology.matchRelationship(rel, {
+    from: id,
+    type: LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+  });
+
+/** Returns the cached labels attached to the given ontology ID. */
+export const cachedLabelsOf = (
+  relationships: cache.Store<string, ontology.Relationship>,
+  labels: cache.Store<Key, Label>,
+  id: ontology.ID,
+): Label[] =>
+  labels.get(relationships.get((r) => matchLabeledBy(r, id)).map((r) => r.to.key));
 
 /** Registers the label store on the given engine. */
 export const bindStore = (

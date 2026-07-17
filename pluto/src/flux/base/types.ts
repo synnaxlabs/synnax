@@ -9,6 +9,9 @@
 
 import { cache } from "@synnaxlabs/client";
 
+export const hashQuery = cache.hashQuery;
+export const orderByKeys = cache.orderByKeys;
+
 export type FetchOptions = cache.FetchOptions;
 export type Query = cache.Query;
 export type Data = cache.Data;

@@ -15,15 +15,12 @@ export interface SetDataSavingParams {
   dataSaving: boolean;
 }
 
-export const { useUpdate: useSetDataSaving } = Flux.createUpdate<
-  SetDataSavingParams,
-  Task.FluxSubStore
->({
+export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingParams>({
   name: Task.RESOURCE_NAME,
   verbs: Flux.UPDATE_VERBS,
-  update: async ({ client, data, store }) => {
+  update: async ({ client, data }) => {
     const { key, dataSaving } = data;
-    const t = await Task.retrieveSingle({ client, store, query: { key } });
+    const t = await Task.retrieveSingle({ client, query: { key } });
     const config = t.payload.config;
     // Only tasks with a dataSaving field in their config (primarily read tasks)
     // are eligible. Write tasks without this field are skipped.

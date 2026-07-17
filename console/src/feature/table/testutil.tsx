@@ -9,9 +9,9 @@
 
 import { panel, table as clientTable, type table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { Flux, Panel as PlutoPanel, Table as PTable } from "@synnaxlabs/pluto";
+import { Panel as PlutoPanel, Table as PTable } from "@synnaxlabs/pluto";
 import { id, uuid } from "@synnaxlabs/x";
-import { act, render, renderHook, within } from "@testing-library/react";
+import { act, render, within } from "@testing-library/react";
 import {
   type ComponentType,
   type FC,
@@ -91,13 +91,12 @@ export interface RenderTableOptions {
   preloadedState?: (key: string) => ConsolePreloadedState;
 }
 
-// createResourceTab seeds a single-leaf panel holding one resource tab that backs the
-// given table into the wrapper's flux store, so the panel scope hooks a mounted tab
-// content reads (useSelectTabResource) resolve to the table's ontology ID.
-const createResourceTab = (
-  Wrapper: FC<PropsWithChildren>,
+// createResourceTab creates a single-leaf panel holding one resource tab that backs
+// the given table on the cluster, so the panel scope hooks a mounted tab content reads
+// (useSelectTabResource) resolve to the table's ontology ID.
+const createResourceTab = async (
   key: string,
-): { panelKey: string; tabKey: string } => {
+): Promise<{ panelKey: string; tabKey: string }> => {
   const tabKey = uuid.create();
   const doc = panel.panelZ.parse({
     key: uuid.create(),
@@ -109,12 +108,9 @@ const createResourceTab = (
       ],
     },
   });
-  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-    wrapper: Wrapper,
-  });
-  act(() => {
-    result.current.panels.set(doc);
-  });
+  await client.panels.create(doc);
+  // Prime the query cache the way the mosaic's retrieve does.
+  await client.panels.retrieve(doc.key);
   return { panelKey: doc.key, tabKey };
 };
 
@@ -135,7 +131,7 @@ export const renderTable = async (
     preloadedState: preloadedState?.(created.key),
   });
   await loadTable(Wrapper, created.key);
-  const { panelKey, tabKey } = createResourceTab(Wrapper, created.key);
+  const { panelKey, tabKey } = await createResourceTab(created.key);
   const result = render(
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>

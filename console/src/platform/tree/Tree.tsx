@@ -11,7 +11,6 @@ import { NotFoundError, ontology, type Synnax as Client } from "@synnaxlabs/clie
 import {
   Component,
   context,
-  Flux,
   Haul,
   List,
   Menu,
@@ -129,10 +128,22 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const loadingRef = useRef<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>([]);
-  const resourceStore = Flux.useStore<Ontology.FluxSubStore>().resources;
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
+
+  // Placeholder resources back tree items (e.g. a just-created group awaiting its
+  // inline rename) before the cluster delivers the real resource.
+  const placeholdersRef = useInitializerRef(() => new Map<string, ontology.Resource>());
+  const placeholderListenersRef = useInitializerRef(
+    () => new Map<string, Set<() => void>>(),
+  );
+
+  const getResourceByKey = useCallback(
+    (key: string): ontology.Resource | undefined =>
+      client?.ontology.resources.get(key) ?? placeholdersRef.current.get(key),
+    [client],
+  );
 
   const retrieveChildren = Ontology.useRetrieveObservableChildren({
     onChange: useCallback(
@@ -148,9 +159,12 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
           }));
           const ids = new Set(filtered.map((r) => ontology.idToString(r.id)));
           setNodes((prevNodes) => [
+            // Children subscriptions can outlive the parent's presence in the
+            // tree; a missing parent means the update is stale.
             ...Base.updateNodeChildren({
               tree: prevNodes,
               parent: ontology.idToString(id),
+              throwOnMissing: false,
               updater: (prevNodes) => [
                 ...prevNodes.filter(({ key }) => !ids.has(key)),
                 ...converted,
@@ -188,7 +202,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     async (signal) => {
       if (client == null) return;
       const resources = await client.ontology.retrieveChildren(root);
-      resources.forEach((r) => resourceStore.set(r));
       if (signal.aborted) return;
       const filtered = resources.filter((r) => {
         const svc = resolveItem(r.id.type);
@@ -204,7 +217,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   );
 
   const handleSyncResourceSet = useCallback(
-    () => setNodes((prevNodes) => [...prevNodes]),
+    (resource: ontology.Resource) => {
+      placeholdersRef.current.delete(resource.key);
+      setNodes((prevNodes) => [...prevNodes]);
+    },
     [setNodes],
   );
   Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
@@ -263,8 +279,10 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     ((id: ontology.ID | ontology.ID[] | string | string[]) => {
       const isSingle = !Array.isArray(id);
       const ids = array.toArray(id);
-      const stringIDs = ontology.idToString(ids);
-      const resources = resourceStore.get(stringIDs);
+      const resources = ontology
+        .idToString(ids)
+        .map(getResourceByKey)
+        .filter((r) => r != null);
       if (isSingle) {
         if (resources[0] == null)
           throw new NotFoundError(`Resource ${ontology.idToString(id)} not found`);
@@ -273,22 +291,49 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
       return resources;
     }) as GetResource,
-    [resourceStore],
+    [getResourceByKey],
   );
 
   const subscribe = useCallback(
-    (callback: () => void, key: string) => resourceStore.onSet(callback, key),
-    [resourceStore],
+    (callback: () => void, key: string) => {
+      let listeners = placeholderListenersRef.current.get(key);
+      if (listeners == null) {
+        listeners = new Set();
+        placeholderListenersRef.current.set(key, listeners);
+      }
+      listeners.add(callback);
+      const disconnect = client?.ontology.onResourceSet((resource) => {
+        if (resource.key === key) callback();
+      });
+      return () => {
+        listeners.delete(callback);
+        disconnect?.();
+      };
+    },
+    [client],
+  );
+
+  const getItem = useMemo(
+    () =>
+      List.createGetItem<string, ontology.Resource>(getResourceByKey, (keys) =>
+        keys.map(getResourceByKey).filter((r) => r != null),
+      ),
+    [getResourceByKey],
   );
 
   const setResource = useCallback(
-    (resource: ontology.Resource | ontology.Resource[]) => resourceStore.set(resource),
-    [resourceStore],
+    (resource: ontology.Resource | ontology.Resource[]) =>
+      array.toArray(resource).forEach((r) => {
+        placeholdersRef.current.set(r.key, r);
+        placeholderListenersRef.current.get(r.key)?.forEach((callback) => callback());
+      }),
+    [],
   );
 
   const sort = useCallback(
     (a: Base.Node<string>, b: Base.Node<string>) => {
-      const [aResource, bResource] = resourceStore.get([a.key, b.key]);
+      const aResource = getResourceByKey(a.key);
+      const bResource = getResourceByKey(b.key);
       if (aResource == null && bResource == null) return 0;
       if (aResource == null) return 1;
       if (bResource == null) return -1;
@@ -296,7 +341,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (aResource.id.type !== "group" && bResource.id.type === "group") return 1;
       return aResource.name.localeCompare(bResource.name);
     },
-    [resourceStore],
+    [getResourceByKey],
   );
 
   const treeProps = Base.use({
@@ -468,10 +513,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         showRules
         shape={shape}
         subscribe={subscribe}
-        // Use resourceStore.get directly instead of getResource because there is
-        // a chance that the resource will not be in the store before the tree attempts
-        // to render it.
-        getItem={resourceStore.get.bind(resourceStore)}
+        // Not getResource: it throws, and a resource may not be cached before
+        // the tree attempts to render it.
+        getItem={getItem}
         emptyContent={emptyContent}
         onContextMenu={menuProps.open}
       >

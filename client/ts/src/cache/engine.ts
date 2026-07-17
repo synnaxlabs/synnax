@@ -9,7 +9,6 @@
 
 import { type destructor, errors, observe, type record } from "@synnaxlabs/x";
 
-import { QueryCache } from "@/cache/queryCache";
 import { type State } from "@/cache/state";
 import {
   type ChannelListener,
@@ -21,14 +20,8 @@ import {
   type UnaryStore,
   type UnaryStoreConfig,
 } from "@/cache/store";
-import { createStreamer, type Streamer } from "@/cache/streamer";
-import {
-  type AsyncErrorHandler,
-  type Data,
-  type ErrorHandler,
-  type Query,
-} from "@/cache/types";
-import { type framer } from "@/framer";
+import { createStreamer, type Streamer, type StreamOpener } from "@/cache/streamer";
+import { type AsyncErrorHandler, type ErrorHandler } from "@/cache/types";
 
 const checkSkip = (
   err: unknown,
@@ -84,7 +77,7 @@ export interface EngineParams {
    * unknown store keys auto-register empty configs on first access. Used by
    * UI layers that need working stores before a cluster connection exists.
    */
-  openStreamer: framer.StreamOpener | null;
+  openStreamer: StreamOpener | null;
   /** Reports listener and reconciliation errors. Defaults to console logging. */
   handleError?: ErrorHandler;
   /** Async counterpart of handleError. Defaults to console logging. */
@@ -103,11 +96,6 @@ export interface EngineParams {
 export class Engine {
   private readonly configs: StoreConfig<any> = {};
   private readonly internal: InternalStore = {};
-  // Lazy registry of per-retrieve query caches, keyed by a unique cache key
-  // generated at retrieve construction. Stored at the erased type so the map
-  // is homogeneous; `getCache` reifies the typed view, which is sound because
-  // each key is bound to one (Q, D) pair at the call to `new QueryCache()`.
-  private readonly caches = new Map<string, QueryCache<Query, Data>>();
   private readonly epochObserver = new observe.Observer<number>();
   private errorSink: ErrorHandler;
   private asyncErrorSink: AsyncErrorHandler;
@@ -120,7 +108,7 @@ export class Engine {
     message?,
     skip?,
   ) => await this.asyncErrorSink(excOrFunc, message, skip);
-  private readonly openStreamer: framer.StreamOpener | null;
+  private readonly openStreamer: StreamOpener | null;
   private streamer: Streamer | null = null;
   private epochCount = 0;
 
@@ -183,10 +171,6 @@ export class Engine {
     return this.handleError;
   }
 
-  /**
-   * Returns the store registered under the given key, bound to the given
-   * scope. Throws when the key was never registered.
-   */
   /** True when the engine has no stream source and stores are purely local. */
   get detached(): boolean {
     return this.openStreamer == null;
@@ -201,6 +185,10 @@ export class Engine {
     return this.internal[key];
   }
 
+  /**
+   * Returns the store registered under the given key, bound to the given
+   * scope. Throws when the key was never registered.
+   */
   store<
     Key extends record.Key,
     Value extends State,
@@ -264,18 +252,6 @@ export class Engine {
   /** Subscribes to epoch changes. Returns a destructor that unsubscribes. */
   onEpoch(callback: (epoch: number) => void): destructor.Destructor {
     return this.epochObserver.onChange(callback);
-  }
-
-  /// Returns the query cache for the given key, creating one on first use.
-  /// Each retrieve operation owns a unique key; reads and writes against the
-  /// returned instance are typed concretely.
-  getCache<Q extends Query, D extends Data>(key: string): QueryCache<Q, D> {
-    let cache = this.caches.get(key);
-    if (cache == null) {
-      cache = new QueryCache<Q, D>();
-      this.caches.set(key, cache);
-    }
-    return cache as unknown as QueryCache<Q, D>;
   }
 
   /**
@@ -361,6 +337,23 @@ export class Handle {
     if (this.engine_ == null)
       throw new Error("cache is disabled on this client (cache: false)");
     return this.engine_;
+  }
+
+  /**
+   * Reroutes error reporting for every store, listener, and reconciliation
+   * pass. Used by UI layers that surface errors through their own status
+   * systems instead of the console. A no-op when the cache is disabled.
+   */
+  setErrorHandlers(handleError: ErrorHandler, handleAsyncError: AsyncErrorHandler) {
+    this.engine_?.setErrorHandlers(handleError, handleAsyncError);
+  }
+
+  /**
+   * Ensures the change stream is open, opening it on first call. A no-op when
+   * the cache is disabled.
+   */
+  async ensureStreaming(): Promise<void> {
+    await this.engine_?.ensureStreaming();
   }
 
   /** Closes the change stream. A no-op when disabled or never streamed. */

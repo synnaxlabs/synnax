@@ -24,13 +24,12 @@ describe("table store", () => {
     const table = await client.tables.create(project.key, {
       name: `table-${id.create()}`,
     });
-    client.cache.engine.store<Key, Table>(STORE_KEY).set(table.key, table);
+    const store = client.cache.engine.store<Key, Table>(STORE_KEY);
+    store.set(table.key, table);
     await client.tables.delete(table.key);
     await expect
-      .poll(() => client.tables.store.status(table.key), { timeout: 5000 })
+      .poll(() => store.status(table.key), { timeout: 5000 })
       .toBe("tombstoned");
-    expect(client.tables.store.getTombstone(table.key)?.corpse.name).toEqual(
-      table.name,
-    );
+    expect(store.getTombstone(table.key)?.corpse.name).toEqual(table.name);
   }, 20000);
 });

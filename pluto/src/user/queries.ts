@@ -18,36 +18,19 @@ import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
-import { state } from "@/state";
 
 export type UseDeleteParams = user.Key | user.Key[];
 
-export interface FluxStore extends Flux.UnaryStore<user.Key, user.User> {}
-
-export const FLUX_STORE_KEY = "users";
 const RESOURCE_NAME = "user";
 
-export interface FluxSubStore extends Flux.Store {
-  [FLUX_STORE_KEY]: FluxStore;
-  [Ontology.RELATIONSHIPS_FLUX_STORE_KEY]: Ontology.RelationshipFluxStore;
-  [Ontology.RESOURCES_FLUX_STORE_KEY]: Ontology.ResourceFluxStore;
-}
-
-export const { useUpdate: useDelete } = Flux.createUpdate<
-  UseDeleteParams,
-  FluxSubStore
->({
+export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
+  update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
-    const ids = user.ontologyID(keys);
-    const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
-    rollbacks.push(store.relationships.delete(relFilter));
-    rollbacks.push(store.resources.delete(ontology.idToString(ids)));
-    await onOptimisticComplete(data);
-    await client.users.delete(keys);
+    await client.users.delete(keys, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
     return data;
   },
 });
@@ -56,37 +39,14 @@ export type RetrieveQuery = {
   key: user.Key;
 };
 
-export const retrieveSingle = async ({
-  client,
-  query,
-  store,
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
-  const { key } = query;
-  const cached = store.users.get(key);
-  if (cached != null) return cached;
-  const user = await client.users.retrieve(query);
-  store.users.set(user.key, user);
-  return user;
-};
-
 export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<
-  ChangeUsernameParams,
-  FluxSubStore
->({
+export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  update: async ({ client, data }) => {
     const { key, username } = data;
     await client.users.changeUsername(key, username);
-    const id = user.ontologyID(key);
-    rollbacks.push(
-      store.resources.set(
-        ontology.idToString(id),
-        state.skipUndefined((r) => ({ ...r, username })),
-      ),
-    );
     return data;
   },
 });
@@ -95,22 +55,11 @@ export type UseRetrieveGroupParams = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   UseRetrieveGroupParams,
-  ontology.ID | undefined,
-  FluxSubStore
+  ontology.ID | undefined
 >({
   name: "User Group",
-  retrieve: async ({ client, store }) => {
-    const rels = store.relationships.get((rel) =>
-      ontology.matchRelationship(rel, {
-        from: ontology.ROOT_ID,
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-      }),
-    );
-    const groups = store.resources.get(rels.map((rel) => ontology.idToString(rel.to)));
-    const cachedRes = groups.find((group) => group.name === "Users");
-    if (cachedRes != null) return cachedRes.id;
+  retrieve: async ({ client }) => {
     const res = await client.ontology.retrieveChildren(ontology.ROOT_ID);
-    store.resources.set(res);
     return res.find((r) => r.name === "Users")?.id;
   },
 });
@@ -134,20 +83,18 @@ const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   role: "",
 };
 
-export const useForm = Flux.createForm<UseFormParams, typeof formSchema, FluxSubStore>({
+export const useForm = Flux.createForm<UseFormParams, typeof formSchema>({
   name: "User",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key }, reset, store }) => {
+  retrieve: async ({ client, query: { key }, reset }) => {
     if (key == null) return;
-    const user = await retrieveSingle({ client, query: { key }, store });
+    const user = await client.users.retrieve({ key });
     reset({ ...user, password: "", role: "" });
   },
-  update: async ({ client, value, rollbacks, store }) => {
+  update: async ({ client, value }) => {
     const v = value();
-    const newUser: user.New & user.User = { key: uuid.create(), rootUser: false, ...v };
-    rollbacks.push(store.users.set(newUser.key, newUser));
-    const createdUser = await client.users.create(newUser);
+    const createdUser = await client.users.create({ key: uuid.create(), ...v });
     if (v.role == null) return;
     await client.access.roles.assign({
       user: createdUser.key,
@@ -170,16 +117,20 @@ const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
   return user;
 };
 
-export const { useRetrieve } = Flux.createRetrieve<
-  Partial<RetrieveQuery>,
-  user.User,
-  FluxSubStore
->({
+export const { useRetrieve } = Flux.createRetrieve<Partial<RetrieveQuery>, user.User>({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query, store }) => {
-    const { key } = query;
+  retrieve: async ({ client, query: { key } }) => {
     if (key == null) return await retrieveCurrent(client);
-
-    return await retrieveSingle({ client, query: { key }, store });
+    return await client.users.retrieve({ key });
+  },
+  subscribe: ({ client, query: { key } }, handler) => {
+    key ??= client.auth?.user?.key;
+    if (key == null) return () => {};
+    return client.users.onChange({ key }, handler);
+  },
+  getCached: ({ client, query: { key } }) => {
+    key ??= client.auth?.user?.key;
+    if (key == null) return undefined;
+    return client.users.getCached({ key });
   },
 });

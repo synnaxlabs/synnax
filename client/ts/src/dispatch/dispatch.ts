@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, destructor, type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import {
+  compare,
+  destructor,
+  errors,
+  id,
+  type record,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import type z from "zod";
 
 import { type cache } from "@/cache";
@@ -84,7 +92,11 @@ export interface Reversal<Action> {
   commit: () => destructor.Destructor;
 }
 
-/** A staged set of dispatches committed atomically as one undoable. */
+/**
+ * A staged set of dispatches committed atomically as one undoable. Commit
+ * resolves false when there is nothing to send; a send failure rolls back the
+ * staged state and rethrows.
+ */
 export interface Transaction<Action> {
   add: (actions: Action | Action[]) => void;
   commit: () => Promise<boolean>;
@@ -94,6 +106,43 @@ export interface Transaction<Action> {
 /** Sends an already-processed action list to the server. Supplied by the
  *  caller so the controller stays free of network concerns. */
 export type Send<Action> = (actions: Action[]) => Promise<void>;
+
+/**
+ * Network send used by the dispatch/undo/redo loops. Receives the
+ * controller-generated dispatch key that was registered as outstanding before
+ * the call, so the broadcast echo is recognized as own.
+ */
+export type SendDispatch<Action> = (
+  actions: Action[],
+  dispatchKey: string,
+) => Promise<void>;
+
+/** Rewrites an action batch against the current document before replay. */
+export type Preprocess<State, Action> = (state: State, actions: Action[]) => Action[];
+
+/** Options accepted by domain-client dispatch methods. */
+export interface Options<State, Action> {
+  /**
+   * Per-call action rewrite requiring caller context the domain client lacks
+   * (e.g. diagram geometry). Runs against the cached doc before replay.
+   */
+  preprocess?: Preprocess<State, Action>;
+}
+
+/** The action-dispatch surface a document domain client exposes. */
+export interface Domain<Key extends record.Key, State extends cache.Data, Action> {
+  dispatch(
+    key: Key,
+    actions: Action | Action[],
+    opts?: Options<State, Action>,
+  ): Promise<boolean>;
+  undo(key: Key): Promise<boolean>;
+  redo(key: Key): Promise<boolean>;
+  hasUndo(key: Key): boolean;
+  hasRedo(key: Key): boolean;
+  onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor;
+  beginTransaction(key: Key, kind?: string): Transaction<Action>;
+}
 
 /**
  * The canonical wire shape for a broadcast action frame. The consumer's
@@ -353,6 +402,117 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     };
   }
 
+  // Reduce + send with rollback: replay locally, run the per-op stack
+  // mutation, register the batch as outstanding *before* the network send
+  // (the broadcast echo can race the HTTP response), and roll back stack and
+  // state when the send fails. Returns false when the doc isn't cached.
+  private async applySend(
+    scope: string,
+    key: Key,
+    actions: Action[],
+    commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
+    send: SendDispatch<Action>,
+    preprocess?: Preprocess<State, Action>,
+  ): Promise<boolean> {
+    const current = this.docs.get(key);
+    if (current == null) return false;
+    const processed = preprocess == null ? actions : preprocess(current, actions);
+    const r = this.replay(scope, key, processed, { skipPreprocess: true });
+    if (r == null) return false;
+    const stackRollback = commitStack(r);
+    // A replay that left the state untouched has nothing for the server: no
+    // document change, no broadcast worth echoing. The stack mutation still
+    // runs above so undo/redo consume their entry instead of pinning it.
+    if (!r.changed) return true;
+    const dispatchKey = id.create();
+    this.registerOutstandingDispatch(key, dispatchKey);
+    try {
+      await send(r.processed, dispatchKey);
+      return true;
+    } catch (e) {
+      stackRollback();
+      r.rollback();
+      throw errors.fromUnknown(e);
+    }
+  }
+
+  /**
+   * Apply an action batch to the cached doc and send it to the server,
+   * recording an undoable entry. Returns false without side effects when the
+   * doc isn't cached. Rolls back the local apply and rethrows on send failure.
+   */
+  async dispatch(
+    scope: string,
+    key: Key,
+    actions: Action[],
+    send: SendDispatch<Action>,
+    preprocess?: Preprocess<State, Action>,
+  ): Promise<boolean> {
+    if (actions.length === 0) return true;
+    return await this.applySend(
+      scope,
+      key,
+      actions,
+      ({ processed, inverse, targets }) =>
+        this.recordEntry(scope, key, processed, inverse, targets),
+      send,
+      preprocess,
+    );
+  }
+
+  /**
+   * Apply and send the top live undo entry, moving it to the redo stack.
+   * Returns false when nothing is undoable. Rolls back and rethrows on send
+   * failure.
+   */
+  async undo(scope: string, key: Key, send: SendDispatch<Action>): Promise<boolean> {
+    const prepared = this.prepareUndo(scope, key);
+    if (prepared == null) return false;
+    return await this.applySend(
+      scope,
+      key,
+      prepared.actions,
+      () => prepared.commit(),
+      send,
+    );
+  }
+
+  /** Mirror of {@link undo} for the redo stack. */
+  async redo(scope: string, key: Key, send: SendDispatch<Action>): Promise<boolean> {
+    const prepared = this.prepareRedo(scope, key);
+    if (prepared == null) return false;
+    return await this.applySend(
+      scope,
+      key,
+      prepared.actions,
+      () => prepared.commit(),
+      send,
+    );
+  }
+
+  /**
+   * Stage actions committed atomically as one undoable entry, registering the
+   * batch as outstanding before the send so the broadcast echo is recognized
+   * as own.
+   */
+  transaction(
+    scope: string,
+    key: Key,
+    send: SendDispatch<Action>,
+    kind?: string,
+  ): Transaction<Action> {
+    return this.beginTransaction(
+      scope,
+      key,
+      async (actions) => {
+        const dispatchKey = id.create();
+        this.registerOutstandingDispatch(key, dispatchKey);
+        await send(actions, dispatchKey);
+      },
+      kind,
+    );
+  }
+
   prepareUndo(scope: string, key: Key): Reversal<Action> | null {
     return this.prepareReversal(scope, key, "undo");
   }
@@ -396,10 +556,10 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
         try {
           await send(accumulated);
           return true;
-        } catch {
+        } catch (e) {
           stackRollback();
           this.docs.set(scope, key, initial);
-          return false;
+          throw errors.fromUnknown(e);
         }
       },
       abort: () => {
@@ -422,6 +582,11 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
       for (const t of targets) remoteTouched[t] = ts;
       return { ...s, remoteTouched };
     });
+  }
+
+  /** Whether any locally replayed dispatch for the key still awaits its echo. */
+  hasOutstanding(key: Key): boolean {
+    return (this.outstandingDispatches.get(key)?.size ?? 0) > 0;
   }
 
   registerOutstandingDispatch(key: Key, dispatchKey: string): void {

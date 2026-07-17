@@ -60,7 +60,7 @@ describe("Arc queries", () => {
       ...overrides,
     });
 
-  // Populates the flux store with the arc at `key` via the suspending
+  // Populates the client cache with the arc at `key` via the suspending
   // useEnsureRetrieved. A single-hook bootstrap component keeps the suspending
   // hook from being followed by additional hooks, which trips a React 19
   // concurrent-replay warning.
@@ -184,9 +184,7 @@ describe("Arc queries", () => {
       expect(result.current.list.getItem(key)?.name).toEqual("original-name");
 
       await act(async () => {
-        await client.arcs.dispatch(key, id.create(), [
-          arc.rename({ name: "updated-name" }),
-        ]);
+        await client.arcs.dispatch(key, [arc.rename({ name: "updated-name" })]);
       });
 
       await waitFor(() => {
@@ -255,8 +253,11 @@ describe("Arc queries", () => {
       expect(retrievedArc2?.name).toBe("filter-arc-2");
     });
 
-    it("hydrates the store for a list-only arc so its doc selectors resolve", async () => {
-      const a = await client.arcs.create({
+    it("hydrates the cache for a list-only arc so its doc selectors resolve", async () => {
+      // Created on a second client so the local session never wrote it; the
+      // doc must arrive through the list fetch (or the change stream).
+      const remote = createTestClient();
+      const a = await remote.arcs.create({
         name: `hydrate-${id.create()}`,
         mode: "text",
       });
@@ -267,8 +268,6 @@ describe("Arc queries", () => {
         }),
         { wrapper },
       );
-
-      expect(result.current.hasText).toBe(false);
 
       act(() => {
         result.current.list.retrieve({});
@@ -306,7 +305,7 @@ describe("Arc queries", () => {
       });
     });
 
-    it("does not replace a loaded arc's store entry when the list refetches", async () => {
+    it("does not replace a loaded arc's cached entry when the list refetches", async () => {
       const a = await createAndLoadArc();
       const { result } = renderHook(
         () => ({ list: Arc.useList({}), nodes: Arc.useSelectAllNodes({ key: a.key }) }),
@@ -800,7 +799,7 @@ describe("Arc queries", () => {
   });
 
   describe("useRetrieveTask", () => {
-    it("should return undefined when no task is associated with arc", async () => {
+    it("should return null when no task is associated with arc", async () => {
       const testArc = await client.arcs.create({
         name: `arc-no-task-${Math.random().toString(36).substring(7)}`,
         mode: "text",
@@ -815,7 +814,7 @@ describe("Arc queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      expect(result.current.data).toBeUndefined();
+      expect(result.current.data).toBeNull();
     });
 
     it("should retrieve task associated with arc", async () => {
@@ -865,7 +864,7 @@ describe("Arc queries", () => {
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
-      expect(result.current.data).toBeUndefined();
+      expect(result.current.data).toBeNull();
 
       const rack = await client.racks.create({ name: "test-rack-add" });
       const testTask = await rack.createTask({
@@ -1245,7 +1244,7 @@ describe("Arc queries", () => {
   });
 
   describe("useDispatch", () => {
-    it("applies an action and updates the store", async () => {
+    it("applies an action and updates the cache", async () => {
       const isolated = await createAndLoadArc();
       const { result: nodes } = renderHook(
         () => Arc.useSelectAllNodes({ key: isolated.key }),
@@ -1300,7 +1299,7 @@ describe("Arc queries", () => {
       });
     });
 
-    it("propagates a dispatched action to a second flux store", async () => {
+    it("propagates a dispatched action to a second wrapper", async () => {
       const isolated = await createAndLoadArc();
       const wrapperB = await createAsyncSynnaxWrapper({ client });
       await loadArc(isolated.key, wrapperB);
@@ -1511,7 +1510,7 @@ describe("Arc queries", () => {
   });
 
   describe("useEnsureRetrieved", () => {
-    it("populates the store so selectors resolve", async () => {
+    it("populates the cache so selectors resolve", async () => {
       const isolated = await createAndLoadArc();
       const { result } = renderHook(
         () => Arc.useSelectAllNodes({ key: isolated.key }),

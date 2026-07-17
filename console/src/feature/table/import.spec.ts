@@ -15,7 +15,7 @@ import { Table } from "@/feature/table";
 import { client, project } from "@/feature/table/testutil";
 import { createFileIngesterContext } from "@/platform/import/testutil";
 import { type Panel } from "@/platform/panel";
-import { createGrantedFluxStore, uniqueName } from "@/testutil";
+import { awaitGranted, uniqueName } from "@/testutil";
 
 const populatedV0State = (overrides: Record<string, unknown> = {}) => ({
   key: "11111111-1111-1111-1111-111111111111",
@@ -176,11 +176,7 @@ describe("table import", () => {
 
 describe("table ingest", () => {
   it("creates the table on the cluster and opens it as a tab", async () => {
-    const store = await createGrantedFluxStore(
-      client,
-      clientTable.TYPE_ONTOLOGY_ID,
-      "update",
-    );
+    await awaitGranted(client, clientTable.TYPE_ONTOLOGY_ID, "update");
     const openTab = vi.fn<Panel.OpenTab>();
     const name = uniqueName("imported");
     const id = await Table.ingest(
@@ -188,7 +184,6 @@ describe("table ingest", () => {
       createFileIngesterContext({
         name,
         openTab,
-        store,
         client,
         projectKey: await project(),
       }),
@@ -198,7 +193,9 @@ describe("table ingest", () => {
     const created = await client.tables.retrieve({ key: id.key });
     expect(created.name).toBe(name);
     expect(created.rows).toHaveLength(1);
-    expect(store.tables.get(id.key)?.name).toBe(name);
+    const cached = client.tables.getCached({ key: id.key });
+    if (cached?.variant !== "changed") throw new Error("expected a cached table");
+    expect(cached.data.name).toBe(name);
   });
 
   it("rejects the import when the permission cache has no grant", async () => {

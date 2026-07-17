@@ -12,11 +12,9 @@ import { type record, Series } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { Engine } from "@/cache/engine";
-import { type UnaryStore } from "@/cache/store";
+import { cache } from "@/cache";
 import { type channel } from "@/channel";
-import { type framer } from "@/framer";
-import { Frame } from "@/framer/frame";
+import { framer } from "@/framer";
 
 interface Doc extends record.Keyed<string> {
   key: string;
@@ -76,57 +74,30 @@ const noopAsyncHandler = vi.fn(async (excOrFunc: any) => {
     }
 });
 
+const wrapOpener =
+  (opener: framer.StreamOpener): cache.StreamOpener =>
+  async (channels, { onOpen, onReopen }) => {
+    const hardened = await framer.HardenedStreamer.open(
+      opener,
+      channels,
+      undefined,
+      onReopen,
+    );
+    onOpen?.();
+    return new framer.ObservableStreamer(hardened);
+  };
+
 const makeEngine = (openStreamer?: framer.StreamOpener) =>
-  new Engine({
-    openStreamer: openStreamer ?? (async () => new MockStreamer()),
+  new cache.Engine({
+    openStreamer: wrapOpener(openStreamer ?? (async () => new MockStreamer())),
     handleError: noopHandler,
     handleAsyncError: noopAsyncHandler,
   });
 
 describe("Engine", () => {
-  describe("getCache", () => {
-    it("lazily constructs a cache on first call for a key", () => {
-      const engine = makeEngine();
-      const cache = engine.getCache<{ k: string }, number>("a");
-      expect(cache).toBeDefined();
-      expect(cache.get({ k: "x" })).toBeUndefined();
-    });
-
-    it("returns the same instance on subsequent calls with the same key", () => {
-      const engine = makeEngine();
-      const first = engine.getCache<{ k: string }, number>("a");
-      const second = engine.getCache<{ k: string }, number>("a");
-      expect(first).toBe(second);
-    });
-
-    it("returns distinct instances for distinct keys", () => {
-      const engine = makeEngine();
-      const a = engine.getCache<{ k: string }, number>("a");
-      const b = engine.getCache<{ k: string }, number>("b");
-      expect(a).not.toBe(b);
-    });
-
-    it("isolates entries across keys on the same engine", () => {
-      const engine = makeEngine();
-      const a = engine.getCache<{ k: string }, number>("a");
-      const b = engine.getCache<{ k: string }, number>("b");
-      a.set({ k: "x" }, { variant: "success", data: 1 });
-      expect(b.get({ k: "x" })).toBeUndefined();
-    });
-
-    it("isolates caches across separate Engine instances", () => {
-      const e1 = makeEngine();
-      const e2 = makeEngine();
-      const a1 = e1.getCache<{ k: string }, number>("a");
-      const a2 = e2.getCache<{ k: string }, number>("a");
-      a1.set({ k: "x" }, { variant: "success", data: 1 });
-      expect(a2.get({ k: "x" })).toBeUndefined();
-    });
-  });
-
   describe("detached", () => {
     it("auto-registers empty local stores on first access", () => {
-      const engine = new Engine({ openStreamer: null });
+      const engine = new cache.Engine({ openStreamer: null });
       expect(engine.detached).toBe(true);
       const store = engine.store<string, number>("docs");
       store.set("a", 1);
@@ -134,7 +105,7 @@ describe("Engine", () => {
     });
 
     it("keeps ensureStreaming a no-op and stays at epoch 0", async () => {
-      const engine = new Engine({ openStreamer: null });
+      const engine = new cache.Engine({ openStreamer: null });
       engine.store<string, number>("docs");
       await engine.ensureStreaming();
       expect(engine.epoch).toEqual(0);
@@ -237,7 +208,7 @@ describe("Engine", () => {
       const schema = z.object({ key: z.string(), name: z.string() });
       const opener = async () =>
         new MockStreamer([
-          new Frame({ docs_set: new Series([{ key: "k1", name: "remote" }]) }),
+          new framer.Frame({ docs_set: new Series([{ key: "k1", name: "remote" }]) }),
         ]);
       const engine = makeEngine(opener);
       engine.registerStore("docs", {
@@ -246,7 +217,7 @@ describe("Engine", () => {
             channel: "docs_set",
             schema,
             onChange: ({ changed, store }) => {
-              (store.docs as UnaryStore<string, Doc>).set(changed as Doc);
+              (store.docs as cache.UnaryStore<string, Doc>).set(changed as Doc);
             },
           },
         ],

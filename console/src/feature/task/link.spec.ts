@@ -29,14 +29,16 @@ describe("Task.useLink", () => {
       config: {},
     });
     const { wrapper, store } = await createConsoleWrapper({ client });
-    const created = await createSelectedPanel(wrapper, store, client);
+    const created = await createSelectedPanel(store, client);
+    // useOpenTab reads the panel query cache; warm it and keep it subscribed
+    // so dispatches stay visible.
+    await client.panels.retrieve(created.panelKey);
     const { result } = renderHook(() => Task.useLink(), { wrapper });
     await act(async () => {
       await result.current({ client, key: String(task.key) });
     });
-    await waitFor(() => {
-      const doc = created.fluxStore.panels.get(created.panelKey);
-      assertDefined(doc, "panel doc missing from flux store");
+    await waitFor(async () => {
+      const doc = await client.panels.retrieve(created.panelKey);
       if (doc.root.variant !== "leaf") throw new Error("panel root is not a leaf");
       const tab = doc.root.tabs.find(
         (t): t is panel.TabView =>

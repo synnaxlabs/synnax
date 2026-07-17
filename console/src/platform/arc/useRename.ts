@@ -19,17 +19,9 @@ export const useRename = (
   const confirm = Modals.useConfirm();
   const { update } = Arc.useRename({
     beforeUpdate: useCallback(
-      async ({
-        data,
-        store,
-        client,
-      }: Flux.BeforeUpdateParams<Arc.RenameParams, false, Arc.FluxSubStore>) => {
+      async ({ data, client }: Flux.BeforeUpdateParams<Arc.RenameParams>) => {
         const { key, name } = data;
-        const tsk = await Arc.retrieveTask({
-          store,
-          client,
-          query: { arcKey: key },
-        });
+        const tsk = await Arc.retrieveTask({ client, query: { arcKey: key } });
         const a = getItem(key);
         if (a == null) throw new UnexpectedError(`Arc with key ${key} not found`);
         if (tsk?.status?.details.running === true) {
