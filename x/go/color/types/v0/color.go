@@ -33,7 +33,9 @@ func (c Color) Hex() string {
 	return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, alphaByte)
 }
 
-func fromHex(s string) (Color, error) {
+// FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
+// strings with or without a leading '#'.
+func FromHex(s string) (Color, error) {
 	s = strings.TrimPrefix(s, "#")
 	var r, g, b, a uint8
 	switch len(s) {
@@ -71,7 +73,7 @@ func (c *Color) UnmarshalJSON(data []byte) error {
 			*c = Color{}
 			return nil
 		}
-		parsed, err := fromHex(s)
+		parsed, err := FromHex(s)
 		if err != nil {
 			return err
 		}
@@ -141,7 +143,7 @@ func (c *Color) DecodeMsgpack(dec *msgpack.Decoder) error {
 			*c = Color{}
 			return nil
 		}
-		parsed, err := fromHex(s)
+		parsed, err := FromHex(s)
 		if err != nil {
 			return err
 		}

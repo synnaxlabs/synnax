@@ -10,11 +10,11 @@
 package color
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
+	v0 "github.com/synnaxlabs/x/color/types/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
@@ -30,26 +30,7 @@ var Schema = zyn.Object(map[string]zyn.Schema{
 
 // FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
 // strings with or without a leading '#'.
-func FromHex(s string) (Color, error) {
-	s = strings.TrimPrefix(s, "#")
-	var r, g, b, a uint8
-	switch len(s) {
-	case 6:
-		_, err := fmt.Sscanf(s, "%02x%02x%02x", &r, &g, &b)
-		if err != nil {
-			return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color: %q", s)
-		}
-		return Color{R: r, G: g, B: b, A: 1}, nil
-	case 8:
-		_, err := fmt.Sscanf(s, "%02x%02x%02x%02x", &r, &g, &b, &a)
-		if err != nil {
-			return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color: %q", s)
-		}
-		return Color{R: r, G: g, B: b, A: float64(a) / 255}, nil
-	default:
-		return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color length: %q", s)
-	}
-}
+var FromHex = v0.FromHex
 
 // MustFromHex parses a hex color string into a Color, panicking on error.
 func MustFromHex(s string) Color {
