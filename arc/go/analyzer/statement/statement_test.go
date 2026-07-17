@@ -230,6 +230,20 @@ var _ = Describe("Statement", func() {
 					ContainSubstring("must be a literal value"))
 			})
 
+			It("rejects a stateful initialized from a constant expression", func(bCtx SpecContext) {
+				root := NewRoot(nil)
+				ctx := declareIn(bCtx, root, "total i64 $= 2 + 3")
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(
+					ContainSubstring("must be a literal value"))
+			})
+
+			It("accepts a negated-literal stateful seed", func(bCtx SpecContext) {
+				root := NewRoot(nil)
+				ctx := declareIn(bCtx, root, "total i64 $= -5")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
 			It("makes an explicitly-typed alias to a reactive variable reactive", func(bCtx SpecContext) {
 				root := NewRoot(nil, sensorChan...)
 				declareIn(bCtx, root, "derived := sensor + 1")
