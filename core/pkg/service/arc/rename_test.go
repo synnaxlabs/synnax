@@ -33,21 +33,21 @@ var _ = Describe("LSP Rename", func() {
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
 		DeferCleanup(func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) })
-		docURI := uri.URI("file:///rename.arc")
-		arclsptestutil.OpenArcDocument(server, ctx, docURI, `func test() {
+		uri := uri.URI("file:///rename.arc")
+		arclsptestutil.OpenArcDocument(server, ctx, uri, `func test() {
     x f32 := lsp_rename_ch + 1.0
     y := lsp_rename_ch * 2.0
 }`)
 
 		result := MustSucceed(server.Rename(ctx, &protocol.RenameParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Position:     protocol.Position{Line: 1, Character: 14}, // lsp_rename_ch
 			},
 			NewName: "lsp_renamed_ch",
 		}))
 		Expect(result).ToNot(BeNil())
-		Expect(result.Changes[docURI]).To(HaveLen(2))
+		Expect(result.Changes[uri]).To(HaveLen(2))
 
 		var renamed channel.Channel
 		Expect(channelSvc.NewRetrieve().
@@ -68,14 +68,14 @@ var _ = Describe("LSP Rename", func() {
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
 		DeferCleanup(func(ctx SpecContext) { Expect(server.Shutdown(ctx)).To(Succeed()) })
-		docURI := uri.URI("file:///rename_internal.arc")
-		arclsptestutil.OpenArcDocument(server, ctx, docURI, `func test() {
+		uri := uri.URI("file:///rename_internal.arc")
+		arclsptestutil.OpenArcDocument(server, ctx, uri, `func test() {
     x f32 := lsp_rename_internal + 1.0
 }`)
 
 		prepared := MustSucceed(server.PrepareRename(ctx, &protocol.PrepareRenameParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 				Position:     protocol.Position{Line: 1, Character: 14},
 			},
 		}))

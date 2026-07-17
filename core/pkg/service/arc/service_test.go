@@ -115,8 +115,8 @@ var _ = Describe("NewLSP", func() {
 		client := &MockClient{}
 		server.SetClient(client)
 
-		docURI := uri.URI("file:///test.arc")
-		OpenArcDocument(server, ctx, docURI, "func test() {\n\tx := test_lsp_channel\n}")
+		uri := uri.URI("file:///test.arc")
+		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := test_lsp_channel\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		Expect(DiagnosticMessage(client.Diagnostics()[0])).To(ContainSubstring("undefined symbol"))
 
