@@ -23,8 +23,8 @@ import (
 // IsZero returns true if the color is the zero value for its type.
 func (c Color) IsZero() bool { return c.R == 0 && c.G == 0 && c.B == 0 && c.A == 0 }
 
-// Hex returns the hex string representation of the color (e.g. "#ff0000" or
-// "#ff000080" if alpha is not 1).
+// Hex returns the hex string representation of the color (e.g. "#ff0000" or "#ff000080"
+// if alpha is not 1).
 func (c Color) Hex() string {
 	alphaByte := uint8(c.A * 255)
 	if alphaByte == 255 {
@@ -33,8 +33,8 @@ func (c Color) Hex() string {
 	return fmt.Sprintf("#%02x%02x%02x%02x", c.R, c.G, c.B, alphaByte)
 }
 
-// FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
-// strings with or without a leading '#'.
+// FromHex parses a hex color string into a Color. Supports 6 or 8 character hex strings
+// with or without a leading '#'.
 func FromHex(s string) (Color, error) {
 	s = strings.TrimPrefix(s, "#")
 	var r, g, b, a uint8
@@ -42,17 +42,23 @@ func FromHex(s string) (Color, error) {
 	case 6:
 		_, err := fmt.Sscanf(s, "%02x%02x%02x", &r, &g, &b)
 		if err != nil {
-			return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color: %q", s)
+			return Color{}, errors.Wrapf(
+				validate.ErrValidation, "invalid hex color: %q", s,
+			)
 		}
 		return Color{R: r, G: g, B: b, A: 1}, nil
 	case 8:
 		_, err := fmt.Sscanf(s, "%02x%02x%02x%02x", &r, &g, &b, &a)
 		if err != nil {
-			return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color: %q", s)
+			return Color{}, errors.Wrapf(
+				validate.ErrValidation, "invalid hex color: %q", s,
+			)
 		}
 		return Color{R: r, G: g, B: b, A: float64(a) / 255}, nil
 	default:
-		return Color{}, errors.Wrapf(validate.ErrValidation, "invalid hex color length: %q", s)
+		return Color{}, errors.Wrapf(
+			validate.ErrValidation, "invalid hex color length: %q", s,
+		)
 	}
 }
 
