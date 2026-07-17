@@ -118,8 +118,8 @@ func checkMinusSpacing(ctx context.Context[parser.IAdditiveExpressionContext]) {
 			ctx.Diagnostics.Add(diagnostics.Diagnostic{
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "subtraction requires whitespace on both sides of '-'",
-				Start:    diagnostics.Position{Line: op.GetLine(), Col: col},
-				End:      diagnostics.Position{Line: op.GetLine(), Col: col + len(op.GetText())},
+				Start:    protocol.Position{Line: uint32(op.GetLine() - 1), Character: uint32(col)},
+				End:      protocol.Position{Line: uint32(op.GetLine() - 1), Character: uint32(col + len(op.GetText()))},
 			})
 		}
 	}

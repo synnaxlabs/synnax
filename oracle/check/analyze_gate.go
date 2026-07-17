@@ -44,10 +44,15 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 	r := GateReport{Gate: g.Name(), Status: StatusPass}
 	if p.Diagnostics != nil {
 		for _, d := range *p.Diagnostics {
+			// Positions are 0-indexed; render 1-indexed, with 0 meaning no location.
+			line := 0
+			if d.Start != (protocol.Position{}) {
+				line = int(d.Start.Line) + 1
+			}
 			f := Finding{
 				Path:     d.File,
-				Line:     d.Start.Line,
-				Col:      d.Start.Col,
+				Line:     line,
+				Col:      int(d.Start.Character),
 				Message:  d.Message,
 				Severity: severityFromDiagnostic(d.Severity, g.WarningsAsErrors),
 				FixHint:  hintFromNotes(d.Notes),

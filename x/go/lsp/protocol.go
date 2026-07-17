@@ -25,25 +25,12 @@ func TranslateDiagnostics(
 	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {
 		end := diag.End
-		if end.Line == 0 && end.Col == 0 {
-			end.Line = diag.Start.Line
-			end.Col = diag.Start.Col + 1
+		if end == (protocol.Position{}) {
+			end = protocol.Position{Line: diag.Start.Line, Character: diag.Start.Character + 1}
 		}
 
-		startLine := max(diag.Start.Line-1, 0)
-		endLine := max(end.Line-1, 0)
-
 		pDiag := protocol.Diagnostic{
-			Range: protocol.Range{
-				Start: protocol.Position{
-					Line:      uint32(startLine),
-					Character: uint32(diag.Start.Col),
-				},
-				End: protocol.Position{
-					Line:      uint32(endLine),
-					Character: uint32(end.Col),
-				},
-			},
+			Range:    protocol.Range{Start: diag.Start, End: end},
 			Severity: diag.Severity,
 			Source:   protocol.NewOptional(source),
 			Message:  protocol.String(diag.Message),
@@ -56,19 +43,12 @@ func TranslateDiagnostics(
 		if len(diag.Notes) > 0 {
 			related := make([]protocol.DiagnosticRelatedInformation, 0, len(diag.Notes))
 			for _, note := range diag.Notes {
-				loc := protocol.Location{
-					Range: protocol.Range{
-						Start: protocol.Position{
-							Line:      uint32(max(note.Start.Line-1, 0)),
-							Character: uint32(note.Start.Col),
-						},
-						End: protocol.Position{
-							Line:      uint32(max(note.Start.Line-1, 0)),
-							Character: uint32(note.Start.Col + 1),
-						},
-					},
-				}
-				if note.Start.Line == 0 {
+				loc := protocol.Location{Range: protocol.Range{
+					Start: note.Start,
+					End:   protocol.Position{Line: note.Start.Line, Character: note.Start.Character + 1},
+				}}
+				// An unpositioned note points at the diagnostic's own range.
+				if note.Start == (protocol.Position{}) {
 					loc.Range = pDiag.Range
 				}
 				related = append(related, protocol.DiagnosticRelatedInformation{

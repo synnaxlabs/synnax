@@ -39,17 +39,18 @@ var _ = Describe("Diagnostic Locations", func() {
 
 		diag := (*ctx.Diagnostics)[0]
 		Expect(diag.Message).To(ContainSubstring(tc.expectedMsg))
+		// Entries use human 1-indexed lines; positions are stored 0-indexed.
 		if tc.expectedLine > 0 {
-			Expect(diag.Start.Line).To(Equal(tc.expectedLine))
+			Expect(diag.Start.Line).To(Equal(uint32(tc.expectedLine - 1)))
 		}
 		if tc.expectedColumn > 0 {
-			Expect(diag.Start.Col).To(Equal(tc.expectedColumn))
+			Expect(diag.Start.Character).To(Equal(uint32(tc.expectedColumn)))
 		}
 		if tc.expectedEndLine > 0 {
-			Expect(diag.End.Line).To(Equal(tc.expectedEndLine))
+			Expect(diag.End.Line).To(Equal(uint32(tc.expectedEndLine - 1)))
 		}
 		if tc.expectedEndColumn > 0 {
-			Expect(diag.End.Col).To(Equal(tc.expectedEndColumn))
+			Expect(diag.End.Character).To(Equal(uint32(tc.expectedEndColumn)))
 		}
 		if tc.expectedSev != 0 {
 			Expect(diag.Severity).To(Equal(tc.expectedSev))
@@ -287,11 +288,11 @@ func test() {
 
 			diag := (*ctx.Diagnostics)[0]
 			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined1"))
-			Expect(diag.Start.Line).To(Equal(3))
+			Expect(diag.Start.Line).To(Equal(uint32(2)))
 
 			diag2 := (*ctx.Diagnostics)[1]
 			Expect(diag2.Message).To(ContainSubstring("undefined symbol: undefined2"))
-			Expect(diag2.Start.Line).To(Equal(4))
+			Expect(diag2.Start.Line).To(Equal(uint32(3)))
 		})
 	})
 

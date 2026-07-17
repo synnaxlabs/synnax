@@ -18,23 +18,19 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-type Position struct {
-	Line int
-	Col  int
-}
-
-// Advance returns the position reached by walking off bytes of body from p,
-// resetting Col on each newline.
-func (p Position) Advance(body string, off int) Position {
+// Advance returns the position reached by walking off bytes of body from pos,
+// resetting the character on each newline. Positions are 0-indexed, matching
+// protocol.Position.
+func Advance(pos protocol.Position, body string, off int) protocol.Position {
 	for i := 0; i < off && i < len(body); i++ {
 		if body[i] == '\n' {
-			p.Line++
-			p.Col = 0
+			pos.Line++
+			pos.Character = 0
 		} else {
-			p.Col++
+			pos.Character++
 		}
 	}
-	return p
+	return pos
 }
 
 // severityLabel renders an LSP severity as the lowercase word used in the
@@ -56,8 +52,8 @@ func severityLabel(s protocol.DiagnosticSeverity) string {
 
 // Note provides supplementary context for a diagnostic, such as where a type was inferred.
 type Note struct {
-	Message string   `json:"message"`
-	Start   Position `json:"start"`
+	Message string            `json:"message"`
+	Start   protocol.Position `json:"start"`
 }
 
 // HintProvider is implemented by errors that include a hint for fixing the issue.
@@ -70,8 +66,8 @@ type Diagnostic struct {
 	Code     ErrorCode                   `json:"code,omitempty"`
 	Message  string                      `json:"message"`
 	Severity protocol.DiagnosticSeverity `json:"severity"`
-	Start    Position                    `json:"start"`
-	End      Position                    `json:"end"`
+	Start    protocol.Position           `json:"start"`
+	End      protocol.Position           `json:"end"`
 	Notes    []Note                      `json:"notes,omitempty"`
 	// File identifies which source file this diagnostic belongs to. Used by
 	// multi-file analysis passes to route diagnostics to the correct LSP document.
@@ -85,11 +81,21 @@ func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
 	}
 	start := ctx.GetStart()
 	stop := ctx.GetStop()
-	d.Start = Position{Line: start.GetLine(), Col: start.GetColumn()}
+	// ANTLR lines are 1-indexed; store 0-indexed to match protocol.Position.
+	d.Start = protocol.Position{
+		Line:      uint32(start.GetLine() - 1),
+		Character: uint32(start.GetColumn()),
+	}
 	if stop != nil {
-		d.End = Position{Line: stop.GetLine(), Col: stop.GetColumn() + len(stop.GetText())}
+		d.End = protocol.Position{
+			Line:      uint32(stop.GetLine() - 1),
+			Character: uint32(stop.GetColumn() + len(stop.GetText())),
+		}
 	} else {
-		d.End = Position{Line: d.Start.Line, Col: d.Start.Col + len(start.GetText())}
+		d.End = protocol.Position{
+			Line:      d.Start.Line,
+			Character: d.Start.Character + uint32(len(start.GetText())),
+		}
 	}
 }
 
@@ -142,7 +148,7 @@ func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
 
 // WithRange returns a copy of the diagnostic with explicit Start and End
 // positions, overriding any range set by SetRange.
-func (d Diagnostic) WithRange(start, end Position) Diagnostic {
+func (d Diagnostic) WithRange(start, end protocol.Position) Diagnostic {
 	d.Start, d.End = start, end
 	return d
 }
@@ -156,7 +162,7 @@ func (d Diagnostic) WithNote(note string) Diagnostic {
 }
 
 // WithNoteAt returns a copy of the diagnostic with an additional note at the given position.
-func (d Diagnostic) WithNoteAt(note string, pos Position) Diagnostic {
+func (d Diagnostic) WithNoteAt(note string, pos protocol.Position) Diagnostic {
 	if note != "" {
 		d.Notes = append(d.Notes, Note{Message: note, Start: pos})
 	}
@@ -207,7 +213,7 @@ func (d *Diagnostics) Merge(other Diagnostics) {
 }
 
 // AtLocation returns the indices of all diagnostics at the given position.
-func (d *Diagnostics) AtLocation(start Position) []int {
+func (d *Diagnostics) AtLocation(start protocol.Position) []int {
 	var indices []int
 	for i, diag := range *d {
 		if diag.Start == start {
@@ -249,11 +255,12 @@ func (d Diagnostics) String() string {
 		if i > 0 {
 			sb.WriteString("\n")
 		}
+		// Positions are stored 0-indexed; display lines 1-indexed for humans.
 		if diag.Code != "" {
 			_, _ = fmt.Fprintf(&sb,
 				"%d:%d %s [%s]: %s",
-				diag.Start.Line,
-				diag.Start.Col,
+				diag.Start.Line+1,
+				diag.Start.Character,
 				severityLabel(diag.Severity),
 				diag.Code,
 				diag.Message,
@@ -261,16 +268,16 @@ func (d Diagnostics) String() string {
 		} else {
 			_, _ = fmt.Fprintf(&sb,
 				"%d:%d %s: %s",
-				diag.Start.Line,
-				diag.Start.Col,
+				diag.Start.Line+1,
+				diag.Start.Character,
 				severityLabel(diag.Severity),
 				diag.Message,
 			)
 		}
 		for _, note := range diag.Notes {
 			sb.WriteString("\n")
-			if note.Start.Line > 0 {
-				_, _ = fmt.Fprintf(&sb, "  %d:%d note: %s", note.Start.Line, note.Start.Col, note.Message)
+			if note.Start != (protocol.Position{}) {
+				_, _ = fmt.Fprintf(&sb, "  %d:%d note: %s", note.Start.Line+1, note.Start.Character, note.Message)
 			} else {
 				_, _ = fmt.Fprintf(&sb, "  note: %s", note.Message)
 			}

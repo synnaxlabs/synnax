@@ -99,7 +99,7 @@ func (e *errorListener) SyntaxError(
 ) {
 	e.Add(diagnostics.Diagnostic{
 		Severity: protocol.DiagnosticSeverityError,
-		Start:    diagnostics.Position{Line: line, Col: column},
+		Start:    protocol.Position{Line: uint32(line - 1), Character: uint32(column)},
 		Message:  msg,
 	})
 }

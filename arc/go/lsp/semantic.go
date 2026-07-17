@@ -465,12 +465,12 @@ func expandStringToken(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.To
 	}
 	const delimLen = 1
 	bodyOff := prefixLen + delimLen
-	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}
+	cursor := protocol.Position{Line: uint32(t.GetLine() - 1), Character: uint32(t.GetColumn())}
 	prevOff := 0
 	posOf := func(off int) (uint32, uint32) {
-		cursor = cursor.Advance(text[prevOff:], off-prevOff)
+		cursor = diagnostics.Advance(cursor, text[prevOff:], off-prevOff)
 		prevOff = off
-		return uint32(cursor.Line), uint32(cursor.Col)
+		return cursor.Line, cursor.Character
 	}
 	var tokens []lsp.Token
 	emit := func(a, b int, tt uint32) {

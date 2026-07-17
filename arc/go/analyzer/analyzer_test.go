@@ -489,7 +489,7 @@ var _ = Describe("Analyzer Integration", func() {
 			diag := (*ctx.Diagnostics)[0]
 			Expect(diag.Message).To(ContainSubstring("a"))
 			Expect(diag.Message).To(ContainSubstring("b"))
-			Expect(diag.Start.Line).To(Equal(8))
+			Expect(diag.Start.Line).To(Equal(uint32(7)))
 		})
 
 		It("Should error on self-recursion", func(bCtx SpecContext) {
@@ -501,7 +501,7 @@ var _ = Describe("Analyzer Integration", func() {
 			`, chResolver)
 			diag := (*ctx.Diagnostics)[0]
 			Expect(diag.Message).To(ContainSubstring("a -> a"))
-			Expect(diag.Start.Line).To(Equal(4))
+			Expect(diag.Start.Line).To(Equal(uint32(3)))
 		})
 
 		It("Should error on circular dependency chain", func(bCtx SpecContext) {
@@ -530,7 +530,7 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(diag.Message).To(ContainSubstring("b"))
 			Expect(diag.Message).To(ContainSubstring("c"))
 			Expect(diag.Message).To(ContainSubstring("d"))
-			Expect(diag.Start.Line).To(Equal(14))
+			Expect(diag.Start.Line).To(Equal(uint32(13)))
 		})
 
 		It("Should error on diamond with back edge to root", func(bCtx SpecContext) {
@@ -1059,7 +1059,7 @@ var _ = Describe("Analyzer Integration", func() {
 				}
 			`, chResolver)
 			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Start.Line).To(Equal(3))
+			Expect(diag.Start.Line).To(Equal(uint32(2)))
 		})
 
 		It("Should handle diamond dependency without duplication", func(bCtx SpecContext) {

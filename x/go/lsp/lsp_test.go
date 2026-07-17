@@ -37,20 +37,18 @@ var _ = Describe("LSP", func() {
 			Expect(result).To(BeEmpty())
 		})
 
-		It("Should convert 1-indexed lines to 0-indexed", func() {
+		It("Should copy the already-0-indexed range straight through", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    diagnostics.Position{Line: 5, Col: 3},
-				End:      diagnostics.Position{Line: 5, Col: 10},
+				Start:    protocol.Position{Line: 5, Character: 3},
+				End:      protocol.Position{Line: 5, Character: 10},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "test error",
 			})
 			result := lsp.TranslateDiagnostics(d, source)
 			Expect(result).To(HaveLen(1))
-			Expect(result[0].Range.Start.Line).To(Equal(uint32(4)))
-			Expect(result[0].Range.Start.Character).To(Equal(uint32(3)))
-			Expect(result[0].Range.End.Line).To(Equal(uint32(4)))
-			Expect(result[0].Range.End.Character).To(Equal(uint32(10)))
+			Expect(result[0].Range.Start).To(Equal(protocol.Position{Line: 5, Character: 3}))
+			Expect(result[0].Range.End).To(Equal(protocol.Position{Line: 5, Character: 10}))
 		})
 
 		It("Should set source from config", func() {
@@ -70,11 +68,11 @@ var _ = Describe("LSP", func() {
 		It("Should convert notes to related information", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    diagnostics.Position{Line: 1, Col: 0},
-				End:      diagnostics.Position{Line: 1, Col: 5},
+				Start:    protocol.Position{Line: 1, Character: 0},
+				End:      protocol.Position{Line: 1, Character: 5},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "error",
-				Notes:    []diagnostics.Note{{Message: "related note", Start: diagnostics.Position{Line: 3, Col: 2}}},
+				Notes:    []diagnostics.Note{{Message: "related note", Start: protocol.Position{Line: 3, Character: 2}}},
 			})
 			result := lsp.TranslateDiagnostics(d, source)
 			Expect(result[0].RelatedInformation).To(HaveLen(1))
@@ -84,7 +82,7 @@ var _ = Describe("LSP", func() {
 		It("Should handle zero-line diagnostics safely", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
-				Start:    diagnostics.Position{Line: 0, Col: 0},
+				Start:    protocol.Position{Line: 0, Character: 0},
 				Severity: protocol.DiagnosticSeverityError,
 				Message:  "zero line",
 			})
