@@ -60,8 +60,6 @@ const SnapshotsListItemContent = ({
   const handleError = Status.useErrorHandler();
   const promptConfirm = Tree.useConfirmDelete({ type: "Snapshot" });
   const name = Tree.useName(id);
-  const isSnapshot = svc.useIsSnapshot(id.key);
-  if (!isSnapshot) return null;
   const namedEntry: Tree.Entry = { key: ontology.idToString(id), id, name };
   const handleSelect = () => {
     handleError(

@@ -17,7 +17,6 @@ import { Range } from "@/platform/range";
 const services: Range.SnapshotServices = {
   schematic: {
     icon: <Icon.Snapshot />,
-    useIsSnapshot: () => true,
     onClick: vi.fn(async () => {}),
     onDelete: vi.fn(async () => {}),
   },

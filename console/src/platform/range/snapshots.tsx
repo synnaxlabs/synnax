@@ -21,10 +21,6 @@ export interface SnapshotContext {
 
 export interface SnapshotService {
   icon: Icon.ReactElement;
-  // useIsSnapshot reports whether the resource with the given key is a snapshot.
-  // Implementations are hooks; a caller must invoke them unconditionally for a
-  // resource type that is stable across renders.
-  useIsSnapshot: (key: string) => boolean;
   onClick: (entry: Tree.Entry, ctx: SnapshotContext) => Promise<void>;
   onDelete: (entry: Tree.Entry, ctx: SnapshotContext) => Promise<void>;
 }

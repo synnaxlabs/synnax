@@ -47,7 +47,6 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
   const services: CommonRange.SnapshotServices = {
     schematic: {
       icon: <Icon.Schematic />,
-      useIsSnapshot: () => true,
       onClick: onSnapshotClick,
       onDelete: onSnapshotDelete,
     },
