@@ -3007,6 +3007,29 @@ var _ = Describe("Sequence", func() {
 			out, _ := h.Flush()
 			Expect(lastString(out, 102)).To(Equal("updated"))
 		})
+
+		// Declarations are bindings, not steps: they must not block step advance.
+		It("Advances past sequence-scoped declarations", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence s {
+				    my_var := "my_var"
+				    1 -> out
+				    other := "other"
+				    2 -> out
+				}
+				start_cmd => s`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(2)))
+		})
 	})
 
 	Describe("Reactive variable reads", func() {
@@ -3144,6 +3167,41 @@ var _ = Describe("Sequence", func() {
 			feed(5)
 			feed(7)
 			Expect(got).To(Equal([]string{"v: 5", "v: 7"}))
+		})
+
+		It("Derives a channel-read variable and reads it", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"cpu":  {types.U8(), 201},
+				"out":  {types.U8(), 202},
+				"out2": {types.U8(), 203},
+			})
+			h := newRuntimeHarness(ctx, `
+				stage {
+				    x := cpu * 2
+				    x -> out
+				    x + 1 -> out2
+				}`, resolver,
+				channels.Digest{Key: 201, DataType: telem.Uint8T},
+				channels.Digest{Key: 202, DataType: telem.Uint8T},
+				channels.Digest{Key: 203, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(201, telem.NewSeriesV[uint8](5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 202)).To(Equal(uint8(10)))
+			Expect(lastU8(out, 203)).To(Equal(uint8(11)))
+
+			h.Ingest(201, telem.NewSeriesV[uint8](7))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(lastU8(out, 202)).To(Equal(uint8(14)))
+			Expect(lastU8(out, 203)).To(Equal(uint8(15)))
 		})
 	})
 
@@ -3701,6 +3759,326 @@ var _ = Describe("Sequence", func() {
 			}
 			out, _ = h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(107)))
+		})
+
+		It("Reflects a stage reassignment on re-entering a reader stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.U8(), 101},
+				"go2":       {types.U8(), 102},
+				"go1":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    my_var u8 := 1
+				    stage s1 {
+				        my_var -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        my_var = 2
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)))
+			trigger(h, ctx, 102)
+			trigger(h, ctx, 103)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(2)))
+		})
+
+		It("Increments a variable once per stage entry", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.U8(), 101},
+				"go2":       {types.U8(), 102},
+				"go1":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    count u8 := 0
+				    stage s1 {
+				        count + 1 -> count
+				        count -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        count = count + 1
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			var got []uint8
+			drain := func() {
+				out, _ := h.Flush()
+				for _, s := range out.Get(101).Series {
+					got = append(got, telem.UnmarshalSeries[uint8](s)...)
+				}
+			}
+			// Increments fire once per scope entry; reads fire only on unconsumed values.
+			trigger(h, ctx, 100)
+			drain()
+			Expect(got).To(Equal([]uint8{0, 1}))
+			trigger(h, ctx, 102)
+			trigger(h, ctx, 103)
+			drain()
+			Expect(got).To(Equal([]uint8{0, 1, 2, 3}))
+		})
+
+		// Re-entry without a reassignment while away: the read must stay silent on
+		// entry (already-seen value) and fire once with the new increment.
+		It("Emits once per re-entry of an increment loop", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.U8(), 101},
+				"go2":       {types.U8(), 102},
+				"go1":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    count u8 := 0
+				    stage s1 {
+				        count + 1 -> count
+				        count -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			var got []uint8
+			drain := func() {
+				out, _ := h.Flush()
+				for _, s := range out.Get(101).Series {
+					got = append(got, telem.UnmarshalSeries[uint8](s)...)
+				}
+			}
+			trigger(h, ctx, 100)
+			drain()
+			Expect(got).To(Equal([]uint8{0, 1}))
+			trigger(h, ctx, 102)
+			trigger(h, ctx, 103)
+			drain()
+			Expect(got).To(Equal([]uint8{0, 1, 2}))
+		})
+
+		It("Routes alias writes to the rebound channel across stages", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out_a":     {types.U8(), 101},
+				"out_b":     {types.U8(), 102},
+				"go2":       {types.U8(), 103},
+				"go1":       {types.U8(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				l := out_a
+				sequence main {
+				    stage s1 {
+				        u8(1) -> l
+				        go2 => next
+				    }
+				    stage s2 {
+				        l = out_b
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Uint8T},
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)))
+			Expect(out.Get(102).Series).To(BeEmpty())
+			trigger(h, ctx, 103)
+			trigger(h, ctx, 104)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)))
+		})
+
+		It("Routes alias reads to the rebound channel across stages", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_a":      {types.U8(), 101},
+				"in_b":      {types.U8(), 102},
+				"out":       {types.U8(), 105},
+				"go2":       {types.U8(), 103},
+				"go1":       {types.U8(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				r := in_a
+				sequence main {
+				    stage s1 {
+				        r -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        r = in_b
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 105, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](10))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 105)).To(Equal(uint8(10)))
+
+			trigger(h, ctx, 103)
+			trigger(h, ctx, 104)
+			h.Ingest(102, telem.NewSeriesV[uint8](20))
+			h.Ingest(101, telem.NewSeriesV[uint8](99))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(lastU8(out, 105)).To(Equal(uint8(20)))
+		})
+
+		It("Routes alias expression reads to the rebound channel across stages", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_a":      {types.U8(), 101},
+				"in_b":      {types.U8(), 102},
+				"out":       {types.U8(), 105},
+				"go2":       {types.U8(), 103},
+				"go1":       {types.U8(), 104},
+			})
+			h := newRuntimeHarness(ctx, `
+				r := in_a
+				sequence main {
+				    stage s1 {
+				        r * 2 -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        r = in_b
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 105, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](10))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 105)).To(Equal(uint8(20)))
+
+			trigger(h, ctx, 103)
+			trigger(h, ctx, 104)
+			h.Ingest(102, telem.NewSeriesV[uint8](30))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(lastU8(out, 105)).To(Equal(uint8(60)))
+		})
+
+		It("Routes a top-level alias expression read across a stage rebind", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in_a":      {types.U8(), 101},
+				"in_b":      {types.U8(), 102},
+				"out":       {types.U8(), 105},
+				"go2":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				r := in_a
+				r * 2 -> out
+				sequence main {
+				    stage s1 {
+				        go2 => next
+				    }
+				    stage s2 {
+				        r = in_b
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 105, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](10))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 105)).To(Equal(uint8(20)))
+
+			trigger(h, ctx, 103)
+			h.Ingest(102, telem.NewSeriesV[uint8](30))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(lastU8(out, 105)).To(Equal(uint8(60)))
+		})
+
+		It("Re-points a channel-read variable from an inline sequence", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"cpu": {types.U8(), 201},
+				"out": {types.U8(), 202},
+				"go2": {types.U8(), 203},
+			})
+			h := newRuntimeHarness(ctx, `
+				stage {
+				    x := cpu * 2
+				    x -> out
+				    go2 -> sequence {
+				        x = cpu * 3
+				    }
+				}`, resolver,
+				channels.Digest{Key: 202, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(201, telem.NewSeriesV[uint8](5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastU8(out, 202)).To(Equal(uint8(10)))
+
+			trigger(h, ctx, 203)
+			out, _ = h.Flush()
+			Expect(out.Get(202).Series).To(BeEmpty(), "a re-point alone must not emit")
+
+			h.Ingest(201, telem.NewSeriesV[uint8](7))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(lastU8(out, 202)).To(Equal(uint8(21)))
 		})
 	})
 
