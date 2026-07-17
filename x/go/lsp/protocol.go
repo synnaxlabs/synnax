@@ -15,8 +15,8 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// Severity converts an internal Severity to an LSP protocol DiagnosticSeverity.
-func Severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
+// severity converts an internal Severity to an LSP protocol DiagnosticSeverity.
+func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 	switch in {
 	case diagnostics.SeverityWarning:
 		return protocol.DiagnosticSeverityWarning
@@ -66,7 +66,7 @@ func TranslateDiagnostics(
 					Character: uint32(end.Col),
 				},
 			},
-			Severity: Severity(diag.Severity),
+			Severity: severity(diag.Severity),
 			Source:   protocol.NewOptional(cfg.Source),
 			Message:  protocol.String(diag.Message),
 		}

@@ -35,15 +35,6 @@ func PositionToOffset(content string, pos protocol.Position) int {
 	return offset
 }
 
-// IsFullReplacement detects whether a content change event represents a
-// full-document replacement (no range specified).
-func IsFullReplacement(
-	change protocol.TextDocumentContentChangeEvent,
-) bool {
-	_, ok := change.(*protocol.TextDocumentContentChangeWholeDocument)
-	return ok
-}
-
 // ApplyIncrementalChange splices a single incremental change into the
 // document content and returns the updated string.
 func ApplyIncrementalChange(
@@ -67,15 +58,15 @@ func ApplyIncrementalChange(
 	}
 }
 
-// SplitLines normalizes \r\n to \n and splits the content into lines.
-func SplitLines(content string) []string {
+// splitLines normalizes \r\n to \n and splits the content into lines.
+func splitLines(content string) []string {
 	content = strings.ReplaceAll(content, "\r\n", "\n")
 	return strings.Split(content, "\n")
 }
 
 // GetLine returns the line at the given 0-indexed line number.
 func GetLine(content string, line uint32) (string, bool) {
-	lines := SplitLines(content)
+	lines := splitLines(content)
 	if int(line) >= len(lines) {
 		return "", false
 	}
@@ -107,28 +98,6 @@ func GetWordAtPosition(content string, pos protocol.Position) string {
 
 func isQualifiedWordChar(c byte) bool {
 	return IsWordChar(c) || c == '.'
-}
-
-// GetQualifiedWordAtPosition extracts the word at the given position,
-// treating dots as word characters so that qualified names like "math.pow"
-// are returned as a single word.
-func GetQualifiedWordAtPosition(
-	content string,
-	pos protocol.Position,
-) string {
-	line, ok := GetLine(content, pos.Line)
-	if !ok || int(pos.Character) >= len(line) {
-		return ""
-	}
-	start := int(pos.Character)
-	end := int(pos.Character)
-	for start > 0 && isQualifiedWordChar(line[start-1]) {
-		start--
-	}
-	for end < len(line) && isQualifiedWordChar(line[end]) {
-		end++
-	}
-	return line[start:end]
 }
 
 // GetQualifiedPrefixWordAtPosition extracts the qualifier chain ending at

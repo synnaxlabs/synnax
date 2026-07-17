@@ -18,26 +18,20 @@ import (
 )
 
 var _ = Describe("LSP", func() {
-	Describe("Severity", func() {
-		It("Should convert error severity", func() {
-			Expect(lsp.Severity(diagnostics.SeverityError)).To(Equal(protocol.DiagnosticSeverityError))
-		})
-
-		It("Should convert warning severity", func() {
-			Expect(lsp.Severity(diagnostics.SeverityWarning)).To(Equal(protocol.DiagnosticSeverityWarning))
-		})
-
-		It("Should convert info severity", func() {
-			Expect(lsp.Severity(diagnostics.SeverityInfo)).To(Equal(protocol.DiagnosticSeverityInformation))
-		})
-
-		It("Should convert hint severity", func() {
-			Expect(lsp.Severity(diagnostics.SeverityHint)).To(Equal(protocol.DiagnosticSeverityHint))
-		})
-	})
-
 	Describe("TranslateDiagnostics", func() {
 		cfg := lsp.TranslateConfig{Source: "test-analyzer"}
+
+		DescribeTable("Should map each internal severity to its LSP counterpart",
+			func(in diagnostics.Severity, expected protocol.DiagnosticSeverity) {
+				var d diagnostics.Diagnostics
+				d.Add(diagnostics.Diagnostic{Severity: in, Message: "m"})
+				Expect(lsp.TranslateDiagnostics(d, cfg)[0].Severity).To(Equal(expected))
+			},
+			Entry("error", diagnostics.SeverityError, protocol.DiagnosticSeverityError),
+			Entry("warning", diagnostics.SeverityWarning, protocol.DiagnosticSeverityWarning),
+			Entry("info", diagnostics.SeverityInfo, protocol.DiagnosticSeverityInformation),
+			Entry("hint", diagnostics.SeverityHint, protocol.DiagnosticSeverityHint),
+		)
 
 		It("Should return empty slice for empty diagnostics", func() {
 			var d diagnostics.Diagnostics
