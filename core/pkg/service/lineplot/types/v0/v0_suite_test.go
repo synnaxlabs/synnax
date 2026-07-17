@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestTelemV0(t *testing.T) {
+func TestLinePlotTypesV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Telem v0 Suite")
+	RunSpecs(t, "Service Line Plot Types v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

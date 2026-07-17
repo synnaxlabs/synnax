@@ -1,0 +1,902 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v1_test
+
+import (
+	"math"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/types"
+)
+
+var _ = Describe("Types", func() {
+	Describe("Unwrap", func() {
+		Describe("Channel types", func() {
+			It("should unwrap channel of i32 to i32", func() {
+				chanType := types.Chan(types.I32())
+				Expect(chanType.Unwrap()).To(Equal(types.I32()))
+			})
+
+			It("should unwrap channel of f64 to f64", func() {
+				chanType := types.Chan(types.F64())
+				Expect(chanType.Unwrap()).To(Equal(types.F64()))
+			})
+
+			It("should unwrap channel of u8 to u8", func() {
+				chanType := types.Chan(types.U8())
+				Expect(chanType.Unwrap()).To(Equal(types.U8()))
+			})
+
+			It("should handle nested channels (chan of chan)", func() {
+				innerChan := types.Chan(types.I32())
+				outerChan := types.Chan(innerChan)
+				Expect(outerChan.Unwrap()).To(Equal(innerChan))
+				Expect(outerChan.Unwrap().Unwrap()).To(Equal(types.I32()))
+			})
+		})
+
+		Describe("Series types", func() {
+			It("should unwrap series of i32 to i32", func() {
+				seriesType := types.Series(types.I32())
+				Expect(seriesType.Unwrap()).To(Equal(types.I32()))
+			})
+
+			It("should unwrap series of f32 to f32", func() {
+				seriesType := types.Series(types.F32())
+				Expect(seriesType.Unwrap()).To(Equal(types.F32()))
+			})
+
+			It("should unwrap series of timestamp to timestamp", func() {
+				seriesType := types.Series(types.TimeStamp())
+				Expect(seriesType.Unwrap()).To(Equal(types.TimeStamp()))
+			})
+
+			It("should handle nested series (series of series)", func() {
+				innerSeries := types.Series(types.F64())
+				outerSeries := types.Series(innerSeries)
+				Expect(outerSeries.Unwrap()).To(Equal(innerSeries))
+				Expect(outerSeries.Unwrap().Unwrap()).To(Equal(types.F64()))
+			})
+		})
+
+		DescribeTable("Primitive types should return unchanged",
+			func(t types.Type) {
+				Expect(t.Unwrap()).To(Equal(t))
+			},
+			Entry("i32", types.I32()),
+			Entry("f64", types.F64()),
+			Entry("u8", types.U8()),
+			Entry("timestamp", types.TimeStamp()),
+			Entry("timespan", types.TimeSpan()),
+		)
+
+		Describe("Type variables", func() {
+			It("should return type variable unchanged", func() {
+				tv := types.Variable("T", nil)
+				Expect(tv.Unwrap()).To(Equal(tv))
+			})
+
+			It("should return constrained type variable unchanged", func() {
+				constraint := types.NumericConstraint()
+				tv := types.Variable("N", &constraint)
+				Expect(tv.Unwrap()).To(Equal(tv))
+			})
+		})
+
+		Describe("Function types", func() {
+			It("should return function type unchanged", func() {
+				props := types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+					Outputs: types.Params{{Name: "result", Type: types.I32()}},
+				}
+				fnType := types.Function(props)
+				Expect(fnType.Unwrap()).To(Equal(fnType))
+			})
+		})
+
+		Describe("Mixed channel and series", func() {
+			It("should unwrap channel of series correctly", func() {
+				seriesType := types.Series(types.F32())
+				chanType := types.Chan(seriesType)
+				Expect(chanType.Unwrap()).To(Equal(seriesType))
+				Expect(chanType.Unwrap().Unwrap()).To(Equal(types.F32()))
+			})
+
+			It("should unwrap series of channel correctly", func() {
+				chanType := types.Chan(types.I64())
+				seriesType := types.Series(chanType)
+				Expect(seriesType.Unwrap()).To(Equal(chanType))
+				Expect(seriesType.Unwrap().Unwrap()).To(Equal(types.I64()))
+			})
+		})
+
+		Describe("Edge cases", func() {
+			It("should handle invalid/zero type", func() {
+				var t types.Type
+				Expect(func() { t.Unwrap() }).NotTo(Panic())
+				Expect(t.Unwrap()).To(Equal(t))
+			})
+
+			It("should handle channel with nil Elem", func() {
+				chanType := types.Type{Kind: types.KindChan, Elem: nil}
+				Expect(chanType.Unwrap()).To(Equal(chanType))
+			})
+
+			It("should handle series with nil Elem", func() {
+				seriesType := types.Type{Kind: types.KindSeries, Elem: nil}
+				Expect(seriesType.Unwrap()).To(Equal(seriesType))
+			})
+		})
+
+		Describe("Idempotence", func() {
+			It("should be idempotent for primitives", func() {
+				t := types.I32()
+				Expect(t.Unwrap().Unwrap()).To(Equal(t.Unwrap()))
+			})
+
+			It("should be idempotent after unwrapping once", func() {
+				chanType := types.Chan(types.F64())
+				unwrapped := chanType.Unwrap()
+				Expect(unwrapped.Unwrap()).To(Equal(unwrapped))
+			})
+
+			It("should fully unwrap nested types with repeated calls", func() {
+				nested := types.Chan(types.Series(types.I32()))
+				firstUnwrap := nested.Unwrap()
+				Expect(firstUnwrap.Kind).To(Equal(types.KindSeries))
+				secondUnwrap := firstUnwrap.Unwrap()
+				Expect(secondUnwrap).To(Equal(types.I32()))
+				thirdUnwrap := secondUnwrap.Unwrap()
+				Expect(thirdUnwrap).To(Equal(types.I32()))
+			})
+		})
+	})
+
+	Describe("UnwrapChan", func() {
+		DescribeTable("should unwrap channel types to their element type",
+			func(t types.Type, expected types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(expected))
+			},
+			Entry("chan i32 -> i32", types.Chan(types.I32()), types.I32()),
+			Entry("chan f64 -> f64", types.Chan(types.F64()), types.F64()),
+			Entry("chan u8 -> u8", types.Chan(types.U8()), types.U8()),
+			Entry("chan timestamp -> timestamp", types.Chan(types.TimeStamp()), types.TimeStamp()),
+			Entry("chan series i32 -> series i32", types.Chan(types.Series(types.I32())), types.Series(types.I32())),
+		)
+
+		DescribeTable("should leave series types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("series i32", types.Series(types.I32())),
+			Entry("series f64", types.Series(types.F64())),
+			Entry("series timestamp", types.Series(types.TimeStamp())),
+		)
+
+		DescribeTable("should leave primitive types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("i32", types.I32()),
+			Entry("f64", types.F64()),
+			Entry("u8", types.U8()),
+			Entry("timestamp", types.TimeStamp()),
+			Entry("timespan", types.TimeSpan()),
+			Entry("string", types.String()),
+		)
+
+		DescribeTable("should leave other types unchanged",
+			func(t types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(t))
+			},
+			Entry("type variable", types.Variable("T", nil)),
+			Entry("constrained type variable", func() types.Type {
+				c := types.NumericConstraint()
+				return types.Variable("N", &c)
+			}()),
+			Entry("function", types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "x", Type: types.I32()}},
+				Outputs: types.Params{{Name: "result", Type: types.I32()}},
+			})),
+			Entry("sequence", types.Sequence()),
+			Entry("stage", types.Stage()),
+		)
+
+		DescribeTable("should handle edge cases",
+			func(t types.Type, expected types.Type) {
+				Expect(t.UnwrapChan()).To(Equal(expected))
+			},
+			Entry("invalid type", types.Type{}, types.Type{}),
+			Entry("chan with nil Elem", types.Type{Kind: types.KindChan, Elem: nil}, types.Type{Kind: types.KindChan, Elem: nil}),
+			Entry("nested chan", types.Chan(types.Chan(types.I32())), types.Chan(types.I32())),
+		)
+	})
+
+	Describe("Type predicates", func() {
+		Describe("IsNumeric", func() {
+			DescribeTable("Should return true for numeric types",
+				func(t types.Type) {
+					Expect(t.IsNumeric()).To(BeTrue())
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+				Entry("I8", types.I8()),
+				Entry("I16", types.I16()),
+				Entry("I32", types.I32()),
+				Entry("I64", types.I64()),
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+			)
+
+			DescribeTable("Should return false for non-numeric types",
+				func(t types.Type) {
+					Expect(t.IsNumeric()).To(BeFalse())
+				},
+				Entry("String", types.String()),
+				// Note: TimeStamp() and TimeSpan() are now i64 with units, so they ARE numeric
+			)
+
+			It("Should check value type for channels", func() {
+				Expect(types.Chan(types.F64()).IsNumeric()).To(BeTrue())
+				Expect(types.Chan(types.String()).IsNumeric()).To(BeFalse())
+			})
+
+			It("Should check value type for series", func() {
+				Expect(types.Series(types.F64()).IsNumeric()).To(BeTrue())
+				Expect(types.Series(types.String()).IsNumeric()).To(BeFalse())
+			})
+
+			It("Should handle type variables with numeric constraint", func() {
+				constraint := types.NumericConstraint()
+				tv := types.Variable("N", &constraint)
+				Expect(tv.IsNumeric()).To(BeTrue())
+			})
+
+			It("Should return false for unconstrained type variables", func() {
+				tv := types.Variable("T", nil)
+				Expect(tv.IsNumeric()).To(BeFalse())
+			})
+
+			It("Should return true for type variable with integer constraint", func() {
+				constraint := types.IntegerConstraint()
+				tv := types.Variable("I", &constraint)
+				Expect(tv.IsNumeric()).To(BeTrue())
+			})
+
+			It("Should return true for type variable with float constraint", func() {
+				constraint := types.FloatConstraint()
+				tv := types.Variable("F", &constraint)
+				Expect(tv.IsNumeric()).To(BeTrue())
+			})
+
+			It("Should return true for type variable with concrete numeric type constraint", func() {
+				constraint := types.I32()
+				tv := types.Variable("N", &constraint)
+				Expect(tv.IsNumeric()).To(BeTrue())
+			})
+		})
+
+		Describe("IsInteger", func() {
+			DescribeTable("Should return true for integer types",
+				func(t types.Type) {
+					Expect(t.IsInteger()).To(BeTrue())
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+				Entry("I8", types.I8()),
+				Entry("I16", types.I16()),
+				Entry("I32", types.I32()),
+				Entry("I64", types.I64()),
+			)
+
+			DescribeTable("Should return false for non-integer types",
+				func(t types.Type) {
+					Expect(t.IsInteger()).To(BeFalse())
+				},
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("IsSignedInteger", func() {
+			DescribeTable("Should return true for signed integers",
+				func(t types.Type) {
+					Expect(t.IsSignedInteger()).To(BeTrue())
+				},
+				Entry("I8", types.I8()),
+				Entry("I16", types.I16()),
+				Entry("I32", types.I32()),
+				Entry("I64", types.I64()),
+			)
+
+			DescribeTable("Should return false for non-signed integers",
+				func(t types.Type) {
+					Expect(t.IsSignedInteger()).To(BeFalse())
+				},
+				Entry("U8", types.U8()),
+				Entry("U32", types.U32()),
+			)
+		})
+
+		Describe("IsUnsignedInteger", func() {
+			DescribeTable("Should return true for unsigned integers",
+				func(t types.Type) {
+					Expect(t.IsUnsignedInteger()).To(BeTrue())
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+			)
+
+			DescribeTable("Should return false for non-unsigned integers",
+				func(t types.Type) {
+					Expect(t.IsUnsignedInteger()).To(BeFalse())
+				},
+				Entry("I8", types.I8()),
+				Entry("I32", types.I32()),
+			)
+		})
+
+		Describe("IsFloat", func() {
+			DescribeTable("Should return true for float types",
+				func(t types.Type) {
+					Expect(t.IsFloat()).To(BeTrue())
+				},
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+			)
+
+			DescribeTable("Should return false for non-float types",
+				func(t types.Type) {
+					Expect(t.IsFloat()).To(BeFalse())
+				},
+				Entry("I32", types.I32()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("IsSigned", func() {
+			DescribeTable("Should return true for signed types",
+				func(t types.Type) {
+					Expect(t.IsSigned()).To(BeTrue())
+				},
+				Entry("I8", types.I8()),
+				Entry("I16", types.I16()),
+				Entry("I32", types.I32()),
+				Entry("I64", types.I64()),
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+			)
+
+			DescribeTable("Should return false for unsigned types",
+				func(t types.Type) {
+					Expect(t.IsSigned()).To(BeFalse())
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("IntegerMaxValue", func() {
+			DescribeTable("Should return correct max value for integer types",
+				func(t types.Type, expected int64) {
+					Expect(t.IntegerMaxValue()).To(Equal(expected))
+				},
+				Entry("I8", types.I8(), int64(math.MaxInt8)),
+				Entry("I16", types.I16(), int64(math.MaxInt16)),
+				Entry("I32", types.I32(), int64(math.MaxInt32)),
+				Entry("I64", types.I64(), int64(math.MaxInt64)),
+				Entry("U8", types.U8(), int64(math.MaxUint8)),
+				Entry("U16", types.U16(), int64(math.MaxUint16)),
+				Entry("U32", types.U32(), int64(math.MaxUint32)),
+				Entry("U64", types.U64(), int64(math.MaxInt64)), // Uses MaxInt64 for comparison safety
+			)
+
+			DescribeTable("Should panic for non-integer types",
+				func(t types.Type) {
+					Expect(func() { t.IntegerMaxValue() }).To(Panic())
+				},
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("IntegerMinValue", func() {
+			DescribeTable("Should return correct min value for signed integer types",
+				func(t types.Type, expected int64) {
+					Expect(t.IntegerMinValue()).To(Equal(expected))
+				},
+				Entry("I8", types.I8(), int64(math.MinInt8)),
+				Entry("I16", types.I16(), int64(math.MinInt16)),
+				Entry("I32", types.I32(), int64(math.MinInt32)),
+				Entry("I64", types.I64(), int64(math.MinInt64)),
+			)
+
+			DescribeTable("Should return 0 for unsigned integer types",
+				func(t types.Type) {
+					Expect(t.IntegerMinValue()).To(Equal(int64(0)))
+				},
+				Entry("U8", types.U8()),
+				Entry("U16", types.U16()),
+				Entry("U32", types.U32()),
+				Entry("U64", types.U64()),
+			)
+
+			DescribeTable("Should panic for non-integer types",
+				func(t types.Type) {
+					Expect(func() { t.IntegerMinValue() }).To(Panic())
+				},
+				Entry("F32", types.F32()),
+				Entry("F64", types.F64()),
+				Entry("String", types.String()),
+			)
+		})
+
+		Describe("Is64Bit", func() {
+			DescribeTable("Should return true for 64-bit types",
+				func(t types.Type) {
+					Expect(t.Is64Bit()).To(BeTrue())
+				},
+				Entry("I64", types.I64()),
+				Entry("U64", types.U64()),
+				Entry("F64", types.F64()),
+				Entry("TimeStamp", types.TimeStamp()),
+				Entry("TimeSpan", types.TimeSpan()),
+			)
+
+			DescribeTable("Should return false for non-64-bit types",
+				func(t types.Type) {
+					Expect(t.Is64Bit()).To(BeFalse())
+				},
+				Entry("I32", types.I32()),
+				Entry("F32", types.F32()),
+			)
+		})
+
+		Describe("IsBool", func() {
+			It("Should return true for U8", func() {
+				Expect(types.U8().IsBool()).To(BeTrue())
+			})
+
+			It("Should return false for other types", func() {
+				Expect(types.I32().IsBool()).To(BeFalse())
+				Expect(types.String().IsBool()).To(BeFalse())
+			})
+
+			It("Should check value type for channels", func() {
+				Expect(types.Chan(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Chan(types.I32()).IsBool()).To(BeFalse())
+			})
+
+			It("Should check value type for series", func() {
+				Expect(types.Series(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Series(types.I32()).IsBool()).To(BeFalse())
+			})
+		})
+
+		Describe("IsValid", func() {
+			It("Should return true for valid types", func() {
+				t := types.I32()
+				Expect(t.IsValid()).To(BeTrue())
+			})
+
+			It("Should return false for invalid types", func() {
+				var t types.Type
+				Expect(t.IsValid()).To(BeFalse())
+			})
+		})
+	})
+
+	Describe("String", func() {
+		DescribeTable("Should return correct strings for primitives",
+			func(t types.Type, expected string) {
+				Expect(t.String()).To(Equal(expected))
+			},
+			Entry("I8", types.I8(), "i8"),
+			Entry("I16", types.I16(), "i16"),
+			Entry("I32", types.I32(), "i32"),
+			Entry("I64", types.I64(), "i64"),
+			Entry("U8", types.U8(), "u8"),
+			Entry("U16", types.U16(), "u16"),
+			Entry("U32", types.U32(), "u32"),
+			Entry("U64", types.U64(), "u64"),
+			Entry("F32", types.F32(), "f32"),
+			Entry("F64", types.F64(), "f64"),
+			Entry("Sequence", types.Sequence(), "sequence"),
+			Entry("Stage", types.Stage(), "stage"),
+			Entry("String", types.String(), "str"),
+			Entry("TimeStamp", types.TimeStamp(), "i64 ns"),
+			Entry("TimeSpan", types.TimeSpan(), "i64 ns"),
+		)
+
+		DescribeTable("Should return correct strings for compound types",
+			func(t types.Type, expected string) {
+				Expect(t.String()).To(Equal(expected))
+			},
+			Entry("chan i32", types.Chan(types.I32()), "chan i32"),
+			Entry("chan f64", types.Chan(types.F64()), "chan f64"),
+			Entry("series i32", types.Series(types.I32()), "series i32"),
+			Entry("series f64", types.Series(types.F64()), "series f64"),
+			Entry("chan with nil Elem", types.Type{Kind: types.KindChan, Elem: nil}, "chan <invalid>"),
+			Entry("series with nil Elem", types.Type{Kind: types.KindSeries, Elem: nil}, "series <invalid>"),
+		)
+
+		DescribeTable("Should return correct strings for type variables and constraints",
+			func(t types.Type, expected string) {
+				Expect(t.String()).To(Equal(expected))
+			},
+			Entry("unconstrained", types.Variable("T", nil), "unknown"),
+			Entry("numeric constraint", func() types.Type {
+				c := types.NumericConstraint()
+				return types.Variable("N", &c)
+			}(), "numeric"),
+			Entry("integer constraint", func() types.Type {
+				c := types.IntegerConstraint()
+				return types.Variable("I", &c)
+			}(), "integer"),
+			Entry("float constraint", func() types.Type {
+				c := types.FloatConstraint()
+				return types.Variable("F", &c)
+			}(), "float"),
+			Entry("numeric constraint kind", types.NumericConstraint(), "numeric"),
+			Entry("integer constraint kind", types.IntegerConstraint(), "integer"),
+			Entry("float constraint kind", types.FloatConstraint(), "float"),
+		)
+
+		It("Should return 'function' for function types", func() {
+			fnType := types.Function(types.FunctionProperties{})
+			Expect(fnType.String()).To(Equal("function"))
+		})
+
+		It("Should return 'invalid' for invalid types", func() {
+			var invalidType types.Type
+			Expect(invalidType.String()).To(Equal("invalid"))
+		})
+	})
+
+	Describe("Density", func() {
+		DescribeTable("Should return correct byte size for fixed-size primitives",
+			func(t types.Type, expectedDensity int) {
+				Expect(t.Density()).To(Equal(expectedDensity))
+			},
+			Entry("U8 -> 1 byte", types.U8(), 1),
+			Entry("I8 -> 1 byte", types.I8(), 1),
+			Entry("U16 -> 2 bytes", types.U16(), 2),
+			Entry("I16 -> 2 bytes", types.I16(), 2),
+			Entry("U32 -> 4 bytes", types.U32(), 4),
+			Entry("I32 -> 4 bytes", types.I32(), 4),
+			Entry("F32 -> 4 bytes", types.F32(), 4),
+			Entry("U64 -> 8 bytes", types.U64(), 8),
+			Entry("I64 -> 8 bytes", types.I64(), 8),
+			Entry("F64 -> 8 bytes", types.F64(), 8),
+			Entry("TimeStamp -> 8 bytes", types.TimeStamp(), 8),
+			Entry("TimeSpan -> 8 bytes", types.TimeSpan(), 8),
+		)
+
+		DescribeTable("Should panic for non-fixed-size types",
+			func(t types.Type) {
+				Expect(func() { t.Density() }).To(Panic())
+			},
+			Entry("String", types.String()),
+			Entry("Chan", types.Chan(types.I32())),
+			Entry("Series", types.Series(types.F64())),
+			Entry("Variable", types.Variable("T", nil)),
+			Entry("NumericConstraint", types.NumericConstraint()),
+			Entry("IntegerConstraint", types.IntegerConstraint()),
+			Entry("FloatConstraint", types.FloatConstraint()),
+			Entry("Function", types.Function(types.FunctionProperties{})),
+			Entry("Invalid", types.Type{Kind: types.KindInvalid}),
+		)
+	})
+
+	Describe("Params", func() {
+		var params types.Params
+		BeforeEach(func() {
+			params = types.Params{
+				{Name: "x", Type: types.I32(), Value: 42},
+				{Name: "y", Type: types.F64(), Value: 3.14},
+				{Name: "flag", Type: types.U8(), Value: uint8(1)},
+			}
+		})
+		Describe("Get", func() {
+			It("Should return parameter when found", func() {
+				param, ok := params.Get("x")
+				Expect(ok).To(BeTrue())
+				Expect(param.Name).To(Equal("x"))
+				Expect(param.Type).To(Equal(types.I32()))
+				Expect(param.Value).To(Equal(42))
+			})
+			It("Should return false when parameter not found", func() {
+				param, ok := params.Get("nonexistent")
+				Expect(ok).To(BeFalse())
+				Expect(param).To(Equal(types.Param{}))
+			})
+			It("Should find last parameter", func() {
+				param, ok := params.Get("flag")
+				Expect(ok).To(BeTrue())
+				Expect(param.Name).To(Equal("flag"))
+			})
+			It("Should work with empty params", func() {
+				empty := types.Params{}
+				param, ok := empty.Get("x")
+				Expect(ok).To(BeFalse())
+				Expect(param).To(Equal(types.Param{}))
+			})
+		})
+		Describe("GetIndex", func() {
+			It("Should return correct index when found", func() {
+				Expect(params.GetIndex("x")).To(Equal(0))
+				Expect(params.GetIndex("y")).To(Equal(1))
+				Expect(params.GetIndex("flag")).To(Equal(2))
+			})
+			It("Should return -1 when not found", func() {
+				Expect(params.GetIndex("nonexistent")).To(Equal(-1))
+			})
+			It("Should return -1 for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.GetIndex("x")).To(Equal(-1))
+			})
+		})
+		Describe("Has", func() {
+			It("Should return true for existing parameters", func() {
+				Expect(params.Has("x")).To(BeTrue())
+				Expect(params.Has("y")).To(BeTrue())
+				Expect(params.Has("flag")).To(BeTrue())
+			})
+			It("Should return false for non-existing parameters", func() {
+				Expect(params.Has("nonexistent")).To(BeFalse())
+			})
+			It("Should return false for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.Has("x")).To(BeFalse())
+			})
+		})
+		Describe("Positional", func() {
+			It("Should return all params when the trigger is empty", func() {
+				Expect(params.Positional("")).To(Equal(params))
+			})
+			It("Should exclude the trigger param", func() {
+				positional := params.Positional("y")
+				Expect(positional).To(HaveLen(2))
+				Expect(positional.Has("y")).To(BeFalse())
+				Expect(positional.Has("x")).To(BeTrue())
+				Expect(positional.Has("flag")).To(BeTrue())
+			})
+			It("Should return all params when the trigger names no param", func() {
+				Expect(params.Positional("nonexistent")).To(HaveLen(3))
+			})
+			It("Should return empty for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.Positional("y")).To(BeEmpty())
+			})
+		})
+		Describe("ValueMap", func() {
+			It("Should return map of parameter names to values", func() {
+				valueMap := params.ValueMap()
+				Expect(valueMap).To(HaveLen(3))
+				Expect(valueMap["x"]).To(Equal(42))
+				Expect(valueMap["y"]).To(Equal(3.14))
+				Expect(valueMap["flag"]).To(Equal(uint8(1)))
+			})
+			It("Should return empty map for empty params", func() {
+				empty := types.Params{}
+				valueMap := empty.ValueMap()
+				Expect(valueMap).To(BeEmpty())
+			})
+			It("Should handle nil values", func() {
+				paramsWithNil := types.Params{
+					{Name: "a", Type: types.I32(), Value: nil},
+					{Name: "b", Type: types.F64(), Value: 1.5},
+				}
+				valueMap := paramsWithNil.ValueMap()
+				Expect(valueMap).To(HaveLen(2))
+				Expect(valueMap["a"]).To(BeNil())
+				Expect(valueMap["b"]).To(Equal(1.5))
+			})
+		})
+		Describe("RequiredCount", func() {
+			It("Should return total count when no parameters have defaults", func() {
+				requiredOnly := types.Params{
+					{Name: "a", Type: types.I32(), Value: nil},
+					{Name: "b", Type: types.F64(), Value: nil},
+					{Name: "c", Type: types.U8(), Value: nil},
+				}
+				Expect(requiredOnly.RequiredCount()).To(Equal(3))
+			})
+			It("Should return zero when all parameters have defaults", func() {
+				allOptional := types.Params{
+					{Name: "a", Type: types.I32(), Value: int32(10)},
+					{Name: "b", Type: types.F64(), Value: 3.14},
+				}
+				Expect(allOptional.RequiredCount()).To(Equal(0))
+			})
+			It("Should return count of parameters without defaults (mixed)", func() {
+				mixed := types.Params{
+					{Name: "required1", Type: types.I64(), Value: nil},
+					{Name: "required2", Type: types.I64(), Value: nil},
+					{Name: "optional1", Type: types.I64(), Value: int64(100)},
+					{Name: "optional2", Type: types.I64(), Value: int64(200)},
+				}
+				Expect(mixed.RequiredCount()).To(Equal(2))
+			})
+			It("Should return zero for empty params", func() {
+				empty := types.Params{}
+				Expect(empty.RequiredCount()).To(Equal(0))
+			})
+			It("Should count correctly with single required parameter", func() {
+				single := types.Params{
+					{Name: "x", Type: types.I32(), Value: nil},
+				}
+				Expect(single.RequiredCount()).To(Equal(1))
+			})
+			It("Should count correctly with single optional parameter", func() {
+				single := types.Params{
+					{Name: "x", Type: types.I32(), Value: int32(42)},
+				}
+				Expect(single.RequiredCount()).To(Equal(0))
+			})
+		})
+	})
+
+	Describe("Dimensions", func() {
+		Describe("Mul", func() {
+			It("Should add exponents (m * m = m^2)", func() {
+				result := types.DimLength.Mul(types.DimLength)
+				Expect(result.Length).To(Equal(int8(2)))
+			})
+
+			It("Should produce velocity (m * s^-1)", func() {
+				result := types.DimLength.Mul(types.DimFrequency)
+				Expect(result).To(Equal(types.DimVelocity))
+			})
+
+			It("Should handle dimensionless", func() {
+				result := types.DimNone.Mul(types.DimLength)
+				Expect(result).To(Equal(types.DimLength))
+			})
+		})
+
+		Describe("Div", func() {
+			It("Should subtract exponents (m / s = velocity)", func() {
+				result := types.DimLength.Div(types.DimTime)
+				Expect(result).To(Equal(types.DimVelocity))
+			})
+
+			It("Should cancel dimensions (m / m = dimensionless)", func() {
+				result := types.DimLength.Div(types.DimLength)
+				Expect(result.IsZero()).To(BeTrue())
+			})
+
+			It("Should produce frequency (1 / s)", func() {
+				result := types.DimNone.Div(types.DimTime)
+				Expect(result).To(Equal(types.DimFrequency))
+			})
+		})
+
+		Describe("IsZero", func() {
+			It("Should return true for dimensionless", func() {
+				Expect(types.DimNone.IsZero()).To(BeTrue())
+			})
+
+			It("Should return false for dimensioned", func() {
+				Expect(types.DimLength.IsZero()).To(BeFalse())
+				Expect(types.DimPressure.IsZero()).To(BeFalse())
+			})
+		})
+
+		Describe("String", func() {
+			It("Should format velocity", func() {
+				s := types.DimVelocity.String()
+				Expect(s).To(ContainSubstring("length^1"))
+				Expect(s).To(ContainSubstring("time^-1"))
+			})
+
+			It("Should return dimensionless for zero", func() {
+				Expect(types.DimNone.String()).To(Equal("dimensionless"))
+			})
+		})
+	})
+
+	Describe("Unit", func() {
+		It("Should compare equal units", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			u2 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			Expect(u1.Equal(u2)).To(BeTrue())
+		})
+
+		It("Should detect different scales", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1000, Name: "km"}
+			u2 := types.Unit{Dimensions: types.DimLength, Scale: 1, Name: "m"}
+			Expect(u1.Equal(u2)).To(BeFalse())
+		})
+
+		It("Should detect different dimensions", func() {
+			u1 := types.Unit{Dimensions: types.DimLength, Scale: 1, Name: "m"}
+			u2 := types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "s"}
+			Expect(u1.Equal(u2)).To(BeFalse())
+		})
+	})
+
+	Describe("ChanDirection", func() {
+		Describe("IsRead", func() {
+			It("Should return true for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsRead()).To(BeTrue())
+			})
+			It("Should return false for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsRead()).To(BeFalse())
+			})
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsRead()).To(BeFalse())
+			})
+			It("Should return true for combined read+write", func() {
+				combined := types.ChanDirectionRead | types.ChanDirectionWrite
+				Expect(combined.IsRead()).To(BeTrue())
+			})
+		})
+		Describe("IsWrite", func() {
+			It("Should return true for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsWrite()).To(BeTrue())
+			})
+			It("Should return false for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsWrite()).To(BeFalse())
+			})
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsWrite()).To(BeFalse())
+			})
+			It("Should return true for combined read+write", func() {
+				combined := types.ChanDirectionRead | types.ChanDirectionWrite
+				Expect(combined.IsWrite()).To(BeTrue())
+			})
+		})
+		Describe("IsSet", func() {
+			It("Should return false for ChanDirectionNone", func() {
+				Expect(types.ChanDirectionNone.IsSet()).To(BeFalse())
+			})
+			It("Should return true for ChanDirectionRead", func() {
+				Expect(types.ChanDirectionRead.IsSet()).To(BeTrue())
+			})
+			It("Should return true for ChanDirectionWrite", func() {
+				Expect(types.ChanDirectionWrite.IsSet()).To(BeTrue())
+			})
+		})
+		Describe("CheckCompatibility", func() {
+			It("Should pass when write requires write", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionWrite)).To(Succeed())
+			})
+			It("Should fail when write requires write but got read", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionRead)).To(MatchError(ContainSubstring("write channel")))
+			})
+			It("Should pass when read requires read", func() {
+				Expect(types.ChanDirectionRead.CheckCompatibility(types.ChanDirectionRead)).To(Succeed())
+			})
+			It("Should fail when read requires read but got write", func() {
+				Expect(types.ChanDirectionRead.CheckCompatibility(types.ChanDirectionWrite)).To(MatchError(ContainSubstring("read channel")))
+			})
+			It("Should pass when required direction is unset", func() {
+				Expect(types.ChanDirectionNone.CheckCompatibility(types.ChanDirectionWrite)).To(Succeed())
+			})
+			It("Should pass when actual direction is unset", func() {
+				Expect(types.ChanDirectionWrite.CheckCompatibility(types.ChanDirectionNone)).To(Succeed())
+			})
+		})
+	})
+
+})

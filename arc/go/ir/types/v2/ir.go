@@ -165,6 +165,12 @@ func scopeLabel(s Scope) string {
 	return s.Key
 }
 
+// NodeMember builds a leaf Member referencing the node with the given key.
+func NodeMember(key string) Member { return Member{NodeKey: new(key)} }
+
+// ScopeMember builds a Member wrapping the given nested Scope.
+func ScopeMember(s Scope) Member { return Member{Scope: &s} }
+
 // Key returns the member's lookup key — the string transitions target via
 // `=> name`. Derived from the set variant: the referenced node's key for
 // leaf members, the nested scope's key for scope members. Returns the empty

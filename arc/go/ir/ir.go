@@ -45,12 +45,14 @@
 // top-level stages and sequences.
 package ir
 
+import v2 "github.com/synnaxlabs/arc/ir/types/v2"
+
 // InlinePrefix names the synthetic scopes lowered from inline stage/sequence flow
 // targets, so the analyzer can detect and resolve them by key.
 const InlinePrefix = "__inline_"
 
 // NodeMember builds a leaf Member referencing the node with the given key.
-func NodeMember(key string) Member { return Member{NodeKey: new(key)} }
+func NodeMember(key string) Member { return v2.NodeMember(key) }
 
 // ScopeMember builds a Member wrapping the given nested Scope.
-func ScopeMember(s Scope) Member { return Member{Scope: &s} }
+func ScopeMember(s Scope) Member { return v2.ScopeMember(s) }

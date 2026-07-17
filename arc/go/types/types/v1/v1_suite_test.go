@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestGoV1(t *testing.T) {
+func TestTypesV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Go v1 Suite")
+	RunSpecs(t, "Types v1 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
