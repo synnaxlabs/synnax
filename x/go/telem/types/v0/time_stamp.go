@@ -44,12 +44,6 @@ func (ts TimeStamp) MarshalJSON() ([]byte, error) {
 	return xjson.MarshalStringInt64(int64(ts)), nil
 }
 
-// Now returns the current time as a TimeStamp.
-func Now() TimeStamp { return NewTimeStamp(time.Now()) }
-
-// NewTimeStamp creates a new TimeStamp from a time.Time.
-func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
-
 // String returns the timestamp in the string format. All digits after are truncated.
 // "2006-01-02T15:04:05.999Z"
 // String implements fmt.Stringer
@@ -81,12 +75,6 @@ func (ts TimeStamp) BeforeEq(t TimeStamp) bool { return ts <= t }
 // Add returns a new TimeStamp with the provided TimeSpan added to it.
 func (ts TimeStamp) Add(tspan TimeSpan) TimeStamp {
 	return TimeStamp(clamp.AddInt64(int64(ts), int64(tspan)))
-}
-
-// Since returns a TimeSpan representing the amount of time that has passed
-// since the provided TimeStamp.
-func Since(time TimeStamp) TimeSpan {
-	return TimeSpan(Now() - time)
 }
 
 // Sub returns a new TimeStamp with the provided TimeSpan subtracted from it.

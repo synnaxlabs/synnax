@@ -7,29 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package telem_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"testing"
 
-	v0 "github.com/synnaxlabs/x/telem/types/v0"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // BenchmarkValueAt benchmarks the ValueAt function with the optimized CastSlice implementation.
 func BenchmarkValueAt(b *testing.B) {
-	series := v0.NewSeriesV(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
+	series := telem.NewSeriesV(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
 	for i := 0; b.Loop(); i++ {
-		_ = v0.ValueAt[float64](series, i%10)
+		_ = telem.ValueAt[float64](series, i%10)
 	}
 }
 
 // BenchmarkSetValueAt benchmarks the SetValueAt function with the optimized CastSlice implementation.
 func BenchmarkSetValueAt(b *testing.B) {
-	series := v0.NewSeriesV(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
+	series := telem.NewSeriesV(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0)
 	for i := 0; b.Loop(); i++ {
-		v0.SetValueAt(series, i%10, float64(i))
+		telem.SetValueAt(series, i%10, float64(i))
 	}
 }
 
@@ -39,9 +39,9 @@ func BenchmarkValueAtLargeSlice(b *testing.B) {
 	for i := range data {
 		data[i] = float64(i)
 	}
-	series := v0.NewSeriesV(data...)
+	series := telem.NewSeriesV(data...)
 	for i := 0; b.Loop(); i++ {
-		_ = v0.ValueAt[float64](series, i%10000)
+		_ = telem.ValueAt[float64](series, i%10000)
 	}
 }
 
@@ -51,9 +51,9 @@ func BenchmarkSetValueAtLargeSlice(b *testing.B) {
 	for i := range data {
 		data[i] = float64(i)
 	}
-	series := v0.NewSeriesV(data...)
+	series := telem.NewSeriesV(data...)
 	for i := 0; b.Loop(); i++ {
-		v0.SetValueAt(series, i%10000, float64(i))
+		telem.SetValueAt(series, i%10000, float64(i))
 	}
 }
 
@@ -65,7 +65,7 @@ func BenchmarkValidate(b *testing.B) {
 				for i := range data {
 					data[i] = float64(i)
 				}
-				s := v0.NewSeriesV(data...)
+				s := telem.NewSeriesV(data...)
 				for b.Loop() {
 					if err := s.Validate(); err != nil {
 						b.Fatal(err)
@@ -82,7 +82,7 @@ func BenchmarkValidate(b *testing.B) {
 				for i := range data {
 					data[i] = fmt.Sprintf("sample-%d", i)
 				}
-				s := v0.NewSeriesV(data...)
+				s := telem.NewSeriesV(data...)
 				for b.Loop() {
 					if err := s.Validate(); err != nil {
 						b.Fatal(err)
@@ -102,8 +102,8 @@ func BenchmarkValidate(b *testing.B) {
 						"num": i,
 					})
 				}
-				s := v0.NewSeriesV(data...)
-				s.DataType = v0.JSONT
+				s := telem.NewSeriesV(data...)
+				s.DataType = telem.JSONT
 				for b.Loop() {
 					if err := s.Validate(); err != nil {
 						b.Fatal(err)

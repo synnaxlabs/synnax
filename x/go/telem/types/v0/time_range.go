@@ -21,11 +21,6 @@ var TimeRangeSchema = zyn.Object(map[string]zyn.Schema{
 	"end":   zyn.Int64().Coerce(),
 })
 
-// NewRangeSeconds creates a new TimeRange between start and end seconds.
-func NewRangeSeconds(start, end int) TimeRange {
-	return TimeRange{Start: TimeStamp(start) * SecondTS, End: TimeStamp(end) * SecondTS}
-}
-
 // Span returns the TimeSpan that the TimeRange occupies.
 func (tr TimeRange) Span() TimeSpan { return TimeSpan(tr.End - tr.Start) }
 

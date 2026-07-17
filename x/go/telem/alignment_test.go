@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package telem_test
 
 import (
 	"fmt"
@@ -15,25 +15,25 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v0 "github.com/synnaxlabs/x/telem/types/v0"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Alignment", func() {
 	Describe("NewAlignment", func() {
 		It("Should construct the alignment from the given domain and sample indexes", func() {
-			align := v0.NewAlignment(2, 1)
+			align := telem.NewAlignment(2, 1)
 			Expect(align.SampleIndex()).To(Equal(uint32(1)))
 			Expect(align.DomainIndex()).To(Equal(uint32(2)))
 		})
 		It("Should construct a zero alignment", func() {
-			Expect(uint64(v0.NewAlignment(0, 0))).To(Equal(uint64(0)))
+			Expect(uint64(telem.NewAlignment(0, 0))).To(Equal(uint64(0)))
 		})
 	})
 
 	Describe("MarshalJSON", func() {
 		It("Should marshal the alignment as a JSON string", func() {
-			align := v0.NewAlignment(2, 1)
+			align := telem.NewAlignment(2, 1)
 			marshalled := MustSucceed(align.MarshalJSON())
 			Expect(string(marshalled)).To(Equal(fmt.Sprintf(`"%v"`, uint64(align))))
 		})
@@ -41,31 +41,31 @@ var _ = Describe("Alignment", func() {
 
 	Describe("UnmarshalJSON", func() {
 		It("Should unmarshal the alignment from a JSON string", func() {
-			align := v0.NewAlignment(2, 1)
+			align := telem.NewAlignment(2, 1)
 			marshalled := MustSucceed(align.MarshalJSON())
-			var unmarshalled v0.Alignment
+			var unmarshalled telem.Alignment
 			Expect(unmarshalled.UnmarshalJSON(marshalled)).To(Succeed())
 			Expect(unmarshalled).To(Equal(align))
 		})
 
 		It("Should unmarshal the alignment from a number", func() {
-			var unmarshalled v0.Alignment
+			var unmarshalled telem.Alignment
 			Expect(unmarshalled.UnmarshalJSON([]byte("123"))).To(Succeed())
-			Expect(unmarshalled).To(Equal(v0.Alignment(123)))
+			Expect(unmarshalled).To(Equal(telem.Alignment(123)))
 		})
 
 		It("Should return an error and leave the alignment untouched on invalid input", func() {
-			align := v0.NewAlignment(2, 1)
+			align := telem.NewAlignment(2, 1)
 			Expect(align.UnmarshalJSON([]byte(`"not-a-number"`))).To(
 				MatchError(ContainSubstring("invalid syntax")),
 			)
-			Expect(align).To(Equal(v0.NewAlignment(2, 1)))
+			Expect(align).To(Equal(telem.NewAlignment(2, 1)))
 		})
 	})
 
 	Describe("AddSamples", func() {
 		It("Should add to the alignment sample index", func() {
-			align := v0.NewAlignment(2, 1)
+			align := telem.NewAlignment(2, 1)
 			align = align.AddSamples(3)
 			Expect(align.SampleIndex()).To(Equal(uint32(4)))
 		})
@@ -73,7 +73,7 @@ var _ = Describe("Alignment", func() {
 
 	Describe("String", func() {
 		It("Should return the string representation of the alignment", func() {
-			Expect(v0.NewAlignment(5, 7).String()).To(Equal("5-7"))
+			Expect(telem.NewAlignment(5, 7).String()).To(Equal("5-7"))
 		})
 	})
 })

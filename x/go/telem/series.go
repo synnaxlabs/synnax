@@ -7,35 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0
+package telem
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/unsafe"
+	xslices "github.com/synnaxlabs/x/slices"
+	"github.com/synnaxlabs/x/telem/internal/codec"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
-
-// NumericSample represents any numeric value that can be stored in a Series and have
-// mathematical operations performed on it.
-type NumericSample interface {
-	uint8 | uint16 | uint32 | uint64 | int8 | int16 | int32 | int64 |
-		float32 | float64 | TimeStamp
-}
-
-// FixedSample represents any numeric value that can be stored in a Series and has a
-// fixed density.
-type FixedSample interface{ NumericSample | uuid.UUID }
-
-// VariableSample is a type that can be stored in a variable-density series.
-type VariableSample interface{ []byte | string }
-
-// Sample represents any value that can be stored in a non-JSON Series.
-type Sample interface{ FixedSample | VariableSample }
 
 // NewSeries creates a new Series from a slice of sample values. It automatically
 // determines the data type from the type parameter.
@@ -95,11 +80,11 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 }
 
 func newFixedSeries[T FixedSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: marshalFixed(data)}
+	return Series{DataType: InferDataType[T](), Data: codec.MarshalFixed(data)}
 }
 
 func newVariableSeries[T VariableSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: marshalVariable(data)}
+	return Series{DataType: InferDataType[T](), Data: codec.MarshalVariable(data)}
 }
 
 // NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
@@ -112,7 +97,7 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 			return Series{}, err
 		}
 	}
-	return Series{DataType: JSONT, Data: marshalVariable(byteSlices)}, nil
+	return Series{DataType: JSONT, Data: codec.MarshalVariable(byteSlices)}, nil
 }
 
 // NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
@@ -120,38 +105,13 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 // marshalled into JSON.
 func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
 
-// variableLengthPrefixSize is the number of bytes used for the uint32 LE length prefix
-// in variable-density series encoding.
-const variableLengthPrefixSize = 4
-
 // MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
 // prefix. This is useful for code that accumulates samples into a Series.Data buffer
 // incrementally rather than using NewSeriesV.
 func MarshalVariableSample(sample []byte) []byte {
-	b := make([]byte, variableLengthPrefixSize+len(sample))
-	ByteOrder.PutUint32(b, uint32(len(sample)))
-	copy(b[variableLengthPrefixSize:], sample)
-	return b
-}
-
-func marshalVariable[T VariableSample](data []T) []byte {
-	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + variableLengthPrefixSize })
-	b := make([]byte, total)
-	offset := 0
-	for _, d := range data {
-		ByteOrder.PutUint32(b[offset:], uint32(len(d)))
-		offset += variableLengthPrefixSize
-		copy(b[offset:], d)
-		offset += len(d)
-	}
-	return b
-}
-
-func marshalFixed[T FixedSample](data []T) []byte {
-	dt := InferDataType[T]()
-	b := make([]byte, dt.Density().Size(int64(len(data))))
-	typedData := unsafe.CastSlice[byte, T](b)
-	copy(typedData, data)
+	b := make([]byte, codec.VariablePrefixSize+len(sample))
+	codec.ByteOrder.PutUint32(b, uint32(len(sample)))
+	copy(b[codec.VariablePrefixSize:], sample)
 	return b
 }
 
@@ -162,53 +122,36 @@ func UnmarshalSeries[T Sample](series Series) []T {
 	var t T
 	switch any(t).(type) {
 	case uint8:
-		return any(unmarshalFixed[uint8](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[uint8](series.Data)).([]T)
 	case uint16:
-		return any(unmarshalFixed[uint16](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[uint16](series.Data)).([]T)
 	case uint32:
-		return any(unmarshalFixed[uint32](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[uint32](series.Data)).([]T)
 	case uint64:
-		return any(unmarshalFixed[uint64](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[uint64](series.Data)).([]T)
 	case int8:
-		return any(unmarshalFixed[int8](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[int8](series.Data)).([]T)
 	case int16:
-		return any(unmarshalFixed[int16](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[int16](series.Data)).([]T)
 	case int32:
-		return any(unmarshalFixed[int32](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[int32](series.Data)).([]T)
 	case int64:
-		return any(unmarshalFixed[int64](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[int64](series.Data)).([]T)
 	case float32:
-		return any(unmarshalFixed[float32](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[float32](series.Data)).([]T)
 	case float64:
-		return any(unmarshalFixed[float64](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[float64](series.Data)).([]T)
 	case TimeStamp:
-		return any(unmarshalFixed[TimeStamp](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[TimeStamp](series.Data)).([]T)
 	case uuid.UUID:
-		return any(unmarshalFixed[uuid.UUID](series.Data)).([]T)
+		return any(codec.UnmarshalFixed[uuid.UUID](series.Data)).([]T)
 	case string:
-		return any(unmarshalVariable[string](series.Data)).([]T)
+		return any(codec.UnmarshalVariable[string](series.Data)).([]T)
 	case []byte:
-		return any(unmarshalVariable[[]byte](series.Data)).([]T)
+		return any(codec.UnmarshalVariable[[]byte](series.Data)).([]T)
 	}
 	// degenerate case, should never hit this path.
 	panic(fmt.Sprintf("unsupported sample type %T", t))
-}
-
-func unmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
-
-func unmarshalVariable[T VariableSample](b []byte) []T {
-	var data []T
-	offset := 0
-	for offset+variableLengthPrefixSize <= len(b) {
-		length := int(ByteOrder.Uint32(b[offset:]))
-		offset += variableLengthPrefixSize
-		if offset+length > len(b) {
-			break
-		}
-		data = append(data, T(b[offset:offset+length]))
-		offset += length
-	}
-	return data
 }
 
 // UnmarshalJSONSeries unmarshals a JSON-encoded series into a slice of JSON values
@@ -224,10 +167,6 @@ func UnmarshalJSONSeries[T any](s Series) ([]T, error) {
 	}
 	return data, nil
 }
-
-// ByteOrder is the standard order for encoding/decoding numeric values across the
-// Synnax telemetry ecosystem.
-var ByteOrder = binary.LittleEndian
 
 // Arrange creates a new Series containing count values starting from start, with each
 // subsequent value incremented by spacing. For example, Arrange(0, 5, 2) produces [0,
@@ -334,27 +273,27 @@ func castToBytes(value any) []byte {
 	case uint8:
 		return []byte{v}
 	case uint16:
-		return ByteOrder.AppendUint16(nil, v)
+		return codec.ByteOrder.AppendUint16(nil, v)
 	case uint32:
-		return ByteOrder.AppendUint32(nil, v)
+		return codec.ByteOrder.AppendUint32(nil, v)
 	case uint64:
-		return ByteOrder.AppendUint64(nil, v)
+		return codec.ByteOrder.AppendUint64(nil, v)
 	case int8:
 		return []byte{byte(v)}
 	case int16:
-		return ByteOrder.AppendUint16(nil, uint16(v))
+		return codec.ByteOrder.AppendUint16(nil, uint16(v))
 	case int32:
-		return ByteOrder.AppendUint32(nil, uint32(v))
+		return codec.ByteOrder.AppendUint32(nil, uint32(v))
 	case int64:
-		return ByteOrder.AppendUint64(nil, uint64(v))
+		return codec.ByteOrder.AppendUint64(nil, uint64(v))
 	case float32:
-		return ByteOrder.AppendUint32(nil, math.Float32bits(v))
+		return codec.ByteOrder.AppendUint32(nil, math.Float32bits(v))
 	case float64:
-		return ByteOrder.AppendUint64(nil, math.Float64bits(v))
+		return codec.ByteOrder.AppendUint64(nil, math.Float64bits(v))
 	case TimeStamp:
-		return ByteOrder.AppendUint64(nil, uint64(v))
+		return codec.ByteOrder.AppendUint64(nil, uint64(v))
 	case TimeSpan:
-		return ByteOrder.AppendUint64(nil, uint64(v))
+		return codec.ByteOrder.AppendUint64(nil, uint64(v))
 	case uuid.UUID:
 		return v[:]
 	case string:
@@ -377,4 +316,75 @@ func castToUUID(value any) uuid.UUID {
 	default:
 		panic(fmt.Sprintf("cannot cast %T to uuid.UUID", value))
 	}
+}
+
+// ValueAt returns the numeric value at the given index in the series. ValueAt supports
+// negative indices, which will be wrapped around the end of the series. This function
+// cannot be used for variable density series.
+func ValueAt[T FixedSample](s Series, i int) T {
+	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
+	data := xunsafe.CastSlice[byte, T](s.Data)
+	return data[i]
+}
+
+// SetValueAt sets the value at the given index in the series. SetValueAt supports
+// negative indices, which will be wrapped around the end of the series. This function
+// cannot be used for variable density series.
+func SetValueAt[T FixedSample](s Series, i int, v T) {
+	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
+	data := xunsafe.CastSlice[byte, T](s.Data)
+	data[i] = v
+}
+
+// CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
+// dst and src must have the same DataType, and that DataType cannot be of variable
+// density.
+func CopyValue(dst, src Series, dstIdx, srcIdx int) {
+	if dst.DataType != src.DataType || dst.DataType.IsVariable() || src.DataType.IsVariable() {
+		panic("cannot copy values from non-variable series")
+	}
+	den := int(dst.DataType.Density())
+	copy(dst.Data[dstIdx*den:(dstIdx+1)*den], src.Data[srcIdx*den:(srcIdx+1)*den])
+}
+
+// NewMultiSeries constructs a new MultiSeries from the given set of Series. The series
+// are sorted by their alignment, and the data type of the series must be the same. If
+// the data types are different, a panic will occur.
+func NewMultiSeries(series []Series) MultiSeries {
+	if len(series) == 0 {
+		return MultiSeries{}
+	}
+	dt := series[0].DataType
+	for _, s := range series {
+		if s.DataType != dt {
+			panic(fmt.Sprintf(
+				"cannot create MultiSeries with different data types: %v != %v",
+				dt,
+				s.DataType,
+			))
+		}
+	}
+	slices.SortFunc(series, sortSeriesByAlignment)
+	return MultiSeries{Series: series}
+}
+
+func sortSeriesByAlignment(s1, s2 Series) int { return int(s1.Alignment - s2.Alignment) }
+
+// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
+// The series are sorted by their alignment, and the data type of the series must be the
+// same. If the data types are different, a panic will occur.
+func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(series) }
+
+// MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
+func MultiSeriesAtAlignment[T FixedSample](ms MultiSeries, alignment Alignment) T {
+	for _, s := range ms.Series {
+		if s.AlignmentBounds().Contains(alignment) {
+			return ValueAt[T](s, int(alignment-s.Alignment))
+		}
+	}
+	panic(fmt.Sprintf(
+		"alignment %v out of bounds for multi series with alignment bounds %v",
+		alignment,
+		ms.AlignmentBounds(),
+	))
 }

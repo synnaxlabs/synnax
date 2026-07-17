@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/telem/internal/codec"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,12 +35,12 @@ func (s Series) Len() int64 {
 		if s.cachedLength == nil {
 			var cl int64
 			offset := 0
-			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(ByteOrder.Uint32(s.Data[offset:]))
-				if offset+variableLengthPrefixSize+length > len(s.Data) {
+			for offset+codec.VariablePrefixSize <= len(s.Data) {
+				length := int(codec.ByteOrder.Uint32(s.Data[offset:]))
+				if offset+codec.VariablePrefixSize+length > len(s.Data) {
 					break
 				}
-				offset += variableLengthPrefixSize + length
+				offset += codec.VariablePrefixSize + length
 				cl++
 			}
 			s.cachedLength = &cl
@@ -82,14 +82,14 @@ func (s *Series) validateVariable() error {
 		offset int
 		count  int64
 	)
-	for offset+variableLengthPrefixSize <= len(s.Data) {
-		length := int(ByteOrder.Uint32(s.Data[offset:]))
-		offset += variableLengthPrefixSize
+	for offset+codec.VariablePrefixSize <= len(s.Data) {
+		length := int(codec.ByteOrder.Uint32(s.Data[offset:]))
+		offset += codec.VariablePrefixSize
 		if offset+length > len(s.Data) {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
-				offset-variableLengthPrefixSize, length, len(s.Data)-offset,
+				offset-codec.VariablePrefixSize, length, len(s.Data)-offset,
 			)
 		}
 		sample := s.Data[offset : offset+length]
@@ -129,9 +129,9 @@ func (s Series) Samples() iter.Seq[[]byte] {
 	return func(yield func([]byte) bool) {
 		if s.DataType.IsVariable() {
 			offset := 0
-			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(ByteOrder.Uint32(s.Data[offset:]))
-				offset += variableLengthPrefixSize
+			for offset+codec.VariablePrefixSize <= len(s.Data) {
+				length := int(codec.ByteOrder.Uint32(s.Data[offset:]))
+				offset += codec.VariablePrefixSize
 				if offset+length > len(s.Data) {
 					return
 				}
@@ -157,9 +157,9 @@ func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
 		offset := 0
-		for offset+variableLengthPrefixSize <= len(s.Data) {
-			length := int(ByteOrder.Uint32(s.Data[offset:]))
-			offset += variableLengthPrefixSize
+		for offset+codec.VariablePrefixSize <= len(s.Data) {
+			length := int(codec.ByteOrder.Uint32(s.Data[offset:]))
+			offset += codec.VariablePrefixSize
 			if offset+length > len(s.Data) {
 				break
 			}
@@ -205,42 +205,13 @@ func (s *Series) Resize(length int64) {
 	}
 }
 
-// ValueAt returns the numeric value at the given index in the series. ValueAt supports
-// negative indices, which will be wrapped around the end of the series. This function
-// cannot be used for variable density series.
-func ValueAt[T FixedSample](s Series, i int) T {
-	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	data := xunsafe.CastSlice[byte, T](s.Data)
-	return data[i]
-}
-
-// SetValueAt sets the value at the given index in the series. SetValueAt supports
-// negative indices, which will be wrapped around the end of the series. This function
-// cannot be used for variable density series.
-func SetValueAt[T FixedSample](s Series, i int, v T) {
-	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	data := xunsafe.CastSlice[byte, T](s.Data)
-	data[i] = v
-}
-
-// CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
-// dst and src must have the same DataType, and that DataType cannot be of variable
-// density.
-func CopyValue(dst, src Series, dstIdx, srcIdx int) {
-	if dst.DataType != src.DataType || dst.DataType.IsVariable() || src.DataType.IsVariable() {
-		panic("cannot copy values from non-variable series")
-	}
-	den := int(dst.DataType.Density())
-	copy(dst.Data[dstIdx*den:(dstIdx+1)*den], src.Data[srcIdx*den:(srcIdx+1)*den])
-}
-
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
 // alignment of the first sample, and the upper bound is the alignment of the last
 // sample + 1. The lower bound is inclusive, while the upper bound is exclusive.
 func (s Series) AlignmentBounds() AlignmentBounds {
 	return AlignmentBounds{
 		Lower: s.Alignment,
-		Upper: NewAlignment(
+		Upper: newAlignment(
 			s.Alignment.DomainIndex(),
 			s.Alignment.SampleIndex()+uint32(s.Len()),
 		),
@@ -272,12 +243,12 @@ func (s Series) Downsample(factor int) Series {
 	}
 	var oData []byte
 	if s.DataType.IsVariable() {
-		samples := unmarshalVariable[[]byte](s.Data)
+		samples := codec.UnmarshalVariable[[]byte](s.Data)
 		downsampled := make([][]byte, 0, len(samples)/factor+1)
 		for i := 0; i < len(samples); i += factor {
 			downsampled = append(downsampled, samples[i])
 		}
-		oData = marshalVariable(downsampled)
+		oData = codec.MarshalVariable(downsampled)
 	} else {
 		seriesLength := len(s.Data) / factor
 		oData = make([]byte, 0, seriesLength)
@@ -317,31 +288,31 @@ func (s Series) DataString() string {
 		return "[]"
 	}
 	if s.DataType.IsVariable() {
-		return truncateAndFormatSlice(UnmarshalSeries[string](s))
+		return truncateAndFormatSlice(codec.UnmarshalVariable[string](s.Data))
 	}
 	switch s.DataType {
 	case Float64T:
-		return truncateAndFormatSlice(UnmarshalSeries[float64](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[float64](s.Data))
 	case Float32T:
-		return truncateAndFormatSlice(UnmarshalSeries[float32](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[float32](s.Data))
 	case Int64T:
-		return truncateAndFormatSlice(UnmarshalSeries[int64](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[int64](s.Data))
 	case Int32T:
-		return truncateAndFormatSlice(UnmarshalSeries[int32](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[int32](s.Data))
 	case Int16T:
-		return truncateAndFormatSlice(UnmarshalSeries[int16](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[int16](s.Data))
 	case Int8T:
-		return truncateAndFormatSlice(UnmarshalSeries[int8](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[int8](s.Data))
 	case Uint64T:
-		return truncateAndFormatSlice(UnmarshalSeries[uint64](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[uint64](s.Data))
 	case Uint32T:
-		return truncateAndFormatSlice(UnmarshalSeries[uint32](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[uint32](s.Data))
 	case Uint16T:
-		return truncateAndFormatSlice(UnmarshalSeries[uint16](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[uint16](s.Data))
 	case Uint8T:
-		return truncateAndFormatSlice(UnmarshalSeries[uint8](s))
+		return truncateAndFormatSlice(codec.UnmarshalFixed[uint8](s.Data))
 	case TimeStampT:
-		first, last := xslices.Truncate(UnmarshalSeries[TimeStamp](s), maxDisplayValues)
+		first, last := xslices.Truncate(codec.UnmarshalFixed[TimeStamp](s.Data), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)
 		for i := 1; i < len(first); i++ {
 			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()
@@ -374,50 +345,6 @@ var AlignmentBoundsZero = AlignmentBounds{}
 
 // MultiSeries is a collection of ordered Series that share the same data type.
 type MultiSeries struct{ Series []Series }
-
-func sortSeriesByAlignment(s1, s2 Series) int {
-	return int(s1.Alignment - s2.Alignment)
-}
-
-// NewMultiSeries constructs a new MultiSeries from the given set of Series. The series
-// are sorted by their alignment, and the data type of the series must be the same. If
-// the data types are different, a panic will occur.
-func NewMultiSeries(series []Series) MultiSeries {
-	if len(series) == 0 {
-		return MultiSeries{}
-	}
-	dt := series[0].DataType
-	for _, s := range series {
-		if s.DataType != dt {
-			panic(fmt.Sprintf(
-				"cannot create MultiSeries with different data types: %v != %v",
-				dt,
-				s.DataType,
-			))
-		}
-	}
-	slices.SortFunc(series, sortSeriesByAlignment)
-	return MultiSeries{Series: series}
-}
-
-// MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
-func MultiSeriesAtAlignment[T FixedSample](ms MultiSeries, alignment Alignment) T {
-	for _, s := range ms.Series {
-		if s.AlignmentBounds().Contains(alignment) {
-			return ValueAt[T](s, int(alignment-s.Alignment))
-		}
-	}
-	panic(fmt.Sprintf(
-		"alignment %v out of bounds for multi series with alignment bounds %v",
-		alignment,
-		ms.AlignmentBounds(),
-	))
-}
-
-// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
-// The series are sorted by their alignment, and the data type of the series must be the
-// same. If the data types are different, a panic will occur.
-func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(series) }
 
 // AlignmentBounds returns the alignment bounds of the MultiSeries. The lower bound is
 // the alignment of the first sample in the series, and the upper bound is the alignment

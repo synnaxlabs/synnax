@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package telem_test
 
 import (
 	"encoding/json"
@@ -17,99 +17,99 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	v0 "github.com/synnaxlabs/x/telem/types/v0"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("TimeStamp", func() {
 	Describe("Now", func() {
 		It("Should return the current time", func() {
-			Expect(v0.Now().Time()).To(BeTemporally("~", time.Now(), time.Millisecond))
+			Expect(telem.Now().Time()).To(BeTemporally("~", time.Now(), time.Millisecond))
 		})
 	})
 
 	Describe("Stringer", func() {
 		It("Should format a time properly", func() {
-			ts := 90*v0.DayTS + 20*v0.MinuteTS + 283*v0.MillisecondTS + 900*v0.MicrosecondTS
+			ts := 90*telem.DayTS + 20*telem.MinuteTS + 283*telem.MillisecondTS + 900*telem.MicrosecondTS
 			Expect(fmt.Sprintf("%v", ts)).To(Equal("1970-04-01T00:20:00.283Z"))
 		})
 		It("Should do EoT", func() {
-			Expect(fmt.Sprintf("%v", v0.TimeStampMax)).To(Equal("end of time"))
+			Expect(fmt.Sprintf("%v", telem.TimeStampMax)).To(Equal("end of time"))
 		})
 	})
 
 	Describe("Name", func() {
 		It("Should initialize a new timestamp based on the provided time", func() {
 			t := time.Now()
-			t0 := v0.NewTimeStamp(t)
+			t0 := telem.NewTimeStamp(t)
 			Expect(t0.Time()).To(BeTemporally("~", t, time.Millisecond))
 		})
 	})
 
 	Describe("IsZero", func() {
 		It("Should return true if the timestamp is zero", func() {
-			Expect(v0.TimeStampMin.IsZero()).To(BeTrue())
-			Expect(v0.TimeStampMax.IsZero()).To(BeFalse())
+			Expect(telem.TimeStampMin.IsZero()).To(BeTrue())
+			Expect(telem.TimeStampMax.IsZero()).To(BeFalse())
 		})
 	})
 
 	Describe("Before", func() {
 		It("Should return true if the timestamp is after the provided one", func() {
-			Expect(v0.TimeStampMin.After(v0.TimeStampMax)).To(BeFalse())
-			Expect(v0.TimeStampMax.After(v0.TimeStampMin)).To(BeTrue())
+			Expect(telem.TimeStampMin.After(telem.TimeStampMax)).To(BeFalse())
+			Expect(telem.TimeStampMax.After(telem.TimeStampMin)).To(BeTrue())
 		})
 		It("Should return false if the timestamp is equal to the provided one", func() {
-			Expect(v0.TimeStampMin.After(v0.TimeStampMin)).To(BeFalse())
-			Expect(v0.TimeStampMax.After(v0.TimeStampMax)).To(BeFalse())
+			Expect(telem.TimeStampMin.After(telem.TimeStampMin)).To(BeFalse())
+			Expect(telem.TimeStampMax.After(telem.TimeStampMax)).To(BeFalse())
 		})
 	})
 
 	Describe("After", func() {
 		It("Should return true if the timestamp is before the provided one", func() {
-			Expect(v0.TimeStampMin.Before(v0.TimeStampMax)).To(BeTrue())
-			Expect(v0.TimeStampMax.Before(v0.TimeStampMin)).To(BeFalse())
+			Expect(telem.TimeStampMin.Before(telem.TimeStampMax)).To(BeTrue())
+			Expect(telem.TimeStampMax.Before(telem.TimeStampMin)).To(BeFalse())
 		})
 		It("Should return false if the timestamp is equal to the provided one", func() {
-			Expect(v0.TimeStampMin.Before(v0.TimeStampMin)).To(BeFalse())
-			Expect(v0.TimeStampMax.Before(v0.TimeStampMax)).To(BeFalse())
+			Expect(telem.TimeStampMin.Before(telem.TimeStampMin)).To(BeFalse())
+			Expect(telem.TimeStampMax.Before(telem.TimeStampMax)).To(BeFalse())
 		})
 	})
 
 	Describe("add", func() {
 		It("Should return a new timestamp with the provided timespan added to it", func() {
-			t0 := v0.TimeStamp(0)
-			t1 := t0.Add(v0.Second)
-			Expect(t1).To(Equal(v0.TimeStamp(1 * v0.Second)))
+			t0 := telem.TimeStamp(0)
+			t1 := t0.Add(telem.Second)
+			Expect(t1).To(Equal(telem.TimeStamp(1 * telem.Second)))
 		})
 	})
 
 	Describe("sub", func() {
 		It("Should return a new timestamp with the provided timespan subtracted from it", func() {
-			t0 := v0.TimeStamp(0)
-			t1 := t0.Sub(v0.Second)
-			Expect(t1).To(Equal(v0.TimeStamp(-1 * v0.Second)))
+			t0 := telem.TimeStamp(0)
+			t1 := t0.Sub(telem.Second)
+			Expect(t1).To(Equal(telem.TimeStamp(-1 * telem.Second)))
 		})
 	})
 
 	Describe("SpanRange", func() {
 		It("Should return the correct time range", func() {
-			t0 := v0.TimeStamp(0)
-			r := t0.SpanRange(v0.Second)
+			t0 := telem.TimeStamp(0)
+			r := t0.SpanRange(telem.Second)
 			Expect(r.Start).To(Equal(t0))
-			Expect(r.End).To(Equal(t0.Add(v0.Second)))
+			Expect(r.End).To(Equal(t0.Add(telem.Second)))
 		})
 		It("Should swap the start and end if the start is after the end", func() {
-			t0 := v0.TimeStamp(0)
-			r := v0.TimeStamp(v0.Second).SpanRange(-1 * v0.Second)
+			t0 := telem.TimeStamp(0)
+			r := telem.TimeStamp(telem.Second).SpanRange(-1 * telem.Second)
 			Expect(r.Start).To(Equal(t0))
-			Expect(r.End).To(Equal(t0.Add(v0.Second)))
+			Expect(r.End).To(Equal(t0.Add(telem.Second)))
 		})
 	})
 
 	Describe("Bounds", func() {
 		It("Should return the correct time range", func() {
-			t0 := v0.TimeStamp(0)
-			t1 := t0.Add(v0.Second)
+			t0 := telem.TimeStamp(0)
+			t1 := t0.Add(telem.Second)
 			r := t0.Range(t1)
 			Expect(r.Start).To(Equal(t0))
 			Expect(r.End).To(Equal(t1))
@@ -118,65 +118,65 @@ var _ = Describe("TimeStamp", func() {
 
 	Describe("Span", func() {
 		It("Should return the time span between two timestamps", func() {
-			span := (v0.SecondTS * 5).Span(v0.SecondTS * 20)
-			Expect(span).To(Equal(v0.Second * 15))
+			span := (telem.SecondTS * 5).Span(telem.SecondTS * 20)
+			Expect(span).To(Equal(telem.Second * 15))
 		})
 
 		It("Should work correctly when the arg timestamp is before the original timestamp", func() {
-			span := (v0.SecondTS * 20).Span(v0.SecondTS * 5)
-			Expect(span).To(Equal(-v0.Second * 15))
+			span := (telem.SecondTS * 20).Span(telem.SecondTS * 5)
+			Expect(span).To(Equal(-telem.Second * 15))
 		})
 	})
 
 	Describe("MarshalJSON", func() {
 		It("Should marshal the time stamp into a string", func() {
-			b := MustSucceed(json.Marshal(v0.TimeStamp(v0.Second)))
+			b := MustSucceed(json.Marshal(telem.TimeStamp(telem.Second)))
 			Expect(string(b)).To(Equal(`"1000000000"`))
 		})
 	})
 
 	Describe("UnmarshalJSON", func() {
 		It("Should unmarshal a time stamp from a number", func() {
-			var ts v0.TimeStamp
+			var ts telem.TimeStamp
 			Expect(json.Unmarshal([]byte("1000000000"), &ts)).To(Succeed())
-			Expect(ts).To(Equal(v0.TimeStamp(v0.Second)))
+			Expect(ts).To(Equal(telem.TimeStamp(telem.Second)))
 		})
 
 		It("Should unmarshal a time stamp from a string", func() {
-			var ts v0.TimeStamp
+			var ts telem.TimeStamp
 			Expect(json.Unmarshal([]byte(`"1000000000"`), &ts)).To(Succeed())
-			Expect(ts).To(Equal(v0.TimeStamp(v0.Second)))
+			Expect(ts).To(Equal(telem.TimeStamp(telem.Second)))
 		})
 
 		It("Should return an error and leave the time stamp untouched on invalid input", func() {
-			ts := v0.TimeStamp(v0.Second)
+			ts := telem.TimeStamp(telem.Second)
 			Expect(json.Unmarshal([]byte(`"not-a-number"`), &ts)).To(
 				MatchError(ContainSubstring("invalid syntax")),
 			)
-			Expect(ts).To(Equal(v0.TimeStamp(v0.Second)))
+			Expect(ts).To(Equal(telem.TimeStamp(telem.Second)))
 		})
 	})
 
 	Describe("Since", func() {
 		It("Should return a positive TimeSpan for a timestamp in the past", func() {
-			past := v0.Now().Sub(v0.Second)
-			elapsed := v0.Since(past)
-			Expect(elapsed).To(BeNumerically(">=", v0.Second))
-			Expect(elapsed).To(BeNumerically("<", 2*v0.Second))
+			past := telem.Now().Sub(telem.Second)
+			elapsed := telem.Since(past)
+			Expect(elapsed).To(BeNumerically(">=", telem.Second))
+			Expect(elapsed).To(BeNumerically("<", 2*telem.Second))
 		})
 
 		It("Should return approximately zero for a timestamp equal to now", func() {
-			now := v0.Now()
-			elapsed := v0.Since(now)
+			now := telem.Now()
+			elapsed := telem.Since(now)
 			Expect(elapsed).To(BeNumerically(">=", 0))
-			Expect(elapsed).To(BeNumerically("<", v0.Millisecond))
+			Expect(elapsed).To(BeNumerically("<", telem.Millisecond))
 		})
 
 		It("Should return a negative TimeSpan for a timestamp in the future", func() {
-			future := v0.Now().Add(v0.Second)
-			elapsed := v0.Since(future)
+			future := telem.Now().Add(telem.Second)
+			elapsed := telem.Since(future)
 			Expect(elapsed).To(BeNumerically("<", 0))
-			Expect(elapsed).To(BeNumerically(">", -2*v0.Second))
+			Expect(elapsed).To(BeNumerically(">", -2*telem.Second))
 		})
 	})
 })

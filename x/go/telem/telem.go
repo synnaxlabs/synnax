@@ -12,6 +12,8 @@ package telem
 import (
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/telem/internal/codec"
 	latest "github.com/synnaxlabs/x/telem/types/v0"
 )
 
@@ -20,17 +22,20 @@ type Density = latest.Density
 
 // NumericSample represents any numeric value that can be stored in a Series and have
 // mathematical operations performed on it.
-type NumericSample = latest.NumericSample
+type NumericSample interface {
+	uint8 | uint16 | uint32 | uint64 | int8 | int16 | int32 | int64 |
+		float32 | float64 | TimeStamp
+}
 
 // FixedSample represents any numeric value that can be stored in a Series and has a
 // fixed density.
-type FixedSample = latest.FixedSample
+type FixedSample interface{ NumericSample | uuid.UUID }
 
 // VariableSample is a type that can be stored in a variable-density series.
-type VariableSample = latest.VariableSample
+type VariableSample interface{ []byte | string }
 
 // Sample represents any value that can be stored in a non-JSON Series.
-type Sample = latest.Sample
+type Sample interface{ FixedSample | VariableSample }
 
 // AlignmentBounds is a set of lower and upper bounds for the alignment of a
 // multi-sample data structure (such as a Series or MultiSeries). The lower bound
@@ -160,7 +165,7 @@ var (
 	AlignmentBoundsZero = latest.AlignmentBoundsZero
 	// ByteOrder is the standard order for encoding/decoding numeric values across the
 	// Synnax telemetry ecosystem.
-	ByteOrder = latest.ByteOrder
+	ByteOrder = codec.ByteOrder
 	// TimeRangeSchema is a zyn schema for parsing a time range.
 	TimeRangeSchema = latest.TimeRangeSchema
 	// TimeRangeMax represents the maximum possible value for a TimeRange.
@@ -174,125 +179,57 @@ var (
 // NewAlignment takes the given array index and sample index within that array and
 // returns a new Alignment (see Alignment for more information).
 func NewAlignment(domainIdx, sampleIdx uint32) Alignment {
-	return latest.NewAlignment(domainIdx, sampleIdx)
+	return Alignment(domainIdx)<<32 | Alignment(sampleIdx)
 }
 
 // InferDataType infers the data type of the given Sample.
-func InferDataType[T Sample]() DataType { return latest.InferDataType[T]() }
+func InferDataType[T Sample]() DataType {
+	var t T
+	switch any(t).(type) {
+	case uint8:
+		return Uint8T
+	case uint16:
+		return Uint16T
+	case uint32:
+		return Uint32T
+	case uint64:
+		return Uint64T
+	case int8:
+		return Int8T
+	case int16:
+		return Int16T
+	case int32:
+		return Int32T
+	case int64:
+		return Int64T
+	case float32:
+		return Float32T
+	case float64:
+		return Float64T
+	case TimeStamp:
+		return TimeStampT
+	case uuid.UUID:
+		return UUIDT
+	case string:
+		return StringT
+	case []byte:
+		return BytesT
+	default:
+		return UnknownT
+	}
+}
 
 // Now returns the current time as a TimeStamp.
-func Now() TimeStamp { return latest.Now() }
+func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 
 // NewTimeStamp creates a new TimeStamp from a time.Time.
-func NewTimeStamp(t time.Time) TimeStamp { return latest.NewTimeStamp(t) }
+func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
 // Since returns a TimeSpan representing the amount of time that has passed
 // since the provided TimeStamp.
-func Since(time TimeStamp) TimeSpan { return latest.Since(time) }
+func Since(ts TimeStamp) TimeSpan { return TimeSpan(Now() - ts) }
 
 // NewRangeSeconds creates a new TimeRange between start and end seconds.
 func NewRangeSeconds(start, end int) TimeRange {
-	return latest.NewRangeSeconds(start, end)
-}
-
-// NewSeries creates a new Series from a slice of sample values. It automatically
-// determines the data type from the type parameter.
-func NewSeries[T Sample](data []T) Series { return latest.NewSeries(data) }
-
-// NewSeriesV is a variadic version of NewSeries.
-func NewSeriesV[T Sample](data ...T) Series { return latest.NewSeriesV(data...) }
-
-// MakeSeries allocates a new Series with the specified DataType and length. Note that
-// this function allocates a length and not a capacity.
-func MakeSeries(dt DataType, len int) Series { return latest.MakeSeries(dt, len) }
-
-// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input
-// timestamps are multiplied by SecondTS to convert them to the standard time unit used
-// in the system.
-func NewSeriesSecondsTSV(data ...TimeStamp) Series {
-	return latest.NewSeriesSecondsTSV(data...)
-}
-
-// NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
-// error if the data cannot be marshalled into JSON.
-func NewJSONSeries[T any](data []T) (Series, error) {
-	return latest.NewJSONSeries(data)
-}
-
-// NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
-// marshaling each one in the process. It returns an error if the data cannot be
-// marshalled into JSON.
-func NewJSONSeriesV[T any](data ...T) (Series, error) {
-	return latest.NewJSONSeriesV(data...)
-}
-
-// MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
-// prefix. This is useful for code that accumulates samples into a Series.Data buffer
-// incrementally rather than using NewSeriesV.
-func MarshalVariableSample(sample []byte) []byte {
-	return latest.MarshalVariableSample(sample)
-}
-
-// UnmarshalSeries converts a Series back into a slice of the specified data type. Note
-// that this function does NOT check the Series' DataType, it simply unmarshals the data
-// according to type T.
-func UnmarshalSeries[T Sample](series Series) []T {
-	return latest.UnmarshalSeries[T](series)
-}
-
-// UnmarshalJSONSeries unmarshals a JSON-encoded series into a slice of JSON values
-// of the specified type T. This function does NOT check the Series' DataType, it simply
-// unmarshals the data according to type T.
-func UnmarshalJSONSeries[T any](s Series) ([]T, error) {
-	return latest.UnmarshalJSONSeries[T](s)
-}
-
-// Arrange creates a new Series containing count values starting from start, with each
-// subsequent value incremented by spacing. For example, Arrange(0, 5, 2) produces [0,
-// 2, 4, 6, 8]. Panics if count is less than or equal to 0.
-func Arrange[T NumericSample](start T, count int, spacing T) Series {
-	return latest.Arrange(start, count, spacing)
-}
-
-// NewSeriesFromAny creates a single-value Series from a value of type any, casting it
-// to the specified DataType. Supports numeric types, strings, TimeStamp, JSON, and
-// bytes. Panics if the value cannot be converted to the target DataType.
-func NewSeriesFromAny(value any, dt DataType) Series {
-	return latest.NewSeriesFromAny(value, dt)
-}
-
-// ValueAt returns the numeric value at the given index in the series. ValueAt supports
-// negative indices, which will be wrapped around the end of the series. This function
-// cannot be used for variable density series.
-func ValueAt[T FixedSample](s Series, i int) T { return latest.ValueAt[T](s, i) }
-
-// SetValueAt sets the value at the given index in the series. SetValueAt supports
-// negative indices, which will be wrapped around the end of the series. This function
-// cannot be used for variable density series.
-func SetValueAt[T FixedSample](s Series, i int, v T) { latest.SetValueAt(s, i, v) }
-
-// CopyValue copies the sample from src at the index srcIdx to the index srcIdx in src.
-// dst and src must have the same DataType, and that DataType cannot be of variable
-// density.
-func CopyValue(dst, src Series, dstIdx, srcIdx int) {
-	latest.CopyValue(dst, src, dstIdx, srcIdx)
-}
-
-// NewMultiSeries constructs a new MultiSeries from the given set of Series. The series
-// are sorted by their alignment, and the data type of the series must be the same. If
-// the data types are different, a panic will occur.
-func NewMultiSeries(series []Series) MultiSeries {
-	return latest.NewMultiSeries(series)
-}
-
-// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
-// The series are sorted by their alignment, and the data type of the series must be the
-// same. If the data types are different, a panic will occur.
-func NewMultiSeriesV(series ...Series) MultiSeries {
-	return latest.NewMultiSeriesV(series...)
-}
-
-// MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
-func MultiSeriesAtAlignment[T FixedSample](ms MultiSeries, alignment Alignment) T {
-	return latest.MultiSeriesAtAlignment[T](ms, alignment)
+	return TimeRange{Start: TimeStamp(start) * SecondTS, End: TimeStamp(end) * SecondTS}
 }

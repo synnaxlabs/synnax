@@ -9,8 +9,6 @@
 
 package v0
 
-import "github.com/google/uuid"
-
 // Density returns the density of the given data type. If the data type has no known
 // density, UnknownDensity is returned.
 func (dt DataType) Density() Density {
@@ -33,44 +31,6 @@ func (dt DataType) Density() Density {
 // IsVariable returns true if the data type has a variable density.
 func (dt DataType) IsVariable() bool {
 	return dt == BytesT || dt == StringT || dt == JSONT
-}
-
-// InferDataType infers the data type of the given Sample.
-func InferDataType[T Sample]() DataType {
-	var t T
-	switch any(t).(type) {
-	case uint8:
-		return Uint8T
-	case uint16:
-		return Uint16T
-	case uint32:
-		return Uint32T
-	case uint64:
-		return Uint64T
-	case int8:
-		return Int8T
-	case int16:
-		return Int16T
-	case int32:
-		return Int32T
-	case int64:
-		return Int64T
-	case float32:
-		return Float32T
-	case float64:
-		return Float64T
-	case TimeStamp:
-		return TimeStampT
-	case uuid.UUID:
-		return UUIDT
-	case string:
-		return StringT
-	case []byte:
-		return BytesT
-	default:
-		// degenerate case, should never hit this path.
-		return UnknownT
-	}
 }
 
 const (
