@@ -15,10 +15,8 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"go.lsp.dev/protocol"
 )
-
-// Severity represents the importance level of a diagnostic message.
-type Severity int
 
 type Position struct {
 	Line int
@@ -39,29 +37,20 @@ func (p Position) Advance(body string, off int) Position {
 	return p
 }
 
-const (
-	// SeverityError indicates a critical issue that prevents compilation.
-	SeverityError Severity = iota
-	// SeverityWarning indicates a potential problem that doesn't prevent compilation.
-	SeverityWarning
-	// SeverityInfo provides informational messages about analysis decisions.
-	SeverityInfo
-	// SeverityHint suggests code improvements or best practices.
-	SeverityHint
-)
-
-func (s Severity) String() string {
+// severityLabel renders an LSP severity as the lowercase word used in the
+// human-readable String output.
+func severityLabel(s protocol.DiagnosticSeverity) string {
 	switch s {
-	case SeverityError:
+	case protocol.DiagnosticSeverityError:
 		return "error"
-	case SeverityWarning:
+	case protocol.DiagnosticSeverityWarning:
 		return "warning"
-	case SeverityInfo:
+	case protocol.DiagnosticSeverityInformation:
 		return "info"
-	case SeverityHint:
+	case protocol.DiagnosticSeverityHint:
 		return "hint"
 	default:
-		return fmt.Sprintf("Severity(%d)", s)
+		return fmt.Sprintf("severity(%d)", s)
 	}
 }
 
@@ -78,13 +67,13 @@ type HintProvider interface {
 
 // Diagnostic represents a single compiler diagnostic message.
 type Diagnostic struct {
-	Key      string    `json:"key"`
-	Code     ErrorCode `json:"code,omitempty"`
-	Message  string    `json:"message"`
-	Severity Severity  `json:"severity"`
-	Start    Position  `json:"start"`
-	End      Position  `json:"end"`
-	Notes    []Note    `json:"notes,omitempty"`
+	Key      string                      `json:"key"`
+	Code     ErrorCode                   `json:"code,omitempty"`
+	Message  string                      `json:"message"`
+	Severity protocol.DiagnosticSeverity `json:"severity"`
+	Start    Position                    `json:"start"`
+	End      Position                    `json:"end"`
+	Notes    []Note                      `json:"notes,omitempty"`
 	// File identifies which source file this diagnostic belongs to. Used by
 	// multi-file analysis passes to route diagnostics to the correct LSP document.
 	File string `json:"file,omitempty"`
@@ -108,7 +97,7 @@ func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
 // Error creates an error diagnostic from an existing error. If the error implements
 // HintProvider, the hint is automatically extracted and added as a note.
 func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
-	d := Diagnostic{Severity: SeverityError, Message: err.Error()}
+	d := Diagnostic{Severity: protocol.DiagnosticSeverityError, Message: err.Error()}
 	d.SetRange(ctx)
 	if hp, ok := err.(HintProvider); ok {
 		if hint := hp.GetHint(); hint != "" {
@@ -120,28 +109,28 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 
 // Errorf creates an error diagnostic with a formatted message.
 func Errorf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{Severity: SeverityError, Message: fmt.Sprintf(format, args...)}
+	d := Diagnostic{Severity: protocol.DiagnosticSeverityError, Message: fmt.Sprintf(format, args...)}
 	d.SetRange(ctx)
 	return d
 }
 
 // Warningf creates a warning diagnostic with a formatted message.
 func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{Severity: SeverityWarning, Message: fmt.Sprintf(format, args...)}
+	d := Diagnostic{Severity: protocol.DiagnosticSeverityWarning, Message: fmt.Sprintf(format, args...)}
 	d.SetRange(ctx)
 	return d
 }
 
 // Infof creates an info diagnostic with a formatted message.
 func Infof(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{Severity: SeverityInfo, Message: fmt.Sprintf(format, args...)}
+	d := Diagnostic{Severity: protocol.DiagnosticSeverityInformation, Message: fmt.Sprintf(format, args...)}
 	d.SetRange(ctx)
 	return d
 }
 
 // Hintf creates a hint diagnostic with a formatted message.
 func Hintf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{Severity: SeverityHint, Message: fmt.Sprintf(format, args...)}
+	d := Diagnostic{Severity: protocol.DiagnosticSeverityHint, Message: fmt.Sprintf(format, args...)}
 	d.SetRange(ctx)
 	return d
 }
@@ -184,7 +173,7 @@ var _ error = (*Diagnostics)(nil)
 // Warnings, info, and hints are allowed.
 func (d Diagnostics) Ok() bool {
 	for _, diag := range d {
-		if diag.Severity == SeverityError {
+		if diag.Severity == protocol.DiagnosticSeverityError {
 			return false
 		}
 	}
@@ -233,7 +222,7 @@ func (d *Diagnostics) AtLocation(start Position) []int {
 func (d Diagnostics) Errors() []Diagnostic {
 	var errors []Diagnostic
 	for _, diag := range d {
-		if diag.Severity == SeverityError {
+		if diag.Severity == protocol.DiagnosticSeverityError {
 			errors = append(errors, diag)
 		}
 	}
@@ -244,7 +233,7 @@ func (d Diagnostics) Errors() []Diagnostic {
 func (d Diagnostics) Warnings() []Diagnostic {
 	var warnings []Diagnostic
 	for _, diag := range d {
-		if diag.Severity == SeverityWarning {
+		if diag.Severity == protocol.DiagnosticSeverityWarning {
 			warnings = append(warnings, diag)
 		}
 	}
@@ -266,7 +255,7 @@ func (d Diagnostics) String() string {
 				"%d:%d %s [%s]: %s",
 				diag.Start.Line,
 				diag.Start.Col,
-				diag.Severity.String(),
+				severityLabel(diag.Severity),
 				diag.Code,
 				diag.Message,
 			)
@@ -275,7 +264,7 @@ func (d Diagnostics) String() string {
 				"%d:%d %s: %s",
 				diag.Start.Line,
 				diag.Start.Col,
-				diag.Severity.String(),
+				severityLabel(diag.Severity),
 				diag.Message,
 			)
 		}

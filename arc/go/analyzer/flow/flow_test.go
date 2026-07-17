@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var resolver = []symbol.Symbol{
@@ -1846,7 +1846,7 @@ sequence main {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			// Should have warning about unassigned output
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityWarning))
+			Expect((*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("never assigned"))
 		})
 

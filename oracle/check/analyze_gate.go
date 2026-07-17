@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // AnalyzeGate surfaces every analyzer diagnostic the pipeline collected.
@@ -61,11 +62,11 @@ func (g AnalyzeGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateRepor
 	return r
 }
 
-func severityFromDiagnostic(s diagnostics.Severity, warningsAsErrors bool) Severity {
+func severityFromDiagnostic(s protocol.DiagnosticSeverity, warningsAsErrors bool) Severity {
 	switch s {
-	case diagnostics.SeverityError:
+	case protocol.DiagnosticSeverityError:
 		return SeverityError
-	case diagnostics.SeverityWarning:
+	case protocol.DiagnosticSeverityWarning:
 		if warningsAsErrors {
 			return SeverityError
 		}

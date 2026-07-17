@@ -20,9 +20,9 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 func analyzeProgram(
@@ -55,7 +55,7 @@ func analyzeExpectError(
 	ctx := analyzeProgram(specCtx, src, resolver)
 	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
 	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
+	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
 	return ctx
 }
 

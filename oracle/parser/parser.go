@@ -31,6 +31,7 @@ package parser
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // Parse parses a complete Oracle schema from source code.
@@ -97,7 +98,7 @@ func (e *errorListener) SyntaxError(
 	_ antlr.RecognitionException,
 ) {
 	e.Add(diagnostics.Diagnostic{
-		Severity: diagnostics.SeverityError,
+		Severity: protocol.DiagnosticSeverityError,
 		Start:    diagnostics.Position{Line: line, Col: column},
 		Message:  msg,
 	})

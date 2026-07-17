@@ -15,22 +15,6 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// severity converts an internal Severity to an LSP protocol DiagnosticSeverity.
-func severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
-	switch in {
-	case diagnostics.SeverityWarning:
-		return protocol.DiagnosticSeverityWarning
-	case diagnostics.SeverityInfo:
-		return protocol.DiagnosticSeverityInformation
-	case diagnostics.SeverityHint:
-		return protocol.DiagnosticSeverityHint
-	case diagnostics.SeverityError:
-		return protocol.DiagnosticSeverityError
-	default:
-		return protocol.DiagnosticSeverityError
-	}
-}
-
 // TranslateConfig configures how diagnostics are translated to LSP format.
 type TranslateConfig struct {
 	// Source is the name shown in the LSP client's diagnostic source field
@@ -66,7 +50,7 @@ func TranslateDiagnostics(
 					Character: uint32(end.Col),
 				},
 			},
-			Severity: severity(diag.Severity),
+			Severity: diag.Severity,
 			Source:   protocol.NewOptional(cfg.Source),
 			Message:  protocol.String(diag.Message),
 		}

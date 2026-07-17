@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Diagnostic Locations", func() {
@@ -27,7 +27,7 @@ var _ = Describe("Diagnostic Locations", func() {
 		expectedColumn    int
 		expectedEndLine   int
 		expectedEndColumn int
-		expectedSev       diagnostics.Severity
+		expectedSev       protocol.DiagnosticSeverity
 	}
 
 	runDiagnosticTest := func(bCtx SpecContext, tc diagnosticCase) {
@@ -67,7 +67,7 @@ func test() {
 				expectedMsg:    "undefined symbol: undefined_var",
 				expectedLine:   3,
 				expectedColumn: 6,
-				expectedSev:    diagnostics.SeverityError,
+				expectedSev:    protocol.DiagnosticSeverityError,
 			}),
 		Entry("undefined variable on left side of assignment",
 			diagnosticCase{
@@ -105,7 +105,7 @@ func test() {
 				expectedMsg:    "type mismatch",
 				expectedLine:   3,
 				expectedColumn: -1,
-				expectedSev:    diagnostics.SeverityError,
+				expectedSev:    protocol.DiagnosticSeverityError,
 			}),
 		Entry("type mismatch in assignment",
 			diagnosticCase{
@@ -305,7 +305,7 @@ func test() {
 				expectedColumn:    6,
 				expectedEndLine:   2,
 				expectedEndColumn: 19,
-				expectedSev:       diagnostics.SeverityError,
+				expectedSev:       protocol.DiagnosticSeverityError,
 			}),
 		Entry("short identifier should have correct end column",
 			diagnosticCase{
@@ -315,7 +315,7 @@ func test() {
 				expectedColumn:    6,
 				expectedEndLine:   2,
 				expectedEndColumn: 7,
-				expectedSev:       diagnostics.SeverityError,
+				expectedSev:       protocol.DiagnosticSeverityError,
 			}),
 		Entry("multiline expression should span correctly",
 			diagnosticCase{
@@ -325,7 +325,7 @@ func test() {
 				expectedColumn:    6,
 				expectedEndLine:   2,
 				expectedEndColumn: 22,
-				expectedSev:       diagnostics.SeverityError,
+				expectedSev:       protocol.DiagnosticSeverityError,
 			}),
 	)
 })

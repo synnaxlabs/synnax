@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // analyzeProgram is a helper that parses source code and runs the analyzer,
@@ -45,7 +45,7 @@ func analyzeExpectError(bCtx SpecContext, src string, resolver []symbol.Symbol, 
 	ctx := analyzeProgram(bCtx, src, resolver)
 	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
 	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
+	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
 	return ctx
 }
 
@@ -946,7 +946,7 @@ var _ = Describe("Function Analyzer", func() {
 					}
 				`, nil)
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityWarning))
+				Expect((*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("output 'result' is never assigned"))
 			})
 

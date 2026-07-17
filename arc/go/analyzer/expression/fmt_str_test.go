@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("Format String Analyzer Diagnostics", func() {
@@ -49,7 +50,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 	findError := func(diags diagnostics.Diagnostics, substr string) *diagnostics.Diagnostic {
 		for i := range diags {
 			d := diags[i]
-			if d.Severity == diagnostics.SeverityError && strings.Contains(d.Message, substr) {
+			if d.Severity == protocol.DiagnosticSeverityError && strings.Contains(d.Message, substr) {
 				return &d
 			}
 		}
@@ -59,7 +60,7 @@ var _ = Describe("Format String Analyzer Diagnostics", func() {
 	countErrors := func(diags diagnostics.Diagnostics, substr string) int {
 		n := 0
 		for _, d := range diags {
-			if d.Severity == diagnostics.SeverityError && strings.Contains(d.Message, substr) {
+			if d.Severity == protocol.DiagnosticSeverityError && strings.Contains(d.Message, substr) {
 				n++
 			}
 		}

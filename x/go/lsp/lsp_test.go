@@ -21,17 +21,15 @@ var _ = Describe("LSP", func() {
 	Describe("TranslateDiagnostics", func() {
 		cfg := lsp.TranslateConfig{Source: "test-analyzer"}
 
-		DescribeTable("Should map each internal severity to its LSP counterpart",
-			func(in diagnostics.Severity, expected protocol.DiagnosticSeverity) {
-				var d diagnostics.Diagnostics
-				d.Add(diagnostics.Diagnostic{Severity: in, Message: "m"})
-				Expect(lsp.TranslateDiagnostics(d, cfg)[0].Severity).To(Equal(expected))
-			},
-			Entry("error", diagnostics.SeverityError, protocol.DiagnosticSeverityError),
-			Entry("warning", diagnostics.SeverityWarning, protocol.DiagnosticSeverityWarning),
-			Entry("info", diagnostics.SeverityInfo, protocol.DiagnosticSeverityInformation),
-			Entry("hint", diagnostics.SeverityHint, protocol.DiagnosticSeverityHint),
-		)
+		It("Should copy the diagnostic severity through unchanged", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Severity: protocol.DiagnosticSeverityWarning,
+				Message:  "m",
+			})
+			Expect(lsp.TranslateDiagnostics(d, cfg)[0].Severity).
+				To(Equal(protocol.DiagnosticSeverityWarning))
+		})
 
 		It("Should return empty slice for empty diagnostics", func() {
 			var d diagnostics.Diagnostics
@@ -44,7 +42,7 @@ var _ = Describe("LSP", func() {
 			d.Add(diagnostics.Diagnostic{
 				Start:    diagnostics.Position{Line: 5, Col: 3},
 				End:      diagnostics.Position{Line: 5, Col: 10},
-				Severity: diagnostics.SeverityError,
+				Severity: protocol.DiagnosticSeverityError,
 				Message:  "test error",
 			})
 			result := lsp.TranslateDiagnostics(d, cfg)
@@ -74,7 +72,7 @@ var _ = Describe("LSP", func() {
 			d.Add(diagnostics.Diagnostic{
 				Start:    diagnostics.Position{Line: 1, Col: 0},
 				End:      diagnostics.Position{Line: 1, Col: 5},
-				Severity: diagnostics.SeverityError,
+				Severity: protocol.DiagnosticSeverityError,
 				Message:  "error",
 				Notes:    []diagnostics.Note{{Message: "related note", Start: diagnostics.Position{Line: 3, Col: 2}}},
 			})
@@ -87,7 +85,7 @@ var _ = Describe("LSP", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Diagnostic{
 				Start:    diagnostics.Position{Line: 0, Col: 0},
-				Severity: diagnostics.SeverityError,
+				Severity: protocol.DiagnosticSeverityError,
 				Message:  "zero line",
 			})
 			result := lsp.TranslateDiagnostics(d, cfg)

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/oracle/check"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 var _ = Describe("AnalyzeGate", func() {
@@ -27,7 +28,7 @@ var _ = Describe("AnalyzeGate", func() {
 	It("fails when an error diagnostic is present", func(ctx SpecContext) {
 		diag := &diagnostics.Diagnostics{}
 		diag.Add(diagnostics.Diagnostic{
-			Severity: diagnostics.SeverityError,
+			Severity: protocol.DiagnosticSeverityError,
 			Message:  "boom",
 			File:     "schemas/x.oracle",
 		})
@@ -41,7 +42,7 @@ var _ = Describe("AnalyzeGate", func() {
 	It("surfaces warnings without failing by default", func(ctx SpecContext) {
 		diag := &diagnostics.Diagnostics{}
 		diag.Add(diagnostics.Diagnostic{
-			Severity: diagnostics.SeverityWarning,
+			Severity: protocol.DiagnosticSeverityWarning,
 			Message:  "soft",
 			File:     "schemas/x.oracle",
 		})
@@ -55,7 +56,7 @@ var _ = Describe("AnalyzeGate", func() {
 	It("promotes warnings to errors when WarningsAsErrors is set", func(ctx SpecContext) {
 		diag := &diagnostics.Diagnostics{}
 		diag.Add(diagnostics.Diagnostic{
-			Severity: diagnostics.SeverityWarning,
+			Severity: protocol.DiagnosticSeverityWarning,
 			Message:  "soft",
 			File:     "schemas/x.oracle",
 		})
@@ -68,7 +69,7 @@ var _ = Describe("AnalyzeGate", func() {
 	It("includes hint from notes when present", func(ctx SpecContext) {
 		diag := &diagnostics.Diagnostics{}
 		diag.Add(diagnostics.Diagnostic{
-			Severity: diagnostics.SeverityError,
+			Severity: protocol.DiagnosticSeverityError,
 			Message:  "boom",
 			File:     "schemas/x.oracle",
 			Notes:    []diagnostics.Note{{Message: "try this"}},

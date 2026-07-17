@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/protocol"
 )
 
 // expectOperatorTypeError validates that code fails with an error mentioning
@@ -38,7 +38,7 @@ func expectOperatorTypeError(
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 	Expect(*ctx.Diagnostics).To(HaveLen(1))
-	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
+	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(typeName))
 	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(operator))
 }
