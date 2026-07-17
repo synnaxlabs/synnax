@@ -13,10 +13,35 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/color"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Color", func() {
+	Describe("FromHex", func() {
+		It("Should parse a 6-character hex string", func() {
+			c := MustSucceed(color.FromHex("#ff0000"))
+			Expect(c).To(Equal(color.Color{R: 255, G: 0, B: 0, A: 1}))
+		})
+		It("Should parse a 6-character hex string without hash", func() {
+			c := MustSucceed(color.FromHex("00ff00"))
+			Expect(c).To(Equal(color.Color{R: 0, G: 255, B: 0, A: 1}))
+		})
+		It("Should parse an 8-character hex string with alpha", func() {
+			c := MustSucceed(color.FromHex("#ff000080"))
+			Expect(c.R).To(Equal(uint8(255)))
+			Expect(c.G).To(Equal(uint8(0)))
+			Expect(c.B).To(Equal(uint8(0)))
+			Expect(c.A).To(BeNumerically("~", 128.0/255.0, 0.01))
+		})
+		It("Should return an error for an invalid hex string", func() {
+			Expect(color.FromHex("#xyz")).Error().To(MatchError(validate.ErrValidation))
+		})
+		It("Should return an error for wrong length", func() {
+			Expect(color.FromHex("#12345")).Error().To(MatchError(validate.ErrValidation))
+		})
+	})
+
 	Describe("MustFromHex", func() {
 		It("Should parse a valid hex string", func() {
 			c := color.MustFromHex("#0000ff")

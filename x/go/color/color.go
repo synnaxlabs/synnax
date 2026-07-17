@@ -30,7 +30,7 @@ var Schema = zyn.Object(map[string]zyn.Schema{
 
 // FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
 // strings with or without a leading '#'.
-var FromHex = v0.FromHex
+func FromHex(s string) (Color, error) { return v0.FromHex(s) }
 
 // MustFromHex parses a hex color string into a Color, panicking on error.
 func MustFromHex(s string) Color {
