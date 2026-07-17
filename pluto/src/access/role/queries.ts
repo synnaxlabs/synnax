@@ -172,9 +172,7 @@ const retrieveUserRole = async ({
   );
   if (rels.length > 0) return rels[0].from.key;
 
-  const parents = await client.ontology.retrieveParents(userID, {
-    types: ["role"],
-  });
+  const parents = await client.ontology.retrieveParents(userID, { types: ["role"] });
   if (parents.length === 0) return undefined;
 
   const parent = parents[0];

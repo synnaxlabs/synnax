@@ -293,9 +293,7 @@ describe("Symbol queries", () => {
       );
       expect(children.length).toBe(1);
       expect(children[0].key).toBe(retrieved.key);
-      const child = await client.schematics.symbols.retrieve({
-        key: children[0].key,
-      });
+      const child = await client.schematics.symbols.retrieve({ key: children[0].key });
       expect(child.name).toBe("created-symbol");
     });
 
