@@ -230,6 +230,38 @@ describe("Group queries", () => {
     });
   });
 
+  describe("useRetrieve", () => {
+    it("should retrieve a group by its key", async () => {
+      const g = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "retrieve-group",
+      });
+      const { result } = renderHook(() => Group.useRetrieve({ key: g.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.key).toEqual(g.key);
+      expect(result.current.data?.name).toEqual("retrieve-group");
+    });
+
+    it("should update the retrieved group when it is renamed", async () => {
+      const g = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "retrieve-rename-before",
+      });
+      const { result } = renderHook(() => Group.useRetrieve({ key: g.key }), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.data?.name).toEqual("retrieve-rename-before"),
+      );
+      await client.groups.rename(g.key, "retrieve-rename-after");
+      await waitFor(() =>
+        expect(result.current.data?.name).toEqual("retrieve-rename-after"),
+      );
+    });
+  });
+
   describe("useCreate", () => {
     it("should create a new group", async () => {
       const parent = await client.groups.create({

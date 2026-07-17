@@ -195,6 +195,39 @@ describe("queries", () => {
     });
   });
 
+  describe("useRetrieve", () => {
+    it("should retrieve a label by its key", async () => {
+      const testLabel = await client.labels.create({
+        name: "retrieveLabel",
+        color: "#E774D0",
+      });
+      const { result } = renderHook(() => Label.useRetrieve({ key: testLabel.key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data?.key).toEqual(testLabel.key);
+      expect(result.current.data?.name).toEqual("retrieveLabel");
+      expect(result.current.data?.color).toEqual(color.construct("#E774D0"));
+    });
+
+    it("should update the retrieved label when it changes", async () => {
+      const testLabel = await client.labels.create({
+        name: "retrieveLabelBefore",
+        color: "#FF0000",
+      });
+      const { result } = renderHook(() => Label.useRetrieve({ key: testLabel.key }), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.data?.name).toEqual("retrieveLabelBefore"),
+      );
+      await client.labels.create({ ...testLabel, name: "retrieveLabelAfter" });
+      await waitFor(() =>
+        expect(result.current.data?.name).toEqual("retrieveLabelAfter"),
+      );
+    });
+  });
+
   describe("retrieveLabelsOf", () => {
     it("should retrieve labels for an ontology ID", async () => {
       const label1 = await client.labels.create({
