@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -118,7 +117,7 @@ func unusedImportQuickFix(
 	edit := buildUnusedImportEdit(snap.Content, stmt, items, idx)
 	return &protocol.CodeAction{
 		Title:       "Remove unused import",
-		Kind:        lo.ToPtr(protocol.CodeActionKindQuickFix),
+		Kind:        new(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
 		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{
@@ -298,7 +297,7 @@ func deprecatedSymbolQuickFix(
 	}
 	return &protocol.CodeAction{
 		Title:       fmt.Sprintf("Replace '%s' with '%s'", token.GetText(), replacementName),
-		Kind:        lo.ToPtr(protocol.CodeActionKindQuickFix),
+		Kind:        new(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
 		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{
@@ -471,7 +470,7 @@ func missingImportQuickFix(
 	}
 	return &protocol.CodeAction{
 		Title:       fmt.Sprintf("Add import '%s'", name),
-		Kind:        lo.ToPtr(protocol.CodeActionKindQuickFix),
+		Kind:        new(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
 		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{

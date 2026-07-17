@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/parser"
@@ -59,7 +58,7 @@ func New() *Server {
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
 				OpenClose: new(true),
-				Change:    lo.ToPtr(protocol.TextDocumentSyncKindFull),
+				Change:    new(protocol.TextDocumentSyncKindFull),
 			},
 			HoverProvider:              protocol.Boolean(true),
 			CompletionProvider:         &protocol.CompletionOptions{},
@@ -86,10 +85,10 @@ func (s *Server) SetClient(client protocol.Client) {
 }
 
 // getDocument retrieves a document from the cache by URI.
-func (s *Server) getDocument(docURI uri.URI) (*Document, bool) {
+func (s *Server) getDocument(uri uri.URI) (*Document, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	doc, ok := s.documents[docURI]
+	doc, ok := s.documents[uri]
 	return doc, ok
 }
 
@@ -111,23 +110,23 @@ func (s *Server) Shutdown(_ context.Context) error {
 
 // DidOpen handles opening a document.
 func (s *Server) DidOpen(ctx context.Context, params *protocol.DidOpenTextDocumentParams) error {
-	docURI := params.TextDocument.URI
+	uri := params.TextDocument.URI
 	s.mu.Lock()
-	s.documents[docURI] = &Document{
-		URI:     docURI,
+	s.documents[uri] = &Document{
+		URI:     uri,
 		Version: params.TextDocument.Version,
 		Content: params.TextDocument.Text,
 	}
 	s.mu.Unlock()
-	s.publishDiagnostics(ctx, docURI, params.TextDocument.Text)
+	s.publishDiagnostics(ctx, uri, params.TextDocument.Text)
 	return nil
 }
 
 // DidChange handles document changes.
 func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDocumentParams) error {
-	docURI := params.TextDocument.URI
+	uri := params.TextDocument.URI
 	s.mu.Lock()
-	if doc, ok := s.documents[docURI]; ok {
+	if doc, ok := s.documents[uri]; ok {
 		if len(params.ContentChanges) > 0 {
 			doc.Version = params.TextDocument.Version
 			doc.Content = xlsp.ApplyIncrementalChange(doc.Content, params.ContentChanges[0])
@@ -136,30 +135,30 @@ func (s *Server) DidChange(ctx context.Context, params *protocol.DidChangeTextDo
 	s.mu.Unlock()
 	s.mu.RLock()
 	content := ""
-	if doc, ok := s.documents[docURI]; ok {
+	if doc, ok := s.documents[uri]; ok {
 		content = doc.Content
 	}
 	s.mu.RUnlock()
-	s.publishDiagnostics(ctx, docURI, content)
+	s.publishDiagnostics(ctx, uri, content)
 	return nil
 }
 
 // DidClose handles closing a document.
 func (s *Server) DidClose(ctx context.Context, params *protocol.DidCloseTextDocumentParams) error {
-	docURI := params.TextDocument.URI
+	uri := params.TextDocument.URI
 	s.mu.Lock()
-	delete(s.documents, docURI)
+	delete(s.documents, uri)
 	s.mu.Unlock()
 	return s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         docURI,
+		URI:         uri,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }
 
 // publishDiagnostics parses the document and publishes diagnostics.
-func (s *Server) publishDiagnostics(ctx context.Context, docURI uri.URI, content string) {
+func (s *Server) publishDiagnostics(ctx context.Context, uri uri.URI, content string) {
 	s.mu.Lock()
-	doc, ok := s.documents[docURI]
+	doc, ok := s.documents[uri]
 	s.mu.Unlock()
 	if !ok {
 		return
@@ -169,20 +168,20 @@ func (s *Server) publishDiagnostics(ctx context.Context, docURI uri.URI, content
 	if parseDiag != nil && !parseDiag.Ok() {
 		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         docURI,
+			URI:         uri,
 			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateCfg),
 		})
 		return
 	}
 
 	doc.Schema = ast
-	namespace := deriveNamespaceFromURI(docURI)
+	namespace := deriveNamespaceFromURI(uri)
 	table, analyzeDiag := analyzer.AnalyzeSource(ctx, content, namespace, noopLoader{})
 	if analyzeDiag != nil {
 		doc.Diagnostics = analyzeDiag
 		doc.Table = table
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-			URI:         docURI,
+			URI:         uri,
 			Diagnostics: xlsp.TranslateDiagnostics(*analyzeDiag, translateCfg),
 		})
 		return
@@ -191,14 +190,14 @@ func (s *Server) publishDiagnostics(ctx context.Context, docURI uri.URI, content
 	doc.Table = table
 	doc.Diagnostics = &diagnostics.Diagnostics{}
 	_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
-		URI:         docURI,
+		URI:         uri,
 		Diagnostics: []protocol.Diagnostic{},
 	})
 }
 
 // deriveNamespaceFromURI extracts a namespace from the document URI.
-func deriveNamespaceFromURI(docURI uri.URI) string {
-	path := string(docURI)
+func deriveNamespaceFromURI(uri uri.URI) string {
+	path := string(uri)
 	path = strings.TrimPrefix(path, "file://")
 	base := filepath.Base(path)
 	ext := filepath.Ext(base)

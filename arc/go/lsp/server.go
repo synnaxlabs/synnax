@@ -16,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -150,7 +149,7 @@ func New(cfgs ...Config) (*Server, error) {
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
 				OpenClose: new(true),
-				Change:    lo.ToPtr(protocol.TextDocumentSyncKindIncremental),
+				Change:    new(protocol.TextDocumentSyncKindIncremental),
 				Save:      &protocol.SaveOptions{IncludeText: new(false)},
 			},
 			HoverProvider: protocol.Boolean(true),
