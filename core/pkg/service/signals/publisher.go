@@ -13,9 +13,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -139,7 +139,7 @@ func (p *Provider) PublishFromObservable(
 	if deleteEnabled {
 		channels = append(channels, cfg.DeleteChannel)
 	}
-	if err = p.cfg.Channel.CreateMany(
+	if err = p.cfg.Channel.NewWriter(nil).CreateMany(
 		ctx,
 		&channels,
 		channel.RetrieveIfNameExists(),

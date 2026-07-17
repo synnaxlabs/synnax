@@ -12,7 +12,7 @@
 package lineplot
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/spatial"

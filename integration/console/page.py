@@ -128,7 +128,7 @@ class ConsolePage:
         """
         tab = self._get_tab()
         tab.wait_for(state="visible", timeout=5000)
-        close_button = tab.get_by_label("pluto-tabs__close")
+        close_button = tab.get_by_label("Close", exact=True)
         close_button.wait_for(state="visible", timeout=5000)
         close_button.click()
 
@@ -287,7 +287,7 @@ class ConsolePage:
         Returns:
             The current page title
         """
-        self.page.locator("#properties").click(timeout=5000)
+        self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
         return self.layout.get_input_field("Title")
 
     def copy_link(self) -> str:

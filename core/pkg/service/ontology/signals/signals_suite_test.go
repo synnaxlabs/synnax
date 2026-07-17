@@ -17,11 +17,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	svcsignals "github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/observe"
@@ -34,7 +36,7 @@ func TestSignals(t *testing.T) {
 }
 
 var (
-	node       mock.Node
+	otg        *ontology.Ontology
 	svc        *changeService
 	framerSvc  *framer.Service
 	channelSvc *channel.Service
@@ -42,36 +44,49 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node := mock.NewNode(ctx)
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+	searchIdx := MustOpen(search.OpenIndex())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       node.DB,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
 	svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
-	node.Ontology.RegisterService(svc)
+	otg.RegisterService(svc)
 	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
-		Search:   node.Search,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
 	}))
 	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       node.DB,
-		Ontology: node.Ontology,
-		Group:    node.Group,
+		Ontology: otg,
+		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   node.Search,
+		Search:   searchIdx,
 	}))
-	channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		Status:  statusSvc,
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           node.DB,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Search:       searchIdx,
+		Status:       statusSvc,
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-		Framer:  node.Framer,
-		Channel: channelSvc,
-		Status:  statusSvc,
+		Framer:       node.Framer,
+		Channel:      channelSvc,
+		Status:       statusSvc,
+		HostProvider: node.Cluster,
 	}))
 	sigs := MustSucceed(svcsignals.New(svcsignals.Config{
 		Channel: channelSvc,
 		Framer:  framerSvc,
 	}))
-	MustOpen(signals.Publish(ctx, alamos.Instrumentation{}, sigs, node.Ontology))
+	MustOpen(signals.Publish(ctx, alamos.Instrumentation{}, sigs, otg))
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

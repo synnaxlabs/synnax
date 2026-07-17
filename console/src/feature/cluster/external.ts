@@ -11,5 +11,4 @@ export * from "@/feature/cluster/commands";
 export * from "@/feature/cluster/ConnectionBadge";
 export * from "@/feature/cluster/link";
 export * from "@/feature/cluster/notifications";
-export * from "@/feature/cluster/tree";
 export * from "@/platform/cluster/external";

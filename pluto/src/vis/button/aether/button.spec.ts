@@ -8,127 +8,129 @@
 // included in the file licenses/APL.txt.
 
 import { renderHook } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { noopBooleanSinkSpec } from "@/telem/aether/noop";
 import { telemTest } from "@/telem/aether/test";
 import { TelemTest } from "@/telem/test";
+import { renderAether } from "@/testutil/renderAether";
 import { Button } from "@/vis/button";
 import { button } from "@/vis/button/aether";
 
-const TestWrapper = TelemTest.createTestWrapper({ registry: button.REGISTRY });
-
-describe("Button", () => {
-  it("should return onMouseDown and onMouseUp handlers", () => {
-    const { result } = renderHook(
-      () =>
-        Button.use({
-          aetherKey: "test-button",
-          sink: noopBooleanSinkSpec,
-          mode: "fire",
-        }),
-      { wrapper: TestWrapper },
-    );
-
-    expect(result.current.onMouseDown).toBeDefined();
-    expect(result.current.onMouseUp).toBeDefined();
-    expect(result.current.onClick).toBeDefined();
+// Mounts the aether Button under the real provider stack with a registered test sink.
+// Handlers are called directly on the typed `h.component`, and the writes they make are
+// asserted against the test sink.
+const setup = (mode?: button.Mode) => {
+  const sink = telemTest.sink<boolean>();
+  const h = renderAether(button.Button, {
+    state: button.buttonStateZ.parse({
+      sink: telemTest.booleanSinkSpec(sink),
+      ...(mode != null ? { mode } : {}),
+    }),
   });
+  return { h, sink };
+};
 
-  it("should allow calling onMouseDown and onMouseUp", () => {
-    const { result } = renderHook(
-      () =>
-        Button.use({
-          aetherKey: "test-button-2",
-          sink: noopBooleanSinkSpec,
-          mode: "momentary",
-        }),
-      { wrapper: TestWrapper },
-    );
-
-    result.current.onMouseDown();
-    result.current.onMouseUp();
-  });
-
-  describe("with TestSink", () => {
-    let sink: telemTest.TestSink<boolean>;
-
-    beforeEach(() => {
-      sink = telemTest.sink<boolean>();
+describe("button/aether/Button", () => {
+  describe("schema", () => {
+    it("should default to fire mode", () => {
+      expect(button.buttonStateZ.parse({}).mode).toBe("fire");
     });
 
-    afterEach(() => {
-      sink.cleanup();
+    it("should accept a mode override", () => {
+      expect(button.buttonStateZ.parse({ mode: "pulse" }).mode).toBe("pulse");
     });
+  });
 
-    it("should call sink with true on mouseDown in momentary mode", () => {
-      const { result } = renderHook(
-        () =>
-          Button.use({
-            aetherKey: "test-button-sink",
-            sink: telemTest.booleanSinkSpec(sink),
-            mode: "momentary",
-          }),
-        { wrapper: TestWrapper },
-      );
-
-      result.current.onMouseDown();
-
-      expect(sink.lastValue).toBe(true);
+  describe("fire mode", () => {
+    it("should write true on mouse up", () => {
+      const { h, sink } = setup("fire");
+      h.component.onMouseUp();
       expect(sink.values).toEqual([true]);
     });
 
-    it("should call sink with false on mouseUp in momentary mode", () => {
-      const { result } = renderHook(
-        () =>
-          Button.use({
-            aetherKey: "test-button-sink-2",
-            sink: telemTest.booleanSinkSpec(sink),
-            mode: "momentary",
-          }),
-        { wrapper: TestWrapper },
-      );
-
-      result.current.onMouseDown();
-      result.current.onMouseUp();
-
-      expect(sink.lastValue).toBe(false);
-      expect(sink.values).toEqual([true, false]);
-    });
-
-    it("should call sink with true on mouseUp in fire mode", () => {
-      const { result } = renderHook(
-        () =>
-          Button.use({
-            aetherKey: "test-button-fire",
-            sink: telemTest.booleanSinkSpec(sink),
-            mode: "fire",
-          }),
-        { wrapper: TestWrapper },
-      );
-
-      result.current.onMouseDown();
+    it("should do nothing on mouse down", () => {
+      const { h, sink } = setup("fire");
+      h.component.onMouseDown();
       expect(sink.values).toEqual([]);
+    });
 
-      result.current.onMouseUp();
-      expect(sink.lastValue).toBe(true);
+    it("should write a single true across a full press", () => {
+      const { h, sink } = setup("fire");
+      h.component.onMouseDown();
+      h.component.onMouseUp();
+      expect(sink.values).toEqual([true]);
+    });
+  });
+
+  describe("momentary mode", () => {
+    it("should write true on mouse down", () => {
+      const { h, sink } = setup("momentary");
+      h.component.onMouseDown();
       expect(sink.values).toEqual([true]);
     });
 
-    it("should call sink with true then false on mouseDown in pulse mode", () => {
+    it("should write false on mouse up", () => {
+      const { h, sink } = setup("momentary");
+      h.component.onMouseUp();
+      expect(sink.values).toEqual([false]);
+    });
+
+    it("should write true then false across a full press", () => {
+      const { h, sink } = setup("momentary");
+      h.component.onMouseDown();
+      h.component.onMouseUp();
+      expect(sink.values).toEqual([true, false]);
+    });
+  });
+
+  describe("pulse mode", () => {
+    it("should write true then false on mouse down", () => {
+      const { h, sink } = setup("pulse");
+      h.component.onMouseDown();
+      expect(sink.values).toEqual([true, false]);
+    });
+
+    it("should do nothing on mouse up", () => {
+      const { h, sink } = setup("pulse");
+      h.component.onMouseUp();
+      expect(sink.values).toEqual([]);
+    });
+  });
+
+  describe("mode changes", () => {
+    it("should apply a new mode after a state update", () => {
+      const { h, sink } = setup("fire");
+      h.component.onMouseDown();
+      expect(sink.values).toEqual([]);
+      h.setState((p) => ({ ...p, mode: "momentary" }));
+      h.component.onMouseDown();
+      expect(sink.values).toEqual([true]);
+    });
+  });
+
+  describe("afterDelete", () => {
+    it("should clean up the sink", () => {
+      const { h, sink } = setup("fire");
+      const cleanupSpy = vi.spyOn(sink, "cleanup");
+      h.unmount();
+      expect(cleanupSpy).toHaveBeenCalled();
+    });
+  });
+
+  // The aether Button carries the behavior above; Button.use is a thin React adapter
+  // over its RPC methods. These tests cover only that adapter wiring.
+  describe("Button.use (React adapter)", () => {
+    const TestWrapper = TelemTest.createTestWrapper({ registry: button.REGISTRY });
+
+    it("should expose handlers with onClick aliasing mouse up", () => {
       const { result } = renderHook(
-        () =>
-          Button.use({
-            aetherKey: "test-button-pulse",
-            sink: telemTest.booleanSinkSpec(sink),
-            mode: "pulse",
-          }),
+        () => Button.use({ aetherKey: "btn", sink: noopBooleanSinkSpec, mode: "fire" }),
         { wrapper: TestWrapper },
       );
-
-      result.current.onMouseDown();
-
-      expect(sink.values).toEqual([true, false]);
+      expect(result.current.onMouseDown).toBeDefined();
+      expect(result.current.onMouseUp).toBeDefined();
+      expect(result.current.onClick).toBe(result.current.onMouseUp);
     });
   });
 });

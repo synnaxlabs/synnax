@@ -124,7 +124,8 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
     // The layout middleware is omitted: it drives real Tauri window creation, which
     // cannot run in jsdom. Everything else matches the production store.
-    middleware: (getDefault) => getDefault().concat(...Session.Nav.MIDDLEWARE),
+    middleware: (getDefault) =>
+      getDefault().concat(...Session.Nav.MIDDLEWARE, ...Session.Panel.MIDDLEWARE),
     enablePrerender: false,
   });
 };
@@ -140,7 +141,7 @@ const composeConsole = (
   const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <SynnaxWrapper>
       <Provider store={store}>
-        <Session.Modals.Provider>{children}</Session.Modals.Provider>
+        <Session.Modals.Context>{children}</Session.Modals.Context>
       </Provider>
     </SynnaxWrapper>
   );
@@ -171,7 +172,7 @@ export const renderLinkHook = async <H,>(
   const store = await createTestStore();
   const Wrapper = ({ children }: PropsWithChildren) => (
     <Provider store={store}>
-      <Session.Modals.Provider>{children}</Session.Modals.Provider>
+      <Session.Modals.Context>{children}</Session.Modals.Context>
     </Provider>
   );
   const { result } = renderHook(

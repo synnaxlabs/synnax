@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -46,11 +46,7 @@ var (
 		}},
 	}
 	fullyPopulatedTabBase = panel.TabBase{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")}
-	fullyPopulatedView    = panel.View{
-		Type: "test_1",
-		Name: "test_2",
-		Args: msgpack.EncodedJSON{"key_3": "value_3"},
-	}
+	fullyPopulatedView    = panel.View{Type: "test_1", Args: msgpack.EncodedJSON{"key_2": "value_2"}}
 )
 
 var _ = Describe("Codec", func() {
@@ -144,7 +140,6 @@ var _ = Describe("Codec", func() {
 				Resource: ontology.ID{Type: ontology.ResourceType("arc"), Key: "test_3"},
 			}}),
 			Entry("view variant", panel.Tab{Variant: panel.TabView{TabBase: fullyPopulatedTabBase, View: fullyPopulatedView}}),
-			Entry("empty variant", panel.Tab{Variant: panel.TabEmpty{TabBase: fullyPopulatedTabBase}}),
 		)
 	})
 	Describe("TabBase", func() {
@@ -174,11 +169,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", fullyPopulatedView),
-			Entry("zero values", panel.View{
-				Type: "",
-				Name: "",
-				Args: nil,
-			}),
+			Entry("zero values", panel.View{Type: "", Args: nil}),
 		)
 	})
 })
@@ -534,14 +525,6 @@ func FuzzDecodeTab(f *testing.F) {
 		}
 		f.Add(w.Bytes())
 	}
-	{
-		seed := panel.Tab{Variant: panel.TabEmpty{TabBase: fullyPopulatedTabBase}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
 	f.Fuzz(func(t *testing.T, data []byte) {
 		var decoded panel.Tab
 		r := orc.NewReader(nil)
@@ -627,11 +610,7 @@ func FuzzDecodeView(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := panel.View{
-			Type: "",
-			Name: "",
-			Args: nil,
-		}
+		seed := panel.View{Type: "", Args: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

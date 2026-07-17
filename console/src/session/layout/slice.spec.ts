@@ -9,10 +9,10 @@
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
-import { Mosaic } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Layout } from "@/session/layout";
+import * as Mosaic from "@/session/layout/mosaic";
 
 const rootReducer = combineReducers({
   [Layout.SLICE_NAME]: Layout.reducer,

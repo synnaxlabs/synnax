@@ -78,10 +78,7 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-export type ListParams = {
-  offset?: number;
-  limit?: number;
-};
+export type ListParams = Pick<project.RetrieveRequest, "keys" | "offset" | "limit">;
 
 export const useList = Flux.createList<
   ListParams,
@@ -105,13 +102,14 @@ export type DeleteParams = project.Key | project.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = project.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(keys));
     rollbacks.push(store.projects.delete(keys));
+    await onOptimisticComplete(data);
     await client.projects.delete(keys);
     return data;
   },
@@ -194,7 +192,7 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
 >({
   name: LAYOUT_RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, layout } = data;
     rollbacks.push(
       store.projects.set(
@@ -202,6 +200,7 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
         state.skipUndefined((p) => ({ ...p, layout })),
       ),
     );
+    await onOptimisticComplete(data);
     await client.projects.setLayout(key, layout);
     return data;
   },

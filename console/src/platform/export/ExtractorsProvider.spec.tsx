@@ -7,30 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Export } from "@/platform/export";
 
-const Consumer = (): ReactElement => {
-  const extractors = Export.useExtractors();
-  return <span>{Object.keys(extractors).join(",")}</span>;
-};
-Consumer.displayName = "Consumer";
+const extractors = { log: vi.fn(), table: vi.fn() };
+
+const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <Export.ExtractorsProvider extractors={extractors}>
+    {children}
+  </Export.ExtractorsProvider>
+);
 
 describe("Export.ExtractorsProvider", () => {
   it("provides the extractors registry to descendants", () => {
-    const extractors = { log: vi.fn(), table: vi.fn() };
-    render(
-      <Export.ExtractorsProvider extractors={extractors}>
-        <Consumer />
-      </Export.ExtractorsProvider>,
-    );
-    expect(screen.getByText("log,table")).toBeTruthy();
+    const { result } = renderHook(() => Export.useExtractors(), { wrapper });
+    expect(result.current).toBe(extractors);
   });
 
   it("throws when useExtractors is called outside of a provider", () => {
-    expect(() => render(<Consumer />)).toThrow();
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => renderHook(() => Export.useExtractors())).toThrow();
+    spy.mockRestore();
   });
 });

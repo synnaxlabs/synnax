@@ -9,3 +9,5 @@
 
 export * from "@/panel/Mosaic";
 export * from "@/panel/queries";
+export * from "@/panel/scope";
+export * from "@/panel/Suspended";

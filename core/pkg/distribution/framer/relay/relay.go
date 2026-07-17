@@ -17,8 +17,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -29,62 +28,66 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Config is the configuration for opening the telemetry relay. See its fields for
-// more information.
+// Config is the configuration for opening the telemetry relay. See its fields for more
+// information.
 type Config struct {
 	// Transport is the network transport used to move telemetry streams. This is used
 	// to both send telemetry streams from the host node to peer nodes, and to stream
 	// telemetry from peer nodes to the host node.
 	//
-	// Remote nodes are one of the three available data sources for the relay. Data
-	// for channels whose leaseholder is not the host node will be streamed from remote
+	// Remote nodes are one of the three available data sources for the relay. Data for
+	// channels whose leaseholder is not the host node will be streamed from remote
 	// nodes.
+	//
 	// [REQUIRED]
 	Transport Transport
 	// HostResolver is used to retrieve information about the host node.
+	//
 	// [REQUIRED]
-	HostResolver node.HostResolver
-	// FreeWrites is the pipeline for moving data for free virtual channels. Free virtual
-	// channels are not leased to any node, and their data is not stored in the cluster
-	// and is propagated through the cluster using a separate mechanism. This is mostly
-	// used for signaling changes in the cluster meta-data through aspen based key-value
-	// gossip.
-	// [REQUIRED]
-	FreeWrites confluence.Outlet[Response]
+	HostResolver cluster.HostResolver
 	// TS is the underlying time-series database engine that serves as one of the three
 	// main data sources for the relay.
 	//
 	// This is the second of the three available data sources for the relay. Data for
 	// channels whose leaseholder is the host node will be streamed from the time-series
 	// engine's streaming mechanism.
-	// [REQUIRED]
-	TS *ts.DB
-	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
-	Channel *channel.Service
+	TS *ts.DB
+	// FreeWrites is the pipeline for moving data for free virtual channels. Free
+	// virtual channels are not leased to any node and their data is not stored in the
+	// cluster; their writes are propagated straight through the relay. This is mostly
+	// used for signaling changes in cluster meta-data.
+	//
+	// [REQUIRED]
+	FreeWrites confluence.Outlet[Response]
 	// Instrumentation is used for logging, tracing, etc.
-	// [OPTIONAL]
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 	// SlowConsumerTimeout sets the maximum amount of time that the relay will wait for
 	// a streamer to receive a response before dropping the frame.
+	//
+	// [OPTIONAL] - Defaults to 20ms.
 	SlowConsumerTimeout time.Duration
 	// ResponseBufferSize sets the channel buffer size for the main response streaming
 	// pipe. All written frames will be moved through this pipe, so the value should be
 	// relatively large.
-	// [OPTIONAL: Default is 1000 (equivalent 72 kB of data)]
+	//
+	// [OPTIONAL] - Defaults to 1000 (equivalent 72 kB of data).
 	ResponseBufferSize int
 	// DemandBufferSize sets the channel buffer size for channel demands to the relay.
 	// This value should be relatively small.
-	// [OPTIONAL: Default is 50]
+	//
+	// [OPTIONAL] - Defaults to 50.
 	DemandBufferSize int
 }
 
 var (
 	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for opening a relay. This configuration
-	// is not valid on its own and must be overridden with the required fields. See
-	// Config for more information.
+	// DefaultConfig is the default configuration for opening a relay. This
+	// configuration is not valid on its own and must be overridden with the required
+	// fields. See Config for more information.
 	DefaultConfig = Config{
 		SlowConsumerTimeout: time.Millisecond * 20,
 		// 72 B * 1000 = 72 kB
@@ -100,7 +103,6 @@ func (c Config) Override(other Config) Config {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TS = override.Nil(c.TS, other.TS)
 	c.FreeWrites = override.Nil(c.FreeWrites, other.FreeWrites)
-	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.SlowConsumerTimeout = override.Numeric(c.SlowConsumerTimeout, other.SlowConsumerTimeout)
 	c.ResponseBufferSize = override.Numeric(c.ResponseBufferSize, other.ResponseBufferSize)
 	c.DemandBufferSize = override.Numeric(c.DemandBufferSize, other.DemandBufferSize)
@@ -111,10 +113,9 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "transport", c.Transport)
-	validate.NotNil(v, "host_provider", c.HostResolver)
+	validate.NotNil(v, "host_resolver", c.HostResolver)
 	validate.NotNil(v, "ts", c.TS)
-	validate.NotNil(v, "free_writers", c.FreeWrites)
-	validate.NotNil(v, "channel", c.Channel)
+	validate.NotNil(v, "free_writes", c.FreeWrites)
 	validate.Positive(v, "slow_consumer_timeout", c.SlowConsumerTimeout)
 	validate.Positive(v, "response_buffer_size", c.ResponseBufferSize)
 	validate.Positive(v, "demand_buffer_size", c.DemandBufferSize)

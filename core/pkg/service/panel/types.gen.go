@@ -14,13 +14,15 @@ package panel
 import (
 	"encoding/json"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
+
+type TabKey = uuid.UUID
 
 // Key is a unique identifier for a panel, represented as a UUID.
 type Key = uuid.UUID
@@ -30,20 +32,16 @@ type TabBase struct {
 	// Key is the stable unique identifier of this tab within the panel. It is independent
 	// of the tab's content, so a tab's content may be swapped without changing the tab's
 	// identity or position.
-	Key uuid.UUID `json:"key" msgpack:"key"`
+	Key TabKey `json:"key" msgpack:"key"`
 }
 
 // View is an inline, self-describing view: a Console-owned type plus an opaque
 // configuration payload, with no backing core document. Used for app-views and tools
-// (docs, explorers, about, the visualization picker).
+// (docs, explorers, task forms, and the selector pickers).
 type View struct {
-	// Type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-	// a renderer.
+	// Type is the Console-owned view type identifier (e.g., 'docs', 'selector') used to
+	// select a renderer.
 	Type string `json:"type" msgpack:"type"`
-	// Name is the human-readable tab name for the view. A view has no backing resource to
-	// derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-	// the Console falls back to a type-derived default.
-	Name string `json:"name" msgpack:"name"`
 	// Args is an opaque, Console-owned configuration payload for the view. Core never
 	// interprets it; it round-trips as-is.
 	Args msgpack.EncodedJSON `json:"args,omitzero" msgpack:"args,omitzero"`
@@ -116,7 +114,6 @@ type TabType string
 const (
 	TabTypeResource TabType = "resource"
 	TabTypeView     TabType = "view"
-	TabTypeEmpty    TabType = "empty"
 )
 
 type TabVariant interface {
@@ -140,7 +137,7 @@ func (t TabResource) Validate() error {
 
 // TabView is a tab displaying an inline, self-describing view. Unlike a resource, a
 // view has no backing core document: it carries its own type and opaque args. Used for
-// app-views and tools (docs, explorers, about, the visualization picker).
+// app-views and tools (docs, explorers, task forms, and the selector pickers).
 type TabView struct {
 	TabBase
 	View
@@ -148,19 +145,12 @@ type TabView struct {
 
 func (TabView) isTabVariant() {}
 
-// TabEmpty is a tab with no content yet. An empty tab renders the visualization
-// selector at render time; SetTabResource or SetTabView fills it in place.
-type TabEmpty struct {
-	TabBase
-}
-
-func (TabEmpty) isTabVariant() {}
-
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot), a view (an inline, self-describing
-// app-view, e.g. docs), or empty (the visualization selector). Display attributes
-// (name, icon, closability) are resolved at render time from the content. The same
-// content may be referenced by multiple tabs in the same or other panels.
+// backing core document, e.g. a line plot) or a view (an inline, self-describing
+// app-view, e.g. docs). A freshly created tab is a view whose type is a selector
+// picker; SetTabResource or SetTabView swaps content in place. Display attributes
+// (name, icon, closability) are resolved at render time from the content. A resource
+// may back at most one tab per panel; views may repeat.
 type Tab struct {
 	Variant TabVariant
 }
@@ -175,8 +165,6 @@ func (u Tab) MarshalJSON() ([]byte, error) {
 		t = TabTypeResource
 	case TabView:
 		t = TabTypeView
-	case TabEmpty:
-		t = TabTypeEmpty
 	default:
 		return nil, errors.Newf("Tab: nil or unknown variant %T", u.Variant)
 	}
@@ -216,12 +204,6 @@ func (u *Tab) UnmarshalJSON(data []byte) error {
 		u.Variant = v
 	case TabTypeView:
 		var v TabView
-		if err := json.Unmarshal(data, &v); err != nil {
-			return err
-		}
-		u.Variant = v
-	case TabTypeEmpty:
-		var v TabEmpty
 		if err := json.Unmarshal(data, &v); err != nil {
 			return err
 		}

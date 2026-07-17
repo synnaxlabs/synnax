@@ -30,9 +30,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
@@ -73,44 +76,58 @@ func moduleNotFoundGetter(context.Context, uuid.UUID) (svcarc.Arc, error) {
 
 var _ = Describe("Task", Ordered, func() {
 	var (
-		node       mock.Node
-		statusSvc  *status.Service
-		channelSvc *channel.Service
-		framerSvc  *framer.Service
-		rangerSvc  *ranger.Service
+		statusSvc     *status.Service
+		channelSvc    *channel.Service
+		channelWriter channel.Writer
+		framerSvc     *framer.Service
+		rangerSvc     *ranger.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node = mock.NewNode(ctx)
+		node := mock.NewNode(ctx)
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
+		searchIdx := MustOpen(search.OpenIndex())
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       node.DB,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
-			Ontology: node.Ontology,
-			Group:    node.Group,
-			Search:   node.Search,
+			Ontology: otg,
+			Group:    groupSvc,
+			Search:   searchIdx,
 		}))
 		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
-			Group:    node.Group,
-			Ontology: node.Ontology,
+			Group:    groupSvc,
+			Ontology: otg,
 			Label:    labelSvc,
-			Search:   node.Search,
+			Search:   searchIdx,
 		}))
-		channelSvc = MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-			Channel: node.Channel,
-			Status:  statusSvc,
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel:      node.Channel,
+			DB:           node.DB,
+			HostProvider: node.Cluster,
+			Ontology:     otg,
+			Group:        groupSvc,
+			Search:       searchIdx,
+			Status:       statusSvc,
 		}))
+		channelWriter = channelSvc.NewWriter(nil)
 		framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
-			Framer:  node.Framer,
-			Channel: channelSvc,
-			Status:  statusSvc,
+			Framer:       node.Framer,
+			Channel:      channelSvc,
+			Status:       statusSvc,
+			HostProvider: node.Cluster,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,
-			Ontology: node.Ontology,
-			Group:    node.Group,
+			Ontology: otg,
+			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   node.Search,
+			Search:   searchIdx,
 		}))
 	})
 
@@ -178,7 +195,7 @@ var _ = Describe("Task", Ordered, func() {
 			Virtual:  true,
 			DataType: dataType,
 		}
-		Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+		Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 		return ch
 	}
 
@@ -272,7 +289,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should create Task for arc type", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "factory_test_ch", Virtual: true, DataType: telem.Float32T}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 			Expect(t).ToNot(BeNil())
 		})
@@ -367,7 +384,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
 				Key:    task.NewKey(rack.NewKey(1, 1), 4),
 				Name:   "test-config-success",
@@ -395,7 +412,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 			svcTask := task.Task{
 				Key:  task.NewKey(rack.NewKey(1, 1), 5),
 				Name: "test-auto-start",
@@ -482,7 +499,7 @@ var _ = Describe("Task", Ordered, func() {
 				Virtual:  true,
 				DataType: telem.Float32T,
 			}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 			arcTask = newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
 		})
 
@@ -543,7 +560,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Alarm Flow", func() {
 		It("Should update alarm statuses based on telemetry", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "ox_pt_1", Virtual: true, DataType: telem.Float32T}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 			alarmNodes, alarmConfigs := buildGraphNodes(
 				graphNodeSpec{key: "on", typ: "on", cfg: map[string]any{"channel": ch.Key()}},
@@ -676,7 +693,7 @@ var _ = Describe("Task", Ordered, func() {
 	Describe("Status Reporting", func() {
 		It("Should set a task-level warning when status.set matches multiple statuses by name", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "report_trigger", Virtual: true, DataType: telem.Float32T}
-			Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
 
 			dupName := "dup_alarm_" + uuid.NewString()[:8]
 			w := status.NewWriter[any](statusSvc, nil)
@@ -744,13 +761,13 @@ var _ = Describe("Task", Ordered, func() {
 				IsIndex:  true,
 				DataType: telem.TimeStampT,
 			}
-			Expect(channelSvc.Create(ctx, indexCh)).To(Succeed())
+			Expect(channelWriter.Create(ctx, indexCh)).To(Succeed())
 			dataCh := &channel.Channel{
 				Name:       "interval_data_" + uuid.NewString()[:8],
 				LocalIndex: indexCh.LocalKey,
 				DataType:   telem.Uint8T,
 			}
-			Expect(channelSvc.Create(ctx, dataCh)).To(Succeed())
+			Expect(channelWriter.Create(ctx, dataCh)).To(Succeed())
 
 			prog := arc.Text{
 				Raw: fmt.Sprintf(`

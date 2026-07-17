@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
+import {
+  label,
+  NotFoundError,
+  ontology,
+  ranger,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { array, type optional, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 import { z } from "zod";
@@ -401,6 +407,7 @@ export const {
   useRetrieve,
   useRetrieveObservable,
   useRetrieveSuspended: useRetrieveSuspense,
+  useEnsureRetrieved,
 } = Flux.createRetrieve<RetrieveQuery, ranger.Range, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
@@ -901,7 +908,7 @@ export interface RenameParams extends Pick<ranger.Payload, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(
       store.ranges.set(
@@ -910,7 +917,27 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, ranger.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.ranges.rename(key, name);
     return data;
   },
+});
+
+const requireRange = (store: FluxSubStore, key: ranger.Key): ranger.Range => {
+  const rng = store.ranges.get(key);
+  if (rng == null) throw new NotFoundError(`Range with key ${key} not found`);
+  return rng;
+};
+
+export interface SelectKeyArgs {
+  key: ranger.Key;
+}
+
+export const [useSelectName, useGetName] = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  string
+>({
+  subscribe: (store, { key }, notify) => store.ranges.onSet(notify, key),
+  select: (store, { key }) => requireRange(store, key).name,
 });

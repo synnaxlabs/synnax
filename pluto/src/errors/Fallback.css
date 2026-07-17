@@ -45,6 +45,10 @@
             width: 100%;
         }
 
+        .pluto-error-fallback__message {
+            white-space: pre-line;
+        }
+
         .pluto-error-fallback__stack-container {
             width: 100%;
             padding: 1rem;

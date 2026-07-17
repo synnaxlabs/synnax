@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@synnaxlabs/pluto";
+import { context, useInitializerRef } from "@synnaxlabs/pluto";
 import { id, type record } from "@synnaxlabs/x";
 import {
   type ComponentType,
   type PropsWithChildren,
   type ReactElement,
   type ReactNode,
-  useState,
   useSyncExternalStore,
 } from "react";
 
@@ -68,7 +67,7 @@ export interface Entry {
 type Listener = () => void;
 
 /**
- * An in-memory, per-window stack of open modals. Created once by {@link Provider} and
+ * An in-memory, per-window stack of open modals. Created once by {@link Context} and
  * read via {@link useStore}. The store is both a React external store (via
  * {@link subscribe}/{@link getState}) and imperatively readable (via {@link isAnyOpen})
  * for event-handler consumers that cannot use hooks.
@@ -129,7 +128,7 @@ export class Store {
   }
 }
 
-const [Context, useStore] = context.create<Store>({
+const [BaseContext, useStore] = context.create<Store>({
   displayName: "Modal.StoreContext",
   providerName: "Modal.StoreProvider",
 });
@@ -141,9 +140,9 @@ export { useStore };
  * context. Mount once near the root of each window; the store lives for the window's
  * lifetime and is never shared across windows or persisted.
  */
-export const Provider = ({ children }: PropsWithChildren): ReactElement => {
-  const [store] = useState(() => new Store());
-  return <Context value={store}>{children}</Context>;
+export const Context = ({ children }: PropsWithChildren): ReactElement => {
+  const storeRef = useInitializerRef(() => new Store());
+  return <BaseContext value={storeRef.current}>{children}</BaseContext>;
 };
 
 /** useStack subscribes to and returns the current modal stack. */

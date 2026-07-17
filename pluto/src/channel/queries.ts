@@ -442,7 +442,7 @@ export interface RenameParams extends Pick<channel.Payload, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(
       store.channels.set(
@@ -451,6 +451,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
       ),
     );
     rollbacks.push(Ontology.renameFluxResource(store, channel.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.channels.rename(key, name);
     return data;
   },
@@ -489,7 +490,7 @@ export type DeleteParams = channel.Key | channel.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = channel.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
@@ -497,6 +498,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     rollbacks.push(store.channels.delete(keys));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     store.channels.delete(keys);
+    await onOptimisticComplete(data);
     await client.channels.delete(keys);
     return data;
   },

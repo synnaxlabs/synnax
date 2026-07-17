@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/pluto";
-import { render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { renderHook } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Range } from "@/platform/range";
@@ -23,24 +23,21 @@ const services: Range.SnapshotServices = {
   },
 };
 
-const Consumer = (): ReactElement => {
-  const resolved = Range.useSnapshotServices();
-  return <span>{Object.keys(resolved).join(",")}</span>;
-};
+const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+  <Range.SnapshotServicesProvider services={services}>
+    {children}
+  </Range.SnapshotServicesProvider>
+);
 
 describe("Range snapshots", () => {
   it("should expose the provided services to consumers below the provider", () => {
-    render(
-      <Range.SnapshotServicesProvider services={services}>
-        <Consumer />
-      </Range.SnapshotServicesProvider>,
-    );
-    expect(screen.getByText("schematic")).toBeTruthy();
+    const { result } = renderHook(() => Range.useSnapshotServices(), { wrapper });
+    expect(result.current).toBe(services);
   });
 
   it("should throw when the hook is used outside the provider", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<Consumer />)).toThrow(
+    expect(() => renderHook(() => Range.useSnapshotServices())).toThrow(
       /must be used within Range.SnapshotServicesProvider/,
     );
     spy.mockRestore();

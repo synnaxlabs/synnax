@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 //go:generate stringer -type=Command
@@ -33,8 +32,6 @@ const (
 	// CommandSetAuthority represents a call to Writer.SetAuthority
 	CommandSetAuthority
 )
-
-var validateCommand = validate.NewInclusiveBoundsChecker(CommandOpen, CommandSetAuthority)
 
 // Mode configures the persistence and streaming behavior of a writer.
 type Mode = ts.WriterMode

@@ -112,13 +112,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = access.role.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.roles.delete(keys));
+    await onOptimisticComplete(data);
     await client.access.roles.delete(keys);
     return data;
   },

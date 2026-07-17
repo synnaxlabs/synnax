@@ -200,7 +200,7 @@ export const { useUpdate: useMoveChildren } = Flux.createUpdate<
 >({
   name: PLURAL_CHILDREN_RESOURCE_NAME,
   verbs: MOVE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const { source, destination, ids } = data;
     rollbacks.push(
       store.relationships.delete((rel) =>
@@ -221,6 +221,7 @@ export const { useUpdate: useMoveChildren } = Flux.createUpdate<
       };
       rollbacks.push(store.relationships.set(ontology.relationshipToString(rel), rel));
     });
+    await onOptimisticComplete(data);
     await client.ontology.moveChildren(source, destination, ...ids);
     return data;
   },

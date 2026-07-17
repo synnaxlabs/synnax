@@ -16,24 +16,23 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	arc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -56,10 +55,10 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.Open())
 	node := mock.NewNode(ctx)
+	db = node.DB
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.OpenIndex())
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
@@ -71,7 +70,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	statSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -83,7 +82,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology:            otg,
 		Group:               groupSvc,
 		HostProvider:        mock.NewStaticHostProvider(1),
-		Status:              statSvc,
+		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
 		Search:              searchIdx,
 	}))
@@ -92,12 +91,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Group:    groupSvc,
 		Rack:     rackSvc,
-		Status:   statSvc,
+		Status:   statusSvc,
 		Search:   searchIdx,
 	}))
-	channelSvc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
-		Channel: node.Channel,
-		Status:  statSvc,
+	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel:      node.Channel,
+		DB:           db,
+		HostProvider: node.Cluster,
+		Ontology:     otg,
+		Group:        groupSvc,
+		Status:       statusSvc,
+		Search:       searchIdx,
 	}))
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
@@ -122,7 +126,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Search:   searchIdx,
 		User:     userSvc,
 	}))
-	apiSvc = &Service{internal: arcSvc, access: rbacSvc, status: statSvc}
+	apiSvc = &Service{internal: arcSvc, access: rbacSvc, status: statusSvc}
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}))
 })
 

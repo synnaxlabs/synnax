@@ -16,7 +16,6 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -400,7 +399,10 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 	RegisterFrameStreamerServiceServer(reg, f)
 }
 
-func New(t *api.Transport, channelSvc *distchannel.Service) fgrpc.BindableTransport {
+func New(
+	t *api.Transport,
+	channelResolver codec.ChannelResolver,
+) fgrpc.BindableTransport {
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
@@ -408,7 +410,7 @@ func New(t *api.Transport, channelSvc *distchannel.Service) fgrpc.BindableTransp
 					fgrpc.Translator[framer.WriterRequest, *WriterRequest],
 					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(channelResolver)
 					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
 				},
 				ServiceDesc: &FrameWriterService_ServiceDesc,
@@ -420,7 +422,7 @@ func New(t *api.Transport, channelSvc *distchannel.Service) fgrpc.BindableTransp
 					fgrpc.Translator[framer.IteratorRequest, *IteratorRequest],
 					fgrpc.Translator[framer.IteratorResponse, *IteratorResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(channelResolver)
 					return frameIteratorRequestTranslator{codec: codec},
 						frameIteratorResponseTranslator{codec: codec}
 				},
@@ -433,7 +435,7 @@ func New(t *api.Transport, channelSvc *distchannel.Service) fgrpc.BindableTransp
 					fgrpc.Translator[framer.StreamerRequest, *StreamerRequest],
 					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
 				) {
-					codec := codec.NewDynamic(channelSvc)
+					codec := codec.NewDynamic(channelResolver)
 					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,

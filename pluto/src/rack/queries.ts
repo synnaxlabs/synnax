@@ -150,13 +150,14 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = rack.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.resources.delete(ontology.idToString(ids)));
     rollbacks.push(store.racks.delete(keys));
+    await onOptimisticComplete(data);
     await client.racks.delete(keys);
     return data;
   },
@@ -167,10 +168,11 @@ export interface RenameParams extends Pick<rack.Rack, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ data, client, rollbacks, store }) => {
+  update: async ({ data, client, rollbacks, store, onOptimisticComplete }) => {
     const { key, name } = data;
     rollbacks.push(Flux.partialUpdate(store.racks, key, { name }));
     rollbacks.push(Ontology.renameFluxResource(store, rack.ontologyID(key), name));
+    await onOptimisticComplete(data);
     const r = await retrieveSingle({ client, query: { key }, store });
     await client.racks.create({ ...r, name });
     return data;

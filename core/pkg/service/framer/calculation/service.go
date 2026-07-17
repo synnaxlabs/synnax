@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -44,11 +45,15 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	// Framer is the underlying frame service to stream cache channel values and write
-	// calculated samples.
+	// Framer is the underlying frame service used to stream cached channel values.
 	//
 	// [REQUIRED]
 	Framer *framer.Service
+	// Writer is the service-layer writer service used to open the writers that write
+	// calculated samples back to the cluster.
+	//
+	// [REQUIRED]
+	Writer *writer.Service
 	// Channel is used to retrieve information about the channels being calculated and
 	// to resolve channel symbols for Arc expression compilation.
 	//
@@ -70,6 +75,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Validate() error {
 	v := validate.New("calculate")
 	validate.NotNil(v, "framer", c.Framer)
+	validate.NotNil(v, "writer", c.Writer)
 	validate.NotNil(v, "channel", c.Channel)
 	validate.NotNil(v, "status", c.Status)
 	return v.Error()
@@ -79,6 +85,7 @@ func (c ServiceConfig) Validate() error {
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Framer = override.Nil(c.Framer, other.Framer)
+	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	return c
@@ -120,7 +127,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
 
-	if err := cfg.Channel.DeleteManyByNames(
+	if err := cfg.Channel.NewWriter(nil).DeleteManyByNames(
 		ctx,
 		legacyStatusChannels,
 		true,
@@ -267,9 +274,10 @@ func (s *Service) updateGroup(
 		ctx,
 		groupConfig{
 			Instrumentation: s.cfg.Child("group"),
-			Calculators:     calculators,
-			OnStatusChange:  s.setStatus,
-			Framer:          s.cfg.Framer,
+			calculators:     calculators,
+			onStatusChange:  s.setStatus,
+			framer:          s.cfg.Framer,
+			writer:          s.cfg.Writer,
 		},
 	)
 	if err != nil {
@@ -402,8 +410,11 @@ type RequestManager struct {
 
 func (r *RequestManager) Set(ctx context.Context, keys channel.Keys) error {
 	added, removed := lo.Difference(keys, r.currKeys)
+	if err := r.svc.updateRequests(ctx, added, removed); err != nil {
+		return err
+	}
 	r.currKeys = keys
-	return r.svc.updateRequests(ctx, added, removed)
+	return nil
 }
 
 func (r *RequestManager) Close(ctx context.Context) error {

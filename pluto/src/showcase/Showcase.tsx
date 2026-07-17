@@ -22,6 +22,7 @@ import { InputShowcase } from "./InputShowcase";
 import { MenuShowcase } from "./MenuShowcase";
 import { NoteShowcase } from "./NoteShowcase";
 import { SelectShowcase } from "./SelectShowcase";
+import { TabsShowcase } from "./TabsShowcase";
 import { TagShowcase } from "./TagShowcase";
 import { TextShowcase } from "./TextShowcase";
 
@@ -102,6 +103,13 @@ export const Showcase = () => {
       description:
         "Label and tag components for categorization, status indication, and metadata display.",
       component: <TagShowcase />,
+    },
+    {
+      key: "tabs",
+      title: "Tabs",
+      description:
+        "Composed tabbed interface with drag-to-reorder: tabs slide out of the way to preview where a dragged tab will land.",
+      component: <TabsShowcase />,
     },
     {
       key: "flex",
