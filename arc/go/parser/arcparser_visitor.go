@@ -43,11 +43,11 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#functionDeclaration.
 	VisitFunctionDeclaration(ctx *FunctionDeclarationContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#inputList.
-	VisitInputList(ctx *InputListContext) interface{}
+	// Visit a parse tree produced by ArcParser#triggerList.
+	VisitTriggerList(ctx *TriggerListContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#input.
-	VisitInput(ctx *InputContext) interface{}
+	// Visit a parse tree produced by ArcParser#trigger.
+	VisitTrigger(ctx *TriggerContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#outputType.
 	VisitOutputType(ctx *OutputTypeContext) interface{}
@@ -58,14 +58,14 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#namedOutput.
 	VisitNamedOutput(ctx *NamedOutputContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#configBlock.
-	VisitConfigBlock(ctx *ConfigBlockContext) interface{}
+	// Visit a parse tree produced by ArcParser#inputBlock.
+	VisitInputBlock(ctx *InputBlockContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#configList.
-	VisitConfigList(ctx *ConfigListContext) interface{}
+	// Visit a parse tree produced by ArcParser#inputList.
+	VisitInputList(ctx *InputListContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#config.
-	VisitConfig(ctx *ConfigContext) interface{}
+	// Visit a parse tree produced by ArcParser#input.
+	VisitInput(ctx *InputContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#sequenceDeclaration.
 	VisitSequenceDeclaration(ctx *SequenceDeclarationContext) interface{}
@@ -112,17 +112,17 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#qualifiedIdentifier.
 	VisitQualifiedIdentifier(ctx *QualifiedIdentifierContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#configValues.
-	VisitConfigValues(ctx *ConfigValuesContext) interface{}
+	// Visit a parse tree produced by ArcParser#inputValues.
+	VisitInputValues(ctx *InputValuesContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#namedConfigValues.
-	VisitNamedConfigValues(ctx *NamedConfigValuesContext) interface{}
+	// Visit a parse tree produced by ArcParser#namedInputValues.
+	VisitNamedInputValues(ctx *NamedInputValuesContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#namedConfigValue.
-	VisitNamedConfigValue(ctx *NamedConfigValueContext) interface{}
+	// Visit a parse tree produced by ArcParser#namedInputValue.
+	VisitNamedInputValue(ctx *NamedInputValueContext) interface{}
 
-	// Visit a parse tree produced by ArcParser#anonymousConfigValues.
-	VisitAnonymousConfigValues(ctx *AnonymousConfigValuesContext) interface{}
+	// Visit a parse tree produced by ArcParser#anonymousInputValues.
+	VisitAnonymousInputValues(ctx *AnonymousInputValuesContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#arguments.
 	VisitArguments(ctx *ArgumentsContext) interface{}

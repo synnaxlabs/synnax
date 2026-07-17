@@ -12,8 +12,8 @@ package alias
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -53,7 +53,7 @@ func (w Writer) Set(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.otgWriter.DefineResource(ctx, OntologyID(rng, ch))
+	return w.otgWriter.DefineResources(ctx, OntologyID(rng, ch))
 }
 
 // Delete deletes the alias for the given channel on the specified range.

@@ -1,0 +1,162 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
+import { Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { type direction } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
+import { useStore } from "react-redux";
+
+import { ContextMenu } from "@/platform/context-menu";
+import { useOpenInNewWindow } from "@/platform/layout/useOpenInNewWindow";
+import { useRemover } from "@/platform/layout/useRemover";
+import { Session } from "@/session";
+
+interface MenuItemProps {
+  layoutKey: string;
+}
+
+const FocusMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
+  const dispatch = Session.useDispatch();
+  const windowKey = useSelectWindowKey() as string;
+  return (
+    <Menu.Item
+      itemKey="focus"
+      onClick={() => dispatch(Session.Layout.setFocus({ windowKey, key: layoutKey }))}
+      trigger={["Control", "L"]}
+    >
+      <Icon.Focus />
+      Focus
+    </Menu.Item>
+  );
+};
+
+const useMoveIntoMainWindow = () => {
+  const store = useStore();
+  return (layoutKey: string) => {
+    store.dispatch(
+      Session.Layout.moveMosaicTab({
+        windowKey: MAIN_WINDOW,
+        tabKey: layoutKey,
+        loc: "center",
+      }),
+    );
+  };
+};
+
+const OpenInNewWindowMenuItem = ({ layoutKey }: MenuItemProps): ReactElement | null => {
+  const openInNewWindow = useOpenInNewWindow();
+  const isMain = useSelectWindowKey() === MAIN_WINDOW;
+  if (!isMain) return null;
+  return (
+    <Menu.Item
+      itemKey="openInNewWindow"
+      onClick={() => openInNewWindow(layoutKey)}
+      trigger={["Control", "O"]}
+      triggerIndicator
+    >
+      <Icon.OpenInNewWindow />
+      Open in new window
+    </Menu.Item>
+  );
+};
+
+const MoveToMainWindowMenuItem = ({
+  layoutKey,
+}: MenuItemProps): ReactElement | null => {
+  const moveIntoMainWindow = useMoveIntoMainWindow();
+  const windowKey = useSelectWindowKey();
+  if (windowKey === MAIN_WINDOW) return null;
+  return (
+    <Menu.Item
+      itemKey="moveIntoMainWindow"
+      onClick={() => moveIntoMainWindow(layoutKey)}
+    >
+      <Icon.OpenInNewWindow />
+      Move to main window
+    </Menu.Item>
+  );
+};
+
+const CloseMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => {
+  const remove = useRemover();
+  return (
+    <Menu.Item
+      itemKey="close"
+      onClick={() => remove(layoutKey)}
+      trigger={["Control", "W"]}
+      triggerIndicator
+    >
+      <Icon.Close />
+      Close
+    </Menu.Item>
+  );
+};
+
+const RenameMenuItem = ({ layoutKey }: MenuItemProps): ReactElement => (
+  <ContextMenu.RenameItem
+    onClick={() => Text.edit(`pluto-tab-${layoutKey}`)}
+    trigger={["Control", "E"]}
+    triggerIndicator
+  />
+);
+
+interface SplitMenuItemProps extends MenuItemProps {}
+
+const splitMenuItemFactory = (
+  direction: direction.Direction,
+): FC<SplitMenuItemProps> => {
+  const C = ({ layoutKey }: SplitMenuItemProps) => {
+    const dispatch = Session.useDispatch();
+    const [windowKey, mosaic] = Session.Layout.useSelectMosaic();
+    if (windowKey == null || mosaic == null) return null;
+    const canSplit = Session.Layout.Mosaic.canSplit(mosaic, layoutKey);
+    if (!canSplit) return null;
+    return (
+      <Menu.Item
+        itemKey={`split${direction}`}
+        onClick={() =>
+          dispatch(
+            Session.Layout.splitMosaicNode({ windowKey, tabKey: layoutKey, direction }),
+          )
+        }
+      >
+        {direction === "x" ? <Icon.SplitX /> : <Icon.SplitY />}
+        Split {direction === "x" ? "horizontally" : "vertically"}
+      </Menu.Item>
+    );
+  };
+  C.displayName = `Split${direction.toUpperCase()}MenuItem`;
+  return C;
+};
+const SplitXMenuItem = splitMenuItemFactory("x");
+const SplitYMenuItem = splitMenuItemFactory("y");
+
+export interface MenuItemsProps {
+  layoutKey: string;
+}
+
+export const MenuItems = ({ layoutKey }: MenuItemsProps): ReactElement => (
+  <>
+    <RenameMenuItem layoutKey={layoutKey} />
+    <CloseMenuItem layoutKey={layoutKey} />
+    <Menu.Divider />
+    <FocusMenuItem layoutKey={layoutKey} />
+    {Session.Runtime.ENGINE === "tauri" && (
+      <OpenInNewWindowMenuItem layoutKey={layoutKey} />
+    )}
+    <MoveToMainWindowMenuItem layoutKey={layoutKey} />
+    <Menu.Divider />
+    <SplitXMenuItem layoutKey={layoutKey} />
+    <SplitYMenuItem layoutKey={layoutKey} />
+    <Menu.Divider />
+    <ContextMenu.ReloadConsoleItem />
+  </>
+);

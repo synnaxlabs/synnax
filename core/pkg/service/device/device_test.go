@@ -12,15 +12,15 @@ package device_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	devicev0 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -41,7 +41,7 @@ var _ = Describe("Device", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.Open())
+		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
@@ -175,12 +175,11 @@ var _ = Describe("Device", func() {
 				Model:    "Test Model",
 			}
 			Expect(w.Create(ctx, &d)).To(Succeed())
-			Expect(otg.NewWriter(tx).DeleteRelationship(
-				ctx,
-				rackSvc.EmbeddedKey.OntologyID(),
-				ontology.RelationshipTypeParentOf,
-				d.OntologyID(),
-			)).To(Succeed())
+			Expect(otg.NewWriter(tx).DeleteRelationships(ctx, ontology.Relationship{
+				From: rackSvc.EmbeddedKey.OntologyID(),
+				Type: ontology.RelationshipTypeParentOf,
+				To:   d.OntologyID(),
+			})).To(Succeed())
 			d2 := device.Device{
 				Key:      "device3",
 				Rack:     rackSvc.EmbeddedKey,
@@ -835,7 +834,7 @@ var _ = Describe("Device", func() {
 		It("Should propagate rack warning status to devices on that rack", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -902,7 +901,7 @@ var _ = Describe("Device", func() {
 		It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
@@ -963,7 +962,7 @@ var _ = Describe("Device", func() {
 		It("Should not create statuses for devices that already have them", func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.Open())
+			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,

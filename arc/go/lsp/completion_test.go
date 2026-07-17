@@ -432,7 +432,7 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
-	Describe("Config Parameter Completion", func() {
+	Describe("Input Parameter Completion", func() {
 		var globalResolver []symbol.Symbol
 
 		BeforeEach(func() {
@@ -453,7 +453,7 @@ var _ = Describe("Completion", func() {
 			}}
 		})
 
-		It("should suggest all config parameters in empty config block", func(ctx SpecContext) {
+		It("should suggest all input parameters in empty input block", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) }}))
 			server.SetClient(&MockClient{})
 
@@ -496,7 +496,7 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "timeout")).To(BeFalse(), "Should NOT suggest 'timeout' not matching prefix 'th'")
 		})
 
-		It("should show type details for config parameters", func(ctx SpecContext) {
+		It("should show type details for input parameters", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol { return NewRoot(nil, globalResolver...) }}))
 			server.SetClient(&MockClient{})
 
@@ -1249,9 +1249,9 @@ var _ = Describe("Completion", func() {
 			Expect(item.AdditionalTextEdits).To(BeEmpty())
 		})
 
-		It("appends a config-block snippet when a function completes in a flow context", func(ctx SpecContext) {
+		It("appends an input-block snippet when a function completes in a flow context", func(ctx SpecContext) {
 			// Flow contexts (sequence body, stage body, top level) invoke
-			// functions with a config block — the inserted text must end
+			// functions with an input block — the inserted text must end
 			// in `{$0}` and use snippet format so the cursor lands inside.
 			OpenArcDocument(server, ctx, docURI, "import math\n\nsequence main {\n    math.av\n}")
 			completions := Completion(server, ctx, docURI, 3, 11)
@@ -1274,7 +1274,7 @@ var _ = Describe("Completion", func() {
 			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
 		})
 
-		It("appends a config-block snippet for bare-name deep-search results in a flow context", func(ctx SpecContext) {
+		It("appends an input-block snippet for bare-name deep-search results in a flow context", func(ctx SpecContext) {
 			// The deep-search path that surfaces `time.wait` for a bare
 			// `wai` prefix must follow the same context-aware suffix rule.
 			OpenArcDocument(server, ctx, docURI, "sequence main {\n    wai\n}")

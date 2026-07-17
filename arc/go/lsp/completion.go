@@ -443,13 +443,13 @@ func (s *Server) getCompletionItems(
 		return getImportPathCompletions(doc, prefix, pos, root)
 	}
 
-	if completionCtx == ContextConfigParamName || completionCtx == ContextConfigParamValue {
-		configInfo := extractConfigContext(doc.displayContent(), pos)
-		if configInfo != nil {
-			if completionCtx == ContextConfigParamName {
-				return s.getConfigParamCompletions(ctx, doc, prefix, configInfo, root)
+	if completionCtx == ContextInputParamName || completionCtx == ContextInputParamValue {
+		inputInfo := extractInputContext(doc.displayContent(), pos)
+		if inputInfo != nil {
+			if completionCtx == ContextInputParamName {
+				return s.getInputParamCompletions(ctx, doc, prefix, inputInfo, root)
 			}
-			return s.getConfigValueCompletions(ctx, doc, prefix, configInfo, root)
+			return s.getInputValueCompletions(ctx, doc, prefix, inputInfo, root)
 		}
 	}
 
@@ -774,7 +774,7 @@ func readImportPath(tokens []antlr.Token, start int) (string, int) {
 // applyInvocationSuffix appends an invocation snippet — `($0)` in an
 // imperative/WASM context, `{$0}` in a flow context — to a function
 // completion item so the cursor lands inside ready to receive arguments
-// or config. No-op for non-function kinds, which insert their bare name.
+// or inputs. No-op for non-function kinds, which insert their bare name.
 // The suffix is appended to TextEdit.NewText when set, otherwise to
 // InsertText (falling back to Label when InsertText is empty).
 func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind, execFilter symbol.ExecContext) {
@@ -1083,18 +1083,18 @@ func (s *Server) collectSymbols(
 	return items
 }
 
-func (s *Server) getConfigParamCompletions(
+func (s *Server) getInputParamCompletions(
 	ctx context.Context,
 	doc *Document,
 	prefix string,
-	configInfo *configContextInfo,
+	inputInfo *inputContextInfo,
 	root *symbol.Symbol,
 ) []protocol.CompletionItem {
-	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName, root)
+	fnType, ok := s.resolveFunctionType(ctx, doc, inputInfo.functionName, root)
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
-	existingSet := set.New(configInfo.existingParams...)
+	existingSet := set.New(inputInfo.existingParams...)
 	var items []protocol.CompletionItem
 	for _, param := range fnType.Inputs {
 		if existingSet.Contains(param.Name) || !strings.HasPrefix(param.Name, prefix) {
@@ -1111,18 +1111,18 @@ func (s *Server) getConfigParamCompletions(
 	return items
 }
 
-func (s *Server) getConfigValueCompletions(
+func (s *Server) getInputValueCompletions(
 	ctx context.Context,
 	doc *Document,
 	prefix string,
-	configInfo *configContextInfo,
+	inputInfo *inputContextInfo,
 	root *symbol.Symbol,
 ) []protocol.CompletionItem {
-	fnType, ok := s.resolveFunctionType(ctx, doc, configInfo.functionName, root)
+	fnType, ok := s.resolveFunctionType(ctx, doc, inputInfo.functionName, root)
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
-	param, found := fnType.Inputs.Get(configInfo.currentParamName)
+	param, found := fnType.Inputs.Get(inputInfo.currentParamName)
 	if !found {
 		return []protocol.CompletionItem{}
 	}

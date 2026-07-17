@@ -27,7 +27,7 @@ func MigrateArc(ctx context.Context, old v56.Arc) (Arc, error) {
 	}
 	// Text is now stored as a replicated document; seed it from the previously
 	// persisted raw source. Raw itself is derived and no longer persisted.
-	migrated.Text.Doc = text.Seed(old.Text.Raw)
+	migrated.Text.Doc = text.Create(old.Text.Raw)
 	migrated.Text.Raw = ""
 	return migrated, nil
 }

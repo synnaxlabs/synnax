@@ -565,7 +565,7 @@ func analyzeFunctionNode(
 		Outputs:  slices.Clone(freshType.Outputs),
 	}
 	var ok bool
-	n.Inputs, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Inputs, n, sym)
+	n.Inputs, ok = extractInputValues(acontext.Child(ctx, ctx.AST.InputValues()), n.Inputs, n, sym)
 	if !ok {
 		return nodeResult{}, false
 	}
@@ -1091,17 +1091,17 @@ func analyzeFlow(
 	return p.nodes, p.edges, p.inlineMembers, p.transitionEmitted, true
 }
 
-func extractConfigValues(
-	ctx acontext.Context[parser.IConfigValuesContext],
-	config types.Params,
+func extractInputValues(
+	ctx acontext.Context[parser.IInputValuesContext],
+	input types.Params,
 	node ir.Node,
 	fnSym *symbol.Symbol,
 ) (types.Params, bool) {
 	if ctx.AST == nil {
-		return config, true
+		return input, true
 	}
 
-	parseConfigExpr := func(
+	parseInputExpr := func(
 		expr parser.IExpressionContext,
 		paramType types.Type,
 		paramName string,
@@ -1118,7 +1118,7 @@ func extractConfigValues(
 				return nil, false
 			}
 			channelKey := uint32(sym.ID)
-			symbol.ResolveConfigChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
+			symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
 			return channelKey, true
 		}
 
@@ -1138,7 +1138,7 @@ func extractConfigValues(
 		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,
-				"config value for '%s' must be a literal or global constant",
+				"input value for '%s' must be a literal or global constant",
 				paramName,
 			))
 			return nil, false
@@ -1157,38 +1157,38 @@ func extractConfigValues(
 		return parsedValue.Value, true
 	}
 
-	if named := ctx.AST.NamedConfigValues(); named != nil {
-		for _, cv := range named.AllNamedConfigValue() {
+	if named := ctx.AST.NamedInputValues(); named != nil {
+		for _, cv := range named.AllNamedInputValue() {
 			key := cv.IDENTIFIER().GetText()
-			idx := config.GetIndex(key)
+			idx := input.GetIndex(key)
 			if expr := cv.Expression(); expr != nil {
-				value, ok := parseConfigExpr(expr, config[idx].Type, key)
+				value, ok := parseInputExpr(expr, input[idx].Type, key)
 				if !ok {
 					return nil, false
 				}
-				config[idx].Value = value
+				input[idx].Value = value
 			}
 		}
-	} else if anon := ctx.AST.AnonymousConfigValues(); anon != nil {
+	} else if anon := ctx.AST.AnonymousInputValues(); anon != nil {
 		exprs := anon.AllExpression()
 		pos := 0
-		for i := range config {
-			if config[i].Name == fnSym.Trigger.Target {
+		for i := range input {
+			if input[i].Name == fnSym.Trigger.Target {
 				continue
 			}
 			if pos >= len(exprs) {
 				break
 			}
-			value, ok := parseConfigExpr(exprs[pos], config[i].Type, fmt.Sprintf("position %d", pos))
+			value, ok := parseInputExpr(exprs[pos], input[i].Type, fmt.Sprintf("position %d", pos))
 			if !ok {
 				return nil, false
 			}
-			config[i].Value = value
+			input[i].Value = value
 			pos++
 		}
 	}
 
-	return config, true
+	return input, true
 }
 
 // collectSynthByAST returns a map from each inline-body declaration in the tree

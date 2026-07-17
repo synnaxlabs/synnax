@@ -53,7 +53,7 @@ var _ = Describe("StableFor", func() {
 				{Key: "source"},
 				{Key: "stable"},
 			},
-			Configs: map[string]msgpack.EncodedJSON{
+			Inputs: map[string]msgpack.EncodedJSON{
 				"source": {"type": "source"},
 				"stable": {"type": "stable_for"},
 			},
@@ -401,7 +401,7 @@ var _ = Describe("StableFor", func() {
 					{Key: "source"},
 					{Key: "stable"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "source"},
 					"stable": {
 						"type":     "stable_for",

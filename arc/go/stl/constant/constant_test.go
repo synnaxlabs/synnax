@@ -43,7 +43,7 @@ var _ = Describe("Constant", func() {
 			factory = constant.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "const"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"const": {"type": "constant"},
 				},
 				Functions: []graph.Function{{
@@ -123,7 +123,7 @@ var _ = Describe("Constant", func() {
 			factory = constant.NewHost()
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "const"}},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"const": {"type": "constant"},
 				},
 				Functions: []graph.Function{{
@@ -226,7 +226,7 @@ var _ = Describe("Constant", func() {
 					{Key: "const"},
 					{Key: "sink"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"const": {"type": "constant"},
 					"sink":  {"type": "sink"},
 				},

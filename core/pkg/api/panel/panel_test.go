@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
@@ -33,15 +33,14 @@ func createPanel(ctx context.Context, name string) panel.Panel {
 }
 
 func hasParent(ctx context.Context, parent ontology.ID, key panel.Key) bool {
-	return MustSucceed(otg.NewWriter(nil).HasRelationship(
-		ctx,
-		parent,
-		ontology.RelationshipTypeParentOf,
-		panel.OntologyID(key),
-	))
+	return MustSucceed(otg.RelationshipExists(ctx, nil, ontology.Relationship{
+		From: parent,
+		Type: ontology.RelationshipTypeParentOf,
+		To:   panel.OntologyID(key),
+	}))
 }
 
-var _ = Describe("api.Service.Create", func() {
+var _ = Describe("Service.Create", func() {
 	It("Should reject the request when the subject has no create policy", func(ctx SpecContext) {
 		u := newUser(ctx)
 		p := panel.Panel{Key: uuid.New(), Name: "no-policy"}
@@ -79,7 +78,7 @@ var _ = Describe("api.Service.Create", func() {
 	})
 })
 
-var _ = Describe("api.Service.Retrieve", func() {
+var _ = Describe("Service.Retrieve", func() {
 	It("Should return the panels matching the requested keys", func(ctx SpecContext) {
 		p := createPanel(ctx, "retrievable")
 		grant(ctx, user.OntologyID(author.Key), access.ActionRetrieve, panel.OntologyID(p.Key))
@@ -112,7 +111,7 @@ var _ = Describe("api.Service.Retrieve", func() {
 	})
 })
 
-var _ = Describe("api.Service.Dispatch", func() {
+var _ = Describe("Service.Dispatch", func() {
 	It("Should reject the request when the subject has no update policy", func(ctx SpecContext) {
 		p := createPanel(ctx, "dispatch-denied")
 		Expect(apiSvc.Dispatch(authedCtx(ctx, author), nil, DispatchRequest{
@@ -139,7 +138,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 	})
 })
 
-var _ = Describe("api.Service.Delete", func() {
+var _ = Describe("Service.Delete", func() {
 	It("Should reject the request when the subject has no delete policy", func(ctx SpecContext) {
 		p := createPanel(ctx, "delete-denied")
 		Expect(apiSvc.Delete(authedCtx(ctx, author), nil, DeleteRequest{

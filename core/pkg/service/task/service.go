@@ -13,11 +13,11 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
@@ -146,7 +146,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 			Virtual:  true,
 			Internal: true,
 		}
-		if err = cfg.Channel.Create(
+		if err = cfg.Channel.NewWriter(nil).Create(
 			ctx,
 			&cmdCh,
 			channel.RetrieveIfNameExists(),
@@ -175,7 +175,7 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	for _, t := range tasks {
 		ids = append(ids, OntologyID(t.Key))
 	}
-	if err := s.cfg.Ontology.NewWriter(nil).DeleteResource(ctx, ids...); err != nil {
+	if err := s.cfg.Ontology.NewWriter(nil).DeleteResources(ctx, ids...); err != nil {
 		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
 	}
 }
@@ -185,12 +185,13 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:     tx,
-		otg:    s.cfg.Ontology.NewWriter(tx),
-		rack:   s.cfg.Rack.NewWriter(tx),
-		group:  s.group,
-		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
-		table:  s.table,
+		tx:        tx,
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
+		rack:      s.cfg.Rack.NewWriter(tx),
+		group:     s.group,
+		status:    status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:     s.table,
 	}
 }
 

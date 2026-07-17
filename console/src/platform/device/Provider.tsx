@@ -1,0 +1,70 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type device } from "@synnaxlabs/client";
+import { Text } from "@synnaxlabs/pluto";
+import { type record } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
+import { type z } from "zod";
+
+import { use } from "@/platform/device/use";
+import { Empty } from "@/platform/empty";
+
+const DEFAULT_NONE_SELECTED_CONTENT = (
+  <Text.Text center color={8}>
+    No device selected.
+  </Text.Text>
+);
+
+export interface ProviderChildProps<
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+> {
+  device: device.Device<Properties, Make, Model>;
+}
+
+export interface ProviderProps<
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+> {
+  canConfigure: boolean;
+  children: (props: ProviderChildProps<Properties, Make, Model>) => ReactElement;
+  onConfigure: (deviceKey: device.Key) => void;
+  noneSelectedContent?: ReactElement;
+  schemas?: device.DeviceSchemas<Properties, Make, Model>;
+}
+
+export const Provider = <
+  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Make extends z.ZodType<string> = z.ZodString,
+  Model extends z.ZodType<string> = z.ZodString,
+>({
+  canConfigure,
+  children,
+  onConfigure,
+  noneSelectedContent = DEFAULT_NONE_SELECTED_CONTENT,
+  schemas,
+}: ProviderProps<Properties, Make, Model>) => {
+  const device = use<Properties, Make, Model>(schemas);
+  if (device == null) return noneSelectedContent;
+  if (!device.configured) {
+    const { name } = device;
+    const handleConfigure = () => onConfigure(device.key);
+    return (
+      <Empty.Action
+        message={`${name} is not configured.`}
+        action={canConfigure ? `Configure ${name}` : ""}
+        onClick={handleConfigure}
+      />
+    );
+  }
+  return children({ device });
+};

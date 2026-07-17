@@ -1,3 +1,12 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
 name: Build - Synnax
 
 run-name:
@@ -678,7 +687,7 @@ jobs:
       - name: Clean Build Caches (Windows)
         if: always() && matrix.os == 'windows-build-bot'
         shell: powershell
-        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 25
+        run: integration/scripts/CleanBuildCaches.ps1 -MinFreeGB 35
 
   docker:
     name: Build Docker Image

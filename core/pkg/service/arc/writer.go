@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
@@ -29,7 +29,8 @@ import (
 // on the database.
 type Writer struct {
 	tx         gorp.Tx
-	otg        ontology.Writer
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
 	task       task.Writer
 	table      *gorp.Table[Key, Arc]
 	dispatcher actions.Dispatcher[Key, Action]
@@ -52,7 +53,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		}
 	}
 	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
-		a.Text.Doc = text.Seed(a.Text.Raw)
+		a.Text.Doc = text.Create(a.Text.Raw)
 	}
 	if err = a.Validate(); err != nil {
 		return err
@@ -62,7 +63,7 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	}
 	otgID := OntologyID(a.Key)
 	if !exists {
-		if err = w.otg.DefineResource(ctx, otgID); err != nil {
+		if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 			return err
 		}
 	}
@@ -141,7 +142,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
+		if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
 			return err
 		}
 		w.sweeper.forget(key)

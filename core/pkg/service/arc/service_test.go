@@ -78,7 +78,7 @@ var _ = Describe("CompileProgram", func() {
 				Nodes: []graph.Node{
 					{Key: "src"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"src": {"type": "source"},
 				},
 				Edges: graph.Edges{

@@ -38,16 +38,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/json"
 )
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
-// layer's handlers and middleware to them. ch resolves channel keys for the frame
-// codec.
-func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
-	framerServerOption := framer.WithCodec(ch)
+// layer's handlers and middleware to them. The frame codec resolves channel keys
+// through the API layer's channel service.
+func Bind(layer *api.Layer, router *http.Router) {
+	framerServerOption := framer.WithCodec(layer.Channel)
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin:          http.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),
@@ -83,9 +82,10 @@ func Bind(layer *api.Layer, router *http.Router, ch *distchannel.Service) {
 		OntologyMoveChildren:   http.NewUnaryServer[ontology.MoveChildrenRequest, types.Nil](router, "/api/v1/ontology/move-children"),
 
 		// GROUP
-		GroupCreate: http.NewUnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
-		GroupDelete: http.NewUnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
-		GroupRename: http.NewUnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupCreate:   http.NewUnaryServer[group.CreateRequest, group.CreateResponse](router, "/api/v1/ontology/create-group"),
+		GroupDelete:   http.NewUnaryServer[group.DeleteRequest, types.Nil](router, "/api/v1/ontology/delete-group"),
+		GroupRename:   http.NewUnaryServer[group.RenameRequest, types.Nil](router, "/api/v1/ontology/rename-group"),
+		GroupRetrieve: http.NewUnaryServer[group.RetrieveRequest, group.RetrieveResponse](router, "/api/v1/ontology/retrieve-group"),
 
 		// RANGE
 		RangeRetrieve: http.NewUnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse](router, "/api/v1/range/retrieve"),

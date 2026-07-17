@@ -24,8 +24,8 @@ export const renamePayloadZ = z.object({
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
 /**
- * AddChannel appends a default channel entry for the given channel. No-op when
- * the channel is already present.
+ * AddChannel appends a default channel entry for the given channel. No-op when the
+ * channel is already present.
  */
 export const addChannelPayloadZ = z.object({
   channel: channel.keyZ,
@@ -34,8 +34,8 @@ export const addChannelPayloadZ = z.object({
 export type AddChannelPayload = z.infer<typeof addChannelPayloadZ>;
 
 /**
- * RemoveChannel removes the channel entry for the given channel. No-op when the
- * channel is not present.
+ * RemoveChannel removes the channel entry for the given channel. No-op when the channel
+ * is not present.
  */
 export const removeChannelPayloadZ = z.object({
   channel: channel.keyZ,
@@ -45,9 +45,9 @@ export type RemoveChannelPayload = z.infer<typeof removeChannelPayloadZ>;
 
 /**
  * SetChannelEntry inserts the channel entry if no entry with the same channel exists,
- * otherwise replaces the existing entry in place. The fine-grained
- * setChannel* actions cover per-field edits; this full-object form
- * inserts new entries and restores an entry dropped by reconciliation.
+ * otherwise replaces the existing entry in place. The fine-grained setChannel* actions
+ * cover per-field edits; this full-object form inserts new entries and restores an
+ * entry dropped by reconciliation.
  */
 export const setChannelEntryPayloadZ = z.object({
   entry: channelEntryZ,
@@ -57,8 +57,8 @@ export type SetChannelEntryPayload = z.infer<typeof setChannelEntryPayloadZ>;
 
 /**
  * SetChannelColor sets the display color of the entry identified by channel. The zero
- * color resets it to a palette color assigned at render time. No-op
- * when no entry references the channel.
+ * color resets it to a palette color assigned at render time. No-op when no entry
+ * references the channel.
  */
 export const setChannelColorPayloadZ = z.object({
   channel: channel.keyZ,
@@ -68,8 +68,8 @@ export const setChannelColorPayloadZ = z.object({
 export type SetChannelColorPayload = z.infer<typeof setChannelColorPayloadZ>;
 
 /**
- * SetChannelNotation sets the numeric notation of the entry identified by channel. No-op
- * when no entry references the channel.
+ * SetChannelNotation sets the numeric notation of the entry identified by channel.
+ * No-op when no entry references the channel.
  */
 export const setChannelNotationPayloadZ = z.object({
   channel: channel.keyZ,
@@ -79,9 +79,9 @@ export const setChannelNotationPayloadZ = z.object({
 export type SetChannelNotationPayload = z.infer<typeof setChannelNotationPayloadZ>;
 
 /**
- * SetChannelPrecision sets the number of decimal digits displayed for the entry identified
- * by channel. -1 means "use the log-level precision". No-op when no
- * entry references the channel.
+ * SetChannelPrecision sets the number of decimal digits displayed for the entry
+ * identified by channel. -1 means "use the log-level precision". No-op when no entry
+ * references the channel.
  */
 export const setChannelPrecisionPayloadZ = z.object({
   channel: channel.keyZ,
@@ -92,8 +92,8 @@ export type SetChannelPrecisionPayload = z.infer<typeof setChannelPrecisionPaylo
 
 /**
  * SetChannelAlias sets the human-readable alias of the entry identified by channel. An
- * empty alias falls back to the channel name. No-op when no entry
- * references the channel.
+ * empty alias falls back to the channel name. No-op when no entry references the
+ * channel.
  */
 export const setChannelAliasPayloadZ = z.object({
   channel: channel.keyZ,
@@ -103,8 +103,8 @@ export const setChannelAliasPayloadZ = z.object({
 export type SetChannelAliasPayload = z.infer<typeof setChannelAliasPayloadZ>;
 
 /**
- * SetChannelTimestampFormat sets the timestamp render format of the entry identified by channel.
- * No-op when no entry references the channel.
+ * SetChannelTimestampFormat sets the timestamp render format of the entry identified by
+ * channel. No-op when no entry references the channel.
  */
 export const setChannelTimestampFormatPayloadZ = z.object({
   channel: channel.keyZ,
@@ -116,8 +116,8 @@ export type SetChannelTimestampFormatPayload = z.infer<
 >;
 
 /**
- * SetChannelTimestampTz sets the timestamp time zone of the entry identified by channel.
- * No-op when no entry references the channel.
+ * SetChannelTimestampTz sets the timestamp time zone of the entry identified by
+ * channel. No-op when no entry references the channel.
  */
 export const setChannelTimestampTzPayloadZ = z.object({
   channel: channel.keyZ,
@@ -139,9 +139,9 @@ export const setChannelsPayloadZ = z.object({
 export type SetChannelsPayload = z.infer<typeof setChannelsPayloadZ>;
 
 /**
- * SwapChannel repoints the entry referencing the "from" channel at the "to"
- * channel in place, preserving the entry's position and display
- * configuration. No-op when no entry references "from".
+ * SwapChannel repoints the entry referencing the "from" channel at the "to" channel in
+ * place, preserving the entry's position and display configuration. No-op when no entry
+ * references "from".
  */
 export const swapChannelPayloadZ = z.object({
   from: channel.keyZ,

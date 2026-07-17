@@ -12,8 +12,8 @@ package status
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -59,24 +59,32 @@ func (w Writer[D]) SetWithParent(
 		return err
 	}
 	otgID := OntologyID(s.Key)
-	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
 	// Status already exists and parent provided = delete incoming relationships and define new parent
 	// Status already exists and no parent provided = do nothing
 	// Status does not exist = define parent
 	if exists && hasParent {
-		if hasRel, err := w.otgWriter.HasRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); hasRel || err != nil {
+		if hasRel, err := w.otg.RelationshipExists(ctx, w.tx, ontology.Relationship{
+			From: parent,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   otgID,
+		}); hasRel || err != nil {
 			return err
 		}
 		if err = w.otgWriter.DeleteIncomingRelationshipsOfType(ctx, otgID, ontology.RelationshipTypeParentOf); err != nil {
 			return err
 		}
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationships(
+			ctx, parent, ontology.RelationshipTypeParentOf, otgID,
+		); err != nil {
 			return err
 		}
 	} else if !exists {
-		if err = w.otgWriter.DefineRelationship(ctx, parent, ontology.RelationshipTypeParentOf, otgID); err != nil {
+		if err = w.otgWriter.DefineRelationships(
+			ctx, parent, ontology.RelationshipTypeParentOf, otgID,
+		); err != nil {
 			return err
 		}
 	}
@@ -128,12 +136,7 @@ func (w Writer[D]) Delete(ctx context.Context, keys ...string) error {
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
 }
 
 func (w Writer[D]) validate(s Status[D]) error {

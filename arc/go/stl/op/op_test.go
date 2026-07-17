@@ -33,7 +33,7 @@ var _ = Describe("OP", func() {
 				{Key: "rhs"},
 				{Key: "op"},
 			},
-			Configs: map[string]msgpack.EncodedJSON{
+			Inputs: map[string]msgpack.EncodedJSON{
 				"lhs": {"type": "lhs"},
 				"rhs": {"type": "rhs"},
 				"op":  {"type": t},
@@ -119,7 +119,7 @@ var _ = Describe("OP", func() {
 				{Key: "input"},
 				{Key: "op"},
 			},
-			Configs: map[string]msgpack.EncodedJSON{
+			Inputs: map[string]msgpack.EncodedJSON{
 				"input": {"type": "input"},
 				"op":    {"type": t},
 			},
@@ -166,7 +166,7 @@ var _ = Describe("OP", func() {
 					{Key: "rhs"},
 					{Key: "op"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"lhs": {"type": "lhs"},
 					"rhs": {"type": "rhs"},
 					"op":  {"type": "ge"},
@@ -222,7 +222,7 @@ var _ = Describe("OP", func() {
 					{Key: "rhs"},
 					{Key: "op"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"lhs": {"type": "lhs"},
 					"rhs": {"type": "rhs"},
 					"op":  {"type": "eq"},
@@ -279,7 +279,7 @@ var _ = Describe("OP", func() {
 					{Key: "rhs"},
 					{Key: "op"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"lhs": {"type": "lhs"},
 					"rhs": {"type": "rhs"},
 					"op":  {"type": "or"},
@@ -336,7 +336,7 @@ var _ = Describe("OP", func() {
 					{Key: "rhs"},
 					{Key: "op"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"lhs": {"type": "lhs"},
 					"rhs": {"type": "rhs"},
 					"op":  {"type": "and"},
@@ -393,7 +393,7 @@ var _ = Describe("OP", func() {
 					{Key: "rhs"},
 					{Key: "op"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"lhs": {"type": "lhs"},
 					"rhs": {"type": "rhs"},
 					"op":  {"type": "or"},
@@ -449,7 +449,7 @@ var _ = Describe("OP", func() {
 					{Key: "rhs"},
 					{Key: "op"},
 				},
-				Configs: map[string]msgpack.EncodedJSON{
+				Inputs: map[string]msgpack.EncodedJSON{
 					"lhs": {"type": "lhs"},
 					"rhs": {"type": "rhs"},
 					"op":  {"type": "and"},

@@ -42,10 +42,10 @@ The input comes from the flow (the value of `temperature`), not from parentheses
 
 <Divider.Divider x />
 
-## Config Parameters
+## Inputs
 
-Config parameters make functions reusable. They're set when you instantiate the
-function, not when data flows through:
+Input parameters make functions reusable. They're set when you instantiate the function,
+not when data flows through:
 
 ```arc
 func scale{factor f64} (value f64) f64 {
@@ -56,11 +56,10 @@ pressure -> scale{factor=2.0} -> pressure_doubled
 temperature -> scale{factor=0.5} -> temperature_halved
 ```
 
-Both flows use the same function with different scaling factors. Config parameters
-appear in `{}` after the function name. Input parameters appear in `()` and receive data
-from the flow.
+Both flows use the same [function](/reference/control/arc/reference/functions#inputs)
+with different scaling factors.
 
-Use config parameters for:
+Use input parameters for:
 
 - Calibration constants (gain, offset)
 - Thresholds
@@ -225,7 +224,7 @@ The `alpha` parameter controls responsiveness:
 
 ## Multi-Input Functions
 
-When a function needs multiple sensor values, pass the channels as config parameters:
+When a function needs multiple sensor values, pass the channels as input parameters:
 
 ```arc
 func pressure_diff{inlet chan f64, outlet chan f64} () f64 {
@@ -237,7 +236,7 @@ func pressure_diff{inlet chan f64, outlet chan f64} () f64 {
 
 Inside the function, `inlet` and `outlet` read the latest value from those channels.
 
-But what triggers this function? It has no input parameter to receive flow data. Use
+But what triggers this function? It has no trigger to receive flow data. Use
 `time.interval` to run it on a schedule:
 
 ```arc
@@ -246,11 +245,6 @@ time.interval{period=50ms} -> pressure_diff{inlet=inlet_pressure, outlet=outlet_
 
 Every 50ms, Arc runs `pressure_diff`, which reads both pressure channels and outputs the
 difference.
-
-<Note.Note variant="info">
-  Functions with only config parameters (no input parameters) need something to trigger
-  them. Use `time.interval` for periodic execution.
-</Note.Note>
 
 <Divider.Divider x />
 
@@ -380,7 +374,7 @@ func rate{dt_ms f64} (value f64) f64 {
 pressure -> rate{dt_ms=50.0} -> pressure_rate
 ```
 
-The `dt_ms` config parameter is the expected time between samples in milliseconds. The
+The `dt_ms` input parameter is the expected time between samples in milliseconds. The
 output is in units per second (e.g., psi/second if pressure is in psi).
 
 <Note.Note variant="info">

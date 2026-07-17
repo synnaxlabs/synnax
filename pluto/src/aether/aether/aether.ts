@@ -612,7 +612,7 @@ export abstract class Composite<
 
   /** Returns the child at `key`, or `null` if none. The `T` cast is unchecked — callers
    * must know which subtype they are looking up. */
-  private getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
+  getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
     return (this._children.get(key) ?? null) as T | null;
   }
 

@@ -11,8 +11,7 @@ import { DataType, id, runtime, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { createTestClient } from "@/testutil/client";
-import { secondsLinspace } from "@/testutil/telem";
+import { createTestClient, secondsLinspace } from "@/testutil";
 
 const client = createTestClient();
 

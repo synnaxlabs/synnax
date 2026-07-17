@@ -35,7 +35,7 @@ func Publish(
 			return unsafe.CastToBytes(k), nil
 		},
 		MarshalSet: func(c channel.Channel) ([]byte, error) {
-			v, err := json.Marshal(channel.ToPayload(c))
+			v, err := json.Marshal(c.ToPayload())
 			if err != nil {
 				return nil, err
 			}

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -417,6 +417,113 @@ describe("update", () => {
       });
       expect(beforeUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: 42 }));
       expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: 99 }));
+    });
+  });
+
+  describe("afterOptimistic", () => {
+    it("should call afterOptimistic when the update invokes onOptimisticComplete", async () => {
+      const afterOptimistic = vi.fn();
+      const update = vi.fn().mockImplementation(async ({ onOptimisticComplete }) => {
+        await onOptimisticComplete(42);
+        return 42;
+      });
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(() => useUpdate({ afterOptimistic }), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
+      });
+      expect(afterOptimistic).toHaveBeenCalledOnce();
+    });
+
+    it("should not call afterOptimistic when the update never invokes onOptimisticComplete", async () => {
+      const afterOptimistic = vi.fn();
+      const update = vi.fn().mockResolvedValue(42);
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(() => useUpdate({ afterOptimistic }), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
+      });
+      expect(afterOptimistic).not.toHaveBeenCalled();
+    });
+
+    it("should call afterOptimistic before afterSuccess", async () => {
+      const order: string[] = [];
+      const afterOptimistic = vi.fn(() => {
+        order.push("optimistic");
+      });
+      const afterSuccess = vi.fn(() => {
+        order.push("success");
+      });
+      const update = vi.fn().mockImplementation(async ({ onOptimisticComplete }) => {
+        await onOptimisticComplete(42);
+        return 42;
+      });
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(
+        () => useUpdate({ afterOptimistic, afterSuccess }),
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
+      });
+      expect(order).toEqual(["optimistic", "success"]);
+    });
+
+    it("should pass the optimistic output, client, store, and rollbacks to afterOptimistic", async () => {
+      const afterOptimistic = vi.fn();
+      const update = vi.fn().mockImplementation(async ({ onOptimisticComplete }) => {
+        await onOptimisticComplete(99);
+        return 99;
+      });
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(() => useUpdate({ afterOptimistic }), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
+      });
+      expect(afterOptimistic).toHaveBeenCalledWith(
+        expect.objectContaining({
+          client,
+          data: 99,
+          store: expect.anything(),
+          rollbacks: expect.any(Array),
+        }),
+      );
+    });
+
+    it("should run rollbacks and surface an error when afterOptimistic throws", async () => {
+      const rollback = vi.fn();
+      const afterOptimistic = vi.fn().mockRejectedValue(new Error("optimistic failed"));
+      const update = vi
+        .fn()
+        .mockImplementation(async ({ rollbacks, onOptimisticComplete }) => {
+          rollbacks.push(rollback);
+          await onOptimisticComplete(42);
+          return 42;
+        });
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(() => useUpdate({ afterOptimistic }), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
+      });
+      await waitFor(() => {
+        expect(rollback).toHaveBeenCalled();
+        expect(result.current.variant).toEqual("error");
+      });
     });
   });
 });

@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
@@ -36,12 +36,6 @@ var _ = Describe("Writer", func() {
 			p := panel.Panel{Name: "test", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(p.Key).ToNot(Equal(uuid.Nil))
-		})
-
-		It("Should return a validation error when the name is empty", func(ctx SpecContext) {
-			p := panel.Panel{Parent: &parentID}
-			Expect(svc.NewWriter(tx).Create(ctx, &p)).
-				To(MatchError(ContainSubstring("name: required")))
 		})
 
 		It("Should default a freshly created panel to a single empty leaf", func(ctx SpecContext) {
@@ -73,6 +67,17 @@ var _ = Describe("Writer", func() {
 				return splitNode(spatial.DirectionX, 0.5,
 					leafNode(tab(key)), leafNode(tab(key)))
 			}, "duplicate tab key in panel tree"),
+			Entry("duplicate resources", func() panel.Node {
+				resource := tabResource(uuid.New())
+				duplicated := func() panel.Tab {
+					return panel.Tab{Variant: panel.TabResource{
+						TabBase:  panel.TabBase{Key: uuid.New()},
+						Resource: resource,
+					}}
+				}
+				return splitNode(spatial.DirectionX, 0.5,
+					leafNode(duplicated()), leafNode(duplicated()))
+			}, "duplicate resource in panel tree"),
 			Entry("split size out of bounds", func() panel.Node {
 				return splitNode(spatial.DirectionX, 1.5,
 					leafNode(tab(uuid.New())), leafNode(tab(uuid.New())))
@@ -98,23 +103,21 @@ var _ = Describe("Writer", func() {
 		It("Should parent the panel to the provided parent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "with-parent", Parent: &parentID}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				parentID,
-				ontology.RelationshipTypeParentOf,
-				panel.OntologyID(p.Key),
-			)).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: parentID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panel.OntologyID(p.Key),
+			})).To(BeTrue())
 		})
 
 		It("Should create a panel with no parent relationship when parent is absent", func(ctx SpecContext) {
 			p := panel.Panel{Name: "draft"}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx,
-				parentID,
-				ontology.RelationshipTypeParentOf,
-				panel.OntologyID(p.Key),
-			)).To(BeFalse())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: parentID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panel.OntologyID(p.Key),
+			})).To(BeFalse())
 		})
 
 		It("Should still register the resource when parent is absent", func(ctx SpecContext) {
@@ -151,19 +154,23 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should parent each panel to its own parent", func(ctx SpecContext) {
-			other := MustSucceed(node.Group.CreateOrRetrieve(ctx, "other-parent", ontology.RootID)).
+			other := MustSucceed(groupSvc.CreateOrRetrieve(ctx, "other-parent", ontology.RootID)).
 				OntologyID()
 			ps := []panel.Panel{
 				{Name: "a", Parent: &parentID},
 				{Name: "b", Parent: &other},
 			}
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &ps)).To(Succeed())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx, parentID, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[0].Key),
-			)).To(BeTrue())
-			Expect(otg.NewWriter(tx).HasRelationship(
-				ctx, other, ontology.RelationshipTypeParentOf, panel.OntologyID(ps[1].Key),
-			)).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: parentID,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panel.OntologyID(ps[0].Key),
+			})).To(BeTrue())
+			Expect(otg.RelationshipExists(ctx, tx, ontology.Relationship{
+				From: other,
+				Type: ontology.RelationshipTypeParentOf,
+				To:   panel.OntologyID(ps[1].Key),
+			})).To(BeTrue())
 		})
 
 		It("Should reject the batch when any panel's tree is invalid", func(ctx SpecContext) {
@@ -226,7 +233,7 @@ var _ = Describe("Writer", func() {
 			tabKey := uuid.New()
 			key := create(ctx, leafNode())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: new(int32(1))}),
 			})).To(Succeed())
 			leaf := MustBeOk(asLeaf(retrieve(ctx, key).Root))
 			Expect(leaf.Tabs).To(HaveLen(1))
@@ -238,7 +245,7 @@ var _ = Describe("Writer", func() {
 			key := create(ctx, leafNode())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "batched"}),
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: new(int32(1))}),
 			})).To(Succeed())
 			res := retrieve(ctx, key)
 			Expect(res.Name).To(Equal("batched"))
@@ -249,18 +256,23 @@ var _ = Describe("Writer", func() {
 			key := create(ctx, leafNode())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
 				panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 99}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: new(int32(99))}),
 			})).Error().To(MatchError(ContainSubstring("invalid node path")))
 			Expect(retrieve(ctx, key).Name).To(Equal("test"))
 		})
 
-		It("Should reject a dispatch that inserts a tab with a duplicate key", func(ctx SpecContext) {
+		It("Should upsert rather than duplicate when inserting a tab with an existing key", func(ctx SpecContext) {
 			tabKey := uuid.New()
-			key := create(ctx, leafNode(tab(tabKey)))
+			key := create(ctx, leafNode(viewTab(tabKey, "selector")))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: 1}),
-			})).Error().To(MatchError(ContainSubstring("duplicate tab key in panel tree")))
-			Expect(MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs).To(HaveLen(1))
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(tabKey), TargetLeaf: new(int32(1))}),
+			})).To(Succeed())
+			tabs := MustBeOk(asLeaf(retrieve(ctx, key).Root)).Tabs
+			Expect(tabs).To(HaveLen(1))
+			Expect(tabs[0].Variant).To(Equal(panel.TabResource{
+				TabBase:  panel.TabBase{Key: tabKey},
+				Resource: tabResource(tabKey),
+			}))
 		})
 
 		It("Should notify subscribers with the dispatched action on success", func(ctx SpecContext) {
@@ -298,7 +310,7 @@ var _ = Describe("Writer", func() {
 			rec := &Recorder[panel.Key, panel.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, key, "d1", []panel.Action{
-				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: 99}),
+				panel.NewInsertTabAction(panel.InsertTabPayload{Tab: tab(uuid.New()), TargetLeaf: new(int32(99))}),
 			})).Error().To(MatchError(ContainSubstring("invalid node path")))
 			Expect(rec.Snapshot()).To(BeEmpty())
 		})

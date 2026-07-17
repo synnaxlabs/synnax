@@ -15,8 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
@@ -160,10 +160,13 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 				if err = writer.Set(ctx, newParentRange); err != nil {
 					return err
 				}
-				if err = otgWriter.DefineResource(ctx, OntologyID(newParentRange.Key)); err != nil {
+				if err = otgWriter.DefineResources(
+					ctx,
+					OntologyID(newParentRange.Key),
+				); err != nil {
 					return err
 				}
-				if err = otgWriter.DefineRelationship(
+				if err = otgWriter.DefineRelationships(
 					ctx,
 					OntologyID(newParentRange.Key),
 					ontology.RelationshipTypeParentOf,

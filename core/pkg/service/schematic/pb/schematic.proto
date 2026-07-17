@@ -24,8 +24,9 @@ message Node {
   string key = 1;
   // position is the top-left position of the node.
   .x.spatial.pb.XY position = 2;
-  // z_index is the stacking order of the node within the schematic. Higher values render
-  // above lower values. Set by the user via send-to-back / bring-to-front actions.
+  // z_index is the stacking order of the node within the schematic. Higher values
+  // render above lower values. Set by the user via send-to-back / bring-to-front
+  // actions.
   int32 z_index = 3;
 }
 

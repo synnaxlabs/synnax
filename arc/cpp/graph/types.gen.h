@@ -30,8 +30,8 @@ struct Edge;
 struct Graph;
 
 /// @brief Node is a visual node in the Arc graph editor representing a function
-/// instantiation with position data. The function type and configuration parameter
-/// values are stored in the graph's configs map, keyed by the node key.
+/// instantiation with position data. The function type and input parameter values are
+/// stored in the graph's inputs map, keyed by the node key.
 struct Node {
     /// @brief key is the unique identifier for this node instance.
     std::string key;
@@ -63,6 +63,7 @@ struct Edge : public ::arc::ir::Edge {
     from_proto(const ::arc::graph::pb::Edge &pb);
 };
 
+/// @brief Nodes is a collection of visual nodes in an Arc graph.
 struct Nodes : private std::vector<Node> {
     using Base = std::vector<Node>;
 
@@ -117,6 +118,7 @@ struct Nodes : private std::vector<Node> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Edges is a collection of graph edges in an Arc graph.
 struct Edges : private std::vector<Edge> {
     using Base = std::vector<Edge>;
 
@@ -180,12 +182,11 @@ struct Graph {
     Edges edges = {};
     /// @brief nodes contains visual nodes with canvas positions.
     Nodes nodes = {};
-    /// @brief configs contains per-node configuration keyed by node key. Each value is
-    /// a
-    /// JSON object holding the node's function type under "type" plus its configuration
-    /// parameter values. The wire format stores it as an opaque record; the client
-    /// types it per function.
-    std::unordered_map<std::string, x::json::json::object_t> configs = {};
+    /// @brief inputs contains per-node inputs keyed by node key. Each value is a JSON
+    /// object holding the node's function type under "type" plus its input parameter
+    /// values. The wire format stores it as an opaque record; the client types it per
+    /// function.
+    std::unordered_map<std::string, x::json::json::object_t> inputs = {};
 
     static Graph parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

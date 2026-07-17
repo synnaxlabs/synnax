@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -39,10 +39,10 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(p.Key)
-	if err := w.otg.DefineResource(ctx, otgID); err != nil {
+	if err := w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
-	if err := w.otg.DefineRelationship(
+	if err := w.otg.DefineRelationships(
 		ctx,
 		w.group.OntologyID(),
 		ontology.RelationshipTypeParentOf,
@@ -98,10 +98,5 @@ func (w Writer) Delete(
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Project](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	for _, key := range keys {
-		if err := w.otg.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.otg.DeleteResources(ctx, OntologyIDs(keys)...)
 }

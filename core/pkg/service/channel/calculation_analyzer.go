@@ -37,15 +37,19 @@ type resolver struct {
 
 // CalculationAnalyzer parses and type-checks calculated channel expressions. It caches
 // previously analyzed channels so that later expressions can reference them by name
-// without hitting the backing symbol resolver.
+// without hitting the backing symbol resolver. CalculationAnalyzer is not safe for
+// concurrent use.
 type CalculationAnalyzer struct {
 	resolver *resolver
 	cfg      parser.Config
 }
 
-// NewCalculationAnalyzer returns an Analyzer that falls back to resolver for symbols
-// not yet in the internal cache.
-func NewCalculationAnalyzer(symbolResolver arc.SymbolResolver, cfgs ...parser.Config) *CalculationAnalyzer {
+// NewCalculationAnalyzer returns an Analyzer that falls back to symbolResolver for
+// symbols not yet in the internal cache.
+func NewCalculationAnalyzer(
+	symbolResolver arc.SymbolResolver,
+	cfgs ...parser.Config,
+) *CalculationAnalyzer {
 	r := &resolver{SymbolResolver: symbolResolver}
 	r.temp.keys = make(map[int]*symbol.Symbol)
 	r.temp.names = make(map[string]*symbol.Symbol)

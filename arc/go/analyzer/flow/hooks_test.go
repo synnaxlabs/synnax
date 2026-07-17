@@ -23,7 +23,7 @@ import (
 )
 
 var _ = Describe("AnalyzeArguments hook (flow form)", func() {
-	It("Should invoke the hook on a flow-form invocation that carries config", func(bCtx SpecContext) {
+	It("Should invoke the hook on a flow-form invocation that carries input", func(bCtx SpecContext) {
 		var (
 			called  int
 			gotArgs []symbol.Argument

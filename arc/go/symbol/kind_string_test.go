@@ -25,7 +25,6 @@ var _ = Describe("Kind.String", func() {
 		Entry("KindChannel", symbol.KindChannel, "KindChannel"),
 		Entry("KindFunction", symbol.KindFunction, "KindFunction"),
 		Entry("KindBlock", symbol.KindBlock, "KindBlock"),
-		Entry("KindConfig", symbol.KindConfig, "KindConfig"),
 		Entry("KindInput", symbol.KindInput, "KindInput"),
 		Entry("KindOutput", symbol.KindOutput, "KindOutput"),
 		Entry("KindSequence", symbol.KindSequence, "KindSequence"),

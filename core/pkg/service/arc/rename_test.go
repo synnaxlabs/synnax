@@ -28,7 +28,7 @@ var _ = Describe("LSP Rename", func() {
 			Virtual:  true,
 			DataType: telem.Float32T,
 		}
-		Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})
@@ -63,7 +63,7 @@ var _ = Describe("LSP Rename", func() {
 			Internal: true,
 			DataType: telem.Float32T,
 		}
-		Expect(channelSvc.Create(ctx, ch)).To(Succeed())
+		Expect(channelSvc.NewWriter(nil).Create(ctx, ch)).To(Succeed())
 
 		server := MustSucceed(svc.NewLSP())
 		server.SetClient(&lsptestutil.MockClient{})

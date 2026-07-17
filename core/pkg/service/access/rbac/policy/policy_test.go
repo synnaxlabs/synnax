@@ -15,10 +15,10 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -358,8 +358,8 @@ var _ = Describe("Retriever", func() {
 
 			subject1 = ontology.ID{Type: "user", Key: uuid.New().String()}
 			subject2 = ontology.ID{Type: "user", Key: uuid.New().String()}
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject1)).To(Succeed())
-			Expect(otg.NewWriter(tx).DefineResource(ctx, subject2)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject1)).To(Succeed())
+			Expect(otg.NewWriter(tx).DefineResources(ctx, subject2)).To(Succeed())
 			Expect(rw.AssignRole(ctx, subject1, r.Key)).To(Succeed())
 		})
 
@@ -557,13 +557,6 @@ var _ = Describe("Ontology Integration", func() {
 	Describe("Type", func() {
 		It("Should return correct ontology type", func(ctx SpecContext) {
 			Expect(svc.Type()).To(Equal(ontology.ResourceTypePolicy))
-		})
-	})
-
-	Describe("Schema", func() {
-		It("Should return a valid schema", func(ctx SpecContext) {
-			schema := svc.Schema()
-			Expect(schema).ToNot(BeNil())
 		})
 	})
 

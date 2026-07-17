@@ -7,206 +7,254 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, panel } from "@synnaxlabs/client";
-import { type location, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo } from "react";
+import { panel } from "@synnaxlabs/client";
+import {
+  type CSSProperties,
+  type DragEventHandler,
+  memo,
+  type ReactElement,
+  useCallback,
+} from "react";
 
+import { Button } from "@/button";
 import { type Component } from "@/component";
+import { Errors } from "@/errors";
+import { Flex } from "@/flex";
+import { Icon } from "@/icon";
 import { Mosaic as Base } from "@/mosaic";
 import {
-  type TabContent,
-  tabContent,
-  useDispatch,
-  useEnsureRetrieved,
-  useSelectRoot,
-  useSelectTab,
+  useSelectLeafNode,
+  useSelectNodeVariant,
+  useSelectSelection,
+  useSelectSplitNode,
+  useSelectTabKeys,
+  useSingleDispatch,
 } from "@/panel/queries";
+import { TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
-import { type Tabs } from "@/tabs";
+import { Select } from "@/select";
+import { Tabs } from "@/tabs";
 
-export interface MosaicTabRenderProps extends TabContent {
-  tabKey: string;
-  visible: boolean;
-}
-
-export interface MosaicTabNameProps extends Tabs.NameProps, TabContent {}
+// Portaled tab content fills its hosting Out, which anchors the absolutely
+// positioned internals of visualizations rendered inside it.
+const PORTAL_OUT_STYLE: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  position: "relative",
+};
 
 export interface MosaicProps extends Omit<
-  Base.MosaicProps,
-  | "root"
-  | "activeTab"
-  | "children"
-  | "tabName"
-  | "onDrop"
-  | "onResize"
-  | "onClose"
-  | "onCreate"
-  | "onSelect"
+  Base.FrameProps,
+  "onDrop" | "onCreate" | "onFileDrop" | "onResize" | "onSelect" | "children"
 > {
-  panelKey: panel.Key;
-  focused?: string;
   selected?: string[];
   onSelect?: (tabKey: string) => void;
-  children: Component.RenderProp<MosaicTabRenderProps>;
-  tabName?: Component.RenderProp<MosaicTabNameProps>;
+  children: Component.RenderProp<{}>;
+  tabName?: Component.RenderProp<{}>;
+  onCreateTab?: () => panel.NewTab | undefined;
+  resolveDroppedTab?: (key: string) => panel.NewTab | undefined;
 }
 
-const adaptToMosaic = (root: panel.Node, selected: string[] | undefined): Base.Node => {
-  const preference = selected ?? [];
-  const visit = (node: panel.Node | undefined, key: number): Base.Node => {
-    if (node == null) return { key };
-    if (node.variant === "split")
-      return {
-        key,
-        direction: node.direction,
-        size: node.size,
-        first: visit(node.first, panel.childPath(key, "first")),
-        last: visit(node.last, panel.childPath(key, "last")),
-      };
-    const tabs: Tabs.Tab[] = node.tabs.map((t) => ({
-      tabKey: t.key,
-      name: "",
-      closable: true,
-      editable: t.variant !== "empty",
-    }));
-    const selected =
-      preference.find((key) => tabs.some((t) => t.tabKey === key)) ?? tabs[0]?.tabKey;
-    return { key, tabs, selected };
-  };
-  return visit(root, panel.ROOT_PATH);
-};
-
-interface TabNameProps extends Tabs.NameProps {
-  panelKey: panel.Key;
-  tabName: Component.RenderProp<MosaicTabNameProps>;
-}
-
-// TabName must stay module-level: render-prop closures below only re-parameterize
-// it, so React updates name nodes in place. A component type created per render
-// would remount every name node, dropping rename-edit state.
-const TabName = ({
-  panelKey: key,
-  tabName,
-  ...rest
-}: TabNameProps): ReactElement | null => {
-  const content = useSelectTab({ key, tabKey: rest.tabKey });
-  return tabName({ ...rest, ...tabContent(content) });
-};
-
-interface ContentProps extends Pick<MosaicProps, "children"> {
-  panelKey: panel.Key;
+interface TabProps extends Pick<MosaicProps, "tabName"> {
   tabKey: string;
-  visible: boolean;
+  onClose: (tabKey: string) => void;
 }
 
-const Content = ({
-  panelKey: key,
-  tabKey,
-  visible,
-  children,
-}: ContentProps): ReactElement | null =>
-  children({ ...tabContent(useSelectTab({ key, tabKey })), tabKey, visible });
+const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
+  const { startDrag, onDragEnd } = Base.useDragTab();
+  const handleDragStart = useCallback<DragEventHandler<HTMLDivElement>>(
+    (e) => startDrag(e, tabKey),
+    [tabKey, startDrag],
+  );
+  const handleClose = useCallback(() => onClose(tabKey), [tabKey, onClose]);
+  return (
+    <Tabs.Tab
+      key={tabKey}
+      itemKey={tabKey}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+    >
+      <TabScope.Provider value={tabKey}>{tabName?.({})}</TabScope.Provider>
+      <Tabs.Close onClick={handleClose} />
+    </Tabs.Tab>
+  );
+};
+
+interface NodeProps
+  extends Pick<Base.LeafProps, "nodeKey">, Pick<TabProps, "tabName" | "onClose"> {
+  onAdd: (nodeKey: number) => void;
+}
+
+const Leaf = memo(({ nodeKey, onAdd, ...rest }: NodeProps): ReactElement => {
+  const { tabs } = useSelectLeafNode({ nodeKey });
+  const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
+  const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
+  const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
+  return (
+    <Base.Leaf nodeKey={nodeKey} grow>
+      <Tabs.Frame grow>
+        <Tabs.Selector {...selectorDropProps}>
+          {tabs.map((tabKey) => (
+            <Tab key={tabKey} tabKey={tabKey} {...rest} />
+          ))}
+          <Flex.Box grow />
+          <Button.Button variant="text" sharp onClick={handleAdd}>
+            <Icon.Add />
+          </Button.Button>
+        </Tabs.Selector>
+        <Tabs.Content grow>
+          {selected != null && (
+            <Portal.Out itemKey={selected} style={PORTAL_OUT_STYLE} />
+          )}
+          <Base.Shield />
+        </Tabs.Content>
+      </Tabs.Frame>
+    </Base.Leaf>
+  );
+});
+Leaf.displayName = "Panel.Mosaic.Leaf";
+
+const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
+  const { direction, size } = useSelectSplitNode({ nodeKey });
+  return (
+    <Base.Split nodeKey={nodeKey} direction={direction} size={size}>
+      <Node nodeKey={panel.childNodeKey(nodeKey, "first")} {...rest} />
+      <Node nodeKey={panel.childNodeKey(nodeKey, "last")} {...rest} />
+    </Base.Split>
+  );
+});
+Split.displayName = "Panel.Mosaic.Split";
+
+const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
+  const C = useSelectNodeVariant({ nodeKey }) == "split" ? Split : Leaf;
+  return <C nodeKey={nodeKey} {...rest} />;
+});
+Node.displayName = "Panel.Mosaic.Node";
+
+const EMPTY_SELECTED: string[] = [];
+
+const PortalIn = memo(
+  ({
+    itemKey,
+    onSelect,
+    children,
+  }: Pick<Portal.InProps, "itemKey"> &
+    Pick<MosaicProps, "children" | "onSelect">): ReactElement => (
+    <Portal.In itemKey={itemKey} onClick={onSelect}>
+      <Errors.Boundary>
+        <TabScope.Provider value={itemKey}>{children({})}</TabScope.Provider>
+      </Errors.Boundary>
+    </Portal.In>
+  ),
+);
+PortalIn.displayName = "Panel.Mosaic.PortalIn";
+
+// Content renders into portaled elements hosted from each leaf, so moving a tab
+// around the mosaic does not remount it: the destination leaf's Out re-parents
+// the same element, preserving DOM state and expensive resources like WebGL
+// contexts.
+const PortaledContents = memo(
+  ({
+    onSelect,
+    children,
+  }: Pick<MosaicProps, "onSelect" | "children">): ReactElement => {
+    const keys = useSelectTabKeys();
+    return (
+      <>
+        {keys.map((key) => (
+          <PortalIn key={key} itemKey={key} onSelect={onSelect}>
+            {children}
+          </PortalIn>
+        ))}
+      </>
+    );
+  },
+);
+PortaledContents.displayName = "Panel.Mosaic.PortaledContents";
 
 export const Mosaic = ({
-  panelKey: key,
-  focused,
-  selected,
+  selected = EMPTY_SELECTED,
   onSelect,
   children,
   tabName,
+  onCreateTab,
+  resolveDroppedTab,
   ...rest
 }: MosaicProps): ReactElement | null => {
-  useEnsureRetrieved({ key });
-  const { dispatch } = useDispatch();
-  const treeRoot = useSelectRoot({ key });
-  const root = useMemo(() => adaptToMosaic(treeRoot, selected), [treeRoot, selected]);
+  const dispatch = useSingleDispatch();
 
   const handleDrop = useCallback(
-    (targetLeaf: number, tabKey: string, location: location.Location, index?: number) =>
-      dispatch({
-        key,
-        actions: [panel.moveTab({ key: tabKey, targetLeaf, index, location })],
-      }),
-    [dispatch, key],
+    ({ nodeKey, tabKey, location, index }: Base.OnDropProps) =>
+      dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location })),
+    [dispatch],
   );
 
   const handleResize = useCallback(
-    (split: number, size: number) =>
-      dispatch({ key, actions: [panel.resizeSplit({ split, size })] }),
-    [dispatch, key],
+    (split: number, size: number) => dispatch(panel.resizeSplit({ split, size })),
+    [dispatch],
   );
 
   const handleClose = useCallback(
-    (tabKey: string) => dispatch({ key, actions: [panel.removeTab({ key: tabKey })] }),
-    [dispatch, key],
+    (key: string) => dispatch(panel.removeTab({ key })),
+    [dispatch],
+  );
+
+  const handleAdd = useCallback(
+    (path: number) => {
+      const tab = onCreateTab?.();
+      if (tab == null) return;
+      const action = panel.insertTab({ tab, targetLeaf: path });
+      dispatch(action);
+      if (action.type === "insert_tab") onSelect?.(action.insertTab.tab.key);
+    },
+    [dispatch, onSelect, onCreateTab],
   );
 
   const handleCreate = useCallback(
-    (node: number, location: location.Location, tabKeys?: string[]) => {
-      let tabs: panel.Tab[];
-      if (tabKeys == null) tabs = [{ variant: "empty", key: uuid.create() }];
-      else
-        tabs = tabKeys.flatMap((raw) => {
-          const parsed = ontology.idZ.safeParse(raw);
-          return parsed.success
-            ? [{ variant: "resource", key: uuid.create(), resource: parsed.data }]
-            : [];
-        });
+    ({ nodeKey, location, tabKeys, index }: Base.OnCreateProps) => {
+      const tabs = tabKeys
+        .map((tabKey) => resolveDroppedTab?.(tabKey))
+        .filter((tab): tab is panel.NewTab => tab != null);
       if (tabs.length === 0) return;
       const restLeaf =
-        location === "center" ? node : panel.childPath(node, panel.splitSide(location));
-      const actions = tabs.map((tab, i) => {
-        let payload: panel.InsertTabPayload = { tab, targetLeaf: restLeaf };
-        if (i === 0) payload = { tab, targetLeaf: node, location };
-        return panel.insertTab(payload);
-      });
-      dispatch({ key, actions });
-      onSelect?.(tabs[tabs.length - 1].key);
+        location === "center"
+          ? nodeKey
+          : panel.childNodeKey(nodeKey, panel.splitSide(location));
+      const actions = tabs.map((tab, i) =>
+        panel.insertTab(
+          i === 0
+            ? { tab, targetLeaf: nodeKey, location, index }
+            : { tab, targetLeaf: restLeaf },
+        ),
+      );
+      dispatch(actions);
+      const last = actions.at(-1);
+      if (last?.type === "insert_tab") onSelect?.(last.insertTab.tab.key);
     },
-    [dispatch, key, onSelect],
+    [dispatch, onSelect, resolveDroppedTab],
   );
 
-  const [portalRef, portalNodes] = Base.usePortal({
-    root,
-    onSelect,
-    children: ({ tabKey, visible }) => (
-      <Content panelKey={key} tabKey={tabKey} visible={visible !== false}>
-        {children}
-      </Content>
-    ),
-  });
-
-  const renderTabName = useCallback(
-    (props: Tabs.NameProps): ReactElement | null =>
-      tabName == null ? null : <TabName {...props} panelKey={key} tabName={tabName} />,
-    [key, tabName],
-  );
-
-  const renderProp = useCallback<Tabs.RenderProp>(
-    (props) => {
-      const node = portalRef.current.get(props.tabKey);
-      if (node == null) return null;
-      return <Portal.Out node={node} />;
-    },
-    [portalRef],
-  );
+  const selection = useSelectSelection({ selected });
 
   return (
-    <>
-      {portalNodes}
-      <Base.Mosaic
-        {...rest}
-        root={root}
-        activeTab={focused}
-        onSelect={onSelect}
-        onDrop={handleDrop}
-        onResize={handleResize}
-        onClose={handleClose}
-        onCreate={handleCreate}
-        tabName={tabName != null ? renderTabName : undefined}
-      >
-        {renderProp}
-      </Base.Mosaic>
-    </>
+    <Portal.Context>
+      <PortaledContents onSelect={onSelect}>{children}</PortaledContents>
+      <Select.Context value={selection} onSelect={onSelect}>
+        <Base.Frame
+          onDrop={handleDrop}
+          onCreate={handleCreate}
+          onResize={handleResize}
+          {...rest}
+        >
+          <Node
+            nodeKey={panel.ROOT_NODE_KEY}
+            onClose={handleClose}
+            onAdd={handleAdd}
+            tabName={tabName}
+          />
+        </Base.Frame>
+      </Select.Context>
+    </Portal.Context>
   );
 };

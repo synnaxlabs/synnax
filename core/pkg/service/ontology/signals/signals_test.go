@@ -18,9 +18,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -36,6 +36,8 @@ import (
 type changeService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
 }
+
+var changeSchema = zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
 
 func newChangeID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: ontology.ResourceTypeChannel}
@@ -87,10 +89,6 @@ var _ ontology.Service = (*changeService)(nil)
 
 func (s *changeService) Type() ontology.ResourceType { return ontology.ResourceTypeChannel }
 
-func (s *changeService) Schema() zyn.Schema {
-	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
-}
-
 func (s *changeService) OpenNexter(context.Context) (iter.Seq[ontology.Resource], io.Closer, error) {
 	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
 }
@@ -101,7 +99,7 @@ func (s *changeService) RetrieveResource(
 	_ gorp.Tx,
 ) (ontology.Resource, error) {
 	return ontology.NewResource(
-		s.Schema(),
+		changeSchema,
 		newChangeID(key),
 		"",
 		map[string]any{"key": key},
@@ -135,7 +133,7 @@ var _ = Describe("Signals", func() {
 						Variant: change.VariantSet,
 						Key:     newChangeID(key).String(),
 						Value: ontology.NewResource(
-							svc.Schema(),
+							changeSchema,
 							newChangeID(key),
 							"empty",
 							map[string]any{"key": key},
@@ -205,12 +203,14 @@ var _ = Describe("Signals", func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		}()
 
-		w := node.Ontology.NewWriter(nil)
+		w := otg.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
-		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
-		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
-		Expect(w.DefineRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
+		Expect(w.DefineResources(ctx, secondResource)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource,
+		)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
 		relationships := MustSucceed(decodeRelationships(res.Frame.SeriesAt(0).Data))
@@ -241,15 +241,21 @@ var _ = Describe("Signals", func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		}()
 
-		w := node.Ontology.NewWriter(nil)
+		w := otg.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
-		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
-		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
+		Expect(w.DefineResources(ctx, firstResource)).To(Succeed())
+		Expect(w.DefineResources(ctx, secondResource)).To(Succeed())
 		By("Creating the relationship")
-		Expect(w.DefineRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource,
+		)).To(Succeed())
 		By("Deleting the relationship")
-		Expect(w.DeleteRelationship(ctx, firstResource, ontology.RelationshipTypeParentOf, secondResource)).To(Succeed())
+		Expect(w.DeleteRelationships(ctx, ontology.Relationship{
+			From: firstResource,
+			Type: ontology.RelationshipTypeParentOf,
+			To:   secondResource,
+		})).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
 		By("Decoding the relationships")

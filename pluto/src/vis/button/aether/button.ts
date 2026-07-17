@@ -37,6 +37,7 @@ export class Button
 {
   static readonly TYPE = "Button";
   static readonly METHODS = buttonMethodsZ;
+  static readonly z = buttonStateZ;
 
   schema = buttonStateZ;
   methods = buttonMethodsZ;

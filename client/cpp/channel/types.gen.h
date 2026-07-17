@@ -18,7 +18,7 @@
 #include <variant>
 #include <vector>
 
-#include "client/cpp/cluster/types.gen.h"
+#include "client/cpp/node/types.gen.h"
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
@@ -27,7 +27,7 @@
 #include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
-#include "core/pkg/distribution/channel/pb/channel.pb.h"
+#include "core/pkg/service/channel/pb/channel.pb.h"
 
 namespace synnax::channel {
 
@@ -40,6 +40,9 @@ constexpr const char *OPERATION_TYPE_AVG = "avg";
 constexpr const char *OPERATION_TYPE_NONE = "none";
 constexpr const char *OPERATION_TYPE_DERIVATIVE = "derivative";
 
+/// @brief Key is a unique identifier for a channel in the Synnax database. Composed of
+/// a node key (first 12 bits) and a local key (last 20 bits), enabling distributed
+/// assignment while maintaining global uniqueness.
 using Key = std::uint32_t;
 
 using Name = std::string;
@@ -62,11 +65,11 @@ struct Operation {
     static Operation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::distribution::channel::pb::Operation;
-    [[nodiscard]] std::pair<::distribution::channel::pb::Operation, x::errors::Error>
+    using proto_type = ::service::channel::pb::Operation;
+    [[nodiscard]] std::pair<::service::channel::pb::Operation, x::errors::Error>
     to_proto() const;
     static std::pair<Operation, x::errors::Error>
-    from_proto(const ::distribution::channel::pb::Operation &pb);
+    from_proto(const ::service::channel::pb::Operation &pb);
 };
 
 /// @brief Channel is a logical collection of samples emitted by or representing values
@@ -78,10 +81,9 @@ struct Channel {
     Key key = 0;
     /// @brief name is the human-readable channel name.
     Name name;
-    /// @brief leaseholder is the cluster node that holds the lease for this channel.
-    /// Mostly
-    /// for internal use.
-    ::synnax::cluster::NodeKey leaseholder = 0;
+    /// @brief leaseholder is the node that holds the lease for this channel. Mostly for
+    /// internal use.
+    ::synnax::node::Key leaseholder = 0;
     /// @brief data_type is the data type of samples stored in this channel (e.g.,
     /// Float64,
     /// Int32, TimeStamp).

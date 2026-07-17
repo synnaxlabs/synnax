@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/telem"
-import "schemas/synnax/cluster"
+import "schemas/synnax/node"
 import "schemas/x/control"
 import "schemas/synnax/status"
 
@@ -19,21 +19,23 @@ import "schemas/synnax/status"
 
 Key uint32 {
     @doc value    """
-        is a unique identifier for a channel in the Synnax database. Composed
-        of a cluster node key (first 12 bits) and a local key (last 20 bits),
-        enabling distributed assignment while maintaining global uniqueness.
+        is a unique identifier for a channel in the Synnax database. Composed of a node
+        key (first 12 bits) and a local key (last 20 bits), enabling distributed
+        assignment while maintaining global uniqueness.
     """
-    @go output    "core/pkg/distribution/channel"
+    @go output    "core/pkg/service/channel"
+    @go omit
     @ts to_number
 }
 
 LocalKey uint20 {
     @doc value """
-        is a 20-bit unsigned integer representing the locally-unique portion
-        of a channel key within a node. Combined with a NodeKey to form the
-        global channel Key.
+        is a 20-bit unsigned integer representing the locally-unique portion of a
+        channel key within a node. Combined with a node.Key to form the global channel
+        Key.
     """
-    @go output "core/pkg/distribution/channel"
+    @go output "core/pkg/service/channel"
+    @go omit
     @py omit
     @cpp omit
 }
@@ -45,7 +47,7 @@ Name = string {
         not guaranteed to be unique across channels.
     """
     @validate required
-    @go output         "core/pkg/distribution/channel"
+    @go output         "core/pkg/service/channel"
 }
 
 OperationType enum {
@@ -56,7 +58,7 @@ OperationType enum {
     derivative = "derivative"
 
     @doc value "is the type of aggregation operation to apply to channel data over time."
-    @go output "core/pkg/distribution/channel"
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -79,7 +81,7 @@ Operation struct {
         calculate min, max, or average values over a time duration or triggered
         by a reset channel.
     """
-    @go output "core/pkg/distribution/channel"
+    @go output "core/pkg/service/channel"
     @pb
 }
 
@@ -88,10 +90,10 @@ Channel struct {
         @doc value    "is the human-readable channel name."
         @index lookup
     }
-    leaseholder cluster.NodeKey     {
+    leaseholder node.Key            {
         @doc value """
-            is the cluster node that holds the lease for this channel and is
-            authorized to accept writes.
+            is the node that holds the lease for this channel and is authorized to
+            accept writes.
         """
         @filter
     }
@@ -144,10 +146,10 @@ Channel struct {
 
     @doc value     """
         is an internal representation of a channel containing all storage and
-        distribution metadata. This type is used internally by the server;
+        cluster-routing metadata. This type is used internally by the server;
         clients should use APIChannel instead.
     """
-    @go output     "core/pkg/distribution/channel"
+    @go output     "core/pkg/service/channel"
     @go marshal
     @go migrate
     @retrieve
@@ -176,10 +178,9 @@ APIChannel struct {
     name        Name                {
         @doc value "is the human-readable channel name."
     }
-    leaseholder cluster.NodeKey = 0 {
+    leaseholder node.Key = 0 {
         @doc value """
-            is the cluster node that holds the lease for this channel. Mostly
-            for internal use.
+            is the node that holds the lease for this channel. Mostly for internal use.
         """
     }
     data_type   telem.DataType      {

@@ -254,8 +254,9 @@ export type DeleteParams = schematic.symbol.Key | schematic.symbol.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     rollbacks.push(store.schematicSymbols.delete(data));
+    await onOptimisticComplete(data);
     await client.schematics.symbols.delete(data);
     return data;
   },

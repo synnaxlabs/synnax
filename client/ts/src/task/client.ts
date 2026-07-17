@@ -401,8 +401,7 @@ export class Client {
 
   async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params:
-      | ExecuteCommandsSyncParams<StatusData>
-      | ExecuteCommandSyncParams<StatusData>,
+      ExecuteCommandsSyncParams<StatusData> | ExecuteCommandSyncParams<StatusData>,
   ): Promise<Status<StatusData> | Status<StatusData>[]> {
     if ("commands" in params) {
       const retrieveNames = async () => {

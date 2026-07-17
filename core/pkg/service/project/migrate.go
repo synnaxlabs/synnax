@@ -14,8 +14,8 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/group"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	projectv56 "github.com/synnaxlabs/synnax/pkg/service/project/migrations/v56"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -221,13 +221,7 @@ func RemoveAuthorRelationships(ctx context.Context, tx gorp.Tx, otg *ontology.On
 	if err != nil {
 		return err
 	}
-	w := otg.NewWriter(tx)
-	for _, rel := range stale {
-		if err := w.DeleteRelationship(ctx, rel.From, rel.Type, rel.To); err != nil {
-			return err
-		}
-	}
-	return nil
+	return otg.NewWriter(tx).DeleteRelationships(ctx, stale...)
 }
 
 // collectEntries drains a reader into a slice of the entries matching keep.

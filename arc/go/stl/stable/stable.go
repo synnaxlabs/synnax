@@ -98,8 +98,8 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
-	var cfgVals config
-	if err := configSchema.Parse(cfg.Node.Inputs.ValueMap(), &cfgVals); err != nil {
+	var inputs nodeInputs
+	if err := inputsSchema.Parse(cfg.Node.Inputs.ValueMap(), &inputs); err != nil {
 		return nil, err
 	}
 	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
@@ -109,16 +109,16 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	return &forNode{
 		State:    cfg.State,
 		inputIdx: inputIdx,
-		duration: cfgVals.Duration,
+		duration: inputs.Duration,
 		now:      h.now,
 	}, nil
 }
 
-type config struct {
+type nodeInputs struct {
 	Duration telem.TimeSpan
 }
 
-var configSchema = zyn.Object(map[string]zyn.Schema{
+var inputsSchema = zyn.Object(map[string]zyn.Schema{
 	"duration": zyn.Int64().Coerce(),
 })
 

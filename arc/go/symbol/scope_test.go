@@ -84,7 +84,6 @@ var _ = Describe("Scope", func() {
 			Entry("StatefulVariable", symbol.KindStatefulVariable),
 			Entry("Input", symbol.KindInput),
 			Entry("Output", symbol.KindOutput),
-			Entry("Config", symbol.KindConfig),
 			Entry("LoopVariable", symbol.KindLoopVariable),
 		)
 
@@ -156,7 +155,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should allow shadowing global symbols from resolver", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -164,7 +163,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should resolve to local symbol when shadowing global", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			localScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -175,7 +174,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should resolve to local symbol when shadowing global in nested scope", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			funcScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "f", Kind: symbol.KindFunction}))
@@ -317,12 +316,12 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should resolve from global resolver", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "pi", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			resolved := MustSucceed(rootScope.Resolve(bCtx, "pi"))
 			Expect(resolved.Name).To(Equal("pi"))
-			Expect(resolved.Kind).To(Equal(symbol.KindConfig))
+			Expect(resolved.Kind).To(Equal(symbol.KindInput))
 		})
 		It("Should prioritize local over parent scope", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil, nil)
@@ -507,7 +506,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should resolve symbols from global resolver", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "pi", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "pi", Kind: symbol.KindInput, Type: types.F64()},
 				{Name: "print", Kind: symbol.KindFunction},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
@@ -530,7 +529,7 @@ var _ = Describe("Scope", func() {
 		})
 		It("Should deduplicate symbols across all sources", func(bCtx SpecContext) {
 			globalResolver := StaticResolver{
-				{Name: "x", Kind: symbol.KindConfig, Type: types.F64()},
+				{Name: "x", Kind: symbol.KindInput, Type: types.F64()},
 			}
 			rootScope := symbol.NewRoot(globalResolver, nil)
 			rootX := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "x", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -677,11 +676,11 @@ var _ = Describe("Scope", func() {
 				Expect(copied.Read).ToNot(HaveKey(uint32(3)))
 			})
 		})
-		Describe("ResolveConfigChannel", func() {
+		Describe("ResolveInputChannel", func() {
 			It("Should fall back to Read when fnSym has no children (built-in functions)", func() {
 				fnSym := &symbol.Symbol{Name: "on", Kind: symbol.KindFunction}
 				nodeChannels := types.NewChannels()
-				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 42, "my_sensor")
+				symbol.ResolveInputChannel(&nodeChannels, fnSym, "channel", 42, "my_sensor")
 				Expect(nodeChannels.Read).To(HaveLen(1))
 				Expect(nodeChannels.Read[42]).To(Equal("my_sensor"))
 				Expect(nodeChannels.Write).To(BeEmpty())
@@ -691,16 +690,16 @@ var _ = Describe("Scope", func() {
 				fnSym := symbol.NewRoot(nil, nil)
 				fnSym.Kind = symbol.KindFunction
 				fnSym.Channels = types.NewChannels()
-				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
+				inputParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
 					Name: "channel",
-					Kind: symbol.KindConfig,
+					Kind: symbol.KindInput,
 					Type: types.Chan(types.F64()),
 				}))
-				internalID := uint32(configParam.ID)
+				internalID := uint32(inputParam.ID)
 				fnSym.Channels.Read[internalID] = "channel"
 				nodeChannels := fnSym.Channels.Copy()
 				Expect(nodeChannels.Read).To(HaveKey(internalID))
-				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 42, "my_sensor")
+				symbol.ResolveInputChannel(&nodeChannels, fnSym, "channel", 42, "my_sensor")
 				Expect(nodeChannels.Read).ToNot(HaveKey(internalID))
 				Expect(nodeChannels.Read).To(HaveLen(1))
 				Expect(nodeChannels.Read[42]).To(Equal("my_sensor"))
@@ -710,16 +709,16 @@ var _ = Describe("Scope", func() {
 				fnSym := symbol.NewRoot(nil, nil)
 				fnSym.Kind = symbol.KindFunction
 				fnSym.Channels = types.NewChannels()
-				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
+				inputParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
 					Name: "channel",
-					Kind: symbol.KindConfig,
+					Kind: symbol.KindInput,
 					Type: types.Chan(types.F64()),
 				}))
-				internalID := uint32(configParam.ID)
+				internalID := uint32(inputParam.ID)
 				fnSym.Channels.Write[internalID] = "channel"
 				nodeChannels := fnSym.Channels.Copy()
 				Expect(nodeChannels.Write).To(HaveKey(internalID))
-				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 55, "output_channel")
+				symbol.ResolveInputChannel(&nodeChannels, fnSym, "channel", 55, "output_channel")
 				Expect(nodeChannels.Write).ToNot(HaveKey(internalID))
 				Expect(nodeChannels.Write).To(HaveLen(1))
 				Expect(nodeChannels.Write[55]).To(Equal("output_channel"))
@@ -730,23 +729,23 @@ var _ = Describe("Scope", func() {
 				fnSym := symbol.NewRoot(nil, nil)
 				fnSym.Kind = symbol.KindFunction
 				fnSym.Channels = types.NewChannels()
-				configParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
+				inputParam := MustSucceed(fnSym.Add(bCtx, symbol.Symbol{
 					Name: "channel",
-					Kind: symbol.KindConfig,
+					Kind: symbol.KindInput,
 					Type: types.Chan(types.F64()),
 				}))
-				internalID := uint32(configParam.ID)
+				internalID := uint32(inputParam.ID)
 				fnSym.Channels.Read[internalID] = "channel"
 				fnSym.Channels.Write[internalID] = "channel"
 				nodeChannels := fnSym.Channels.Copy()
-				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 100, "bidirectional_channel")
+				symbol.ResolveInputChannel(&nodeChannels, fnSym, "channel", 100, "bidirectional_channel")
 				Expect(nodeChannels.Read).To(HaveLen(1))
 				Expect(nodeChannels.Read[100]).To(Equal("bidirectional_channel"))
 				Expect(nodeChannels.Write).To(HaveLen(1))
 				Expect(nodeChannels.Write[100]).To(Equal("bidirectional_channel"))
 			})
 
-			It("Should use WriteChan access for built-in with WriteChan config param", func() {
+			It("Should use WriteChan access for built-in with WriteChan input param", func() {
 				fnSym := &symbol.Symbol{
 					Name: "set_authority",
 					Kind: symbol.KindFunction,
@@ -757,13 +756,13 @@ var _ = Describe("Scope", func() {
 					}),
 				}
 				nodeChannels := types.NewChannels()
-				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 42, "valve")
+				symbol.ResolveInputChannel(&nodeChannels, fnSym, "channel", 42, "valve")
 				Expect(nodeChannels.Write).To(HaveLen(1))
 				Expect(nodeChannels.Write[42]).To(Equal("valve"))
 				Expect(nodeChannels.Read).To(BeEmpty())
 			})
 
-			It("Should use ReadChan access for built-in with ReadChan config param", func() {
+			It("Should use ReadChan access for built-in with ReadChan input param", func() {
 				fnSym := &symbol.Symbol{
 					Name: "on",
 					Kind: symbol.KindFunction,
@@ -774,13 +773,13 @@ var _ = Describe("Scope", func() {
 					}),
 				}
 				nodeChannels := types.NewChannels()
-				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 10, "sensor")
+				symbol.ResolveInputChannel(&nodeChannels, fnSym, "channel", 10, "sensor")
 				Expect(nodeChannels.Read).To(HaveLen(1))
 				Expect(nodeChannels.Read[10]).To(Equal("sensor"))
 				Expect(nodeChannels.Write).To(BeEmpty())
 			})
 
-			It("Should default to Read for built-in with plain Chan config param", func() {
+			It("Should default to Read for built-in with plain Chan input param", func() {
 				fnSym := &symbol.Symbol{
 					Name: "custom",
 					Kind: symbol.KindFunction,
@@ -791,7 +790,7 @@ var _ = Describe("Scope", func() {
 					}),
 				}
 				nodeChannels := types.NewChannels()
-				symbol.ResolveConfigChannel(&nodeChannels, fnSym, "channel", 99, "ch")
+				symbol.ResolveInputChannel(&nodeChannels, fnSym, "channel", 99, "ch")
 				Expect(nodeChannels.Read).To(HaveLen(1))
 				Expect(nodeChannels.Read[99]).To(Equal("ch"))
 				Expect(nodeChannels.Write).To(BeEmpty())

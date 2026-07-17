@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  createTestClient,
   DataType,
   lineplot as lineplotClient,
   NotFoundError,
 } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -1516,39 +1516,6 @@ describe("lineplot queries", () => {
       });
       expect(result.current.rule).toBe(firstRule);
       expect(renderCount).toEqual(countBefore);
-    });
-  });
-
-  describe("useRetrieveObservableName", () => {
-    it("fires the callback with the initial name and with each rename", async () => {
-      const proj = await client.projects.create({
-        name: `obs_name_ws_${uuid.create()}`,
-        layout: {},
-      });
-      const created = await client.lineplots.create(proj.key, {
-        name: "obs_initial",
-      });
-      const seen: string[] = [];
-      const { result } = renderHook(
-        () => ({
-          obs: LinePlot.useRetrieveObservableName({
-            onChange: (name) => seen.push(name),
-          }),
-          rename: LinePlot.useRename(),
-        }),
-        { wrapper },
-      );
-      await act(async () => {
-        await result.current.obs.retrieveAsync({ key: created.key });
-      });
-      await waitFor(() => expect(seen).toContain("obs_initial"));
-      await act(async () => {
-        await result.current.rename.updateAsync({
-          key: created.key,
-          name: "obs_renamed",
-        });
-      });
-      await waitFor(() => expect(seen).toContain("obs_renamed"));
     });
   });
 });
