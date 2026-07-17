@@ -14,6 +14,7 @@ import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { Role } from "@/access/role";
+import { Flux } from "@/flux";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -22,6 +23,33 @@ describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
+  });
+
+  describe("retrieveSingle", () => {
+    it("should retrieve a role by its key and cache it in the store", async () => {
+      const testRole = await client.access.roles.create({
+        name: "retrieveSingleRole",
+        description: "role for retrieveSingle",
+      });
+      const { result } = renderHook(() => Flux.useStore<Role.FluxSubStore>(), {
+        wrapper,
+      });
+      const store = result.current;
+      const retrieved = await Role.retrieveSingle({
+        client,
+        store,
+        query: { key: testRole.key },
+      });
+      expect(retrieved.key).toEqual(testRole.key);
+      expect(retrieved.name).toEqual("retrieveSingleRole");
+      expect(store.roles.get(testRole.key)).toBeDefined();
+      const cached = await Role.retrieveSingle({
+        client,
+        store,
+        query: { key: testRole.key },
+      });
+      expect(cached.key).toEqual(testRole.key);
+    });
   });
 
   describe("useList", () => {

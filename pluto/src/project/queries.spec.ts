@@ -14,6 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { Project } from "@/project";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -23,6 +24,33 @@ describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
+  });
+
+  describe("retrieveSingle", () => {
+    it("should retrieve a project by its key and cache it in the store", async () => {
+      const p = await client.projects.create({
+        name: "retrieveSingleProject",
+        layout: { type: "dashboard", panels: [] },
+      });
+      const { result } = renderHook(() => Flux.useStore<Project.FluxSubStore>(), {
+        wrapper,
+      });
+      const store = result.current;
+      const retrieved = await Project.retrieveSingle({
+        client,
+        store,
+        query: { key: p.key },
+      });
+      expect(retrieved.key).toEqual(p.key);
+      expect(retrieved.name).toEqual("retrieveSingleProject");
+      expect(store.projects.get(p.key)).toBeDefined();
+      const cached = await Project.retrieveSingle({
+        client,
+        store,
+        query: { key: p.key },
+      });
+      expect(cached.key).toEqual(p.key);
+    });
   });
 
   describe("useList", () => {

@@ -15,6 +15,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
+import { Flux } from "@/flux";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 describe("queries", () => {
@@ -29,6 +30,34 @@ describe("queries", () => {
   });
   afterEach(() => {
     controller.abort();
+  });
+
+  describe("retrieveSingle", () => {
+    it("should retrieve a channel by its key and cache it in the store", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const { result } = renderHook(() => Flux.useStore<Channel.FluxSubStore>(), {
+        wrapper,
+      });
+      const store = result.current;
+      const retrieved = await Channel.retrieveSingle({
+        client,
+        store,
+        query: { key: ch.key },
+      });
+      expect(retrieved.key).toEqual(ch.key);
+      expect(retrieved.name).toEqual(ch.name);
+      expect(store.channels.get(ch.key)).toBeDefined();
+      const cached = await Channel.retrieveSingle({
+        client,
+        store,
+        query: { key: ch.key },
+      });
+      expect(cached.key).toEqual(ch.key);
+    });
   });
 
   describe("useList", () => {

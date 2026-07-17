@@ -78,6 +78,30 @@ describe("queries", () => {
     });
   });
 
+  describe("retrieveSingle", () => {
+    it("should retrieve a rack by its key and cache it in the store", async () => {
+      const testRack = await client.racks.create({ name: "retrieveSingleRack" });
+      const { result } = renderHook(() => Flux.useStore<Rack.FluxSubStore>(), {
+        wrapper,
+      });
+      const store = result.current;
+      const retrieved = await Rack.retrieveSingle({
+        client,
+        store,
+        query: { key: testRack.key },
+      });
+      expect(retrieved.key).toEqual(testRack.key);
+      expect(retrieved.name).toEqual("retrieveSingleRack");
+      expect(store.racks.get(testRack.key)).toBeDefined();
+      const cached = await Rack.retrieveSingle({
+        client,
+        store,
+        query: { key: testRack.key },
+      });
+      expect(cached.key).toEqual(testRack.key);
+    });
+  });
+
   describe("useList", () => {
     it("should return a list of rack keys", async () => {
       const rack1 = await client.racks.create({
