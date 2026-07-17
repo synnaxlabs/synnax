@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	xslices "github.com/synnaxlabs/x/slices"
-	"github.com/synnaxlabs/x/telem/internal/codec"
+	"github.com/synnaxlabs/x/telem/internal/sample"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
@@ -80,11 +80,11 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 }
 
 func newFixedSeries[T FixedSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: codec.MarshalFixed(data)}
+	return Series{DataType: InferDataType[T](), Data: sample.MarshalFixed(data)}
 }
 
 func newVariableSeries[T VariableSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: codec.MarshalVariable(data)}
+	return Series{DataType: InferDataType[T](), Data: sample.MarshalVariable(data)}
 }
 
 // NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
@@ -97,7 +97,7 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 			return Series{}, err
 		}
 	}
-	return Series{DataType: JSONT, Data: codec.MarshalVariable(byteSlices)}, nil
+	return Series{DataType: JSONT, Data: sample.MarshalVariable(byteSlices)}, nil
 }
 
 // NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
@@ -108,10 +108,10 @@ func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(dat
 // MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
 // prefix. This is useful for code that accumulates samples into a Series.Data buffer
 // incrementally rather than using NewSeriesV.
-func MarshalVariableSample(sample []byte) []byte {
-	b := make([]byte, codec.VariablePrefixSize+len(sample))
-	codec.ByteOrder.PutUint32(b, uint32(len(sample)))
-	copy(b[codec.VariablePrefixSize:], sample)
+func MarshalVariableSample(raw []byte) []byte {
+	b := make([]byte, sample.VariablePrefixSize+len(raw))
+	sample.ByteOrder.PutUint32(b, uint32(len(raw)))
+	copy(b[sample.VariablePrefixSize:], raw)
 	return b
 }
 
@@ -122,33 +122,33 @@ func UnmarshalSeries[T Sample](series Series) []T {
 	var t T
 	switch any(t).(type) {
 	case uint8:
-		return any(codec.UnmarshalFixed[uint8](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[uint8](series.Data)).([]T)
 	case uint16:
-		return any(codec.UnmarshalFixed[uint16](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[uint16](series.Data)).([]T)
 	case uint32:
-		return any(codec.UnmarshalFixed[uint32](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[uint32](series.Data)).([]T)
 	case uint64:
-		return any(codec.UnmarshalFixed[uint64](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[uint64](series.Data)).([]T)
 	case int8:
-		return any(codec.UnmarshalFixed[int8](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[int8](series.Data)).([]T)
 	case int16:
-		return any(codec.UnmarshalFixed[int16](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[int16](series.Data)).([]T)
 	case int32:
-		return any(codec.UnmarshalFixed[int32](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[int32](series.Data)).([]T)
 	case int64:
-		return any(codec.UnmarshalFixed[int64](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[int64](series.Data)).([]T)
 	case float32:
-		return any(codec.UnmarshalFixed[float32](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[float32](series.Data)).([]T)
 	case float64:
-		return any(codec.UnmarshalFixed[float64](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[float64](series.Data)).([]T)
 	case TimeStamp:
-		return any(codec.UnmarshalFixed[TimeStamp](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[TimeStamp](series.Data)).([]T)
 	case uuid.UUID:
-		return any(codec.UnmarshalFixed[uuid.UUID](series.Data)).([]T)
+		return any(sample.UnmarshalFixed[uuid.UUID](series.Data)).([]T)
 	case string:
-		return any(codec.UnmarshalVariable[string](series.Data)).([]T)
+		return any(sample.UnmarshalVariable[string](series.Data)).([]T)
 	case []byte:
-		return any(codec.UnmarshalVariable[[]byte](series.Data)).([]T)
+		return any(sample.UnmarshalVariable[[]byte](series.Data)).([]T)
 	}
 	// degenerate case, should never hit this path.
 	panic(fmt.Sprintf("unsupported sample type %T", t))
@@ -273,27 +273,27 @@ func castToBytes(value any) []byte {
 	case uint8:
 		return []byte{v}
 	case uint16:
-		return codec.ByteOrder.AppendUint16(nil, v)
+		return sample.ByteOrder.AppendUint16(nil, v)
 	case uint32:
-		return codec.ByteOrder.AppendUint32(nil, v)
+		return sample.ByteOrder.AppendUint32(nil, v)
 	case uint64:
-		return codec.ByteOrder.AppendUint64(nil, v)
+		return sample.ByteOrder.AppendUint64(nil, v)
 	case int8:
 		return []byte{byte(v)}
 	case int16:
-		return codec.ByteOrder.AppendUint16(nil, uint16(v))
+		return sample.ByteOrder.AppendUint16(nil, uint16(v))
 	case int32:
-		return codec.ByteOrder.AppendUint32(nil, uint32(v))
+		return sample.ByteOrder.AppendUint32(nil, uint32(v))
 	case int64:
-		return codec.ByteOrder.AppendUint64(nil, uint64(v))
+		return sample.ByteOrder.AppendUint64(nil, uint64(v))
 	case float32:
-		return codec.ByteOrder.AppendUint32(nil, math.Float32bits(v))
+		return sample.ByteOrder.AppendUint32(nil, math.Float32bits(v))
 	case float64:
-		return codec.ByteOrder.AppendUint64(nil, math.Float64bits(v))
+		return sample.ByteOrder.AppendUint64(nil, math.Float64bits(v))
 	case TimeStamp:
-		return codec.ByteOrder.AppendUint64(nil, uint64(v))
+		return sample.ByteOrder.AppendUint64(nil, uint64(v))
 	case TimeSpan:
-		return codec.ByteOrder.AppendUint64(nil, uint64(v))
+		return sample.ByteOrder.AppendUint64(nil, uint64(v))
 	case uuid.UUID:
 		return v[:]
 	case string:
