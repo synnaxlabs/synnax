@@ -11,7 +11,6 @@ package v2
 
 import (
 	"github.com/google/uuid"
-
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v1"
 )
 
