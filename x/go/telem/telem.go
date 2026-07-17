@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/x/telem/internal/sample"
 	latest "github.com/synnaxlabs/x/telem/types/v0"
 )
 
@@ -22,17 +21,17 @@ type Density = latest.Density
 
 // NumericSample represents any numeric value that can be stored in a Series and have
 // mathematical operations performed on it.
-type NumericSample = sample.Numeric
+type NumericSample = latest.NumericSample
 
 // FixedSample represents any numeric value that can be stored in a Series and has a
 // fixed density.
-type FixedSample = sample.Fixed
+type FixedSample = latest.FixedSample
 
 // VariableSample is a type that can be stored in a variable-density series.
-type VariableSample = sample.Variable
+type VariableSample = latest.VariableSample
 
 // Sample represents any value that can be stored in a non-JSON Series.
-type Sample = sample.Sample
+type Sample = latest.Sample
 
 // AlignmentBounds is a set of lower and upper bounds for the alignment of a
 // multi-sample data structure (such as a Series or MultiSeries). The lower bound
@@ -162,7 +161,7 @@ var (
 	AlignmentBoundsZero = latest.AlignmentBoundsZero
 	// ByteOrder is the standard order for encoding/decoding numeric values across the
 	// Synnax telemetry ecosystem.
-	ByteOrder = sample.ByteOrder
+	ByteOrder = latest.ByteOrder
 	// TimeRangeSchema is a zyn schema for parsing a time range.
 	TimeRangeSchema = latest.TimeRangeSchema
 	// TimeRangeMax represents the maximum possible value for a TimeRange.

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
-	"github.com/synnaxlabs/x/telem/internal/sample"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,12 +34,12 @@ func (s Series) Len() int64 {
 		if s.cachedLength == nil {
 			var cl int64
 			offset := 0
-			for offset+sample.VariablePrefixSize <= len(s.Data) {
-				length := int(sample.ByteOrder.Uint32(s.Data[offset:]))
-				if offset+sample.VariablePrefixSize+length > len(s.Data) {
+			for offset+variableLengthPrefixSize <= len(s.Data) {
+				length := int(ByteOrder.Uint32(s.Data[offset:]))
+				if offset+variableLengthPrefixSize+length > len(s.Data) {
 					break
 				}
-				offset += sample.VariablePrefixSize + length
+				offset += variableLengthPrefixSize + length
 				cl++
 			}
 			s.cachedLength = &cl
@@ -82,14 +81,14 @@ func (s *Series) validateVariable() error {
 		offset int
 		count  int64
 	)
-	for offset+sample.VariablePrefixSize <= len(s.Data) {
-		length := int(sample.ByteOrder.Uint32(s.Data[offset:]))
-		offset += sample.VariablePrefixSize
+	for offset+variableLengthPrefixSize <= len(s.Data) {
+		length := int(ByteOrder.Uint32(s.Data[offset:]))
+		offset += variableLengthPrefixSize
 		if offset+length > len(s.Data) {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
-				offset-sample.VariablePrefixSize, length, len(s.Data)-offset,
+				offset-variableLengthPrefixSize, length, len(s.Data)-offset,
 			)
 		}
 		value := s.Data[offset : offset+length]
@@ -129,9 +128,9 @@ func (s Series) Samples() iter.Seq[[]byte] {
 	return func(yield func([]byte) bool) {
 		if s.DataType.IsVariable() {
 			offset := 0
-			for offset+sample.VariablePrefixSize <= len(s.Data) {
-				length := int(sample.ByteOrder.Uint32(s.Data[offset:]))
-				offset += sample.VariablePrefixSize
+			for offset+variableLengthPrefixSize <= len(s.Data) {
+				length := int(ByteOrder.Uint32(s.Data[offset:]))
+				offset += variableLengthPrefixSize
 				if offset+length > len(s.Data) {
 					return
 				}
@@ -157,9 +156,9 @@ func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
 		offset := 0
-		for offset+sample.VariablePrefixSize <= len(s.Data) {
-			length := int(sample.ByteOrder.Uint32(s.Data[offset:]))
-			offset += sample.VariablePrefixSize
+		for offset+variableLengthPrefixSize <= len(s.Data) {
+			length := int(ByteOrder.Uint32(s.Data[offset:]))
+			offset += variableLengthPrefixSize
 			if offset+length > len(s.Data) {
 				break
 			}
@@ -243,12 +242,12 @@ func (s Series) Downsample(factor int) Series {
 	}
 	var oData []byte
 	if s.DataType.IsVariable() {
-		samples := sample.UnmarshalVariable[[]byte](s.Data)
+		samples := UnmarshalVariable[[]byte](s.Data)
 		downsampled := make([][]byte, 0, len(samples)/factor+1)
 		for i := 0; i < len(samples); i += factor {
 			downsampled = append(downsampled, samples[i])
 		}
-		oData = sample.MarshalVariable(downsampled)
+		oData = MarshalVariable(downsampled)
 	} else {
 		seriesLength := len(s.Data) / factor
 		oData = make([]byte, 0, seriesLength)
@@ -288,31 +287,31 @@ func (s Series) DataString() string {
 		return "[]"
 	}
 	if s.DataType.IsVariable() {
-		return truncateAndFormatSlice(sample.UnmarshalVariable[string](s.Data))
+		return truncateAndFormatSlice(UnmarshalVariable[string](s.Data))
 	}
 	switch s.DataType {
 	case Float64T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[float64](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[float64](s.Data))
 	case Float32T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[float32](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[float32](s.Data))
 	case Int64T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[int64](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[int64](s.Data))
 	case Int32T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[int32](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[int32](s.Data))
 	case Int16T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[int16](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[int16](s.Data))
 	case Int8T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[int8](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[int8](s.Data))
 	case Uint64T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[uint64](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[uint64](s.Data))
 	case Uint32T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[uint32](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[uint32](s.Data))
 	case Uint16T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[uint16](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[uint16](s.Data))
 	case Uint8T:
-		return truncateAndFormatSlice(sample.UnmarshalFixed[uint8](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixed[uint8](s.Data))
 	case TimeStampT:
-		first, last := xslices.Truncate(sample.UnmarshalFixed[TimeStamp](s.Data), maxDisplayValues)
+		first, last := xslices.Truncate(UnmarshalFixed[TimeStamp](s.Data), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)
 		for i := 1; i < len(first); i++ {
 			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()

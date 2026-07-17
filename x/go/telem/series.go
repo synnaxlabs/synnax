@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	xslices "github.com/synnaxlabs/x/slices"
-	"github.com/synnaxlabs/x/telem/internal/sample"
+	latest "github.com/synnaxlabs/x/telem/types/v0"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
@@ -80,11 +80,11 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 }
 
 func newFixedSeries[T FixedSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: sample.MarshalFixed(data)}
+	return Series{DataType: InferDataType[T](), Data: latest.MarshalFixed(data)}
 }
 
 func newVariableSeries[T VariableSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: sample.MarshalVariable(data)}
+	return Series{DataType: InferDataType[T](), Data: latest.MarshalVariable(data)}
 }
 
 // NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
@@ -97,7 +97,7 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 			return Series{}, err
 		}
 	}
-	return Series{DataType: JSONT, Data: sample.MarshalVariable(byteSlices)}, nil
+	return Series{DataType: JSONT, Data: latest.MarshalVariable(byteSlices)}, nil
 }
 
 // NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
@@ -109,10 +109,7 @@ func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(dat
 // prefix. This is useful for code that accumulates samples into a Series.Data buffer
 // incrementally rather than using NewSeriesV.
 func MarshalVariableSample(raw []byte) []byte {
-	b := make([]byte, sample.VariablePrefixSize+len(raw))
-	sample.ByteOrder.PutUint32(b, uint32(len(raw)))
-	copy(b[sample.VariablePrefixSize:], raw)
-	return b
+	return latest.MarshalVariable([][]byte{raw})
 }
 
 // UnmarshalSeries converts a Series back into a slice of the specified data type. Note
@@ -122,33 +119,33 @@ func UnmarshalSeries[T Sample](series Series) []T {
 	var t T
 	switch any(t).(type) {
 	case uint8:
-		return any(sample.UnmarshalFixed[uint8](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[uint8](series.Data)).([]T)
 	case uint16:
-		return any(sample.UnmarshalFixed[uint16](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[uint16](series.Data)).([]T)
 	case uint32:
-		return any(sample.UnmarshalFixed[uint32](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[uint32](series.Data)).([]T)
 	case uint64:
-		return any(sample.UnmarshalFixed[uint64](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[uint64](series.Data)).([]T)
 	case int8:
-		return any(sample.UnmarshalFixed[int8](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[int8](series.Data)).([]T)
 	case int16:
-		return any(sample.UnmarshalFixed[int16](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[int16](series.Data)).([]T)
 	case int32:
-		return any(sample.UnmarshalFixed[int32](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[int32](series.Data)).([]T)
 	case int64:
-		return any(sample.UnmarshalFixed[int64](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[int64](series.Data)).([]T)
 	case float32:
-		return any(sample.UnmarshalFixed[float32](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[float32](series.Data)).([]T)
 	case float64:
-		return any(sample.UnmarshalFixed[float64](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[float64](series.Data)).([]T)
 	case TimeStamp:
-		return any(sample.UnmarshalFixed[TimeStamp](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[TimeStamp](series.Data)).([]T)
 	case uuid.UUID:
-		return any(sample.UnmarshalFixed[uuid.UUID](series.Data)).([]T)
+		return any(latest.UnmarshalFixed[uuid.UUID](series.Data)).([]T)
 	case string:
-		return any(sample.UnmarshalVariable[string](series.Data)).([]T)
+		return any(latest.UnmarshalVariable[string](series.Data)).([]T)
 	case []byte:
-		return any(sample.UnmarshalVariable[[]byte](series.Data)).([]T)
+		return any(latest.UnmarshalVariable[[]byte](series.Data)).([]T)
 	}
 	// degenerate case, should never hit this path.
 	panic(fmt.Sprintf("unsupported sample type %T", t))
@@ -273,27 +270,27 @@ func castToBytes(value any) []byte {
 	case uint8:
 		return []byte{v}
 	case uint16:
-		return sample.ByteOrder.AppendUint16(nil, v)
+		return latest.ByteOrder.AppendUint16(nil, v)
 	case uint32:
-		return sample.ByteOrder.AppendUint32(nil, v)
+		return latest.ByteOrder.AppendUint32(nil, v)
 	case uint64:
-		return sample.ByteOrder.AppendUint64(nil, v)
+		return latest.ByteOrder.AppendUint64(nil, v)
 	case int8:
 		return []byte{byte(v)}
 	case int16:
-		return sample.ByteOrder.AppendUint16(nil, uint16(v))
+		return latest.ByteOrder.AppendUint16(nil, uint16(v))
 	case int32:
-		return sample.ByteOrder.AppendUint32(nil, uint32(v))
+		return latest.ByteOrder.AppendUint32(nil, uint32(v))
 	case int64:
-		return sample.ByteOrder.AppendUint64(nil, uint64(v))
+		return latest.ByteOrder.AppendUint64(nil, uint64(v))
 	case float32:
-		return sample.ByteOrder.AppendUint32(nil, math.Float32bits(v))
+		return latest.ByteOrder.AppendUint32(nil, math.Float32bits(v))
 	case float64:
-		return sample.ByteOrder.AppendUint64(nil, math.Float64bits(v))
+		return latest.ByteOrder.AppendUint64(nil, math.Float64bits(v))
 	case TimeStamp:
-		return sample.ByteOrder.AppendUint64(nil, uint64(v))
+		return latest.ByteOrder.AppendUint64(nil, uint64(v))
 	case TimeSpan:
-		return sample.ByteOrder.AppendUint64(nil, uint64(v))
+		return latest.ByteOrder.AppendUint64(nil, uint64(v))
 	case uuid.UUID:
 		return v[:]
 	case string:
