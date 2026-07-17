@@ -18,6 +18,7 @@ import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
+import { Slack } from "@/feature/slack";
 import { type Tree } from "@/platform/tree";
 
 export const makeZ = z.enum([
@@ -27,6 +28,7 @@ export const makeZ = z.enum([
   Modbus.Device.MAKE,
   NI.Device.MAKE,
   OPC.Device.MAKE,
+  Slack.Device.MAKE,
 ]);
 export type Make = z.infer<typeof makeZ>;
 
@@ -40,6 +42,7 @@ const MAKE_ICONS: Record<Make, Icon.ReactElement> = {
   [Modbus.Device.MAKE]: <Icon.Logo.Modbus />,
   [NI.Device.MAKE]: <Icon.Logo.NI />,
   [OPC.Device.MAKE]: <Icon.Logo.OPC />,
+  [Slack.Device.MAKE]: <Icon.Logo.Slack />,
 };
 
 export const getIcon = (make: Make | null) =>
@@ -58,6 +61,7 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
   const modbus = Modbus.Device.useConnectModal();
   const ni = NI.Device.useConfigureModal();
   const opc = OPC.Device.useConnectModal();
+  const slack = Slack.Device.useConnectModal();
   return useCallback(
     (make, deviceKey) => {
       const openers: Record<Make, (args: { deviceKey: device.Key }) => void> = {
@@ -67,10 +71,11 @@ export const useConfigureModal = (): ((make: Make, deviceKey: device.Key) => voi
         [Modbus.Device.MAKE]: modbus,
         [NI.Device.MAKE]: ni,
         [OPC.Device.MAKE]: opc,
+        [Slack.Device.MAKE]: slack,
       };
       openers[make]({ deviceKey });
     },
-    [ethercat, http, labjack, modbus, ni, opc],
+    [ethercat, http, labjack, modbus, ni, opc, slack],
   );
 };
 

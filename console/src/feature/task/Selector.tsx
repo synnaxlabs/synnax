@@ -17,6 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Slack } from "@/feature/slack";
 import { Selector as Base } from "@/platform/selector";
 
 const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
@@ -37,6 +38,7 @@ export const SELECTABLES: Base.Selectable[] = [
   ...NI.Task.SELECTABLES,
   ...OPC.Task.SELECTABLES,
   ...PagerDuty.Task.SELECTABLES,
+  ...Slack.Task.SELECTABLES,
 ].map(withTaskVisibility);
 
 export const Selector = Base.create(SELECTABLES, "Select a Task Type");

@@ -16,6 +16,7 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Slack } from "@/feature/slack";
 import { type Layout } from "@/platform/layout";
 import { type Task } from "@/platform/task";
 import { type Session } from "@/session";
@@ -28,6 +29,7 @@ const ZERO_LAYOUTS: Record<string, Task.Layout> = {
   ...NI.Task.ZERO_LAYOUTS,
   ...OPC.Task.ZERO_LAYOUTS,
   ...PagerDuty.Task.ZERO_LAYOUTS,
+  ...Slack.Task.ZERO_LAYOUTS,
 };
 
 export const createLayout = ({

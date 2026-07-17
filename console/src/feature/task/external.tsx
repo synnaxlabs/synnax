@@ -17,6 +17,7 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
+import { Slack } from "@/feature/slack";
 import { createLayout, retrieveAndPlaceLayout } from "@/feature/task/layouts";
 import { Selector } from "@/feature/task/Selector";
 import { getIcon, parseType } from "@/feature/task/types";
@@ -48,6 +49,7 @@ export const COMMANDS: Command.Command[] = [
   ...NI.Task.COMMANDS,
   ...OPC.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
+  ...Slack.Task.COMMANDS,
 ];
 
 export const EXTRACTORS: Export.Extractors = {
@@ -58,6 +60,7 @@ export const EXTRACTORS: Export.Extractors = {
   ...NI.Task.EXTRACTORS,
   ...OPC.Task.EXTRACTORS,
   ...PagerDuty.Task.EXTRACTORS,
+  ...Slack.Task.EXTRACTORS,
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
@@ -68,6 +71,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   ...NI.Task.FILE_INGESTERS,
   ...OPC.Task.FILE_INGESTERS,
   ...PagerDuty.Task.FILE_INGESTERS,
+  ...Slack.Task.FILE_INGESTERS,
 };
 
 export const LAYOUTS: Layout.Renderers = {
@@ -78,6 +82,7 @@ export const LAYOUTS: Layout.Renderers = {
   ...NI.Task.LAYOUTS,
   ...OPC.Task.LAYOUTS,
   ...PagerDuty.Task.LAYOUTS,
+  ...Slack.Task.LAYOUTS,
   [Task.SELECTOR_LAYOUT_TYPE]: Selector,
 };
 

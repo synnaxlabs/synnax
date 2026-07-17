@@ -10,6 +10,7 @@
 import { HTTP } from "@/feature/http";
 import { Modbus } from "@/feature/modbus";
 import { OPC } from "@/feature/opc";
+import { Slack } from "@/feature/slack";
 import { type Command } from "@/platform/command";
 
 export * from "@/feature/device/link";
@@ -23,4 +24,5 @@ export const COMMANDS: Command.Command[] = [
   ...HTTP.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
   ...OPC.Device.COMMANDS,
+  ...Slack.Device.COMMANDS,
 ];
