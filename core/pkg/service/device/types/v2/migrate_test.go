@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1_test
+package v2_test
 
 import (
 	"github.com/google/uuid"
