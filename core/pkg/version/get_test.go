@@ -10,11 +10,12 @@
 package version_test
 
 import (
+	"strings"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	"strings"
-	"time"
 )
 
 var _ = Describe("Version", func() {
