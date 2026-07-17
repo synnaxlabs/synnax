@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import z from "zod";
 
-import { NotFoundError } from "@/errors";
 import { type Group, groupZ, type Key, keyZ } from "@/group/types.gen";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
 
@@ -78,8 +77,6 @@ export class Client {
       retrieveResZ,
     );
     if (!isSingle) return res.groups;
-    if (res.groups.length === 0)
-      throw new NotFoundError(`No group with key ${args.key} found`);
     return res.groups[0];
   }
 

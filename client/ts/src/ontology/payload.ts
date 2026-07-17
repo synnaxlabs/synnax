@@ -18,8 +18,6 @@ export type RelationshipChange = change.Change<Relationship, undefined>;
 export interface RelationshipSet extends change.Set<Relationship, undefined> {}
 export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
 
-export interface RelationshipDelete extends change.Delete<Relationship, undefined> {}
-
 const stringIDZ = z.string().transform((v) => {
   const [type, key] = v.split(":");
   return { type: resourceTypeZ.parse(type), key: key ?? "" };
