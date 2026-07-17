@@ -25,7 +25,7 @@ import (
 var _ = Describe("Definition", func() {
 	var (
 		server *lsp.Server
-		docURI uri.URI
+		uri    uri.URI
 	)
 
 	BeforeEach(func() {
@@ -33,7 +33,7 @@ var _ = Describe("Definition", func() {
 			return NewRoot(nil)
 		}}))
 		server.SetClient(&MockClient{})
-		docURI = "file:///test.arc"
+		uri = "file:///test.arc"
 	})
 
 	Describe("Function Definitions", func() {
@@ -45,13 +45,13 @@ var _ = Describe("Definition", func() {
 func main() {
     result := add(1, 2)
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'add' in the function call
-			locations := Definition(server, ctx, docURI, 5, 15) // add|(1, 2)
+			locations := Definition(server, ctx, uri, 5, 15) // add|(1, 2)
 
 			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].URI).To(Equal(docURI))
+			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0))) // Line 0: func add
 			// Column should be at "func" keyword or function name
 		})
@@ -60,13 +60,13 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'multiply' in the declaration itself
-			locations := Definition(server, ctx, docURI, 0, 7) // func m|ultiply
+			locations := Definition(server, ctx, uri, 0, 7) // func m|ultiply
 
 			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].URI).To(Equal(docURI))
+			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
 		})
 	})
@@ -80,13 +80,13 @@ func main() {
     }
     return max_val
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'max' in the declaration
-			locations := Definition(server, ctx, docURI, 0, 6) // func m|ax
+			locations := Definition(server, ctx, uri, 0, 6) // func m|ax
 
 			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].URI).To(Equal(docURI))
+			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
 		})
 	})
@@ -97,13 +97,13 @@ func main() {
     x i32 := 42
     y := x + 10
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the expression
-			locations := Definition(server, ctx, docURI, 2, 9) // x| + 10
+			locations := Definition(server, ctx, uri, 2, 9) // x| + 10
 
 			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].URI).To(Equal(docURI))
+			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(1))) // Line 1: x i32 := 42
 		})
 
@@ -113,13 +113,13 @@ func main() {
     count = count + 1
     return count
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'count' in the assignment
-			locations := Definition(server, ctx, docURI, 2, 5) // count| = count + 1
+			locations := Definition(server, ctx, uri, 2, 5) // count| = count + 1
 
 			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].URI).To(Equal(docURI))
+			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(1))) // Line 1: count u32 $= 0
 		})
 	})
@@ -129,13 +129,13 @@ func main() {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'x' in the return statement
-			locations := Definition(server, ctx, docURI, 1, 11) // x| * y
+			locations := Definition(server, ctx, uri, 1, 11) // x| * y
 
 			Expect(locations).To(HaveLen(1))
-			Expect(locations[0].URI).To(Equal(docURI))
+			Expect(locations[0].URI).To(Equal(uri))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0))) // Line 0: func multiply(x f64, y f64)
 		})
 	})
@@ -145,10 +145,10 @@ func main() {
 			content := `func test() {
     return 42
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'return' keyword - keywords don't have definitions
-			locations := Definition(server, ctx, docURI, 1, 5) // ret|urn
+			locations := Definition(server, ctx, uri, 1, 5) // ret|urn
 			Expect(locations).To(BeNil())
 		})
 
@@ -156,10 +156,10 @@ func main() {
 			content := `func test() {
     x := undefined_symbol
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on 'undefined_symbol' - undefined symbols should return nil
-			locations := Definition(server, ctx, docURI, 1, 13) // undefined_symbol|
+			locations := Definition(server, ctx, uri, 1, 13) // undefined_symbol|
 			Expect(locations).To(BeNil())
 		})
 
@@ -172,10 +172,10 @@ func main() {
 			content := `func test() {
 
 }`
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Click on empty line
-			locations := Definition(server, ctx, docURI, 1, 0) // Empty line
+			locations := Definition(server, ctx, uri, 1, 0) // Empty line
 			Expect(locations).To(BeNil())
 		})
 	})
@@ -192,10 +192,10 @@ func main() {
 			server.SetClient(&MockClient{})
 
 			content := "func test() i32 {\n    return myGlobal\n}"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			// Try to jump to definition of myGlobal - GlobalResolver symbols have no AST
-			locations := Definition(server, ctx, docURI, 1, 12) // myGl|obal
+			locations := Definition(server, ctx, uri, 1, 12) // myGl|obal
 			Expect(locations).To(BeNil())
 		})
 	})

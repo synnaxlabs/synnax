@@ -34,17 +34,17 @@ func asCodeActions(elems []protocol.CommandOrCodeAction) []protocol.CodeAction {
 var _ = Describe("CodeAction", func() {
 	var (
 		server *lsp.Server
-		docURI uri.URI
+		uri    uri.URI
 		client *MockClient
 	)
 
 	BeforeEach(func() {
-		server, docURI, client = SetupTestServerWithClient()
+		server, uri, client = SetupTestServerWithClient()
 	})
 
 	codeActionParams := func(diags []protocol.Diagnostic) *protocol.CodeActionParams {
 		return &protocol.CodeActionParams{
-			TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			Range:        protocol.Range{},
 			Context:      protocol.CodeActionContext{Diagnostics: diags},
 		}
@@ -53,7 +53,7 @@ var _ = Describe("CodeAction", func() {
 	Describe("Unused import quick fix", func() {
 		It("should delete the whole statement when it imports a single module", func(ctx SpecContext) {
 			content := "import time\n\nfunc test() i64 { return 0 }\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := client.Diagnostics()
 			Expect(diags).To(HaveLen(1))
@@ -69,7 +69,7 @@ var _ = Describe("CodeAction", func() {
 			Expect(action.Diagnostics).To(ConsistOf(diags[0]))
 
 			Expect(action.Edit).ToNot(BeNil())
-			edits := action.Edit.Changes[docURI]
+			edits := action.Edit.Changes[uri]
 			Expect(edits).To(HaveLen(1))
 			Expect(edits[0].NewText).To(BeEmpty())
 			Expect(edits[0].Range.Start).To(Equal(protocol.Position{Line: 0, Character: 0}))
@@ -78,7 +78,7 @@ var _ = Describe("CodeAction", func() {
 
 		It("should delete just the item from a parenthesized multi-import block", func(ctx SpecContext) {
 			content := "import (time control)\n\nfunc test() i64 { return 0 }\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := client.Diagnostics()
 			Expect(diags).To(HaveLen(2))
@@ -92,7 +92,7 @@ var _ = Describe("CodeAction", func() {
 			byStart := map[uint32]protocol.TextEdit{}
 			for _, a := range actions {
 				Expect(a.Edit).ToNot(BeNil())
-				edits := a.Edit.Changes[docURI]
+				edits := a.Edit.Changes[uri]
 				Expect(edits).To(HaveLen(1))
 				byStart[edits[0].Range.Start.Character] = edits[0]
 			}
@@ -108,7 +108,7 @@ var _ = Describe("CodeAction", func() {
 
 		It("should delete a middle item from a 3-item parenthesized block", func(ctx SpecContext) {
 			content := "import (time control math)\n\nfunc test() i64 { return 0 }\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := client.Diagnostics()
 			Expect(diags).To(HaveLen(3))
@@ -122,7 +122,7 @@ var _ = Describe("CodeAction", func() {
 			byStart := map[uint32]protocol.TextEdit{}
 			for _, a := range actions {
 				Expect(a.Edit).ToNot(BeNil())
-				edits := a.Edit.Changes[docURI]
+				edits := a.Edit.Changes[uri]
 				Expect(edits).To(HaveLen(1))
 				byStart[edits[0].Range.Start.Character] = edits[0]
 			}
@@ -144,14 +144,14 @@ var _ = Describe("CodeAction", func() {
 		})
 
 		It("should return no actions when context has no diagnostics", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, docURI, "import time\n\nfunc test() i64 { return 0 }\n")
+			OpenArcDocument(server, ctx, uri, "import time\n\nfunc test() i64 { return 0 }\n")
 
 			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(nil))))
 			Expect(actions).To(BeEmpty())
 		})
 
 		It("should ignore diagnostics for unrelated codes", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, docURI, "func test() i64 { return missing }\n")
+			OpenArcDocument(server, ctx, uri, "func test() i64 { return missing }\n")
 
 			diags := client.Diagnostics()
 			Expect(diags).ToNot(BeEmpty())
@@ -182,7 +182,7 @@ var _ = Describe("CodeAction", func() {
 
 		It("should replace a bare deprecated call and add the missing import", func(ctx SpecContext) {
 			content := "func test() i64 {\n    return now()\n}\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := filterByCode(client.Diagnostics(), string(codes.DeprecatedSymbol))
 			Expect(diags).ToNot(BeEmpty())
@@ -196,7 +196,7 @@ var _ = Describe("CodeAction", func() {
 			Expect(action.IsPreferred).To(HaveValue(BeTrue()))
 			Expect(action.Edit).ToNot(BeNil())
 
-			edits := action.Edit.Changes[docURI]
+			edits := action.Edit.Changes[uri]
 			Expect(edits).To(HaveLen(2))
 
 			importEdit := edits[0]
@@ -211,7 +211,7 @@ var _ = Describe("CodeAction", func() {
 
 		It("should skip the import edit when the module is already imported", func(ctx SpecContext) {
 			content := "import time\n\nfunc test() i64 {\n    return now()\n}\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := filterByCode(client.Diagnostics(), string(codes.DeprecatedSymbol))
 			Expect(diags).ToNot(BeEmpty())
@@ -219,14 +219,14 @@ var _ = Describe("CodeAction", func() {
 			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
 			Expect(actions).To(HaveLen(1))
 
-			edits := actions[0].Edit.Changes[docURI]
+			edits := actions[0].Edit.Changes[uri]
 			Expect(edits).To(HaveLen(1))
 			Expect(edits[0].NewText).To(Equal("time.now"))
 		})
 
 		It("should reuse an existing alias when the module is imported under one", func(ctx SpecContext) {
 			content := "import time as t\n\nfunc test() i64 {\n    return now()\n}\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := filterByCode(client.Diagnostics(), string(codes.DeprecatedSymbol))
 			Expect(diags).ToNot(BeEmpty())
@@ -235,14 +235,14 @@ var _ = Describe("CodeAction", func() {
 			Expect(actions).To(HaveLen(1))
 			Expect(actions[0].Title).To(Equal("Replace 'now' with 't.now'"))
 
-			edits := actions[0].Edit.Changes[docURI]
+			edits := actions[0].Edit.Changes[uri]
 			Expect(edits).To(HaveLen(1))
 			Expect(edits[0].NewText).To(Equal("t.now"))
 		})
 
 		It("should not produce an action when the deprecated identifier is part of a qualified path", func(ctx SpecContext) {
 			content := "import time\n\nfunc test() i64 {\n    return time.now()\n}\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			deprecated := filterByCode(client.Diagnostics(), string(codes.DeprecatedSymbol))
 			Expect(deprecated).To(BeEmpty())
@@ -261,7 +261,7 @@ var _ = Describe("CodeAction", func() {
 
 		It("should add an import when a qualified call references an unimported ambient module", func(ctx SpecContext) {
 			content := "sequence main {\n    math.avg{}\n}\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := client.Diagnostics()
 			Expect(diags).ToNot(BeEmpty())
@@ -272,7 +272,7 @@ var _ = Describe("CodeAction", func() {
 			Expect(action.Kind).To(HaveValue(Equal(protocol.CodeActionKindQuickFix)))
 			Expect(action.IsPreferred).To(HaveValue(BeTrue()))
 
-			edits := action.Edit.Changes[docURI]
+			edits := action.Edit.Changes[uri]
 			Expect(edits).To(HaveLen(1))
 			Expect(edits[0].NewText).To(ContainSubstring("import math"))
 			Expect(edits[0].Range.Start).To(Equal(protocol.Position{Line: 0, Character: 0}))
@@ -280,7 +280,7 @@ var _ = Describe("CodeAction", func() {
 
 		It("should not offer the fix when the module is already imported", func(ctx SpecContext) {
 			content := "import math\n\nsequence main {\n    math.avg{}\n}\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := client.Diagnostics()
 			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(diags))))
@@ -289,7 +289,7 @@ var _ = Describe("CodeAction", func() {
 
 		It("should not offer the fix for an undefined symbol that is not an ambient module", func(ctx SpecContext) {
 			content := "func test() i64 {\n    return notARealModule\n}\n"
-			OpenArcDocument(server, ctx, docURI, content)
+			OpenArcDocument(server, ctx, uri, content)
 
 			diags := client.Diagnostics()
 			Expect(diags).ToNot(BeEmpty())
@@ -301,7 +301,7 @@ var _ = Describe("CodeAction", func() {
 		})
 
 		It("should return no action when context has no diagnostics", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, docURI, "sequence main {\n    math.avg{}\n}\n")
+			OpenArcDocument(server, ctx, uri, "sequence main {\n    math.avg{}\n}\n")
 
 			actions := asCodeActions(MustSucceed(server.CodeAction(ctx, codeActionParams(nil))))
 			Expect(actions).To(BeEmpty())

@@ -43,17 +43,17 @@ const DefaultMaxContentLength = 10 * 1024 * 1024 // 10MB
 
 var ErrContentLengthExceeded = errors.New("[transport] - content length exceeded maximum allowed size")
 
-// streamAdapter wraps a freighter stream to implement jsonrpc2.Stream. Each
-// freighter message carries one fully-encoded JSON-RPC envelope in Content.
-// Thread safety is handled by jsonrpc2.Conn, which serializes writes and uses
-// a single goroutine for reads; only the closed flag needs an atomic.
+// streamAdapter wraps a freighter stream to implement jsonrpc2.Stream. Each freighter
+// message carries one fully-encoded JSON-RPC envelope in Content. Thread safety is
+// handled by jsonrpc2.Conn, which serializes writes and uses a single goroutine for
+// reads; only the closed flag needs an atomic.
 type streamAdapter struct {
 	stream           freighter.ServerStream[JSONRPCMessage, JSONRPCMessage]
 	closed           atomic.Bool
 	maxContentLength int
-	// ready gates the first Read until the server's client dispatcher has been
-	// wired via SetClient, so an eager client cannot trigger a notification
-	// handler that publishes diagnostics before the client is set.
+	// ready gates the first Read until the server's client dispatcher has been wired
+	// via SetClient, so an eager client cannot trigger a notification handler that
+	// publishes diagnostics before the client is set.
 	ready chan struct{}
 }
 
@@ -129,10 +129,8 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-var DefaultConfig = Config{MaxContentLength: DefaultMaxContentLength}
-
 func ServeFreighter(ctx context.Context, cfgs ...Config) (err error) {
-	cfg, err := config.New(DefaultConfig, cfgs...)
+	cfg, err := config.New(Config{MaxContentLength: DefaultMaxContentLength}, cfgs...)
 	if err != nil {
 		return err
 	}
