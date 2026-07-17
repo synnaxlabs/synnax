@@ -58,7 +58,7 @@ func New() *Server {
 		documents: make(map[uri.URI]*Document),
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
-				OpenClose: lo.ToPtr(true),
+				OpenClose: new(true),
 				Change:    lo.ToPtr(protocol.TextDocumentSyncKindFull),
 			},
 			HoverProvider:              protocol.Boolean(true),

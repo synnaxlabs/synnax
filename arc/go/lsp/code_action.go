@@ -120,7 +120,7 @@ func unusedImportQuickFix(
 		Title:       "Remove unused import",
 		Kind:        lo.ToPtr(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
-		IsPreferred: lo.ToPtr(true),
+		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{
 			Changes: map[uri.URI][]protocol.TextEdit{
 				snap.URI: {edit},
@@ -300,7 +300,7 @@ func deprecatedSymbolQuickFix(
 		Title:       fmt.Sprintf("Replace '%s' with '%s'", token.GetText(), replacementName),
 		Kind:        lo.ToPtr(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
-		IsPreferred: lo.ToPtr(true),
+		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{
 			Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
 		},
@@ -473,7 +473,7 @@ func missingImportQuickFix(
 		Title:       fmt.Sprintf("Add import '%s'", name),
 		Kind:        lo.ToPtr(protocol.CodeActionKindQuickFix),
 		Diagnostics: []protocol.Diagnostic{diag},
-		IsPreferred: lo.ToPtr(true),
+		IsPreferred: new(true),
 		Edit: &protocol.WorkspaceEdit{
 			Changes: map[uri.URI][]protocol.TextEdit{snap.URI: edits},
 		},

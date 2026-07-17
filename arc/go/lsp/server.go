@@ -149,9 +149,9 @@ func New(cfgs ...Config) (*Server, error) {
 		documents: make(map[uri.URI]*Document),
 		capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
-				OpenClose: lo.ToPtr(true),
+				OpenClose: new(true),
 				Change:    lo.ToPtr(protocol.TextDocumentSyncKindIncremental),
-				Save:      &protocol.SaveOptions{IncludeText: lo.ToPtr(false)},
+				Save:      &protocol.SaveOptions{IncludeText: new(false)},
 			},
 			HoverProvider: protocol.Boolean(true),
 			CompletionProvider: &protocol.CompletionOptions{
@@ -176,7 +176,7 @@ func New(cfgs ...Config) (*Server, error) {
 				},
 			},
 			RenameProvider: &protocol.RenameOptions{
-				PrepareProvider: lo.ToPtr(true),
+				PrepareProvider: new(true),
 			},
 			SemanticTokensProvider: &protocol.SemanticTokensOptions{
 				Legend: protocol.SemanticTokensLegend{
