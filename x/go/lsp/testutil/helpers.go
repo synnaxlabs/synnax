@@ -177,31 +177,11 @@ func ItemInsertText(item protocol.CompletionItem) string {
 	return v
 }
 
-// ItemDocumentation returns the documentation string of a completion item,
-// handling the union between plain strings and markup content.
-func ItemDocumentation(item protocol.CompletionItem) string {
-	switch d := item.Documentation.(type) {
-	case protocol.String:
-		return string(d)
-	case *protocol.MarkupContent:
-		return d.Value
-	default:
-		return ""
-	}
-}
-
 // ItemTextEdit returns the completion item's text edit, or nil when unset or
 // not a plain TextEdit.
 func ItemTextEdit(item protocol.CompletionItem) *protocol.TextEdit {
 	edit, _ := item.TextEdit.(*protocol.TextEdit)
 	return edit
-}
-
-// DiagnosticSource returns the source string of a diagnostic, or the empty
-// string when unset.
-func DiagnosticSource(d protocol.Diagnostic) string {
-	v, _ := d.Source.Get()
-	return v
 }
 
 // DiagnosticCode returns the string code of a diagnostic, or the empty string

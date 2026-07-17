@@ -119,11 +119,11 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 		})
 
 		It("Should complete with prefix matching", func(ctx SpecContext) {
-			docURI := generateBlockURI("completion-test-2")
+			uri := generateBlockURI("completion-test-2")
 			content := "return temp"
 			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 				TextDocument: protocol.TextDocumentItem{
-					URI:        docURI,
+					URI:        uri,
 					LanguageID: "arc",
 					Version:    1,
 					Text:       content,
@@ -131,7 +131,7 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			})).To(Succeed())
 
 			// Request completion at "temp|"
-			completions := Completion(server, ctx, docURI, 0, 11)
+			completions := Completion(server, ctx, uri, 0, 11)
 			Expect(completions).ToNot(BeNil())
 
 			// Should find "temp_c"
@@ -223,12 +223,12 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 
 	Describe("DidChange", func() {
 		It("Should update completions after content change", func(ctx SpecContext) {
-			docURI := generateBlockURI("didchange-test-1")
+			uri := generateBlockURI("didchange-test-1")
 			initialContent := "return sen"
 
 			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 				TextDocument: protocol.TextDocumentItem{
-					URI:        docURI,
+					URI:        uri,
 					LanguageID: "arc",
 					Version:    1,
 					Text:       initialContent,
@@ -239,7 +239,7 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			newContent := "return pres"
 			Expect(server.DidChange(ctx, &protocol.DidChangeTextDocumentParams{
 				TextDocument: protocol.VersionedTextDocumentIdentifier{
-					TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: docURI},
+					TextDocumentIdentifier: protocol.TextDocumentIdentifier{URI: uri},
 					Version:                2,
 				},
 				ContentChanges: []protocol.TextDocumentContentChangeEvent{
@@ -247,7 +247,7 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 				},
 			})).To(Succeed())
 
-			completions := Completion(server, ctx, docURI, 0, 11)
+			completions := Completion(server, ctx, uri, 0, 11)
 
 			Expect(completions).ToNot(BeNil())
 
@@ -325,18 +325,18 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 		})
 
 		It("Should find definition of local variable in block expression", func(ctx SpecContext) {
-			docURI := generateBlockURI("definition-test-2")
+			uri := generateBlockURI("definition-test-2")
 			content := "x := 10\nreturn x * 2"
 			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 				TextDocument: protocol.TextDocumentItem{
-					URI:        docURI,
+					URI:        uri,
 					LanguageID: "arc",
 					Version:    1,
 					Text:       content,
 				},
 			})).To(Succeed())
 
-			locations := Definition(server, ctx, docURI, 1, 7)
+			locations := Definition(server, ctx, uri, 1, 7)
 			Expect(locations).ToNot(BeNil())
 			Expect(locations).To(HaveLen(1))
 			Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
@@ -365,11 +365,11 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 		})
 
 		It("Should classify loop variables in for-range blocks", func(ctx SpecContext) {
-			docURI := generateBlockURI("semantic-for-loop")
+			uri := generateBlockURI("semantic-for-loop")
 			content := "for i := range(10) {\nx := i\n}"
 			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 				TextDocument: protocol.TextDocumentItem{
-					URI:        docURI,
+					URI:        uri,
 					LanguageID: "arc",
 					Version:    1,
 					Text:       content,
@@ -377,7 +377,7 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 			})).To(Succeed())
 
 			tokens := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
-				TextDocument: protocol.TextDocumentIdentifier{URI: docURI},
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
 			}))
 			Expect(tokens).ToNot(BeNil())
 			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
@@ -386,36 +386,36 @@ var _ = Describe("Block Expressions with GlobalResolver", func() {
 
 	Describe("Multi-statement Completion", func() {
 		It("Should provide completion for GlobalResolver symbols with prefix in multi-statement block", func(ctx SpecContext) {
-			docURI := generateBlockURI("completion-test-5")
+			uri := generateBlockURI("completion-test-5")
 			content := "let x = sensor\nlet y = x * 2\nreturn y + sen"
 			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 				TextDocument: protocol.TextDocumentItem{
-					URI:        docURI,
+					URI:        uri,
 					LanguageID: "arc",
 					Version:    1,
 					Text:       content,
 				},
 			})).To(Succeed())
 
-			completions := Completion(server, ctx, docURI, 2, 14)
+			completions := Completion(server, ctx, uri, 2, 14)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "sensor")).To(BeTrue())
 		})
 
 		It("Should provide completion for both local and GlobalResolver symbols in multi-statement block", func(ctx SpecContext) {
-			docURI := generateBlockURI("completion-test-6")
+			uri := generateBlockURI("completion-test-6")
 			content := "myVar := sensor\nmyOther := myVar * 2\nreturn my"
 			Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 				TextDocument: protocol.TextDocumentItem{
-					URI:        docURI,
+					URI:        uri,
 					LanguageID: "arc",
 					Version:    1,
 					Text:       content,
 				},
 			})).To(Succeed())
 
-			completions := Completion(server, ctx, docURI, 2, 9)
+			completions := Completion(server, ctx, uri, 2, 9)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "myVar")).To(BeTrue())

@@ -15,18 +15,12 @@ import (
 	"go.lsp.dev/protocol"
 )
 
-// TranslateConfig configures how diagnostics are translated to LSP format.
-type TranslateConfig struct {
-	// Source is the name shown in the LSP client's diagnostic source field
-	// (e.g. "arc-analyzer", "oracle").
-	Source string
-}
-
-// TranslateDiagnostics converts internal diagnostics to LSP protocol diagnostics.
+// TranslateDiagnostics converts internal diagnostics to LSP protocol diagnostics,
+// tagging each with source as its LSP diagnostic source (e.g. "arc-analyzer").
 // Line numbers are converted from 1-indexed (ANTLR) to 0-indexed (LSP).
 func TranslateDiagnostics(
 	analysisDiag diagnostics.Diagnostics,
-	cfg TranslateConfig,
+	source string,
 ) []protocol.Diagnostic {
 	oDiagnostics := make([]protocol.Diagnostic, 0, len(analysisDiag))
 	for _, diag := range analysisDiag {
@@ -51,7 +45,7 @@ func TranslateDiagnostics(
 				},
 			},
 			Severity: diag.Severity,
-			Source:   protocol.NewOptional(cfg.Source),
+			Source:   protocol.NewOptional(source),
 			Message:  protocol.String(diag.Message),
 		}
 

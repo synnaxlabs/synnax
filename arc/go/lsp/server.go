@@ -119,7 +119,7 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-var translateCfg = lsp.TranslateConfig{Source: "arc-analyzer"}
+const translateSource = "arc-analyzer"
 
 // Server implements the Language Server Protocol for arc
 type Server struct {
@@ -445,24 +445,24 @@ func (s *Server) analyze(
 		wrappedContent := fmt.Sprintf("{%s}", content)
 		t, err := parser.ParseBlock(wrappedContent, cfg)
 		if err != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(*err, translateSource)
 		} else {
 			aCtx := acontext.NewRoot(ctx, t, s.cfg.NewRoot()).WithConfig(cfg)
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
 			docDiag = *aCtx.Diagnostics
-			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 		}
 	} else {
 		t, diag := text.Parse(text.Text{Raw: content}, cfg)
 		if diag != nil {
-			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateCfg)
+			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
 		} else {
 			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot(), cfg)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag
-				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateCfg)
+				pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
 			}
 		}
 	}

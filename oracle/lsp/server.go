@@ -37,7 +37,7 @@ type Server struct {
 	mu           sync.RWMutex
 }
 
-var translateCfg = xlsp.TranslateConfig{Source: "oracle-analyzer"}
+const translateSource = "oracle-analyzer"
 
 // Document represents an open document in the LSP server.
 type Document struct {
@@ -169,7 +169,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri uri.URI, content st
 		doc.Diagnostics = parseDiag
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         uri,
-			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateCfg),
+			Diagnostics: xlsp.TranslateDiagnostics(*parseDiag, translateSource),
 		})
 		return
 	}
@@ -182,7 +182,7 @@ func (s *Server) publishDiagnostics(ctx context.Context, uri uri.URI, content st
 		doc.Table = table
 		_ = s.client.PublishDiagnostics(ctx, &protocol.PublishDiagnosticsParams{
 			URI:         uri,
-			Diagnostics: xlsp.TranslateDiagnostics(*analyzeDiag, translateCfg),
+			Diagnostics: xlsp.TranslateDiagnostics(*analyzeDiag, translateSource),
 		})
 		return
 	}

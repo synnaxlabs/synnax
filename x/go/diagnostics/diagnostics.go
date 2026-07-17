@@ -67,7 +67,6 @@ type HintProvider interface {
 
 // Diagnostic represents a single compiler diagnostic message.
 type Diagnostic struct {
-	Key      string                      `json:"key"`
 	Code     ErrorCode                   `json:"code,omitempty"`
 	Message  string                      `json:"message"`
 	Severity protocol.DiagnosticSeverity `json:"severity"`
