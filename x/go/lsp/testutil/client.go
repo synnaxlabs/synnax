@@ -58,24 +58,6 @@ func (m *MockClient) WaitForDiagnostics(
 	return m.PublishCount() != baseline
 }
 
-func (m *MockClient) ShowMessage(context.Context, *protocol.ShowMessageParams) error {
-	return nil
-}
-
-func (m *MockClient) LogMessage(context.Context, *protocol.LogMessageParams) error {
-	return nil
-}
-
-func (m *MockClient) LogTrace(context.Context, *protocol.LogTraceParams) error {
-	return nil
-}
-
-func (m *MockClient) Telemetry(context.Context, protocol.LSPAny) error { return nil }
-
-func (m *MockClient) Progress(context.Context, *protocol.ProgressParams) error {
-	return nil
-}
-
 // PublishDiagnostics stores the diagnostics and increments the publish count.
 func (m *MockClient) PublishDiagnostics(_ context.Context, params *protocol.PublishDiagnosticsParams) error {
 	m.mu.Lock()
