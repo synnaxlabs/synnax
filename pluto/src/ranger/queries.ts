@@ -59,22 +59,33 @@ const BASE_QUERY: Partial<RetrieveQuery> = {
   includeLabels: true,
 };
 
-const retrieveSingle = async ({
+const retrieveCachedSingle = ({
   client,
   store,
   query: { key },
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>): ranger.Range | undefined => {
   const cached = store.ranges.get(key);
-  if (cached != null) {
-    const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
-    const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
-    const next: ranger.Payload = { ...cached.payload, labels };
-    if (parent != null) {
-      const cached = store.ranges.get(parent.key);
-      if (cached != null) next.parent = cached.payload;
-    }
-    return client.ranges.sugarOne(next);
+  if (cached == null) return undefined;
+  const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
+  const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
+  const next: ranger.Payload = { ...cached.payload, labels };
+  if (parent != null) {
+    const cachedParent = store.ranges.get(parent.key);
+    if (cachedParent != null) next.parent = cachedParent.payload;
   }
+  return client.ranges.sugarOne(next);
+};
+
+const retrieveSingle = async (
+  params: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>,
+) => {
+  const cached = retrieveCachedSingle(params);
+  if (cached != null) return cached;
+  const {
+    client,
+    store,
+    query: { key },
+  } = params;
   const range = await client.ranges.retrieve({ ...BASE_QUERY, keys: [key] });
   const first = range[0];
   store.ranges.set(key, first);
@@ -410,6 +421,7 @@ export const {
 } = Flux.createRetrieve<RetrieveQuery, ranger.Range, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
+  retrieveCached: retrieveCachedSingle,
   mountListeners: mountRangeListeners,
 });
 

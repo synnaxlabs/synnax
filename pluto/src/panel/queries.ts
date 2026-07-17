@@ -91,6 +91,7 @@ export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
   Flux.createRetrieve<RetrieveQuery, panel.Panel, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query: { key } }) => store.panels.get(key),
     mountListeners: ({ store, query: { key }, onChange }) => [
       store.panels.onSet(onChange, key),
     ],
