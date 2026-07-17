@@ -128,7 +128,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const loadingRef = useRef<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Base.Node<string>[]>([]);
   const fluxStore = Flux.useStore<Ontology.FluxSubStore>();
-  const resourceStore = fluxStore.resources;
   const loadingListenersRef = useInitializerRef(() => new Set<observe.Handler<void>>());
   const handleError = Status.useErrorHandler();
   const client = Synnax.use();
@@ -198,7 +197,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     async (signal) => {
       if (client == null) return;
       const resources = await client.ontology.retrieveChildren(root);
-      resources.forEach((r) => resourceStore.set(ontology.idToString(r), r));
       if (signal.aborted) return;
       const filtered = resources.filter((r) => {
         const svc = resolveItem(r.type);
@@ -213,11 +211,6 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [client, root],
   );
 
-  const handleSyncResourceSet = useCallback(
-    () => setNodes((prevNodes) => [...prevNodes]),
-    [setNodes],
-  );
-  Ontology.useResourceSetSynchronizer(handleSyncResourceSet);
   const handleRelationshipDelete = useCallback(
     (rel: ontology.Relationship) => {
       if (rel.type !== ontology.PARENT_OF_RELATIONSHIP_TYPE) return;
@@ -269,25 +262,18 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     retrieveChildren.retrieve({ id: clickedID });
   }, []);
 
-  const subscribe = useCallback(
-    (callback: () => void, key: string) => resourceStore.onSet(callback, key),
-    [resourceStore],
-  );
-
   const sort = useCallback(
     (a: Base.Node<string>, b: Base.Node<string>) => {
-      const [aResource, bResource] = resourceStore.get([a.key, b.key]);
-      if (aResource == null && bResource == null) return 0;
-      if (aResource == null) return 1;
-      if (bResource == null) return -1;
-      if (aResource.type === "group" && bResource.type !== "group") return -1;
-      if (aResource.type !== "group" && bResource.type === "group") return 1;
+      const aType = ontology.idZ.parse(a.key).type;
+      const bType = ontology.idZ.parse(b.key).type;
+      if (aType === "group" && bType !== "group") return -1;
+      if (aType !== "group" && bType === "group") return 1;
       const aName = namesRef.current.get(a.key) ?? "";
       const bName = namesRef.current.get(b.key) ?? "";
       return aName.localeCompare(bName);
     },
     // nameVersion re-creates the comparator when a name resolves so the tree re-sorts.
-    [resourceStore, nameVersion],
+    [nameVersion, namesRef],
   );
 
   const treeProps = Base.use({
@@ -365,27 +351,24 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
   const handleDragStart = useCallback(
     (itemKey: string) => {
       if (selectedRef.current.includes(itemKey)) {
-        const selectedResources = resourceStore
-          .get(selectedRef.current)
-          .filter((r) => r != null);
-        const selectedHaulItems = selectedResources.flatMap((res) => {
+        const selectedHaulItems = selectedRef.current.flatMap((key) => {
+          const id = ontology.idZ.parse(key);
           const depth = Base.getDepth(itemKey, shapeRef.current);
           const items: Haul.Item[] = [
-            Base.createHaulItem(ontology.idToString(res), depth),
+            Base.createHaulItem(ontology.idToString(id), depth),
           ];
-          const svcItems = resolveItem(res.type).haulItems(res, fluxStore);
+          const svcItems = resolveItem(id.type).haulItems(id, fluxStore);
           if (svcItems != null) items.push(...svcItems);
           return items;
         });
         return startDrag(selectedHaulItems);
       }
       const depth = Base.getDepth(itemKey, shapeRef.current);
-      const [resource] = resourceStore.get([itemKey]);
-      if (resource == null) return;
-      const haulItems = resolveItem(resource.type).haulItems(resource, fluxStore);
+      const id = ontology.idZ.parse(itemKey);
+      const haulItems = resolveItem(id.type).haulItems(id, fluxStore);
       startDrag([Base.createHaulItem(itemKey, depth), ...haulItems]);
     },
-    [resourceStore, selectedRef, fluxStore],
+    [selectedRef, fluxStore, resolveItem, shapeRef, startDrag],
   );
 
   const handleContextMenu = useCallback(
@@ -454,6 +437,15 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [handleDrop, handleDragStart, useLoading, onDragEnd, registerName],
   );
 
+  // A resource is fully determined by its node key, so the item is just the parsed id.
+  const getItem = useCallback(
+    ((key: string | string[]) =>
+      Array.isArray(key)
+        ? key.map((k) => ontology.idZ.parse(k))
+        : ontology.idZ.parse(key)) as List.GetItem<string, ontology.ID>,
+    [],
+  );
+
   return (
     <Context value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
@@ -461,11 +453,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
         {...treeProps}
         showRules
         shape={shape}
-        subscribe={subscribe}
-        // Use resourceStore.get directly instead of getResource because there is
-        // a chance that the resource will not be in the store before the tree attempts
-        // to render it.
-        getItem={resourceStore.get.bind(resourceStore)}
+        getItem={getItem}
         emptyContent={emptyContent}
         onContextMenu={menuProps.open}
       >

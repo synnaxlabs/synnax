@@ -23,23 +23,6 @@ const PLURAL_CHILDREN_RESOURCE_NAME = "children";
 export const setResources = (store: FluxSubStore, ids: ontology.ID[]): void =>
   ids.forEach((id) => store.resources.set(ontology.idToString(id), id));
 
-export const useResourceSetSynchronizer = (onSet: (id: ontology.ID) => void): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(() => store.resources.onSet(onSet), [store.resources]);
-};
-
-export const useResourceDeleteSynchronizer = (
-  onDelete: (id: ontology.ID) => void,
-): void => {
-  const store = Flux.useStore<FluxSubStore>();
-  useEffect(() => {
-    const destructor = store.resources.onDelete(async (changed) =>
-      onDelete(ontology.idZ.parse(changed)),
-    );
-    return () => destructor();
-  }, [store.resources]);
-};
-
 export const useRelationshipSetSynchronizer = (
   onSet: (relationship: ontology.Relationship) => void,
 ): void => {
