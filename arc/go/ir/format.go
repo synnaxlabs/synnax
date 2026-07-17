@@ -10,16 +10,49 @@
 package ir
 
 import (
-	v2 "github.com/synnaxlabs/arc/ir/types/v2"
+	"strings"
+
 	"github.com/synnaxlabs/arc/types"
 )
-
-// TreePrefix returns the prefix for a tree item. If last is true, returns "└── ",
-// otherwise "├── ".
-func TreePrefix(last bool) string { return v2.TreePrefix(last) }
 
 // FormatFunctionSignature returns a human-readable function signature in Arc syntax.
 // Format: "name(param type, param type) returnType"
 func FormatFunctionSignature(name string, t types.Type) string {
-	return v2.FormatFunctionSignature(name, t)
+	if t.Kind != types.KindFunction {
+		return name
+	}
+	var sb strings.Builder
+	sb.WriteString(name)
+	sb.WriteString("(")
+	for i, p := range t.Inputs {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(p.Name)
+		sb.WriteString(" ")
+		sb.WriteString(p.Type.String())
+	}
+	sb.WriteString(")")
+	if len(t.Outputs) > 0 {
+		sb.WriteString(" ")
+		if len(t.Outputs) == 1 && t.Outputs[0].Name == DefaultOutputParam {
+			sb.WriteString(t.Outputs[0].Type.String())
+		} else if len(t.Outputs) == 1 {
+			sb.WriteString(t.Outputs[0].Name)
+			sb.WriteString(" ")
+			sb.WriteString(t.Outputs[0].Type.String())
+		} else {
+			sb.WriteString("(")
+			for i, p := range t.Outputs {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(p.Name)
+				sb.WriteString(" ")
+				sb.WriteString(p.Type.String())
+			}
+			sb.WriteString(")")
+		}
+	}
+	return sb.String()
 }

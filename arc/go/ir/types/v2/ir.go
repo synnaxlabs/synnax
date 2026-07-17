@@ -74,39 +74,39 @@ func (i *IR) stringWithPrefix(prefix string) string {
 
 func (i *IR) writeFunctions(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(last))
+	b.WriteString(treePrefix(last))
 	lo.Must(fmt.Fprintf(b, "Functions (%d)\n", len(i.Functions)))
 	childPrefix := prefix + treeIndent(last)
 	for j, f := range i.Functions {
 		isLast := j == len(i.Functions)-1
 		b.WriteString(childPrefix)
-		b.WriteString(TreePrefix(isLast))
+		b.WriteString(treePrefix(isLast))
 		b.WriteString(f.stringWithPrefix(childPrefix + treeIndent(isLast)))
 	}
 }
 
 func (i *IR) writeNodes(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(last))
+	b.WriteString(treePrefix(last))
 	lo.Must(fmt.Fprintf(b, "Nodes (%d)\n", len(i.Nodes)))
 	childPrefix := prefix + treeIndent(last)
 	for j, n := range i.Nodes {
 		isLast := j == len(i.Nodes)-1
 		b.WriteString(childPrefix)
-		b.WriteString(TreePrefix(isLast))
+		b.WriteString(treePrefix(isLast))
 		b.WriteString(n.stringWithPrefix(childPrefix + treeIndent(isLast)))
 	}
 }
 
 func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(last))
+	b.WriteString(treePrefix(last))
 	lo.Must(fmt.Fprintf(b, "Edges (%d)\n", len(i.Edges)))
 	childPrefix := prefix + treeIndent(last)
 	for j, e := range i.Edges {
 		isLast := j == len(i.Edges)-1
 		b.WriteString(childPrefix)
-		b.WriteString(TreePrefix(isLast))
+		b.WriteString(treePrefix(isLast))
 		b.WriteString(e.String())
 		b.WriteString("\n")
 	}
@@ -114,7 +114,7 @@ func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 
 func (i *IR) writeRoot(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(last))
+	b.WriteString(treePrefix(last))
 	b.WriteString("Root\n")
 	childPrefix := prefix + treeIndent(last)
 	b.WriteString(i.Root.stringWithPrefix(childPrefix))
@@ -130,13 +130,13 @@ func (s Scope) stringWithPrefix(prefix string) string {
 		for i, stratum := range s.Strata {
 			isLast := i == len(s.Strata)-1 && len(s.Transitions) == 0
 			b.WriteString(prefix)
-			b.WriteString(TreePrefix(isLast))
+			b.WriteString(treePrefix(isLast))
 			lo.Must(fmt.Fprintf(&b, "stratum %d\n", i))
 			childPrefix := prefix + treeIndent(isLast)
 			for j, m := range stratum {
 				isLastMember := j == len(stratum)-1
 				b.WriteString(childPrefix)
-				b.WriteString(TreePrefix(isLastMember))
+				b.WriteString(treePrefix(isLastMember))
 				b.WriteString(m.stringWithPrefix(childPrefix + treeIndent(isLastMember)))
 			}
 		}
@@ -144,14 +144,14 @@ func (s Scope) stringWithPrefix(prefix string) string {
 		for i, m := range s.Steps {
 			isLast := i == len(s.Steps)-1 && len(s.Transitions) == 0
 			b.WriteString(prefix)
-			b.WriteString(TreePrefix(isLast))
+			b.WriteString(treePrefix(isLast))
 			b.WriteString(m.stringWithPrefix(prefix + treeIndent(isLast)))
 		}
 	}
 	for i, t := range s.Transitions {
 		isLast := i == len(s.Transitions)-1
 		b.WriteString(prefix)
-		b.WriteString(TreePrefix(isLast))
+		b.WriteString(treePrefix(isLast))
 		b.WriteString(t.String())
 		b.WriteByte('\n')
 	}
@@ -164,12 +164,6 @@ func scopeLabel(s Scope) string {
 	}
 	return s.Key
 }
-
-// NodeMember builds a leaf Member referencing the node with the given key.
-func NodeMember(key string) Member { return Member{NodeKey: new(key)} }
-
-// ScopeMember builds a Member wrapping the given nested Scope.
-func ScopeMember(s Scope) Member { return Member{Scope: &s} }
 
 // Key returns the member's lookup key — the string transitions target via
 // `=> name`. Derived from the set variant: the referenced node's key for

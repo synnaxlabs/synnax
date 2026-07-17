@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package ir_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v2 "github.com/synnaxlabs/arc/ir/types/v2"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -20,7 +20,7 @@ var _ = Describe("FormatFunctionSignature", func() {
 	Describe("Basic Formatting", func() {
 		It("Should format function with no inputs or outputs", func() {
 			funcType := types.Function(types.FunctionProperties{})
-			sig := v2.FormatFunctionSignature("noOp", funcType)
+			sig := ir.FormatFunctionSignature("noOp", funcType)
 			Expect(sig).To(Equal("noOp()"))
 		})
 
@@ -28,7 +28,7 @@ var _ = Describe("FormatFunctionSignature", func() {
 			funcType := types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "x", Type: types.I64()}},
 			})
-			sig := v2.FormatFunctionSignature("square", funcType)
+			sig := ir.FormatFunctionSignature("square", funcType)
 			Expect(sig).To(Equal("square(x i64)"))
 		})
 
@@ -39,16 +39,16 @@ var _ = Describe("FormatFunctionSignature", func() {
 					{Name: "y", Type: types.I64()},
 				},
 			})
-			sig := v2.FormatFunctionSignature("add", funcType)
+			sig := ir.FormatFunctionSignature("add", funcType)
 			Expect(sig).To(Equal("add(x i64, y i64)"))
 		})
 
 		It("Should format function with anonymous single output", func() {
 			funcType := types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-				Outputs: types.Params{{Name: v2.DefaultOutputParam, Type: types.F64()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 			})
-			sig := v2.FormatFunctionSignature("sqrt", funcType)
+			sig := ir.FormatFunctionSignature("sqrt", funcType)
 			Expect(sig).To(Equal("sqrt(x f64) f64"))
 		})
 
@@ -57,7 +57,7 @@ var _ = Describe("FormatFunctionSignature", func() {
 				Inputs:  types.Params{{Name: "x", Type: types.I64()}},
 				Outputs: types.Params{{Name: "result", Type: types.I64()}},
 			})
-			sig := v2.FormatFunctionSignature("compute", funcType)
+			sig := ir.FormatFunctionSignature("compute", funcType)
 			Expect(sig).To(Equal("compute(x i64) result i64"))
 		})
 
@@ -69,19 +69,19 @@ var _ = Describe("FormatFunctionSignature", func() {
 					{Name: "remainder", Type: types.I64()},
 				},
 			})
-			sig := v2.FormatFunctionSignature("divmod", funcType)
+			sig := ir.FormatFunctionSignature("divmod", funcType)
 			Expect(sig).To(Equal("divmod(x i64) (quotient i64, remainder i64)"))
 		})
 	})
 
 	Describe("Non-Function Types", func() {
 		It("Should return just the name for non-function types", func() {
-			sig := v2.FormatFunctionSignature("myVar", types.I64())
+			sig := ir.FormatFunctionSignature("myVar", types.I64())
 			Expect(sig).To(Equal("myVar"))
 		})
 
 		It("Should return just the name for channel types", func() {
-			sig := v2.FormatFunctionSignature("myChan", types.Chan(types.F64()))
+			sig := ir.FormatFunctionSignature("myChan", types.Chan(types.F64()))
 			Expect(sig).To(Equal("myChan"))
 		})
 	})
@@ -94,9 +94,9 @@ var _ = Describe("FormatFunctionSignature", func() {
 					{Name: "ratio", Type: types.F64()},
 					{Name: "name", Type: types.String()},
 				},
-				Outputs: types.Params{{Name: v2.DefaultOutputParam, Type: types.U8()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			})
-			sig := v2.FormatFunctionSignature("process", funcType)
+			sig := ir.FormatFunctionSignature("process", funcType)
 			Expect(sig).To(Equal("process(count i32, ratio f64, name str) u8"))
 		})
 	})

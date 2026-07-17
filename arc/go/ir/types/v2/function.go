@@ -52,7 +52,7 @@ func (f Function) stringWithPrefix(prefix string) string {
 	// Channels
 	isLast := !hasInputs && !hasOutputs
 	b.WriteString(prefix)
-	b.WriteString(TreePrefix(isLast))
+	b.WriteString(treePrefix(isLast))
 	b.WriteString("channels: ")
 	b.WriteString(formatChannels(f.Channels))
 	b.WriteString("\n")
@@ -60,7 +60,7 @@ func (f Function) stringWithPrefix(prefix string) string {
 	if hasInputs {
 		isLast = !hasOutputs
 		b.WriteString(prefix)
-		b.WriteString(TreePrefix(isLast))
+		b.WriteString(treePrefix(isLast))
 		b.WriteString("inputs: ")
 		b.WriteString(formatParams(f.Inputs))
 		b.WriteString("\n")
@@ -68,7 +68,7 @@ func (f Function) stringWithPrefix(prefix string) string {
 
 	if hasOutputs {
 		b.WriteString(prefix)
-		b.WriteString(TreePrefix(true))
+		b.WriteString(treePrefix(true))
 		b.WriteString("outputs: ")
 		b.WriteString(formatParams(f.Outputs))
 		b.WriteString("\n")

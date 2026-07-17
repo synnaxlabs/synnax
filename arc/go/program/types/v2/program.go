@@ -14,8 +14,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
-
-	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
 )
 
 // IsZero reports whether the Program is empty (uninitialized or contains no content).
@@ -39,6 +37,15 @@ func (m Program) IsZero() bool { return len(m.WASM) == 0 && m.IR.IsZero() }
 // The output includes a summary of the WASM bytecode (size and SHA256 hash)
 // and the full IR tree structure with functions, nodes, edges, and the
 // Layer-2 execution shell rooted at IR.Root.
+// treePrefix returns the branch prefix for a tree line: "└── " when last is true,
+// "├── " otherwise.
+func treePrefix(last bool) string {
+	if last {
+		return "└── "
+	}
+	return "├── "
+}
+
 func (m Program) String() string {
 	var b strings.Builder
 	b.WriteString("Arc Program\n")
@@ -47,7 +54,7 @@ func (m Program) String() string {
 		len(m.Edges) > 0 || !m.Root.IsZero()
 
 	// WASM summary
-	b.WriteString(irv2.TreePrefix(!hasContent))
+	b.WriteString(treePrefix(!hasContent))
 	b.WriteString(m.wasmSummary())
 	b.WriteString("\n")
 
