@@ -166,8 +166,7 @@ Block Kit message with a severity-colored attachment:
 | disabled | grey   | ⚪    |
 
 Headline = status `name`; body = `message`; context line = `description` + `time`. No
-deep link back into Synnax in v1 (the desktop Console has no stable URL scheme to
-target).
+deep link back into Synnax in v1.
 
 ### Slack API
 
