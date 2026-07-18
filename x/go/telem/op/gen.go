@@ -127,7 +127,7 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/x/telem"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	unsafe "github.com/synnaxlabs/x/unsafe"
 )
 
 // Blank identifier ensures math import is used even when no float types are generated,
@@ -140,8 +140,8 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, output *telem.Series) {
 	inputLen := input.Len()
 	output.Resize(inputLen)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < inputLen; i++ {
 		outData[i] = {{.Op}}inData[i]
@@ -156,7 +156,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 		return prevCount
 	}
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
 
 	{{if eq .Name "Avg"}}
 	// Compute sum of new input samples
@@ -169,7 +169,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	if freshStart {
 		// Fresh start: compute average of input samples
@@ -187,7 +187,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Find minimum in new input samples
 	newMin := inData[0]
@@ -213,7 +213,7 @@ func {{.Name}}{{$.Type.Name}}(input telem.Series, prevCount int64, output *telem
 	outputLen := output.Len()
 	freshStart := prevCount == 0 || outputLen == 0
 	output.Resize(1)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Find maximum in new input samples
 	newMax := inData[0]
@@ -248,8 +248,8 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := output.Data
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
@@ -302,9 +302,9 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
@@ -345,8 +345,8 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = inData[i] {{.Op}} scalar
@@ -361,7 +361,7 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
@@ -381,8 +381,8 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = scalar {{.Op}} inData[i]
@@ -394,12 +394,12 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 const derivativeFuncTemplate = `
 func Derivative{{$.Type.Name}}(input, inputTime telem.Series, prevVal *float64, prevTS *telem.TimeStamp, hasPrev *bool, output, outputTime *telem.Series) {
 	n := input.Len()
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
-	inTime := xunsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](input.Data)
+	inTime := unsafe.CastSlice[uint8, telem.TimeStamp](inputTime.Data)
 	output.Resize(n)
 	outputTime.Resize(n)
-	outData := xunsafe.CastSlice[uint8, float64](output.Data)
-	outTime := xunsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
+	outData := unsafe.CastSlice[uint8, float64](output.Data)
+	outTime := unsafe.CastSlice[uint8, telem.TimeStamp](outputTime.Data)
 	for i := int64(0); i < n; i++ {
 		cur := float64(inData[i])
 		ts := inTime[i]
@@ -432,9 +432,9 @@ func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	}
 	output.Resize(maxLen)
 
-	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
-	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	lhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
+	rhsData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
@@ -475,8 +475,8 @@ func ModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, 
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = {{$.Type.GoType}}(math.Mod(float64(inData[i]), float64(scalar)))
@@ -490,8 +490,8 @@ func ReverseModuloScalar{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoT
 	length := series.Len()
 	output.Resize(length)
 
-	inData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
-	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+	inData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](series.Data)
+	outData := unsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
 		outData[i] = {{$.Type.GoType}}(math.Mod(float64(scalar), float64(inData[i])))

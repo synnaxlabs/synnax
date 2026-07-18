@@ -12,10 +12,10 @@ package v0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/telem/types/v0"
+	v0 "github.com/synnaxlabs/x/telem/types/v0"
 )
 
-var _ = Describe("Sample codec", func() {
+var _ = Describe("Sample", func() {
 	Describe("MarshalFixed", func() {
 		It("Should encode samples as contiguous little-endian bytes", func() {
 			Expect(v0.MarshalFixed[int32](1, 2)).To(Equal([]byte{1, 0, 0, 0, 2, 0, 0, 0}))

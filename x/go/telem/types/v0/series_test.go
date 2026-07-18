@@ -18,9 +18,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	xslices "github.com/synnaxlabs/x/slices"
-	"github.com/synnaxlabs/x/telem/types/v0"
+	v0 "github.com/synnaxlabs/x/telem/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -126,12 +126,12 @@ func multiSeriesV(series ...v0.Series) v0.MultiSeries {
 
 func valueAt[T v0.FixedSample](s v0.Series, i int) T {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	return xunsafe.CastSlice[byte, T](s.Data)[i]
+	return unsafe.CastSlice[byte, T](s.Data)[i]
 }
 
 func setValueAt[T v0.FixedSample](s v0.Series, i int, val T) {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	xunsafe.CastSlice[byte, T](s.Data)[i] = val
+	unsafe.CastSlice[byte, T](s.Data)[i] = val
 }
 
 var _ = Describe("Series", func() {
@@ -824,7 +824,7 @@ var _ = Describe("Series", func() {
 			s := seriesV[int64](1, 2, 3, 4, 5)
 			values := make([]int64, 0, 5)
 			for sample := range s.Samples() {
-				values = append(values, MustSucceed(xunsafe.CastBytes[int64](sample)))
+				values = append(values, MustSucceed(unsafe.CastBytes[int64](sample)))
 			}
 			Expect(values).To(Equal([]int64{1, 2, 3, 4, 5}))
 		})
@@ -843,7 +843,7 @@ var _ = Describe("Series", func() {
 			values := make([]int64, 0, 3)
 			count := 0
 			for sample := range s.Samples() {
-				values = append(values, MustSucceed(xunsafe.CastBytes[int64](sample)))
+				values = append(values, MustSucceed(unsafe.CastBytes[int64](sample)))
 				count++
 				if count > 2 {
 					break

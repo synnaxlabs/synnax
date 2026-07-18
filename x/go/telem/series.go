@@ -18,12 +18,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	xslices "github.com/synnaxlabs/x/slices"
-	latest "github.com/synnaxlabs/x/telem/types/v0"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	v0 "github.com/synnaxlabs/x/telem/types/v0"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // MultiSeries is a collection of ordered Series that share the same data type.
-type MultiSeries = latest.MultiSeries
+type MultiSeries = v0.MultiSeries
 
 // NewSeries creates a new Series from a slice of sample values. It automatically
 // determines the data type from the type parameter.
@@ -83,11 +83,11 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 }
 
 func newFixedSeries[T FixedSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: latest.MarshalFixed(data...)}
+	return Series{DataType: InferDataType[T](), Data: v0.MarshalFixed(data...)}
 }
 
 func newVariableSeries[T VariableSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: latest.MarshalVariable(data...)}
+	return Series{DataType: InferDataType[T](), Data: v0.MarshalVariable(data...)}
 }
 
 // NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
@@ -100,7 +100,7 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 			return Series{}, err
 		}
 	}
-	return Series{DataType: JSONT, Data: latest.MarshalVariable(byteSlices...)}, nil
+	return Series{DataType: JSONT, Data: v0.MarshalVariable(byteSlices...)}, nil
 }
 
 // NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
@@ -112,7 +112,7 @@ func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(dat
 // prefix. This is useful for code that accumulates samples into a Series.Data buffer
 // incrementally rather than using NewSeriesV.
 func MarshalVariableSample(raw []byte) []byte {
-	return latest.MarshalVariable(raw)
+	return v0.MarshalVariable(raw)
 }
 
 // UnmarshalSeries converts a Series back into a slice of the specified data type. Note
@@ -122,33 +122,33 @@ func UnmarshalSeries[T Sample](series Series) []T {
 	var t T
 	switch any(t).(type) {
 	case uint8:
-		return any(latest.UnmarshalFixed[uint8](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[uint8](series.Data)).([]T)
 	case uint16:
-		return any(latest.UnmarshalFixed[uint16](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[uint16](series.Data)).([]T)
 	case uint32:
-		return any(latest.UnmarshalFixed[uint32](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[uint32](series.Data)).([]T)
 	case uint64:
-		return any(latest.UnmarshalFixed[uint64](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[uint64](series.Data)).([]T)
 	case int8:
-		return any(latest.UnmarshalFixed[int8](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[int8](series.Data)).([]T)
 	case int16:
-		return any(latest.UnmarshalFixed[int16](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[int16](series.Data)).([]T)
 	case int32:
-		return any(latest.UnmarshalFixed[int32](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[int32](series.Data)).([]T)
 	case int64:
-		return any(latest.UnmarshalFixed[int64](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[int64](series.Data)).([]T)
 	case float32:
-		return any(latest.UnmarshalFixed[float32](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[float32](series.Data)).([]T)
 	case float64:
-		return any(latest.UnmarshalFixed[float64](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[float64](series.Data)).([]T)
 	case TimeStamp:
-		return any(latest.UnmarshalFixed[TimeStamp](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[TimeStamp](series.Data)).([]T)
 	case uuid.UUID:
-		return any(latest.UnmarshalFixed[uuid.UUID](series.Data)).([]T)
+		return any(v0.UnmarshalFixed[uuid.UUID](series.Data)).([]T)
 	case string:
-		return any(latest.UnmarshalVariable[string](series.Data)).([]T)
+		return any(v0.UnmarshalVariable[string](series.Data)).([]T)
 	case []byte:
-		return any(latest.UnmarshalVariable[[]byte](series.Data)).([]T)
+		return any(v0.UnmarshalVariable[[]byte](series.Data)).([]T)
 	}
 	// degenerate case, should never hit this path.
 	panic(fmt.Sprintf("unsupported sample type %T", t))
@@ -273,27 +273,27 @@ func castToBytes(value any) []byte {
 	case uint8:
 		return []byte{v}
 	case uint16:
-		return latest.ByteOrder.AppendUint16(nil, v)
+		return v0.ByteOrder.AppendUint16(nil, v)
 	case uint32:
-		return latest.ByteOrder.AppendUint32(nil, v)
+		return v0.ByteOrder.AppendUint32(nil, v)
 	case uint64:
-		return latest.ByteOrder.AppendUint64(nil, v)
+		return v0.ByteOrder.AppendUint64(nil, v)
 	case int8:
 		return []byte{byte(v)}
 	case int16:
-		return latest.ByteOrder.AppendUint16(nil, uint16(v))
+		return v0.ByteOrder.AppendUint16(nil, uint16(v))
 	case int32:
-		return latest.ByteOrder.AppendUint32(nil, uint32(v))
+		return v0.ByteOrder.AppendUint32(nil, uint32(v))
 	case int64:
-		return latest.ByteOrder.AppendUint64(nil, uint64(v))
+		return v0.ByteOrder.AppendUint64(nil, uint64(v))
 	case float32:
-		return latest.ByteOrder.AppendUint32(nil, math.Float32bits(v))
+		return v0.ByteOrder.AppendUint32(nil, math.Float32bits(v))
 	case float64:
-		return latest.ByteOrder.AppendUint64(nil, math.Float64bits(v))
+		return v0.ByteOrder.AppendUint64(nil, math.Float64bits(v))
 	case TimeStamp:
-		return latest.ByteOrder.AppendUint64(nil, uint64(v))
+		return v0.ByteOrder.AppendUint64(nil, uint64(v))
 	case TimeSpan:
-		return latest.ByteOrder.AppendUint64(nil, uint64(v))
+		return v0.ByteOrder.AppendUint64(nil, uint64(v))
 	case uuid.UUID:
 		return v[:]
 	case string:
@@ -323,7 +323,7 @@ func castToUUID(value any) uuid.UUID {
 // cannot be used for variable density series.
 func ValueAt[T FixedSample](s Series, i int) T {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	data := xunsafe.CastSlice[byte, T](s.Data)
+	data := unsafe.CastSlice[byte, T](s.Data)
 	return data[i]
 }
 
@@ -332,7 +332,7 @@ func ValueAt[T FixedSample](s Series, i int) T {
 // cannot be used for variable density series.
 func SetValueAt[T FixedSample](s Series, i int, v T) {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	data := xunsafe.CastSlice[byte, T](s.Data)
+	data := unsafe.CastSlice[byte, T](s.Data)
 	data[i] = v
 }
 
