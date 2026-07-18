@@ -41,9 +41,9 @@ var ByteOrder = binary.LittleEndian
 // in variable-density series encoding.
 const variableLengthPrefixSize = 4
 
-// MarshalFixed encodes a slice of fixed-width samples into their contiguous
-// little-endian byte representation.
-func MarshalFixed[T FixedSample](data []T) []byte {
+// MarshalFixed encodes fixed-width samples into their contiguous little-endian byte
+// representation.
+func MarshalFixed[T FixedSample](data ...T) []byte {
 	src := xunsafe.CastSlice[T, byte](data)
 	b := make([]byte, len(src))
 	copy(b, src)
@@ -51,11 +51,13 @@ func MarshalFixed[T FixedSample](data []T) []byte {
 }
 
 // UnmarshalFixed reinterprets a fixed-density buffer as a slice of T.
-func UnmarshalFixed[T FixedSample](b []byte) []T { return xunsafe.CastSlice[byte, T](b) }
+func UnmarshalFixed[T FixedSample](b []byte) []T {
+	return xunsafe.CastSlice[byte, T](b)
+}
 
-// MarshalVariable encodes a slice of variable-length samples, prefixing each with its
-// uint32 LE byte length.
-func MarshalVariable[T VariableSample](data []T) []byte {
+// MarshalVariable encodes variable-length samples, prefixing each with its uint32 LE
+// byte length.
+func MarshalVariable[T VariableSample](data ...T) []byte {
 	total := 0
 	for _, d := range data {
 		total += variableLengthPrefixSize + len(d)

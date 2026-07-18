@@ -247,7 +247,7 @@ func (s Series) Downsample(factor int) Series {
 		for i := 0; i < len(samples); i += factor {
 			downsampled = append(downsampled, samples[i])
 		}
-		oData = MarshalVariable(downsampled)
+		oData = MarshalVariable(downsampled...)
 	} else {
 		seriesLength := len(s.Data) / factor
 		oData = make([]byte, 0, seriesLength)

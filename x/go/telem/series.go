@@ -83,11 +83,11 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 }
 
 func newFixedSeries[T FixedSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: latest.MarshalFixed(data)}
+	return Series{DataType: InferDataType[T](), Data: latest.MarshalFixed(data...)}
 }
 
 func newVariableSeries[T VariableSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: latest.MarshalVariable(data)}
+	return Series{DataType: InferDataType[T](), Data: latest.MarshalVariable(data...)}
 }
 
 // NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
@@ -100,7 +100,7 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 			return Series{}, err
 		}
 	}
-	return Series{DataType: JSONT, Data: latest.MarshalVariable(byteSlices)}, nil
+	return Series{DataType: JSONT, Data: latest.MarshalVariable(byteSlices...)}, nil
 }
 
 // NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
@@ -112,7 +112,7 @@ func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(dat
 // prefix. This is useful for code that accumulates samples into a Series.Data buffer
 // incrementally rather than using NewSeriesV.
 func MarshalVariableSample(raw []byte) []byte {
-	return latest.MarshalVariable([][]byte{raw})
+	return latest.MarshalVariable(raw)
 }
 
 // UnmarshalSeries converts a Series back into a slice of the specified data type. Note
