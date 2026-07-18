@@ -39,7 +39,7 @@ func Publish(
 			if err != nil {
 				return nil, err
 			}
-			return telem.MarshalVariableSample(v), nil
+			return telem.MarshalVariableSamples(v), nil
 		},
 	}
 	return signals.PublishFromGorp(ctx, provider, cfg)

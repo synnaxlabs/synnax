@@ -242,12 +242,12 @@ func (s Series) Downsample(factor int) Series {
 	}
 	var oData []byte
 	if s.DataType.IsVariable() {
-		samples := UnmarshalVariable[[]byte](s.Data)
+		samples := UnmarshalVariableSamples[[]byte](s.Data)
 		downsampled := make([][]byte, 0, len(samples)/factor+1)
 		for i := 0; i < len(samples); i += factor {
 			downsampled = append(downsampled, samples[i])
 		}
-		oData = MarshalVariable(downsampled...)
+		oData = MarshalVariableSamples(downsampled...)
 	} else {
 		seriesLength := len(s.Data) / factor
 		oData = make([]byte, 0, seriesLength)
@@ -287,31 +287,31 @@ func (s Series) DataString() string {
 		return "[]"
 	}
 	if s.DataType.IsVariable() {
-		return truncateAndFormatSlice(UnmarshalVariable[string](s.Data))
+		return truncateAndFormatSlice(UnmarshalVariableSamples[string](s.Data))
 	}
 	switch s.DataType {
 	case Float64T:
-		return truncateAndFormatSlice(UnmarshalFixed[float64](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[float64](s.Data))
 	case Float32T:
-		return truncateAndFormatSlice(UnmarshalFixed[float32](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[float32](s.Data))
 	case Int64T:
-		return truncateAndFormatSlice(UnmarshalFixed[int64](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[int64](s.Data))
 	case Int32T:
-		return truncateAndFormatSlice(UnmarshalFixed[int32](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[int32](s.Data))
 	case Int16T:
-		return truncateAndFormatSlice(UnmarshalFixed[int16](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[int16](s.Data))
 	case Int8T:
-		return truncateAndFormatSlice(UnmarshalFixed[int8](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[int8](s.Data))
 	case Uint64T:
-		return truncateAndFormatSlice(UnmarshalFixed[uint64](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[uint64](s.Data))
 	case Uint32T:
-		return truncateAndFormatSlice(UnmarshalFixed[uint32](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[uint32](s.Data))
 	case Uint16T:
-		return truncateAndFormatSlice(UnmarshalFixed[uint16](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[uint16](s.Data))
 	case Uint8T:
-		return truncateAndFormatSlice(UnmarshalFixed[uint8](s.Data))
+		return truncateAndFormatSlice(UnmarshalFixedSamples[uint8](s.Data))
 	case TimeStampT:
-		first, last := xslices.Truncate(UnmarshalFixed[TimeStamp](s.Data), maxDisplayValues)
+		first, last := xslices.Truncate(UnmarshalFixedSamples[TimeStamp](s.Data), maxDisplayValues)
 		firstDeltas := make([]string, len(first)-1)
 		for i := 1; i < len(first); i++ {
 			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()

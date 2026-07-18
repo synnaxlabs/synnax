@@ -41,21 +41,21 @@ var ByteOrder = binary.LittleEndian
 // in variable-density series encoding.
 const variableLengthPrefixSize = 4
 
-// MarshalFixed encodes fixed-width samples into their contiguous little-endian byte
+// MarshalFixedSamples encodes fixed-width samples into their contiguous little-endian byte
 // representation.
-func MarshalFixed[T FixedSample](data ...T) []byte {
+func MarshalFixedSamples[T FixedSample](data ...T) []byte {
 	src := unsafe.CastSlice[T, byte](data)
 	b := make([]byte, len(src))
 	copy(b, src)
 	return b
 }
 
-// UnmarshalFixed reinterprets a fixed-density buffer as a slice of T.
-func UnmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
+// UnmarshalFixedSamples reinterprets a fixed-density buffer as a slice of T.
+func UnmarshalFixedSamples[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
 
-// MarshalVariable encodes variable-length samples, prefixing each with its uint32 LE
+// MarshalVariableSamples encodes variable-length samples, prefixing each with its uint32 LE
 // byte length.
-func MarshalVariable[T VariableSample](data ...T) []byte {
+func MarshalVariableSamples[T VariableSample](data ...T) []byte {
 	var total int
 	for _, d := range data {
 		total += variableLengthPrefixSize + len(d)
@@ -71,9 +71,9 @@ func MarshalVariable[T VariableSample](data ...T) []byte {
 	return b
 }
 
-// UnmarshalVariable decodes a length-prefixed variable-density buffer into a slice of
+// UnmarshalVariableSamples decodes a length-prefixed variable-density buffer into a slice of
 // T. Samples with a length prefix that overruns the buffer terminate decoding.
-func UnmarshalVariable[T VariableSample](b []byte) []T {
+func UnmarshalVariableSamples[T VariableSample](b []byte) []T {
 	var data []T
 	var offset int
 	for offset+variableLengthPrefixSize <= len(b) {

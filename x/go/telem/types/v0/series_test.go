@@ -30,33 +30,33 @@ func seriesV[T v0.Sample](data ...T) v0.Series {
 	var t T
 	switch any(t).(type) {
 	case uint8:
-		return v0.Series{DataType: v0.Uint8T, Data: v0.MarshalFixed(any(data).([]uint8)...)}
+		return v0.Series{DataType: v0.Uint8T, Data: v0.MarshalFixedSamples(any(data).([]uint8)...)}
 	case uint16:
-		return v0.Series{DataType: v0.Uint16T, Data: v0.MarshalFixed(any(data).([]uint16)...)}
+		return v0.Series{DataType: v0.Uint16T, Data: v0.MarshalFixedSamples(any(data).([]uint16)...)}
 	case uint32:
-		return v0.Series{DataType: v0.Uint32T, Data: v0.MarshalFixed(any(data).([]uint32)...)}
+		return v0.Series{DataType: v0.Uint32T, Data: v0.MarshalFixedSamples(any(data).([]uint32)...)}
 	case uint64:
-		return v0.Series{DataType: v0.Uint64T, Data: v0.MarshalFixed(any(data).([]uint64)...)}
+		return v0.Series{DataType: v0.Uint64T, Data: v0.MarshalFixedSamples(any(data).([]uint64)...)}
 	case int8:
-		return v0.Series{DataType: v0.Int8T, Data: v0.MarshalFixed(any(data).([]int8)...)}
+		return v0.Series{DataType: v0.Int8T, Data: v0.MarshalFixedSamples(any(data).([]int8)...)}
 	case int16:
-		return v0.Series{DataType: v0.Int16T, Data: v0.MarshalFixed(any(data).([]int16)...)}
+		return v0.Series{DataType: v0.Int16T, Data: v0.MarshalFixedSamples(any(data).([]int16)...)}
 	case int32:
-		return v0.Series{DataType: v0.Int32T, Data: v0.MarshalFixed(any(data).([]int32)...)}
+		return v0.Series{DataType: v0.Int32T, Data: v0.MarshalFixedSamples(any(data).([]int32)...)}
 	case int64:
-		return v0.Series{DataType: v0.Int64T, Data: v0.MarshalFixed(any(data).([]int64)...)}
+		return v0.Series{DataType: v0.Int64T, Data: v0.MarshalFixedSamples(any(data).([]int64)...)}
 	case float32:
-		return v0.Series{DataType: v0.Float32T, Data: v0.MarshalFixed(any(data).([]float32)...)}
+		return v0.Series{DataType: v0.Float32T, Data: v0.MarshalFixedSamples(any(data).([]float32)...)}
 	case float64:
-		return v0.Series{DataType: v0.Float64T, Data: v0.MarshalFixed(any(data).([]float64)...)}
+		return v0.Series{DataType: v0.Float64T, Data: v0.MarshalFixedSamples(any(data).([]float64)...)}
 	case v0.TimeStamp:
-		return v0.Series{DataType: v0.TimeStampT, Data: v0.MarshalFixed(any(data).([]v0.TimeStamp)...)}
+		return v0.Series{DataType: v0.TimeStampT, Data: v0.MarshalFixedSamples(any(data).([]v0.TimeStamp)...)}
 	case uuid.UUID:
-		return v0.Series{DataType: v0.UUIDT, Data: v0.MarshalFixed(any(data).([]uuid.UUID)...)}
+		return v0.Series{DataType: v0.UUIDT, Data: v0.MarshalFixedSamples(any(data).([]uuid.UUID)...)}
 	case string:
-		return v0.Series{DataType: v0.StringT, Data: v0.MarshalVariable(any(data).([]string)...)}
+		return v0.Series{DataType: v0.StringT, Data: v0.MarshalVariableSamples(any(data).([]string)...)}
 	case []byte:
-		return v0.Series{DataType: v0.BytesT, Data: v0.MarshalVariable(any(data).([][]byte)...)}
+		return v0.Series{DataType: v0.BytesT, Data: v0.MarshalVariableSamples(any(data).([][]byte)...)}
 	}
 	panic("unsupported sample type")
 }
@@ -76,11 +76,11 @@ func jsonSeriesV[T any](data ...T) (v0.Series, error) {
 			return v0.Series{}, err
 		}
 	}
-	return v0.Series{DataType: v0.JSONT, Data: v0.MarshalVariable(byteSlices...)}, nil
+	return v0.Series{DataType: v0.JSONT, Data: v0.MarshalVariableSamples(byteSlices...)}, nil
 }
 
 // marshalVariableSample length-prefixes a single variable-length sample.
-func marshalVariableSample(b []byte) []byte { return v0.MarshalVariable(b) }
+func marshalVariableSample(b []byte) []byte { return v0.MarshalVariableSamples(b) }
 
 // unmarshalSeries decodes a series back into typed values, mirroring the
 // top-level telem.UnmarshalSeries for the method tests.
@@ -88,33 +88,33 @@ func unmarshalSeries[T v0.Sample](s v0.Series) []T {
 	var t T
 	switch any(t).(type) {
 	case uint8:
-		return any(v0.UnmarshalFixed[uint8](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uint8](s.Data)).([]T)
 	case uint16:
-		return any(v0.UnmarshalFixed[uint16](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uint16](s.Data)).([]T)
 	case uint32:
-		return any(v0.UnmarshalFixed[uint32](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uint32](s.Data)).([]T)
 	case uint64:
-		return any(v0.UnmarshalFixed[uint64](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uint64](s.Data)).([]T)
 	case int8:
-		return any(v0.UnmarshalFixed[int8](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[int8](s.Data)).([]T)
 	case int16:
-		return any(v0.UnmarshalFixed[int16](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[int16](s.Data)).([]T)
 	case int32:
-		return any(v0.UnmarshalFixed[int32](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[int32](s.Data)).([]T)
 	case int64:
-		return any(v0.UnmarshalFixed[int64](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[int64](s.Data)).([]T)
 	case float32:
-		return any(v0.UnmarshalFixed[float32](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[float32](s.Data)).([]T)
 	case float64:
-		return any(v0.UnmarshalFixed[float64](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[float64](s.Data)).([]T)
 	case v0.TimeStamp:
-		return any(v0.UnmarshalFixed[v0.TimeStamp](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[v0.TimeStamp](s.Data)).([]T)
 	case uuid.UUID:
-		return any(v0.UnmarshalFixed[uuid.UUID](s.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uuid.UUID](s.Data)).([]T)
 	case string:
-		return any(v0.UnmarshalVariable[string](s.Data)).([]T)
+		return any(v0.UnmarshalVariableSamples[string](s.Data)).([]T)
 	case []byte:
-		return any(v0.UnmarshalVariable[[]byte](s.Data)).([]T)
+		return any(v0.UnmarshalVariableSamples[[]byte](s.Data)).([]T)
 	}
 	panic("unsupported sample type")
 }

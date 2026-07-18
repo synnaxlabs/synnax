@@ -161,7 +161,7 @@ var _ = Describe("Writer", func() {
 				telem.JSONT,
 				telem.Series{
 					DataType: telem.JSONT,
-					Data:     telem.MarshalVariableSample([]byte(`{not json}`)),
+					Data:     telem.MarshalVariableSamples([]byte(`{not json}`)),
 				},
 			),
 			Entry(
@@ -169,7 +169,7 @@ var _ = Describe("Writer", func() {
 				telem.StringT,
 				telem.Series{
 					DataType: telem.StringT,
-					Data:     telem.MarshalVariableSample([]byte{0xFF, 0xFE}),
+					Data:     telem.MarshalVariableSamples([]byte{0xFF, 0xFE}),
 				},
 			),
 			Entry(

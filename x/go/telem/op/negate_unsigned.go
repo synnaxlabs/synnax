@@ -11,7 +11,7 @@ package op
 
 import (
 	"github.com/synnaxlabs/x/telem"
-	unsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // NegateU8 negates uint8 values, promoting the output to int16.

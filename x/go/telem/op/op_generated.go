@@ -15,7 +15,7 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/x/telem"
-	unsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // Blank identifier ensures math import is used even when no float types are generated,

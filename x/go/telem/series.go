@@ -83,11 +83,11 @@ func NewSeriesSecondsTSV(data ...TimeStamp) Series {
 }
 
 func newFixedSeries[T FixedSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: v0.MarshalFixed(data...)}
+	return Series{DataType: InferDataType[T](), Data: v0.MarshalFixedSamples(data...)}
 }
 
 func newVariableSeries[T VariableSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: v0.MarshalVariable(data...)}
+	return Series{DataType: InferDataType[T](), Data: v0.MarshalVariableSamples(data...)}
 }
 
 // NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
@@ -100,7 +100,7 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 			return Series{}, err
 		}
 	}
-	return Series{DataType: JSONT, Data: v0.MarshalVariable(byteSlices...)}, nil
+	return Series{DataType: JSONT, Data: v0.MarshalVariableSamples(byteSlices...)}, nil
 }
 
 // NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
@@ -108,11 +108,11 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 // marshalled into JSON.
 func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
 
-// MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
-// prefix. This is useful for code that accumulates samples into a Series.Data buffer
-// incrementally rather than using NewSeriesV.
-func MarshalVariableSample(raw []byte) []byte {
-	return v0.MarshalVariable(raw)
+// MarshalVariableSamples length-prefixes each variable-length sample with a uint32 LE
+// byte length. This is useful for code that accumulates samples into a Series.Data
+// buffer incrementally rather than using NewSeriesV.
+func MarshalVariableSamples(samples ...[]byte) []byte {
+	return v0.MarshalVariableSamples(samples...)
 }
 
 // UnmarshalSeries converts a Series back into a slice of the specified data type. Note
@@ -122,33 +122,33 @@ func UnmarshalSeries[T Sample](series Series) []T {
 	var t T
 	switch any(t).(type) {
 	case uint8:
-		return any(v0.UnmarshalFixed[uint8](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uint8](series.Data)).([]T)
 	case uint16:
-		return any(v0.UnmarshalFixed[uint16](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uint16](series.Data)).([]T)
 	case uint32:
-		return any(v0.UnmarshalFixed[uint32](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uint32](series.Data)).([]T)
 	case uint64:
-		return any(v0.UnmarshalFixed[uint64](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uint64](series.Data)).([]T)
 	case int8:
-		return any(v0.UnmarshalFixed[int8](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[int8](series.Data)).([]T)
 	case int16:
-		return any(v0.UnmarshalFixed[int16](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[int16](series.Data)).([]T)
 	case int32:
-		return any(v0.UnmarshalFixed[int32](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[int32](series.Data)).([]T)
 	case int64:
-		return any(v0.UnmarshalFixed[int64](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[int64](series.Data)).([]T)
 	case float32:
-		return any(v0.UnmarshalFixed[float32](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[float32](series.Data)).([]T)
 	case float64:
-		return any(v0.UnmarshalFixed[float64](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[float64](series.Data)).([]T)
 	case TimeStamp:
-		return any(v0.UnmarshalFixed[TimeStamp](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[TimeStamp](series.Data)).([]T)
 	case uuid.UUID:
-		return any(v0.UnmarshalFixed[uuid.UUID](series.Data)).([]T)
+		return any(v0.UnmarshalFixedSamples[uuid.UUID](series.Data)).([]T)
 	case string:
-		return any(v0.UnmarshalVariable[string](series.Data)).([]T)
+		return any(v0.UnmarshalVariableSamples[string](series.Data)).([]T)
 	case []byte:
-		return any(v0.UnmarshalVariable[[]byte](series.Data)).([]T)
+		return any(v0.UnmarshalVariableSamples[[]byte](series.Data)).([]T)
 	}
 	// degenerate case, should never hit this path.
 	panic(fmt.Sprintf("unsupported sample type %T", t))

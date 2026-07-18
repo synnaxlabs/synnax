@@ -72,7 +72,7 @@ func PublishSignals[K comparable, A any](
 				return nil, false
 			}
 			return []xchange.Change[[]byte, struct{}]{
-				{Variant: xchange.VariantSet, Key: telem.MarshalVariableSample(b)},
+				{Variant: xchange.VariantSet, Key: telem.MarshalVariableSamples(b)},
 			}, true
 		},
 	}
