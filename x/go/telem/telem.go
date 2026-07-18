@@ -175,7 +175,7 @@ var (
 // NewAlignment takes the given array index and sample index within that array and
 // returns a new Alignment (see Alignment for more information).
 func NewAlignment(domainIdx, sampleIdx uint32) Alignment {
-	return Alignment(domainIdx)<<32 | Alignment(sampleIdx)
+	return latest.NewAlignment(domainIdx, sampleIdx)
 }
 
 // InferDataType infers the data type of the given Sample.

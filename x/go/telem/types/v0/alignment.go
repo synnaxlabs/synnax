@@ -22,9 +22,9 @@ var (
 	_ json.Marshaler   = (*Alignment)(nil)
 )
 
-// newAlignment packs a domain and sample index into an Alignment for the methods on
-// this type. The exported constructor lives in the top-level telem package.
-func newAlignment(domainIdx, sampleIdx uint32) Alignment {
+// NewAlignment takes the given array index and sample index within that array and
+// returns a new Alignment (see Alignment for more information).
+func NewAlignment(domainIdx, sampleIdx uint32) Alignment {
 	return Alignment(domainIdx)<<32 | Alignment(sampleIdx)
 }
 
@@ -62,5 +62,5 @@ func (a Alignment) MarshalJSON() ([]byte, error) {
 
 // AddSamples increments the sample index of the alignment.
 func (a Alignment) AddSamples(samples uint32) Alignment {
-	return newAlignment(a.DomainIndex(), a.SampleIndex()+samples)
+	return NewAlignment(a.DomainIndex(), a.SampleIndex()+samples)
 }

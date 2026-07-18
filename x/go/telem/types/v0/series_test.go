@@ -472,7 +472,7 @@ var _ = Describe("Series", func() {
 
 			It("Should preserve alignment information", func() {
 				original := seriesV[int64](1, 2, 3, 4, 5, 6)
-				original.Alignment = align(1, 5)
+				original.Alignment = v0.NewAlignment(1, 5)
 				downsampled := original.Downsample(2)
 
 				Expect(downsampled.Alignment).To(Equal(original.Alignment))
@@ -677,9 +677,9 @@ var _ = Describe("Series", func() {
 		Describe("AlignmentBounds", func() {
 			It("Should return the alignment bounds of the multi-series", func() {
 				s1 := secondsTSV(1, 2, 3)
-				s1.Alignment = align(0, 0)
+				s1.Alignment = v0.NewAlignment(0, 0)
 				s2 := secondsTSV(4, 5, 6)
-				s2.Alignment = align(0, 3)
+				s2.Alignment = v0.NewAlignment(0, 3)
 				ms := multiSeriesV(s1, s2)
 				Expect(ms.AlignmentBounds()).To(Equal(v0.AlignmentBounds{
 					Lower: 0,
@@ -747,11 +747,11 @@ var _ = Describe("Series", func() {
 		Describe("FilterGreaterThanOrEqualTo", func() {
 			It("Should remove series with alignment bounds that are less than the target threshold", func() {
 				s1 := secondsTSV(1, 2, 3)
-				s1.Alignment = align(0, 0)
+				s1.Alignment = v0.NewAlignment(0, 0)
 				s2 := secondsTSV(4, 5, 6)
-				s2.Alignment = align(0, 3)
+				s2.Alignment = v0.NewAlignment(0, 3)
 				ms := multiSeriesV(s1, s2)
-				ms = ms.FilterGreaterThanOrEqualTo(align(0, 3))
+				ms = ms.FilterGreaterThanOrEqualTo(v0.NewAlignment(0, 3))
 				Expect(ms.Len()).To(Equal(int64(3)))
 				Expect(ms.Series[0].Alignment).To(Equal(s2.Alignment))
 			})
@@ -901,7 +901,7 @@ var _ = Describe("Series", func() {
 		It("Should create a deep copy of a series", func() {
 			original := seriesV[int64](1, 2, 3, 4, 5)
 			original.TimeRange = v0.TimeRange{Start: 100, End: 200}
-			original.Alignment = align(1, 5)
+			original.Alignment = v0.NewAlignment(1, 5)
 
 			copied := original.DeepCopy()
 
@@ -933,7 +933,7 @@ var _ = Describe("Series", func() {
 		It("Should work with variable density types", func() {
 			original := seriesV("foo", "bar", "baz")
 			original.TimeRange = v0.TimeRange{Start: 10, End: 20}
-			original.Alignment = align(2, 3)
+			original.Alignment = v0.NewAlignment(2, 3)
 
 			copied := original.DeepCopy()
 
@@ -956,13 +956,13 @@ var _ = Describe("Series", func() {
 		It("Should preserve all fields correctly", func() {
 			original := seriesV[uint32](100, 200, 300)
 			original.TimeRange = v0.TimeRange{Start: v0.TimeStamp(1000), End: v0.TimeStamp(2000)}
-			original.Alignment = align(5, 10)
+			original.Alignment = v0.NewAlignment(5, 10)
 
 			copied := original.DeepCopy()
 
 			Expect(copied.TimeRange.Start).To(Equal(v0.TimeStamp(1000)))
 			Expect(copied.TimeRange.End).To(Equal(v0.TimeStamp(2000)))
-			Expect(copied.Alignment).To(Equal(align(5, 10)))
+			Expect(copied.Alignment).To(Equal(v0.NewAlignment(5, 10)))
 		})
 
 		It("Should work with JSON series", func() {

@@ -210,7 +210,7 @@ func (s *Series) Resize(length int64) {
 func (s Series) AlignmentBounds() AlignmentBounds {
 	return AlignmentBounds{
 		Lower: s.Alignment,
-		Upper: newAlignment(
+		Upper: NewAlignment(
 			s.Alignment.DomainIndex(),
 			s.Alignment.SampleIndex()+uint32(s.Len()),
 		),
