@@ -162,25 +162,3 @@ Series struct {
     @py omit
     @pb omit
 }
-
-Frame struct<Key extends uint32> {
-    keys   Key[]    {
-        @doc value """
-            contains the channel keys identifying each series in the frame.
-        """
-    }
-    series Series[] {
-        @doc value "contains the series data for each corresponding channel key."
-    }
-
-    @doc value """
-        is a performance-optimized record mapping numeric channel keys to their
-        corresponding Series data. Used for efficient aggregation and transmission
-        of telemetry data from multiple channels.
-    """
-    @go omit
-    @pb omit
-    @ts omit
-    @cpp omit
-    @py omit
-}
