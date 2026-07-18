@@ -20,10 +20,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-const (
-	postMessageURL = "https://slack.com/api/chat.postMessage"
-	authTestURL    = "https://slack.com/api/auth.test"
-)
+// DefaultBaseURL is the base URL of the Slack Web API.
+const DefaultBaseURL = "https://slack.com/api"
 
 // Message is a Slack message posted to a channel. buildMessage constructs it from a
 // status change; the Sender renders it to the chat.postMessage wire format.
@@ -54,16 +52,25 @@ type Sender interface {
 	AuthTest(ctx context.Context, token string) error
 }
 
-type defaultSenderImpl struct{ client *http.Client }
+type defaultSenderImpl struct {
+	client  *http.Client
+	baseURL string
+}
+
+// NewSender returns the default Slack Sender targeting baseURL. Production passes
+// DefaultBaseURL; tests point it at a mock server.
+func NewSender(baseURL string) Sender {
+	return defaultSenderImpl{client: http.DefaultClient, baseURL: baseURL}
+}
 
 // Post renders msg to Block Kit JSON and sends it to chat.postMessage.
 func (d defaultSenderImpl) Post(ctx context.Context, token string, msg Message) error {
-	return d.call(ctx, token, postMessageURL, renderPayload(msg))
+	return d.call(ctx, token, d.baseURL+"/chat.postMessage", renderPayload(msg))
 }
 
 // AuthTest calls auth.test to verify the token authenticates a workspace.
 func (d defaultSenderImpl) AuthTest(ctx context.Context, token string) error {
-	return d.call(ctx, token, authTestURL, map[string]any{})
+	return d.call(ctx, token, d.baseURL+"/auth.test", map[string]any{})
 }
 
 // call POSTs payload to a Slack Web API method. Slack returns HTTP 200 with an "ok"
@@ -137,4 +144,4 @@ func renderPayload(msg Message) map[string]any {
 	}
 }
 
-var defaultSender Sender = defaultSenderImpl{client: http.DefaultClient}
+var defaultSender = NewSender(DefaultBaseURL)
