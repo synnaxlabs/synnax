@@ -110,12 +110,14 @@ type postCall struct {
 	msg   slk.Message
 }
 
-// mockSender records posts for assertions and can be made to fail.
+// mockSender records posts and auth tests for assertions and can be made to fail.
 type mockSender struct {
-	mu    sync.Mutex
-	posts []postCall
-	err   error
-	calls atomic.Int32
+	mu        sync.Mutex
+	posts     []postCall
+	err       error
+	authErr   error
+	authToken string
+	calls     atomic.Int32
 }
 
 var _ slk.Sender = (*mockSender)(nil)
@@ -131,6 +133,25 @@ func (m *mockSender) Post(_ context.Context, token string, msg slk.Message) erro
 	}
 	m.posts = append(m.posts, postCall{token: token, msg: msg})
 	return nil
+}
+
+func (m *mockSender) AuthTest(_ context.Context, token string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.authToken = token
+	return m.authErr
+}
+
+func (m *mockSender) lastAuthToken() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.authToken
+}
+
+func (m *mockSender) setAuthError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.authErr = err
 }
 
 func (m *mockSender) callCount() int32 { return m.calls.Load() }

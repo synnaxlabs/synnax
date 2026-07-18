@@ -315,6 +315,9 @@ func (d *Driver) delete(key task.Key) {
 	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
 }
 
+// Rack returns the embedded rack managed by this driver.
+func (d *Driver) Rack() rack.Rack { return d.rack }
+
 func (d *Driver) Close() error {
 	d.mu.Lock()
 	for key, t := range d.mu.tasks {

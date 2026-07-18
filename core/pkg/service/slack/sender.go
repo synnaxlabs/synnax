@@ -20,7 +20,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-const postMessageURL = "https://slack.com/api/chat.postMessage"
+const (
+	postMessageURL = "https://slack.com/api/chat.postMessage"
+	authTestURL    = "https://slack.com/api/auth.test"
+)
 
 // Message is a Slack message posted to a channel. buildMessage constructs it from a
 // status change; the Sender renders it to the chat.postMessage wire format.
@@ -42,30 +45,40 @@ type Message struct {
 	Context string
 }
 
-// Sender posts a Message to Slack. It is an injected seam so tests substitute a fake
-// for the real chat.postMessage call.
+// Sender performs outbound Slack calls. It is an injected seam so tests substitute a
+// fake for the real Slack Web API.
 type Sender interface {
 	// Post sends msg to Slack, authenticating with the workspace bot token.
 	Post(ctx context.Context, token string, msg Message) error
+	// AuthTest verifies that the bot token is valid, returning an error otherwise.
+	AuthTest(ctx context.Context, token string) error
 }
 
 type defaultSenderImpl struct{ client *http.Client }
 
-// Post renders msg to Block Kit JSON and POSTs it to chat.postMessage. Slack returns
-// HTTP 200 with an "ok" field even on logical failures, so the response body is checked
-// rather than the status code.
-func (d defaultSenderImpl) Post(
+// Post renders msg to Block Kit JSON and sends it to chat.postMessage.
+func (d defaultSenderImpl) Post(ctx context.Context, token string, msg Message) error {
+	return d.call(ctx, token, postMessageURL, renderPayload(msg))
+}
+
+// AuthTest calls auth.test to verify the token authenticates a workspace.
+func (d defaultSenderImpl) AuthTest(ctx context.Context, token string) error {
+	return d.call(ctx, token, authTestURL, map[string]any{})
+}
+
+// call POSTs payload to a Slack Web API method. Slack returns HTTP 200 with an "ok"
+// field even on logical failures, so the response body is checked rather than the
+// status code.
+func (d defaultSenderImpl) call(
 	ctx context.Context,
-	token string,
-	msg Message,
+	token, url string,
+	payload map[string]any,
 ) (err error) {
-	body, err := json.Marshal(renderPayload(msg))
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(
-		ctx, http.MethodPost, postMessageURL, bytes.NewReader(body),
-	)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -92,7 +105,7 @@ func (d defaultSenderImpl) Post(
 		return err
 	}
 	if !parsed.OK {
-		return errors.Newf("slack chat.postMessage failed: %s", parsed.Error)
+		return errors.Newf("slack request failed: %s", parsed.Error)
 	}
 	return nil
 }

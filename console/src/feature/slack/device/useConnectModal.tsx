@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type rack, status } from "@synnaxlabs/client";
+import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
 import {
   Button,
   Component,
@@ -18,10 +18,21 @@ import {
   Nav,
   Rack,
   Status,
+  Task,
 } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
-import { type Device, SCHEMAS, ZERO_PROPERTIES } from "@/feature/slack/device/types";
+import {
+  type Device,
+  type Properties,
+  SCHEMAS,
+  ZERO_PROPERTIES,
+} from "@/feature/slack/device/types";
+import {
+  SCAN_SCHEMAS,
+  SCAN_TYPE,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/feature/slack/task/types";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
@@ -39,16 +50,30 @@ const INITIAL_VALUES: Device = {
 
 const useForm = PDevice.createForm(SCHEMAS);
 
-// beforeSave marks the device connected. Live token validation via Slack auth.test is
-// deferred; a bad token surfaces when the first alert task posts.
+// beforeSave validates the bot token against Slack via the scan task's test_connection
+// command, then marks the device connected.
 const beforeSave = async ({
+  client,
   get,
+  store,
   set,
 }: Flux.FormBeforeSaveParams<
   PDevice.RetrieveQuery,
   typeof PDevice.formSchema,
   PDevice.FluxSubStore
 >) => {
+  const scanTask = await Task.retrieveSingle({
+    client,
+    store,
+    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+    schemas: SCAN_SCHEMAS,
+  });
+  const state = await scanTask.executeCommandSync({
+    type: TEST_CONNECTION_COMMAND_TYPE,
+    timeout: TimeSpan.seconds(10),
+    args: { token: get<Properties>("properties").value.botToken },
+  });
+  if (state.variant === "error") throw new Error(state.message);
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
     message: "Workspace connected",
     variant: "success",

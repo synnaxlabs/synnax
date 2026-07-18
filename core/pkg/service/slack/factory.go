@@ -34,9 +34,17 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 }
 
 func (f *factory) ConfigureTask(ctx context.Context, t task.Task) (driver.Task, error) {
-	if t.Type != AlertTaskType {
+	switch t.Type {
+	case ScanTaskType:
+		return &scanTask{factoryCfg: f.cfg, task: t}, nil
+	case AlertTaskType:
+		return f.configureAlert(ctx, t)
+	default:
 		return nil, driver.ErrTaskNotHandled
 	}
+}
+
+func (f *factory) configureAlert(ctx context.Context, t task.Task) (driver.Task, error) {
 	var cfg AlertTaskConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
 		f.setConfigStatus(ctx, t, status.VariantError, err.Error())

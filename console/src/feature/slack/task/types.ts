@@ -8,10 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
+import { record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const PREFIX = "slack";
 export const ALERT_TYPE = `${PREFIX}_alert`;
+export const SCAN_TYPE = `${PREFIX}_scan`;
+
+export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
+
+export const SCAN_SCHEMAS = {
+  type: z.literal(SCAN_TYPE),
+  config: record.nullishToEmpty(),
+  statusData: z.null().optional(),
+} as const satisfies task.Schemas;
 
 const alertTaskConfigZ = z.object({
   device: z.string().min(1, "A workspace is required"),

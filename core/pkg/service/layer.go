@@ -602,5 +602,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.Driver) {
 		return nil, err
 	}
+	if err = slack.EnsureScanTask(ctx, l.Task, l.Driver.Rack().Key); !ok(err, nil) {
+		return nil, err
+	}
 	return l, nil
 }
