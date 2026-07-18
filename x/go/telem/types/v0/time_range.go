@@ -9,17 +9,7 @@
 
 package v0
 
-import (
-	"fmt"
-
-	"github.com/synnaxlabs/x/zyn"
-)
-
-// TimeRangeSchema is a zyn schema for parsing a time range.
-var TimeRangeSchema = zyn.Object(map[string]zyn.Schema{
-	"start": zyn.Int64().Coerce(),
-	"end":   zyn.Int64().Coerce(),
-})
+import "fmt"
 
 // Span returns the TimeSpan that the TimeRange occupies.
 func (tr TimeRange) Span() TimeSpan { return TimeSpan(tr.End - tr.Start) }

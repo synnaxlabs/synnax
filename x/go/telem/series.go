@@ -22,6 +22,9 @@ import (
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
+// MultiSeries is a collection of ordered Series that share the same data type.
+type MultiSeries = latest.MultiSeries
+
 // NewSeries creates a new Series from a slice of sample values. It automatically
 // determines the data type from the type parameter.
 func NewSeries[T Sample](data []T) Series {
