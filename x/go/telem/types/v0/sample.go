@@ -13,7 +13,7 @@ import (
 	"encoding/binary"
 
 	"github.com/google/uuid"
-	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/unsafe"
 )
 
 // NumericSample represents any numeric value that can be stored in a Series and have
@@ -44,26 +44,24 @@ const variableLengthPrefixSize = 4
 // MarshalFixed encodes fixed-width samples into their contiguous little-endian byte
 // representation.
 func MarshalFixed[T FixedSample](data ...T) []byte {
-	src := xunsafe.CastSlice[T, byte](data)
+	src := unsafe.CastSlice[T, byte](data)
 	b := make([]byte, len(src))
 	copy(b, src)
 	return b
 }
 
 // UnmarshalFixed reinterprets a fixed-density buffer as a slice of T.
-func UnmarshalFixed[T FixedSample](b []byte) []T {
-	return xunsafe.CastSlice[byte, T](b)
-}
+func UnmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
 
 // MarshalVariable encodes variable-length samples, prefixing each with its uint32 LE
 // byte length.
 func MarshalVariable[T VariableSample](data ...T) []byte {
-	total := 0
+	var total int
 	for _, d := range data {
 		total += variableLengthPrefixSize + len(d)
 	}
 	b := make([]byte, total)
-	offset := 0
+	var offset int
 	for _, d := range data {
 		ByteOrder.PutUint32(b[offset:], uint32(len(d)))
 		offset += variableLengthPrefixSize
@@ -77,7 +75,7 @@ func MarshalVariable[T VariableSample](data ...T) []byte {
 // T. Samples with a length prefix that overruns the buffer terminate decoding.
 func UnmarshalVariable[T VariableSample](b []byte) []T {
 	var data []T
-	offset := 0
+	var offset int
 	for offset+variableLengthPrefixSize <= len(b) {
 		length := int(ByteOrder.Uint32(b[offset:]))
 		offset += variableLengthPrefixSize

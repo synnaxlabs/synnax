@@ -16,38 +16,43 @@ import (
 )
 
 var _ = Describe("Sample codec", func() {
-	Describe("Fixed", func() {
-		It("Should round-trip a slice of integers", func() {
-			data := []int64{1, 2, 3}
-			Expect(v0.UnmarshalFixed[int64](v0.MarshalFixed(data...))).To(Equal(data))
+	Describe("MarshalFixed", func() {
+		It("Should encode samples as contiguous little-endian bytes", func() {
+			Expect(v0.MarshalFixed[int32](1, 2)).To(Equal([]byte{1, 0, 0, 0, 2, 0, 0, 0}))
 		})
-		It("Should round-trip a slice of floats", func() {
-			data := []float64{1.5, -2.25, 3}
-			Expect(v0.UnmarshalFixed[float64](v0.MarshalFixed(data...))).To(Equal(data))
-		})
-		It("Should round-trip timestamps", func() {
-			data := []v0.TimeStamp{1, 2, 3}
-			Expect(v0.UnmarshalFixed[v0.TimeStamp](v0.MarshalFixed(data...))).To(Equal(data))
-		})
-		It("Should encode an empty slice to an empty buffer", func() {
-			Expect(v0.MarshalFixed[int32]()).To(BeEmpty())
+		It("Should return an empty buffer for no samples", func() {
+			Expect(v0.MarshalFixed[int64]()).To(BeEmpty())
 		})
 	})
 
-	Describe("Variable", func() {
-		It("Should round-trip strings, including empty ones", func() {
-			data := []string{"hello", "", "world"}
-			Expect(v0.UnmarshalVariable[string](v0.MarshalVariable(data...))).To(Equal(data))
+	Describe("UnmarshalFixed", func() {
+		It("Should decode a fixed-density buffer into typed samples", func() {
+			Expect(v0.UnmarshalFixed[int32]([]byte{1, 0, 0, 0, 2, 0, 0, 0})).
+				To(Equal([]int32{1, 2}))
 		})
-		It("Should round-trip byte slices", func() {
-			data := [][]byte{{1, 2, 3}, {}, {4}}
-			Expect(v0.UnmarshalVariable[[]byte](v0.MarshalVariable(data...))).To(Equal(data))
+		It("Should decode an empty buffer to no samples", func() {
+			Expect(v0.UnmarshalFixed[int64](nil)).To(BeEmpty())
 		})
-		It("Should prefix each sample with a 4-byte length", func() {
-			Expect(v0.MarshalVariable("ab", "cde")).To(HaveLen(4 + 2 + 4 + 3))
+	})
+
+	Describe("MarshalVariable", func() {
+		It("Should length-prefix each sample with its uint32 LE byte length", func() {
+			Expect(v0.MarshalVariable("ab", "cde")).
+				To(Equal([]byte{2, 0, 0, 0, 'a', 'b', 3, 0, 0, 0, 'c', 'd', 'e'}))
+		})
+		It("Should encode empty samples as bare length prefixes", func() {
+			Expect(v0.MarshalVariable("", "")).To(Equal([]byte{0, 0, 0, 0, 0, 0, 0, 0}))
+		})
+	})
+
+	Describe("UnmarshalVariable", func() {
+		It("Should decode length-prefixed samples", func() {
+			Expect(v0.UnmarshalVariable[string](
+				[]byte{2, 0, 0, 0, 'a', 'b', 3, 0, 0, 0, 'c', 'd', 'e'},
+			)).To(Equal([]string{"ab", "cde"}))
 		})
 		It("Should stop decoding when a length prefix overruns the buffer", func() {
-			Expect(v0.UnmarshalVariable[string]([]byte{0xff, 0x00, 0x00, 0x00, 'a'})).To(BeEmpty())
+			Expect(v0.UnmarshalVariable[string]([]byte{0xff, 0, 0, 0, 'a'})).To(BeEmpty())
 		})
 	})
 })
