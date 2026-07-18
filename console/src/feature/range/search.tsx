@@ -14,11 +14,10 @@ import { Layout } from "@/platform/layout";
 import { Palette } from "@/platform/palette";
 import { Range } from "@/platform/range";
 import { type Search } from "@/platform/search";
-import { type Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 const SearchListItem: Search.ListItem = (props) => {
-  const resource = List.useItem<string, Tree.Entry>(props.itemKey);
+  const id = List.useItem<string, ontology.ID>(props.itemKey);
   const range = Ranger.useRetrieve({
     key: ontology.idZ.parse(props.itemKey).key,
   }).data;
@@ -29,15 +28,14 @@ const SearchListItem: Search.ListItem = (props) => {
   const handleSelect = () => {
     const name = range?.name ?? "range";
     handleError(async () => {
-      if (client == null || resource == null) return;
-      const { id } = resource;
+      if (client == null || id == null) return;
       const ranges = await client.ranges.retrieve([id.key]);
       store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
       const first = ranges[0];
       placeLayout({ ...Range.OVERVIEW_LAYOUT, name: first.name, key: first.key });
     }, `Failed to select ${name}`);
   };
-  if (resource == null) return null;
+  if (id == null) return null;
   return (
     <Palette.ListItem gap="tiny" justify="between" {...props} onSelect={handleSelect}>
       <Text.Text weight={450} gap="medium">

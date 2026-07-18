@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ontology } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
@@ -20,7 +21,6 @@ import { Search } from "@/feature/search";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
 import { type Palette } from "@/platform/palette";
-import { type Tree } from "@/platform/tree";
 
 const SEARCH_LIST_ITEMS: Search.ListItems = {
   ...Arc.SEARCH_LIST_ITEMS,
@@ -34,6 +34,6 @@ const SEARCH_LIST_ITEMS: Search.ListItems = {
   ...Task.SEARCH_LIST_ITEMS,
 };
 
-export const List = (props: Palette.ListProps<Tree.Entry>): ReactElement => (
+export const List = (props: Palette.ListProps<ontology.ID>): ReactElement => (
   <Search.List items={SEARCH_LIST_ITEMS} {...props} />
 );
