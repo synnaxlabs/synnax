@@ -27,7 +27,7 @@ export const createServerPanel = async (
 ): Promise<panel.Panel> =>
   await client.panels.create({ key: uuid.create(), name: uniqueName("panel"), root });
 
-export interface PanelWrapperArgs {
+export interface PanelWrapperParams {
   client: Synnax;
   store?: TestStore;
   panelKey?: panel.Key;
@@ -44,7 +44,7 @@ export const createPanelWrapper = async ({
   store,
   panelKey,
   tabKey,
-}: PanelWrapperArgs): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+}: PanelWrapperParams): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     store,
