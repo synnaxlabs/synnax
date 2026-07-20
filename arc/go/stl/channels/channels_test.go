@@ -861,14 +861,16 @@ var _ = Describe("Channel", func() {
 			})
 		})
 
-		Describe("High-water mark and ordering", func() {
-			It("Should ignore data below the high-water mark", func(ctx SpecContext) {
+		Describe("Ordering and re-fire suppression", func() {
+			It("Should fire out-of-order data exactly once", func(ctx SpecContext) {
 				src := newSource(ctx, "s0", 10)
 				writeData(10, 99, 1, 100, al(5))
 				Expect(firesOn(ctx, src)).To(BeTrue())
 				channelState.ClearReads()
 				writeData(10, 99, 2, 90, al(2))
-				Expect(firesOn(ctx, src)).To(BeFalse(), "below-watermark sample must not fire")
+				Expect(firesOn(ctx, src)).To(BeTrue(),
+					"an unseen series fires regardless of relative alignment")
+				Expect(firesOn(ctx, src)).To(BeFalse())
 			})
 
 			It("Should not fire again without new data", func(ctx SpecContext) {
@@ -1483,6 +1485,29 @@ var _ = Describe("Channel", func() {
 				Expect(firesOn(ctx, src)).To(BeTrue())
 				Expect(emittedValue("s0")).To(Equal(float32(3)))
 			})
+		})
+
+		Describe("Drain convergence", func() {
+			// The calculation runtime drains the source until quiescent; a source
+			// that keeps firing over a static buffer hangs that loop forever.
+			DescribeTable("Should go quiescent once every buffered series has fired",
+				func(ctx SpecContext, first, second telem.Alignment) {
+					src := newSource(ctx, "s0", 30)
+					writePair(30, 31, 1, 1000, first)
+					Expect(firesOn(ctx, src)).To(BeTrue())
+					writePair(30, 31, 2, 2000, second)
+					Expect(firesOn(ctx, src)).To(BeTrue())
+					Expect(emittedValue("s0")).To(Equal(float32(2)))
+					for range 4 {
+						Expect(firesOn(ctx, src)).To(BeFalse(),
+							"a drained multi-domain buffer must stay quiescent")
+					}
+				},
+				Entry("ascending domains",
+					telem.NewAlignment(15, 2), telem.NewAlignment(25, 7)),
+				Entry("regressing domains",
+					telem.NewAlignment(4293967295, 0), telem.NewAlignment(2, 0)),
+			)
 		})
 
 		Describe("Sustained fridge-shaped stream", func() {

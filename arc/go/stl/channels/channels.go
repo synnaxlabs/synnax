@@ -143,29 +143,27 @@ type source struct {
 	*node.State
 	state *ProgramState
 	key   uint32
-	// highWaterMark is the alignment of the most recently emitted series' end.
-	highWaterMark telem.Alignment
-	// staleAtReset marks series buffered at the last Reset, which must never fire.
-	staleAtReset []telem.Alignment
-	clock        telem.MonoClock
+	// seen marks buffered series that already fired or were buffered at the last
+	// Reset; a series fires at most once while it remains in the buffer.
+	seen  []telem.Alignment
+	clock telem.MonoClock
 }
 
 func (s *source) Init(node.Context) {}
 
-// Reset re-anchors the high water mark to the current channel alignment,
-// ensuring that when a stage is (re-)activated it only responds to
-// data that arrives after activation rather than stale pre-existing data.
+// Reset marks every buffered series as seen, ensuring that a (re-)activated
+// stage only responds to data that arrives after activation rather than
+// stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
 	data, _, ok := s.state.readSeries(s.key)
-	if !ok || len(data.Series) == 0 {
+	if !ok {
 		return
 	}
-	s.staleAtReset = s.staleAtReset[:0]
+	s.seen = s.seen[:0]
 	for _, ser := range data.Series {
-		s.staleAtReset = append(s.staleAtReset, ser.Alignment)
+		s.seen = append(s.seen, ser.Alignment)
 	}
-	s.highWaterMark = data.Series[len(data.Series)-1].AlignmentBounds().Upper
 }
 
 func (s *source) Next(ctx node.Context) {
@@ -173,18 +171,16 @@ func (s *source) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
+	s.seen = slices.DeleteFunc(s.seen, func(a telem.Alignment) bool {
+		return !slices.ContainsFunc(data.Series, func(ser telem.Series) bool {
+			return ser.Alignment == a
+		})
+	})
 	for _, ser := range data.Series {
 		if ser.Len() == 0 {
 			continue
 		}
-		if slices.Contains(s.staleAtReset, ser.Alignment) {
-			continue
-		}
-		ab := ser.AlignmentBounds()
-		// A different domain is a new writer session, not stale data: comparing
-		// raw alignments across domains would skip fresh data forever.
-		if ab.Lower < s.highWaterMark &&
-			ab.Lower.DomainIndex() == s.highWaterMark.DomainIndex() {
+		if slices.Contains(s.seen, ser.Alignment) {
 			continue
 		}
 		var timeSeries telem.Series
@@ -208,7 +204,7 @@ func (s *source) Next(ctx node.Context) {
 		}
 		*s.Output(0) = ser
 		*s.OutputTime(0) = timeSeries
-		s.highWaterMark = ab.Upper
+		s.seen = append(s.seen, ser.Alignment)
 		ctx.MarkChanged(0)
 		return
 	}
