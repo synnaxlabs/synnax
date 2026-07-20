@@ -1215,4 +1215,267 @@ var _ = Describe("Channel", func() {
 			}).ToNot(Panic())
 		})
 	})
+	// Each spec feeds the `on` source a frame shape the delivery path can
+	// plausibly produce and asserts the source keeps firing.
+	Describe("Adversarial Delivery", func() {
+		var (
+			progState    *rnode.ProgramState
+			channelState *channels.ProgramState
+			factory      rnode.Factory
+		)
+		// Channel 10 shares index 99 with channel 12; channel 30 has dedicated
+		// index 31.
+		BeforeEach(func(ctx SpecContext) {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "s0", Type: "on"}, {Key: "s1", Type: "on"},
+				},
+				Functions: []graph.Function{{
+					Key:     "on",
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+				}},
+			}
+			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+			Expect(diagnostics.Ok()).To(BeTrue())
+			channelState = channels.NewProgramState([]channels.Digest{
+				{Key: 10, DataType: telem.Float32T, Index: 99},
+				{Key: 12, DataType: telem.Float32T, Index: 99},
+				{Key: 30, DataType: telem.Float32T, Index: 31},
+			})
+			progState = rnode.New(inter)
+			factory = MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
+		})
+
+		newSource := func(ctx SpecContext, nodeKey string, ch uint32) rnode.Node {
+			return MustSucceed(factory.Create(ctx, rnode.Config{
+				Node: ir.Node{
+					Type:   "on",
+					Config: types.Params{{Name: "channel", Type: types.U32(), Value: ch}},
+				},
+				State: progState.Node(nodeKey),
+			}))
+		}
+
+		f32Series := func(a telem.Alignment, vals ...float32) telem.Series {
+			s := telem.NewSeriesV[float32](vals...)
+			s.Alignment = a
+			return s
+		}
+		tsSeries := func(a telem.Alignment, vals ...telem.TimeStamp) telem.Series {
+			s := telem.NewSeriesV[telem.TimeStamp](vals...)
+			s.Alignment = a
+			return s
+		}
+		// writePair co-writes one data sample and its index timestamp at the same
+		// alignment, the nominal cesium delivery for an indexed write.
+		writePair := func(dataKey, idxKey uint32, value float32, ts telem.TimeStamp, a telem.Alignment) telem.Frame[uint32] {
+			fr := telem.Frame[uint32]{}
+			fr = fr.Append(idxKey, tsSeries(a, ts))
+			fr = fr.Append(dataKey, f32Series(a, value))
+			channelState.Ingest(fr)
+			return fr
+		}
+		firesOn := func(ctx SpecContext, src rnode.Node) bool {
+			fired := false
+			src.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { fired = true }})
+			return fired
+		}
+		emittedValue := func(nodeKey string) float32 {
+			return telem.ValueAt[float32](*progState.Node(nodeKey).Output(0), -1)
+		}
+		outputLen := func(nodeKey string) int64 {
+			return (*progState.Node(nodeKey).Output(0)).Len()
+		}
+		al := func(domain, sample uint32) telem.Alignment {
+			return telem.NewAlignment(domain, sample)
+		}
+
+		Describe("Alignment regression (high-water-mark poisoning)", func() {
+			// If the stream's alignment ever moves to a lower domain
+			// mid-subscription, the high-water mark points above every future sample.
+			const leading uint32 = 4293967295
+
+			It("Should keep firing when the stream regresses to a lower domain", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 30)
+				writePair(30, 31, 1, 1000, al(leading, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.ClearReads()
+
+				writePair(30, 31, 2, 2000, al(2, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue(),
+					"regressed-domain data must still fire; a stall here means any "+
+						"alignment regression permanently kills channel triggers")
+				Expect(emittedValue("s0")).To(Equal(float32(2)))
+			})
+
+			It("Should keep firing on continued flow after a regression", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 30)
+				writePair(30, 31, 1, 1000, al(leading, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.ClearReads()
+
+				writePair(30, 31, 2, 2000, al(2, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.ClearReads()
+
+				writePair(30, 31, 3, 3000, al(2, 1))
+				Expect(firesOn(ctx, src)).To(BeTrue(),
+					"flow in the regressed domain must keep firing")
+				Expect(emittedValue("s0")).To(Equal(float32(3)))
+			})
+
+			It("Should fire regressed-domain data buffered behind the old domain", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 30)
+				writePair(30, 31, 1, 1000, al(leading, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+
+				writePair(30, 31, 2, 2000, al(2, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue(),
+					"the regressed series buffered behind the emitted one must fire")
+				Expect(emittedValue("s0")).To(Equal(float32(2)))
+			})
+
+			It("Should survive repeated regressions", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 30)
+				writePair(30, 31, 1, 1000, al(5, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.ClearReads()
+
+				writePair(30, 31, 2, 2000, al(3, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.ClearReads()
+
+				writePair(30, 31, 3, 3000, al(1, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				Expect(emittedValue("s0")).To(Equal(float32(3)))
+			})
+
+			It("Should recover from a regression via Reset", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 30)
+				writePair(30, 31, 1, 1000, al(leading, 5))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.ClearReads()
+
+				writePair(30, 31, 2, 2000, al(2, 0))
+				channelState.ClearReads()
+				// A stage re-entry resets the source; the reset must re-anchor the
+				// high-water mark to the current stream position.
+				src.(interface{ Reset() }).Reset()
+				writePair(30, 31, 3, 3000, al(2, 1))
+				Expect(firesOn(ctx, src)).To(BeTrue(),
+					"post-Reset data in the regressed domain must fire")
+				Expect(emittedValue("s0")).To(Equal(float32(3)))
+			})
+		})
+
+		Describe("Duplicate frame re-ingest (ticker stale-frame behavior)", func() {
+			It("Should not re-fire a duplicate and must keep firing afterward", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				fr := writePair(10, 99, 1, 1000, al(1, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.Ingest(fr)
+				Expect(firesOn(ctx, src)).To(BeFalse(), "duplicate must not re-fire")
+				channelState.ClearReads()
+
+				writePair(10, 99, 2, 1001, al(1, 1))
+				Expect(firesOn(ctx, src)).To(BeTrue(), "fresh data after a duplicate must fire")
+				Expect(emittedValue("s0")).To(Equal(float32(2)))
+			})
+
+			It("Should fire fresh data when a duplicate straddles a Reset", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				fr := writePair(10, 99, 1, 1000, al(1, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.Ingest(fr)
+				src.(interface{ Reset() }).Reset()
+				channelState.ClearReads()
+
+				writePair(10, 99, 2, 1001, al(1, 1))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				Expect(emittedValue("s0")).To(Equal(float32(2)))
+			})
+		})
+
+		Describe("Foreign-domain index noise", func() {
+			It("Should fire when index series from another writer's domain interleave", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				channelState.Ingest(telem.UnaryFrame[uint32](99, tsSeries(al(9, 0), 555)))
+				writePair(10, 99, 42, 1000, al(1, 0))
+				channelState.Ingest(telem.UnaryFrame[uint32](99, tsSeries(al(9, 1), 556)))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				Expect(emittedValue("s0")).To(Equal(float32(42)))
+			})
+		})
+
+		Describe("Zero-length series", func() {
+			It("Should ignore an empty data series and fire subsequent real data", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(99, tsSeries(al(1, 0)))
+				fr = fr.Append(10, f32Series(al(1, 0)))
+				channelState.Ingest(fr)
+				firesOn(ctx, src)
+				channelState.ClearReads()
+
+				writePair(10, 99, 5, 1000, al(1, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue(),
+					"real data at the same alignment as a prior empty series must fire")
+				Expect(outputLen("s0")).To(BeNumerically(">", 0),
+					"the fire must carry the real sample, not re-emit the empty series")
+				Expect(emittedValue("s0")).To(Equal(float32(5)))
+			})
+
+			It("Should not let an empty series with inflated alignment skip real data", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(99, tsSeries(al(1, 50)))
+				fr = fr.Append(10, f32Series(al(1, 50)))
+				channelState.Ingest(fr)
+				firesOn(ctx, src)
+				channelState.ClearReads()
+
+				writePair(10, 99, 5, 1000, al(1, 10))
+				Expect(firesOn(ctx, src)).To(BeTrue(),
+					"real data below an empty series' alignment must still fire")
+				Expect(outputLen("s0")).To(BeNumerically(">", 0),
+					"the fire must carry the real sample, not re-emit the empty series")
+				Expect(emittedValue("s0")).To(Equal(float32(5)))
+			})
+		})
+
+		Describe("Reset against buffered backlog", func() {
+			It("Should fire only post-Reset data with a multi-series backlog", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				writePair(10, 99, 1, 1000, al(1, 0))
+				writePair(10, 99, 2, 1001, al(1, 1))
+				writePair(10, 99, 3, 1002, al(1, 2))
+				src.(interface{ Reset() }).Reset()
+				Expect(firesOn(ctx, src)).To(BeFalse(), "pre-Reset backlog must not fire")
+
+				writePair(10, 99, 4, 1003, al(1, 3))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				Expect(emittedValue("s0")).To(Equal(float32(4)))
+			})
+		})
+
+		Describe("Sustained fridge-shaped stream", func() {
+			// One frame per cycle with the shared index plus both data channels,
+			// ClearReads each cycle, enough to cross buffer-pruning boundaries.
+			It("Should fire both sources on every one of 500 cycles", func(ctx SpecContext) {
+				srcA := newSource(ctx, "s0", 10)
+				srcB := newSource(ctx, "s1", 12)
+				for c := range 500 {
+					a := al(1, uint32(c))
+					fr := telem.Frame[uint32]{}
+					fr = fr.Append(99, tsSeries(a, telem.TimeStamp(1000+c)))
+					fr = fr.Append(10, f32Series(a, float32(c)))
+					fr = fr.Append(12, f32Series(a, float32(c)+0.5))
+					channelState.Ingest(fr)
+					Expect(firesOn(ctx, srcA)).To(BeTrue(), "cycle %d: channel 10 must fire", c)
+					Expect(firesOn(ctx, srcB)).To(BeTrue(), "cycle %d: channel 12 must fire", c)
+					channelState.ClearReads()
+				}
+			})
+		})
+	})
 })

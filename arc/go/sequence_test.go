@@ -10,8 +10,14 @@
 package arc_test
 
 import (
+	"context"
+	"fmt"
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	rnode "github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/stl/channels"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -2397,4 +2403,208 @@ var _ = Describe("Sequence", func() {
 				start_cmd => main`, uint32(105), uint32(104)),
 		)
 	})
+})
+
+// A stage entered via a channel-triggered transition must keep firing its own
+// bare channel condition after the stream's alignment regresses at stage entry.
+
+const stageBodyMarker = "__STAGE_BODY__"
+
+const stagedSourceTemplate = `
+import time
+
+sequence main {
+    stage prep {
+        "prep" -> stage_name,
+        (speed < 15) => watch
+    }
+    stage watch {
+        __STAGE_BODY__
+    }
+    stage done {
+        "done" -> stage_name,
+    }
+}
+
+func elapsed_check() u8 {
+    start i64 $= 0
+    if (start == 0) {
+        start = time.now()
+        return 0
+    }
+    passed := time.now() - start
+    return passed < 5400s
+}
+
+start_cmd => main
+`
+
+const (
+	idxKey       uint32 = 1
+	pressureKey  uint32 = 101
+	speedKey     uint32 = 107
+	pumpCmdKey   uint32 = 300
+	stageNameKey uint32 = 400
+	startCmdKey  uint32 = 401
+)
+
+var _ = Describe("Staged sequence over a streamed shared index", func() {
+	DescribeTable("Should advance from watch to done",
+		func(ctx SpecContext, stageBody string, regressAlignment bool) {
+			source := strings.ReplaceAll(stagedSourceTemplate, stageBodyMarker, stageBody)
+			syms := channelSymbols(map[string]channelDef{
+				"pressure":   {types.F32(), int(pressureKey)},
+				"speed":      {types.F32(), int(speedKey)},
+				"pump_cmd":   {types.U8(), int(pumpCmdKey)},
+				"stage_name": {types.String(), int(stageNameKey)},
+				"start_cmd":  {types.U8(), int(startCmdKey)},
+			})
+			digests := []channels.Digest{
+				{Key: idxKey, DataType: telem.TimeStampT, Index: idxKey},
+				{Key: pressureKey, DataType: telem.Float32T, Index: idxKey},
+				{Key: speedKey, DataType: telem.Float32T, Index: idxKey},
+				{Key: pumpCmdKey, DataType: telem.Uint8T},
+				{Key: stageNameKey, DataType: telem.StringT},
+				{Key: startCmdKey, DataType: telem.Uint8T},
+			}
+
+			h := newRuntimeHarness(ctx, source, syms, digests...)
+			defer h.Close(ctx)
+
+			var (
+				pressure  float32 = 500
+				speed     float32 = 820
+				stageLog  []string
+				errs      []string
+				elapsed   telem.TimeSpan
+				lastFrame telem.Frame[uint32]
+				// alignment is seeded in cesium's leading region like a live
+				// writer session.
+				alignment = telem.NewAlignment(4293967295, 0)
+			)
+			h.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(
+				func(_ context.Context, nodeKey string, err error) {
+					errs = append(errs, fmt.Sprintf("%s: %v", nodeKey, err))
+				}))
+
+			onStage := func(stage string) {
+				switch stage {
+				case "prep":
+					speed = 5
+				case "watch":
+					pressure = 0.01
+					if regressAlignment {
+						alignment = telem.NewAlignment(2, 0)
+					}
+				}
+			}
+			// cycle mirrors dataRuntime.next: ingest, schedule, clear reads,
+			// flush, and track stage_name writes.
+			cycle := func(fr telem.Frame[uint32], reason rnode.RunReason) {
+				h.channelState.Ingest(fr)
+				h.scheduler.Next(ctx, elapsed, reason)
+				h.channelState.ClearReads()
+				out, changed := h.channelState.Flush(telem.Frame[uint32]{})
+				if !changed {
+					return
+				}
+				for rawI, key := range out.RawKeys() {
+					ser := out.RawSeriesAt(rawI)
+					if key != stageNameKey || ser.Len() == 0 {
+						continue
+					}
+					for _, v := range telem.UnmarshalSeries[string](ser) {
+						if len(stageLog) == 0 || stageLog[len(stageLog)-1] != v {
+							stageLog = append(stageLog, v)
+							onStage(v)
+						}
+					}
+				}
+			}
+			buildFrame := func() telem.Frame[uint32] {
+				ts := telem.NewSeriesV[telem.TimeStamp](telem.TimeStamp(elapsed))
+				pS := telem.NewSeriesV[float32](pressure)
+				sS := telem.NewSeriesV[float32](speed)
+				ts.Alignment, pS.Alignment, sS.Alignment = alignment, alignment, alignment
+				alignment++
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(idxKey, ts)
+				fr = fr.Append(pressureKey, pS)
+				return fr.Append(speedKey, sS)
+			}
+			const framePeriod = 20 * telem.Millisecond
+			// run advances one 50Hz frame period, firing due timer deadlines
+			// first with the same stale-frame re-ingest as tickerRuntime.
+			run := func() {
+				nextFrameAt := elapsed + framePeriod
+				for i := 0; i < 8; i++ {
+					deadline := h.scheduler.NextDeadline()
+					if deadline == telem.TimeSpanMax || deadline > nextFrameAt {
+						break
+					}
+					if deadline > elapsed {
+						elapsed = deadline
+					}
+					cycle(lastFrame, rnode.ReasonTimerTick)
+				}
+				elapsed = nextFrameAt
+				fr := buildFrame()
+				cycle(fr, rnode.ReasonChannelInput)
+				lastFrame = fr
+			}
+			runUntilStage := func(target string, maxFrames int) bool {
+				for i := 0; i < maxFrames; i++ {
+					run()
+					if len(stageLog) > 0 && stageLog[len(stageLog)-1] == target {
+						return true
+					}
+				}
+				return false
+			}
+
+			for i := 0; i < 10; i++ {
+				run()
+			}
+			startFr := telem.Frame[uint32]{}
+			startFr = startFr.Append(startCmdKey, telem.NewSeriesV[uint8](1))
+			elapsed += telem.Millisecond
+			cycle(startFr, rnode.ReasonChannelInput)
+			lastFrame = startFr
+
+			Expect(runUntilStage("watch", 2000)).To(BeTrue(),
+				"never reached watch; stage log: %v; errors: %v; "+
+					"next deadline: %v",
+				stageLog, errs, h.scheduler.NextDeadline())
+
+			Expect(runUntilStage("done", 6000)).To(BeTrue(),
+				"STALLED in watch: 120 virtual seconds of fresh pressure=%v "+
+					"frames after entry without transitioning to done; "+
+					"stage log: %v; errors: %v; next deadline: %v",
+				pressure, stageLog, errs, h.scheduler.NextDeadline())
+		},
+		Entry("bare condition",
+			`"watch" -> stage_name,
+                elapsed_check{}
+                1 -> pump_cmd
+                (pressure < 10) => done`, false),
+		Entry("bare condition without elapsed_check",
+			`"watch" -> stage_name,
+                1 -> pump_cmd
+                (pressure < 10) => done`, false),
+		Entry("interval workaround",
+			`"watch" -> stage_name,
+                elapsed_check{}
+                1 -> pump_cmd
+                time.interval{1s} -> (pressure < 10) => done`, false),
+		Entry("bare condition with alignment regression at watch entry",
+			`"watch" -> stage_name,
+                elapsed_check{}
+                1 -> pump_cmd
+                (pressure < 10) => done`, true),
+		Entry("interval workaround with alignment regression at watch entry",
+			`"watch" -> stage_name,
+                elapsed_check{}
+                1 -> pump_cmd
+                time.interval{1s} -> (pressure < 10) => done`, true),
+	)
 })

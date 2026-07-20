@@ -149,7 +149,7 @@ type source struct {
 
 func (s *source) Init(node.Context) {}
 
-// Reset advances the high water mark to the current channel alignment,
+// Reset re-anchors the high water mark to the current channel alignment,
 // ensuring that when a stage is (re-)activated it only responds to
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
@@ -158,10 +158,7 @@ func (s *source) Reset() {
 	if !ok || len(data.Series) == 0 {
 		return
 	}
-	ab := data.Series[len(data.Series)-1].AlignmentBounds()
-	if ab.Upper > s.highWaterMark {
-		s.highWaterMark = ab.Upper
-	}
+	s.highWaterMark = data.Series[len(data.Series)-1].AlignmentBounds().Upper
 }
 
 func (s *source) Next(ctx node.Context) {
@@ -170,8 +167,14 @@ func (s *source) Next(ctx node.Context) {
 		return
 	}
 	for _, ser := range data.Series {
+		if ser.Len() == 0 {
+			continue
+		}
 		ab := ser.AlignmentBounds()
-		if ab.Lower < s.highWaterMark {
+		// A different domain is a new writer session, not stale data: comparing
+		// raw alignments across domains would skip fresh data forever.
+		if ab.Lower < s.highWaterMark &&
+			ab.Lower.DomainIndex() == s.highWaterMark.DomainIndex() {
 			continue
 		}
 		var timeSeries telem.Series
