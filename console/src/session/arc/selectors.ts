@@ -42,7 +42,10 @@ const createGetter =
     const scopeKey = Arc.Scope.useOptional();
     return useCallback(
       (args) =>
-        selector({ state: store.getState(), key: (args?.key ?? scopeKey) as arc.Key }),
+        selector({
+          state: store.getState(),
+          key: Arc.Scope.require(args?.key ?? scopeKey),
+        }),
       [store, scopeKey],
     );
   };

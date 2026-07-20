@@ -35,6 +35,6 @@ func getClientGRPCTransportCredentials(
 	return lo.Ternary(
 		insecure,
 		insecureGRPC.NewCredentials(),
-		credentials.NewTLS(sec.TLS()),
+		credentials.NewTLS(sec.NodeClientConfig()),
 	)
 }

@@ -394,6 +394,7 @@ export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
   Flux.createRetrieve<RetrieveQuery, arc.Arc, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query }) => store.arcs.get(query.key),
     mountListeners: ({ store, query, onChange }) => {
       if (!("key" in query) || primitive.isZero(query.key)) return [];
       return [store.arcs.onSet(onChange, query.key)];

@@ -18,7 +18,6 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
   const client = Synnax.use();
   const create = LinePlot.useCreate();
-  const getSelected = Session.Project.useGetSelected();
   const dispatch = Session.useDispatch();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(
@@ -31,14 +30,12 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
         dispatch(Session.Range.add(Session.Range.fromClient(data)));
         const names = data.map(({ name }) => name);
         const keys = data.map(({ key }) => key);
-        const project = getSelected();
         create({
           name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
           ranges: { x1: keys, x2: [] },
-          project,
         });
       },
-      [client, addStatus, create, getSelected],
+      [client, addStatus, create],
     ),
   });
   return useCallback((keys: string[]) => retrieve({ keys }), [retrieve]);

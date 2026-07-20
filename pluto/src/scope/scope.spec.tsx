@@ -70,6 +70,18 @@ describe("Scope", () => {
     });
   });
 
+  describe("require", () => {
+    it("should return the key when present", () => {
+      const s = Scope.create<string>("Test");
+      expect(s.require("key")).toEqual("key");
+    });
+
+    it("should throw when the key is nullish", () => {
+      const s = Scope.create<string>("Test");
+      expect(() => s.require(undefined)).toThrow("Test scope requires a key");
+    });
+  });
+
   describe("bindHook", () => {
     it("should source the key from the provider", () => {
       const s = Scope.create<string>("Test");
@@ -166,10 +178,10 @@ describe("Scope", () => {
         expect(result.current({ suffix: "!" })).toEqual("ctx!");
       });
 
-      it("should read an undefined key when no key or provider is present", () => {
+      it("should throw when called with no key and no provider is present", () => {
         const [, useGet] = s.bindSelector(selector);
         const { result } = renderHook(() => useGet());
-        expect(result.current()).toEqual("undefined");
+        expect(() => result.current()).toThrow("Test scope requires a key");
       });
 
       it("should return a stable getter while the scope key is unchanged", () => {

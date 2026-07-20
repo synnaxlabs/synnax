@@ -38,8 +38,8 @@ var _ = Describe("HTTP", func() {
 		port := MustSucceed(net.FindOpenPort())
 		addr := address.Newf("localhost:%d", port)
 		MustOpen(server.Serve(server.Config{
-			ListenAddress: addr,
-			Security:      server.SecurityConfig{Insecure: new(true)},
+			Listeners: []server.Listener{{Address: addr}},
+			Security:  server.SecurityConfig{Insecure: new(true)},
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
 					Transports:            []fhttp.BindableTransport{r},
