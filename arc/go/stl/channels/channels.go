@@ -141,10 +141,13 @@ type config struct {
 
 type source struct {
 	*node.State
-	state         *ProgramState
-	key           uint32
+	state *ProgramState
+	key   uint32
+	// highWaterMark is the alignment of the most recently emitted series' end.
 	highWaterMark telem.Alignment
-	clock         telem.MonoClock
+	// staleAtReset marks series buffered at the last Reset, which must never fire.
+	staleAtReset []telem.Alignment
+	clock        telem.MonoClock
 }
 
 func (s *source) Init(node.Context) {}
@@ -158,6 +161,10 @@ func (s *source) Reset() {
 	if !ok || len(data.Series) == 0 {
 		return
 	}
+	s.staleAtReset = s.staleAtReset[:0]
+	for _, ser := range data.Series {
+		s.staleAtReset = append(s.staleAtReset, ser.Alignment)
+	}
 	s.highWaterMark = data.Series[len(data.Series)-1].AlignmentBounds().Upper
 }
 
@@ -168,6 +175,9 @@ func (s *source) Next(ctx node.Context) {
 	}
 	for _, ser := range data.Series {
 		if ser.Len() == 0 {
+			continue
+		}
+		if slices.Contains(s.staleAtReset, ser.Alignment) {
 			continue
 		}
 		ab := ser.AlignmentBounds()

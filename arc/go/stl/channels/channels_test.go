@@ -1456,6 +1456,33 @@ var _ = Describe("Channel", func() {
 				Expect(firesOn(ctx, src)).To(BeTrue())
 				Expect(emittedValue("s0")).To(Equal(float32(4)))
 			})
+
+			It("Should not fire a mixed-domain backlog buffered at Reset", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				writePair(10, 99, 1, 1000, al(2, 0))
+				writePair(10, 99, 2, 2000, al(5, 0))
+				src.(interface{ Reset() }).Reset()
+				Expect(firesOn(ctx, src)).To(BeFalse(),
+					"pre-Reset series from either domain must not fire")
+
+				writePair(10, 99, 3, 3000, al(5, 1))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				Expect(emittedValue("s0")).To(Equal(float32(3)))
+			})
+
+			It("Should not fire a backlog that regresses across Reset", func(ctx SpecContext) {
+				const leading uint32 = 4293967295
+				src := newSource(ctx, "s0", 10)
+				writePair(10, 99, 1, 1000, al(leading, 0))
+				writePair(10, 99, 2, 2000, al(2, 0))
+				src.(interface{ Reset() }).Reset()
+				Expect(firesOn(ctx, src)).To(BeFalse(),
+					"the old-domain series buffered above the anchor must not fire")
+
+				writePair(10, 99, 3, 3000, al(2, 1))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				Expect(emittedValue("s0")).To(Equal(float32(3)))
+			})
 		})
 
 		Describe("Sustained fridge-shaped stream", func() {
