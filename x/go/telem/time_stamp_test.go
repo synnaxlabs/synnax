@@ -24,11 +24,12 @@ var _ = Describe("TimeStamp", func() {
 		})
 	})
 
-	Describe("Name", func() {
-		It("Should initialize a new timestamp based on the provided time", func() {
+	Describe("NewTimeStamp", func() {
+		It("Should construct a timestamp with nanosecond precision from a time.Time", func() {
 			t := time.Now()
-			t0 := telem.NewTimeStamp(t)
-			Expect(t0.Time()).To(BeTemporally("~", t, time.Millisecond))
+			ts := telem.NewTimeStamp(t)
+			Expect(ts).To(Equal(telem.TimeStamp(t.UnixNano())))
+			Expect(ts.Time()).To(BeTemporally("==", t))
 		})
 	})
 
