@@ -86,7 +86,7 @@ The full-copy layout has three concrete costs, all visible in the repo today:
    comparison is the gate, and `SchemaDiff`'s `TypeDescendantChanged`
    (`oracle/plugin/go/migrate/schema.go:168`) already classifies it.
 4. **Code lives with the definer.** Go forbids methods on aliased non-local types,
-   so hand-written method files (`helpers.go`, arc's `type.go`) sit in the defining
+   so hand-written method files (`<resource>.go`, arc's `type.go`) sit in the defining
    package permanently. When a type is redefined at a bump, its methods are ported
    to the new definer; omissions surface as compile errors at root call sites.
 
@@ -118,8 +118,8 @@ When `go/types` generates a version-laid-out current package `vM`:
 `codec.gen.go` and enum `_string.go` files are emitted only for types defined at
 that version. Aliased types carry their codec methods and stringers through the
 alias from their definer. The same holds for `gorp.Entry` methods: they live in the
-definer's `helpers.go` (the existing placement,
-`core/pkg/service/status/types/v2/helpers.go:74`), and the freeze-time
+definer's `<resource>.go` method file (the existing placement,
+`core/pkg/service/status/types/v2/status.go`), and the freeze-time
 `generateGorpEntryMethods` append (`migrate.go:646`) is deleted — a frozen package
 already has whatever it needs, because it was current when its content was written.
 
@@ -131,8 +131,9 @@ that are themselves immutable, so imports are pinned by construction. A bump now
 
 1. Emits the incoming `v(N+1)` package under the emission rule (mostly aliases).
 2. Scaffolds migration files into the incoming package (§4.3).
-3. Does **not** move `helpers.go`. The developer ports methods for redefined types
-   only, guided by compile errors; methods on still-aliased types stay put.
+3. Does **not** move hand-written method files. The developer ports methods for
+   redefined types only, guided by compile errors; methods on still-aliased types
+   stay put.
 
 `detectBumps`' discipline is unchanged: shape change without a bump, skipped
 versions, and decreases remain errors.

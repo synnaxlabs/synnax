@@ -10,7 +10,6 @@
 package v0
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -21,7 +20,7 @@ var _ gorp.Entry[Key] = Group{}
 func (g Group) GorpKey() Key { return g.Key }
 
 // SetOptions implements gorp.Entry.
-func (g Group) SetOptions() []any { return nil }
+func (Group) SetOptions() []any { return nil }
 
 // OntologyID returns the ontology.ID for the group.
 func (g Group) OntologyID() ontology.ID {
@@ -29,4 +28,4 @@ func (g Group) OntologyID() ontology.ID {
 }
 
 // IsZero implements ZeroAble.
-func (g Group) IsZero() bool { return g.Key == uuid.Nil && len(g.Name) == 0 }
+func (g Group) IsZero() bool { return g == Group{} }
