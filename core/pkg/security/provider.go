@@ -20,13 +20,19 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// TLSProvider provides the node's TLS configuration for services that require it.
+// TLSProvider assembles listener TLS configurations for services that require them.
 type TLSProvider interface {
-	// TLS returns the node's TLS configuration. It's important to note that although
-	// the reference returned by this method will remain constant, the underlying
-	// configuration may change its behavior over time (e.g. when the node's TLS
-	// certificate is rotated).
-	TLS() *tls.Config
+	// TLSConfigFor combines the node-wide TLS policy with the certificate served by src,
+	// producing the tls.Config for a single listener. It returns nil in insecure mode.
+	// The returned config's behavior may change over time as src reloads its certificate.
+	TLSConfigFor(src cert.Source) *tls.Config
+	// NodeClientConfig returns the tls.Config the node uses when dialing peers, backed by
+	// the node's own certificate. It returns nil in insecure mode.
+	NodeClientConfig() *tls.Config
+	// VerifyCoreCert confirms src serves a certificate that chains to the Core CA
+	// and is valid for host, the two checks peers perform when dialing this node. It is a
+	// no-op in insecure mode.
+	VerifyCoreCert(src cert.Source, host string) error
 }
 
 // KeyProvider provides information of private keys for the node.

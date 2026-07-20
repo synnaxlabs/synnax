@@ -63,11 +63,6 @@ const selectStatic = (state: StoreState, key?: string): StaticState | undefined 
 export const useSelectStatic = (key?: string): StaticState | undefined =>
   Select.useMemo((state: StoreState) => selectStatic(state, key), [key]);
 
-export const useGetStatic = (): ((key?: string) => StaticState | undefined) => {
-  const store = useStore<StoreState>();
-  return useCallback((key?: string) => selectStatic(store.getState(), key), [store]);
-};
-
 export const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
   const { ranges } = selectSliceState(state);
   if (keys == null) return ranges;
@@ -77,24 +72,11 @@ export const selectMultiple = (state: StoreState, keys?: string[]): State[] => {
 export const useSelectMultiple = (keys?: string[]): State[] =>
   Select.useMemo((state: StoreState) => selectMultiple(state, keys), [keys]);
 
-export const useGetMultiple = (): ((keys?: string[]) => State[]) => {
-  const store = useStore<StoreState>();
-  return useCallback(
-    (keys?: string[]) => selectMultiple(store.getState(), keys),
-    [store],
-  );
-};
-
 export const selectKeys = (state: StoreState): string[] =>
   selectSliceState(state).ranges.map((r) => r.key);
 
 export const useSelectKeys = (): string[] =>
   Select.useMemo((state: StoreState) => selectKeys(state), []);
-
-export const useGetKeys = (): (() => string[]) => {
-  const store = useStore<StoreState>();
-  return useCallback(() => selectKeys(store.getState()), [store]);
-};
 
 const selectStaticKeys = (state: StoreState): string[] =>
   selectSliceState(state)
@@ -103,8 +85,3 @@ const selectStaticKeys = (state: StoreState): string[] =>
 
 export const useSelectStaticKeys = (): string[] =>
   Select.useMemo((state: StoreState) => selectStaticKeys(state), []);
-
-export const useGetStaticKeys = (): (() => string[]) => {
-  const store = useStore<StoreState>();
-  return useCallback(() => selectStaticKeys(store.getState()), [store]);
-};

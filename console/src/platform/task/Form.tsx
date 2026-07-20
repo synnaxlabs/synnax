@@ -22,7 +22,7 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
-import { type FC, useCallback, useEffect, useState } from "react";
+import { type FC, useCallback, useEffect, useMemo, useRef } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
@@ -47,6 +47,10 @@ export const formArgsZ = z.object({
   taskKey: z.string().optional(),
   rackKey: z.number().optional(),
   config: z.unknown().optional(),
+  // name is the draft task's semantic name, mirrored from the form's name field so the
+  // tab title reflects it before the task is persisted. Absent once taskKey is set: the
+  // name is then read from the cluster record.
+  name: z.string().optional(),
 });
 
 export interface FormViewArgs extends z.infer<typeof formArgsZ> {}
@@ -117,14 +121,42 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   showHeader = true,
   showControls = true,
 }: WrapFormArgs<S>): Panel.Tab => {
-  const Content: Panel.Content = () => {
-    const { deviceKey, taskKey, rackKey, config } = useFormArgs() ?? {};
+  const defaultName = getInitialValues({}).name;
+  const useSyncName = (
+    form: PForm.ContextValue<PTask.FormSchema<S>>,
+    { deviceKey, taskKey, rackKey, config, name }: FormViewArgs,
+  ): void => {
+    const { set } = form;
     const setView = PlutoPanel.useSetCurrentTabView();
-    const initialValues = {
-      ...getInitialValues({ deviceKey, config }),
-      key: taskKey,
-      rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
-    };
+    const formName = PForm.useFieldValue<string>("name", { ctx: form });
+    const prevName = useRef(name);
+    useEffect(() => {
+      if (taskKey != null) return;
+      const argsEdited = name !== prevName.current && name != null;
+      prevName.current = name;
+      if (formName === name) return;
+      if (argsEdited) set("name", name);
+      else
+        setView(
+          panel.viewZ.parse({
+            type,
+            args: { deviceKey, rackKey, config, name: formName },
+          }),
+        );
+    }, [taskKey, name, formName, deviceKey, rackKey, config, set, setView]);
+  };
+  const Content: Panel.Content = () => {
+    const { deviceKey, taskKey, rackKey, config, name } = useFormArgs();
+    const setView = PlutoPanel.useSetCurrentTabView();
+    const initialValues = useMemo(() => {
+      const base = getInitialValues({ deviceKey, config });
+      return {
+        ...base,
+        name: name ?? base.name,
+        key: taskKey,
+        rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
+      };
+    }, [deviceKey, config, name, taskKey, rackKey]);
     const confirm = Modals.useConfirm();
     const { form, status, save } = PTask.createForm({ schemas, initialValues })({
       query: { key: taskKey },
@@ -173,6 +205,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     });
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
+    useSyncName(form, { deviceKey, taskKey, rackKey, config, name });
     return (
       <Flex.Box
         y
@@ -210,32 +243,42 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     );
   };
   Content.displayName = `Form(${Form.displayName ?? Form.name})`;
-  const Name: Panel.TabName = () => {
-    const key = useFormArgs()?.taskKey;
-    const isPersisted = key != null;
-    const [name, setName] = useState("Task");
-    const { retrieve } = PTask.useRetrieveObservableName({
-      onChange: setName,
-      addStatusOnFailure: false,
-    });
-    const { update } = PTask.useRename({
-      beforeUpdate: useCallback(() => isPersisted, [isPersisted]),
-    });
-    useEffect(() => {
-      if (key != null) retrieve({ key });
-    }, [key, retrieve]);
-    const handleRename = useCallback(
-      (name: string) => {
-        if (key != null) update({ key, name });
-      },
-      [key, update],
+  const RemoteName = ({ taskKey }: { taskKey: task.Key }) => {
+    PTask.useEnsureRetrieved({ key: taskKey });
+    const name = PTask.useSelectName({ key: taskKey });
+    const { update } = PTask.useRename();
+    const handleChange = useCallback(
+      (name: string) => update({ key: taskKey, name }),
+      [taskKey, update],
     );
     return (
       <>
         <Icon.Task />
-        <Text.Editable value={name} onChange={handleRename} />
+        <Text.Editable value={name} onChange={handleChange} />
       </>
     );
+  };
+  const LocalName = () => {
+    const { deviceKey, rackKey, config, name } = useFormArgs();
+    const setView = PlutoPanel.useSetCurrentTabView();
+    const handleChange = useCallback(
+      (name: string) =>
+        setView(
+          panel.viewZ.parse({ type, args: { deviceKey, rackKey, config, name } }),
+        ),
+      [deviceKey, rackKey, config, setView],
+    );
+    return (
+      <>
+        <Icon.Task />
+        <Text.Editable value={name ?? defaultName} onChange={handleChange} />
+      </>
+    );
+  };
+  const Name: Panel.TabName = () => {
+    const { taskKey } = useFormArgs();
+    if (taskKey != null) return <RemoteName taskKey={taskKey} />;
+    return <LocalName />;
   };
   return { Content, Name };
 };

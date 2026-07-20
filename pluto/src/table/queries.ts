@@ -54,6 +54,7 @@ export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
   Flux.createRetrieve<RetrieveQuery, table.Table, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query: { key } }) => store.tables.get(key),
     mountListeners: ({ store, query: { key }, onChange }) =>
       store.tables.onSet(onChange, key),
   });

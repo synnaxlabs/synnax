@@ -53,6 +53,7 @@ export const {
 } = Flux.createRetrieve<RetrieveQuery, log.Log, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
+  retrieveCached: ({ store, query: { key } }) => store.logs.get(key),
   mountListeners: ({ store, query: { key }, onChange }) =>
     store.logs.onSet(onChange, key),
 });

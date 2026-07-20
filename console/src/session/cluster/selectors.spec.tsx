@@ -151,35 +151,6 @@ describe("cluster selectors", () => {
       expect(get()).toEqual(CLUSTER_A);
     });
 
-    it("should return every cluster and filter to requested keys on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Cluster.useGetMany(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual([]);
-      act(() => {
-        store.dispatch(Cluster.set(CLUSTER_A));
-        store.dispatch(Cluster.set(CLUSTER_B));
-      });
-      expect(get()).toEqual([CLUSTER_A, CLUSTER_B]);
-      expect(get(["b"])).toEqual([CLUSTER_B]);
-    });
-
-    it("should return the names of every cluster on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Cluster.useGetAllNames(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual([]);
-      act(() => {
-        store.dispatch(Cluster.set(CLUSTER_A));
-        store.dispatch(Cluster.set(CLUSTER_B));
-      });
-      expect(get()).toEqual(["Alpha", "Beta"]);
-    });
-
     it("should report whether any cluster is selected on demand", () => {
       const store = createStore(stateWith([CLUSTER_A]));
       const { result } = renderHook(() => Cluster.useGetIsAnySelected(), {

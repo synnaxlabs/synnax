@@ -8,8 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type status } from "@synnaxlabs/client";
-import { useCallback } from "react";
-import { useStore } from "react-redux";
 
 import { Select } from "@/session/select";
 import { SLICE_NAME, type SliceState } from "@/session/status/slice";
@@ -23,29 +21,14 @@ export const selectFavorites = (state: State): status.Key[] =>
 export const useSelectFavorites = (): status.Key[] =>
   Select.useMemo((state: State) => selectFavorites(state), []);
 
-export const useGetFavorites = (): (() => status.Key[]) => {
-  const store = useStore<State>();
-  return useCallback(() => selectFavorites(store.getState()), [store]);
-};
-
 const selectFavoriteSet = (state: State): Set<status.Key> =>
   new Set(selectFavorites(state));
 
 export const useSelectFavoriteSet = (): Set<status.Key> =>
   Select.useMemo((state: State) => selectFavoriteSet(state), []);
 
-export const useGetFavoriteSet = (): (() => Set<status.Key>) => {
-  const store = useStore<State>();
-  return useCallback(() => selectFavoriteSet(store.getState()), [store]);
-};
-
 export const selectIsFavorite = (state: State, key: status.Key): boolean =>
   selectSliceState(state).favorites.includes(key);
 
 export const useSelectIsFavorite = (key: status.Key): boolean =>
   Select.useMemo((state: State) => selectIsFavorite(state, key), [key]);
-
-export const useGetIsFavorite = (): ((key: status.Key) => boolean) => {
-  const store = useStore<State>();
-  return useCallback((key) => selectIsFavorite(store.getState(), key), [store]);
-};

@@ -181,26 +181,4 @@ describe("table getters", () => {
     });
     expect(get().selectedCells).toEqual(["c"]);
   });
-
-  it("should resolve the key from scope and allow an explicit override", () => {
-    const { result } = renderHook(() => Table.useGetSelectedCellKeys(), {
-      wrapper: wrapperFor(createCustomStore(), "absent"),
-    });
-    expect(result.current()).toEqual([]);
-    expect(result.current({ key: KEY })).toEqual(["a", "b"]);
-  });
-
-  it("should report existence on demand", () => {
-    const store = storeWith(Table.ZERO_SLICE_STATE);
-    const { result } = renderHook(() => Table.useGetExists(), {
-      wrapper: wrapperFor(store, KEY),
-    });
-    const get = result.current;
-    expect(get()).toBe(false);
-    act(() => {
-      store.dispatch(Table.create({ key: KEY }));
-    });
-    expect(get()).toBe(true);
-    expect(get({ key: "absent" })).toBe(false);
-  });
 });

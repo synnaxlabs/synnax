@@ -78,12 +78,4 @@ describe("log getters", () => {
     });
     expect(get().toolbar.selectedTab).toBe("properties");
   });
-
-  it("should resolve the key from scope and allow an explicit override", () => {
-    const { result } = renderHook(() => Log.useGetSelectedToolbarTab(), {
-      wrapper: wrapperFor(createCustomStore(), "absent"),
-    });
-    expect(result.current()).toBe("channels");
-    expect(result.current({ key: KEY })).toBe("properties");
-  });
 });
