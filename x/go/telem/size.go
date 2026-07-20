@@ -13,17 +13,17 @@ import v0 "github.com/synnaxlabs/x/telem/types/v0"
 
 const (
 	// Byte is a single byte.
-	Byte = v0.Byte
+	Byte Size = v0.Byte
 	// Kilobyte is 1,000 bytes.
-	Kilobyte = v0.Kilobyte
+	Kilobyte Size = v0.Kilobyte
 	// Megabyte is 1,000 kilobytes.
-	Megabyte = v0.Megabyte
+	Megabyte Size = v0.Megabyte
 	// Gigabyte is 1,000 megabytes.
-	Gigabyte = v0.Gigabyte
+	Gigabyte Size = v0.Gigabyte
 	// Terabyte is 1,000 gigabytes.
-	Terabyte = v0.Terabyte
+	Terabyte Size = v0.Terabyte
 	// Petabyte is 1,000 terabytes.
-	Petabyte = v0.Petabyte
+	Petabyte Size = v0.Petabyte
 	// Exabyte is 1,000 petabytes.
-	Exabyte = v0.Exabyte
+	Exabyte Size = v0.Exabyte
 )

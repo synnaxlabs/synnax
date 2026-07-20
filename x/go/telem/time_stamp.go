@@ -42,6 +42,6 @@ func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
-// Since returns a TimeSpan representing the amount of time that has passed
-// since the provided TimeStamp.
+// Since returns a TimeSpan representing the amount of time that has passed since the
+// provided TimeStamp.
 func Since(ts TimeStamp) TimeSpan { return TimeSpan(Now() - ts) }

@@ -16,38 +16,38 @@ import (
 
 const (
 	// UnknownT is an unknown data type.
-	UnknownT = v0.UnknownT
+	UnknownT DataType = v0.UnknownT
 	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
-	Uint8T = v0.Uint8T
+	Uint8T DataType = v0.Uint8T
 	// Uint16T is a data type for a 16-bit unsigned integer.
-	Uint16T = v0.Uint16T
+	Uint16T DataType = v0.Uint16T
 	// Uint32T is a data type for a 32-bit unsigned integer.
-	Uint32T = v0.Uint32T
+	Uint32T DataType = v0.Uint32T
 	// Uint64T is a data type for a 64-bit unsigned integer.
-	Uint64T = v0.Uint64T
+	Uint64T DataType = v0.Uint64T
 	// Int8T is a data type for an 8-bit integer.
-	Int8T = v0.Int8T
+	Int8T DataType = v0.Int8T
 	// Int16T is a data type for a 16-bit integer.
-	Int16T = v0.Int16T
+	Int16T DataType = v0.Int16T
 	// Int32T is a data type for a 32-bit integer.
-	Int32T = v0.Int32T
+	Int32T DataType = v0.Int32T
 	// Int64T is a data type for a 64-bit integer.
-	Int64T = v0.Int64T
+	Int64T DataType = v0.Int64T
 	// Float32T is a data type for a 32-bit IEEE-754 floating point number.
-	Float32T = v0.Float32T
+	Float32T DataType = v0.Float32T
 	// Float64T is a data type for a 64-bit IEEE-754 floating point number.
-	Float64T = v0.Float64T
+	Float64T DataType = v0.Float64T
 	// TimeStampT is a data type for a signed 64-bit nanosecond count since the Unix
 	// epoch.
-	TimeStampT = v0.TimeStampT
+	TimeStampT DataType = v0.TimeStampT
 	// UUIDT is a data type for a 128-bit UUID value.
-	UUIDT = v0.UUIDT
+	UUIDT DataType = v0.UUIDT
 	// StringT is a variable density data type for a UTF-8 encoded string.
-	StringT = v0.StringT
+	StringT DataType = v0.StringT
 	// BytesT is a variable density data type for an arbitrary byte array.
-	BytesT = v0.BytesT
+	BytesT DataType = v0.BytesT
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
-	JSONT = v0.JSONT
+	JSONT DataType = v0.JSONT
 )
 
 // InferDataType infers the data type of the given Sample.
