@@ -42,11 +42,7 @@ const renderGetters = (store: ReturnType<typeof storeWith>, key: string = KEY) =
     () => ({
       state: LinePlot.useGet(),
       toolbarTab: LinePlot.useGetActiveToolbarTab(),
-      control: LinePlot.useGetControlState(),
       viewportMode: LinePlot.useGetViewportMode(),
-      hiddenLines: LinePlot.useGetHiddenLines(),
-      measureMode: LinePlot.useGetMeasureMode(),
-      selectedRules: LinePlot.useGetSelectedRules(),
     }),
     { wrapper: wrapperFor(store, key) },
   ).result.current;
@@ -121,7 +117,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setControlHold({ key: KEY, hold: true }));
       });
-      expect(get.control().hold).toBe(true);
+      expect(get.state().control.hold).toBe(true);
     });
 
     it("should set the hold state to false", () => {
@@ -130,17 +126,17 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setControlHold({ key: KEY, hold: false }));
       });
-      expect(get.control().hold).toBe(false);
+      expect(get.state().control.hold).toBe(false);
     });
 
     it("should toggle the hold state when value is undefined", () => {
       const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
-      expect(get.control().hold).toBe(false);
+      expect(get.state().control.hold).toBe(false);
       act(() => void store.dispatch(LinePlot.setControlHold({ key: KEY })));
-      expect(get.control().hold).toBe(true);
+      expect(get.state().control.hold).toBe(true);
       act(() => void store.dispatch(LinePlot.setControlHold({ key: KEY })));
-      expect(get.control().hold).toBe(false);
+      expect(get.state().control.hold).toBe(false);
     });
   });
 
@@ -151,7 +147,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
       });
-      expect(get.control().clickMode).toBe("measure");
+      expect(get.state().control.clickMode).toBe("measure");
     });
 
     it("should clear the click mode when it already matches the mode", () => {
@@ -161,7 +157,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
       });
-      expect(get.control().clickMode).toBeNull();
+      expect(get.state().control.clickMode).toBeNull();
     });
 
     it("should switch to the new mode when a different mode is active", () => {
@@ -171,7 +167,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "measure" }));
         store.dispatch(LinePlot.toggleControlClickMode({ key: KEY, mode: "annotate" }));
       });
-      expect(get.control().clickMode).toBe("annotate");
+      expect(get.state().control.clickMode).toBe("annotate");
     });
   });
 
@@ -182,7 +178,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY, enabled: true }));
       });
-      expect(get.control().enableTooltip).toBe(true);
+      expect(get.state().control.enableTooltip).toBe(true);
     });
 
     it("should set the tooltip state to false", () => {
@@ -191,17 +187,17 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY, enabled: false }));
       });
-      expect(get.control().enableTooltip).toBe(false);
+      expect(get.state().control.enableTooltip).toBe(false);
     });
 
     it("should toggle the tooltip state when value is undefined", () => {
       const get = renderGetters(store);
       act(() => void store.dispatch(LinePlot.create({ key: KEY })));
-      const initial = get.control().enableTooltip;
+      const initial = get.state().control.enableTooltip;
       act(() => void store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY })));
-      expect(get.control().enableTooltip).toBe(!initial);
+      expect(get.state().control.enableTooltip).toBe(!initial);
       act(() => void store.dispatch(LinePlot.setControlEnableTooltip({ key: KEY })));
-      expect(get.control().enableTooltip).toBe(initial);
+      expect(get.state().control.enableTooltip).toBe(initial);
     });
   });
 
@@ -257,7 +253,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setSelectedRule({ key: KEY, ruleKey: ["r1", "r2"] }));
       });
-      expect(get.selectedRules()).toEqual(["r1", "r2"]);
+      expect(get.state().selectedRules).toEqual(["r1", "r2"]);
       expect(get.toolbarTab()).toBe("annotations");
     });
 
@@ -267,7 +263,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setSelectedRule({ key: KEY, ruleKey: "r1" }));
       });
-      expect(get.selectedRules()).toEqual(["r1"]);
+      expect(get.state().selectedRules).toEqual(["r1"]);
     });
   });
 
@@ -278,7 +274,7 @@ describe("LinePlot Slice", () => {
         store.dispatch(LinePlot.create({ key: KEY }));
         store.dispatch(LinePlot.setMeasureMode({ key: KEY, mode: "two" }));
       });
-      expect(get.measureMode()).toBe("two");
+      expect(get.state().measure.mode).toBe("two");
     });
   });
 
@@ -318,7 +314,7 @@ describe("LinePlot Slice", () => {
           LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: false }),
         );
       });
-      expect(get.hiddenLines()).toEqual(["l1"]);
+      expect(get.state().hiddenLines).toEqual(["l1"]);
     });
 
     it("should show a hidden line by removing it from hiddenLines", () => {
@@ -332,7 +328,7 @@ describe("LinePlot Slice", () => {
           LinePlot.setLineVisible({ key: KEY, lineKey: "l1", visible: true }),
         );
       });
-      expect(get.hiddenLines()).toEqual([]);
+      expect(get.state().hiddenLines).toEqual([]);
     });
   });
 

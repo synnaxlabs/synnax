@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, type Synnax } from "@synnaxlabs/client";
+import { type project, type Synnax, UnexpectedError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -129,6 +129,14 @@ describe("schematic useCreate", () => {
       );
       expect(retrieved.key).toEqual(callerKey);
       expect(retrieved.name).toEqual("WithKey");
+    });
+  });
+
+  describe("without a project", () => {
+    it("throws when neither a prop nor an active project is available", async () => {
+      const harness = await buildHarness();
+      const { result } = renderCreate(harness);
+      expect(() => result.current({ key: uuid.create() })).toThrow(UnexpectedError);
     });
   });
 

@@ -91,6 +91,7 @@ export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
   Flux.createRetrieve<RetrieveQuery, panel.Panel, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query: { key } }) => store.panels.get(key),
     mountListeners: ({ store, query: { key }, onChange }) => [
       store.panels.onSet(onChange, key),
     ],
@@ -159,7 +160,11 @@ const bindTabSelector = <Args extends SelectTabContentParams, Selected>([
     const get = useGet();
     return useCallback(
       (args?: optional.Optional<Args, "key" | "tabKey">) =>
-        get({ key, tabKey, ...args } as Args),
+        get({
+          ...args,
+          key: Scope.require(args?.key ?? key),
+          tabKey: TabScope.require(args?.tabKey ?? tabKey),
+        } as Args),
       [get, key, tabKey],
     );
   };

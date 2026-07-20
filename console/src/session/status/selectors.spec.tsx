@@ -71,47 +71,4 @@ describe("status selectors", () => {
       expect(result.current).toBe(false);
     });
   });
-
-  describe("getters", () => {
-    it("should read the favorites list on demand across dispatches", () => {
-      const store = storeWith(Status.addFavorites("a"));
-      const { result } = renderHook(() => Status.useGetFavorites(), {
-        wrapper: wrapperFor(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual(["a"]);
-      act(() => {
-        store.dispatch(Status.addFavorites("b"));
-      });
-      expect(get()).toEqual(["a", "b"]);
-    });
-
-    it("should read the favorites as a set on demand across dispatches", () => {
-      const store = storeWith(Status.addFavorites("a"));
-      const { result } = renderHook(() => Status.useGetFavoriteSet(), {
-        wrapper: wrapperFor(store),
-      });
-      const get = result.current;
-      expect(get()).toBeInstanceOf(Set);
-      expect([...get()]).toEqual(["a"]);
-      act(() => {
-        store.dispatch(Status.addFavorites("b"));
-      });
-      expect([...get()]).toEqual(["a", "b"]);
-    });
-
-    it("should report favorite membership by key on demand", () => {
-      const store = storeWith();
-      const { result } = renderHook(() => Status.useGetIsFavorite(), {
-        wrapper: wrapperFor(store),
-      });
-      const get = result.current;
-      expect(get("a")).toBe(false);
-      act(() => {
-        store.dispatch(Status.toggleFavorite("a"));
-      });
-      expect(get("a")).toBe(true);
-      expect(get("b")).toBe(false);
-    });
-  });
 });

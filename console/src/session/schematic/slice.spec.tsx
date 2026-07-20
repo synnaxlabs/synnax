@@ -101,7 +101,7 @@ describe("Schematic Slice", () => {
     it("should set the control status", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setControlStatus({ key: KEY, status: "acquired" }));
-      expect(read(Schematic.useGetControlStatus)).toBe("acquired");
+      expect(read(Schematic.useGet).control.status).toBe("acquired");
     });
 
     it("should clear the selection and disable editing when control is acquired", () => {
@@ -127,7 +127,7 @@ describe("Schematic Slice", () => {
     it("should set the control authority", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setControlAuthority({ key: KEY, authority: 200 }));
-      expect(read(Schematic.useGetAuthority)).toBe(200);
+      expect(read(Schematic.useGet).control.authority).toBe(200);
     });
   });
 
@@ -141,20 +141,20 @@ describe("Schematic Slice", () => {
       } as const;
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.moveLegend({ key: KEY, position }));
-      expect(read(Schematic.useGetLegend).position).toEqual(position);
+      expect(read(Schematic.useGet).legend.position).toEqual(position);
     });
 
     it("should set the legend colors", () => {
       const colors = { a: color.ZERO };
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setLegendColors({ key: KEY, colors }));
-      expect(read(Schematic.useGetLegend).colors).toEqual(colors);
+      expect(read(Schematic.useGet).legend.colors).toEqual(colors);
     });
 
     it("should set the legend visibility", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setLegendVisible({ key: KEY, visible: false }));
-      expect(read(Schematic.useGetLegendVisible)).toBe(false);
+      expect(read(Schematic.useGet).legend.visible).toBe(false);
     });
   });
 
@@ -168,7 +168,7 @@ describe("Schematic Slice", () => {
     it("should set the selected symbol group", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelectedSymbolGroup({ key: KEY, group: "valves" }));
-      expect(read(Schematic.useGetSelectedSymbolGroup)).toBe("valves");
+      expect(read(Schematic.useGet).toolbar.selectedSymbolGroup).toBe("valves");
     });
   });
 

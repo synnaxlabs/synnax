@@ -46,7 +46,7 @@ const createGetter =
       (args) =>
         selector({
           state: store.getState(),
-          key: (args?.key ?? scopeKey) as schematic.Key,
+          key: Schematic.Scope.require(args?.key ?? scopeKey),
         }),
       [store, scopeKey],
     );
@@ -68,19 +68,16 @@ const selectControlStatus = (params: KeyedSelectorParams): Control.Status =>
   selectState(params).control.status;
 
 export const useSelectControlStatus = createSelector(selectControlStatus);
-export const useGetControlStatus = createGetter(selectControlStatus);
 
 const selectControlIsAcquired = (params: KeyedSelectorParams): boolean =>
   selectControlStatus(params) === "acquired";
 
 export const useSelectControlIsAcquired = createSelector(selectControlIsAcquired);
-export const useGetControlIsAcquired = createGetter(selectControlIsAcquired);
 
 const selectAuthority = (params: KeyedSelectorParams): control.Authority =>
   selectState(params).control.authority;
 
 export const useSelectAuthority = createSelector(selectAuthority);
-export const useGetAuthority = createGetter(selectAuthority);
 
 export const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
   selectState(params).toolbar;
@@ -98,19 +95,16 @@ export const selectSelectedSymbolGroup = (params: KeyedSelectorParams): string =
   selectToolbar(params).selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = createSelector(selectSelectedSymbolGroup);
-export const useGetSelectedSymbolGroup = createGetter(selectSelectedSymbolGroup);
 
 export const selectLegend = (params: KeyedSelectorParams): LegendState =>
   selectState(params).legend;
 
 export const useSelectLegend = createSelector(selectLegend);
-export const useGetLegend = createGetter(selectLegend);
 
 const selectLegendVisible = (params: KeyedSelectorParams): boolean =>
   selectState(params).legend.visible;
 
 export const useSelectLegendVisible = createSelector(selectLegendVisible);
-export const useGetLegendVisible = createGetter(selectLegendVisible);
 
 export const selectEditable = (params: KeyedSelectorParams): boolean =>
   selectState(params).editable;
