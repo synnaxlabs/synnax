@@ -105,6 +105,97 @@ trig -> time.now{} -> now_out
 		It("Should accept multiple modules in one block", func() {
 			d := analyze(`
 import ( time control )
+
+trig -> control.set_authority{value=200, channel=valve_cmd}
+func get_now() i64 { return time.now() }
+`, chans)
+			Expect(d.Ok()).To(BeTrue(), messages(d))
+		})
+
+		It("Should accept control.set_authority with import control", func() {
+			d := analyze(`
+import control
+
+trig -> control.set_authority{value=200, channel=valve_cmd}
+`, chans)
+			Expect(d.Ok()).To(BeTrue(), messages(d))
+		})
+	})
+
+	Describe("aliases", func() {
+		It("Should bind the alias as the qualifier", func() {
+			d := analyze(`
+import time as t
+
+trig -> t.now{} -> now_out
+`, chans)
+			Expect(d.Ok()).To(BeTrue(), messages(d))
+		})
+
+		It("Should reject the original name when aliased", func() {
+			d := analyze(`
+import time as t
+
+trig -> time.now{} -> now_out
+`, chans)
+			Expect(d.Ok()).To(BeFalse())
+			Expect(messages(d)).To(ContainSubstring(`module "time" is not imported`))
+		})
+
+		It("Should rewrite the alias to the canonical module in IR node types", func() {
+			t, parseDiag := text.Parse(text.Text{Raw: `
+import time as t
+
+trig -> t.now{} -> now_out
+`})
+			if parseDiag != nil {
+				Expect(parseDiag.Ok()).To(BeTrue())
+			}
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			for i := range chans {
+				s := chans[i]
+				root.Parent.AddChild(&s)
+			}
+			i, d := text.Analyze(context.Background(), t, root)
+			Expect(d.Ok()).To(BeTrue(), messages(d))
+			var found bool
+			for _, n := range i.Nodes {
+				if n.Type == "time.now" {
+					found = true
+				}
+				Expect(n.Type).ToNot(Equal("t.now"), "IR node type still uses the alias")
+			}
+			Expect(found).To(BeTrue(), "expected an IR node with canonical type time.now")
+		})
+	})
+
+	Describe("hierarchical paths", func() {
+		It("Should error on unknown module 'math.trig'", func() {
+			// math.trig is grammatically valid but no module is registered
+			// under that path, so the analyzer rejects the import itself.
+			d := analyze(`
+import math.trig
+
+sensor -> trig.sin{} -> output
+`, chans)
+			Expect(d.Ok()).To(BeFalse())
+			Expect(messages(d)).To(ContainSubstring(`unknown module "math.trig"`))
+		})
+	})
+
+	Describe("diagnostics", func() {
+		It("Should report unused imports", func() {
+			d := analyze(`
+import time
+
+trig -> set_authority{value=200, channel=valve_cmd}
+`, chans)
+			Expect(d.Ok()).To(BeFalse())
+			Expect(messages(d)).To(ContainSubstring(`imported module "time" is unused`))
+		})
+
+		It("Should report duplicate imports", func() {
+			d := analyze(`
 import ( time time )
 
 trig -> get_now{} -> now_out
