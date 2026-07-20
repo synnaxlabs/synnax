@@ -333,10 +333,11 @@ describe("useRetrieveSuspended", () => {
 
   it("resolves synchronously without suspending when the cache hits", async () => {
     const retrieve = vi.fn(async () => 99);
+    const cached: cache.Cached<number> = { variant: "changed", data: 42 };
     const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
-      getCached: () => ({ variant: "changed", data: 42 }),
+      getCached: () => cached,
     });
 
     const Display = (): ReactElement => {
@@ -362,16 +363,21 @@ describe("useRetrieveSuspended", () => {
 
   it("falls through to the async retrieve when the cache misses", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
+    let cached: cache.Cached<number> | undefined;
     const retrieve = vi.fn(
       () =>
         new Promise<number>((resolve) => {
-          resolveRetrieve = resolve;
+          resolveRetrieve = (value) => {
+            cached = { variant: "changed", data: value };
+            resolve(value);
+          };
         }),
     );
     const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
-      getCached: () => undefined,
+      subscribe: () => () => {},
+      getCached: () => cached,
     });
 
     const Display = (): ReactElement => {

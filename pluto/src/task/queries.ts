@@ -52,14 +52,21 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
 export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
   createRetrieve();
 
-export const [useSelectName, useGetName] = Flux.createSelector<
-  FluxSubStore,
-  { key: task.Key },
-  string
->({
-  subscribe: (store, { key }, notify) => store.tasks.onSet(notify, key),
-  select: (store, { key }) => store.tasks.get(key)?.name ?? "Task",
-});
+export interface SelectKeyParams {
+  key: task.Key;
+}
+
+export const [useSelectName, useGetName] = Flux.createSelector<SelectKeyParams, string>(
+  {
+    subscribe: ({ client, args: { key } }, notify) =>
+      client == null ? () => {} : client.tasks.onChange({ key }, notify),
+    select: ({ client, args: { key } }) => {
+      const cached = client?.tasks.getCached({ key });
+      if (cached == null || cached.variant === "deleted") return "Task";
+      return cached.data.name;
+    },
+  },
+);
 
 export const useRetrieveObservableName = ({
   onChange,
