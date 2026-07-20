@@ -772,6 +772,30 @@ describe("Arc queries", () => {
       expect(result.current.data?.key).toBe(testArc.key);
       expect(result.current.data?.name).toBe(testArc.name);
     });
+
+    it("does not suspend when the arc is already in the store", async () => {
+      const a = await createTestArc();
+      await loadArc(a.key);
+
+      const Wrapper = wrapper;
+      // With the store warm, the fast-path resolves without suspending.
+      const Probe = (): ReactElement => {
+        Arc.useEnsureRetrieved({ key: a.key });
+        return <div data-testid="ready" />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={<div data-testid="fallback" />}>
+              <Probe />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("ready")).toBeTruthy();
+    });
   });
 
   describe("useRename", () => {

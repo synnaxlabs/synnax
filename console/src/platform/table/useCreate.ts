@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, table, UnexpectedError } from "@synnaxlabs/client";
+import { type project, table } from "@synnaxlabs/client";
 import { Table } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -23,24 +23,21 @@ export interface UseCreateProps {
 export const useCreate = ({ project }: UseCreateProps = {}): ((
   params?: Partial<table.New>,
 ) => void) => {
-  const activeProject = Session.Project.useSelectOptionalSelected();
-  const target = project ?? activeProject;
+  const getActiveProject = Session.Project.useGetSelected();
   const maybeChangeProject = useMaybeChange();
   const openTab = Panel.useOpenTab();
   const dispatch = useDispatch();
   const { update } = Table.useCreate({
     afterOptimistic: ({ data: { key } }) => {
-      if (target != null) maybeChangeProject(target);
+      project ??= getActiveProject();
+      maybeChangeProject(project);
       dispatch(Session.Table.create({ key, editable: true }));
       openTab({ variant: "resource", resource: table.ontologyID(key) });
     },
   });
   return useCallback(
-    (params = {}) => {
-      if (target == null)
-        throw new UnexpectedError("cannot create a resource without a project");
-      update({ name: "Table", ...params, project: target });
-    },
-    [update, target],
+    (params = {}) =>
+      update({ name: "Table", ...params, project: project ?? getActiveProject() }),
+    [update, project],
   );
 };

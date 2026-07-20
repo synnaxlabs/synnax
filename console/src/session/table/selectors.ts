@@ -42,7 +42,7 @@ const createGetter =
       (args) =>
         selector({
           state: store.getState(),
-          key: (args?.key ?? scopeKey) as table.Key,
+          key: Table.Scope.require(args?.key ?? scopeKey),
         }),
       [store, scopeKey],
     );
@@ -58,13 +58,11 @@ const selectOptional = ({ state, key }: KeyedSelectorParams): State | undefined 
   selectSliceState(state).tables[key];
 
 export const useSelectOptional = createSelector(selectOptional);
-export const useGetOptional = createGetter(selectOptional);
 
 const selectExists = (params: KeyedSelectorParams): boolean =>
   selectOptional(params) != null;
 
 export const useSelectExists = createSelector(selectExists);
-export const useGetExists = createGetter(selectExists);
 
 export const selectEditable = (params: KeyedSelectorParams): boolean =>
   selectState(params).editable;
@@ -76,16 +74,13 @@ const selectHideIndicators = (params: KeyedSelectorParams): boolean =>
   selectState(params).hideIndicators;
 
 export const useSelectHideIndicators = createSelector(selectHideIndicators);
-export const useGetHideIndicators = createGetter(selectHideIndicators);
 
 const selectSelectedCellKeys = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedCells;
 
 export const useSelectSelectedCellKeys = createSelector(selectSelectedCellKeys);
-export const useGetSelectedCellKeys = createGetter(selectSelectedCellKeys);
 
 const selectLastSelected = (params: KeyedSelectorParams): string | null =>
   selectState(params).lastSelected;
 
 export const useSelectLastSelected = createSelector(selectLastSelected);
-export const useGetLastSelected = createGetter(selectLastSelected);

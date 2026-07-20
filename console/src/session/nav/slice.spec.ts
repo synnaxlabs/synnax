@@ -10,9 +10,6 @@
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { renderHook } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
-import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Nav } from "@/session/nav";
@@ -24,7 +21,7 @@ const rootReducer = combineReducers({
 
 // run dispatches the actions through a store wired with the inject-key middleware, so
 // actions without an explicit windowKey resolve to the active window (MAIN_WINDOW). The
-// resulting state is read back through the public getter hooks, exercising the slice,
+// resulting state is read back through selectWindowState, exercising the slice,
 // middleware, and Drift-coupled selectors together.
 const run = (...actions: Nav.Action[]) => {
   const store = configureStore({
@@ -32,19 +29,13 @@ const run = (...actions: Nav.Action[]) => {
     middleware: (getDefault) => getDefault().concat(Nav.MIDDLEWARE),
   });
   actions.forEach((action) => store.dispatch(action));
-  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
-    <Provider store={store}>{children}</Provider>
-  );
-  const { result } = renderHook(
-    () => ({
-      left: Nav.useGetLeft(),
-      leftSelected: Nav.useGetLeftSelected(),
-      bottom: Nav.useGetBottom(),
-      bottomVisible: Nav.useGetBottomVisible(),
-    }),
-    { wrapper },
-  );
-  return result.current;
+  const windowState = () => Nav.selectWindowState(store.getState());
+  return {
+    left: () => windowState().left,
+    leftSelected: () => windowState().left.selected,
+    bottom: () => windowState().bottom,
+    bottomVisible: () => windowState().bottom.visible,
+  };
 };
 
 describe("Nav Slice", () => {

@@ -55,47 +55,47 @@ describe("Log Slice", () => {
     });
 
     it("should create multiple logs independently", () => {
-      const getTab = renderGetter(Log.useGetSelectedToolbarTab);
+      const getState = renderGetter(Log.useGetState);
       act(() => {
         store.dispatch(
           Log.create({ key: "log-1", toolbar: { selectedTab: "properties" } }),
         );
         store.dispatch(Log.create({ key: "log-2" }));
       });
-      expect(getTab({ key: "log-1" })).toBe("properties");
-      expect(getTab({ key: "log-2" })).toBe("channels");
+      expect(getState({ key: "log-1" }).toolbar.selectedTab).toBe("properties");
+      expect(getState({ key: "log-2" }).toolbar.selectedTab).toBe("channels");
     });
 
     it("should not overwrite an existing entry", () => {
-      const getTab = renderGetter(Log.useGetSelectedToolbarTab);
+      const getState = renderGetter(Log.useGetState);
       act(() => {
         store.dispatch(Log.create({ key: KEY }));
         store.dispatch(Log.setSelectedToolbarTab({ key: KEY, tab: "properties" }));
         store.dispatch(Log.create({ key: KEY }));
       });
-      expect(getTab()).toBe("properties");
+      expect(getState().toolbar.selectedTab).toBe("properties");
     });
   });
 
   describe("setActiveToolbarTab", () => {
     it("should set the active toolbar tab", () => {
-      const getTab = renderGetter(Log.useGetSelectedToolbarTab);
+      const getState = renderGetter(Log.useGetState);
       act(() => {
         store.dispatch(Log.create({ key: KEY }));
         store.dispatch(Log.setSelectedToolbarTab({ key: KEY, tab: "properties" }));
       });
-      expect(getTab()).toBe("properties");
+      expect(getState().toolbar.selectedTab).toBe("properties");
     });
 
     it("should provision state on first action for an unknown key", () => {
-      const getTab = renderGetter(Log.useGetSelectedToolbarTab, "absent");
+      const getState = renderGetter(Log.useGetState, "absent");
       act(
         () =>
           void store.dispatch(
             Log.setSelectedToolbarTab({ key: "absent", tab: "properties" }),
           ),
       );
-      expect(getTab()).toBe("properties");
+      expect(getState().toolbar.selectedTab).toBe("properties");
     });
   });
 
