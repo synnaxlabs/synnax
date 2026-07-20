@@ -55,6 +55,12 @@ export interface CreateRetrieveParams<
   getCached?: (
     params: RetrieveParams<Query, AllowDisconnected>,
   ) => cache.Cached<Data> | undefined;
+  /**
+   * Builds the answer synchronously from records already cached under other
+   * queries. Consulted only when `getCached` misses, so suspending reads
+   * resolve without a fetch. Returns undefined to fall through to `retrieve`.
+   */
+  deriveCached?: (params: RetrieveParams<Query, AllowDisconnected>) => Data | undefined;
   allowDisconnected?: AllowDisconnected;
 }
 
@@ -459,6 +465,7 @@ const useSuspended = <
   retrieve,
   subscribe,
   getCached,
+  deriveCached,
   allowDisconnected = false as AllowDisconnected,
 }: UseSuspendedParams<Query, Data> &
   CreateRetrieveParams<Query, Data, AllowDisconnected>): Data => {
@@ -489,6 +496,8 @@ const useSuspended = <
   if (cached?.variant === "changed") return cached.data;
   if (cached?.variant === "deleted")
     throw new DeletedError(`${name} was deleted`, cached.corpse);
+  const derived = deriveCached?.(params);
+  if (derived != null) return derived;
   return suspendOnFetch(params, { name, retrieve, getCached, local });
 };
 
@@ -502,6 +511,7 @@ const useEnsure = <
   name,
   retrieve,
   getCached,
+  deriveCached,
   allowDisconnected = false as AllowDisconnected,
 }: UseSuspendedParams<Query, Data> &
   CreateRetrieveParams<Query, Data, AllowDisconnected>): void => {
@@ -522,6 +532,7 @@ const useEnsure = <
   if (cached?.variant === "changed") return;
   if (cached?.variant === "deleted")
     throw new DeletedError(`${name} was deleted`, cached.corpse);
+  if (deriveCached?.(params) != null) return;
   suspendOnFetch(params, { name, retrieve, getCached, local });
 };
 

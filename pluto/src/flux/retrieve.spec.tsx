@@ -361,6 +361,36 @@ describe("useRetrieveSuspended", () => {
     expect(retrieve).not.toHaveBeenCalled();
   });
 
+  it("resolves from deriveCached when the query's own cache misses", async () => {
+    const retrieve = vi.fn(async () => 99);
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve,
+      getCached: () => undefined,
+      deriveCached: () => 13,
+    });
+
+    const Display = (): ReactElement => {
+      const value = useRetrieveSuspended({ key: "derived" });
+      return <div data-testid="value">{value}</div>;
+    };
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={<div>loading-derived</div>}>
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+
+    expect(utils.queryByText("loading-derived")).toBeNull();
+    expect(utils.queryByTestId("value")?.textContent).toBe("13");
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
   it("falls through to the async retrieve when the cache misses", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
     let cached: cache.Cached<number> | undefined;

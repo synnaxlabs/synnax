@@ -114,6 +114,15 @@ export const {
   subscribe: ({ client, query: { keys } }, handler) =>
     client.ranges.onChange(keys, handler),
   getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
+  deriveCached: ({ client, query: { keys } }) => {
+    const ranges: ranger.Range[] = [];
+    for (const key of keys) {
+      const cached = client.ranges.getCached(key);
+      if (cached == null || cached.variant === "deleted") return undefined;
+      ranges.push(cached.data);
+    }
+    return ranges;
+  },
 });
 
 export const formSchema = z.object({
