@@ -63,4 +63,41 @@ describe("createUseCreate", () => {
     const tsk = await client.tasks.retrieve({ key, schemas });
     expect(tsk.rack).toBe(rack.key);
   });
+
+  it("should pass an explicit config through to getInitialValues", async () => {
+    const useCreateFromConfig = Task.createUseCreate<typeof schemas>({
+      getInitialValues: ({ config }) => ({
+        name: "Config Create Task",
+        type: TYPE,
+        config: config as z.infer<(typeof schemas)["config"]>,
+      }),
+    });
+    const store = await createTestStore();
+    const { wrapper } = await createConsoleWrapper({ client, store });
+    const created = await createSelectedPanel(wrapper, store, client);
+    const { result } = renderHook(() => useCreateFromConfig(), { wrapper });
+    act(() => result.current({ config: { device: "dev-2" } }));
+    const key = await awaitTaskResourceTab(created);
+    const tsk = await client.tasks.retrieve({ key, schemas });
+    expect(tsk.config.device).toBe("dev-2");
+  });
+
+  it("should bind each minted hook to its own task type", async () => {
+    const otherType = "test_create_other";
+    const useCreateOther = Task.createUseCreate({
+      getInitialValues: () => ({
+        name: "Other Create Task",
+        type: otherType,
+        config: {},
+      }),
+    });
+    const store = await createTestStore();
+    const { wrapper } = await createConsoleWrapper({ client, store });
+    const created = await createSelectedPanel(wrapper, store, client);
+    const { result } = renderHook(() => useCreateOther(), { wrapper });
+    act(() => result.current());
+    const key = await awaitTaskResourceTab(created);
+    const tsk = await client.tasks.retrieve({ key });
+    expect(tsk.type).toBe(otherType);
+  });
 });
