@@ -21,6 +21,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -35,7 +36,7 @@ import (
 func generateAutoCopy(
 	pkg, outputPath, repoRoot string,
 	types []resolution.Type,
-	diff map[string]TypeDiff,
+	diff map[string]schemadiff.TypeDiff,
 	oldTable, newTable *resolution.Table,
 	skipEntries bool,
 ) ([]byte, error) {
@@ -186,7 +187,7 @@ func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 
 type collector struct {
 	pkg, outputPath, repoRoot string
-	diff                      map[string]TypeDiff
+	diff                      map[string]schemadiff.TypeDiff
 	oldTable, newTable        *resolution.Table
 	imports                   map[string]importEntry
 	generated                 set.Set[string]
@@ -198,7 +199,7 @@ type collector struct {
 func (c *collector) collect(types []resolution.Type) fileData {
 	for _, typ := range types {
 		td, hasDiff := c.diff[typ.QualifiedName]
-		if !hasDiff || td.Kind == TypeUnchanged {
+		if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
 			continue
 		}
 		if false && c.skipEntries && c.isEntryType(typ) { // TEMP
@@ -390,7 +391,7 @@ func (c *collector) sliceFunc(
 		return funcData{GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName, Kind: "cast"}
 	}
 	td, hasDiff := c.diff[elemResolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != TypeUnchanged
+	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
 	if needsMigration || c.hasOracleDefinedFields(elemResolved) {
 		return funcData{
 			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
@@ -429,7 +430,7 @@ func (c *collector) classifyField(
 		return classification{inline: accessor}
 	}
 	td, hasDiff := c.diff[resolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != TypeUnchanged
+	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
 	varName := naming.LowerFirst(goName)
 	if needsMigration || c.hasOracleDefinedFields(resolved) {
 		helper := c.requireFunc(resolved)
@@ -462,7 +463,7 @@ func (c *collector) classifySlice(
 		return classification{inline: accessor}
 	}
 	td, hasDiff := c.diff[elemResolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != TypeUnchanged
+	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
 	if !needsMigration && !c.isOracleDefined(elemResolved) {
 		return classification{inline: accessor}
 	}
@@ -497,7 +498,7 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 	}
 	if !isLocal {
 		td, ok := c.diff[typ.QualifiedName]
-		isLocal = !ok || td.Kind == TypeUnchanged
+		isLocal = !ok || td.Kind == schemadiff.TypeUnchanged
 	}
 	if isLocal {
 		if !c.generated.Contains(typ.QualifiedName) {
@@ -505,12 +506,12 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		}
 		return "AutoMigrate" + goName
 	}
-	// For TypeChanged types in external packages, call MigrateX (the developer
+	// For schemadiff.TypeChanged types in external packages, call MigrateX (the developer
 	// template) instead of AutoMigrateX, so developer customization takes effect.
 	// Both live in the dependency's incoming version package, so the import
 	// targets the type's NEW path, not the frozen one being read from.
 	prefix := "AutoMigrate"
-	if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == TypeChanged {
+	if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == schemadiff.TypeChanged {
 		prefix = "Migrate"
 	}
 	if nt, ok := c.newTable.Get(typ.QualifiedName); ok {
@@ -633,9 +634,9 @@ func (c *collector) isStructLike(typ resolution.Type) bool {
 
 // --- Pure helpers ---
 
-func needsAutoMigrate(types []resolution.Type, diff map[string]TypeDiff) bool {
+func needsAutoMigrate(types []resolution.Type, diff map[string]schemadiff.TypeDiff) bool {
 	for _, typ := range types {
-		if td, ok := diff[typ.QualifiedName]; ok && td.Kind != TypeUnchanged {
+		if td, ok := diff[typ.QualifiedName]; ok && td.Kind != schemadiff.TypeUnchanged {
 			return true
 		}
 	}

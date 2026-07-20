@@ -24,14 +24,9 @@ import (
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
 	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
-	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/snapshot"
 	"github.com/synnaxlabs/x/errors"
 )
-
-// errSnapshotAnalysis is returned when a snapshot's schemas no longer
-// analyze under the current grammar.
-var errSnapshotAnalysis = errors.New("snapshot analysis failed")
 
 func newMigrateCmd() *cobra.Command {
 	return &cobra.Command{
@@ -71,11 +66,9 @@ func runMigrate(cmd *cobra.Command) error {
 	_ = registry.Register(gomigrate.New())
 
 	// Load old snapshot if one exists.
-	schemasDir := filepath.Join(repoRoot, "schemas")
-	snapshotsDir := filepath.Join(schemasDir, "snapshots")
-	latestVersion, err := snapshot.LatestVersion(snapshotsDir)
+	latestVersion, loadSnapshot, err := snapshot.TableLoader(ctx, repoRoot)
 	if err != nil {
-		return errors.Wrap(err, "failed to read snapshot version")
+		return err
 	}
 
 	// Analyze current schemas.
@@ -94,31 +87,6 @@ func runMigrate(cmd *cobra.Command) error {
 		return errors.Wrap(err, "failed to read core version")
 	}
 
-	loadSnapshot := func(version int) (*resolution.Table, error) {
-		vDir := filepath.Join(snapshotsDir, fmt.Sprintf("v%d", version))
-		files, err := snapshot.Files(vDir)
-		if err != nil || len(files) == 0 {
-			return nil, nil
-		}
-		snapshotLoader := snapshot.NewFileLoader(vDir, repoRoot)
-		normalized := make([]string, 0, len(files))
-		for _, f := range files {
-			rel, err := filepath.Rel(vDir, f)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to compute relative path for %s", f)
-			}
-			normalized = append(normalized, "schemas/"+strings.TrimSuffix(rel, ".oracle"))
-		}
-		t, diag := analyzer.Analyze(ctx, normalized, snapshotLoader)
-		if diag != nil && !diag.Ok() {
-			if verbose {
-				printDiagnostics(diag.String())
-			}
-			return nil, errors.Wrapf(errSnapshotAnalysis, "v%d", version)
-		}
-		return t, nil
-	}
-
 	// Build the plugin request.
 	req := &plugin.Request{
 		Resolutions:     table,
@@ -132,7 +100,7 @@ func runMigrate(cmd *cobra.Command) error {
 	// baseline — migrate proceeds without diffing rather than failing.
 	if latestVersion > 0 {
 		oldTable, err := loadSnapshot(latestVersion)
-		if err != nil && !errors.Is(err, errSnapshotAnalysis) {
+		if err != nil && !errors.Is(err, snapshot.ErrAnalysis) {
 			return errors.Wrap(err, "failed to load latest snapshot")
 		}
 		switch {

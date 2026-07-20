@@ -106,6 +106,34 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 		Import:  resolveGoImportPath(importPath, ctx.RepoRoot),
 	}
 
+	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
+		if omit.IsType(d.typ, "go") {
+			continue
+		}
+		if d.kind == declEnum && d.typ.Namespace != namespace {
+			continue
+		}
+		ad.Types = append(ad.Types, buildAliasDecls(d, prefix, data)...)
+	}
+
+	// A path whose types are all @go omit generates no aliases; emitting the
+	// file would leave an unused import.
+	if len(ad.Types) == 0 {
+		return "", nil
+	}
+	var buf bytes.Buffer
+	if err := aliasTemplate.Execute(&buf, ad); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// buildAliasDecls returns the alias declarations re-exporting d's type from
+// the package referenced as prefix: a type alias per generated type (unions
+// expand to their variant, discriminator, and interface types) plus const
+// re-declarations for enum members and union discriminator values.
+func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDecl {
+	var decls []aliasDecl
 	addType := func(name, docStr string, tparams []resolution.TypeParam) {
 		lhs, rhs := name, prefix+"."+name
 		params := resolution.NonDefaultedTypeParams(tparams)
@@ -124,80 +152,61 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 			lhs += "]"
 			rhs += "]"
 		}
-		ad.Types = append(ad.Types, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
+		decls = append(decls, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
 	}
-
-	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
-		if omit.IsType(d.typ, "go") {
-			continue
-		}
-		switch d.kind {
-		case declTypeDef:
-			switch form := d.typ.Form.(type) {
-			case resolution.DistinctForm:
-				addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
-			case resolution.AliasForm:
-				addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
-			default:
-				addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), nil)
-			}
-		case declEnum:
-			if d.typ.Namespace != namespace {
-				continue
-			}
-			name := naming.GetGoName(d.typ)
-			addType(name, doc.Get(d.typ.Domains), nil)
-			form := d.typ.Form.(resolution.EnumForm)
-			decl := &ad.Types[len(ad.Types)-1]
-			for _, v := range form.Values {
-				member := name + naming.ToPascalCase(v.Name)
-				decl.Consts = append(decl.Consts, aliasConst{
-					Name:   member,
-					Type:   name,
-					Target: prefix + "." + member,
-					Doc:    doc.Get(v.Domains),
-				})
-			}
-		case declStruct:
-			form, ok := d.typ.Form.(resolution.StructForm)
-			if !ok {
-				continue
-			}
+	switch d.kind {
+	case declTypeDef:
+		switch form := d.typ.Form.(type) {
+		case resolution.DistinctForm:
 			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
-		case declUnion:
-			form, ok := d.typ.Form.(resolution.UnionForm)
-			if !ok {
-				continue
-			}
-			name := naming.GetGoName(d.typ)
-			addType(name, doc.Get(d.typ.Domains), nil)
-			addType(name+"Variant", "", nil)
-			discType := name + "Type"
-			addType(discType, "", nil)
-			discDecl := len(ad.Types) - 1
-			for _, v := range form.Variants {
-				addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
-				constName := discType + casing.PascalAcronym(v.Name)
-				ad.Types[discDecl].Consts = append(ad.Types[discDecl].Consts, aliasConst{
-					Name:   constName,
-					Type:   discType,
-					Target: prefix + "." + constName,
-					Doc:    doc.Get(v.Domains),
-				})
-			}
+		case resolution.AliasForm:
+			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+		default:
+			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), nil)
+		}
+	case declEnum:
+		name := naming.GetGoName(d.typ)
+		addType(name, doc.Get(d.typ.Domains), nil)
+		form := d.typ.Form.(resolution.EnumForm)
+		decl := &decls[len(decls)-1]
+		for _, v := range form.Values {
+			member := name + naming.ToPascalCase(v.Name)
+			decl.Consts = append(decl.Consts, aliasConst{
+				Name:   member,
+				Type:   name,
+				Target: prefix + "." + member,
+				Doc:    doc.Get(v.Domains),
+			})
+		}
+	case declStruct:
+		form, ok := d.typ.Form.(resolution.StructForm)
+		if !ok {
+			return nil
+		}
+		addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+	case declUnion:
+		form, ok := d.typ.Form.(resolution.UnionForm)
+		if !ok {
+			return nil
+		}
+		name := naming.GetGoName(d.typ)
+		addType(name, doc.Get(d.typ.Domains), nil)
+		addType(name+"Variant", "", nil)
+		discType := name + "Type"
+		addType(discType, "", nil)
+		discDecl := len(decls) - 1
+		for _, v := range form.Variants {
+			addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
+			constName := discType + casing.PascalAcronym(v.Name)
+			decls[discDecl].Consts = append(decls[discDecl].Consts, aliasConst{
+				Name:   constName,
+				Type:   discType,
+				Target: prefix + "." + constName,
+				Doc:    doc.Get(v.Domains),
+			})
 		}
 	}
-
-	// A path whose types are all @go omit generates no aliases; emitting the
-	// file would leave an unused import.
-	if len(ad.Types) == 0 {
-		return "", nil
-	}
-	var buf bytes.Buffer
-	if err := aliasTemplate.Execute(&buf, ad); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
+	return decls
 }
 
 var aliasTemplate = template.Must(template.New("go-alias").

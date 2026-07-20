@@ -256,3 +256,91 @@ var _ = Describe("Versioning", func() {
 		})
 	})
 })
+
+var _ = Describe("AliasSplit", func() {
+	var loader *testutil.MockFileLoader
+
+	BeforeEach(func() { loader = testutil.NewMockFileLoader() })
+
+	analyzeTable := func(ctx context.Context, source string) *resolution.Table {
+		GinkgoHelper()
+		table, err := analyze(ctx, source, "test", testutil.NewMockFileLoader())
+		Expect(err).ToNot(HaveOccurred())
+		return table
+	}
+
+	It("Should use the latest snapshot declaring the predecessor version", func(ctx SpecContext) {
+		liveTable, err := analyze(ctx, `
+			@go output "out"
+			@go version 2
+			Stable struct { name string }
+			Grown  struct { value int32  extra string }
+		`, "test", loader)
+		Expect(err).ToNot(HaveOccurred())
+		snapshots := map[int]string{
+			// v56 already declares the current version and cannot anchor.
+			56: `
+				@go output "out"
+				@go version 2
+				Stable struct { name string }
+				Grown  struct { value int32  extra string }
+			`,
+			55: `
+				@go output "out"
+				@go version 1
+				Stable struct { name string }
+				Grown  struct { value int32 }
+			`,
+		}
+		split := MustSucceed(versioning.AliasSplit(
+			liveTable, 56,
+			func(version int) (*resolution.Table, error) {
+				src, ok := snapshots[version]
+				if !ok {
+					return nil, nil
+				}
+				return analyzeTable(ctx, src), nil
+			},
+		))
+		Expect(split).To(HaveKey("out"))
+		Expect(split["out"].PredecessorVersion).To(Equal(1))
+		Expect(split["out"].Aliased).To(HaveLen(1))
+		for qn := range split["out"].Aliased {
+			Expect(qn).To(HaveSuffix("Stable"))
+		}
+	})
+
+	It("Should return nothing when no snapshot declares the predecessor", func(ctx SpecContext) {
+		liveTable, err := analyze(ctx, `
+			@go output "out"
+			@go version 2
+			Stable struct { name string }
+		`, "test", loader)
+		Expect(err).ToNot(HaveOccurred())
+		split := MustSucceed(versioning.AliasSplit(
+			liveTable, 56,
+			func(int) (*resolution.Table, error) { return nil, nil },
+		))
+		Expect(split).To(BeEmpty())
+	})
+
+	It("Should return nothing for paths at version zero", func(ctx SpecContext) {
+		liveTable, err := analyze(ctx, `
+			@go output "out"
+			@go version 0
+			Stable struct { name string }
+		`, "test", loader)
+		Expect(err).ToNot(HaveOccurred())
+		split := MustSucceed(versioning.AliasSplit(
+			liveTable, 56,
+			func(version int) (*resolution.Table, error) {
+				return analyzeTable(ctx, `
+					@go output "out"
+					@go version 0
+					Stable struct { name string }
+				`), nil
+			},
+		))
+		Expect(split).To(BeEmpty())
+	})
+})

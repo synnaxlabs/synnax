@@ -10,32 +10,25 @@
 // Package migrate provides an Oracle plugin that generates migration files.
 // Every version of a resource — current included — lives in its own
 // types/vN/ sub-package, numbered by the per-resource @go version. A bump
-// freezes the outgoing version (regenerated from the snapshot with pinned
-// dependency imports and gorp entry methods) and scaffolds the incoming one
-// (auto-copy, developer transform template, helpers carry-forward).
+// scaffolds the incoming version (auto-copy, developer transform template);
+// the outgoing package freezes by no longer being a generation target.
 package migrate
 
 import (
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
-	"strings"
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/plugin"
-	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
+	"github.com/synnaxlabs/oracle/plugin/go/internal/schemadiff"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
-	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 type Plugin struct{}
@@ -70,7 +63,6 @@ type generation struct {
 	oldLaidOut   map[string]int
 	newLaidOut   map[string]int
 	rewrittenNew *resolution.Table
-	entryNames   set.Set[string]
 	bumps        map[string]bump
 }
 
@@ -106,13 +98,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	g.rewrittenNew = versioning.RewriteOutputPaths(req.Resolutions, newCurrentMap)
 
-	g.entryNames = make(set.Set[string])
-	for _, t := range req.Resolutions.StructTypes() {
-		if isMigrateEntry(t) {
-			g.entryNames.Add(naming.GetGoName(t))
-		}
-	}
-
 	if err := g.detectBumps(); err != nil {
 		return nil, err
 	}
@@ -124,10 +109,11 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	sort.Strings(paths)
 	for _, path := range paths {
 		if _, laidOut := g.oldLaidOut[path]; !laidOut {
-			// Value-type paths freeze through their dependents' closures.
+			// Paths first versioned after the snapshot have no outgoing
+			// version to migrate from.
 			continue
 		}
-		if err := g.freezePath(path); err != nil {
+		if err := g.scaffoldPath(path); err != nil {
 			return nil, err
 		}
 	}
@@ -181,102 +167,47 @@ func (g *generation) detectBumps() error {
 // reference a type that didn't exist yet, so they fold into the current
 // version without a bump.
 func (g *generation) pathChanged(path string) bool {
-	oldByName := typesAtPath(g.req.OldResolutions, path)
-	newByName := typesAtPath(g.req.Resolutions, path)
+	oldByName := versioning.TypesAtPath(g.req.OldResolutions, path)
+	newByName := versioning.TypesAtPath(g.req.Resolutions, path)
 	for name, oldType := range oldByName {
 		newType, ok := newByName[name]
 		if !ok {
 			return true
 		}
-		if !schemasEqual(oldType, newType, g.req.OldResolutions, g.req.Resolutions) {
+		if !schemadiff.SchemasEqual(oldType, newType, g.req.OldResolutions, g.req.Resolutions) {
 			return true
 		}
 	}
 	return false
 }
 
-// typesAtPath keys by bare type name so old and new tables compare across
-// namespace reorganizations (a snapshot may predate a schema-directory move).
-func typesAtPath(table *resolution.Table, path string) map[string]resolution.Type {
-	result := make(map[string]resolution.Type)
-	for _, t := range table.TypesWithDomain("go") {
-		if output.GetPath(t, "go") != path {
-			continue
-		}
-		switch t.Form.(type) {
-		case resolution.StructForm, resolution.AliasForm, resolution.DistinctForm,
-			resolution.EnumForm, resolution.UnionForm:
-			result[t.Name] = t
-		}
-	}
-	return result
-}
-
-// freezePath finalizes the outgoing version of a version-laid-out path and
-// scaffolds the incoming one. The outgoing types/v{old} package is
-// regenerated from the snapshot with dependency imports pinned at the
-// versions the snapshot declares and gorp entry methods appended. The
-// incoming types/v{new} package gains migrate_auto.gen.go and a migrate.go
-// template, and helpers.go carries forward.
-func (g *generation) freezePath(path string) error {
+// scaffoldPath scaffolds the incoming version of a bumped path: auto-copy,
+// developer transform template. The outgoing version package is already on
+// disk in its final form — generation stops targeting it, which is what
+// freezes it.
+func (g *generation) scaffoldPath(path string) error {
 	b := g.bumps[path]
 	oldTable := g.req.OldResolutions
-
-	roots := typesAtPath(oldTable, path)
-	pkgTypes, codecReachable := closureForPath(roots, oldTable)
-
-	pathMap := make(map[string]string, len(pkgTypes))
-	for origPath := range pkgTypes {
-		ov, ok := g.oldVersions[origPath]
-		if !ok {
-			return errors.Newf(
-				"cannot freeze %s: dependency %s declares no @go version in the snapshot",
-				path, origPath,
-			)
-		}
-		pathMap[origPath] = versioning.VersionedPath(origPath, ov)
-	}
-	rewrittenOld := versioning.RewriteOutputPaths(oldTable, pathMap)
-
-	diff := g.pathDiff(path, roots)
-
-	// Dependencies own their frozen dirs — the pathMap pins imports at them
-	// without re-emitting. Only the bumped path itself is regenerated.
-	frozenPath := pathMap[path]
-	types := pkgTypes[path]
-	typeContent, err := generateFrozenTypesFile(types, rewrittenOld, frozenPath, g.req.RepoRoot)
+	roots := versioning.TypesAtPath(oldTable, path)
+	// Pin every versioned path in the old table at its snapshot-declared
+	// version so scaffolding references frozen directories. Paths without a
+	// version stay unversioned, where their old types still live.
+	oldPathMap, err := versioning.CurrentPathMap(oldTable)
 	if err != nil {
-		return errors.Wrapf(err, "failed to generate frozen types for %s", path)
+		return err
 	}
-	entryMethods := generateGorpEntryMethods(types, g.entryNames)
-	if len(entryMethods) > 0 {
-		typeContent = append(typeContent, entryMethods...)
+	rewrittenOld := versioning.RewriteOutputPaths(oldTable, oldPathMap)
+	diff := g.pathDiff(path, roots)
+	names := make([]string, 0, len(roots))
+	for name := range roots {
+		names = append(names, name)
 	}
-	g.resp.Files = append(g.resp.Files, plugin.File{
-		Path:    frozenPath + "/types.gen.go",
-		Content: typeContent,
-	})
-
-	codecEntries := codecEntriesForTypes(types, codecReachable)
-	flex := collectFlexTypes(types)
-	if len(codecEntries) > 0 || len(flex) > 0 {
-		codecContent, err := gomarshal.GenerateCodecFile(
-			filepath.Base(frozenPath), frozenPath,
-			codecEntries,
-			flex,
-			rewrittenOld,
-			g.req.RepoRoot,
-		)
-		if err != nil {
-			return errors.Wrapf(err, "failed to generate frozen codec for %s", path)
-		}
-		g.resp.Files = append(g.resp.Files, plugin.File{
-			Path:    frozenPath + "/codec.gen.go",
-			Content: codecContent,
-		})
+	sort.Strings(names)
+	oldEntryTypes := make([]resolution.Type, 0, len(names))
+	for _, name := range names {
+		oldEntryTypes = append(oldEntryTypes, roots[name])
 	}
-
-	return g.scaffoldIncoming(path, b, roots, types, diff, rewrittenOld)
+	return g.scaffoldIncoming(path, b, roots, oldEntryTypes, diff, rewrittenOld)
 }
 
 // pathDiff computes the schema diff for a path's freeze, walking from its
@@ -286,9 +217,9 @@ func (g *generation) freezePath(path string) error {
 func (g *generation) pathDiff(
 	path string,
 	roots map[string]resolution.Type,
-) map[string]TypeDiff {
-	diff := make(map[string]TypeDiff)
-	newByName := typesAtPath(g.req.Resolutions, path)
+) map[string]schemadiff.TypeDiff {
+	diff := make(map[string]schemadiff.TypeDiff)
+	newByName := versioning.TypesAtPath(g.req.Resolutions, path)
 	names := make([]string, 0, len(roots))
 	for name := range roots {
 		names = append(names, name)
@@ -303,7 +234,7 @@ func (g *generation) pathDiff(
 		if !ok {
 			continue
 		}
-		for qn, td := range SchemaDiff(oldType, newType, g.req.OldResolutions, g.req.Resolutions) {
+		for qn, td := range schemadiff.SchemaDiff(oldType, newType, g.req.OldResolutions, g.req.Resolutions) {
 			if _, exists := diff[qn]; !exists {
 				diff[qn] = td
 			}
@@ -316,10 +247,10 @@ func (g *generation) pathDiff(
 				continue
 			}
 			if _, exists := diff[oldType.QualifiedName]; !exists {
-				diff[oldType.QualifiedName] = TypeDiff{
+				diff[oldType.QualifiedName] = schemadiff.TypeDiff{
 					QualifiedName: oldType.QualifiedName,
 					GoPath:        path,
-					Kind:          TypeChanged,
+					Kind:          schemadiff.TypeChanged,
 				}
 			}
 		}
@@ -335,18 +266,13 @@ func (g *generation) scaffoldIncoming(
 	b bump,
 	roots map[string]resolution.Type,
 	oldEntryTypes []resolution.Type,
-	diff map[string]TypeDiff,
+	diff map[string]schemadiff.TypeDiff,
 	rewrittenOld *resolution.Table,
 ) error {
 	newPath := versioning.VersionedPath(path, b.NewVersion)
 	newDir := versioning.Dir(b.NewVersion)
-	oldDir := versioning.Dir(b.OldVersion)
 
-	if err := g.moveHelpers(path, b, oldDir, newDir); err != nil {
-		return err
-	}
-
-	newByName := typesAtPath(g.req.Resolutions, path)
+	newByName := versioning.TypesAtPath(g.req.Resolutions, path)
 	hasMigrateEntry := false
 	for name := range roots {
 		if newType, ok := newByName[name]; ok && isMigrateEntry(newType) {
@@ -420,36 +346,12 @@ func (g *generation) scaffoldIncoming(
 	return nil
 }
 
-// moveHelpers carries the hand-written helpers.go forward from the outgoing
-// version package to the incoming one, rewriting the package clause. The
-// outgoing copy is deleted so historical version packages hold only
-// generated files.
-func (g *generation) moveHelpers(path string, b bump, oldDir, newDir string) error {
-	oldHelpers := versioning.VersionedPath(path, b.OldVersion) + "/helpers.go"
-	newHelpers := versioning.VersionedPath(path, b.NewVersion) + "/helpers.go"
-	if _, err := os.Stat(filepath.Join(g.req.RepoRoot, newHelpers)); err == nil {
-		return nil
-	}
-	content, err := os.ReadFile(filepath.Join(g.req.RepoRoot, oldHelpers))
-	if os.IsNotExist(err) {
-		return nil
-	}
-	if err != nil {
-		return errors.Wrapf(err, "failed to read %s", oldHelpers)
-	}
-	src := regexp.MustCompile(`(?m)^package `+regexp.QuoteMeta(oldDir)+`$`).
-		ReplaceAllString(string(content), "package "+newDir)
-	g.resp.Files = append(g.resp.Files, plugin.File{Path: newHelpers, Content: []byte(src)})
-	g.resp.Deletions = append(g.resp.Deletions, oldHelpers)
-	return nil
-}
-
 // generateDepMigration emits the auto-copy and migrate template for a changed
 // value-type dependency's frozen package.
 func (g *generation) generateDepMigration(
 	versionDir, mirroredPath string,
 	types []resolution.Type,
-	diff map[string]TypeDiff,
+	diff map[string]schemadiff.TypeDiff,
 	rewrittenOld *resolution.Table,
 ) error {
 	autoCopyContent, err := generateAutoCopy(
@@ -481,211 +383,6 @@ func (g *generation) generateDepMigration(
 		g.resp.Files = append(g.resp.Files, plugin.File{Path: migrateFile, Content: tc})
 	}
 	return nil
-}
-
-func codecEntriesForTypes(
-	types []resolution.Type,
-	reachable set.Set[string],
-) []gomarshal.CodecEntry {
-	var entries []gomarshal.CodecEntry
-	for _, t := range types {
-		if _, ok := t.Form.(resolution.StructForm); !ok {
-			continue
-		}
-		if !reachable.Contains(t.QualifiedName) {
-			continue
-		}
-		goName := naming.GetGoName(t)
-		entries = append(entries, gomarshal.CodecEntry{GoName: goName, Type: t})
-	}
-	return entries
-}
-
-func collectFlexTypes(types []resolution.Type) []gomarshal.FlexCodec {
-	var flex []gomarshal.FlexCodec
-	for _, t := range types {
-		form, ok := t.Form.(resolution.DistinctForm)
-		if !ok {
-			continue
-		}
-		marshalVal := domain.GetStringFromType(t, "go", "marshal")
-		if marshalVal != "flex" {
-			continue
-		}
-		goName := naming.GetGoName(t)
-		flex = append(flex, gomarshal.FlexCodec{
-			GoName:   goName,
-			Receiver: gomarshal.ReceiverName(goName),
-			BaseType: form.Base.Name,
-		})
-	}
-	return flex
-}
-
-// closureForPath walks the dependency trees of every type at a path and
-// groups the reachable Oracle-defined types by their @go output path. The
-// returned set holds the types directly reachable from the roots'
-// serialization trees, which determines codec generation.
-func closureForPath(
-	roots map[string]resolution.Type,
-	table *resolution.Table,
-) (pkgTypes map[string][]resolution.Type, serializationReachable set.Set[string]) {
-	result := make(map[string][]resolution.Type)
-	visited := make(set.Set[string])
-	names := make([]string, 0, len(roots))
-	for name := range roots {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		collectPkgTypesWalk(roots[name], table, result, visited)
-	}
-	serializationReachable = visited
-	// Expand each collected package: if any type from a package is needed,
-	// include ALL types from that package (for complete frozen types files).
-	for goPath := range result {
-		expanded := make(set.Set[string])
-		for _, t := range result[goPath] {
-			expanded.Add(t.QualifiedName)
-		}
-		for _, t := range table.TypesWithDomain("go") {
-			if expanded.Contains(t.QualifiedName) {
-				continue
-			}
-			if output.GetPath(t, "go") == goPath {
-				switch t.Form.(type) {
-				case resolution.StructForm, resolution.AliasForm, resolution.DistinctForm, resolution.EnumForm:
-					result[goPath] = append(result[goPath], t)
-				}
-			}
-		}
-	}
-	return result, serializationReachable
-}
-
-func collectPkgTypesWalk(
-	typ resolution.Type,
-	table *resolution.Table,
-	result map[string][]resolution.Type,
-	visited set.Set[string],
-) {
-	if visited.Contains(typ.QualifiedName) {
-		return
-	}
-	visited.Add(typ.QualifiedName)
-
-	goPath := output.GetPath(typ, "go")
-	if goPath != "" {
-		switch typ.Form.(type) {
-		case resolution.StructForm, resolution.AliasForm, resolution.DistinctForm, resolution.EnumForm:
-			result[goPath] = append(result[goPath], typ)
-		}
-	}
-
-	if sf, ok := typ.Form.(resolution.StructForm); ok {
-		for _, ext := range sf.Extends {
-			walkRefForPkgTypes(ext, table, result, visited)
-		}
-	}
-
-	fields := resolution.UnifiedFields(typ, table)
-	for _, f := range fields {
-		walkRefForPkgTypes(f.Type, table, result, visited)
-	}
-}
-
-func walkRefForPkgTypes(
-	ref resolution.TypeRef,
-	table *resolution.Table,
-	result map[string][]resolution.Type,
-	visited set.Set[string],
-) {
-	resolved, ok := ref.Resolve(table)
-	if !ok {
-		return
-	}
-	// Always walk type arguments (e.g., Status[StatusDetails] needs StatusDetails).
-	for _, arg := range ref.TypeArgs {
-		walkRefForPkgTypes(arg, table, result, visited)
-	}
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		collectPkgTypesWalk(resolved, table, result, visited)
-	case resolution.AliasForm:
-		collectPkgTypesWalk(resolved, table, result, visited)
-		walkRefForPkgTypes(form.Target, table, result, visited)
-	case resolution.DistinctForm:
-		collectPkgTypesWalk(resolved, table, result, visited)
-		walkRefForPkgTypes(form.Base, table, result, visited)
-	case resolution.EnumForm:
-		collectPkgTypesWalk(resolved, table, result, visited)
-	}
-}
-
-func generateFrozenTypesFile(
-	types []resolution.Type,
-	table *resolution.Table,
-	outputPath, repoRoot string,
-) ([]byte, error) {
-	var structs, enums, typeDefs, unions []resolution.Type
-	for _, typ := range types {
-		switch typ.Form.(type) {
-		case resolution.StructForm:
-			structs = append(structs, typ)
-		case resolution.EnumForm:
-			enums = append(enums, typ)
-		case resolution.UnionForm:
-			unions = append(unions, typ)
-		default:
-			typeDefs = append(typeDefs, typ)
-		}
-	}
-	return gotypes.GenerateGoFile(outputPath, structs, enums, typeDefs, unions, table, repoRoot)
-}
-
-func generateGorpEntryMethods(types []resolution.Type, migrateEntryNames set.Set[string]) []byte {
-	var buf bytes.Buffer
-	for _, typ := range types {
-		if !migrateEntryNames.Contains(naming.GetGoName(typ)) {
-			continue
-		}
-		form, ok := typ.Form.(resolution.StructForm)
-		if !ok || !form.HasKeyDomain {
-			continue
-		}
-		goName := naming.GetGoName(typ)
-		keyFieldGoName, keyFieldType := findKeyField(form)
-		if keyFieldGoName == "" {
-			continue
-		}
-		recv := goName + formatTypeParamsRef(form.TypeParams)
-		_, _ = fmt.Fprintf(&buf,
-			"\n// GorpKey implements gorp.Entry.\nfunc (e %s) GorpKey() %s { return e.%s }\n",
-			recv, keyFieldType, keyFieldGoName)
-		_, _ = fmt.Fprintf(&buf,
-			"\n// SetOptions implements gorp.Entry.\nfunc (e %s) SetOptions() []any { return nil }\n",
-			recv)
-	}
-	return buf.Bytes()
-}
-
-// findKeyField returns the Go field name and Go type name of the @key field on
-// the struct, or ("", "") if no key field is present. The type name is the
-// short (unqualified) form, since the frozen package always defines (or imports
-// without qualification) the key type locally — primitives appear as-is
-// ("string"), and named types appear under their declared name ("Key").
-func findKeyField(form resolution.StructForm) (name, typ string) {
-	for _, f := range form.Fields {
-		if _, ok := f.Domains["key"]; !ok {
-			continue
-		}
-		typeName := f.Type.Name
-		if idx := strings.LastIndex(typeName, "."); idx >= 0 {
-			typeName = typeName[idx+1:]
-		}
-		return naming.GetFieldName(f), typeName
-	}
-	return "", ""
 }
 
 // --- Templates ---
@@ -767,7 +464,7 @@ func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.OldTypeNa
 func renderTypeMigrateTemplate(
 	pkg, mirroredPath string,
 	types []resolution.Type,
-	diff map[string]TypeDiff,
+	diff map[string]schemadiff.TypeDiff,
 	newTable *resolution.Table,
 	repoRoot string,
 ) ([]byte, error) {
@@ -785,7 +482,7 @@ func renderTypeMigrateTemplate(
 	importSet := make(map[string]versionImport)
 	for _, typ := range types {
 		td, ok := diff[typ.QualifiedName]
-		if !ok || td.Kind != TypeChanged {
+		if !ok || td.Kind != schemadiff.TypeChanged {
 			continue
 		}
 		sf, isStruct := typ.Form.(resolution.StructForm)
@@ -810,7 +507,7 @@ func renderTypeMigrateTemplate(
 		}
 		var newFields []string
 		for _, fd := range td.ChangedFields {
-			if fd.Kind == FieldKindAdded {
+			if fd.Kind == schemadiff.FieldKindAdded {
 				newFields = append(newFields, naming.GetFieldName(*fd.NewField))
 			}
 		}

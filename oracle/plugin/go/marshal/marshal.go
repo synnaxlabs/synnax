@@ -56,6 +56,21 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 
+	// Types that alias their predecessor version carry its codec methods
+	// through the alias; only defined types get codecs in the current package.
+	split, err := versioning.AliasSplit(
+		req.Resolutions, req.SnapshotVersion, req.LoadSnapshot,
+	)
+	if err != nil {
+		return nil, err
+	}
+	aliased := make(set.Set[string])
+	for _, pa := range split {
+		for qn := range pa.Aliased {
+			aliased.Add(qn)
+		}
+	}
+
 	// Version-laid-out packages emit their codecs alongside the current
 	// types in types/vN; the rewrite shifts every affected path at once so
 	// cross-package codec references stay version-pinned.
@@ -92,6 +107,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// Collect DistinctForm types with @go marshal flex.
 	flexByPkg := make(map[string][]FlexCodec)
 	for _, dt := range req.Resolutions.DistinctTypes() {
+		if aliased.Contains(dt.QualifiedName) {
+			continue
+		}
 		marshalVal := domain.GetStringFromType(dt, "go", "marshal")
 		if marshalVal != "flex" {
 			continue
@@ -125,6 +143,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				merged[goPath] = make(map[string]resolution.Type)
 			}
 			for _, t := range types {
+				if aliased.Contains(t.QualifiedName) {
+					continue
+				}
 				merged[goPath][t.QualifiedName] = t
 			}
 		}

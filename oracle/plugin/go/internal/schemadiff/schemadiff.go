@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package migrate
+// Package schemadiff compares type shapes between two resolution tables. The
+// comparison is transitive: a type whose own declaration is untouched but whose
+// referenced types changed shape counts as changed. It drives migration bump
+// detection and the define-vs-alias split in versioned type packages.
+package schemadiff
 
 import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -16,11 +20,9 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// --- Schema equality (used by detectSchemaChange) ---
-
-// schemasEqual returns true if two types have the same data shape. It compares
+// SchemasEqual returns true if two types have the same data shape. It compares
 // field names, order, types, and optionality recursively through the type graph.
-func schemasEqual(
+func SchemasEqual(
 	oldType, newType resolution.Type,
 	oldTable, newTable *resolution.Table,
 ) bool {

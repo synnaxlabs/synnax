@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
@@ -72,16 +73,22 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 // Version-laid-out packages (@go version + a keyed struct) emit their types into the
-// current types/vN sub-package, with a root alias file re-exporting the surface.
+// current types/vN sub-package, with a root alias file re-exporting the surface. Types
+// whose shape is unchanged from the predecessor version alias it instead of being
+// re-defined.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, err := versioning.RewriteCurrent(req.Resolutions)
+	if err != nil {
+		return nil, err
+	}
+	preds, err := predecessors(req)
 	if err != nil {
 		return nil, err
 	}
 	gen := &framework.Generator{
 		Domain:          "go",
 		FilePattern:     p.Options.FileNamePattern,
-		FileGenerator:   &goFileGenerator{},
+		FileGenerator:   &goFileGenerator{preds: preds},
 		MergeByName:     false,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
@@ -130,22 +137,59 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
+// predecessor identifies the version package that a current version package's
+// unchanged types alias.
+type predecessor struct {
+	// path is the repo-relative predecessor package directory (…/types/vN-1).
+	path string
+	// aliased holds qualified names of types emitted as aliases.
+	aliased set.Set[string]
+}
+
+// predecessors maps each version-laid-out current output path (…/types/vN) to
+// its predecessor alias split. Empty when no snapshots resolve a baseline.
+func predecessors(req *plugin.Request) (map[string]predecessor, error) {
+	split, err := versioning.AliasSplit(
+		req.Resolutions, req.SnapshotVersion, req.LoadSnapshot,
+	)
+	if err != nil || len(split) == 0 {
+		return nil, err
+	}
+	entries, err := versioning.EntryPaths(req.Resolutions)
+	if err != nil {
+		return nil, err
+	}
+	preds := make(map[string]predecessor, len(split))
+	for origPath, pa := range split {
+		current := versioning.VersionedPath(origPath, entries[origPath])
+		preds[current] = predecessor{
+			path:    versioning.VersionedPath(origPath, pa.PredecessorVersion),
+			aliased: pa.Aliased,
+		}
+	}
+	return preds, nil
+}
+
 // goFileGenerator implements framework.FileGenerator for Go code generation.
-type goFileGenerator struct{}
+type goFileGenerator struct {
+	// preds maps current version output paths to their predecessor alias
+	// split; types in the split alias the predecessor instead of defining.
+	preds map[string]predecessor
+}
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := GenerateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table, ctx.RepoRoot)
+	content, err := generateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Unions, ctx.Table, ctx.RepoRoot, g.preds[ctx.OutputPath])
 	if err != nil {
 		return "", err
 	}
 	return string(content), nil
 }
 
-// GenerateGoFile generates a Go types file for the given structs, enums, and
-// type definitions at the specified output path. Exported for use by the
-// migrate plugin to generate frozen type definitions. ImportOverrides maps
-// original import paths to replacements (nil for normal operation).
-func GenerateGoFile(
+// generateGoFile generates a Go types file for the given structs, enums, and
+// type definitions at the specified output path. Types named in pred.aliased
+// are emitted as aliases to the predecessor version package instead of full
+// definitions.
+func generateGoFile(
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
@@ -153,7 +197,7 @@ func GenerateGoFile(
 	unions []resolution.Type,
 	table *resolution.Table,
 	repoRoot string,
-	importOverrides ...map[string]string,
+	pred predecessor,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
@@ -196,8 +240,22 @@ func GenerateGoFile(
 		ctx:        ctx,
 	}
 
+	var predAlias string
 	for _, d := range orderDecls(table, typeDefs, enums, structs, unions) {
 		if omit.IsType(d.typ, "go") {
+			continue
+		}
+		if d.kind == declEnum && d.typ.Namespace != namespace {
+			continue
+		}
+		if pred.aliased.Contains(d.typ.QualifiedName) {
+			if predAlias == "" {
+				predAlias = naming.DerivePackageName(pred.path)
+				imports.AddInternal(predAlias, resolveGoImportPath(pred.path, repoRoot))
+			}
+			for _, a := range buildAliasDecls(d, predAlias, data) {
+				data.Decls = append(data.Decls, declData{Alias: &a})
+			}
 			continue
 		}
 		switch d.kind {
@@ -205,10 +263,8 @@ func GenerateGoFile(
 			td := processTypeDef(d.typ, data)
 			data.Decls = append(data.Decls, declData{TypeDef: &td})
 		case declEnum:
-			if d.typ.Namespace == namespace {
-				e := processEnum(d.typ)
-				data.Decls = append(data.Decls, declData{Enum: &e})
-			}
+			e := processEnum(d.typ)
+			data.Decls = append(data.Decls, declData{Enum: &e})
 		case declStruct:
 			s := processStruct(d.typ, data)
 			data.Decls = append(data.Decls, declData{Struct: &s})
@@ -581,6 +637,9 @@ type declData struct {
 	Enum    *enumData
 	Struct  *structData
 	Union   *unionData
+	// Alias re-exports a type from the predecessor version package instead of
+	// defining it.
+	Alias *aliasDecl
 }
 
 // HasImports returns true if any imports are needed.
@@ -692,6 +751,33 @@ import (
 )
 {{- end}}
 {{- range .Decls}}
+{{- with .Alias}}
+{{- if .Doc}}
+
+{{formatDoc .Name .Doc}}
+{{- end}}
+type {{.LHS}} = {{.RHS}}
+{{- if eq (len .Consts) 1}}
+{{- with index .Consts 0}}
+
+{{- if .Doc}}
+
+{{formatDoc .Name .Doc}}
+{{- end}}
+const {{.Name}} {{.Type}} = {{.Target}}
+{{- end}}
+{{- else if .Consts}}
+
+const (
+{{- range .Consts}}
+{{- if .Doc}}
+	{{formatDoc .Name .Doc | printf "%s"}}
+{{- end}}
+	{{.Name}} {{.Type}} = {{.Target}}
+{{- end}}
+)
+{{- end}}
+{{- end}}
 {{- with .TypeDef}}
 {{- if .Doc}}
 

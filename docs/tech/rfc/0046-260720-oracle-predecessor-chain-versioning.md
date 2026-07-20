@@ -141,11 +141,12 @@ versions, and decreases remain errors.
 
 Migration files for **all** paths live in the incoming version package: `vN` holds
 `migrate.go` / `migrate_auto.gen.go` transforming `v(N-1)` types into `vN` types.
-Today value-type paths scaffold the reverse — the frozen old package imports the new
-version (`generateDepMigration`, `migrate.go:449`; e.g. `arc/go/types/types/v0/
-migrate.go` imports v1). Under the chain that is an import cycle (v1's aliases
-import v0), so the placement unifies with the gorp-entry convention, which already
-puts transforms in the incoming package.
+The generator already scaffolds both gorp-entry and value-type paths this way
+(`scaffoldIncoming`, `oracle/plugin/go/migrate/migrate.go`); the reverse-direction
+files on disk (`arc/go/types/types/v0/migrate.go` imports v1) predate it. Those
+legacy files are harmless under the chain: a cycle would need v1 to import v0, and
+frozen full-copy packages never alias backward. They can migrate to the incoming
+convention whenever their resources next bump.
 
 Auto-copy generation simplifies: when a nested type is `TypeUnchanged`, old and new
 names denote the same Go type, and the generated copy is direct assignment. Only
@@ -184,18 +185,14 @@ move value-type migration scaffolding to the incoming package. Oracle's own test
 suite covers the split (unchanged → alias, own-change → define, descendant-change
 → define, new type → define at current, pre-versioning baseline → define all).
 
-**Phase 2 — cutover sync.** One sync regenerates every current version package into
-alias form. Frozen directories are untouched, with two deliberate one-time
-exceptions: value-type `migrate.go` / `migrate_auto.gen.go` files move from frozen
-old packages into the incoming ones (they are transformation code, not frozen
-shape), and hand-written methods whose receiver types become aliases move back to
-their definer's package. Downstream builds are unaffected at call sites: root
-re-exports resolve to the same shapes, and wire formats are untouched — the change
-is purely source-level.
-
-The two phases land as separate commits in one PR: the generator change is
-reviewable against Oracle's tests alone, but the repo is only `oracle check`-clean
-once the cutover sync lands.
+**Phase 2 — activation.** No cutover sync is needed. Every snapshot on disk today
+(v53–v56) predates `@go version`, so no baseline resolves and the new generator is
+byte-identical on the current repo — `oracle check` passes unchanged. Existing
+full-copy current packages are exactly what no-baseline emission produces, so they
+are grandfathered by construction. The chain begins organically: the next
+`oracle snapshot` captures per-resource versions, and the first bump after it emits
+the first alias-form current package. Wire formats are untouched throughout — the
+change is purely source-level.
 
 ---
 
@@ -221,10 +218,10 @@ stay as they are; an alias-form current version chains into them exactly as it
 would into alias-form history. Rewriting history for uniformity was rejected as pure
 churn against immutable packages.
 
-**6.3 - Migrations move to the incoming package for value-type paths.** Forced by
-the import cycle (§4.3), and it unifies the two scaffolding shapes. The trade:
-dependents calling a dep's migration functions import the dep's incoming version
-package instead of the outgoing one.
+**6.3 - Migrations live in the incoming package for all paths.** The generator
+already scaffolds this way; the RFC ratifies it. Legacy reverse-direction files
+(arc's `v0/migrate.go`) stay where they are — no cycle is possible against frozen
+full-copy packages (§4.3) — and adopt the convention at their next bump.
 
 **6.4 - Version directories become permanently pinned.** Full copies allowed, in
 principle, deleting ancient version packages wholesale. The chain gives that up:

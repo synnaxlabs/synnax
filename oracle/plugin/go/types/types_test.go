@@ -10,6 +10,7 @@
 package types_test
 
 import (
+	"context"
 	gojson "encoding/json"
 	"go/parser"
 	"go/token"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
 	gotesterrors "github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
@@ -2489,6 +2491,214 @@ var _ = Describe("Union codec round trip", func() {
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
 		Expect(got.Scale.Variant.(rtScaleLinear).Slope).To(Equal(1.5))
+	})
+})
+
+var _ = Describe("Predecessor Aliasing", func() {
+	var (
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		loader = NewMockFileLoader()
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	// generateWithBaseline analyzes newSource as the live schema and serves
+	// oldSource as the sole snapshot (v56) through the request's LoadSnapshot.
+	generateWithBaseline := func(
+		ctx context.Context, oldSource, newSource string,
+	) *plugin.Response {
+		GinkgoHelper()
+		req := MustGenerateRequest(ctx, newSource, "test", loader)
+		req.SnapshotVersion = 56
+		req.LoadSnapshot = func(version int) (*resolution.Table, error) {
+			if version != 56 {
+				return nil, nil
+			}
+			table, diag := analyzer.AnalyzeSource(
+				ctx, oldSource, "test", NewMockFileLoader(),
+			)
+			if diag != nil && !diag.Ok() {
+				return nil, diag
+			}
+			return table, nil
+		}
+		resp, err := goPlugin.Generate(req)
+		Expect(err).ToNot(HaveOccurred())
+		return resp
+	}
+
+	const oldSource = `
+		@go output "out"
+		@go version 0
+		Mode enum {
+			active = "active"
+			paused = "paused"
+		}
+		Stable struct {
+			name string
+			mode Mode
+		}
+		Leaf struct { value int32 }
+		Holder struct { leaf Leaf }
+	`
+
+	It("Should alias unchanged types to the predecessor version", func(ctx SpecContext) {
+		resp := generateWithBaseline(ctx, oldSource, `
+			@go output "out"
+			@go version 1
+			Mode enum {
+				active = "active"
+				paused = "paused"
+			}
+			Stable struct {
+				name string
+				mode Mode
+			}
+			Leaf struct { value int32  extra string }
+			Holder struct { leaf Leaf }
+		`)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				"package v1",
+				`"github.com/synnaxlabs/synnax/out/types/v0"`,
+				"type Stable = v0.Stable",
+				"type Leaf struct",
+				"Extra string",
+			).
+			ToNotContain("type Stable struct")
+	})
+
+	It("Should re-define types whose referenced types changed shape", func(ctx SpecContext) {
+		resp := generateWithBaseline(ctx, oldSource, `
+			@go output "out"
+			@go version 1
+			Mode enum {
+				active = "active"
+				paused = "paused"
+			}
+			Stable struct {
+				name string
+				mode Mode
+			}
+			Leaf struct { value int32  extra string }
+			Holder struct { leaf Leaf }
+		`)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Holder struct").
+			ToNotContain("type Holder = v0.Holder")
+	})
+
+	It("Should re-declare enum consts beside an aliased enum", func(ctx SpecContext) {
+		resp := generateWithBaseline(ctx, oldSource, `
+			@go output "out"
+			@go version 1
+			Mode enum {
+				active = "active"
+				paused = "paused"
+			}
+			Stable struct {
+				name string
+				mode Mode
+			}
+			Leaf struct { value int32  extra string }
+			Holder struct { leaf Leaf }
+		`)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain(
+				"type Mode = v0.Mode",
+				"ModeActive Mode = v0.ModeActive",
+				"ModePaused Mode = v0.ModePaused",
+			).
+			ToNotContain("func (m Mode) IsValid()")
+	})
+
+	It("Should define brand-new types at the current version", func(ctx SpecContext) {
+		resp := generateWithBaseline(ctx, oldSource, `
+			@go output "out"
+			@go version 1
+			Mode enum {
+				active = "active"
+				paused = "paused"
+			}
+			Stable struct {
+				name string
+				mode Mode
+			}
+			Leaf struct { value int32  extra string }
+			Holder struct { leaf Leaf }
+			Fresh struct { label string }
+		`)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Fresh struct").
+			ToNotContain("type Fresh = v0.Fresh")
+	})
+
+	It("Should define everything against a pre-versioning baseline", func(ctx SpecContext) {
+		resp := generateWithBaseline(ctx, `
+			@go output "out"
+			Stable struct { name string }
+		`, `
+			@go output "out"
+			@go version 1
+			Stable struct { name string }
+		`)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Stable struct").
+			ToNotContain("v0.Stable")
+	})
+
+	It("Should define everything when no snapshots exist", func(ctx SpecContext) {
+		req := MustGenerateRequest(ctx, `
+			@go output "out"
+			@go version 1
+			Stable struct { name string }
+		`, "test", loader)
+		resp := MustSucceed(goPlugin.Generate(req))
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Stable struct").
+			ToNotContain("v0.Stable")
+	})
+
+	It("Should alias generic structs with their type parameters", func(ctx SpecContext) {
+		resp := generateWithBaseline(ctx, `
+			@go output "out"
+			@go version 0
+			Box struct<Details?> { details Details? }
+			Leaf struct { value int32 }
+		`, `
+			@go output "out"
+			@go version 1
+			Box struct<Details?> { details Details? }
+			Leaf struct { value int32  extra string }
+		`)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToBeValidGoSource().
+			ToContain("type Box[Details any] = v0.Box[Details]")
+	})
+
+	It("Should keep the root re-export pointing at the current version", func(ctx SpecContext) {
+		resp := generateWithBaseline(ctx, oldSource, `
+			@go output "out"
+			@go version 1
+			Mode enum {
+				active = "active"
+				paused = "paused"
+			}
+			Stable struct {
+				name string
+				mode Mode
+			}
+			Leaf struct { value int32  extra string }
+			Holder struct { leaf Leaf }
+		`)
+		ExpectContent(resp, "out/types.gen.go").
+			ToContain("type Stable = types.Stable", "type Leaf = types.Leaf")
+		ExpectContent(resp, "out/types/types.gen.go").
+			ToContain("type Stable = v1.Stable", "type Leaf = v1.Leaf")
 	})
 })
 
