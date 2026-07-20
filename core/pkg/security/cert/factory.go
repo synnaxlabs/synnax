@@ -13,6 +13,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"net"
@@ -85,15 +86,15 @@ func NewFactory(configs ...FactoryConfig) (*Factory, error) {
 }
 
 // CreateCAPair creates a new CA certificate and its private key.
-func (c *Factory) CreateCAPair() error {
-	exists, err := c.FS.Exists(c.CACertPath)
+func (f *Factory) CreateCAPair() error {
+	exists, err := f.FS.Exists(f.CACertPath)
 	if err != nil {
 		return err
 	}
 
 	var key crypto.PrivateKey
 	if !exists {
-		key, err = rsa.GenerateKey(nil, c.KeySize)
+		key, err = rsa.GenerateKey(nil, f.KeySize)
 		if err != nil {
 			return err
 		}
@@ -101,14 +102,14 @@ func (c *Factory) CreateCAPair() error {
 		if err != nil {
 			return err
 		}
-		if err := c.writePEM(c.CAKeyPath, p /* multi */, false); err != nil {
+		if err := f.writePEM(f.CAKeyPath, p /* multi */, false); err != nil {
 			return err
 		}
 	} else {
-		if !*c.AllowKeyReuse {
-			return errors.Newf("CA key %s already exists, but reuse is not allowed", c.CAKeyPath)
+		if !*f.AllowKeyReuse {
+			return errors.Newf("CA key %s already exists, but reuse is not allowed", f.CAKeyPath)
 		}
-		p, err := c.readPEM(c.CAKeyPath)
+		p, err := f.readPEM(f.CAKeyPath)
 		if err != nil {
 			return err
 		}
@@ -133,88 +134,100 @@ func (c *Factory) CreateCAPair() error {
 	if err != nil {
 		return err
 	}
-	return c.writePEM(c.CACertPath, xpem.FromCertBytes(b) /*multi */, true)
+	return f.writePEM(f.CACertPath, xpem.FromCertBytes(b) /*multi */, true)
 }
 
-func (c *Factory) CreateCAPairIfMissing() error {
-	exists, err := c.FS.Exists(c.CACertPath)
+func (f *Factory) CreateCAPairIfMissing() error {
+	exists, err := f.FS.Exists(f.CACertPath)
 	if err != nil {
 		return err
 	}
 	if exists {
 		return nil
 	}
-	return c.CreateCAPair()
+	return f.CreateCAPair()
 }
 
 // CreateNodePairIfMissing creates a new node certificate and its private key if they do not already exist.
-func (c *Factory) CreateNodePairIfMissing() error {
-	exists, err := c.FS.Exists(c.NodeCertPath)
+func (f *Factory) CreateNodePairIfMissing() error {
+	exists, err := f.FS.Exists(f.NodeCertPath)
 	if err != nil {
 		return err
 	}
 	if exists {
 		return nil
 	}
-	return c.CreateNodePair()
+	return f.CreateNodePair()
 }
 
 // CreateNodePair creates a new node certificate and its private key.
-func (c *Factory) CreateNodePair() error {
-	ca, caPrivate, err := c.Loader.LoadCAPair()
+func (f *Factory) CreateNodePair() error {
+	nodeKey, err := rsa.GenerateKey(nil, f.KeySize)
 	if err != nil {
 		return err
 	}
-
-	if len(c.Hosts) == 0 {
-		return errors.Wrap(validate.ErrValidation, "[cert] - no hosts provided")
-	}
-
-	nodeKey, err := rsa.GenerateKey(nil, c.KeySize)
+	b, err := f.signNodeCert(nodeKey, f.Hosts)
 	if err != nil {
 		return err
 	}
-
 	keyP, err := xpem.FromPrivateKey(nodeKey)
 	if err != nil {
 		return err
 	}
-	if err = c.writePEM(c.NodeKeyPath, keyP, false); err != nil {
+	if err = f.writePEM(f.NodeKeyPath, keyP, false); err != nil {
 		return err
 	}
+	return f.writePEM(f.NodeCertPath, xpem.FromCertBytes(b) /* multi */, false)
+}
 
+// SignNodeCert signs an in-memory node certificate for the given hosts using the CA,
+// without touching the filesystem. The caller supplies the hosts because they vary per
+// listener; the factory supplies the CA the certificate chains to.
+func (f *Factory) SignNodeCert(hosts []address.Address) (*tls.Certificate, error) {
+	nodeKey, err := rsa.GenerateKey(nil, f.KeySize)
+	if err != nil {
+		return nil, err
+	}
+	b, err := f.signNodeCert(nodeKey, hosts)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Certificate{Certificate: [][]byte{b}, PrivateKey: nodeKey}, nil
+}
+
+func (f *Factory) signNodeCert(nodeKey *rsa.PrivateKey, hosts []address.Address) ([]byte, error) {
+	ca, caPrivate, err := f.Loader.LoadCAPair()
+	if err != nil {
+		return nil, err
+	}
+	if len(hosts) == 0 {
+		return nil, errors.Wrap(validate.ErrValidation, "no hosts provided")
+	}
 	base, err := newBasex509()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	base.ExtKeyUsage = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
-
-	for _, h := range c.Hosts {
+	for _, h := range hosts {
 		if ip := net.ParseIP(h.Host()); ip != nil {
 			base.IPAddresses = append(base.IPAddresses, ip)
 		} else {
 			base.DNSNames = append(base.DNSNames, h.Host())
 		}
 	}
-
-	b, err := x509.CreateCertificate(rand.Reader, base, ca, nodeKey.Public(), caPrivate)
-	if err != nil {
-		return err
-	}
-
-	return c.writePEM(c.NodeCertPath, xpem.FromCertBytes(b) /* multi */, false)
+	return x509.CreateCertificate(rand.Reader, base, ca, nodeKey.Public(), caPrivate)
 }
 
-func (c *Factory) readPEM(p string) (b *pem.Block, err error) {
-	return b, c.withFile(p, c.readFlag(), func(f xfs.File) error {
-		b, err = xpem.Read(f)
+func (f *Factory) readPEM(p string) (b *pem.Block, err error) {
+	return b, f.withFile(p, f.readFlag(), func(file xfs.File) error {
+		b, err = xpem.Read(file)
 		return err
 	})
 }
 
-func (c *Factory) writePEM(p string, block *pem.Block, multi bool) error {
-	return c.withFile(p, c.writeFlag(), func(f xfs.File) error {
-		blocks, err := xpem.ReadMany(f)
+func (f *Factory) writePEM(p string, block *pem.Block, multi bool) error {
+	return f.withFile(p, f.writeFlag(), func(file xfs.File) error {
+		blocks, err := xpem.ReadMany(file)
 		if len(blocks) > 0 && !multi {
 			return errors.Newf("file %s already contains a PEM block, and multi is false", p)
 		}
@@ -222,27 +235,27 @@ func (c *Factory) writePEM(p string, block *pem.Block, multi bool) error {
 			return err
 		}
 		blocks = append(blocks, block)
-		return xpem.Write(f, blocks...)
+		return xpem.Write(file, blocks...)
 	})
 }
 
-func (c *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err error) {
-	f, err := c.FS.Open(p, flag)
+func (f *Factory) withFile(p string, flag int, fn func(fs xfs.File) error) (err error) {
+	file, err := f.FS.Open(p, flag)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		err = errors.Combine(err, f.Close())
+		err = errors.Combine(err, file.Close())
 	}()
-	err = fn(f)
+	err = fn(file)
 	return
 }
 
-func (c *Factory) writeFlag() int {
-	if *c.AllowKeyReuse {
+func (f *Factory) writeFlag() int {
+	if *f.AllowKeyReuse {
 		return os.O_CREATE | os.O_RDWR
 	}
 	return os.O_CREATE | os.O_RDWR | os.O_EXCL
 }
 
-func (c *Factory) readFlag() int { return os.O_RDONLY }
+func (f *Factory) readFlag() int { return os.O_RDONLY }

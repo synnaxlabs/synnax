@@ -25,9 +25,8 @@ import {
   type ToolbarTab,
   ZERO_STATE,
 } from "@/session/lineplot/slice";
+import { Panel } from "@/session/panel";
 import { Select } from "@/session/select";
-
-import { Panel } from "../panel";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -49,7 +48,7 @@ const createGetter =
       (args) =>
         selector({
           state: store.getState(),
-          key: (args?.key ?? scopeKey) as client.Key,
+          key: LinePlot.Scope.require(args?.key ?? scopeKey),
         }),
       [store, scopeKey],
     );
@@ -77,7 +76,6 @@ export const selectControlState = (params: KeyedSelectorParams): ControlState =>
   selectState(params).control;
 
 export const useSelectControlState = createSelector(selectControlState);
-export const useGetControlState = createGetter(selectControlState);
 
 const selectViewportMode = (params: KeyedSelectorParams): Viewport.Mode =>
   selectState(params).mode;
@@ -89,13 +87,11 @@ const selectHiddenLines = (params: KeyedSelectorParams): string[] =>
   selectState(params).hiddenLines;
 
 export const useSelectHiddenLines = createSelector(selectHiddenLines);
-export const useGetHiddenLines = createGetter(selectHiddenLines);
 
 const selectMeasureMode = (params: KeyedSelectorParams): lineplot.measure.Mode =>
   selectState(params).measure.mode;
 
 export const useSelectMeasureMode = createSelector(selectMeasureMode);
-export const useGetMeasureMode = createGetter(selectMeasureMode);
 
 const selectSelection = (params: KeyedSelectorParams): SelectionState =>
   selectState(params).selection;
@@ -107,13 +103,11 @@ export const selectSelectedRules = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedRules;
 
 export const useSelectSelectedRules = createSelector(selectSelectedRules);
-export const useGetSelectedRules = createGetter(selectSelectedRules);
 
 const selectAnnotationsVisible = (params: KeyedSelectorParams): boolean =>
   selectState(params).annotations.visible;
 
 export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisible);
-export const useGetAnnotationsVisible = createGetter(selectAnnotationsVisible);
 
 export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   const getSelectedPanel = Panel.useGetSelected();

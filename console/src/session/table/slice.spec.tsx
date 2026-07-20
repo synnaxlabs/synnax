@@ -41,11 +41,7 @@ const renderGetters = (store: ReturnType<typeof storeWith>, key: string = KEY) =
   renderHook(
     () => ({
       state: Table.useGet(),
-      exists: Table.useGetExists(),
       editable: Table.useGetEditable(),
-      hideIndicators: Table.useGetHideIndicators(),
-      selectedCellKeys: Table.useGetSelectedCellKeys(),
-      lastSelected: Table.useGetLastSelected(),
     }),
     { wrapper: wrapperFor(store, key) },
   ).result.current;
@@ -57,6 +53,9 @@ describe("Table Slice", () => {
     store = storeWith(Table.ZERO_SLICE_STATE);
   });
 
+  const exists = (key: string = KEY): boolean =>
+    Table.selectSliceState(store.getState()).tables[key] != null;
+
   describe("create", () => {
     it("should bootstrap session state from ZERO_STATE for the key", () => {
       const get = renderGetters(store);
@@ -65,14 +64,13 @@ describe("Table Slice", () => {
     });
 
     it("should create multiple tables independently", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: "table-1" }));
         store.dispatch(Table.create({ key: "table-2" }));
       });
-      expect(get.exists({ key: "table-1" })).toBe(true);
-      expect(get.exists({ key: "table-2" })).toBe(true);
-      expect(get.exists({ key: "absent" })).toBe(false);
+      expect(exists("table-1")).toBe(true);
+      expect(exists("table-2")).toBe(true);
+      expect(exists("absent")).toBe(false);
     });
 
     it("should apply provided fields over the defaults", () => {
@@ -99,7 +97,7 @@ describe("Table Slice", () => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a", "b"] }));
       });
-      expect(get.selectedCellKeys()).toEqual(["a", "b"]);
+      expect(get.state().selectedCells).toEqual(["a", "b"]);
     });
 
     it("should set the anchor when provided", () => {
@@ -110,7 +108,7 @@ describe("Table Slice", () => {
           Table.setSelectedCells({ key: KEY, cells: ["a", "b"], anchor: "a" }),
         );
       });
-      expect(get.lastSelected()).toBe("a");
+      expect(get.state().lastSelected).toBe("a");
     });
 
     it("should leave the anchor untouched when omitted", () => {
@@ -120,7 +118,7 @@ describe("Table Slice", () => {
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"], anchor: "a" }));
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["b"] }));
       });
-      expect(get.lastSelected()).toBe("a");
+      expect(get.state().lastSelected).toBe("a");
     });
 
     it("should lazily create the entry when the key does not exist", () => {
@@ -128,7 +126,7 @@ describe("Table Slice", () => {
       act(
         () => void store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"] })),
       );
-      expect(get.selectedCellKeys()).toEqual(["a"]);
+      expect(get.state().selectedCells).toEqual(["a"]);
     });
   });
 
@@ -149,8 +147,8 @@ describe("Table Slice", () => {
         store.dispatch(Table.setSelectedCells({ key: KEY, cells: ["a"], anchor: "a" }));
         store.dispatch(Table.setEditable({ key: KEY, editable: false }));
       });
-      expect(get.selectedCellKeys()).toEqual([]);
-      expect(get.lastSelected()).toBeNull();
+      expect(get.state().selectedCells).toEqual([]);
+      expect(get.state().lastSelected).toBeNull();
     });
   });
 
@@ -161,37 +159,35 @@ describe("Table Slice", () => {
         store.dispatch(Table.create({ key: KEY }));
         store.dispatch(Table.setHideIndicators({ key: KEY, hideIndicators: true }));
       });
-      expect(get.hideIndicators()).toBe(true);
+      expect(get.state().hideIndicators).toBe(true);
     });
 
     it("should toggle the flag when no value is provided", () => {
       const get = renderGetters(store);
       act(() => void store.dispatch(Table.create({ key: KEY })));
       act(() => void store.dispatch(Table.setHideIndicators({ key: KEY })));
-      expect(get.hideIndicators()).toBe(true);
+      expect(get.state().hideIndicators).toBe(true);
       act(() => void store.dispatch(Table.setHideIndicators({ key: KEY })));
-      expect(get.hideIndicators()).toBe(false);
+      expect(get.state().hideIndicators).toBe(false);
     });
   });
 
   describe("remove", () => {
     it("should remove a table by key", () => {
-      const get = renderGetters(store);
       act(() => void store.dispatch(Table.create({ key: KEY })));
-      expect(get.exists()).toBe(true);
+      expect(exists()).toBe(true);
       act(() => void store.dispatch(Table.remove({ keys: [KEY] })));
-      expect(get.exists()).toBe(false);
+      expect(exists()).toBe(false);
     });
 
     it("should remove multiple tables at once", () => {
-      const get = renderGetters(store);
       act(() => {
         store.dispatch(Table.create({ key: "table-1" }));
         store.dispatch(Table.create({ key: "table-2" }));
         store.dispatch(Table.remove({ keys: ["table-1", "table-2"] }));
       });
-      expect(get.exists({ key: "table-1" })).toBe(false);
-      expect(get.exists({ key: "table-2" })).toBe(false);
+      expect(exists("table-1")).toBe(false);
+      expect(exists("table-2")).toBe(false);
     });
 
     it("should ignore keys that do not exist", () => {

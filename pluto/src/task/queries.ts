@@ -143,8 +143,21 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
     },
   });
 
-export const { useRetrieve, useRetrieveEffect, useRetrieveObservable } =
-  createRetrieve();
+export const {
+  useRetrieve,
+  useRetrieveEffect,
+  useRetrieveObservable,
+  useEnsureRetrieved,
+} = createRetrieve();
+
+export const [useSelectName, useGetName] = Flux.createSelector<
+  FluxSubStore,
+  { key: task.Key },
+  string
+>({
+  subscribe: (store, { key }, notify) => store.tasks.onSet(notify, key),
+  select: (store, { key }) => store.tasks.get(key)?.name ?? "Task",
+});
 
 export const useRetrieveObservableName = ({
   onChange,

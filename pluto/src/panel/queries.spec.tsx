@@ -146,6 +146,45 @@ describe("Panel queries", () => {
       });
       expect(result.current.variant).toEqual("leaf");
     });
+
+    it("does not suspend when the panel is already in the store", async () => {
+      const created = await createPanel();
+      const Wrapper = wrapper;
+      const Bootstrap = (): ReactElement => {
+        Panel.useEnsureRetrieved({ key: created.key });
+        return <div data-testid="loaded" />;
+      };
+      // Warm the store through the production retrieve path.
+      let warm!: ReturnType<typeof render>;
+      await act(async () => {
+        warm = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={null}>
+              <Bootstrap />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      await within(warm.container).findByTestId("loaded");
+
+      // With the store warm, the fast-path resolves without suspending.
+      const Probe = (): ReactElement => {
+        Panel.useEnsureRetrieved({ key: created.key });
+        return <div data-testid="ready" />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={<div data-testid="fallback" />}>
+              <Probe />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("ready")).toBeTruthy();
+    });
   });
 
   describe("useCreate", () => {
