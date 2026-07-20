@@ -101,35 +101,35 @@ const requireLinePlot = (store: FluxSubStore, key: lineplot.Key): lineplot.LineP
   return plot;
 };
 
-export const useSelectName = Scope.bindHook(
+export const [useSelectName, useGetName] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).name,
   }),
 );
 
-export const useSelectTitle = Scope.bindHook(
+export const [useSelectTitle, useGetTitle] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, lineplot.Title>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).title,
   }),
 );
 
-export const useSelectLegend = Scope.bindHook(
+export const [useSelectLegend, useGetLegend] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, lineplot.Legend>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).legend,
   }),
 );
 
-export const useSelectRanges = Scope.bindHook(
+export const [useSelectRanges, useGetRanges] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, lineplot.Ranges>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).ranges,
   }),
 );
 
-export const useSelectAxes = Scope.bindHook(
+export const [useSelectAxes, useGetAxes] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, lineplot.Axes>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).axes,
@@ -150,7 +150,7 @@ const shouldDisplayAxis = (
 // referentially stable until that subset changes, so consumers re-render only
 // on membership changes rather than on every channel edit.
 const createAxisKeysSelector = <K extends lineplot.AxisKey>(keys: readonly K[]) =>
-  Scope.bindHook(
+  Scope.bindSelector(
     Flux.createSelector<FluxSubStore, SelectKeyArgs, K[], lineplot.Channels>({
       subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
       select: (store, { key }) => requireLinePlot(store, key).channels,
@@ -159,18 +159,24 @@ const createAxisKeysSelector = <K extends lineplot.AxisKey>(keys: readonly K[]) 
     }),
   );
 
-export const useSelectXAxisKeys = createAxisKeysSelector(lineplot.X_AXIS_KEYS);
+export const [useSelectXAxisKeys, useGetXAxisKeys] = createAxisKeysSelector(
+  lineplot.X_AXIS_KEYS,
+);
 
-export const useSelectYAxisKeys = createAxisKeysSelector(lineplot.Y_AXIS_KEYS);
+export const [useSelectYAxisKeys, useGetYAxisKeys] = createAxisKeysSelector(
+  lineplot.Y_AXIS_KEYS,
+);
 
-export const useSelectAxisKeys = createAxisKeysSelector(lineplot.AXIS_KEYS);
+export const [useSelectAxisKeys, useGetAxisKeys] = createAxisKeysSelector(
+  lineplot.AXIS_KEYS,
+);
 
 export interface SelectAxisArgs {
   key: lineplot.Key;
   axisKey: lineplot.AxisKey;
 }
 
-export const useSelectAxis = Scope.bindHook(
+export const [useSelectAxis, useGetAxis] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectAxisArgs, lineplot.Axis>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key, axisKey }) => requireLinePlot(store, key).axes[axisKey],
@@ -204,7 +210,7 @@ const resolvePaletteColor = (
 // useSelectRawLines selects the plot's stored lines enriched with their decoded
 // identity. transform is memoized on the stored lines reference, so it only
 // re-derives when the lines actually change.
-const useSelectRawLines = Flux.createSelector<
+const [useSelectRawLines] = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
   RawDerivedLine[],
@@ -233,7 +239,7 @@ export const useSelectLines = Scope.bindHook((args: SelectKeyArgs): DerivedLine[
   );
 });
 
-export const useSelectLineKeys = Scope.bindHook(
+export const [useSelectLineKeys, useGetLineKeys] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, string[]>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).lines.map((l) => l.key),
@@ -241,7 +247,7 @@ export const useSelectLineKeys = Scope.bindHook(
   }),
 );
 
-export const useSelectLineCount = Scope.bindHook(
+export const [useSelectLineCount, useGetLineCount] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectKeyArgs, number>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key }) => requireLinePlot(store, key).lines.length,
@@ -261,7 +267,7 @@ export interface SelectXAxisArgs {
 // useSelectYAxisChannels selects the channels plotted on a single y-axis. It
 // subscribes at axis granularity, so editing one y-axis's channel set does not
 // re-render controls bound to a different axis.
-export const useSelectYAxisChannels = Scope.bindHook(
+export const [useSelectYAxisChannels, useGetYAxisChannels] = Scope.bindSelector(
   Flux.createSelector<
     FluxSubStore,
     SelectYAxisArgs,
@@ -274,7 +280,7 @@ export const useSelectYAxisChannels = Scope.bindHook(
 );
 
 // useSelectXAxisChannel selects the single channel plotted on an x-axis.
-export const useSelectXAxisChannel = Scope.bindHook(
+export const [useSelectXAxisChannel, useGetXAxisChannel] = Scope.bindSelector(
   Flux.createSelector<
     FluxSubStore,
     SelectXAxisArgs,
@@ -286,7 +292,7 @@ export const useSelectXAxisChannel = Scope.bindHook(
 );
 
 // useSelectXAxisRanges selects the range keys plotted against an x-axis.
-export const useSelectXAxisRanges = Scope.bindHook(
+export const [useSelectXAxisRanges, useGetXAxisRanges] = Scope.bindSelector(
   Flux.createSelector<
     FluxSubStore,
     SelectXAxisArgs,
@@ -303,7 +309,7 @@ interface SelectXAxisBaseReturn {
   channel: lineplot.Channels[lineplot.XAxisKey];
 }
 
-const useSelectXAxisBase = Flux.createSelector<
+const [useSelectXAxisBase] = Flux.createSelector<
   FluxSubStore,
   SelectXAxisArgs,
   SelectXAxisBaseReturn
@@ -344,7 +350,7 @@ interface SelectYAxisReturn {
   lineKeys: string[];
 }
 
-export const useSelectYAxis = Scope.bindHook(
+export const [useSelectYAxis, useGetYAxis] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectYAxisArgs, SelectYAxisReturn>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key, axisKey }) => {
@@ -375,7 +381,7 @@ interface RawLine {
 // compares the stored line reference (kept stable across unrelated edits by
 // Immer) and the index, so it re-renders only when that line or its position
 // changes — not when other lines on the plot do.
-const useSelectRawLine = Flux.createSelector<FluxSubStore, SelectLineArgs, RawLine>({
+const [useSelectRawLine] = Flux.createSelector<FluxSubStore, SelectLineArgs, RawLine>({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key, lineKey }) => {
     const lines = requireLinePlot(store, key).lines;
@@ -414,7 +420,7 @@ export interface DerivedRule extends Omit<lineplot.Rule, "color"> {
   color: color.Color;
 }
 
-const useSelectRawRules = Flux.createSelector<
+const [useSelectRawRules] = Flux.createSelector<
   FluxSubStore,
   SelectKeyArgs,
   lineplot.Rule[]
@@ -449,7 +455,7 @@ interface RawRule {
   index: number;
 }
 
-const useSelectRawRule = Flux.createSelector<FluxSubStore, SelectRuleArgs, RawRule>({
+const [useSelectRawRule] = Flux.createSelector<FluxSubStore, SelectRuleArgs, RawRule>({
   subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
   select: (store, { key, ruleKey }) => {
     const rules = requireLinePlot(store, key).rules;
@@ -483,7 +489,7 @@ export interface SelectAxisRulesArgs {
 // useSelectAxisRuleKeys returns the keys of the rules attached to the given axis.
 // Stable across edits to individual rules (only changes when rules are added or
 // removed) so an axis re-renders only when its rule membership changes.
-export const useSelectAxisRuleKeys = Scope.bindHook(
+export const [useSelectAxisRuleKeys, useGetAxisRuleKeys] = Scope.bindSelector(
   Flux.createSelector<FluxSubStore, SelectAxisRulesArgs, string[]>({
     subscribe: (store, { key }, notify) => store.lineplots.onSet(notify, key),
     select: (store, { key, axisKey }) =>
@@ -499,12 +505,13 @@ export type UseDeleteArgs = lineplot.Key | lineplot.Key[];
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.DELETE_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     const ids = lineplot.ontologyID(keys);
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     rollbacks.push(store.lineplots.delete(keys));
+    await onOptimisticComplete(data);
     await client.lineplots.delete(data);
     return data;
   },
@@ -521,9 +528,10 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
 >({
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
-  update: async ({ client, data, store, rollbacks }) => {
+  update: async ({ client, data, store, rollbacks, onOptimisticComplete }) => {
     const optimistic = lineplot.linePlotZ.parse(data);
     rollbacks.push(store.lineplots.set(optimistic));
+    await onOptimisticComplete(optimistic);
     const project = data.project ?? uuid.ZERO;
     const created = await client.lineplots.create(project, optimistic);
     store.lineplots.set(created);
@@ -536,11 +544,12 @@ export interface RenameParams extends Pick<lineplot.LinePlot, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubStore>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
-  update: async ({ client, data, rollbacks, store }) => {
+  update: async ({ client, data, rollbacks, store, onOptimisticComplete }) => {
     const { key, name } = data;
     const current = store.lineplots.get(key);
     if (current != null) rollbacks.push(store.lineplots.set(key, { ...current, name }));
     rollbacks.push(Ontology.renameFluxResource(store, lineplot.ontologyID(key), name));
+    await onOptimisticComplete(data);
     await client.lineplots.rename(key, name);
     return data;
   },

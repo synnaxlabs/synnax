@@ -22,7 +22,7 @@
 }
 
 /* Tabs selector */
-.pluto-tabs-selector__btn {
+.pluto-tabs__tab {
     padding: 0 3rem;
 
     .pluto-text-icon {
@@ -41,13 +41,13 @@
 }
 
 @media (max-width: 800px) {
-    .pluto-tabs-selector__btn {
+    .pluto-tabs__tab {
         padding: 0 1rem;
     }
 }
 
 @media (max-width: 600px) {
-    .pluto-tabs-selector__tabs {
+    .pluto-tabs__selector {
         justify-content: center;
     }
 }

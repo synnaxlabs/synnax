@@ -44,8 +44,8 @@ type Channel struct {
 	Key uint32 `protobuf:"varint,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is the human-readable channel name.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// leaseholder is the cluster node that holds the lease for this channel. Mostly for
-	// internal use.
+	// leaseholder is the node that holds the lease for this channel. Mostly for internal
+	// use.
 	Leaseholder uint32 `protobuf:"varint,3,opt,name=leaseholder,proto3" json:"leaseholder,omitempty"`
 	// data_type is the data type of samples stored in this channel (e.g., Float64, Int32,
 	// TimeStamp).

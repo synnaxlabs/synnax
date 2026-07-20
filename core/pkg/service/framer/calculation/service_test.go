@@ -127,7 +127,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      dist.Channel,
 			DB:           dist.DB,
-			HostResolver: dist.Cluster,
+			HostProvider: dist.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
 			Search:       searchIdx,

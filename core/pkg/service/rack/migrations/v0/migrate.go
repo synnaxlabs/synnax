@@ -14,7 +14,7 @@ import (
 	"fmt"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -26,7 +26,7 @@ import (
 )
 
 type MigrationConfig struct {
-	HostProvider node.HostProvider
+	HostProvider cluster.HostProvider
 	Status       *status.Service
 }
 

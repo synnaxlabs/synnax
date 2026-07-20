@@ -27,8 +27,8 @@ message Channel {
   uint32 key = 1;
   // name is the human-readable channel name.
   string name = 2;
-  // leaseholder is the cluster node that holds the lease for this channel. Mostly for
-  // internal use.
+  // leaseholder is the node that holds the lease for this channel. Mostly for internal
+  // use.
   uint32 leaseholder = 3;
   // data_type is the data type of samples stored in this channel (e.g., Float64, Int32,
   // TimeStamp).

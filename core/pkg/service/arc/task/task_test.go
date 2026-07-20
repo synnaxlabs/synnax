@@ -109,7 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
 			DB:           node.DB,
-			HostResolver: node.Cluster,
+			HostProvider: node.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
 			Search:       searchIdx,
@@ -120,7 +120,7 @@ var _ = Describe("Task", Ordered, func() {
 			Framer:       node.Framer,
 			Channel:      channelSvc,
 			Status:       statusSvc,
-			HostResolver: node.Cluster,
+			HostProvider: node.Cluster,
 		}))
 		rangerSvc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       node.DB,

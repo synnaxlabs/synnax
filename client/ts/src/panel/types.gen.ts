@@ -14,36 +14,18 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-/** TabBase carries the identity shared by every tab variant. */
-export const tabBaseZ = z.object({
-  /**
-   * key is the stable unique identifier of this tab within the panel. It is
-   * independent of the tab's content, so a tab's content may be swapped
-   * without changing the tab's identity or position.
-   */
-  key: z.uuid(),
-});
-export interface TabBase extends z.infer<typeof tabBaseZ> {}
-
 /**
  * View is an inline, self-describing view: a Console-owned type plus an
  * opaque configuration payload, with no backing core document. Used
- * for app-views and tools (docs, explorers, about, the visualization
- * picker).
+ * for app-views and tools (docs, explorers, task forms, and the
+ * selector pickers).
  */
 export const viewZ = z.object({
   /**
    * type is the Console-owned view type identifier (e.g., 'docs',
-   * 'about') used to select a renderer.
+   * 'selector') used to select a renderer.
    */
   type: z.string(),
-  /**
-   * name is the human-readable tab name for the view. A view has no
-   * backing resource to derive a name from, so it carries its own.
-   * May be renamed via SetTabView; when empty the Console falls
-   * back to a type-derived default.
-   */
-  name: z.string().default(""),
   /**
    * args is an opaque, Console-owned configuration payload for the
    * view. Core never interprets it; it round-trips as-is.
@@ -52,8 +34,22 @@ export const viewZ = z.object({
 });
 export interface View extends z.infer<typeof viewZ> {}
 
+export const tabKeyZ = z.uuid();
+export type TabKey = z.infer<typeof tabKeyZ>;
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+/** TabBase carries the identity shared by every tab variant. */
+export const tabBaseZ = z.object({
+  /**
+   * key is the stable unique identifier of this tab within the panel. It is
+   * independent of the tab's content, so a tab's content may be swapped
+   * without changing the tab's identity or position.
+   */
+  key: tabKeyZ.default(uuid.create),
+});
+export interface TabBase extends z.infer<typeof tabBaseZ> {}
 
 /** TabResource is a tab displaying a backing core document. */
 export const tabResourceZ = tabBaseZ.extend({
@@ -70,49 +66,34 @@ export interface TabResource extends z.infer<typeof tabResourceZ> {}
  * TabView is a tab displaying an inline, self-describing view. Unlike a
  * resource, a view has no backing core document: it carries its own
  * type and opaque args. Used for app-views and tools (docs,
- * explorers, about, the visualization picker).
+ * explorers, task forms, and the selector pickers).
  */
 export const tabViewZ = tabBaseZ.extend(viewZ.shape).extend({
   variant: z.literal("view"),
 });
 export interface TabView extends z.infer<typeof tabViewZ> {}
 
-/**
- * TabEmpty is a tab with no content yet. An empty tab renders the
- * visualization selector at render time; SetTabResource or
- * SetTabView fills it in place.
- */
-export const tabEmptyZ = tabBaseZ.extend({
-  variant: z.literal("empty"),
-});
-export interface TabEmpty extends z.infer<typeof tabEmptyZ> {}
-
-export const TAB_TYPES = ["resource", "view", "empty"] as const;
+export const TAB_TYPES = ["resource", "view"] as const;
 export const tabTypeZ = z.enum(TAB_TYPES);
 export type TabType = z.infer<typeof tabTypeZ>;
 
 /**
  * Tab is a single tab in a leaf. Tab content is a discriminated union:
- * a resource (a backing core document, e.g. a line plot), a view
- * (an inline, self-describing app-view, e.g. docs), or empty (the
- * visualization selector). Display attributes (name, icon,
- * closability) are resolved at render time from the content. The
- * same content may be referenced by multiple tabs in the same or
- * other panels.
+ * a resource (a backing core document, e.g. a line plot) or a view
+ * (an inline, self-describing app-view, e.g. docs). A freshly created
+ * tab is a view whose type is a selector picker; SetTabResource or
+ * SetTabView swaps content in place. Display attributes (name, icon,
+ * closability) are resolved at render time from the content. A
+ * resource may back at most one tab per panel; views may repeat.
  */
-export const tabZ = z.discriminatedUnion("variant", [
-  tabResourceZ,
-  tabViewZ,
-  tabEmptyZ,
-]);
-export type Tab = TabResource | TabView | TabEmpty;
+export const tabZ = z.discriminatedUnion("variant", [tabResourceZ, tabViewZ]);
+export type Tab = TabResource | TabView;
 
 export const TAB_SCHEMAS: {
   [K in TabType]: z.ZodType<Extract<Tab, { variant: K }>>;
 } = {
   resource: tabResourceZ,
   view: tabViewZ,
-  empty: tabEmptyZ,
 };
 
 /** Leaf is a leaf node in the panel tree displaying a tab strip. */

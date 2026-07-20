@@ -18,7 +18,7 @@
 #include <variant>
 #include <vector>
 
-#include "client/cpp/cluster/types.gen.h"
+#include "client/cpp/node/types.gen.h"
 #include "client/cpp/ontology/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
@@ -78,10 +78,9 @@ struct Channel {
     Key key = 0;
     /// @brief name is the human-readable channel name.
     Name name;
-    /// @brief leaseholder is the cluster node that holds the lease for this channel.
-    /// Mostly
-    /// for internal use.
-    ::synnax::cluster::NodeKey leaseholder = 0;
+    /// @brief leaseholder is the node that holds the lease for this channel. Mostly for
+    /// internal use.
+    ::synnax::node::Key leaseholder = 0;
     /// @brief data_type is the data type of samples stored in this channel (e.g.,
     /// Float64,
     /// Int32, TimeStamp).

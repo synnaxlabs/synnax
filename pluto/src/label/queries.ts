@@ -83,7 +83,7 @@ interface SetLabelsForParams extends Omit<
     },
     FluxSubStore
   >,
-  "setStatus"
+  "setStatus" | "onOptimisticComplete"
 > {}
 
 export const setLabelsFor = async ({

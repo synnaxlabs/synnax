@@ -29,18 +29,14 @@ message TabBase {
 
 // View is an inline, self-describing view: a Console-owned type plus an opaque
 // configuration payload, with no backing core document. Used for app-views and tools
-// (docs, explorers, about, the visualization picker).
+// (docs, explorers, task forms, and the selector pickers).
 message View {
-  // type is the Console-owned view type identifier (e.g., 'docs', 'about') used to select
-  // a renderer.
+  // type is the Console-owned view type identifier (e.g., 'docs', 'selector') used to
+  // select a renderer.
   string type = 1;
-  // name is the human-readable tab name for the view. A view has no backing resource to
-  // derive a name from, so it carries its own. May be renamed via SetTabView; when empty
-  // the Console falls back to a type-derived default.
-  string name = 2;
   // args is an opaque, Console-owned configuration payload for the view. Core never
   // interprets it; it round-trips as-is.
-  google.protobuf.Struct args = 3;
+  google.protobuf.Struct args = 2;
 }
 
 // Leaf is a leaf node in the panel tree displaying a tab strip.
@@ -82,19 +78,18 @@ message TabResourcePayload {
   // resource is the visualization resource displayed by this tab, set via SetTabResource.
   .service.ontology.pb.ID resource = 1;
 }
-message TabEmptyPayload {}
 
 // Tab is a single tab in a leaf. Tab content is a discriminated union: a resource (a
-// backing core document, e.g. a line plot), a view (an inline, self-describing
-// app-view, e.g. docs), or empty (the visualization selector). Display attributes
-// (name, icon, closability) are resolved at render time from the content. The same
-// content may be referenced by multiple tabs in the same or other panels.
+// backing core document, e.g. a line plot) or a view (an inline, self-describing
+// app-view, e.g. docs). A freshly created tab is a view whose type is a selector
+// picker; SetTabResource or SetTabView swaps content in place. Display attributes
+// (name, icon, closability) are resolved at render time from the content. A resource
+// may back at most one tab per panel; views may repeat.
 message Tab {
   TabBase tab_base = 1;
   oneof variant {
     TabResourcePayload resource = 2;
     View view = 3;
-    TabEmptyPayload empty = 4;
   }
 }
 

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel } from "@synnaxlabs/client";
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
@@ -74,25 +74,25 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   );
 };
 
-export const InputForm = (): ReactElement => {
-  const content: Tabs.RenderProp = useCallback(({ tabKey }) => {
-    switch (tabKey) {
-      case "control":
-        return <InputTelemForm path="" />;
-      default:
-        return (
-          <Form.Wrapper x>
-            <Flex.Box y align="stretch" grow gap="small">
-              <Label.Form path="label" />
-              <Flex.Box x>
-                <Form.SizeField />
-                <Form.ColorField path="color" />
-              </Flex.Box>
-            </Flex.Box>
-          </Form.Wrapper>
-        );
-    }
-  }, []);
-  const props = Tabs.useStatic({ tabs: Form.COMMON_TOGGLE_FORM_TABS, content });
-  return <Tabs.Tabs {...props} />;
-};
+export const InputForm = (): ReactElement => (
+  <Tabs.Frame initialValue="style">
+    <Tabs.Selector>
+      <Tabs.Tab itemKey="style">Style</Tabs.Tab>
+      <Tabs.Tab itemKey="control">Control</Tabs.Tab>
+    </Tabs.Selector>
+    <Tabs.Content itemKey="style">
+      <Form.Wrapper x>
+        <Flex.Box y align="stretch" grow gap="small">
+          <Label.Form path="label" />
+          <Flex.Box x>
+            <Form.SizeField />
+            <Form.ColorField path="color" />
+          </Flex.Box>
+        </Flex.Box>
+      </Form.Wrapper>
+    </Tabs.Content>
+    <Tabs.Content itemKey="control">
+      <InputTelemForm path="" />
+    </Tabs.Content>
+  </Tabs.Frame>
+);

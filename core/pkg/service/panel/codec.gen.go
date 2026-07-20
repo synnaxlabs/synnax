@@ -178,11 +178,6 @@ func (t Tab) EncodeOrc(w *orc.Writer) error {
 		if err := v.View.EncodeOrc(w); err != nil {
 			return err
 		}
-	case TabEmpty:
-		w.String("empty")
-		if err := v.TabBase.EncodeOrc(w); err != nil {
-			return err
-		}
 	default:
 		return errors.Newf("Tab: nil or unknown variant %T", t.Variant)
 	}
@@ -213,12 +208,6 @@ func (t *Tab) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		t.Variant = v
-	case "empty":
-		var v TabEmpty
-		if err := v.TabBase.DecodeOrc(r); err != nil {
-			return err
-		}
-		t.Variant = v
 	default:
 		return errors.Newf("Tab: unknown variant %q", tag)
 	}
@@ -239,7 +228,6 @@ func (tb *TabBase) DecodeOrc(r *orc.Reader) error {
 
 func (vv View) EncodeOrc(w *orc.Writer) error {
 	w.String(vv.Type)
-	w.String(vv.Name)
 	{
 		b, err := json.Marshal(vv.Args)
 		if err != nil {
@@ -253,9 +241,6 @@ func (vv View) EncodeOrc(w *orc.Writer) error {
 func (vv *View) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if vv.Type, err = r.String(); err != nil {
-		return err
-	}
-	if vv.Name, err = r.String(); err != nil {
 		return err
 	}
 	{

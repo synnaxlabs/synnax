@@ -15,12 +15,14 @@ import {
   Breadcrumb,
   Button,
   Component,
+  CSS as PCSS,
   Dialog,
   Eraser,
+  Errors,
   Flex,
   Flux,
   Icon,
-  type Menu,
+  Menu,
   Mosaic as Base,
   Nav,
   type Pluto,
@@ -31,14 +33,15 @@ import {
   Text,
   Triggers,
 } from "@synnaxlabs/pluto";
-import { caseconv, type location } from "@synnaxlabs/x";
+import { caseconv, type direction } from "@synnaxlabs/x";
 import {
-  type ComponentType,
+  type CSSProperties,
   memo,
   type ReactElement,
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
 } from "react";
 
 import { Nav as AppNav } from "@/app/nav";
@@ -56,16 +59,24 @@ import { Layout } from "@/platform/layout";
 import { type Mosaic as PMosaic } from "@/platform/mosaic";
 import { Session } from "@/session";
 
+// Portaled layout content fills its hosting Out, which anchors the absolutely
+// positioned internals of the visualizations rendered inside it.
+const PORTAL_OUT_STYLE: CSSProperties = {
+  width: "100%",
+  height: "100%",
+  position: "relative",
+};
+
 const EmptyContent = (): ReactElement => {
-  const createComponentEnabled = Selector.useVisible();
+  const createTabEnabled = Selector.useVisible();
   return (
     <Eraser.Eraser>
       <Flex.Box gap={5} center>
         <Logo className="synnax-logo-watermark" />
-        {createComponentEnabled && (
+        {createTabEnabled && (
           <Flex.Box x gap="small">
             <Text.Text level="h5" weight={450} color={9}>
-              New Component
+              New Tab
             </Text.Text>
             <Flex.Box x empty>
               <Triggers.Text level="h5" trigger={["Control", "T"]} />
@@ -98,11 +109,11 @@ const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null =
   );
 };
 
-interface ModalContentProps extends Tabs.Tab {
-  node: Portal.Node;
+interface ModalContentProps {
+  tabKey: string;
 }
 
-const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
+const ModalContent = ({ tabKey }: ModalContentProps): ReactElement => {
   const dispatch = Session.useDispatch();
   const layout = Session.Layout.useSelectRequired(tabKey);
   const { windowKey, focused: focusedKey } = Session.Layout.useSelectFocused();
@@ -168,7 +179,7 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
             </>
           )}
         </Nav.Bar>
-        <Portal.Out node={node} />
+        <Portal.Out itemKey={tabKey} style={PORTAL_OUT_STYLE} />
       </Dialog.Dialog>
     </Dialog.Frame>
   );
@@ -176,49 +187,221 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
 
 const contextMenu = Component.renderProp(ContextMenu);
 
-interface CustomTabNameProps extends Tabs.NameProps {
+interface TabNameContentProps {
+  tab: Session.Layout.Mosaic.Tab;
+  /**
+   * onCommit commits an edited tab name. Editable names render statically
+   * without it.
+   */
+  onCommit?: (name: string) => void;
+}
+
+const TabNameContent = ({ tab, onCommit }: TabNameContentProps): ReactElement => {
+  const { tabKey, name, icon, loading, unsavedChanges, editable = true } = tab;
+  const resolvedIcon = loading ? <Icon.Loading /> : (icon as Icon.ReactElement);
+  const text =
+    editable && onCommit != null ? (
+      <Text.Editable
+        id={`pluto-tab-${tabKey}`}
+        level="p"
+        value={name}
+        onChange={onCommit}
+        overflow="ellipsis"
+      />
+    ) : (
+      <Text.Text level="p" overflow="ellipsis">
+        {name}
+      </Text.Text>
+    );
+  return (
+    <>
+      {resolvedIcon != null && Icon.resolve(resolvedIcon)}
+      {text}
+      {unsavedChanges === true && <Icon.Circle className="pluto-tabs__unsaved" />}
+    </>
+  );
+};
+
+interface CustomTabNameProps {
   useName: Layout.UseName;
+  tab: Session.Layout.Mosaic.Tab;
+  onRename: (key: string, name: string) => void;
 }
 
 const CustomTabName = ({
   useName,
-  tabKey,
-  name,
+  tab,
   onRename: propsOnRename,
-  ...rest
 }: CustomTabNameProps): ReactElement => {
+  const { tabKey } = tab;
   const handleLayoutRename = useCallback(
-    (name: string) => propsOnRename?.(tabKey, name),
+    (name: string) => propsOnRename(tabKey, name),
     [tabKey, propsOnRename],
   );
   const { onRename, retrieve } = useName(tabKey, handleLayoutRename);
   useEffect(() => {
     retrieve();
   }, [retrieve]);
-  const handleRename = useCallback(
-    (_: string, name: string) => {
+  const handleCommit = useCallback(
+    (name: string) => {
       handleLayoutRename(name);
       onRename(name);
     },
     [handleLayoutRename, onRename],
   );
-  return (
-    <Tabs.DefaultName tabKey={tabKey} name={name} onRename={handleRename} {...rest} />
-  );
+  return <TabNameContent tab={tab} onCommit={handleCommit} />;
 };
 
-const TabName: ComponentType<Tabs.NameProps> = (props) => {
-  const type = Session.Layout.useSelectType(props.tabKey);
+interface TabNameProps {
+  tab: Session.Layout.Mosaic.Tab;
+  onRename: (key: string, name: string) => void;
+}
+
+const TabName = ({ tab, onRename }: TabNameProps): ReactElement => {
+  const type = Session.Layout.useSelectType(tab.tabKey);
   const useName = Layout.useNameHook(type);
-  if (useName != null) return <CustomTabName key={type} useName={useName} {...props} />;
-  return <Tabs.DefaultName {...props} />;
+  const handleCommit = useCallback(
+    (name: string) => onRename(tab.tabKey, name),
+    [tab.tabKey, onRename],
+  );
+  if (useName != null)
+    return <CustomTabName key={type} useName={useName} tab={tab} onRename={onRename} />;
+  return <TabNameContent tab={tab} onCommit={handleCommit} />;
 };
 
-const renderTabName = Component.renderProp(TabName);
+interface LeafNodeProps {
+  nodeKey: number;
+  selected: string | null;
+  tabs: Session.Layout.Mosaic.Tab[];
+}
+
+const LeafNode = memo(({ nodeKey, selected, tabs }: LeafNodeProps): ReactElement => {
+  const dispatch = Session.useDispatch();
+  const remove = Layout.useRemover();
+  const placeLayout = Layout.usePlacer();
+  const selectorVisible = Selector.useVisible();
+  const active = Session.Layout.useSelectIsActiveMosaicTab(selected);
+  const menuProps = Menu.useContextMenu();
+  const { startDrag, onDragEnd } = Base.useDragTab();
+  const tabKeys = useMemo(() => tabs.map(({ tabKey }) => tabKey), [tabs]);
+  const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys });
+  const handleRename = useCallback(
+    (tabKey: string, name: string) =>
+      dispatch(Session.Layout.rename({ key: tabKey, name })),
+    [dispatch],
+  );
+  return (
+    <Base.Leaf nodeKey={nodeKey} grow>
+      <Tabs.Frame
+        value={selected ?? ""}
+        onChange={(tabKey) => dispatch(Session.Layout.selectMosaicTab({ tabKey }))}
+        grow
+      >
+        <Menu.ContextMenu
+          {...menuProps}
+          className={CSS(menuProps.className, CSS.B("mosaic-context-menu"))}
+          menu={contextMenu}
+        />
+        <Tabs.Selector
+          className={menuProps.className}
+          onContextMenu={menuProps.open}
+          {...selectorDropProps}
+        >
+          {tabs.map((tab) => (
+            <Tabs.Tab
+              key={tab.tabKey}
+              itemKey={tab.tabKey}
+              className={PCSS.altColor(active) || undefined}
+              draggable
+              onDragStart={(e) => startDrag(e, tab.tabKey)}
+              onDragEnd={onDragEnd}
+            >
+              <TabName tab={tab} onRename={handleRename} />
+              {tab.closable !== false && (
+                <Tabs.Close onClick={() => remove(tab.tabKey)} />
+              )}
+            </Tabs.Tab>
+          ))}
+          <Flex.Box grow />
+          {selectorVisible && (
+            <Button.Button
+              variant="text"
+              sharp
+              onClick={() =>
+                placeLayout(
+                  Selector.create({ tab: { mosaicKey: nodeKey, location: "center" } }),
+                )
+              }
+              tooltip="Create component"
+            >
+              <Icon.Add />
+            </Button.Button>
+          )}
+        </Tabs.Selector>
+        <Tabs.Content grow>
+          {selected == null ? (
+            <EmptyContent />
+          ) : (
+            <Errors.Boundary>
+              <ModalContent key={selected} tabKey={selected} />
+            </Errors.Boundary>
+          )}
+          <Base.Shield />
+        </Tabs.Content>
+      </Tabs.Frame>
+    </Base.Leaf>
+  );
+});
+LeafNode.displayName = "LeafNode";
+
+interface SplitNodeProps {
+  nodeKey: number;
+  direction: direction.Direction;
+  size?: number;
+  firstKey: number;
+  lastKey: number;
+}
+
+const SplitNode = memo(
+  ({ nodeKey, direction, size, firstKey, lastKey }: SplitNodeProps): ReactElement => (
+    <Base.Split
+      nodeKey={nodeKey}
+      id={`mosaic-${nodeKey}`}
+      direction={direction}
+      size={size}
+    >
+      <MosaicNode nodeKey={firstKey} />
+      <MosaicNode nodeKey={lastKey} />
+    </Base.Split>
+  ),
+);
+SplitNode.displayName = "SplitNode";
+
+/**
+ * MosaicNode renders one node of the mosaic tree, subscribing to only that node's
+ * slice of the store. Because it is memoized on its key, a change to one node
+ * re-renders only the components on that node's path, not the whole tree.
+ */
+const MosaicNode = memo(({ nodeKey }: { nodeKey: number }): ReactElement | null => {
+  const data = Session.Layout.useSelectMosaicNode(nodeKey);
+  if (data == null) return null;
+  if (data.variant === "leaf")
+    return <LeafNode nodeKey={nodeKey} selected={data.selected} tabs={data.tabs} />;
+  return (
+    <SplitNode
+      nodeKey={nodeKey}
+      direction={data.direction}
+      size={data.size}
+      firstKey={data.firstKey}
+      lastKey={data.lastKey}
+    />
+  );
+});
+MosaicNode.displayName = "MosaicNode";
 
 interface MosaicProps {
   windowKey: string;
-  mosaic: Base.Node;
+  mosaic: Session.Layout.Mosaic.Node;
 }
 
 export const Mosaic = memo((): ReactElement | null => {
@@ -240,16 +423,22 @@ const useMosaicDrops = (): Record<string, PMosaic.DropHandler> => ({
 /** LayoutMosaic renders the central layout mosaic of the application. */
 const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const store = Session.useStore();
-  const activeTab = Session.Layout.useSelectActiveMosaicTabState();
   const client = Synnax.use();
   const placeLayout = Layout.usePlacer();
   const dispatch = Session.useDispatch();
   const handleError = Status.useErrorHandler();
   const fluxStore = Flux.useStore<Pluto.FluxStore>();
   const handleDrop = useCallback(
-    (key: number, tabKey: string, loc: location.Location, index?: number): void => {
-      if (windowKey == null) return;
-      dispatch(Session.Layout.moveMosaicTab({ key, tabKey, loc, windowKey, index }));
+    ({ nodeKey, tabKey, location, index }: Base.OnDropProps): void => {
+      dispatch(
+        Session.Layout.moveMosaicTab({
+          key: nodeKey,
+          tabKey,
+          loc: location,
+          windowKey,
+          index,
+        }),
+      );
     },
     [dispatch, windowKey],
   );
@@ -258,28 +447,18 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
   const fileIngesters = Import.useFileIngesters();
 
   const handleCreate = useCallback(
-    (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
-      if (tabKeys == null) {
-        placeLayout(Selector.create({ tab: { mosaicKey, location } }));
-        return;
-      }
+    ({ nodeKey, location, tabKeys }: Base.OnCreateProps) => {
       tabKeys.forEach((tabKey) => {
         const res = ontology.idZ.safeParse(tabKey);
         if (res.success)
-          mosaicDrops[res.data.type]?.({
-            id: res.data,
-            nodeKey: mosaicKey,
-            location,
-          });
-        else placeLayout(Selector.create({ tab: { mosaicKey, location } }));
+          mosaicDrops[res.data.type]?.({ id: res.data, nodeKey, location });
+        else placeLayout(Selector.create({ tab: { mosaicKey: nodeKey, location } }));
       });
     },
     [placeLayout, mosaicDrops],
   );
 
   LinePlot.useTriggerHold();
-
-  const handleClose = Layout.useRemover();
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
@@ -288,22 +467,15 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
     [dispatch],
   );
 
-  const handleRename = useCallback(
-    (tabKey: string, name: string): void => {
-      dispatch(Session.Layout.rename({ key: tabKey, name }));
-    },
-    [dispatch],
-  );
-
   const handleResize = useCallback(
-    (key: number, size: number) => {
-      dispatch(Session.Layout.resizeMosaicTab({ key, size, windowKey }));
+    (splitKey: number, size: number) => {
+      dispatch(Session.Layout.resizeMosaicTab({ key: splitKey, size, windowKey }));
     },
     [dispatch, windowKey],
   );
 
   const handleFileDrop = useCallback(
-    (nodeKey: number, loc: location.Location, event: React.DragEvent) => {
+    ({ nodeKey, location, event }: Base.OnFileDropProps) => {
       const items = Array.from(event.dataTransfer.items);
       void Promise.all(
         items.map(async (item) => {
@@ -312,7 +484,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
               client,
               fileIngesters,
               ingestDirectory: Project.ingest,
-              layout: { tab: { mosaicKey: nodeKey, location: loc } },
+              layout: { tab: { mosaicKey: nodeKey, location } },
               placeLayout,
               store,
               fluxStore,
@@ -323,69 +495,50 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         }),
       );
     },
-    [
-      client,
-      fileIngesters,
-      placeLayout,
-      store,
-      fluxStore,
-      handleError,
-      store,
-      fluxStore,
-    ],
+    [client, fileIngesters, placeLayout, store, fluxStore, handleError],
   );
 
-  // Creates a wrapper around the general purpose layout content to create a set of
-  // content nodes that are rendered at the top level of the Mosaic and then 'portaled'
-  // into their correct location. This means that moving layouts around in the Mosaic
-  // or focusing them will not cause them to re-mount. This has considerable impacts
-  // on the user experience, as it reduces necessary data fetching and expensive
-  const [portalRef, portalNodes] = Base.usePortal({
-    root: mosaic,
-    onSelect: handleSelect,
-    children: ({ tabKey, visible }) => (
-      <Layout.Content key={tabKey} layoutKey={tabKey} forceHidden={visible === false} />
-    ),
-  });
+  // One traversal derives both portal enumeration inputs: every tab key in the
+  // tree and the set of keys visible as their leaf's selection.
+  const [tabKeys, visibleKeys] = useMemo(() => {
+    const keys: string[] = [];
+    const visible = new Set<string>();
+    Session.Layout.Mosaic.forEachNode(mosaic, (node) => {
+      node.tabs?.forEach((t) => keys.push(t.tabKey));
+      if (node.selected != null) visible.add(node.selected);
+    });
+    return [keys, visible];
+  }, [mosaic]);
 
-  const renderProp = useCallback<Tabs.RenderProp>(
-    (props) => (
-      <ModalContent
-        key={props.tabKey}
-        node={portalRef.current.get(props.tabKey) as Portal.Node}
-        {...props}
-      />
-    ),
-    [],
-  );
   const selectorVisible = Selector.useVisible();
 
+  // Content renders into portaled elements hosted from each leaf, so moving
+  // layouts around the mosaic or focusing them does not remount them. This has
+  // considerable impact on the user experience, as it avoids re-fetching data
+  // and re-creating expensive resources like WebGL contexts.
   return (
-    <>
-      {portalNodes}
-      <Base.Mosaic
+    <Portal.Context>
+      {tabKeys.map((tabKey) => (
+        <Portal.In key={tabKey} itemKey={tabKey} onClick={handleSelect}>
+          <Errors.Boundary>
+            <Layout.Content layoutKey={tabKey} forceHidden={!visibleKeys.has(tabKey)} />
+          </Errors.Boundary>
+        </Portal.In>
+      ))}
+      <Base.Frame
         rounded={1}
         bordered
         borderColor={5}
         background={0}
-        root={mosaic}
-        onDrop={handleDrop}
-        onClose={handleClose}
-        onSelect={handleSelect}
-        contextMenu={contextMenu}
-        onResize={handleResize}
-        emptyContent={<EmptyContent />}
-        onRename={handleRename}
-        onCreate={selectorVisible ? handleCreate : undefined}
-        activeTab={activeTab.layoutKey ?? undefined}
-        onFileDrop={handleFileDrop}
-        addTooltip="Create component"
         className={CSS.B("mosaic")}
-        tabName={renderTabName}
+        onDrop={handleDrop}
+        onResize={handleResize}
+        onCreate={selectorVisible ? handleCreate : undefined}
+        onFileDrop={handleFileDrop}
       >
-        {renderProp}
-      </Base.Mosaic>
-    </>
+        <MosaicNode nodeKey={mosaic.key} />
+      </Base.Frame>
+    </Portal.Context>
   );
 };
 
@@ -399,13 +552,7 @@ export const Window = memo<Layout.Renderer>(({ layoutKey }: Layout.RendererProps
   return (
     <>
       <AppNav.Bar.AuxTop />
-      <Flex.Box
-        y
-        gap="tiny"
-        grow
-        className={CSS.B("mosaic-window")}
-        style={{ padding: "1rem", paddingTop: 0, overflow: "hidden" }}
-      >
+      <Flex.Box y gap="tiny" grow className={CSS.B("mosaic-window")}>
         <Internal windowKey={windowKey} mosaic={mosaic} />
         <AppNav.Drawer.Bottom />
       </Flex.Box>
