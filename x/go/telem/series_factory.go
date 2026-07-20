@@ -124,11 +124,14 @@ func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(dat
 // in variable-density series encoding.
 const variableLengthPrefixSize = 4
 
-// MarshalVariableSamples length-prefixes each variable-length sample with a uint32 LE
-// byte length. This is useful for code that accumulates samples into a Series.Data
-// buffer incrementally rather than using NewSeriesV.
-func MarshalVariableSamples(samples ...[]byte) []byte {
-	return marshalVariable(samples)
+// MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
+// prefix. This is useful for code that accumulates samples into a Series.Data buffer
+// incrementally rather than using NewSeriesV.
+func MarshalVariableSample(sample []byte) []byte {
+	b := make([]byte, variableLengthPrefixSize+len(sample))
+	ByteOrder.PutUint32(b, uint32(len(sample)))
+	copy(b[variableLengthPrefixSize:], sample)
+	return b
 }
 
 func marshalVariable[T VariableSample](data []T) []byte {

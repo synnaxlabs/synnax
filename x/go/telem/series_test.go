@@ -112,16 +112,16 @@ var _ = Describe("Series", func() {
 
 		Context("JSON Validity", func() {
 			It("Should reject invalid JSON", func() {
-				data := telem.MarshalVariableSamples([]byte(`{not json}`))
+				data := telem.MarshalVariableSample([]byte(`{not json}`))
 				s := telem.Series{DataType: telem.JSONT, Data: data}
 				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
 			})
 
 			It("Should accept valid JSON primitives", func() {
-				data := telem.MarshalVariableSamples([]byte(`42`))
-				data = append(data, telem.MarshalVariableSamples([]byte(`"hello"`))...)
-				data = append(data, telem.MarshalVariableSamples([]byte(`true`))...)
-				data = append(data, telem.MarshalVariableSamples([]byte(`null`))...)
+				data := telem.MarshalVariableSample([]byte(`42`))
+				data = append(data, telem.MarshalVariableSample([]byte(`"hello"`))...)
+				data = append(data, telem.MarshalVariableSample([]byte(`true`))...)
+				data = append(data, telem.MarshalVariableSample([]byte(`null`))...)
 				s := telem.Series{DataType: telem.JSONT, Data: data}
 				Expect(s.Validate()).To(Succeed())
 			})
@@ -130,7 +130,7 @@ var _ = Describe("Series", func() {
 		Context("UTF-8 Validity", func() {
 			It("Should reject invalid UTF-8 in string series", func() {
 				invalidUTF8 := []byte{0xFF, 0xFE}
-				data := telem.MarshalVariableSamples(invalidUTF8)
+				data := telem.MarshalVariableSample(invalidUTF8)
 				s := telem.Series{DataType: telem.StringT, Data: data}
 				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
 			})

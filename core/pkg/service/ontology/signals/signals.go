@@ -57,7 +57,7 @@ func Publish(
 						continue
 					}
 				} else {
-					key = telem.MarshalVariableSamples([]byte(ch.Key))
+					key = telem.MarshalVariableSample([]byte(ch.Key))
 				}
 				out = append(out, change.Change[[]byte, struct{}]{
 					Key:     key,
@@ -96,10 +96,10 @@ func Publish(
 			SetDataType:    telem.StringT,
 			DeleteDataType: telem.StringT,
 			MarshalSet: func(r ontology.Relationship) ([]byte, error) {
-				return telem.MarshalVariableSamples([]byte(r.GorpKey())), nil
+				return telem.MarshalVariableSample([]byte(r.GorpKey())), nil
 			},
 			MarshalDelete: func(k string) ([]byte, error) {
-				return telem.MarshalVariableSamples([]byte(k)), nil
+				return telem.MarshalVariableSample([]byte(k)), nil
 			},
 		},
 	)

@@ -122,7 +122,7 @@ func MarshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return telem.MarshalVariableSamples(b), nil
+	return telem.MarshalVariableSample(b), nil
 }
 
 // GorpPublisherConfigUUID is a helper function for creating a Signals pipeline that
@@ -176,7 +176,7 @@ func GorpPublisherConfigString[E gorp.Entry[string]](
 		DeleteDataType: telem.StringT,
 		SetDataType:    telem.JSONT,
 		MarshalDelete: func(k string) ([]byte, error) {
-			return telem.MarshalVariableSamples([]byte(k)), nil
+			return telem.MarshalVariableSample([]byte(k)), nil
 		},
 		MarshalSet: MarshalJSON[string, E],
 	}

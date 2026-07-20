@@ -235,26 +235,26 @@ var _ = Describe("SeriesFactory", func() {
 	Describe("MarshalVariableSample", func() {
 		It("Should marshal a typical sample with a length prefix", func() {
 			sample := []byte("hello")
-			result := telem.MarshalVariableSamples(sample)
+			result := telem.MarshalVariableSample(sample)
 			Expect(result).To(HaveLen(9))
 			Expect(binary.LittleEndian.Uint32(result[:4])).To(Equal(uint32(5)))
 			Expect(result[4:]).To(Equal(sample))
 		})
 
 		It("Should marshal an empty sample", func() {
-			result := telem.MarshalVariableSamples([]byte{})
+			result := telem.MarshalVariableSample([]byte{})
 			Expect(result).To(HaveLen(4))
 			Expect(binary.LittleEndian.Uint32(result[:4])).To(Equal(uint32(0)))
 		})
 
 		It("Should marshal a nil sample", func() {
-			result := telem.MarshalVariableSamples(nil)
+			result := telem.MarshalVariableSample(nil)
 			Expect(result).To(HaveLen(4))
 			Expect(binary.LittleEndian.Uint32(result[:4])).To(Equal(uint32(0)))
 		})
 
 		It("Should marshal a single byte sample", func() {
-			result := telem.MarshalVariableSamples([]byte{0xFF})
+			result := telem.MarshalVariableSample([]byte{0xFF})
 			Expect(result).To(HaveLen(5))
 			Expect(binary.LittleEndian.Uint32(result[:4])).To(Equal(uint32(1)))
 			Expect(result[4]).To(Equal(byte(0xFF)))
@@ -264,7 +264,7 @@ var _ = Describe("SeriesFactory", func() {
 			samples := [][]byte{[]byte("foo"), []byte("barbaz"), []byte("")}
 			var data []byte
 			for _, s := range samples {
-				data = append(data, telem.MarshalVariableSamples(s)...)
+				data = append(data, telem.MarshalVariableSample(s)...)
 			}
 			series := telem.Series{DataType: telem.StringT, Data: data}
 			Expect(series.Len()).To(Equal(int64(3)))
@@ -276,8 +276,8 @@ var _ = Describe("SeriesFactory", func() {
 		It("Should produce the same encoding as NewSeriesV", func() {
 			fromFactory := telem.NewSeriesV([]byte{1, 2}, []byte{3, 4, 5})
 			var manual []byte
-			manual = append(manual, telem.MarshalVariableSamples([]byte{1, 2})...)
-			manual = append(manual, telem.MarshalVariableSamples([]byte{3, 4, 5})...)
+			manual = append(manual, telem.MarshalVariableSample([]byte{1, 2})...)
+			manual = append(manual, telem.MarshalVariableSample([]byte{3, 4, 5})...)
 			Expect(manual).To(Equal(fromFactory.Data))
 		})
 	})
