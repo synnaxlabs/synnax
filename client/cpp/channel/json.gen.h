@@ -15,10 +15,10 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/node/json.gen.h"
+#include "client/cpp/node/types.gen.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/telem/json.gen.h"
+#include "x/cpp/telem/types.gen.h"
 
 namespace synnax::channel {
 

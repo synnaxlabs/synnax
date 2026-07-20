@@ -19,16 +19,13 @@ export type Key = z.infer<typeof keyZ>;
 
 /**
  * Role is a named collection of policies that can be assigned to users, enabling
- * group-based permission management. Roles define what actions users can
- * perform on resources.
+ * group-based permission management. Roles define what actions users can perform on
+ * resources.
  */
 export const roleZ = z.object({
   /** key is the unique identifier for this role. */
   key: keyZ.default(uuid.create),
-  /**
-   * name is a human-readable name for the role (e.g., 'Administrator',
-   * 'Engineer').
-   */
+  /** name is a human-readable name for the role (e.g., 'Administrator', 'Engineer'). */
   name: z.string(),
   /**
    * description is an optional description explaining what permissions the role

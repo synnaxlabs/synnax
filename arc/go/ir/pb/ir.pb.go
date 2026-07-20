@@ -475,15 +475,16 @@ type Scope struct {
 	// activation is the handle whose truthy value activates a gated scope. Unset for
 	// always-live scopes.
 	Activation *Handle `protobuf:"bytes,4,opt,name=activation,proto3,oneof" json:"activation,omitempty"`
-	// strata contains stratified execution layers for parallel scopes. Empty for sequential
-	// scopes. Stratum N depends only on strata 0 to N-1.
+	// strata contains stratified execution layers for parallel scopes. Empty for
+	// sequential scopes. Stratum N depends only on strata 0 to N-1.
 	Strata []*MembersWrapper `protobuf:"bytes,5,rep,name=strata,proto3" json:"strata,omitempty"`
 	// steps contains ordered steps for sequential scopes. Empty for parallel scopes.
 	Steps []*Member `protobuf:"bytes,6,rep,name=steps,proto3" json:"steps,omitempty"`
-	// transitions contains state-transition rules for sequential scopes. Empty for parallel
-	// scopes.
+	// transitions contains state-transition rules for sequential scopes. Empty for
+	// parallel scopes.
 	Transitions []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
-	// reset_nodes contains keys of variable nodes re-seeded each time this scope activates.
+	// reset_nodes contains keys of variable nodes re-seeded each time this scope
+	// activates.
 	ResetNodes    []string `protobuf:"bytes,8,rep,name=reset_nodes,json=resetNodes,proto3" json:"reset_nodes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
