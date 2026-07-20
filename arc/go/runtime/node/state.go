@@ -237,7 +237,7 @@ func (n *State) Reset() {
 		case rearmOnFresh:
 		case rearmOnArrival:
 			n.absorbInput(i)
-		default:
+		case rearmAlways, rearmOnReset:
 			n.accumulated[i].consumed = false
 			n.accumulated[i].lastTimestamp = 0
 		}

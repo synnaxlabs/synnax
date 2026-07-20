@@ -12,6 +12,7 @@ package text
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -447,9 +448,7 @@ func bindReadToAlias(shell *shellBuilder, vn, r *ir.Node, sym *symbol.Symbol) {
 		Target: ir.Handle{Node: r.Key, Param: "channel"},
 		Kind:   ir.EdgeKindContinuous,
 	})
-	for k, name := range sym.Channels.Read {
-		r.Channels.Read[k] = name
-	}
+	maps.Copy(r.Channels.Read, sym.Channels.Read)
 }
 
 // bindWriteToAlias feeds a write node's channel param from the alias's register
@@ -460,9 +459,7 @@ func bindWriteToAlias(shell *shellBuilder, vn, w *ir.Node, sym *symbol.Symbol) {
 		Target: ir.Handle{Node: w.Key, Param: "channel"},
 		Kind:   ir.EdgeKindContinuous,
 	})
-	for k, name := range sym.Channels.Write {
-		w.Channels.Write[k] = name
-	}
+	maps.Copy(w.Channels.Write, sym.Channels.Write)
 }
 
 // isConstVar reports whether sym is a value variable holding a compile-time
