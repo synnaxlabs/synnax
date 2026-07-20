@@ -12,309 +12,214 @@ package telem
 import (
 	"encoding/json"
 	"fmt"
-	"math"
+	"iter"
 	"slices"
+	"strings"
+	"unicode/utf8"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/bounds"
+	"github.com/synnaxlabs/x/errors"
 	xslices "github.com/synnaxlabs/x/slices"
-	v0 "github.com/synnaxlabs/x/telem/types/v0"
-	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/stringer"
+	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// MultiSeries is a collection of ordered Series that share the same data type.
-type MultiSeries = v0.MultiSeries
+// Series is a strongly-typed array of telemetry samples backed by a binary buffer.
+// Supports both fixed-density primitive types and variable-density types (strings,
+// JSON). Designed for high-performance, memory-efficient storage and streaming of
+// time-series data.
+type Series struct {
+	// TimeRange is the time range covered by the samples in this series.
+	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
+	// DataType is the data type of all samples in this series.
+	DataType DataType `json:"data_type" msgpack:"data_type"`
+	// Data is the raw binary buffer containing the sample data.
+	Data []byte `json:"data" msgpack:"data"`
+	// Alignment defines the location of the series relative to other series in a logical
+	// group. Typically used for defining the position of the series within a channel's
+	// data.
+	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
+	cachedLength *int64
+}
 
-// NewSeries creates a new Series from a slice of sample values. It automatically
-// determines the data type from the type parameter.
-func NewSeries[T Sample](data []T) Series {
-	var t T
-	switch any(t).(type) {
-	case uint8:
-		return newFixedSeries(any(data).([]uint8))
-	case uint16:
-		return newFixedSeries(any(data).([]uint16))
-	case uint32:
-		return newFixedSeries(any(data).([]uint32))
-	case uint64:
-		return newFixedSeries(any(data).([]uint64))
-	case int8:
-		return newFixedSeries(any(data).([]int8))
-	case int16:
-		return newFixedSeries(any(data).([]int16))
-	case int32:
-		return newFixedSeries(any(data).([]int32))
-	case int64:
-		return newFixedSeries(any(data).([]int64))
-	case float32:
-		return newFixedSeries(any(data).([]float32))
-	case float64:
-		return newFixedSeries(any(data).([]float64))
-	case TimeStamp:
-		return newFixedSeries(any(data).([]TimeStamp))
-	case uuid.UUID:
-		return newFixedSeries(any(data).([]uuid.UUID))
-	case string:
-		return newVariableSeries(any(data).([]string))
-	case []byte:
-		return newVariableSeries(any(data).([][]byte))
+// Len returns the number of samples currently in the Series.
+func (s Series) Len() int64 {
+	if len(s.Data) == 0 {
+		return 0
 	}
-	// degenerate case, should never hit this path.
-	panic(fmt.Sprintf("unsupported sample type %T", t))
-}
-
-// NewSeriesV is a variadic version of NewSeries.
-func NewSeriesV[T Sample](data ...T) Series { return NewSeries(data) }
-
-// MakeSeries allocates a new Series with the specified DataType and length. Note that
-// this function allocates a length and not a capacity.
-func MakeSeries(dt DataType, len int) Series {
-	return Series{DataType: dt, Data: make([]byte, len*int(dt.Density()))}
-}
-
-// NewSeriesSecondsTSV creates a new Series containing TimeStamp values. All input
-// timestamps are multiplied by SecondTS to convert them to the standard time unit used
-// in the system.
-func NewSeriesSecondsTSV(data ...TimeStamp) Series {
-	for i := range data {
-		data[i] *= SecondTS
+	if s.DataType.IsVariable() {
+		if s.cachedLength == nil {
+			var cl int64
+			offset := 0
+			for offset+variableLengthPrefixSize <= len(s.Data) {
+				length := int(ByteOrder.Uint32(s.Data[offset:]))
+				if offset+variableLengthPrefixSize+length > len(s.Data) {
+					break
+				}
+				offset += variableLengthPrefixSize + length
+				cl++
+			}
+			s.cachedLength = &cl
+		}
+		return *s.cachedLength
 	}
-	return NewSeries(data)
+	return s.DataType.Density().SampleCount(s.Size())
 }
 
-func newFixedSeries[T FixedSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: v0.MarshalFixedSamples(data...)}
+// Validate checks that the series data buffer is structurally valid for its declared
+// DataType. For fixed-density types, it verifies that the buffer length is an exact
+// multiple of the sample size. For variable-density types, it verifies that the
+// length-prefix chain exactly consumes the buffer. For JSONT, it additionally verifies
+// that each sample is valid JSON. For StringT, it verifies that each sample is valid
+// UTF-8.
+func (s *Series) Validate() error {
+	if len(s.Data) == 0 {
+		return nil
+	}
+	if s.DataType.IsVariable() {
+		return s.validateVariable()
+	}
+	d := s.DataType.Density()
+	if d == UnknownDensity {
+		return nil
+	}
+	if len(s.Data)%int(d) != 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"expected data length to be a multiple of %d for data type %s, but got %d",
+			d, s.DataType, len(s.Data),
+		)
+	}
+	return nil
 }
 
-func newVariableSeries[T VariableSample](data []T) Series {
-	return Series{DataType: InferDataType[T](), Data: v0.MarshalVariableSamples(data...)}
+func (s *Series) validateVariable() error {
+	var (
+		offset int
+		count  int64
+	)
+	for offset+variableLengthPrefixSize <= len(s.Data) {
+		length := int(ByteOrder.Uint32(s.Data[offset:]))
+		offset += variableLengthPrefixSize
+		if offset+length > len(s.Data) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
+				offset-variableLengthPrefixSize, length, len(s.Data)-offset,
+			)
+		}
+		sample := s.Data[offset : offset+length]
+		if s.DataType == JSONT && !json.Valid(sample) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"sample %q is not valid JSON",
+				sample,
+			)
+		}
+		if s.DataType == StringT && !utf8.Valid(sample) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"sample %q is not valid UTF-8",
+				sample,
+			)
+		}
+		offset += length
+		count++
+	}
+	if offset != len(s.Data) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"variable-density buffer has %d trailing bytes after last complete sample",
+			len(s.Data)-offset,
+		)
+	}
+	s.cachedLength = &count
+	return nil
 }
 
-// NewJSONSeries creates a new JSON Series from a slice of JSON values. It returns an
-// error if the data cannot be marshalled into JSON.
-func NewJSONSeries[T any](data []T) (Series, error) {
-	byteSlices := make([][]byte, len(data))
-	var err error
-	for i, v := range data {
-		if byteSlices[i], err = json.Marshal(v); err != nil {
-			return Series{}, err
+// Size returns the number of bytes in the Series.
+func (s Series) Size() Size { return Size(len(s.Data)) }
+
+// Samples returns an iterator over the samples in the Series.
+func (s Series) Samples() iter.Seq[[]byte] {
+	return func(yield func([]byte) bool) {
+		if s.DataType.IsVariable() {
+			offset := 0
+			for offset+variableLengthPrefixSize <= len(s.Data) {
+				length := int(ByteOrder.Uint32(s.Data[offset:]))
+				offset += variableLengthPrefixSize
+				if offset+length > len(s.Data) {
+					return
+				}
+				if !yield(s.Data[offset : offset+length]) {
+					return
+				}
+				offset += length
+			}
+			return
+		}
+		den := int64(s.DataType.Density())
+		for i := int64(0); i < s.Len(); i++ {
+			b := s.Data[i*den : (i+1)*den]
+			if !yield(b) {
+				return
+			}
 		}
 	}
-	return Series{DataType: JSONT, Data: v0.MarshalVariableSamples(byteSlices...)}, nil
 }
 
-// NewJSONSeriesV constructs a new JSON Series from an arbitrary set of JSON values,
-// marshaling each one in the process. It returns an error if the data cannot be
-// marshalled into JSON.
-func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
-
-// MarshalVariableSamples length-prefixes each variable-length sample with a uint32 LE
-// byte length. This is useful for code that accumulates samples into a Series.Data
-// buffer incrementally rather than using NewSeriesV.
-func MarshalVariableSamples(samples ...[]byte) []byte {
-	return v0.MarshalVariableSamples(samples...)
-}
-
-// UnmarshalSeries converts a Series back into a slice of the specified data type. Note
-// that this function does NOT check the Series' DataType, it simply unmarshals the data
-// according to type T.
-func UnmarshalSeries[T Sample](series Series) []T {
-	var t T
-	switch any(t).(type) {
-	case uint8:
-		return any(v0.UnmarshalFixedSamples[uint8](series.Data)).([]T)
-	case uint16:
-		return any(v0.UnmarshalFixedSamples[uint16](series.Data)).([]T)
-	case uint32:
-		return any(v0.UnmarshalFixedSamples[uint32](series.Data)).([]T)
-	case uint64:
-		return any(v0.UnmarshalFixedSamples[uint64](series.Data)).([]T)
-	case int8:
-		return any(v0.UnmarshalFixedSamples[int8](series.Data)).([]T)
-	case int16:
-		return any(v0.UnmarshalFixedSamples[int16](series.Data)).([]T)
-	case int32:
-		return any(v0.UnmarshalFixedSamples[int32](series.Data)).([]T)
-	case int64:
-		return any(v0.UnmarshalFixedSamples[int64](series.Data)).([]T)
-	case float32:
-		return any(v0.UnmarshalFixedSamples[float32](series.Data)).([]T)
-	case float64:
-		return any(v0.UnmarshalFixedSamples[float64](series.Data)).([]T)
-	case TimeStamp:
-		return any(v0.UnmarshalFixedSamples[TimeStamp](series.Data)).([]T)
-	case uuid.UUID:
-		return any(v0.UnmarshalFixedSamples[uuid.UUID](series.Data)).([]T)
-	case string:
-		return any(v0.UnmarshalVariableSamples[string](series.Data)).([]T)
-	case []byte:
-		return any(v0.UnmarshalVariableSamples[[]byte](series.Data)).([]T)
-	}
-	// degenerate case, should never hit this path.
-	panic(fmt.Sprintf("unsupported sample type %T", t))
-}
-
-// UnmarshalJSONSeries unmarshals a JSON-encoded series into a slice of JSON values
-// of the specified type T. This function does NOT check the Series' DataType, it simply
-// unmarshals the data according to type T.
-func UnmarshalJSONSeries[T any](s Series) ([]T, error) {
-	byteSlices := UnmarshalSeries[[]byte](s)
-	data := make([]T, len(byteSlices))
-	for i, b := range byteSlices {
-		if err := json.Unmarshal(b, &data[i]); err != nil {
-			return nil, err
+// At returns the binary representation of the sample at the given index.
+func (s Series) At(i int) []byte {
+	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
+	if s.DataType.IsVariable() {
+		offset := 0
+		for offset+variableLengthPrefixSize <= len(s.Data) {
+			length := int(ByteOrder.Uint32(s.Data[offset:]))
+			offset += variableLengthPrefixSize
+			if offset+length > len(s.Data) {
+				break
+			}
+			if i == 0 {
+				return s.Data[offset : offset+length]
+			}
+			i--
+			offset += length
 		}
+		panic(fmt.Sprintf(
+			"index %v out of bounds for series with length %v",
+			i,
+			s.Len(),
+		))
 	}
-	return data, nil
+	den := int(s.DataType.Density())
+	return s.Data[i*den : (i+1)*den]
 }
 
-// Arrange creates a new Series containing count values starting from start, with each
-// subsequent value incremented by spacing. For example, Arrange(0, 5, 2) produces [0,
-// 2, 4, 6, 8]. Panics if count is less than or equal to 0.
-func Arrange[T NumericSample](start T, count int, spacing T) Series {
-	data := make([]T, count)
-	for i := range count {
-		data[i] = start + T(i)*spacing
+// Resize resizes the series to the specified number of samples. If the new length is
+// smaller than the current length, the data is truncated. If the new length is larger,
+// the data is extended with zero bytes. This function only supports fixed-density types
+// and will panic if called on a variable-density series.
+func (s *Series) Resize(length int64) {
+	if length < 0 {
+		panic("cannot resize series to negative length")
 	}
-	return NewSeries(data)
-}
-
-// NewSeriesFromAny creates a single-value Series from a value of type any, casting it
-// to the specified DataType. Supports numeric types, strings, TimeStamp, JSON, and
-// bytes. Panics if the value cannot be converted to the target DataType.
-func NewSeriesFromAny(value any, dt DataType) Series {
-	switch dt {
-	case Uint8T:
-		return NewSeriesV(castNumeric[uint8](value))
-	case Uint16T:
-		return NewSeriesV(castNumeric[uint16](value))
-	case Uint32T:
-		return NewSeriesV(castNumeric[uint32](value))
-	case Uint64T:
-		return NewSeriesV(castNumeric[uint64](value))
-	case Int8T:
-		return NewSeriesV(castNumeric[int8](value))
-	case Int16T:
-		return NewSeriesV(castNumeric[int16](value))
-	case Int32T:
-		return NewSeriesV(castNumeric[int32](value))
-	case Int64T:
-		return NewSeriesV(castNumeric[int64](value))
-	case Float32T:
-		return NewSeriesV(castNumeric[float32](value))
-	case Float64T:
-		return NewSeriesV(castNumeric[float64](value))
-	case TimeStampT:
-		return NewSeriesV(castNumeric[TimeStamp](value))
-	case UUIDT:
-		return NewSeriesV(castToUUID(value))
-	case StringT:
-		return NewSeriesV(castToString(value))
-	case BytesT:
-		return NewSeriesV(castToBytes(value))
-	case JSONT:
-		return lo.Must(NewJSONSeriesV(value))
-	default:
-		panic(fmt.Sprintf("unsupported data type %s", dt))
+	if s.DataType.IsVariable() {
+		panic("cannot resize variable-density series")
 	}
-}
-
-func castNumeric[T NumericSample](value any) T {
-	switch v := value.(type) {
-	case uint:
-		return T(v)
-	case uint8:
-		return T(v)
-	case uint16:
-		return T(v)
-	case uint32:
-		return T(v)
-	case uint64:
-		return T(v)
-	case int:
-		return T(v)
-	case int8:
-		return T(v)
-	case int16:
-		return T(v)
-	case int32:
-		return T(v)
-	case int64:
-		return T(v)
-	case float32:
-		return T(v)
-	case float64:
-		return T(v)
-	case TimeStamp:
-		return T(v)
-	case TimeSpan:
-		return T(v)
-	default:
-		var t T
-		panic(fmt.Sprintf("cannot cast %T to %T", value, t))
+	var (
+		density     = int(s.DataType.Density())
+		targetSize  = int(length) * density
+		currentSize = len(s.Data)
+	)
+	if targetSize == currentSize {
+		return
 	}
-}
-
-func castToString(value any) string {
-	switch v := value.(type) {
-	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, TimeStamp, TimeSpan:
-		return fmt.Sprintf("%d", v)
-	case float32, float64:
-		return fmt.Sprintf("%g", v)
-	case string:
-		return v
-	default:
-		return fmt.Sprintf("%v", value)
-	}
-}
-
-func castToBytes(value any) []byte {
-	switch v := value.(type) {
-	case uint8:
-		return []byte{v}
-	case uint16:
-		return v0.ByteOrder.AppendUint16(nil, v)
-	case uint32:
-		return v0.ByteOrder.AppendUint32(nil, v)
-	case uint64:
-		return v0.ByteOrder.AppendUint64(nil, v)
-	case int8:
-		return []byte{byte(v)}
-	case int16:
-		return v0.ByteOrder.AppendUint16(nil, uint16(v))
-	case int32:
-		return v0.ByteOrder.AppendUint32(nil, uint32(v))
-	case int64:
-		return v0.ByteOrder.AppendUint64(nil, uint64(v))
-	case float32:
-		return v0.ByteOrder.AppendUint32(nil, math.Float32bits(v))
-	case float64:
-		return v0.ByteOrder.AppendUint64(nil, math.Float64bits(v))
-	case TimeStamp:
-		return v0.ByteOrder.AppendUint64(nil, uint64(v))
-	case TimeSpan:
-		return v0.ByteOrder.AppendUint64(nil, uint64(v))
-	case uuid.UUID:
-		return v[:]
-	case string:
-		return []byte(v)
-	case []byte:
-		return v
-	default:
-		panic(fmt.Sprintf("cannot cast %T to []byte", value))
-	}
-}
-
-func castToUUID(value any) uuid.UUID {
-	switch v := value.(type) {
-	case uuid.UUID:
-		return v
-	case string:
-		return uuid.MustParse(v)
-	case []byte:
-		return lo.Must(uuid.FromBytes(v))
-	default:
-		panic(fmt.Sprintf("cannot cast %T to uuid.UUID", value))
+	if targetSize < currentSize {
+		s.Data = s.Data[:targetSize]
+	} else {
+		s.Data = append(s.Data, make([]byte, targetSize-currentSize)...)
 	}
 }
 
@@ -323,7 +228,7 @@ func castToUUID(value any) uuid.UUID {
 // cannot be used for variable density series.
 func ValueAt[T FixedSample](s Series, i int) T {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	data := unsafe.CastSlice[byte, T](s.Data)
+	data := xunsafe.CastSlice[byte, T](s.Data)
 	return data[i]
 }
 
@@ -332,7 +237,7 @@ func ValueAt[T FixedSample](s Series, i int) T {
 // cannot be used for variable density series.
 func SetValueAt[T FixedSample](s Series, i int, v T) {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
-	data := unsafe.CastSlice[byte, T](s.Data)
+	data := xunsafe.CastSlice[byte, T](s.Data)
 	data[i] = v
 }
 
@@ -345,6 +250,151 @@ func CopyValue(dst, src Series, dstIdx, srcIdx int) {
 	}
 	den := int(dst.DataType.Density())
 	copy(dst.Data[dstIdx*den:(dstIdx+1)*den], src.Data[srcIdx*den:(srcIdx+1)*den])
+}
+
+// AlignmentBounds returns the alignment bounds of the series. The lower bound is the
+// alignment of the first sample, and the upper bound is the alignment of the last
+// sample + 1. The lower bound is inclusive, while the upper bound is exclusive.
+func (s Series) AlignmentBounds() AlignmentBounds {
+	return AlignmentBounds{
+		Lower: s.Alignment,
+		Upper: NewAlignment(
+			s.Alignment.DomainIndex(),
+			s.Alignment.SampleIndex()+uint32(s.Len()),
+		),
+	}
+}
+
+// String implements the fmt.Stringer interface.
+func (s Series) String() string {
+	var b strings.Builder
+	_, _ = fmt.Fprintf(
+		&b,
+		"Series{Alignment: %v, TimeRange: %v, DataType: %v, Len: %d, Size: %d bytes, Contents: ",
+		s.Alignment.String(),
+		s.TimeRange.String(),
+		s.DataType,
+		s.Len(),
+		s.Size(),
+	)
+	b.WriteString(s.DataString())
+	b.WriteString("}")
+	return b.String()
+}
+
+// Downsample returns a copy of the Series with the data down sampled by the given
+// factor, i.e., 1 out of every factor samples is kept.
+func (s Series) Downsample(factor int) Series {
+	if factor <= 1 || len(s.Data) == 0 {
+		return s
+	}
+	var oData []byte
+	if s.DataType.IsVariable() {
+		samples := unmarshalVariable[[]byte](s.Data)
+		downsampled := make([][]byte, 0, len(samples)/factor+1)
+		for i := 0; i < len(samples); i += factor {
+			downsampled = append(downsampled, samples[i])
+		}
+		oData = marshalVariable(downsampled)
+	} else {
+		seriesLength := len(s.Data) / factor
+		oData = make([]byte, 0, seriesLength)
+		for i := int64(0); i < s.Len(); i += int64(factor) {
+			start := i * int64(s.DataType.Density())
+			end := start + int64(s.DataType.Density())
+			oData = append(oData, s.Data[start:end]...)
+		}
+	}
+	return Series{
+		TimeRange: s.TimeRange,
+		DataType:  s.DataType,
+		Data:      oData,
+		Alignment: s.Alignment,
+	}
+}
+
+const maxDisplayValues = 12
+
+func truncateAndFormatSlice[T any](slice []T) string {
+	return stringer.TruncateAndFormatSlice(slice, maxDisplayValues)
+}
+
+// DeepCopy creates a deep copy of the series, including all of its data.
+func (s Series) DeepCopy() Series {
+	return Series{
+		TimeRange: s.TimeRange,
+		Alignment: s.Alignment,
+		DataType:  s.DataType,
+		Data:      slices.Clone(s.Data),
+	}
+}
+
+// DataString returns a string representation of the data in a series.
+func (s Series) DataString() string {
+	if s.Len() == 0 {
+		return "[]"
+	}
+	if s.DataType.IsVariable() {
+		return truncateAndFormatSlice(UnmarshalSeries[string](s))
+	}
+	switch s.DataType {
+	case Float64T:
+		return truncateAndFormatSlice(UnmarshalSeries[float64](s))
+	case Float32T:
+		return truncateAndFormatSlice(UnmarshalSeries[float32](s))
+	case Int64T:
+		return truncateAndFormatSlice(UnmarshalSeries[int64](s))
+	case Int32T:
+		return truncateAndFormatSlice(UnmarshalSeries[int32](s))
+	case Int16T:
+		return truncateAndFormatSlice(UnmarshalSeries[int16](s))
+	case Int8T:
+		return truncateAndFormatSlice(UnmarshalSeries[int8](s))
+	case Uint64T:
+		return truncateAndFormatSlice(UnmarshalSeries[uint64](s))
+	case Uint32T:
+		return truncateAndFormatSlice(UnmarshalSeries[uint32](s))
+	case Uint16T:
+		return truncateAndFormatSlice(UnmarshalSeries[uint16](s))
+	case Uint8T:
+		return truncateAndFormatSlice(UnmarshalSeries[uint8](s))
+	case TimeStampT:
+		first, last := xslices.Truncate(UnmarshalSeries[TimeStamp](s), maxDisplayValues)
+		firstDeltas := make([]string, len(first)-1)
+		for i := 1; i < len(first); i++ {
+			firstDeltas[i-1] = "+" + TimeSpan(first[i]-first[0]).String()
+		}
+		firstDeltaStr := strings.Trim(fmt.Sprintf("%v", firstDeltas), "[]")
+		if len(last) == 0 {
+			return fmt.Sprintf("[%s %v]", first[0], firstDeltaStr)
+		}
+		lastDeltas := make([]string, len(last))
+		for i := range last {
+			lastDeltas[i] = "+" + TimeSpan(last[i]-first[0]).String()
+		}
+		lastDeltaStr := strings.Trim(fmt.Sprintf("%v", lastDeltas), "[]")
+		return fmt.Sprintf("[%s %v ... %v]", first[0], firstDeltaStr, lastDeltaStr)
+	default:
+		return fmt.Sprintf("%v", s.Data)
+	}
+}
+
+// AlignmentBounds is a set of lower and upper bounds for the alignment of a
+// multi-sample data structure (such as a Series or MultiSeries). The lower bound
+// represents the alignment of the first sample, while the upper bound represents the
+// alignment of the last sample + 1. The lower bound is inclusive, while the upper bound
+// is exclusive.
+type AlignmentBounds = bounds.Bounds[Alignment]
+
+// AlignmentBoundsZero is a set of alignment bounds whose lower and upper bound are both
+// zero.
+var AlignmentBoundsZero = AlignmentBounds{}
+
+// MultiSeries is a collection of ordered Series that share the same data type.
+type MultiSeries struct{ Series []Series }
+
+func sortSeriesByAlignment(s1, s2 Series) int {
+	return int(s1.Alignment - s2.Alignment)
 }
 
 // NewMultiSeries constructs a new MultiSeries from the given set of Series. The series
@@ -368,13 +418,6 @@ func NewMultiSeries(series []Series) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-func sortSeriesByAlignment(s1, s2 Series) int { return int(s1.Alignment - s2.Alignment) }
-
-// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
-// The series are sorted by their alignment, and the data type of the series must be the
-// same. If the data types are different, a panic will occur.
-func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(series) }
-
 // MultiSeriesAtAlignment returns the value at the given alignment in the MultiSeries.
 func MultiSeriesAtAlignment[T FixedSample](ms MultiSeries, alignment Alignment) T {
 	for _, s := range ms.Series {
@@ -387,4 +430,100 @@ func MultiSeriesAtAlignment[T FixedSample](ms MultiSeries, alignment Alignment) 
 		alignment,
 		ms.AlignmentBounds(),
 	))
+}
+
+// NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
+// The series are sorted by their alignment, and the data type of the series must be the
+// same. If the data types are different, a panic will occur.
+func NewMultiSeriesV(series ...Series) MultiSeries { return NewMultiSeries(series) }
+
+// AlignmentBounds returns the alignment bounds of the MultiSeries. The lower bound is
+// the alignment of the first sample in the series, and the upper bound is the alignment
+// of the last sample in the series + 1, i.e., the lower value is inclusive, and the
+// upper value is exclusive.
+func (m MultiSeries) AlignmentBounds() AlignmentBounds {
+	if len(m.Series) == 0 {
+		return AlignmentBoundsZero
+	}
+	return AlignmentBounds{
+		Lower: m.Series[0].AlignmentBounds().Lower,
+		Upper: m.Series[len(m.Series)-1].AlignmentBounds().Upper,
+	}
+}
+
+// TimeRange returns the time range of the MultiSeries, where the start time is the
+// start time of the first series, and the end time is the end time of the last series.
+// The start time is inclusive and the end time is exclusive.
+func (m MultiSeries) TimeRange() TimeRange {
+	if len(m.Series) != 0 {
+		return TimeRange{
+			Start: m.Series[0].TimeRange.Start,
+			End:   m.Series[len(m.Series)-1].TimeRange.End,
+		}
+	}
+	return TimeRangeZero
+}
+
+// Append appends a series to the MultiSeries. The series must have the same data type
+// as the MultiSeries. If the data types are different, a panic will occur.
+func (m MultiSeries) Append(series Series) MultiSeries {
+	if series.DataType != m.DataType() && len(m.Series) > 0 {
+		panic(fmt.Sprintf(
+			"cannot append series with different data types: %v != %v",
+			m.DataType(),
+			series.DataType,
+		))
+	}
+	m.Series = append(m.Series, series)
+	return m
+}
+
+// FilterGreaterThanOrEqualTo returns a new MultiSeries with all series that have an
+// upper alignment bound greater than the given alignment. This is useful for filtering
+// out series that are not relevant to the given alignment.
+func (m MultiSeries) FilterGreaterThanOrEqualTo(a Alignment) MultiSeries {
+	if len(m.Series) == 0 {
+		return m
+	}
+	// Hot path optimization that does a quick check that the alignment of all series is
+	// above the filter threshold, so we don't need to re-allocate a new slice.
+	if m.Series[0].AlignmentBounds().Upper > a {
+		return m
+	}
+	if m.Series[len(m.Series)-1].AlignmentBounds().Upper < a {
+		return MultiSeries{}
+	}
+	return MultiSeries{
+		Series: lo.Filter(m.Series, func(s Series, _ int) bool {
+			return s.AlignmentBounds().Upper > a
+		}),
+	}
+}
+
+// Len returns the aggregate length of all series in the MultiSeries.
+func (m MultiSeries) Len() int64 {
+	return lo.SumBy(m.Series, func(s Series) int64 { return s.Len() })
+}
+
+// DataType returns the data type of the multi series. If the multi series is empty, the
+// data type is UnknownT.
+func (m MultiSeries) DataType() DataType {
+	if len(m.Series) != 0 {
+		return m.Series[0].DataType
+	}
+	return UnknownT
+}
+
+// Data returns a byte slice containing the aggregated data of all series in the
+// MultiSeries. Note that this function allocates an entirely new byte slice, and is
+// computationally expensive.
+func (m MultiSeries) Data() []byte {
+	if len(m.Series) == 0 {
+		return nil
+	}
+	data := make([]byte, 0, m.Len())
+	for _, s := range m.Series {
+		data = append(data, s.Data...)
+	}
+	return data
 }

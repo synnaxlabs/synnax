@@ -232,7 +232,7 @@ var _ = Describe("SeriesFactory", func() {
 		})
 	})
 
-	Describe("MarshalVariableSamples", func() {
+	Describe("MarshalVariableSample", func() {
 		It("Should marshal a typical sample with a length prefix", func() {
 			sample := []byte("hello")
 			result := telem.MarshalVariableSamples(sample)

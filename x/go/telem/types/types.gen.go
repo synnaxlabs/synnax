@@ -66,9 +66,3 @@ const (
 	TimeZoneLocal TimeZone = v0.TimeZoneLocal
 	TimeZoneUTC   TimeZone = v0.TimeZoneUTC
 )
-
-// Series is a strongly-typed array of telemetry samples backed by a binary buffer.
-// Supports both fixed-density primitive types and variable-density types (strings,
-// JSON). Designed for high-performance, memory-efficient storage and streaming of
-// time-series data.
-type Series = v0.Series
