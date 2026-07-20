@@ -63,6 +63,7 @@ export const {
 } = Flux.createRetrieve<RetrieveQuery, lineplot.LinePlot, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
+  retrieveCached: ({ store, query: { key } }) => store.lineplots.get(key),
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.lineplots.onSet(onChange, key),
     store.resources.onSet(

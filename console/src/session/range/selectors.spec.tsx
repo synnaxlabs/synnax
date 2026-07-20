@@ -139,59 +139,5 @@ describe("range selectors", () => {
       });
       expect(get()).toEqual(DYNAMIC);
     });
-
-    it("should resolve only static ranges on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Range.useGetStatic(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get(STATIC.key)).toBeUndefined();
-      act(() => {
-        store.dispatch(Range.add([STATIC, DYNAMIC]));
-      });
-      expect(get(STATIC.key)).toEqual(STATIC);
-      expect(get(DYNAMIC.key)).toBeUndefined();
-    });
-
-    it("should return all ranges and filter to requested keys on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Range.useGetMultiple(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual([]);
-      act(() => {
-        store.dispatch(Range.add([STATIC, DYNAMIC]));
-      });
-      expect(get()).toEqual([STATIC, DYNAMIC]);
-      expect(get([DYNAMIC.key])).toEqual([DYNAMIC]);
-    });
-
-    it("should return the keys of every range on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Range.useGetKeys(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual([]);
-      act(() => {
-        store.dispatch(Range.add([STATIC, DYNAMIC]));
-      });
-      expect(get()).toEqual([STATIC.key, DYNAMIC.key]);
-    });
-
-    it("should return only the keys of static ranges on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Range.useGetStaticKeys(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toEqual([]);
-      act(() => {
-        store.dispatch(Range.add([STATIC, DYNAMIC]));
-      });
-      expect(get()).toEqual([STATIC.key]);
-    });
   });
 });

@@ -24,6 +24,7 @@ const (
 	FlagNodeCert      = "node-cert"
 	FlagAllowKeyReuse = "allow-key-reuse"
 	FlagKeySize       = "key-size"
+	FlagAutoCert      = "auto-cert"
 )
 
 // AddFlags adds the cert flags to the given command.

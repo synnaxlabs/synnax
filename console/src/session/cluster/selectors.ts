@@ -56,21 +56,11 @@ export const selectMany = (state: StoreState, keys?: string[]): Cluster[] =>
 export const useSelectMany = (keys?: string[]): Cluster[] =>
   Select.useMemo((s: StoreState) => selectMany(s, keys), [keys]);
 
-export const useGetMany = (): ((keys?: string[]) => Cluster[]) => {
-  const store = useStore<StoreState>();
-  return useCallback((keys?: string[]) => selectMany(store.getState(), keys), [store]);
-};
-
 const selectAllNames = (state: StoreState): string[] =>
   Object.values(selectSliceState(state).clusters).map((c) => c.name);
 
 export const useSelectAllNames = (): string[] =>
   Select.useMemo((s: StoreState) => selectAllNames(s), []);
-
-export const useGetAllNames = (): (() => string[]) => {
-  const store = useStore<StoreState>();
-  return useCallback(() => selectAllNames(store.getState()), [store]);
-};
 
 const selectIsAnySelected = (state: StoreState): boolean =>
   selectSelectedKey(state) != null;

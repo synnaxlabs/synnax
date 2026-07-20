@@ -97,6 +97,30 @@ describe("schematic queries", () => {
         expect(utils.queryByTestId("name")?.textContent).toBe("test_schematic"),
       );
     });
+
+    it("resolves synchronously without suspending when already in the store", async () => {
+      const schem = await createTestSchematic(proj.key);
+      await loadSchematic(Wrapper, schem.key);
+
+      const Display = (): ReactElement => {
+        const s = Schematic.useRetrieveSuspended({ key: schem.key });
+        return <div data-testid="name">{s.name}</div>;
+      };
+
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={<div data-testid="fallback" />}>
+              <Display />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("name")?.textContent).toBe("test_schematic");
+    });
   });
 
   describe("useEnsureRetrieved", () => {

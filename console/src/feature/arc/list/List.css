@@ -11,4 +11,5 @@
 
 .console-arc-list__search {
     padding: 2rem;
+    height: fit-content;
 }

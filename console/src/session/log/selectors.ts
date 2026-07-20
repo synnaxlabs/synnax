@@ -41,7 +41,10 @@ const createGetter =
     const scopeKey = Log.Scope.useOptional();
     return useCallback(
       (args) =>
-        selector({ state: store.getState(), key: (args?.key ?? scopeKey) as log.Key }),
+        selector({
+          state: store.getState(),
+          key: Log.Scope.require(args?.key ?? scopeKey),
+        }),
       [store, scopeKey],
     );
   };
@@ -56,4 +59,3 @@ const selectSelectedToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
   selectState(params).toolbar.selectedTab;
 
 export const useSelectSelectedToolbarTab = createSelector(selectSelectedToolbarTab);
-export const useGetSelectedToolbarTab = createGetter(selectSelectedToolbarTab);

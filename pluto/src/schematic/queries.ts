@@ -58,6 +58,7 @@ export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved }
   Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query: { key } }) => store.schematics.get(key),
     mountListeners: ({ store, query: { key }, onChange }) =>
       store.schematics.onSet(onChange, key),
   });
