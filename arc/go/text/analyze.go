@@ -1588,6 +1588,18 @@ func extractInputValues(
 			return channelKey, true
 		}
 
+		// A top-level literal variable cannot be reassigned, so its seed is
+		// compile-time-stable and inlines like a literal.
+		if primary := parser.GetPrimaryExpression(expr); primary != nil {
+			if id := primary.IDENTIFIER(); id != nil {
+				if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil &&
+					sym.IsLiteral() && !sym.Reassigned &&
+					sym.DefaultValue != nil && sym.Parent == sym.Root() {
+					return sym.DefaultValue, true
+				}
+			}
+		}
+
 		if !parser.IsLiteral(expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				expr,

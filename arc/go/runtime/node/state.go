@@ -327,7 +327,7 @@ func (n *State) absorbInput(i int) {
 	if src == nil {
 		return
 	}
-	ts := telem.TimeStamp(0)
+	var ts telem.TimeStamp
 	if src.time.Len() > 0 {
 		ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
 	}
@@ -349,7 +349,7 @@ func (n *State) ConsumeInput(i int) (telem.Series, bool) {
 	if src == nil || src.data.Len() == 0 {
 		return telem.Series{}, false
 	}
-	ts := telem.TimeStamp(0)
+	var ts telem.TimeStamp
 	if src.time.Len() > 0 {
 		ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
 	}
@@ -380,7 +380,7 @@ func (n *State) LastChanged() (telem.Series, bool) {
 		if src == nil || src.data.Len() == 0 {
 			continue
 		}
-		ts := telem.TimeStamp(0)
+		var ts telem.TimeStamp
 		if src.time.Len() > 0 {
 			ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
 		}

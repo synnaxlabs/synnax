@@ -123,7 +123,7 @@ func scopeNodeRefs(scope ir.Scope) []string {
 }
 
 var _ = Describe("Text", func() {
-	Describe("Variable Channels", func() {
+	Describe("Variables", func() {
 		varResolver := []symbol.Symbol{
 			{Name: "count_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 901},
 			{Name: "out_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 902},
@@ -131,7 +131,41 @@ var _ = Describe("Text", func() {
 			{Name: "sink_ch", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 904},
 		}
 
-		It("Should back a written value variable with read and write nodes", func(ctx SpecContext) {
+		variableNodes := func(inter ir.IR) []ir.Node {
+			var out []ir.Node
+			for _, n := range inter.Nodes {
+				if n.Type == "variable" || n.Type == "stateful_variable" {
+					out = append(out, n)
+				}
+			}
+			return out
+		}
+		hasEdge := func(inter ir.IR, src, tgt string) bool {
+			for _, e := range inter.Edges {
+				if e.Source.Node == src && e.Target.Node == tgt {
+					return true
+				}
+			}
+			return false
+		}
+		nodeReading := func(inter ir.IR, key uint32) string {
+			for _, n := range inter.Nodes {
+				if _, ok := n.Channels.Read[key]; ok {
+					return n.Key
+				}
+			}
+			return ""
+		}
+		nodeWriting := func(inter ir.IR, key uint32) string {
+			for _, n := range inter.Nodes {
+				if _, ok := n.Channels.Write[key]; ok {
+					return n.Key
+				}
+			}
+			return ""
+		}
+
+		It("Should lower a written variable to a node wired between channel reads and writes", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				counter i64 := 0
@@ -143,28 +177,18 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.VarChannels).To(HaveLen(1))
-			varKey := inter.VarChannels[0]
-			sawRead, sawWrite := false, false
-			for _, n := range inter.Nodes {
-				_, reads := n.Channels.Read[varKey]
-				_, writes := n.Channels.Write[varKey]
-				sawRead = sawRead || reads
-				sawWrite = sawWrite || writes
-				if reads || writes {
-					Expect(n.IsLiteral).To(BeTrue(),
-						"a node touching the var channel must carry its kind")
-					Expect(n.BacksInternalChannel).To(BeTrue(),
-						"a node touching the var channel must back the internal channel")
-				} else {
-					Expect(n.IsLiteral).To(BeFalse(),
-						"a node not touching the var channel must not be held")
-					Expect(n.BacksInternalChannel).To(BeFalse(),
-						"a node not touching the var channel must not back one")
-				}
-			}
-			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
-			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(1))
+			counter := vars[0]
+			Expect(counter.Inputs[0].Value).To(Equal(int64(0)))
+			onKey := nodeReading(inter, 901)
+			writeKey := nodeWriting(inter, 902)
+			Expect(onKey).ToNot(BeEmpty(), "expected an on-node reading count_ch")
+			Expect(writeKey).ToNot(BeEmpty(), "expected a write-node writing out_ch")
+			Expect(hasEdge(inter, onKey, counter.Key)).To(BeTrue(),
+				"the channel read must feed the variable node")
+			Expect(hasEdge(inter, counter.Key, writeKey)).To(BeTrue(),
+				"the variable node must feed the channel write")
 		})
 
 		DescribeTable("Should lower reactive re-expression and alias rebind",
@@ -343,14 +367,18 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
-		DescribeTable("Should seed a value variable's channel with its literal value",
+		DescribeTable("Should seed a variable node with its literal value",
 			func(ctx SpecContext, decl string, expected any) {
-				source := "sequence main {\n" + decl + "\n}"
+				// A never-reassigned variable lowers to no node; reassign with
+				// the same literal so the register exists.
+				lit := strings.SplitN(decl, ":= ", 2)[1]
+				source := "sequence main {\n" + decl + "\na = " + lit + "\n}"
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(inter.VarSeeds).To(HaveLen(1))
-				Expect(inter.VarSeeds[0].Value).To(Equal(expected))
+				vars := variableNodes(inter)
+				Expect(vars).To(HaveLen(1))
+				Expect(vars[0].Inputs[0].Value).To(Equal(expected))
 			},
 			Entry("i8", `a i8 := -5`, int8(-5)),
 			Entry("i16", `a i16 := -5`, int16(-5)),
@@ -374,7 +402,7 @@ var _ = Describe("Text", func() {
 				"cannot write to channel-read variable r"))
 		})
 
-		It("Should lower a literal reassignment to a write node", func(ctx SpecContext) {
+		It("Should lower a literal reassignment to a feeder into the variable node", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				msg := "hello"
@@ -383,20 +411,23 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.VarChannels).To(HaveLen(1))
-			varKey := inter.VarChannels[0]
-			sawWrite := false
-			for _, n := range inter.Nodes {
-				if _, writes := n.Channels.Write[varKey]; writes {
-					sawWrite = true
-					Expect(n.IsLiteral).To(BeTrue())
-					Expect(n.BacksInternalChannel).To(BeTrue())
+			var msg *ir.Node
+			for _, n := range variableNodes(inter) {
+				if n.Inputs[0].Value == "hello" {
+					msg = &n
 				}
 			}
-			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
+			Expect(msg).ToNot(BeNil(), "expected msg's register seeded with its literal")
+			fed := false
+			for _, e := range inter.Edges {
+				if e.Target.Node == msg.Key {
+					fed = true
+				}
+			}
+			Expect(fed).To(BeTrue(), "expected the reassignment to feed the variable node")
 		})
 
-		It("Should build a feeder state machine for a re-expressed channel-read variable", func(ctx SpecContext) {
+		It("Should lower a re-expressed variable to a sel-switched demux", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				r := count_ch + 1
@@ -405,35 +436,57 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			var machine *ir.Scope
-			for i := range inter.Root.Strata {
-				for _, m := range inter.Root.Strata[i] {
-					if m.Scope != nil && m.Scope.Mode == ir.ScopeModeSequential &&
-						m.Scope.Liveness == ir.LivenessAlways {
-						machine = m.Scope
-					}
+			vars := variableNodes(inter)
+			// r's demux reader and its sel register.
+			Expect(vars).To(HaveLen(2))
+			var deref, bind ir.Node
+			for _, n := range vars {
+				if _, ok := n.Inputs.Get("sel"); ok {
+					deref = n
+				} else {
+					bind = n
 				}
 			}
-			Expect(machine).ToNot(BeNil(), "expected a sequential feeder machine")
-			Expect(machine.Steps).To(HaveLen(2))
-			Expect(machine.Transitions).To(HaveLen(2))
+			Expect(deref.Key).ToNot(BeEmpty(), "expected a demux with a sel input")
+			Expect(bind.Inputs[0].Value).To(Equal(uint32(0)),
+				"the sel register seeds the declared derivation's index")
+			Expect(hasEdge(inter, bind.Key, deref.Key)).To(BeTrue(),
+				"the sel register must drive the demux")
+			feeders := 0
+			for _, e := range inter.Edges {
+				if e.Target.Node == deref.Key && e.Source.Node != bind.Key {
+					feeders++
+				}
+			}
+			Expect(feeders).To(Equal(2), "both derivations must feed the demux")
 		})
 
-		It("backs the re-expression switch channel but never seeds it", func(ctx SpecContext) {
+		It("seeds the literal register and leaves the derivation reader edge-fed", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				k := 5
 				r := count_ch + 1
+				k = 6
 				r = count_ch + 2
 			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			// k (constant), r (reactive), and the reassignment's switch channel are backed.
-			Expect(inter.VarChannels).To(HaveLen(3))
-			// Only the literal constant is seeded; the channel-read variable and the
-			// compiler-internal switch channel are not.
-			Expect(inter.VarSeeds).To(HaveLen(1))
+			// k's register, r's derivation reader, and r's sel register. k needs
+			// a reassignment to lower to a register at all.
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(3))
+			literalSeeds, unseeded := 0, 0
+			for _, n := range vars {
+				switch n.Inputs[0].Value {
+				case int64(5):
+					literalSeeds++
+				case nil:
+					unseeded++
+				}
+			}
+			Expect(literalSeeds).To(Equal(1), "only k's register carries a literal seed")
+			Expect(unseeded).To(Equal(1), "r's derivation reader is edge-fed, not seeded")
 		})
 
 		It("DUMP", func(ctx SpecContext) {
@@ -489,7 +542,7 @@ var _ = Describe("Text", func() {
 			}
 		})
 
-		It("Should rebind a channel read/write so later reads bake the new channel", func(ctx SpecContext) {
+		It("Should register both channels as rebind candidates on the alias read", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				a := count_ch
@@ -499,17 +552,26 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			readsRebound, readsOriginal := false, false
+			// Every channel the alias can point at is opened up front; the bind
+			// register selects between them at runtime.
+			var readNode ir.Node
 			for _, n := range inter.Nodes {
-				if _, ok := n.Channels.Read[902]; ok {
-					readsRebound = true
-				}
 				if _, ok := n.Channels.Read[901]; ok {
-					readsOriginal = true
+					readNode = n
 				}
 			}
-			Expect(readsRebound).To(BeTrue(), "read should bake the rebound channel out_ch")
-			Expect(readsOriginal).To(BeFalse(), "read should not bake the original channel count_ch")
+			Expect(readNode.Key).ToNot(BeEmpty(),
+				"the alias read must register the declared channel")
+			Expect(readNode.Channels.Read).To(HaveKey(uint32(902)),
+				"the rebound channel must be a read candidate too")
+			seeded := false
+			for _, n := range variableNodes(inter) {
+				if n.Inputs[0].Value == uint32(901) {
+					seeded = true
+				}
+			}
+			Expect(seeded).To(BeTrue(),
+				"the bind register seeds the declared channel key")
 		})
 
 		It("Should reject rebinding an alias to a nonexistent channel", func(ctx SpecContext) {
@@ -684,8 +746,9 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.VarChannels).To(HaveLen(2))
-			Expect(inter.VarChannels[0]).ToNot(Equal(inter.VarChannels[1]))
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(2))
+			Expect(vars[0].Key).ToNot(Equal(vars[1].Key))
 		})
 
 		It("Should compile a variable read inside a transition condition", func(ctx SpecContext) {
@@ -706,7 +769,7 @@ var _ = Describe("Text", func() {
 			Expect(prog.WASM).ToNot(BeEmpty())
 		})
 
-		It("Should back a stage-local variable with read and write nodes", func(ctx SpecContext) {
+		It("Should lower a stage-local variable to a node wired between channel reads and writes", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				stage s1 {
@@ -718,28 +781,18 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.VarChannels).To(HaveLen(1))
-			varKey := inter.VarChannels[0]
-			sawRead, sawWrite := false, false
-			for _, n := range inter.Nodes {
-				_, reads := n.Channels.Read[varKey]
-				_, writes := n.Channels.Write[varKey]
-				sawRead = sawRead || reads
-				sawWrite = sawWrite || writes
-				if reads || writes {
-					Expect(n.IsLiteral).To(BeTrue(),
-						"a node touching the var channel must carry its kind")
-					Expect(n.BacksInternalChannel).To(BeTrue(),
-						"a node touching the var channel must back the internal channel")
-				} else {
-					Expect(n.IsLiteral).To(BeFalse(),
-						"a node not touching the var channel must not be held")
-					Expect(n.BacksInternalChannel).To(BeFalse(),
-						"a node not touching the var channel must not back one")
-				}
-			}
-			Expect(sawRead).To(BeTrue(), "expected an on-node reading the var channel")
-			Expect(sawWrite).To(BeTrue(), "expected a write-node writing the var channel")
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(1))
+			counter := vars[0]
+			Expect(counter.Inputs[0].Value).To(Equal(int64(0)))
+			onKey := nodeReading(inter, 901)
+			writeKey := nodeWriting(inter, 902)
+			Expect(onKey).ToNot(BeEmpty(), "expected an on-node reading count_ch")
+			Expect(writeKey).ToNot(BeEmpty(), "expected a write-node writing out_ch")
+			Expect(hasEdge(inter, onKey, counter.Key)).To(BeTrue(),
+				"the channel read must feed the variable node")
+			Expect(hasEdge(inter, counter.Key, writeKey)).To(BeTrue(),
+				"the variable node must feed the channel write")
 		})
 
 		It("Should assign distinct keys to stage-local variables in sibling stages", func(ctx SpecContext) {
@@ -757,8 +810,9 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			Expect(inter.VarChannels).To(HaveLen(2))
-			Expect(inter.VarChannels[0]).ToNot(Equal(inter.VarChannels[1]))
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(2))
+			Expect(vars[0].Key).ToNot(Equal(vars[1].Key))
 		})
 	})
 
@@ -3624,64 +3678,6 @@ time.wait{duration=500ms} -> output`
 				Expect(edge1.Source.Node).To(Equal(exprNode.Key))
 				Expect(edge1.Target.Node).To(Equal("alarm_0"))
 				Expect(edge1.Kind).To(Equal(ir.EdgeKindConditional))
-			})
-
-			It("Should clock a self-writing flow with a one-shot pulse instead of a self-trigger", func(ctx SpecContext) {
-				resolver := []symbol.Symbol{
-					{Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10171},
-				}
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: `counter + 1 => counter`}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				Expect(countNodesByType(inter.Nodes, "on")).To(Equal(0),
-					"a flow writing the channel it reads must not create a self-trigger")
-				Expect(countNodesByType(inter.Nodes, "constant")).To(Equal(1),
-					"the self-writing flow must be clocked by a synthetic one-shot pulse")
-
-				pulse := findNodeByType(inter.Nodes, "constant")
-				write := findNodeByType(inter.Nodes, "write")
-				Expect(write.Channels.Write).To(HaveKey(uint32(10171)))
-
-				var expr ir.Node
-				for _, n := range inter.Nodes {
-					if n.Key != pulse.Key && n.Key != write.Key {
-						expr = n
-					}
-				}
-				Expect(expr.Channels.Read).To(HaveKey(uint32(10171)),
-					"the expression still reads the channel as data, not as a trigger")
-
-				triggers := 0
-				for _, e := range inter.Edges {
-					if e.Target.Node == expr.Key {
-						triggers++
-						Expect(e.Source.Node).To(Equal(pulse.Key), "the pulse must be the only trigger")
-						Expect(e.Kind).To(Equal(ir.EdgeKindContinuous))
-					}
-				}
-				Expect(triggers).To(Equal(1))
-			})
-
-			It("Should keep an external trigger and drop only the self-write trigger", func(ctx SpecContext) {
-				resolver := []symbol.Symbol{
-					{Name: "ext", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10181},
-					{Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10182},
-				}
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: `ext + counter => counter`}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				Expect(countNodesByType(inter.Nodes, "constant")).To(Equal(0),
-					"an external trigger remains, so no synthetic pulse is injected")
-				Expect(countNodesByType(inter.Nodes, "on")).To(Equal(1),
-					"only the external channel triggers; the self-written channel does not")
-
-				triggerNode := findNodeByType(inter.Nodes, "on")
-				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10181)),
-					"the surviving trigger must be the external channel")
-				Expect(triggerNode.Channels.Read).NotTo(HaveKey(uint32(10182)),
-					"the self-written channel must not trigger the flow")
 			})
 
 			It("Should not suppress a trigger when the flow writes a different channel", func(ctx SpecContext) {

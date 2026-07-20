@@ -220,7 +220,13 @@ var _ = Describe("Statement Compiler", func() {
 				count i64 $= 0
 				x i64 := count + 1
 			}`))
-			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
+			// A func-local stateful always loads its cell; without a function
+			// ancestor the read would fold to the seed instead.
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, block, fn)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -249,7 +255,13 @@ var _ = Describe("Statement Compiler", func() {
 				b i64 $= 20
 				c i64 := a + b
 			}`))
-			aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
+			// A func-local stateful always loads its cell; without a function
+			// ancestor the reads would fold to the seeds instead.
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, block, fn)
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())

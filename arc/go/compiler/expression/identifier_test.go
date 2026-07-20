@@ -172,14 +172,26 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(byteCode).ToNot(BeEmpty())
 		})
 
-		It("Should read a value variable inherited from an enclosing scope by key", func(bCtx SpecContext) {
+		It("Should fold a never-reassigned enclosing-scope variable to its seed", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
 				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+				DefaultValue: int32(7),
 			}))
 			byteCode, exprType := compileWithCtx(ctx, "shared")
 			Expect(exprType).To(Equal(types.I32()))
-			Expect(byteCode).ToNot(BeEmpty())
+			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(7)))
+		})
+
+		It("Should reject a reassigned enclosing-scope variable that was not lifted", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+				DefaultValue: int32(7), Reassigned: true,
+			}))
+			expr := MustSucceed(parser.ParseExpression("shared"))
+			Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+				To(MatchError(ContainSubstring("cannot read reassigned variable")))
 		})
 
 		It("Should read a channel read/write alias from another unit by its source key", func(bCtx SpecContext) {

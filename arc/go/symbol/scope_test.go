@@ -243,6 +243,34 @@ var _ = Describe("Scope", func() {
 		})
 	})
 
+	Describe("Children", func() {
+		It("Should return the directly contained symbols", func(bCtx SpecContext) {
+			rootScope := symbol.NewRoot(nil, nil)
+			a := MustSucceed(rootScope.Add(
+				bCtx,
+				symbol.Symbol{Name: "a", Kind: symbol.KindVariable, Type: types.I32()},
+			))
+			b := MustSucceed(rootScope.Add(
+				bCtx,
+				symbol.Symbol{Name: "b", Kind: symbol.KindVariable, Type: types.I32()},
+			))
+			Expect(rootScope.Children()).To(Equal([]*symbol.Symbol{a, b}))
+		})
+
+		It("Should delegate a module alias to its target's children", func() {
+			member := &symbol.Symbol{Name: "abs", Kind: symbol.KindFunction}
+			module := (&symbol.Symbol{Name: "math", Kind: symbol.KindModule}).
+				AddChild(member)
+			alias := &symbol.Symbol{Kind: symbol.KindModuleAlias, Target: module}
+			Expect(alias.Children()).To(Equal([]*symbol.Symbol{member}))
+		})
+
+		It("Should return the alias's own children when Target is nil", func() {
+			alias := &symbol.Symbol{Kind: symbol.KindModuleAlias}
+			Expect(alias.Children()).To(BeEmpty())
+		})
+	})
+
 	Describe("AddChild", func() {
 		It("Should append the child and set its Parent", func() {
 			parent := symbol.NewRoot(nil, nil)
@@ -558,6 +586,21 @@ var _ = Describe("Scope", func() {
 			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
 			Expect(scope).ToNot(BeNil())
 			scopes := MustSucceed(rootScope.Search(bCtx, "xyz"))
+			Expect(scopes).To(BeEmpty())
+		})
+		It("Should fuzzy-match a term within edit distance two", func(bCtx SpecContext) {
+			rootScope := symbol.NewRoot(nil, nil)
+			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "valve", Kind: symbol.KindVariable, Type: types.I32()}))
+			Expect(scope).ToNot(BeNil())
+			scopes := MustSucceed(rootScope.Search(bCtx, "vlve"))
+			Expect(scopes).To(HaveLen(1))
+			Expect(scopes[0].Name).To(Equal("valve"))
+		})
+		It("Should not fuzzy-match a term of two characters or fewer", func(bCtx SpecContext) {
+			rootScope := symbol.NewRoot(nil, nil)
+			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "ab", Kind: symbol.KindVariable, Type: types.I32()}))
+			Expect(scope).ToNot(BeNil())
+			scopes := MustSucceed(rootScope.Search(bCtx, "ba"))
 			Expect(scopes).To(BeEmpty())
 		})
 		It("Should return all symbols for empty prefix", func(bCtx SpecContext) {
