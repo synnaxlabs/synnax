@@ -9,12 +9,10 @@
 
 package v0
 
-import (
-	"github.com/vmihailenco/msgpack/v5"
-)
+import "github.com/vmihailenco/msgpack/v5"
 
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go
+// field names and new lowercase msgpack tag names for backward compatibility.
 func (o *Output) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Output
 	raw, err := dec.DecodeRaw()

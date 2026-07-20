@@ -11,43 +11,43 @@ package telem
 
 import (
 	"github.com/google/uuid"
-	latest "github.com/synnaxlabs/x/telem/types/v0"
+	v0 "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 const (
 	// UnknownT is an unknown data type.
-	UnknownT = latest.UnknownT
+	UnknownT = v0.UnknownT
 	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
-	Uint8T = latest.Uint8T
+	Uint8T = v0.Uint8T
 	// Uint16T is a data type for a 16-bit unsigned integer.
-	Uint16T = latest.Uint16T
+	Uint16T = v0.Uint16T
 	// Uint32T is a data type for a 32-bit unsigned integer.
-	Uint32T = latest.Uint32T
+	Uint32T = v0.Uint32T
 	// Uint64T is a data type for a 64-bit unsigned integer.
-	Uint64T = latest.Uint64T
+	Uint64T = v0.Uint64T
 	// Int8T is a data type for an 8-bit integer.
-	Int8T = latest.Int8T
+	Int8T = v0.Int8T
 	// Int16T is a data type for a 16-bit integer.
-	Int16T = latest.Int16T
+	Int16T = v0.Int16T
 	// Int32T is a data type for a 32-bit integer.
-	Int32T = latest.Int32T
+	Int32T = v0.Int32T
 	// Int64T is a data type for a 64-bit integer.
-	Int64T = latest.Int64T
+	Int64T = v0.Int64T
 	// Float32T is a data type for a 32-bit IEEE-754 floating point number.
-	Float32T = latest.Float32T
+	Float32T = v0.Float32T
 	// Float64T is a data type for a 64-bit IEEE-754 floating point number.
-	Float64T = latest.Float64T
+	Float64T = v0.Float64T
 	// TimeStampT is a data type for a signed 64-bit nanosecond count since the Unix
 	// epoch.
-	TimeStampT = latest.TimeStampT
+	TimeStampT = v0.TimeStampT
 	// UUIDT is a data type for a 128-bit UUID value.
-	UUIDT = latest.UUIDT
+	UUIDT = v0.UUIDT
 	// StringT is a variable density data type for a UTF-8 encoded string.
-	StringT = latest.StringT
+	StringT = v0.StringT
 	// BytesT is a variable density data type for an arbitrary byte array.
-	BytesT = latest.BytesT
+	BytesT = v0.BytesT
 	// JSONT is a variable density data type for UTF-8 encoded JSON text.
-	JSONT = latest.JSONT
+	JSONT = v0.JSONT
 )
 
 // InferDataType infers the data type of the given Sample.
@@ -83,6 +83,7 @@ func InferDataType[T Sample]() DataType {
 	case []byte:
 		return BytesT
 	default:
+		// degenerate case, should never hit this path.
 		return UnknownT
 	}
 }

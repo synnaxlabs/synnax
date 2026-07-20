@@ -9,22 +9,22 @@
 
 package telem
 
-import latest "github.com/synnaxlabs/x/telem/types/v0"
+import v0 "github.com/synnaxlabs/x/telem/types/v0"
 
 // Density represents a density in bytes per value.
-type Density = latest.Density
+type Density = v0.Density
 
 const (
 	// UnknownDensity is for type structure occupying an unknown number of bytes.
-	UnknownDensity = latest.UnknownDensity
+	UnknownDensity = v0.UnknownDensity
 	// Bit128 is for a type occupying 16 bytes.
-	Bit128 = latest.Bit128
+	Bit128 = v0.Bit128
 	// Bit64 is for a type occupying 8 bytes.
-	Bit64 = latest.Bit64
+	Bit64 = v0.Bit64
 	// Bit32 is for a type occupying 4 bytes.
-	Bit32 = latest.Bit32
+	Bit32 = v0.Bit32
 	// Bit16 is for a data type occupying 2 bytes.
-	Bit16 = latest.Bit16
+	Bit16 = v0.Bit16
 	// Bit8 is for a data type occupying 1 byte.
-	Bit8 = latest.Bit8
+	Bit8 = v0.Bit8
 )

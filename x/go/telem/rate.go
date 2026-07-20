@@ -9,13 +9,13 @@
 
 package telem
 
-import latest "github.com/synnaxlabs/x/telem/types/v0"
+import v0 "github.com/synnaxlabs/x/telem/types/v0"
 
 const (
 	// Hertz is a data rate of 1 Hz.
-	Hertz = latest.Hertz
+	Hertz = v0.Hertz
 	// Kilohertz is a data rate of 1 kHz.
-	Kilohertz = latest.Kilohertz
+	Kilohertz = v0.Kilohertz
 	// Megahertz is a data rate of 1 MHz.
-	Megahertz = latest.Megahertz
+	Megahertz = v0.Megahertz
 )

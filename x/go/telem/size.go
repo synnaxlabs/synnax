@@ -9,21 +9,21 @@
 
 package telem
 
-import latest "github.com/synnaxlabs/x/telem/types/v0"
+import v0 "github.com/synnaxlabs/x/telem/types/v0"
 
 const (
 	// Byte is a single byte.
-	Byte = latest.Byte
+	Byte = v0.Byte
 	// Kilobyte is 1,000 bytes.
-	Kilobyte = latest.Kilobyte
+	Kilobyte = v0.Kilobyte
 	// Megabyte is 1,000 kilobytes.
-	Megabyte = latest.Megabyte
+	Megabyte = v0.Megabyte
 	// Gigabyte is 1,000 megabytes.
-	Gigabyte = latest.Gigabyte
+	Gigabyte = v0.Gigabyte
 	// Terabyte is 1,000 gigabytes.
-	Terabyte = latest.Terabyte
+	Terabyte = v0.Terabyte
 	// Petabyte is 1,000 terabytes.
-	Petabyte = latest.Petabyte
+	Petabyte = v0.Petabyte
 	// Exabyte is 1,000 petabytes.
-	Exabyte = latest.Exabyte
+	Exabyte = v0.Exabyte
 )

@@ -9,22 +9,22 @@
 
 package telem
 
-import latest "github.com/synnaxlabs/x/telem/types/v0"
+import v0 "github.com/synnaxlabs/x/telem/types/v0"
 
 // NumericSample represents any numeric value that can be stored in a Series and have
 // mathematical operations performed on it.
-type NumericSample = latest.NumericSample
+type NumericSample = v0.NumericSample
 
 // FixedSample represents any numeric value that can be stored in a Series and has a
 // fixed density.
-type FixedSample = latest.FixedSample
+type FixedSample = v0.FixedSample
 
 // VariableSample is a type that can be stored in a variable-density series.
-type VariableSample = latest.VariableSample
+type VariableSample = v0.VariableSample
 
 // Sample represents any value that can be stored in a non-JSON Series.
-type Sample = latest.Sample
+type Sample = v0.Sample
 
 // ByteOrder is the standard order for encoding/decoding numeric values across the
 // Synnax telemetry ecosystem.
-var ByteOrder = latest.ByteOrder
+var ByteOrder = v0.ByteOrder

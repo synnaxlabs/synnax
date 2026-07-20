@@ -155,7 +155,7 @@ func (s Series) Samples() iter.Seq[[]byte] {
 func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
-		offset := 0
+		var offset int
 		for offset+variableLengthPrefixSize <= len(s.Data) {
 			length := int(ByteOrder.Uint32(s.Data[offset:]))
 			offset += variableLengthPrefixSize

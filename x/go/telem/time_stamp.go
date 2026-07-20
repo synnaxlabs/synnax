@@ -12,28 +12,28 @@ package telem
 import (
 	"time"
 
-	latest "github.com/synnaxlabs/x/telem/types/v0"
+	v0 "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 const (
 	// TimeStampMin represents the minimum value for a TimeStamp
-	TimeStampMin = latest.TimeStampMin
+	TimeStampMin = v0.TimeStampMin
 	// TimeStampMax represents the maximum value for a TimeStamp
-	TimeStampMax = latest.TimeStampMax
+	TimeStampMax = v0.TimeStampMax
 	// NanosecondTS is a TimeStamp 1 nanosecond after the unix epoch.
-	NanosecondTS = latest.NanosecondTS
+	NanosecondTS = v0.NanosecondTS
 	// MicrosecondTS is a TimeStamp 1 microsecond after the unix epoch.
-	MicrosecondTS = latest.MicrosecondTS
+	MicrosecondTS = v0.MicrosecondTS
 	// MillisecondTS is a TimeStamp 1 millisecond after the unix epoch.
-	MillisecondTS = latest.MillisecondTS
+	MillisecondTS = v0.MillisecondTS
 	// SecondTS is a TimeStamp 1 second after the unix epoch.
-	SecondTS = latest.SecondTS
+	SecondTS = v0.SecondTS
 	// MinuteTS is a TimeStamp 1 minute after the unix epoch.
-	MinuteTS = latest.MinuteTS
+	MinuteTS = v0.MinuteTS
 	// HourTS is a TimeStamp 1 hour after the unix epoch.
-	HourTS = latest.HourTS
+	HourTS = v0.HourTS
 	// DayTS is a TimeStamp 1 day after the unix epoch.
-	DayTS = latest.DayTS
+	DayTS = v0.DayTS
 )
 
 // Now returns the current time as a TimeStamp.

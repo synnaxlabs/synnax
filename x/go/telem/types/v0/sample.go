@@ -27,22 +27,8 @@ type NumericSample interface {
 // density.
 type FixedSample interface{ NumericSample | uuid.UUID }
 
-// VariableSample is a type that can be stored in a variable-density series.
-type VariableSample interface{ []byte | string }
-
-// Sample represents any value that can be stored in a non-JSON Series.
-type Sample interface{ FixedSample | VariableSample }
-
-// ByteOrder is the standard order for encoding/decoding numeric values across the
-// Synnax telemetry ecosystem.
-var ByteOrder = binary.LittleEndian
-
-// variableLengthPrefixSize is the number of bytes used for the uint32 LE length prefix
-// in variable-density series encoding.
-const variableLengthPrefixSize = 4
-
-// MarshalFixedSamples encodes fixed-width samples into their contiguous little-endian byte
-// representation.
+// MarshalFixedSamples encodes fixed-width samples into their contiguous little-endian
+// byte representation.
 func MarshalFixedSamples[T FixedSample](data ...T) []byte {
 	src := unsafe.CastSlice[T, byte](data)
 	b := make([]byte, len(src))
@@ -51,7 +37,20 @@ func MarshalFixedSamples[T FixedSample](data ...T) []byte {
 }
 
 // UnmarshalFixedSamples reinterprets a fixed-density buffer as a slice of T.
-func UnmarshalFixedSamples[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
+func UnmarshalFixedSamples[T FixedSample](b []byte) []T {
+	return unsafe.CastSlice[byte, T](b)
+}
+
+// VariableSample is a type that can be stored in a variable-density series.
+type VariableSample interface{ []byte | string }
+
+// ByteOrder is the standard order for encoding/decoding numeric values across the
+// Synnax telemetry ecosystem.
+var ByteOrder = binary.LittleEndian
+
+// variableLengthPrefixSize is the number of bytes used for the uint32 LE length prefix
+// in variable-density series encoding.
+const variableLengthPrefixSize = 4
 
 // MarshalVariableSamples encodes variable-length samples, prefixing each with its uint32 LE
 // byte length.
@@ -71,8 +70,8 @@ func MarshalVariableSamples[T VariableSample](data ...T) []byte {
 	return b
 }
 
-// UnmarshalVariableSamples decodes a length-prefixed variable-density buffer into a slice of
-// T. Samples with a length prefix that overruns the buffer terminate decoding.
+// UnmarshalVariableSamples decodes a length-prefixed variable-density buffer into a
+// slice of T. Samples with a length prefix that overruns the buffer terminate decoding.
 func UnmarshalVariableSamples[T VariableSample](b []byte) []T {
 	var data []T
 	var offset int
@@ -87,3 +86,6 @@ func UnmarshalVariableSamples[T VariableSample](b []byte) []T {
 	}
 	return data
 }
+
+// Sample represents any value that can be stored in a non-JSON Series.
+type Sample interface{ FixedSample | VariableSample }
