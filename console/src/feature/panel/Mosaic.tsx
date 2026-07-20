@@ -22,6 +22,7 @@ import {
   Panel,
   Text,
 } from "@synnaxlabs/pluto";
+import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -50,6 +51,7 @@ const TabName = (): ReactElement => {
 };
 
 const Content = (): ReactElement => {
+  const tabType = Panel.useSelectTabType({});
   const { Content, Name } = useTab();
   const dispatch = useDispatch();
   const isOverlaid = Session.Panel.useSelectIsTabOverlaid();
@@ -67,7 +69,11 @@ const Content = (): ReactElement => {
         variant="modal"
         background={isOverlaid ? 0 : undefined}
       >
-        <Dialog.Dialog passthrough full className={CSS.B("panel-focus")}>
+        <Dialog.Dialog
+          passthrough
+          full
+          className={CSS(CSS.B(caseconv.toKebab(tabType)), CSS.BE("panel", "tab"))}
+        >
           <Nav.Bar
             location="top"
             size="5rem"
