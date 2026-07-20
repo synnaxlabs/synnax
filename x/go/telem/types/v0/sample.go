@@ -52,8 +52,8 @@ var ByteOrder = binary.LittleEndian
 // in variable-density series encoding.
 const variableLengthPrefixSize = 4
 
-// MarshalVariableSamples encodes variable-length samples, prefixing each with its uint32 LE
-// byte length.
+// MarshalVariableSamples encodes variable-length samples, prefixing each with its
+// uint32 LE byte length.
 func MarshalVariableSamples[T VariableSample](data ...T) []byte {
 	var total int
 	for _, d := range data {

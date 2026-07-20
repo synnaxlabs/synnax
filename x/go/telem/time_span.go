@@ -13,21 +13,21 @@ import v0 "github.com/synnaxlabs/x/telem/types/v0"
 
 const (
 	// TimeSpanZero represents the zero value for a TimeSpan.
-	TimeSpanZero = v0.TimeSpanZero
+	TimeSpanZero TimeSpan = v0.TimeSpanZero
 	// TimeSpanMax represents the maximum possible TimeSpan.
-	TimeSpanMax = v0.TimeSpanMax
+	TimeSpanMax TimeSpan = v0.TimeSpanMax
 	// Nanosecond is a 1 nanosecond TimeSpan.
-	Nanosecond = v0.Nanosecond
+	Nanosecond TimeSpan = v0.Nanosecond
 	// Microsecond is a single microsecond TimeSpan.
-	Microsecond = v0.Microsecond
+	Microsecond TimeSpan = v0.Microsecond
 	// Millisecond is a 1-millisecond TimeSpan.
-	Millisecond = v0.Millisecond
+	Millisecond TimeSpan = v0.Millisecond
 	// Second is a 1-second TimeSpan.
-	Second = v0.Second
+	Second TimeSpan = v0.Second
 	// Minute is a 1-minute TimeSpan.
-	Minute = v0.Minute
+	Minute TimeSpan = v0.Minute
 	// Hour is a 1-hour TimeSpan.
-	Hour = v0.Hour
+	Hour TimeSpan = v0.Hour
 	// Day is a 1-day long TimeSpan.
-	Day = v0.Day
+	Day TimeSpan = v0.Day
 )

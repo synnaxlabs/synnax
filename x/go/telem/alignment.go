@@ -19,11 +19,11 @@ import v0 "github.com/synnaxlabs/x/telem/types/v0"
 type AlignmentBounds = v0.AlignmentBounds
 
 // MaxAlignment is the maximum possible value for an alignment.
-const MaxAlignment = v0.MaxAlignment
+const MaxAlignment Alignment = v0.MaxAlignment
 
-// AlignmentBoundsZero is a set of alignment bounds whose lower and upper bound are
-// both zero.
-var AlignmentBoundsZero = v0.AlignmentBoundsZero
+// AlignmentBoundsZero is a set of alignment bounds whose lower and upper bound are both
+// zero.
+var AlignmentBoundsZero AlignmentBounds = v0.AlignmentBoundsZero
 
 // NewAlignment takes the given array index and sample index within that array and
 // returns a new Alignment (see Alignment for more information).

@@ -16,15 +16,15 @@ type Density = v0.Density
 
 const (
 	// UnknownDensity is for type structure occupying an unknown number of bytes.
-	UnknownDensity = v0.UnknownDensity
+	UnknownDensity Density = v0.UnknownDensity
 	// Bit128 is for a type occupying 16 bytes.
-	Bit128 = v0.Bit128
+	Bit128 Density = v0.Bit128
 	// Bit64 is for a type occupying 8 bytes.
-	Bit64 = v0.Bit64
+	Bit64 Density = v0.Bit64
 	// Bit32 is for a type occupying 4 bytes.
-	Bit32 = v0.Bit32
+	Bit32 Density = v0.Bit32
 	// Bit16 is for a data type occupying 2 bytes.
-	Bit16 = v0.Bit16
+	Bit16 Density = v0.Bit16
 	// Bit8 is for a data type occupying 1 byte.
-	Bit8 = v0.Bit8
+	Bit8 Density = v0.Bit8
 )

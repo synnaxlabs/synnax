@@ -17,23 +17,23 @@ import (
 
 const (
 	// TimeStampMin represents the minimum value for a TimeStamp
-	TimeStampMin = v0.TimeStampMin
+	TimeStampMin TimeStamp = v0.TimeStampMin
 	// TimeStampMax represents the maximum value for a TimeStamp
-	TimeStampMax = v0.TimeStampMax
+	TimeStampMax TimeStamp = v0.TimeStampMax
 	// NanosecondTS is a TimeStamp 1 nanosecond after the unix epoch.
-	NanosecondTS = v0.NanosecondTS
+	NanosecondTS TimeStamp = v0.NanosecondTS
 	// MicrosecondTS is a TimeStamp 1 microsecond after the unix epoch.
-	MicrosecondTS = v0.MicrosecondTS
+	MicrosecondTS TimeStamp = v0.MicrosecondTS
 	// MillisecondTS is a TimeStamp 1 millisecond after the unix epoch.
-	MillisecondTS = v0.MillisecondTS
+	MillisecondTS TimeStamp = v0.MillisecondTS
 	// SecondTS is a TimeStamp 1 second after the unix epoch.
-	SecondTS = v0.SecondTS
+	SecondTS TimeStamp = v0.SecondTS
 	// MinuteTS is a TimeStamp 1 minute after the unix epoch.
-	MinuteTS = v0.MinuteTS
+	MinuteTS TimeStamp = v0.MinuteTS
 	// HourTS is a TimeStamp 1 hour after the unix epoch.
-	HourTS = v0.HourTS
+	HourTS TimeStamp = v0.HourTS
 	// DayTS is a TimeStamp 1 day after the unix epoch.
-	DayTS = v0.DayTS
+	DayTS TimeStamp = v0.DayTS
 )
 
 // Now returns the current time as a TimeStamp.

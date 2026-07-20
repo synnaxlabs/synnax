@@ -13,9 +13,9 @@ import v0 "github.com/synnaxlabs/x/telem/types/v0"
 
 const (
 	// Hertz is a data rate of 1 Hz.
-	Hertz = v0.Hertz
+	Hertz Rate = v0.Hertz
 	// Kilohertz is a data rate of 1 kHz.
-	Kilohertz = v0.Kilohertz
+	Kilohertz Rate = v0.Kilohertz
 	// Megahertz is a data rate of 1 MHz.
-	Megahertz = v0.Megahertz
+	Megahertz Rate = v0.Megahertz
 )
