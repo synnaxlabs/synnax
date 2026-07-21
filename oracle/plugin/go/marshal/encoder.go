@@ -1022,6 +1022,9 @@ func walkSerializableTypes(
 	}
 	fields := resolution.UnifiedFields(typ, table)
 	for _, f := range fields {
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
+			continue
+		}
 		walkSerializableRef(f.Type, table, result, visited)
 	}
 }
@@ -1036,7 +1039,14 @@ func walkSerializableRef(
 	if !ok {
 		return
 	}
-	for _, arg := range ref.TypeArgs {
+	encoded := encodedTypeParams(resolved, table)
+	for i, arg := range ref.TypeArgs {
+		if encoded != nil {
+			form := resolved.Form.(resolution.StructForm)
+			if i < len(form.TypeParams) && !encoded.Contains(form.TypeParams[i].Name) {
+				continue
+			}
+		}
 		walkSerializableRef(arg, table, result, visited)
 	}
 	switch form := resolved.Form.(type) {
@@ -1046,6 +1056,48 @@ func walkSerializableRef(
 		walkSerializableRef(form.Target, table, result, visited)
 	case resolution.DistinctForm:
 		walkSerializableRef(form.Base, table, result, visited)
+	}
+}
+
+// encodedTypeParams returns the type parameters of a generic struct whose
+// arguments the generated codec encodes structurally (the SelfEncoder assertion
+// path). A parameter used only in json_only or omitted fields, or substituted
+// by its default, never reaches the argument's own codec, so that argument
+// contributes no codec dependency. Returns nil for non-generic types, meaning
+// every argument walks.
+func encodedTypeParams(typ resolution.Type, table *resolution.Table) set.Set[string] {
+	form, ok := typ.Form.(resolution.StructForm)
+	if !ok || !form.IsGeneric() {
+		return nil
+	}
+	encoded := make(set.Set[string])
+	for _, f := range resolution.UnifiedFields(typ, table) {
+		directive := domain.GetStringFromField(f, "go", "marshal")
+		if directive == "omit" {
+			continue
+		}
+		if f.Type.IsTypeParam() {
+			if f.Type.TypeParam.HasDefault() || directive == "json_only" {
+				continue
+			}
+			encoded.Add(f.Type.Name)
+			continue
+		}
+		addNestedTypeParams(f.Type, encoded)
+	}
+	return encoded
+}
+
+// addNestedTypeParams collects type parameters referenced inside a field's
+// type arguments; nested parameter uses always encode through the SelfEncoder
+// assertion path.
+func addNestedTypeParams(ref resolution.TypeRef, out set.Set[string]) {
+	if ref.IsTypeParam() {
+		out.Add(ref.Name)
+		return
+	}
+	for _, a := range ref.TypeArgs {
+		addNestedTypeParams(a, out)
 	}
 }
 

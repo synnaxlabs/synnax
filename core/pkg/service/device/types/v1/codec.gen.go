@@ -76,26 +76,3 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
-
-// EncodeOrc writes the value to w in the orc binary format.
-func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
-	w.Uint32(uint32(sd.Rack))
-	w.String(sd.Device)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the orc binary format.
-func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		v, err := r.Uint32()
-		if err != nil {
-			return err
-		}
-		sd.Rack = rack.Key(v)
-	}
-	if sd.Device, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}

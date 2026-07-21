@@ -190,6 +190,64 @@ var _ = Describe("Go Marshal Plugin", func() {
 			})
 		})
 
+		Context("generic type argument used only in a json_only field", func() {
+			It("Should not generate a codec for the argument type", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Details struct {
+						count int32
+					}
+
+					Wrapper struct<D?> {
+						name string
+						details D {
+							@go marshal json_only
+						}
+
+						@go marshal
+					}
+
+					Holder struct {
+						wrapped Wrapper<Details>
+
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain("Holder) EncodeOrc", "Wrapper[").
+					ToNotContain("Details) EncodeOrc", "Details) DecodeOrc")
+			})
+		})
+
+		Context("struct type referenced only by an omitted field", func() {
+			It("Should not generate a codec for the omitted field's type", func() {
+				source := `
+					@go output "core/pkg/test"
+					@pb
+
+					Payload struct {
+						data string
+					}
+
+					Record struct {
+						name string
+						payload Payload? {
+							@go marshal omit
+						}
+
+						@go marshal
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
+				ExpectContent(resp, "codec.gen.go").
+					ToContain("Record) EncodeOrc").
+					ToNotContain("Payload) EncodeOrc", "Payload) DecodeOrc")
+			})
+		})
+
 		Context("generic struct with nil type arg via alias", func() {
 			It("Should skip nil-typed fields and resolve defaulted type params", func() {
 				source := `
