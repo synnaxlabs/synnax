@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// codecMigration re-encodes stored workspaces from msgpack to orc. It is
-// pinned to the v0 shape so its output stays stable as Project evolves.
+// codecMigration re-encodes stored workspaces from msgpack to orc. It is pinned to the
+// v0 shape so its output stays stable as Project evolves.
 var codecMigration = gorp.CodecMigration[Key, v0.Workspace]("msgpack_to_orc")
 
 // LegacyLayoutKVPrefix is the KV key prefix under which the layout staging migration

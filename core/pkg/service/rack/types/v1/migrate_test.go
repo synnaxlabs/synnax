@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 	"github.com/synnaxlabs/x/color"
@@ -24,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
-	telemv0 "github.com/synnaxlabs/x/telem/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -79,9 +78,9 @@ var _ = Describe("v1 -> current Rack migration", func() {
 				Variant:     "success",
 				Message:     "rack heartbeat received",
 				Description: "all integrations responding",
-				Time:        telemv0.TimeStamp(telem.Now()),
+				Time:        telem.Now(),
 				Details:     v0.StatusDetails{Rack: key},
-				Labels: []labelv0.Label{
+				Labels: []label.Label{
 					{Key: uuid.New(), Name: "primary", Color: color.Color{R: 64, G: 128, B: 255, A: 1}},
 				},
 			},
