@@ -927,6 +927,14 @@ func (d *templateData) HasImports() bool { return d.imports.HasImports() }
 // ExternalImports returns sorted external imports.
 func (d *templateData) ExternalImports() []string { return d.imports.ExternalImports() }
 
+// StdImports returns sorted standard-library imports.
+func (d *templateData) StdImports() []string { return d.imports.StdImports() }
+
+// NonStdImports returns every non-standard-library import sorted by path.
+func (d *templateData) NonStdImports() []imports.InternalImportData {
+	return d.imports.NonStdImports()
+}
+
 // InternalImports returns sorted internal imports.
 func (d *templateData) InternalImports() []imports.InternalImportData {
 	return d.imports.InternalImports()
@@ -1020,10 +1028,12 @@ package {{.Package}}
 {{- if .HasImports}}
 
 import (
-{{- range .ExternalImports}}
+{{- range .StdImports}}
 	"{{.}}"
 {{- end}}
-{{- range .InternalImports}}
+{{- if and .StdImports .NonStdImports}}
+{{end}}
+{{- range .NonStdImports}}
 {{- if .NeedsAlias}}
 	{{.Alias}} "{{.Path}}"
 {{- else}}

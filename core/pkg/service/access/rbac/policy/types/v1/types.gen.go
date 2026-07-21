@@ -12,11 +12,12 @@
 package v1
 
 import (
+	"strconv"
+
 	"github.com/google/uuid"
 	access "github.com/synnaxlabs/synnax/pkg/service/access/types/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a policy, represented as a UUID.

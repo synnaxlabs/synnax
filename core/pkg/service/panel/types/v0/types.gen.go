@@ -13,13 +13,14 @@ package v0
 
 import (
 	"encoding/json"
+	"strconv"
+
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 type TabKey = uuid.UUID

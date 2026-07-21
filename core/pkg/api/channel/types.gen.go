@@ -12,6 +12,8 @@
 package channel
 
 import (
+	"strconv"
+
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	gotypes "go/types"
-	"strconv"
 )
 
 // Status is channel-specific status information.

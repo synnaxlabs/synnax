@@ -12,13 +12,14 @@
 package v6
 
 import (
+	"strconv"
+
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	text "github.com/synnaxlabs/x/text/types/v0"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.

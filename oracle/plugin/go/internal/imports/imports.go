@@ -13,6 +13,7 @@ package imports
 import (
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/synnaxlabs/x/set"
 )
@@ -65,6 +66,44 @@ func (m *Manager) ExternalImports() []string {
 		result = append(result, imp)
 	}
 	sort.Strings(result)
+	return result
+}
+
+// stdlib reports whether an import path belongs to the standard library: its
+// first segment carries no dot.
+func stdlib(path string) bool {
+	first, _, _ := strings.Cut(path, "/")
+	return !strings.Contains(first, ".")
+}
+
+// StdImports returns sorted standard-library import paths.
+func (m *Manager) StdImports() []string {
+	result := make([]string, 0, len(m.external))
+	for imp := range m.external {
+		if stdlib(imp) {
+			result = append(result, imp)
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+// NonStdImports returns every non-standard-library import — plain external
+// paths and aliased internal ones alike — sorted by path.
+func (m *Manager) NonStdImports() []InternalImportData {
+	result := make([]InternalImportData, 0, len(m.external)+len(m.internal))
+	for imp := range m.external {
+		if !stdlib(imp) {
+			result = append(result, InternalImportData{Path: imp})
+		}
+	}
+	for _, imp := range m.internal {
+		if m.external.Contains(imp.Path) {
+			continue
+		}
+		result = append(result, InternalImportData{Path: imp.Path, Alias: imp.Alias})
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
 	return result
 }
 

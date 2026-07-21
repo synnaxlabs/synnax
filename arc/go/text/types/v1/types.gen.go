@@ -12,10 +12,11 @@
 package v1
 
 import (
+	"strconv"
+
 	"github.com/synnaxlabs/arc/parser"
 	crdt "github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Document is the conflict-free replicated representation of the text: the operations

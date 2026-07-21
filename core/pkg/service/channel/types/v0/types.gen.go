@@ -12,11 +12,12 @@
 package v0
 
 import (
+	"strconv"
+
 	node "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
 	control "github.com/synnaxlabs/x/control/types/v0"
 	telem "github.com/synnaxlabs/x/telem/types/v0"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Name is a human-readable name for a channel. Must start with a letter or underscore
