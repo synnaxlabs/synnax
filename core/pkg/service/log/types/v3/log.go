@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0
+package v3
 
-import "github.com/synnaxlabs/x/gorp"
+import (
+	"github.com/synnaxlabs/x/gorp"
+)
 
-const keySeparator = "<--->"
-
-var _ gorp.Entry[string] = Pair{}
+var _ gorp.Entry[Key] = Log{}
 
 // GorpKey implements gorp.Entry.
-func (p Pair) GorpKey() string { return p.Range.String() + keySeparator + p.Key }
+func (l Log) GorpKey() Key { return l.Key }
 
 // SetOptions implements gorp.Entry.
-func (Pair) SetOptions() []any { return nil }
-
-// CustomTypeName supplies a custom type name for the Pair type.
-func (Pair) CustomTypeName() string { return "KVPair" }
+func (l Log) SetOptions() []any { return nil }

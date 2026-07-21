@@ -14,7 +14,7 @@ import "schemas/x/text"
 
 @ts output  "client/ts/src/lineplot"
 @go output  "core/pkg/service/lineplot"
-@go version 1
+@go version 6
 @pb
 
 Key = uuid {

@@ -7,22 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0
+package v3_test
 
 import (
-	"fmt"
+	"testing"
 
-	"github.com/synnaxlabs/x/gorp"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-const keySeparator = "---"
-
-var _ gorp.Entry[string] = Alias{}
-
-// GorpKey implements gorp.Entry.
-func (a Alias) GorpKey() string {
-	return fmt.Sprintf("%s%s%s", a.Range, keySeparator, a.Channel)
+func TestLogV1(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Log v3 Suite")
 }
 
-// SetOptions implements gorp.Entry.
-func (Alias) SetOptions() []any { return nil }
+var _ = ShouldNotLeakGoroutinesPerSpec()

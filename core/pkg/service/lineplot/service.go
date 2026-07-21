@@ -15,8 +15,8 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v6"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -98,11 +98,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.table, err = gorp.OpenTable[Key, LinePlot](ctx, gorp.TableConfig[Key, LinePlot]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, v0.LinePlot]("msgpack_to_orc"),
+			gorp.CodecMigration[Key, v5.LinePlot]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v0.LinePlot, LinePlot](
+				gorp.NewEntryMigration[Key, Key, v5.LinePlot, LinePlot](
 					"v55_lift_typed_lineplot",
-					v1.MigrateLinePlot,
+					v6.MigrateLinePlot,
 				),
 				"msgpack_to_orc",
 			),

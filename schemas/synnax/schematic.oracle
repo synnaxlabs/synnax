@@ -11,7 +11,7 @@ import "schemas/x/spatial"
 
 @ts output  "client/ts/src/schematic"
 @go output  "core/pkg/service/schematic"
-@go version 1
+@go version 7
 @pb
 
 Key = uuid {

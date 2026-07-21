@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/log/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/log/types/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -106,9 +106,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Log]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, v0.Log]("msgpack_to_orc"),
+			gorp.CodecMigration[Key, v2.Log]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v55_lift_typed_log", v1.MigrateLog),
+				gorp.NewEntryMigration("v55_lift_typed_log", v3.MigrateLog),
 				"msgpack_to_orc",
 			),
 		},

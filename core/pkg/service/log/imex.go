@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/log/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/log/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/log/types/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -86,7 +86,7 @@ func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, err
 		if err != nil {
 			return Log{}, err
 		}
-		return v1.MigrateLog(ctx, v0.Log{Name: env.Name, Data: body})
+		return v3.MigrateLog(ctx, v2.Log{Name: env.Name, Data: body})
 	default:
 		return Log{}, imex.NewErrUnsupportedVersion(
 			string(s.Type()), env.Version, Version,

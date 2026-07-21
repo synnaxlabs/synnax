@@ -29,7 +29,8 @@ type Range struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the range.
 	Name string `json:"name" msgpack:"name"`
-	// TimeRange is the temporal extent of the range, defining its start and end timestamps.
+	// TimeRange is the temporal extent of the range, defining its start and end
+	// timestamps.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is an optional display color for visual identification of the range in user
 	// interfaces.
@@ -38,8 +39,8 @@ type Range struct {
 
 var _ gorp.Entry[Key] = Range{}
 
-func (r Range) GorpKey() Key      { return r.Key }
-func (r Range) SetOptions() []any { return nil }
+func (r Range) GorpKey() Key    { return r.Key }
+func (Range) SetOptions() []any { return nil }
 
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRange, Key: k.String()}

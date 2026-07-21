@@ -14,7 +14,7 @@ import "schemas/x/telem"
 
 @ts output  "client/ts/src/log"
 @go output  "core/pkg/service/log"
-@go version 1
+@go version 3
 
 Key = uuid {
     @doc value "is a unique identifier for a log, represented as a UUID."
