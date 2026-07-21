@@ -31,6 +31,7 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/alamos"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
@@ -101,9 +102,7 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Resource]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[string, Resource]("msgpack_to_orc"),
-		},
+		Migrations:      []migrate.Migration{v0.ResourceCodecMigration},
 	}); !ok(err, o.resourceTable) {
 		return nil, err
 	}
@@ -113,9 +112,7 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
 			Indexes:         o.relIndexes.all(),
-			Migrations: []migrate.Migration{
-				gorp.CodecMigration[string, Relationship]("msgpack_to_orc"),
-			},
+			Migrations:      []migrate.Migration{v0.RelationshipCodecMigration},
 		}); !ok(err, o.relationshipTable) {
 		return nil, err
 	}

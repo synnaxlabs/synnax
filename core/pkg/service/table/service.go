@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/table/types/v2"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -94,17 +93,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[Key, Table](ctx, gorp.TableConfig[Key, Table]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, v1.Table]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v1.Table, Table](
-					"v55_lift_typed_table",
-					v2.MigrateTable,
-				),
-				"msgpack_to_orc",
-			),
-		},
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{v2.CodecMigration, v2.Migration},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

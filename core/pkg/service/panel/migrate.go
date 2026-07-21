@@ -20,10 +20,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	"go.uber.org/zap"
 )
@@ -303,4 +305,16 @@ func convertSize(s float64) float64 {
 		return s
 	}
 	return 0.5
+}
+
+// ProjectLayoutsMigration adopts the project service's staged legacy layouts
+// as panels. It depends on the codec migration so it always reads orc-encoded
+// panels.
+func ProjectLayoutsMigration() migrate.Migration {
+	return migrate.WithAddedDeps(
+		gorp.NewMigration(
+			"v56_migrate_project_layouts_to_panels", MigrateProjectLayouts(),
+		),
+		v0.CodecMigrationKey,
+	)
 }

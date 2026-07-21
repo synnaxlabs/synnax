@@ -107,9 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		gorp.TableConfig[string, Status[any]]{
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
-			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration("v54_drop_labels", v2.MigrateStatus[any]),
-			},
+			Migrations:      []migrate.Migration{v2.Migration},
 		},
 	); !ok(err, s.table) {
 		return nil, err

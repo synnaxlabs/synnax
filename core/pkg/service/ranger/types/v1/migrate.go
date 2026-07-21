@@ -45,3 +45,10 @@ func ColorNullableMigration() migrate.Migration {
 		CodecMigrationKey,
 	)
 }
+
+// CodecMigration re-encodes ranges from the legacy msgpack layout to the orc
+// value-color layout. It is pinned to v0.Range so it always produces the
+// value-color encoding regardless of how Range later evolves.
+var CodecMigration = gorp.CodecMigration[Key, v0.Range](
+	CodecMigrationKey, v0.MigrationKey,
+)

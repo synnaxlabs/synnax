@@ -36,9 +36,13 @@ type LegacyUserMapping struct {
 // the Policy table, persists the user-to-policy mapping in KV, and deletes the
 // legacy entries. This runs before any oracle schema migrations that could
 // re-encode entries and lose the Subjects field.
+// MigrationKey names the v0 policy-conversion migration; later policy
+// migrations depend on it.
+const MigrationKey = "v0.policy_conversion"
+
 func Migration() migrate.Migration {
 	return gorp.NewMigration(
-		"v0.policy_conversion",
+		MigrationKey,
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 			migrated, err := alreadyMigrated(ctx, tx)
 			if migrated || err != nil {

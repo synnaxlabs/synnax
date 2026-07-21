@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -119,16 +118,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[v1.Key, v1.Task]("msgpack_to_orc", v0Mig.Key()),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_status", v2.MigrateTask),
-				"msgpack_to_orc",
-			),
+			v0.Migration(v0.MigrationConfig{Status: cfg.Status}),
+			v2.CodecMigration,
+			v2.Migration,
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

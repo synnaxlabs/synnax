@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/v7"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -101,17 +100,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[Key, Schematic](ctx, gorp.TableConfig[Key, Schematic]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, v6.Schematic]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v6.Schematic, Schematic](
-					"v55_lift_typed_schematic",
-					v7.MigrateSchematic,
-				),
-				"msgpack_to_orc",
-			),
-		},
+		DB:              cfg.DB,
+		Migrations:      []migrate.Migration{v7.CodecMigration, v7.Migration},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

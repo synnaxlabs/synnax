@@ -116,16 +116,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{
-		Ontology:        cfg.Ontology,
-		Group:           cfg.Group,
-		Instrumentation: cfg.Instrumentation,
-	})
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Range]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[Key, v0.Range](v1.CodecMigrationKey, v0Mig.Key()),
+			v0.Migration(v0.MigrationConfig{
+				Ontology:        cfg.Ontology,
+				Group:           cfg.Group,
+				Instrumentation: cfg.Instrumentation,
+			}),
+			v1.CodecMigration,
 			v1.ColorNullableMigration(),
 		},
 		Instrumentation: cfg.Instrumentation,

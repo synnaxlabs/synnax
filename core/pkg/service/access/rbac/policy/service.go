@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -73,14 +74,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Policy]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[Key, Policy]("msgpack_to_orc", v0Mig.Key()),
-		},
+		Migrations:      []migrate.Migration{v0.Migration(), v1.CodecMigration},
 	}); err != nil {
 		return nil, err
 	}

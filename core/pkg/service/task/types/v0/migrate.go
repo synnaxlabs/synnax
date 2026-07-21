@@ -28,9 +28,13 @@ type MigrationConfig struct {
 	Status *status.Service
 }
 
+// MigrationKey names the v0 status-backfill migration; later task migrations
+// depend on it.
+const MigrationKey = "v0.status_backfill"
+
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		"v0.status_backfill",
+		MigrationKey,
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			reader := gorp.WrapReader[Key, Task](tx)
 			iter, err := reader.OpenIterator(gorp.IterOptions{})

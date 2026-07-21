@@ -18,6 +18,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v2"
 	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
@@ -163,3 +164,16 @@ func migrateRules(in []v0.Rule) []Rule {
 	}
 	return out
 }
+
+// codecMigrationKey names the codec migration the lift migration depends on.
+const codecMigrationKey = "msgpack_to_orc"
+
+// CodecMigration re-encodes stored line plots from msgpack to orc. It is
+// pinned to the v5 shape so its output stays stable as LinePlot evolves.
+var CodecMigration = gorp.CodecMigration[Key, lineplotv0.LinePlot](codecMigrationKey)
+
+// Migration lifts stored line plots from the v5 blob layout to the typed v6
+// shape.
+var Migration = gorp.NewEntryMigration[Key, Key, lineplotv0.LinePlot, LinePlot](
+	"v55_lift_typed_lineplot", MigrateLinePlot, codecMigrationKey,
+)

@@ -13,6 +13,7 @@ import (
 	"context"
 
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -35,3 +36,7 @@ func MigrateStatus[Details any](
 		Labels:      nil,
 	}, nil
 }
+
+// Migration lifts stored statuses from v1 to v2, dropping the persisted labels
+// field.
+var Migration = gorp.NewEntryMigration("v54_drop_labels", MigrateStatus[any])

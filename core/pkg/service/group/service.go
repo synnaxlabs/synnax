@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/group/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
@@ -71,7 +72,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[Key, Group](ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Group]("msgpack_to_orc")},
+		Migrations:      []migrate.Migration{v0.CodecMigration},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

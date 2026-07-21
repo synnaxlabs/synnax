@@ -16,6 +16,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/types/legacy/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateLog lifts the previous log snapshot (v0, {Key, Name, Data}) into the
@@ -80,3 +81,15 @@ func parseColor(hex string) color.Color {
 	}
 	return c
 }
+
+// codecMigrationKey names the codec migration the lift migration depends on.
+const codecMigrationKey = "msgpack_to_orc"
+
+// CodecMigration re-encodes stored logs from msgpack to orc. It is pinned to
+// the v2 shape so its output stays stable as Log evolves.
+var CodecMigration = gorp.CodecMigration[Key, v2.Log](codecMigrationKey)
+
+// Migration lifts stored logs from the v2 blob layout to the typed v3 shape.
+var Migration = gorp.NewEntryMigration(
+	"v55_lift_typed_log", MigrateLog, codecMigrationKey,
+)

@@ -16,9 +16,27 @@ package v2
 import (
 	"context"
 
+	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 func MigrateTask(ctx context.Context, old v1.Task) (Task, error) {
 	return AutoMigrateTask(ctx, old)
 }
+
+// codecMigrationKey names the codec migration all later task migrations depend
+// on.
+const codecMigrationKey = "msgpack_to_orc"
+
+// CodecMigration re-encodes stored tasks from msgpack to orc. It is pinned to
+// the v1 shapes so its output stays stable as Task evolves.
+var CodecMigration = gorp.CodecMigration[v1.Key, v1.Task](
+	codecMigrationKey, v0.MigrationKey,
+)
+
+// Migration lifts stored tasks from v1 to v2, dropping the persisted status
+// field.
+var Migration = gorp.NewEntryMigration(
+	"v54_drop_status", MigrateTask, codecMigrationKey,
+)

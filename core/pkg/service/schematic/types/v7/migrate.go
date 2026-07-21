@@ -20,6 +20,7 @@ import (
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -266,3 +267,16 @@ func stringOrEmpty(s *string) string {
 	}
 	return *s
 }
+
+// codecMigrationKey names the codec migration the lift migration depends on.
+const codecMigrationKey = "msgpack_to_orc"
+
+// CodecMigration re-encodes stored schematics from msgpack to orc. It is
+// pinned to the v6 shape so its output stays stable as Schematic evolves.
+var CodecMigration = gorp.CodecMigration[Key, schematicv0.Schematic](codecMigrationKey)
+
+// Migration lifts stored schematics from the v6 blob layout to the typed v7
+// shape.
+var Migration = gorp.NewEntryMigration[Key, Key, schematicv0.Schematic, Schematic](
+	"v55_lift_typed_schematic", MigrateSchematic, codecMigrationKey,
+)

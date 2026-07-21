@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -79,14 +80,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if s.table, err = gorp.OpenTable[Key, Panel](ctx, gorp.TableConfig[Key, Panel]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, Panel]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_migrate_project_layouts_to_panels",
-					MigrateProjectLayouts(),
-				),
-				"msgpack_to_orc",
-			),
+			v0.CodecMigration,
+			ProjectLayoutsMigration(),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

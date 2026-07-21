@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 // LegacyLayoutKVPrefix is the KV key prefix under which MigrateLayoutsToStaging
@@ -244,4 +245,40 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 		}
 	}
 	return out, iter.Error()
+}
+
+// workspaceToProjectMigrationKey names the migration that lifts stored
+// workspaces into projects; the follow-up project migrations depend on it.
+const workspaceToProjectMigrationKey = "v56_migrate_workspace_to_project"
+
+// WorkspaceToProjectMigration lifts stored workspaces into projects. It
+// depends on the codec migration so it always reads orc-encoded entries.
+func WorkspaceToProjectMigration() migrate.Migration {
+	return migrate.WithAddedDeps(
+		gorp.NewMigration(workspaceToProjectMigrationKey, MigrateWorkspaceToProject),
+		v1.CodecMigrationKey,
+	)
+}
+
+// LayoutsToStagingMigration stages each project's legacy layout blob for the
+// panel service to adopt.
+func LayoutsToStagingMigration() migrate.Migration {
+	return migrate.WithAddedDeps(
+		gorp.NewMigration("v56_stage_project_layouts", MigrateLayoutsToStaging),
+		workspaceToProjectMigrationKey,
+	)
+}
+
+// RemoveAuthorRelationshipsMigration drops the legacy author relationships
+// projects held in the ontology.
+func RemoveAuthorRelationshipsMigration(otg *ontology.Ontology) migrate.Migration {
+	return migrate.WithAddedDeps(
+		gorp.NewMigration(
+			"v56_remove_project_author_relationships",
+			func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+				return RemoveAuthorRelationships(ctx, tx, otg)
+			},
+		),
+		workspaceToProjectMigrationKey,
+	)
 }

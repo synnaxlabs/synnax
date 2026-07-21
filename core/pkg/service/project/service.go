@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -82,30 +82,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if s.table, err = gorp.OpenTable[Key, Project](ctx, gorp.TableConfig[Key, Project]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, projectv0.Workspace]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_migrate_workspace_to_project",
-					MigrateWorkspaceToProject,
-				),
-				"msgpack_to_orc",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_stage_project_layouts",
-					MigrateLayoutsToStaging,
-				),
-				"v56_migrate_workspace_to_project",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewMigration(
-					"v56_remove_project_author_relationships",
-					func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-						return RemoveAuthorRelationships(ctx, tx, cfg.Ontology)
-					},
-				),
-				"v56_migrate_workspace_to_project",
-			),
+			v1.CodecMigration,
+			WorkspaceToProjectMigration(),
+			LayoutsToStagingMigration(),
+			RemoveAuthorRelationshipsMigration(cfg.Ontology),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

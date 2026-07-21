@@ -16,6 +16,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/types/legacy/v0"
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 // MigrateTable transforms the previous Table snapshot (v0) into the current
@@ -71,3 +72,15 @@ func migrateCells(in map[string]v0.Cell) map[string]Cell {
 	}
 	return out
 }
+
+// codecMigrationKey names the codec migration the lift migration depends on.
+const codecMigrationKey = "msgpack_to_orc"
+
+// CodecMigration re-encodes stored tables from msgpack to orc. It is pinned to
+// the v1 shape so its output stays stable as Table evolves.
+var CodecMigration = gorp.CodecMigration[Key, tablev0.Table](codecMigrationKey)
+
+// Migration lifts stored tables from the v1 blob layout to the typed v2 shape.
+var Migration = gorp.NewEntryMigration[Key, Key, tablev0.Table, Table](
+	"v55_lift_typed_table", MigrateTable, codecMigrationKey,
+)
