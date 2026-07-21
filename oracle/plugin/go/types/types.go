@@ -273,7 +273,10 @@ func computeSplit(
 		if err != nil {
 			return nil, err
 		}
-		aliased, err := frozenAliasSplit(candidate, frozen, ctx)
+		aliased, err := frozenAliasSplit(
+			candidate, frozen, ctx,
+			filepath.Join(req.RepoRoot, versioning.VersionedPath(origPath, version-1)),
+		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "frozen baseline for %s", origPath)
 		}

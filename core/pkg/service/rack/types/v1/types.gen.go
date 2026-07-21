@@ -12,6 +12,7 @@
 package v1
 
 import (
+	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 )
 
@@ -20,7 +21,7 @@ import (
 // nodes because task configuration signals are passed through gossip operations, which
 // can take 15s+ to propagate through a large cluster. This structure minimizes hops and
 // configuration latency.
-type Key uint32
+type Key = v0.Key
 
 // Status is rack-specific status information including operational state.
 type Status = statusv1.Status[StatusDetails]

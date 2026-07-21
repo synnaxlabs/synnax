@@ -16,9 +16,27 @@ package v2
 import (
 	"context"
 
+	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 func MigrateRack(ctx context.Context, old v1.Rack) (Rack, error) {
 	return AutoMigrateRack(ctx, old)
 }
+
+// codecMigrationKey names the codec migration all later rack migrations
+// depend on.
+const codecMigrationKey = "msgpack_to_orc"
+
+// CodecMigration re-encodes stored racks from msgpack to orc. It is pinned to
+// the v1 shapes so its output stays stable as Rack evolves.
+var CodecMigration = gorp.CodecMigration[v1.Key, v1.Rack](
+	codecMigrationKey, v0.MigrationKey,
+)
+
+// Migration lifts stored racks from v1 to v2, dropping the persisted status
+// field.
+var Migration = gorp.NewEntryMigration(
+	"v54_drop_status", MigrateRack, codecMigrationKey,
+)

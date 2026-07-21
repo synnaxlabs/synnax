@@ -13,12 +13,13 @@ package v1
 
 import (
 	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 // Key is a composite identifier for a task. The high 32 bits contain the rack key, and
 // the low 32 bits contain the local task key within that rack.
-type Key uint64
+type Key = v0.Key
 
 // Status is task-specific status information including execution state and
 // task-specific data.

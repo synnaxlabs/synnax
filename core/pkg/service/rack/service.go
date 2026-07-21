@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -142,19 +141,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{ServiceConfig: cfg, keyMu: &sync.Mutex{}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{
-		HostProvider: cfg.HostProvider,
-		Status:       cfg.Status,
-	})
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[v1.Key, v1.Rack]("msgpack_to_orc", v0Mig.Key()),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_status", v2.MigrateRack),
-				"msgpack_to_orc",
-			),
+			v0.Migration(v0.MigrationConfig{
+				HostProvider: cfg.HostProvider,
+				Status:       cfg.Status,
+			}),
+			v2.CodecMigration,
+			v2.Migration,
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

@@ -2830,6 +2830,37 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 			ToContain("type Stable = v0.Stable")
 	})
 
+	It("Should alias through a frozen predecessor-chain alias", func(ctx SpecContext) {
+		// v0 defines Key by hand; frozen v1 aliases it; the candidate v2 must
+		// alias v1 rather than re-defining Key.
+		v0Dir := filepath.Join(tmpDir, "out/types/v0")
+		Expect(os.MkdirAll(v0Dir, 0755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(v0Dir, "out.go"), []byte(
+			"package v0\n\ntype Key uint64\n",
+		), 0644)).To(Succeed())
+		v1Dir := filepath.Join(tmpDir, "out/types/v1")
+		Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(v1Dir, "types.gen.go"), []byte(
+			"package v1\n\nimport v0 \"github.com/synnaxlabs/synnax/out/types/v0\"\n\n"+
+				"type Key = v0.Key\n\ntype Entry struct {\n"+
+				"\tKey Key `json:\"key\" msgpack:\"key\"`\n"+
+				"\tName string `json:\"name\" msgpack:\"name\"`\n}\n",
+		), 0644)).To(Succeed())
+		resp := MustGenerate(ctx, `
+			@go output "out"
+			@go version 2
+			Key uint64 {}
+			Entry struct {
+				key  Key {@key}
+				name string
+				note string
+			}
+		`, "test", loader, goPlugin)
+		ExpectContent(resp, "out/types/v2/types.gen.go").
+			ToContain("type Key = v1.Key", "type Entry struct").
+			ToNotContain("type Key uint64")
+	})
+
 	It("Should define everything when no frozen predecessor exists", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
 		ExpectContent(resp, "out/types/v1/types.gen.go").

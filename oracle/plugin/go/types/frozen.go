@@ -15,6 +15,10 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/framework"
@@ -34,12 +38,13 @@ import (
 func frozenAliasSplit(
 	candidate, frozen []byte,
 	ctx *framework.GenerateContext,
+	predDir string,
 ) (set.Set[string], error) {
-	candOwners, candRefs, err := groupDecls(candidate)
+	candOwners, candRefs, candSpecs, err := groupDecls(candidate)
 	if err != nil {
 		return nil, errors.Wrap(err, "candidate rendering does not parse")
 	}
-	frozOwners, _, err := groupDecls(frozen)
+	frozOwners, _, frozSpecs, err := groupDecls(frozen)
 	if err != nil {
 		return nil, errors.Wrap(err, "frozen predecessor does not parse")
 	}
@@ -73,7 +78,12 @@ func frozenAliasSplit(
 		for _, o := range e.owners {
 			c, cok := candOwners[o]
 			f, fok := frozOwners[o]
-			if !cok || !fok || c != f {
+			if cok && fok && c == f {
+				continue
+			}
+			// A frozen decl that is itself a predecessor-chain alias denotes
+			// the definer's type; follow the chain and compare type specs.
+			if !cok || !fok || !chainAliasMatches(o, frozSpecs[o], candSpecs[o], predDir) {
 				match = false
 				break
 			}
@@ -131,17 +141,19 @@ func declOwnerNames(d orderedDecl) []string {
 	return nil
 }
 
-// groupDecls parses a generated Go file with comments stripped and groups its
+// groupDecls parses a Go file with comments stripped and groups its
 // declarations by owner: the declared type for type specs, the first spec's
 // type for const blocks, and the receiver's base type for methods. It returns
-// each owner's printed declarations and the identifiers they reference.
-func groupDecls(src []byte) (map[string]string, map[string][]string, error) {
+// each owner's printed declarations, the identifiers they reference, and each
+// owner's printed type spec alone.
+func groupDecls(src []byte) (map[string]string, map[string][]string, map[string]string, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "", src, parser.SkipObjectResolution)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	grouped := make(map[string][]ast.Decl)
+	typeSpecs := make(map[string]string)
 	addDecl := func(owner string, decl ast.Decl) {
 		if owner == "" {
 			return
@@ -158,7 +170,13 @@ func groupDecls(src []byte) (map[string]string, map[string][]string, error) {
 					if !ok {
 						continue
 					}
-					addDecl(ts.Name.Name, &ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{spec}})
+					single := &ast.GenDecl{Tok: token.TYPE, Specs: []ast.Spec{spec}}
+					addDecl(ts.Name.Name, single)
+					var buf bytes.Buffer
+					if err := printer.Fprint(&buf, fset, single); err != nil {
+						return nil, nil, nil, err
+					}
+					typeSpecs[ts.Name.Name] = buf.String()
 				}
 			case token.CONST:
 				addDecl(constOwner(d), d)
@@ -176,7 +194,7 @@ func groupDecls(src []byte) (map[string]string, map[string][]string, error) {
 		seen := make(set.Set[string])
 		for _, decl := range decls {
 			if err := printer.Fprint(&buf, fset, decl); err != nil {
-				return nil, nil, err
+				return nil, nil, nil, err
 			}
 			buf.WriteByte('\n')
 			ast.Inspect(decl, func(n ast.Node) bool {
@@ -189,7 +207,7 @@ func groupDecls(src []byte) (map[string]string, map[string][]string, error) {
 		}
 		contents[owner] = buf.String()
 	}
-	return contents, refs, nil
+	return contents, refs, typeSpecs, nil
 }
 
 // constOwner returns the type name governing a const block: the first
@@ -219,4 +237,66 @@ func receiverBase(expr ast.Expr) string {
 		return t.Name
 	}
 	return ""
+}
+
+// chainAliasRe matches a predecessor-chain alias type spec: "type X = vN.X",
+// optionally generic.
+var chainAliasRe = regexp.MustCompile(`^type (\w+)(?:\[[^\]]*\])? = (v\d+)\.(\w+)`)
+
+// chainAliasMatches reports whether the frozen type spec is an alias into a
+// sibling version package whose definition of owner has the same type spec as
+// the candidate. It follows further alias hops until a definition is found.
+func chainAliasMatches(owner, frozenSpec, candidateSpec, predDir string) bool {
+	if candidateSpec == "" {
+		return false
+	}
+	dir := predDir
+	spec := frozenSpec
+	// Version chains are short; the bound only guards against cycles.
+	for hop := 0; hop < 32; hop++ {
+		m := chainAliasRe.FindStringSubmatch(spec)
+		if m == nil || m[1] != owner || m[3] != owner {
+			// The chain ended in a real definition: compare type specs. A
+			// frozen decl that was never an alias is governed solely by the
+			// strict group comparison.
+			if hop == 0 {
+				return false
+			}
+			return spec == candidateSpec
+		}
+		dir = filepath.Join(filepath.Dir(dir), m[2])
+		next, ok := packageTypeSpec(dir, owner)
+		if !ok {
+			return false
+		}
+		spec = next
+	}
+	return false
+}
+
+// packageTypeSpec returns the printed type spec declaring name within the
+// package directory, searching every non-test Go file.
+func packageTypeSpec(dir, name string) (string, bool) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return "", false
+	}
+	for _, f := range files {
+		if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") ||
+			strings.HasSuffix(f.Name(), "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(filepath.Join(dir, f.Name()))
+		if err != nil {
+			continue
+		}
+		_, _, specs, err := groupDecls(src)
+		if err != nil {
+			continue
+		}
+		if spec, ok := specs[name]; ok {
+			return spec, true
+		}
+	}
+	return "", false
 }

@@ -13,6 +13,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -23,6 +24,15 @@ import (
 type Key uint64
 
 func (k Key) String() string { return strconv.FormatUint(uint64(k), 10) }
+
+// Rack returns the key of the rack this task belongs to.
+func (k Key) Rack() rack.Key { return rack.Key(k >> 32) }
+
+// LocalKey returns the task's unique key within its rack.
+func (k Key) LocalKey() uint32 { return uint32(uint64(k) & 0xFFFFFFFF) }
+
+// IsValid returns true when both the rack and local components are set.
+func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
 // Status is task-specific status information including execution state and
 // task-specific data.
