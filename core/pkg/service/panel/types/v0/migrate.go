@@ -95,14 +95,14 @@ type stagedLayout struct {
 }
 
 // migrateProjectLayouts returns a migration that converts the legacy layout blobs the
-// project migration stages under projecttypes.LegacyLayoutKVPrefix into panels, deleting
-// each staged entry as it is consumed, so this migration never reads the project
-// layout field directly. Every window mosaic that references at least one live
+// project migration stages under projecttypes.LegacyLayoutKVPrefix into panels,
+// deleting each staged entry as it is consumed, so this migration never reads the
+// project layout field directly. Every window mosaic that references at least one live
 // visualization document becomes a panel parented under the projecttypes. Tabs whose
-// layout entry is missing, whose layout type has no backing document, or whose
-// document no longer exists are dropped; splits that lose a side collapse into the
-// surviving child. Blobs that cannot be parsed are skipped, since the Console wrote
-// them best-effort and an unreadable layout must not block the upgrade.
+// layout entry is missing, whose layout type has no backing document, or whose document
+// no longer exists are dropped; splits that lose a side collapse into the surviving
+// child. Blobs that cannot be parsed are skipped, since the Console wrote them
+// best-effort and an unreadable layout must not block the upgrade.
 func migrateProjectLayouts() func(context.Context, gorp.Tx, alamos.Instrumentation) error {
 	return func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 		staged, err := scanStagedLayouts(tx, ins)
@@ -309,9 +309,8 @@ func convertSize(s float64) float64 {
 	return 0.5
 }
 
-// projectLayoutsMigration adopts the project service's staged legacy layouts
-// as panels. It depends on the codec migration so it always reads Orc-encoded
-// panels.
+// projectLayoutsMigration adopts the project service's staged legacy layouts as panels.
+// It depends on the codec migration so it always reads Orc-encoded panels.
 var projectLayoutsMigration = migrate.WithAddedDeps(
 	gorp.NewMigration(
 		"v56_migrate_project_layouts_to_panels", migrateProjectLayouts(),

@@ -11,9 +11,9 @@ package v1
 
 import (
 	"fmt"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"strings"
 
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
