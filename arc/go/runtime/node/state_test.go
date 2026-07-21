@@ -2034,3 +2034,71 @@ func newRefState(ctx SpecContext) *node.ProgramState {
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 	return node.New(prog)
 }
+
+var _ = Describe("Gating and Absorb Edge Cases", func() {
+	It("Should gate a value-fed node on an edge into an undeclared param", func(ctx SpecContext) {
+		prog := ir.IR{
+			Nodes: ir.Nodes{
+				{
+					Key:     "trigger",
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+				},
+				{
+					Key:     "target",
+					Inputs:  types.Params{{Name: "value", Type: types.I64(), Value: int64(5)}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+				},
+			},
+			Edges: ir.Edges{{
+				Source: ir.Handle{Node: "trigger", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "target", Param: ir.DefaultInputParam},
+			}},
+		}
+		s := node.New(prog)
+		target := s.Node("target")
+		Expect(target.RefreshInputs()).To(BeFalse(),
+			"the gate has no data yet, so the node must not fire")
+		trigger := s.Node("trigger")
+		*trigger.Output(0) = telem.NewSeriesV[uint8](1)
+		*trigger.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
+		Expect(target.RefreshInputs()).To(BeTrue())
+		Expect(target.RefreshInputs()).To(BeFalse())
+	})
+
+	It("Should skip reference and unsourced inputs when absorbing", func(ctx SpecContext) {
+		prog := ir.IR{
+			Nodes: ir.Nodes{
+				{
+					Key:     "bind",
+					Type:    "variable",
+					Inputs:  types.Params{{Name: "f0", Type: types.U32(), Value: uint32(7)}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Chan(types.F32())}},
+				},
+				{
+					Key:  "reader",
+					Type: "on",
+					Inputs: types.Params{
+						{Name: "channel", Type: types.Chan(types.F32()), Value: uint32(7)},
+					},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+				},
+			},
+			Edges: ir.Edges{
+				{
+					Source: ir.Handle{Node: "bind", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "reader", Param: "channel"},
+				},
+				{
+					Source: ir.Handle{Node: "ghost", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "reader", Param: "gate"},
+				},
+			},
+		}
+		s := node.New(prog)
+		reader := s.Node("reader")
+		*s.Node("bind").Output(0) = telem.NewSeriesV[uint32](9)
+		reader.AbsorbInputs()
+		Expect(reader.RefSourced(0)).To(BeTrue())
+		Expect(telem.ValueAt[uint32](reader.RefInput(0), -1)).To(Equal(uint32(9)))
+	})
+})

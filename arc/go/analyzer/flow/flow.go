@@ -136,7 +136,8 @@ func resolveUpstreamType(
 			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 			return types.Type{}, false
 		}
-		if idSym.Kind != symbol.KindChannel {
+		isChanVar := idSym.Kind == symbol.KindVariable && idSym.Type.Kind == types.KindChan
+		if idSym.Kind != symbol.KindChannel && !isChanVar {
 			ctx.Diagnostics.Add(diagnostics.Errorf(prevIDNode, "%s is not a channel", idName))
 			return types.Type{}, false
 		}

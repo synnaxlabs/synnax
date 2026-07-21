@@ -191,6 +191,136 @@ var _ = Describe("Text", func() {
 				"the variable node must feed the channel write")
 		})
 
+		It("Should reject a flow write to a channel-read variable", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				r i64 := count_ch + 1
+				stage s1 {
+					count_ch -> r
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("channel-read variable"))
+		})
+
+		It("Should inline a never-reassigned constant flow read as a constant node", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				k i64 := 5
+				stage s1 {
+					k -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(variableNodes(inter)).To(BeEmpty())
+			writeKey := nodeWriting(inter, 902)
+			Expect(writeKey).ToNot(BeEmpty())
+			constKey := ""
+			for _, n := range inter.Nodes {
+				if n.Type == "constant" && len(n.Inputs) > 0 &&
+					n.Inputs[0].Value == int64(5) {
+					constKey = n.Key
+				}
+			}
+			Expect(constKey).ToNot(BeEmpty(), "expected a constant node seeded with 5")
+			Expect(hasEdge(inter, constKey, writeKey)).To(BeTrue())
+		})
+
+		It("Should lower a written stateful variable to a stateful_variable node", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				total i64 $= 0
+				stage s1 {
+					count_ch -> total
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(1))
+			Expect(vars[0].Type).To(Equal("stateful_variable"))
+		})
+
+		It("Should bind a derivation's trigger read to the alias's register", func(ctx SpecContext) {
+			source := `
+			sequence main {
+				p := count_ch
+				r i64 := p + 1
+				stage s1 {
+					p = out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			found := false
+			for _, e := range inter.Edges {
+				if e.Target.Param == "channel" && strings.HasPrefix(e.Source.Node, "bind_p") {
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(),
+				"expected the alias register to feed a read node's channel param")
+		})
+
+		It("Should accept a channel alias as a chained flow head", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "sensor_f", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 905},
+				{Name: "out_f", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 906},
+			}, varResolver...)
+			source := `import math
+			cpu := sensor_f
+			cpu -> math.avg{} -> out_f`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(nodeReading(inter, 905)).ToNot(BeEmpty(),
+				"expected an on-node reading the aliased channel")
+			Expect(nodeWriting(inter, 906)).ToNot(BeEmpty())
+		})
+
+		It("Should route a chained flow's head read through the alias register", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "sensor_f", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 905},
+				{Name: "backup_f", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 906},
+				{Name: "out_f", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 907},
+			}, varResolver...)
+			source := `import math
+			sequence main {
+				p := sensor_f
+				stage s1 {
+					p -> math.avg{} -> out_f
+				}
+				stage s2 {
+					p = backup_f
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			found := false
+			for _, e := range inter.Edges {
+				if e.Target.Param == "channel" && strings.HasPrefix(e.Source.Node, "bind_p") {
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(),
+				"expected the chained head read to bind to the alias register")
+		})
+
+		It("Should reject a non-literal config input value", func(ctx SpecContext) {
+			source := `count_ch -> wait{duration=1s+1s} -> sink_ch`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+		})
+
 		DescribeTable("Should lower reactive re-expression and alias rebind",
 			func(ctx SpecContext, source string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))

@@ -295,6 +295,68 @@ var _ = Describe("Statement", func() {
 		})
 	})
 
+	Describe("Reassignment and Rebind", func() {
+		channels := []symbol.Symbol{
+			{Kind: symbol.KindChannel, Name: "sensor", Type: types.Chan(types.F64())},
+			{Kind: symbol.KindChannel, Name: "backup", Type: types.Chan(types.F64())},
+			{Kind: symbol.KindChannel, Name: "wave", Type: types.Chan(types.Series(types.F64()))},
+		}
+		declare := func(bCtx SpecContext, root *symbol.Symbol, code string) {
+			stmt := MustSucceed(parser.ParseStatement(code))
+			ctx := context.NewRoot(bCtx, stmt.VariableDeclaration(), root)
+			statement.AnalyzeVariableDeclaration(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		}
+		assign := func(
+			bCtx SpecContext, root *symbol.Symbol, code string,
+		) context.Context[parser.IAssignmentContext] {
+			stmt := MustSucceed(parser.ParseStatement(code))
+			ctx := context.NewRoot(bCtx, stmt.Assignment(), root)
+			statement.AnalyzeAssignment(ctx)
+			return ctx
+		}
+
+		It("Should rebind a channel alias to a matching channel", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declare(bCtx, root, "a := sensor")
+			ctx := assign(bCtx, root, "a = backup")
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			alias := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(alias.Reassigned).To(BeTrue())
+			backup := MustSucceed(ctx.Scope.Resolve(ctx, "backup"))
+			Expect(alias.Channels.Read).To(HaveKeyWithValue(uint32(backup.ID), "backup"))
+			Expect(alias.Channels.Write).To(HaveKeyWithValue(uint32(backup.ID), "backup"))
+		})
+
+		It("Should reject rebinding an alias to a channel of another structure", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declare(bCtx, root, "a := sensor")
+			ctx := assign(bCtx, root, "a = wave")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("type mismatch: cannot rebind"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "a")).Reassigned).To(BeFalse())
+		})
+
+		It("Should re-point a channel-read variable at a new derivation", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declare(bCtx, root, "x := sensor + 1")
+			ctx := assign(bCtx, root, "x = sensor * 2")
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeTrue())
+		})
+
+		It("Should reject re-pointing a channel-read variable at another structure", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declare(bCtx, root, "x := sensor + 1")
+			ctx := assign(bCtx, root, "x = [1.0, 2.0]")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("type mismatch: cannot reassign"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
+		})
+	})
+
 	Describe("If Statement", func() {
 		DescribeTable("valid if statements",
 			func(bCtx SpecContext, code string) {
