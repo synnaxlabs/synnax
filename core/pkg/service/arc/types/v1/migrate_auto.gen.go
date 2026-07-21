@@ -19,7 +19,7 @@ import (
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
 	arcv0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 
 	"github.com/synnaxlabs/x/telem"
 )
@@ -67,7 +67,7 @@ func AutoMigrateStatus(ctx context.Context, old arcv0.Status) (Status, error) {
 	return Status{
 		Key:         old.Key,
 		Name:        old.Name,
-		Variant:     statusv2.Variant(old.Variant),
+		Variant:     statusv1.Variant(old.Variant),
 		Message:     old.Message,
 		Description: old.Description,
 		Time:        telem.TimeStamp(old.Time),

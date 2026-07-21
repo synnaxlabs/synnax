@@ -21,17 +21,13 @@ import (
 // msgpack layout to the orc value-color layout.
 const codecMigrationKey = "msgpack_to_orc"
 
-// colorNullableMigrationKey is the key of the migration that re-encodes Range.Color
-// from a stored value to a nullable pointer.
-const colorNullableMigrationKey = "range_color_nullable"
-
 // colorNullableMigration converts every range from the orc value-color layout (Color
 // stored inline) to the current nullable layout (Color a presence-flagged pointer). A
 // zero stored color denoted "no color" under the value layout, so it maps to nil. It
 // depends on the codec migration so it always reads the deterministic value-color
 // encoding that migration leaves behind.
 var colorNullableMigration = gorp.NewEntryMigration(
-	colorNullableMigrationKey,
+	"range_color_nullable",
 	func(_ context.Context, old v0.Range) (Range, error) {
 		rng := Range{Key: old.Key, Name: old.Name, TimeRange: old.TimeRange}
 		if !old.Color.IsZero() {

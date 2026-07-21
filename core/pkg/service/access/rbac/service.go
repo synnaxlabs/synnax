@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -161,12 +160,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
 		Namespace:       "RBAC",
-		Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
+		Migrations: migrations.NewMigrations(migrations.MigrationsConfig{
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     s.Role,
 			Roles:    builtinRoles,
-		})},
+		}),
 	}); !ok(err, nil) {
 		return nil, err
 	}

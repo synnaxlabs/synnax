@@ -11,13 +11,12 @@ package panel
 
 import (
 	"context"
-	stdio "io"
-
-	"github.com/synnaxlabs/synnax/pkg/service/panel/types"
+	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/panel/types"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -38,10 +37,7 @@ type ServiceConfig struct {
 	Search   *search.Index
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -70,7 +66,7 @@ type Service struct {
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +88,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	// Broadcast action vectors on sy_panel_set; the gorp delete publisher's Set
 	// is disabled because action frames carry the mutation payload, but it still
 	// emits deletes so clients prune cached panels.
-	var sig stdio.Closer
+	var sig io.Closer
 	if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
 		Provider: cfg.Signals,
 		State:    s.state,

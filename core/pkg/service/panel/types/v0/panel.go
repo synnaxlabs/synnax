@@ -21,7 +21,7 @@ var _ gorp.Entry[Key] = Panel{}
 func (p Panel) GorpKey() Key { return p.Key }
 
 // SetOptions implements gorp.Entry.
-func (p Panel) SetOptions() []any { return nil }
+func (Panel) SetOptions() []any { return nil }
 
 // OntologyID returns the ontology.ID of the resource.
 func (p Panel) OntologyID() ontology.ID {

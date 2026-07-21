@@ -28,16 +28,27 @@ const (
 	VariantDisabled Variant = "disabled"
 )
 
+// IsValid reports whether v is one of the defined Variant values.
+func (v Variant) IsValid() bool {
+	switch v {
+	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
+		return true
+	default:
+		return false
+	}
+}
+
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
-// component-specific details.
+// component-specific details. A status is uniquely identified by a key and may carry a
+// human-readable name and labels for categorization and filtering.
 type Status[Details any] struct {
 	// Key is a unique identifier for this status, auto-generated if not provided.
 	Key string `json:"key" msgpack:"key"`
 	// Name is an optional human-readable name for the status.
 	Name string `json:"name" msgpack:"name"`
-	// Variant indicates the severity of the status. One of success, info, warning, error,
-	// loading, or disabled.
+	// Variant indicates the severity of the status. One of success, info, warning,
+	// error, loading, or disabled.
 	Variant Variant `json:"variant" msgpack:"variant"`
 	// Message is the main message text describing the status.
 	Message string `json:"message" msgpack:"message"`
@@ -48,9 +59,5 @@ type Status[Details any] struct {
 	// Details contains optional component-specific custom details for the status.
 	Details Details `json:"details" msgpack:"details"`
 	// Labels contains optional labels for categorization and filtering.
-	Labels []label.Label `json:"labels" msgpack:"labels"`
+	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitzero"`
 }
-
-func (s Status[Details]) GorpKey() string { return s.Key }
-
-func (Status[Details]) SetOptions() []any { return nil }

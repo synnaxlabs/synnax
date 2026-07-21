@@ -14,7 +14,7 @@ import "schemas/synnax/ontology"
 @ts output  "client/ts/src/device"
 @py output  "client/py/synnax/device"
 @go output  "core/pkg/service/device"
-@go version 2
+@go version 1
 @cpp output "client/cpp/device"
 @pb
 

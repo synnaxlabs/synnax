@@ -30,13 +30,15 @@ import (
 )
 
 // frozenAliasSplit compares a candidate define-all rendering of a current
-// version package against the frozen predecessor's types.gen.go and returns
+// version package against the frozen predecessor package on disk and returns
 // the qualified names of types that can alias the predecessor. A type aliases
-// only when every Go declaration it contributes (comments stripped) is
-// identical in both files, and every locally-referenced type also aliases —
-// so an alias is emitted only when it denotes literally the same code.
+// only when every declaration the candidate contributes (comments stripped)
+// appears identically in the predecessor and every locally-referenced type
+// also aliases. The predecessor may carry extra declarations — hand-written
+// methods live with the definer and travel through the alias; a duplicate
+// method surfaces as a compile error.
 func frozenAliasSplit(
-	candidate, frozen []byte,
+	candidate []byte,
 	ctx *framework.GenerateContext,
 	predDir string,
 ) (set.Set[string], error) {
@@ -44,9 +46,9 @@ func frozenAliasSplit(
 	if err != nil {
 		return nil, errors.Wrap(err, "candidate rendering does not parse")
 	}
-	frozOwners, _, frozSpecs, err := groupDecls(frozen)
+	frozOwners, frozSpecs, err := packageDecls(predDir)
 	if err != nil {
-		return nil, errors.Wrap(err, "frozen predecessor does not parse")
+		return nil, err
 	}
 
 	type entry struct {
@@ -78,7 +80,7 @@ func frozenAliasSplit(
 		for _, o := range e.owners {
 			c, cok := candOwners[o]
 			f, fok := frozOwners[o]
-			if cok && fok && c == f {
+			if cok && fok && declsSubset(c, f) {
 				continue
 			}
 			// A frozen decl that is itself a predecessor-chain alias denotes
@@ -144,9 +146,9 @@ func declOwnerNames(d orderedDecl) []string {
 // groupDecls parses a Go file with comments stripped and groups its
 // declarations by owner: the declared type for type specs, the first spec's
 // type for const blocks, and the receiver's base type for methods. It returns
-// each owner's printed declarations, the identifiers they reference, and each
-// owner's printed type spec alone.
-func groupDecls(src []byte) (map[string]string, map[string][]string, map[string]string, error) {
+// each owner's printed declarations in order, the identifiers they reference,
+// and each owner's printed type spec alone.
+func groupDecls(src []byte) (map[string][]string, map[string][]string, map[string]string, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "", src, parser.SkipObjectResolution)
 	if err != nil {
@@ -187,16 +189,16 @@ func groupDecls(src []byte) (map[string]string, map[string][]string, map[string]
 			}
 		}
 	}
-	contents := make(map[string]string, len(grouped))
+	contents := make(map[string][]string, len(grouped))
 	refs := make(map[string][]string, len(grouped))
 	for owner, decls := range grouped {
-		var buf bytes.Buffer
 		seen := make(set.Set[string])
 		for _, decl := range decls {
+			var buf bytes.Buffer
 			if err := printer.Fprint(&buf, fset, decl); err != nil {
 				return nil, nil, nil, err
 			}
-			buf.WriteByte('\n')
+			contents[owner] = append(contents[owner], buf.String())
 			ast.Inspect(decl, func(n ast.Node) bool {
 				if id, ok := n.(*ast.Ident); ok && !seen.Contains(id.Name) {
 					seen.Add(id.Name)
@@ -205,7 +207,6 @@ func groupDecls(src []byte) (map[string]string, map[string][]string, map[string]
 				return true
 			})
 		}
-		contents[owner] = buf.String()
 	}
 	return contents, refs, typeSpecs, nil
 }
@@ -277,10 +278,38 @@ func chainAliasMatches(owner, frozenSpec, candidateSpec, predDir string) bool {
 // packageTypeSpec returns the printed type spec declaring name within the
 // package directory, searching every non-test Go file.
 func packageTypeSpec(dir, name string) (string, bool) {
-	files, err := os.ReadDir(dir)
+	_, specs, err := packageDecls(dir)
 	if err != nil {
 		return "", false
 	}
+	spec, ok := specs[name]
+	return spec, ok
+}
+
+// declsSubset reports whether every candidate declaration appears identically
+// among the frozen declarations.
+func declsSubset(candidate, frozen []string) bool {
+	remaining := make(map[string]int, len(frozen))
+	for _, d := range frozen {
+		remaining[d]++
+	}
+	for _, d := range candidate {
+		if remaining[d] == 0 {
+			return false
+		}
+		remaining[d]--
+	}
+	return true
+}
+
+// packageDecls merges groupDecls over every non-test Go file in dir.
+func packageDecls(dir string) (map[string][]string, map[string]string, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "frozen predecessor %s is unreadable", dir)
+	}
+	owners := make(map[string][]string)
+	specs := make(map[string]string)
 	for _, f := range files {
 		if f.IsDir() || !strings.HasSuffix(f.Name(), ".go") ||
 			strings.HasSuffix(f.Name(), "_test.go") {
@@ -288,15 +317,18 @@ func packageTypeSpec(dir, name string) (string, bool) {
 		}
 		src, err := os.ReadFile(filepath.Join(dir, f.Name()))
 		if err != nil {
-			continue
+			return nil, nil, err
 		}
-		_, _, specs, err := groupDecls(src)
+		fo, _, fs, err := groupDecls(src)
 		if err != nil {
-			continue
+			return nil, nil, errors.Wrapf(err, "frozen predecessor %s does not parse", f.Name())
 		}
-		if spec, ok := specs[name]; ok {
-			return spec, true
+		for o, decls := range fo {
+			owners[o] = append(owners[o], decls...)
+		}
+		for n, spec := range fs {
+			specs[n] = spec
 		}
 	}
-	return "", false
+	return owners, specs, nil
 }

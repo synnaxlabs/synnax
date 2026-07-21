@@ -14,11 +14,11 @@ package v1
 import (
 	"encoding/json"
 
-	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 	w.String(s.Key)
 	w.String(s.Name)
@@ -33,20 +33,10 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 		}
 		w.WriteWithLen(b)
 	}
-	if s.Labels != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Labels)))
-		for j := range s.Labels {
-			if err := s.Labels[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if s.Key, err = r.String(); err != nil {
@@ -82,24 +72,6 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		}
 		if err = json.Unmarshal(b, &s.Details); err != nil {
 			return err
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.Labels = make([]label.Label, n)
-			for j := range s.Labels {
-				if err = s.Labels[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil

@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 )

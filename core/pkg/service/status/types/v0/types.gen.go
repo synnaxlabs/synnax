@@ -13,7 +13,7 @@ package v0
 
 import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	"github.com/synnaxlabs/x/telem"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 // Variant is the severity or type of a status message.
@@ -50,3 +50,7 @@ type Status[Details any] struct {
 	// Labels contains optional labels for categorization and filtering.
 	Labels []label.Label `json:"labels" msgpack:"labels"`
 }
+
+func (s Status[Details]) GorpKey() string { return s.Key }
+
+func (Status[Details]) SetOptions() []any { return nil }

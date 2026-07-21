@@ -12,14 +12,25 @@
 package v1
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Key is the device's serial number, used as its unique identifier.
-type Key = string
+// Key is a unique identifier for the device
+type Key = v0.Key
+
+// StatusDetails contains device-specific status details identifying the device and its
+// associated rack.
+type StatusDetails struct {
+	// Rack is the key of the rack this device belongs to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Device is the device identifier.
+	Device Key `json:"device" msgpack:"device"`
+}
 
 // Status is device-specific status information including operational state and device
 // identification.
@@ -41,28 +52,30 @@ type Device struct {
 	Model string `json:"model" msgpack:"model"`
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
-	// Configured indicates whether the device has been successfully configured and is ready
-	// for use.
+	// Configured indicates whether the device has been successfully configured and is
+	// ready for use.
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties contains device-specific configuration properties stored as JSON.
 	// Structure varies by device make and model.
-	Properties msgpack.EncodedJSON `json:"properties" msgpack:"properties"`
+	Properties msgpack.EncodedJSON `json:"properties,omitzero" msgpack:"properties,omitzero"`
 	// Status is the current operational status of the device.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
-	// Parent is an optional parent resource ID for hierarchical device organization (e.g.,
-	// NI chassis containing modules).
+	// Parent is an optional parent resource ID for hierarchical device organization
+	// (e.g., NI chassis containing modules).
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
-type StatusDetails struct {
-	// Rack is the key of the rack this device belongs to.
-	Rack rack.Key `json:"rack" msgpack:"rack"`
-	// Device is the device identifier.
-	Device string `json:"device" msgpack:"device"`
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d Device) Validate() error {
+	v := validate.New("Device")
+	validate.NonZero(v, "rack", d.Rack)
+	validate.NotEmptyString(v, "location", d.Location)
+	validate.NotEmptyString(v, "make", d.Make)
+	validate.NotEmptyString(v, "model", d.Model)
+	validate.NotEmptyString(v, "name", d.Name)
+	if d.Parent != nil {
+		v.Exec(func() error { return validate.PathedError(d.Parent.Validate(), "parent") })
+	}
+	return v.Error()
 }
-
-func (d Device) GorpKey() Key { return d.Key }
-
-func (Device) SetOptions() []any { return nil }

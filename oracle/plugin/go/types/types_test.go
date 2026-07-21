@@ -2794,7 +2794,10 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 			ToNotContain("type Stable = v0.Stable")
 	})
 
-	It("Should re-define types with extra methods in the frozen file", func(ctx SpecContext) {
+	It("Should alias despite extra hand-written methods at the definer", func(ctx SpecContext) {
+		// Methods live with the definer and travel through the alias; frozen
+		// extras never block aliasing (a genuine duplicate is a compile
+		// error).
 		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
 		abs := filepath.Join(tmpDir, "out/types/v0/types.gen.go")
 		appended := string(MustSucceed(os.ReadFile(abs))) +
@@ -2802,8 +2805,29 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 		Expect(os.WriteFile(abs, []byte(appended), 0644)).To(Succeed())
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
 		ExpectContent(resp, "out/types/v1/types.gen.go").
-			ToContain("type Stable struct").
-			ToNotContain("type Stable = v0.Stable")
+			ToContain("type Stable = v0.Stable").
+			ToNotContain("type Stable struct")
+	})
+
+	It("Should alias against a fully hand-written predecessor package", func(ctx SpecContext) {
+		v0Dir := filepath.Join(tmpDir, "out/types/v0")
+		Expect(os.MkdirAll(v0Dir, 0755)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(v0Dir, "out.go"), []byte(
+			"package v0\n\ntype Key uint64\n\n"+
+				"func (k Key) String() string { return \"\" }\n",
+		), 0644)).To(Succeed())
+		resp := MustGenerate(ctx, `
+			@go output "out"
+			@go version 1
+			Key uint64 {}
+			Entry struct {
+				key  Key {@key}
+				name string
+			}
+		`, "test", loader, goPlugin)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Key = v0.Key", "type Entry struct").
+			ToNotContain("type Key uint64")
 	})
 
 	It("Should ignore doc-comment differences in the frozen file", func(ctx SpecContext) {

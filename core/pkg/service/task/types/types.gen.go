@@ -11,23 +11,23 @@
 
 package types
 
-import "github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
 
 // Key is a composite identifier for a task. The high 32 bits contain the rack key, and
 // the low 32 bits contain the local task key within that rack.
-type Key = v2.Key
+type Key = v1.Key
 
 // StatusDetails contains task-specific status details including execution state.
-type StatusDetails = v2.StatusDetails
+type StatusDetails = v1.StatusDetails
 
 // Status is task-specific status information including execution state and
 // task-specific data.
-type Status = v2.Status
+type Status = v1.Status
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
-type Task = v2.Task
+type Task = v1.Task
 
 // Command is a command to execute on a task in the Driver system.
-type Command = v2.Command
+type Command = v1.Command

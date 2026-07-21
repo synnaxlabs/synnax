@@ -260,10 +260,10 @@ func computeSplit(
 		if !ok {
 			continue
 		}
-		frozen, err := os.ReadFile(filepath.Join(
-			req.RepoRoot, versioning.VersionedPath(origPath, version-1), "types.gen.go",
-		))
-		if err != nil {
+		predDir := filepath.Join(
+			req.RepoRoot, versioning.VersionedPath(origPath, version-1),
+		)
+		if _, err := os.Stat(predDir); err != nil {
 			continue
 		}
 		candidate, err := generateGoFile(
@@ -273,10 +273,7 @@ func computeSplit(
 		if err != nil {
 			return nil, err
 		}
-		aliased, err := frozenAliasSplit(
-			candidate, frozen, ctx,
-			filepath.Join(req.RepoRoot, versioning.VersionedPath(origPath, version-1)),
-		)
+		aliased, err := frozenAliasSplit(candidate, ctx, predDir)
 		if err != nil {
 			return nil, errors.Wrapf(err, "frozen baseline for %s", origPath)
 		}

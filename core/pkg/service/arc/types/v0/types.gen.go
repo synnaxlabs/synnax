@@ -16,7 +16,7 @@ import (
 	graph "github.com/synnaxlabs/arc/graph/types/v0"
 	program "github.com/synnaxlabs/arc/program/types/v0"
 	text "github.com/synnaxlabs/arc/text/types/v0"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 )
 
 // Key is a unique identifier for an Arc module.

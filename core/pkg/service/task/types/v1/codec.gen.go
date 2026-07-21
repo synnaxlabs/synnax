@@ -17,76 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func (t Task) EncodeOrc(w *orc.Writer) error {
-	w.Uint64(uint64(t.Key))
-	w.String(t.Name)
-	w.String(t.Type)
-	{
-		b, err := json.Marshal(t.Config)
-		if err != nil {
-			return err
-		}
-		w.WriteWithLen(b)
-	}
-	w.Bool(t.Internal)
-	w.Bool(t.Snapshot)
-	if t.Status != nil {
-		w.Bool(true)
-		if err := (*t.Status).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func (t *Task) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		v, err := r.Uint64()
-		if err != nil {
-			return err
-		}
-		t.Key = Key(v)
-	}
-	if t.Name, err = r.String(); err != nil {
-		return err
-	}
-	if t.Type, err = r.String(); err != nil {
-		return err
-	}
-	{
-		b, err := r.ReadWithLen()
-		if err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &t.Config); err != nil {
-			return err
-		}
-	}
-	if t.Internal, err = r.Bool(); err != nil {
-		return err
-	}
-	if t.Snapshot, err = r.Bool(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			t.Status = &v
-		}
-	}
-	return nil
-}
-
+// EncodeOrc writes the value to w in the orc binary format.
 func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
 	w.Uint64(uint64(sd.Task))
 	w.Bool(sd.Running)
@@ -106,6 +37,7 @@ func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
@@ -137,6 +69,57 @@ func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the orc binary format.
+func (t Task) EncodeOrc(w *orc.Writer) error {
+	w.Uint64(uint64(t.Key))
+	w.String(t.Name)
+	w.String(t.Type)
+	{
+		b, err := json.Marshal(t.Config)
+		if err != nil {
+			return err
+		}
+		w.WriteWithLen(b)
+	}
+	w.Bool(t.Internal)
+	w.Bool(t.Snapshot)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the orc binary format.
+func (t *Task) DecodeOrc(r *orc.Reader) error {
+	var err error
+	{
+		v, err := r.Uint64()
+		if err != nil {
+			return err
+		}
+		t.Key = Key(v)
+	}
+	if t.Name, err = r.String(); err != nil {
+		return err
+	}
+	if t.Type, err = r.String(); err != nil {
+		return err
+	}
+	{
+		b, err := r.ReadWithLen()
+		if err != nil {
+			return err
+		}
+		if err = json.Unmarshal(b, &t.Config); err != nil {
+			return err
+		}
+	}
+	if t.Internal, err = r.Bool(); err != nil {
+		return err
+	}
+	if t.Snapshot, err = r.Bool(); err != nil {
+		return err
 	}
 	return nil
 }

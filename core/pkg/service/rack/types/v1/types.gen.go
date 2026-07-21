@@ -12,19 +12,26 @@
 package v1
 
 import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
-	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	"github.com/synnaxlabs/x/validate"
 )
 
-// Key is a composite identifier for a rack. The high 16 bits contain the core node key,
-// and the low 16 bits contain the local sequential key. Racks are leased to specific
-// nodes because task configuration signals are passed through gossip operations, which
-// can take 15s+ to propagate through a large cluster. This structure minimizes hops and
+// Key is a composite identifier for a rack. The high 16 bits contain the node key, and
+// the low 16 bits contain the local sequential key. Racks are leased to specific nodes
+// because task configuration signals are passed through gossip operations, which can
+// take 15s+ to propagate through a large cluster. This structure minimizes hops and
 // configuration latency.
 type Key = v0.Key
 
+// StatusDetails contains rack-specific status details.
+type StatusDetails struct {
+	// Rack is the key of the rack this status pertains to.
+	Rack Key `json:"rack" msgpack:"rack"`
+}
+
 // Status is rack-specific status information including operational state.
-type Status = statusv1.Status[StatusDetails]
+type Status = status.Status[StatusDetails]
 
 // Rack is a collection container for hardware devices and tasks running on a specific
 // cluster node. Racks serve as the integration point between the Synnax server and
@@ -42,15 +49,14 @@ type Rack struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	// Integrations is the list of hardware integrations this rack supports (e.g., "ni",
 	// "opc", "labjack"). An empty or nil list means the rack supports no integrations.
-	Integrations []string `json:"integrations" msgpack:"integrations"`
+	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
 }
 
-// StatusDetails contains rack-specific status details.
-type StatusDetails struct {
-	// Rack is the key of the rack this status pertains to.
-	Rack Key `json:"rack" msgpack:"rack"`
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r Rack) Validate() error {
+	v := validate.New("Rack")
+	validate.NonZero(v, "key", r.Key)
+	validate.NotEmptyString(v, "name", r.Name)
+	return v.Error()
 }
-
-func (e Rack) GorpKey() Key { return e.Key }
-
-func (e Rack) SetOptions() []any { return nil }

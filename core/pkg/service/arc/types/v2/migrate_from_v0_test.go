@@ -21,7 +21,7 @@ import (
 	arcv1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
 	arcv2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	statusv0 "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -207,7 +207,7 @@ var _ = Describe("v0 -> current Arc migration", func() {
 			Status: &v0.Status{
 				Key:         statusKey,
 				Name:        "running",
-				Variant:     statusv1.VariantSuccess,
+				Variant:     statusv0.VariantSuccess,
 				Message:     "task is running",
 				Description: "started 5s ago",
 				Time:        telemv0.TimeStamp(telem.Now()),

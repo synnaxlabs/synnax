@@ -16,7 +16,7 @@ import (
 
 	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/telem"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {

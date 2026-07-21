@@ -13,7 +13,7 @@ import "schemas/synnax/label"
 @ts output  "client/ts/src/status"
 @py output  "client/py/synnax/status"
 @go output  "core/pkg/service/status"
-@go version 2
+@go version 1
 @cpp output "client/cpp/status"
 @pb
 

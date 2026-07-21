@@ -16,14 +16,14 @@ import (
 	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
 	programv1 "github.com/synnaxlabs/arc/program/types/v1"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
-	statusv2 "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
+	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 )
 
 // Key is a unique identifier for an Arc module.
 type Key = uuid.UUID
 
 // Status is the status of an Arc module including execution state.
-type Status = statusv2.Status[StatusDetails]
+type Status = statusv1.Status[StatusDetails]
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
 type Mode string

@@ -11,7 +11,7 @@ package types
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
 	"github.com/synnaxlabs/x/migrate"
 )
 

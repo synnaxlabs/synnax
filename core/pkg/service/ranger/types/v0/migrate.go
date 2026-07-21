@@ -34,8 +34,8 @@ type MigrationConfig struct {
 	alamos.Instrumentation
 }
 
-// NewMigration returns the v0 migration, which swaps invalid time ranges
-// and folds legacy range groups into the group service.
+// NewMigration returns the v0 migration, which swaps invalid time ranges and folds
+// legacy range groups into the group service.
 func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"range_groups_1",

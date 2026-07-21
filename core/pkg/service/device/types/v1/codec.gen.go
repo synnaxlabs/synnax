@@ -14,11 +14,11 @@ package v1
 import (
 	"encoding/json"
 
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.String(d.Key)
 	w.Uint32(uint32(d.Rack))
@@ -34,25 +34,10 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 		}
 		w.WriteWithLen(b)
 	}
-	if d.Status != nil {
-		w.Bool(true)
-		if err := (*d.Status).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	if d.Parent != nil {
-		w.Bool(true)
-		if err := (*d.Parent).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (d *Device) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if d.Key, err = r.String(); err != nil {
@@ -89,41 +74,17 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			d.Status = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v ontology.ID
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			d.Parent = &v
-		}
-	}
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(sd.Rack))
 	w.String(sd.Device)
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{

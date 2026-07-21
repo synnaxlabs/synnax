@@ -11,35 +11,25 @@
 
 package v1
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(rv.Key))
 	w.String(rv.Name)
 	w.Uint32(uint32(rv.TaskCounter))
 	w.Bool(rv.Embedded)
-	if rv.Status != nil {
-		w.Bool(true)
-		if err := (*rv.Status).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
+	w.Bool(rv.Integrations != nil)
 	if rv.Integrations != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(rv.Integrations)))
-		for j := range rv.Integrations {
-			w.String(rv.Integrations[j])
+		for i := range rv.Integrations {
+			w.String(rv.Integrations[i])
 		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
@@ -64,26 +54,13 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			rv.Status = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
 			n, err := r.CollectionLen()
 			if err != nil {
 				return err
 			}
 			rv.Integrations = make([]string, n)
-			for j := range rv.Integrations {
-				if rv.Integrations[j], err = r.String(); err != nil {
+			for i := range rv.Integrations {
+				if rv.Integrations[i], err = r.String(); err != nil {
 					return err
 				}
 			}
@@ -92,11 +69,13 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
+// EncodeOrc writes the value to w in the orc binary format.
 func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(sd.Rack))
 	return nil
 }
 
+// DecodeOrc reads the value from r in the orc binary format.
 func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.Uint32()
