@@ -130,12 +130,7 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 		ir:         sc,
 		activeStep: -1,
 	}
-	for _, key := range sc.ResetNodes {
-		if n, ok := b.nodes[key]; ok {
-			state.resetNodes = append(state.resetNodes, n)
-		}
-	}
-	appendMember := func(m ir.Member) {
+	buildMember := func(m ir.Member) member {
 		ms := member{key: m.Key()}
 		switch {
 		case m.NodeKey != nil:
@@ -143,18 +138,24 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 		case m.Scope != nil:
 			ms.scope = b.buildScopeState(m.Scope)
 		}
-		state.members = append(state.members, ms)
+		return ms
 	}
 	switch sc.Mode {
 	case ir.ScopeModeParallel:
 		for _, stratum := range sc.Strata {
 			for _, m := range stratum {
-				appendMember(m)
+				state.members = append(state.members, buildMember(m))
 			}
 		}
 	case ir.ScopeModeSequential:
 		for _, m := range sc.Steps {
-			appendMember(m)
+			state.members = append(state.members, buildMember(m))
+		}
+		// Strata variable nodes trail the steps so step indices stay stable.
+		for _, stratum := range sc.Strata {
+			for _, m := range stratum {
+				state.members = append(state.members, buildMember(m))
+			}
 		}
 	}
 	state.memberByKey = make(map[string]int, len(state.members))
@@ -187,7 +188,8 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 // silently skipped at evaluation time.
 func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) {
 	nodeToMember := make(map[*node]int)
-	for i := range state.members {
+	// Only steps own transitions; trailing strata variable nodes stay external.
+	for i := range state.members[:len(state.ir.Steps)] {
 		collectMemberNodes(&state.members[i], i, nodeToMember)
 	}
 	state.transitionOwner = make([]int, len(transitions))

@@ -406,9 +406,9 @@ struct Scope {
     /// Unset
     /// for always-live scopes.
     std::optional<Handle> activation;
-    /// @brief strata contains stratified execution layers for parallel scopes. Empty
-    /// for
-    /// sequential scopes. Stratum N depends only on strata 0 to N-1.
+    /// @brief strata contains stratified execution layers for parallel scopes. On
+    /// sequential scopes, strata hold variable nodes that run every pass alongside the
+    /// active step. Stratum N depends only on strata 0 to N-1.
     std::vector<Members> strata;
     /// @brief steps contains ordered steps for sequential scopes. Empty for parallel
     /// scopes.
@@ -417,10 +417,6 @@ struct Scope {
     /// for
     /// parallel scopes.
     std::vector<Transition> transitions;
-    /// @brief reset_nodes contains keys of variable nodes re-seeded each time this
-    /// scope
-    /// activates.
-    std::vector<std::string> reset_nodes;
 
     static Scope parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

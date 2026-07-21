@@ -82,10 +82,8 @@ type scope struct {
 	// inactive or in a parallel scope.
 	activeStep int
 	// members are flattened in execution order: stratum-major for parallel
-	// scopes, sequence order for sequential.
+	// scopes; steps then trailing strata variable nodes for sequential.
 	members []member
-	// resetNodes are variable nodes re-seeded each time this scope activates.
-	resetNodes []*node
 	// memberByKey resolves `=> name` transition targets to member indices.
 	memberByKey map[string]int
 	// transitionOwner[i] is the step index that owns transition i's
@@ -228,6 +226,10 @@ func (s *Scheduler) walkParallel(ss *scope) {
 // steps can fire N transitions. stratumIdx=0 forces the active step to
 // run unconditionally, matching stratum-0 parallel semantics.
 func (s *Scheduler) walkSequential(ss *scope) {
+	// Strata variable nodes trail the steps and run every pass.
+	for i := len(ss.ir.Steps); i < len(ss.members); i++ {
+		s.executeMember(0, &ss.members[i])
+	}
 	budget := len(ss.members) + 1
 	for range budget {
 		if ss.activeStep < 0 {
@@ -322,18 +324,17 @@ func (s *Scheduler) clearLeafNodeSelfChanged(m *member) {
 }
 
 // activateScope marks a scope active and primes its members. Sequential
-// scopes activate step 0; parallel scopes reset every leaf-node member and
-// cascade-activate always-live nested scopes. Gated children wait for their
+// scopes reset their strata members and activate step 0; parallel scopes
+// reset every leaf-node member and cascade-activate always-live nested scopes. Gated children wait for their
 // Activation handle to fire via markChanged; gated children with no handle
 // stay inert (used for named top-level scopes awaiting an external trigger).
 func (s *Scheduler) activateScope(ss *scope) {
 	ss.active = true
-	for _, n := range ss.resetNodes {
-		s.selfChangedFlags[n.idx] = 0
-		n.Reset()
-	}
 	if ss.ir.Mode == ir.ScopeModeSequential {
-		if len(ss.members) > 0 {
+		for i := len(ss.ir.Steps); i < len(ss.members); i++ {
+			s.resetLeafNode(&ss.members[i])
+		}
+		if len(ss.ir.Steps) > 0 {
 			s.activateSequentialStep(ss, 0)
 		}
 		return

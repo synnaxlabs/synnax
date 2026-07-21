@@ -489,13 +489,6 @@ func (s Scope) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(s.ResetNodes != nil)
-	if s.ResetNodes != nil {
-		w.Uint32(uint32(len(s.ResetNodes)))
-		for i := range s.ResetNodes {
-			w.String(s.ResetNodes[i])
-		}
-	}
 	return nil
 }
 
@@ -599,24 +592,6 @@ func (s *Scope) DecodeOrc(r *orc.Reader) error {
 			s.Transitions = make([]Transition, n)
 			for i := range s.Transitions {
 				if err = s.Transitions[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.ResetNodes = make([]string, n)
-			for i := range s.ResetNodes {
-				if s.ResetNodes[i], err = r.String(); err != nil {
 					return err
 				}
 			}

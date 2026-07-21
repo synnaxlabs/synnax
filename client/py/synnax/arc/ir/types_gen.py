@@ -169,13 +169,12 @@ class Scope(BaseModel):
             activated.
         activation: Is the handle whose truthy value activates a gated scope. Unset for
             always-live scopes.
-        strata: Contains stratified execution layers for parallel scopes. Empty for
-            sequential scopes. Stratum N depends only on strata 0 to N-1.
+        strata: Contains stratified execution layers for parallel scopes. On sequential
+            scopes, strata hold variable nodes that run every pass alongside the active
+            step. Stratum N depends only on strata 0 to N-1.
         steps: Contains ordered steps for sequential scopes. Empty for parallel scopes.
         transitions: Contains state-transition rules for sequential scopes. Empty for
             parallel scopes.
-        resetNodes: Contains keys of variable nodes re-seeded each time this scope
-            activates.
     """
 
     key: str
@@ -185,7 +184,6 @@ class Scope(BaseModel):
     strata: list[Members] = Field(default_factory=list)
     steps: Members = Field(default_factory=list)
     transitions: list[Transition] = Field(default_factory=list)
-    resetNodes: list[str] = Field(default_factory=list)
 
 
 class IR(BaseModel):

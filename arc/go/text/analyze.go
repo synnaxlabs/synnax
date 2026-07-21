@@ -130,7 +130,7 @@ func newShellBuilder(synthByAST map[antlr.ParserRuleContext]*symbol.Symbol) *she
 	}
 }
 
-// registerVar records sym's nodes and schedules them as always-live roots.
+// registerVar records sym's nodes for the end-of-analysis flush.
 func (sb *shellBuilder) registerVar(sym *symbol.Symbol, e varEntry) {
 	sb.varNodes[sym] = e
 	if e.register != nil {
@@ -512,20 +512,47 @@ func buildIndirectRegister(sym *symbol.Symbol, kg *keyGenerator) *ir.Node {
 	}
 }
 
-// scopeResetNodes returns the registers re-seeded on each entry of scopeSym;
-// `$=` registers no-op their Reset and persist.
-func scopeResetNodes(scopeSym *symbol.Symbol, shell *shellBuilder) []string {
-	var out []string
+// scopeVarMembers returns members for the variable nodes declared in scopeSym.
+func scopeVarMembers(scopeSym *symbol.Symbol, shell *shellBuilder) ir.Members {
+	var keys []string
 	for _, c := range scopeSym.Children() {
-		if c.Kind != symbol.KindVariable {
+		if c.Kind != symbol.KindVariable && c.Kind != symbol.KindStatefulVariable {
 			continue
 		}
-		if r := shell.varNodes[c].register; r != nil {
-			out = append(out, r.Key)
+		e := shell.varNodes[c]
+		if e.register != nil {
+			keys = append(keys, e.register.Key)
+		}
+		if e.deref != nil {
+			keys = append(keys, e.deref.Key)
 		}
 	}
-	slices.Sort(out)
-	return out
+	slices.Sort(keys)
+	members := make(ir.Members, 0, len(keys))
+	for i := range keys {
+		members = append(members, ir.Member{NodeKey: &keys[i]})
+	}
+	return members
+}
+
+// memberNodeKeys returns every node key owned as a member under members.
+func memberNodeKeys(members ir.Members) set.Set[string] {
+	owned := set.New[string]()
+	var walk func(members ir.Members)
+	walk = func(members ir.Members) {
+		for i := range members {
+			if m := &members[i]; m.NodeKey != nil {
+				owned.Add(*m.NodeKey)
+			} else if m.Scope != nil {
+				for _, stratum := range m.Scope.Strata {
+					walk(stratum)
+				}
+				walk(m.Scope.Steps)
+			}
+		}
+	}
+	walk(members)
+	return owned
 }
 
 // buildVariableNode builds sym's variable node. The unedged f0 param seeds it;
@@ -1243,11 +1270,12 @@ func Analyze(
 			Kind:   ir.EdgeKindContinuous,
 		})
 	}
-	// Register, deref, and derivation nodes are always-live root members so
-	// they outlive the scopes that declared or feed them.
+	owned := memberNodeKeys(rootMembers)
 	for _, vn := range shell.rootNodes {
 		i.Nodes = append(i.Nodes, *vn)
-		rootMembers = append(rootMembers, ir.Member{NodeKey: new(vn.Key)})
+		if !owned.Contains(vn.Key) {
+			rootMembers = append(rootMembers, ir.Member{NodeKey: new(vn.Key)})
+		}
 	}
 	i.Edges = append(i.Edges, shell.varEdges...)
 
@@ -1884,10 +1912,12 @@ func analyzeSequence(
 		liveness = ir.LivenessGated
 	}
 	scope := ir.Scope{
-		Key:        seqName,
-		Mode:       ir.ScopeModeSequential,
-		Liveness:   liveness,
-		ResetNodes: scopeResetNodes(seqScope, shell),
+		Key:      seqName,
+		Mode:     ir.ScopeModeSequential,
+		Liveness: liveness,
+	}
+	if vm := scopeVarMembers(seqScope, shell); len(vm) > 0 {
+		scope.Strata = []ir.Members{vm}
 	}
 
 	items := ctx.AST.AllSequenceItem()
@@ -2081,9 +2111,10 @@ func analyzeStage(
 
 	// Body items resolve against the stage's own scope; top-level stages keep
 	// ctx.Scope (theirs is registered at the parent).
+	var varMembers ir.Members
 	if stageScope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
 		ctx = ctx.WithScope(stageScope)
-		scope.ResetNodes = scopeResetNodes(stageScope, shell)
+		varMembers = scopeVarMembers(stageScope, shell)
 	}
 	for _, item := range stageBody.AllStageItem() {
 		if decl := item.VariableDeclaration(); decl != nil {
@@ -2144,6 +2175,7 @@ func analyzeStage(
 		}
 	}
 
+	members = append(varMembers, members...)
 	if len(members) > 0 {
 		scope.Strata = []ir.Members{members}
 	}

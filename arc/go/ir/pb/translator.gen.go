@@ -286,7 +286,6 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 	}
 	pb := &Scope{
 		Key:         r.Key,
-		ResetNodes:  r.ResetNodes,
 		Mode:        modeVal,
 		Liveness:    livenessVal,
 		Strata:      strataVal,
@@ -341,7 +340,6 @@ func ScopeFromPB(pb *Scope) (ir.Scope, error) {
 		return ir.Scope{}, err
 	}
 	r.Key = pb.Key
-	r.ResetNodes = pb.ResetNodes
 	if pb.Activation != nil {
 		val, err := HandleFromPB(pb.Activation)
 		if err != nil {

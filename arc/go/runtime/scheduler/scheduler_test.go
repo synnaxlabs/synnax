@@ -1672,26 +1672,22 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
-	Describe("Scope reset nodes", func() {
-		It("Should reset a scope's ResetNodes on activation even when they are not members", func(ctx SpecContext) {
+	Describe("Sequential strata variable members", func() {
+		It("Should reset a sequential scope's strata members on activation", func(ctx SpecContext) {
 			mock("trigger", true)
 			nodeV := mock("V")
 			stageNode := mock("M")
 			stage := parallelScope("stage", stratum(ir.NodeMember("M")))
+			main := sequentialScope("main", []ir.Member{{Scope: &stage}})
+			main.Strata = []ir.Members{stratum(ir.NodeMember("V"))}
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
-			stage.Activation = &triggerH
-			stage.ResetNodes = []string{"V"}
+			main.Activation = &triggerH
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("V"), irNode("M")},
 				nil,
-				rootScope(
-					ir.NodeMember("trigger"),
-					ir.NodeMember("V"),
-					ir.ScopeMember(stage),
-				),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
-			// Root activation resets its own members at boot; measure from there.
 			base := nodeV.ResetCalled
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeV.ResetCalled).To(Equal(base + 1))
@@ -1716,8 +1712,10 @@ var _ = Describe("Scheduler", func() {
 			nodeV := mock("V")
 			nodeV.OnNext = func(ctx node.Context) { ctx.MarkSelfChanged() }
 			stageNode := mock("A")
-			first := parallelScope("first", stratum(ir.NodeMember("A")))
-			first.ResetNodes = []string{"V"}
+			first := parallelScope("first",
+				stratum(ir.NodeMember("A")),
+				stratum(ir.NodeMember("V")),
+			)
 			main := sequentialScope("main",
 				[]ir.Member{{Scope: &first}},
 				ir.Transition{
@@ -1735,17 +1733,13 @@ var _ = Describe("Scheduler", func() {
 					irNode("A", "output"),
 				},
 				[]ir.Edge{continuousEdge("seed", "output", "V", "in")},
-				rootWithStrata(
-					stratum(
-						ir.NodeMember("trigger"),
-						ir.NodeMember("seed"),
-						ir.ScopeMember(main),
-					),
-					stratum(ir.NodeMember("V")),
+				rootScope(
+					ir.NodeMember("trigger"),
+					ir.NodeMember("seed"),
+					ir.ScopeMember(main),
 				),
 			)
 			s := build(prog)
-			// Root activation resets its own members at boot; measure from there.
 			base := nodeV.ResetCalled
 			// Cycle 1: activation resets V; V runs via the trigger edge and
 			// marks itself.
@@ -1763,17 +1757,18 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeV.NextCalled).To(Equal(2))
 		})
 
-		It("Should ignore a ResetNodes key with no matching node", func(ctx SpecContext) {
+		It("Should ignore a strata variable member with no matching node", func(ctx SpecContext) {
 			mock("trigger", true)
 			mock("M")
 			stage := parallelScope("stage", stratum(ir.NodeMember("M")))
+			main := sequentialScope("main", []ir.Member{{Scope: &stage}})
+			main.Strata = []ir.Members{stratum(ir.NodeMember("ghost"))}
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
-			stage.Activation = &triggerH
-			stage.ResetNodes = []string{"ghost"}
+			main.Activation = &triggerH
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("M")},
 				nil,
-				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(stage)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
 			Expect(func() {

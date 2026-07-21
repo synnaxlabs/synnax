@@ -162,7 +162,6 @@ export interface Scope {
   strata: Members[];
   steps: Members;
   transitions: Transition[];
-  resetNodes: string[];
 }
 export const scopeZ: z.ZodType<Scope> = z.object({
   /** key is the scope identifier. */
@@ -179,8 +178,9 @@ export const scopeZ: z.ZodType<Scope> = z.object({
    */
   activation: handleZ.optional(),
   /**
-   * strata contains stratified execution layers for parallel scopes. Empty for
-   * sequential scopes. Stratum N depends only on strata 0 to N-1.
+   * strata contains stratified execution layers for parallel scopes. On sequential
+   * scopes, strata hold variable nodes that run every pass alongside the active step.
+   * Stratum N depends only on strata 0 to N-1.
    */
   get strata() {
     return membersZ.array().default(() => []);
@@ -194,14 +194,6 @@ export const scopeZ: z.ZodType<Scope> = z.object({
    * parallel scopes.
    */
   transitions: transitionZ.array().default(() => []),
-  /**
-   * resetNodes contains keys of variable nodes re-seeded each time this scope
-   * activates.
-   */
-  resetNodes: z
-    .string()
-    .array()
-    .default(() => []),
 });
 
 /**
