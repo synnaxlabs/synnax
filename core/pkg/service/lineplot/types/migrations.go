@@ -14,7 +14,5 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations returns the ordered migration chain for stored line plots.
-func Migrations() []migrate.Migration {
-	return []migrate.Migration{v6.CodecMigration, v6.Migration}
-}
+// Migrations is the ordered migration chain for stored line plots.
+var Migrations = []migrate.Migration{v6.CodecMigration, v6.Migration}

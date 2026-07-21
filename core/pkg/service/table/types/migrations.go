@@ -14,7 +14,5 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations returns the ordered migration chain for stored tables.
-func Migrations() []migrate.Migration {
-	return []migrate.Migration{v2.CodecMigration, v2.Migration}
-}
+// Migrations is the ordered migration chain for stored tables.
+var Migrations = []migrate.Migration{v2.CodecMigration, v2.Migration}

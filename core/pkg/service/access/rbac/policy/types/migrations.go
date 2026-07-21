@@ -15,7 +15,5 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations returns the ordered migration chain for stored policies.
-func Migrations() []migrate.Migration {
-	return []migrate.Migration{v0.Migration(), v1.CodecMigration}
-}
+// Migrations is the ordered migration chain for stored policies.
+var Migrations = []migrate.Migration{v0.Migration(), v1.CodecMigration}

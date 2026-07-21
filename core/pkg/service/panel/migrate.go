@@ -319,7 +319,5 @@ func ProjectLayoutsMigration() migrate.Migration {
 	)
 }
 
-// migrations returns the ordered migration chain for stored panels.
-func migrations() []migrate.Migration {
-	return []migrate.Migration{v0.CodecMigration, ProjectLayoutsMigration()}
-}
+// migrations is the ordered migration chain for stored panels.
+var migrations = []migrate.Migration{v0.CodecMigration, ProjectLayoutsMigration()}

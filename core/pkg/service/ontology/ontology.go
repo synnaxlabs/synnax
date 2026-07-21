@@ -101,7 +101,7 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 	if o.resourceTable, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Resource]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-		Migrations:      types.ResourceMigrations(),
+		Migrations:      types.ResourceMigrations,
 	}); !ok(err, o.resourceTable) {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
 			Indexes:         o.relIndexes.all(),
-			Migrations:      types.RelationshipMigrations(),
+			Migrations:      types.RelationshipMigrations,
 		}); !ok(err, o.relationshipTable) {
 		return nil, err
 	}

@@ -14,14 +14,9 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// ResourceMigrations returns the ordered migration chain for stored
-// resources.
-func ResourceMigrations() []migrate.Migration {
-	return []migrate.Migration{v0.ResourceCodecMigration}
-}
+// ResourceMigrations is the ordered migration chain for stored resources.
+var ResourceMigrations = []migrate.Migration{v0.ResourceCodecMigration}
 
-// RelationshipMigrations returns the ordered migration chain for stored
+// RelationshipMigrations is the ordered migration chain for stored
 // relationships.
-func RelationshipMigrations() []migrate.Migration {
-	return []migrate.Migration{v0.RelationshipCodecMigration}
-}
+var RelationshipMigrations = []migrate.Migration{v0.RelationshipCodecMigration}

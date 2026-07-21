@@ -14,7 +14,5 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations returns the ordered migration chain for stored schematics.
-func Migrations() []migrate.Migration {
-	return []migrate.Migration{v7.CodecMigration, v7.Migration}
-}
+// Migrations is the ordered migration chain for stored schematics.
+var Migrations = []migrate.Migration{v7.CodecMigration, v7.Migration}
