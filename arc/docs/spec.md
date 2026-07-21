@@ -176,7 +176,9 @@ area := distance ^ 2 // f64 m^2 (literal exponent required)
 ## Variables
 
 A variable names a value. `:=` declares a variable; `$=` declares a stateful variable.
-Variables are valid at the top level and inside functions, sequences, and stages.
+Variables are valid at the top level and inside functions, sequences, and stages. A
+top-level variable is immutable: it cannot be reassigned, rebound, or written by a flow,
+and cannot be stateful.
 
 ```
 LocalVariable ::= Identifier ':=' Expression
@@ -485,7 +487,7 @@ RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
 RoutingEntry ::= Identifier ':' FlowNode ('->' FlowNode)* (':' Identifier)?
 
-FlowNode ::= Identifier           // channel, stage, or sequence name
+FlowNode ::= Identifier           // channel, variable, stage, or sequence name
            | FunctionInvocation   // func{...}
            | Expression           // inline computation
            | 'next'               // next stage (sequences only)
@@ -533,8 +535,9 @@ Map multiple sources to named input parameters:
 
 ### Expressions in Flows
 
-Inline expressions act as implicit functions. Expressions can reference global-scope
-identifiers (channels), literals, and function calls—but not function-local variables.
+Inline expressions act as implicit functions. Expressions can reference identifiers in
+scope (channels, variables), literals, and function calls, but not function-local
+variables.
 
 ```arc
 temperature > 100 -> alarm{} // comparison

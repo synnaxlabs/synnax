@@ -10,7 +10,7 @@ next: "Operators"
 nextURL: "/reference/control/arc/reference/operators"
 ---
 
-import { Divider, Icon, Text } from "@synnaxlabs/pluto";
+import { Divider, Icon, Note, Text } from "@synnaxlabs/pluto";
 import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
@@ -47,6 +47,39 @@ total *= 2      // total = total * 2
 ratio /= 4      // ratio = ratio / 4
 remainder %= 3  // remainder = remainder % 3
 ```
+
+<Divider.Divider x />
+
+## Scope
+
+A variable is visible from its declaration to the end of its enclosing block, and nested
+blocks can read variables from enclosing scopes. A variable is usable only after its
+declaration, including across stages.
+
+```arc
+func example() {
+    // visible for the rest of the function
+    x := 10
+    if x > 5 {
+        // visible only inside the if block
+        y := x + 1
+    }
+    // y is not visible here
+}
+```
+
+```arc
+threshold := 100
+stage watch {
+    warn := reading > threshold // threshold is declared above
+}
+// warn is not visiblyt here
+```
+
+<Note.Note variant="info">
+  Top-level variables are global constants and cannot be reassigned or written to.
+  Stateful variable declarations are not allowed at the top level.
+</Note.Note>
 
 <Divider.Divider x />
 ## Variable Types
@@ -104,19 +137,21 @@ Command an actuator through an alias; on a fault, rebind it to the backup. Write
 wired to the alias and follow whichever channel is bound.
 
 ```arc
-pump := pump_a_cmd
+stage main {
+    pump := pump_a_cmd
 
-sequence run {
-    stage primary {
-        pump_a_fault => backup
+    sequence run {
+        stage primary {
+            pump_a_fault => backup
+        }
+        stage backup {
+            pump = pump_b_cmd // reroute commands to the backup pump
+        }
     }
-    stage backup {
-        pump = pump_b_cmd // reroute commands to the backup pump
-    }
+
+    // writes follow whichever pump is bound
+    run_cmd -> pump
 }
-
-// writes follow whichever pump is bound
-run_cmd -> pump
 ```
 
 </Details>
@@ -150,18 +185,20 @@ Point the same routine at a chosen unit; rebind the alias to switch targets with
 rewiring the flow.
 
 ```arc
-dut := dut_a_cmd // default target
+stage main {
+    dut := dut_a_cmd // default target
 
-sequence run {
-    stage select {
-        use_b => on_b // pick unit B instead
+    sequence run {
+        stage select {
+            use_b => on_b // pick unit B instead
+        }
+        stage on_b {
+            dut = dut_b_cmd
+        }
     }
-    stage on_b {
-        dut = dut_b_cmd
-    }
+
+    run_cmd -> dut // commands follow whichever unit is bound
 }
-
-run_cmd -> dut // commands follow whichever unit is bound
 ```
 
 </Details>
@@ -185,22 +222,24 @@ A status label that reflects the current stage and the live reading, logged as i
 streams.
 
 ```arc
-reactive_expr := "Nominal: " + str(ai_0)
+stage monitor {
+    reactive_expr := "Nominal: " + str(ai_0)
 
-sequence main {
-    stage nominal {
-        reactive_expr = "Nominal: " + str(ai_0)
+    sequence main {
+        stage nominal {
+            reactive_expr = "Nominal: " + str(ai_0)
+        }
+        stage low {
+            reactive_expr = "Low: " + str(ai_0)
+        }
+        stage high {
+            reactive_expr = "High: " + str(ai_0)
+        }
     }
-    stage low {
-        reactive_expr = "Low: " + str(ai_0)
-    }
-    stage high {
-        reactive_expr = "High: " + str(ai_0)
-    }
+
+    // Updates on underlying `ai_0`
+    reactive_expr -> log
 }
-
-// Updates on underlying `ai_0`
-reactive_expr -> log
 ```
 
 </Details>
@@ -212,20 +251,22 @@ A proportional command whose gain changes with the phase, feeding the proportion
 directly.
 
 ```arc
-// proportional command; the gain changes with the phase
-command := coarse_gain * (setpoint - pressure)
+stage control {
+    // proportional command; the gain changes with the phase
+    command := coarse_gain * (setpoint - pressure)
 
-sequence pressurize {
-    stage fill {
-        pressure > 400.0 => trim
+    sequence pressurize {
+        stage fill {
+            pressure > 400.0 => trim
+        }
+        stage trim {
+            // gentler gain near the target
+            command = fine_gain * (setpoint - pressure)
+        }
     }
-    stage trim {
-        // gentler gain near the target
-        command = fine_gain * (setpoint - pressure)
-    }
+
+    command -> valve_cmd
 }
-
-command -> valve_cmd
 ```
 
 </Details>
@@ -237,50 +278,24 @@ Read a scaled sensor; on a fault, reassign the same variable to a backup probe.
 Downstream flows stay wired to the variable.
 
 ```arc
-temp := probe_a * 0.1 - 40.0
+stage monitor {
+    temp := probe_a * 0.1 - 40.0
 
-sequence acquire {
-    stage primary {
-        probe_a_fault => failover
+    sequence acquire {
+        stage primary {
+            probe_a_fault => failover
+        }
+        stage failover {
+            // identical scaling, backup probe
+            temp = probe_b * 0.1 - 40.0
+        }
     }
-    stage failover {
-        // identical scaling, backup probe
-        temp = probe_b * 0.1 - 40.0
-    }
+
+    temp -> temperature
 }
-
-temp -> temperature
 ```
 
 </Details>
-
-<Divider.Divider x />
-
-## Scope
-
-A variable is visible from its declaration to the end of its enclosing block, and nested
-blocks can read variables from enclosing scopes. A variable is usable only after its
-declaration, including across stages.
-
-```arc
-func example() {
-    // visible for the rest of the function
-    x := 10
-    if x > 5 {
-        // visible only inside the if block
-        y := x + 1
-    }
-    // y is not visible here
-}
-```
-
-```arc
-threshold := 100
-stage watch {
-    warn := reading > threshold // threshold is declared above
-}
-// warn is not visiblyt here
-```
 
 <Divider.Divider x />
 

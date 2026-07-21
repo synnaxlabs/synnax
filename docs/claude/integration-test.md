@@ -54,7 +54,8 @@ step).
 - **Variable kinds.** _literal_ (`:=` / `$=`, a stateful value cell), _channel read_
   (read-only stream over channels), and _channel read/write_ (aliases a channel it reads
   and writes). A `:=` literal re-seeds to its declared value on every scope entry; `$=`
-  persists.
+  persists. Top-level variables are immutable; declare mutable variables in a sequence
+  or stage.
 
 ## No Timing Hacks
 
