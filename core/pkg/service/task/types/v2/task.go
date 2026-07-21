@@ -11,19 +11,9 @@ package v2
 
 import (
 	"fmt"
-	"strconv"
-
 	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 	"github.com/synnaxlabs/x/gorp"
 )
-
-func (k Key) Rack() rackv2.Key { return rackv2.Key(k >> 32) }
-
-func (k Key) LocalKey() uint32 { return uint32(uint64(k) & 0xFFFFFFFF) }
-
-func (k Key) String() string { return strconv.Itoa(int(k)) }
-
-func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 
 var _ gorp.Entry[Key] = Task{}
 

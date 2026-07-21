@@ -11,46 +11,44 @@
 
 package v1
 
+import "github.com/synnaxlabs/arc/types/types/v0"
+
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
-type Kind uint8
-
-//go:generate stringer -type=Kind
+type Kind = v0.Kind
 
 const (
-	KindInvalid Kind = iota
-	KindU8
-	KindU16
-	KindU32
-	KindU64
-	KindI8
-	KindI16
-	KindI32
-	KindI64
-	KindF32
-	KindF64
-	KindString
-	KindChan
-	KindSeries
-	KindVariable
-	KindNumericConstant
-	KindIntegerConstant
-	KindFloatConstant
-	KindExactIntegerFloatConstant
-	KindFunction
-	KindSequence
-	KindStage
+	KindInvalid                   Kind = v0.KindInvalid
+	KindU8                        Kind = v0.KindU8
+	KindU16                       Kind = v0.KindU16
+	KindU32                       Kind = v0.KindU32
+	KindU64                       Kind = v0.KindU64
+	KindI8                        Kind = v0.KindI8
+	KindI16                       Kind = v0.KindI16
+	KindI32                       Kind = v0.KindI32
+	KindI64                       Kind = v0.KindI64
+	KindF32                       Kind = v0.KindF32
+	KindF64                       Kind = v0.KindF64
+	KindString                    Kind = v0.KindString
+	KindChan                      Kind = v0.KindChan
+	KindSeries                    Kind = v0.KindSeries
+	KindVariable                  Kind = v0.KindVariable
+	KindNumericConstant           Kind = v0.KindNumericConstant
+	KindIntegerConstant           Kind = v0.KindIntegerConstant
+	KindFloatConstant             Kind = v0.KindFloatConstant
+	KindExactIntegerFloatConstant Kind = v0.KindExactIntegerFloatConstant
+	KindFunction                  Kind = v0.KindFunction
+	KindSequence                  Kind = v0.KindSequence
+	KindStage                     Kind = v0.KindStage
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection uint8
-
-//go:generate stringer -type=ChanDirection
+type ChanDirection = v0.ChanDirection
 
 const (
-	ChanDirectionNone ChanDirection = iota
-	ChanDirectionRead
-	ChanDirectionWrite
+	ChanDirectionNone  ChanDirection = v0.ChanDirectionNone
+	ChanDirectionRead  ChanDirection = v0.ChanDirectionRead
+	ChanDirectionWrite ChanDirection = v0.ChanDirectionWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.
@@ -103,31 +101,7 @@ type Channels struct {
 
 // Dimensions contains physical dimension exponents for dimensional analysis (SI base
 // quantities).
-type Dimensions struct {
-	// Length is the length dimension exponent (meters).
-	Length int8 `json:"length" msgpack:"length"`
-	// Mass is the mass dimension exponent (kilograms).
-	Mass int8 `json:"mass" msgpack:"mass"`
-	// Time is the time dimension exponent (seconds).
-	Time int8 `json:"time" msgpack:"time"`
-	// Current is the electric current dimension exponent (amperes).
-	Current int8 `json:"current" msgpack:"current"`
-	// Temperature is the temperature dimension exponent (kelvin).
-	Temperature int8 `json:"temperature" msgpack:"temperature"`
-	// Angle is the angle dimension exponent (radians).
-	Angle int8 `json:"angle" msgpack:"angle"`
-	// Count is the count dimension exponent (dimensionless quantity).
-	Count int8 `json:"count" msgpack:"count"`
-	// Data is the data size dimension exponent (bytes).
-	Data int8 `json:"data" msgpack:"data"`
-}
+type Dimensions = v0.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
-type Unit struct {
-	// Dimensions contains physical dimension exponents.
-	Dimensions Dimensions `json:"dimensions" msgpack:"dimensions"`
-	// Scale is the scale factor relative to SI base units.
-	Scale float64 `json:"scale" msgpack:"scale"`
-	// Name is the unit name (e.g., 'psi', 'ns', 'm/s').
-	Name string `json:"name" msgpack:"name"`
-}
+type Unit = v0.Unit

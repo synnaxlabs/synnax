@@ -12,6 +12,7 @@
 package v2
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -21,7 +22,7 @@ import (
 // because task configuration signals are passed through gossip operations, which can
 // take 15s+ to propagate through a large cluster. This structure minimizes hops and
 // configuration latency.
-type Key uint32
+type Key = v1.Key
 
 // StatusDetails contains rack-specific status details.
 type StatusDetails struct {

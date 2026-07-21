@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2
+package v1
 
 import (
-	"github.com/synnaxlabs/x/gorp"
+	"strconv"
+
+	rackv2 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 )
 
-var _ gorp.Entry[Key] = Rack{}
+func (k Key) Rack() rackv2.Key { return rackv2.Key(k >> 32) }
 
-// GorpKey implements gorp.Entry.
-func (r Rack) GorpKey() Key { return r.Key }
+func (k Key) LocalKey() uint32 { return uint32(uint64(k) & 0xFFFFFFFF) }
 
-// SetOptions implements gorp.Entry.
-func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
+func (k Key) String() string { return strconv.Itoa(int(k)) }
+
+func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }

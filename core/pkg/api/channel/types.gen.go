@@ -43,8 +43,8 @@ type Channel struct {
 	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
 	// nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
-	// Index is the channel used to index this channel's values, associating each value with
-	// a timestamp.
+	// Index is the channel used to index this channel's values, associating each value
+	// with a timestamp.
 	Index channel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
 	Alias *string `json:"alias,omitempty" msgpack:"alias,omitempty"`
@@ -59,8 +59,8 @@ type Channel struct {
 	// Operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
 	Operations []channel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
-	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
-	// channels can have a policy of shared concurrency.
+	// Concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Status is the current operational status of the channel.
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`

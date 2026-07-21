@@ -12,15 +12,15 @@
 package v1
 
 import (
-	"github.com/google/uuid"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	telem "github.com/synnaxlabs/x/telem/types/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a range, represented as a UUID.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // Range is a user-defined region of time in the Synnax cluster. Ranges act as a method
 // for labeling and categorizing telemetry data within specific time periods.
@@ -29,7 +29,8 @@ type Range struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the range.
 	Name string `json:"name" msgpack:"name"`
-	// TimeRange is the temporal extent of the range, defining its start and end timestamps.
+	// TimeRange is the temporal extent of the range, defining its start and end
+	// timestamps.
 	TimeRange telem.TimeRange `json:"time_range" msgpack:"time_range"`
 	// Color is an optional display color for visual identification of the range in user
 	// interfaces.

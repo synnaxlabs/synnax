@@ -14,12 +14,12 @@ package v1
 import (
 	"context"
 	compiler "github.com/synnaxlabs/arc/compiler"
-	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
+	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
 	program "github.com/synnaxlabs/arc/program/types/v2"
 )
 
 func AutoMigrateProgram(ctx context.Context, old Program) (program.Program, error) {
-	ir, err := irv1.AutoMigrateIR(ctx, old.IR)
+	ir, err := irv2.AutoMigrateIR(ctx, old.IR)
 	if err != nil {
 		return program.Program{}, err
 	}

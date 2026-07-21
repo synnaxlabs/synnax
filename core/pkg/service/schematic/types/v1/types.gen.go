@@ -12,14 +12,14 @@
 package v1
 
 import (
-	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // Node is a diagram node representing a symbol in the schematic.
 type Node struct {

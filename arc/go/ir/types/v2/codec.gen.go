@@ -78,21 +78,6 @@ func (a *Authorities) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the orc binary format.
-func (bv Body) EncodeOrc(w *orc.Writer) error {
-	w.String(bv.Raw)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the orc binary format.
-func (bv *Body) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if bv.Raw, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the orc binary format.
 func (e Edge) EncodeOrc(w *orc.Writer) error {
 	if err := e.Source.EncodeOrc(w); err != nil {
 		return err

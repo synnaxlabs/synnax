@@ -12,6 +12,7 @@
 package v2
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
@@ -20,7 +21,7 @@ import (
 )
 
 // Key is a unique identifier for the device
-type Key = string
+type Key = v1.Key
 
 // StatusDetails contains device-specific status details identifying the device and its
 // associated rack.
@@ -51,8 +52,8 @@ type Device struct {
 	Model string `json:"model" msgpack:"model"`
 	// Name is a human-readable name for the device.
 	Name string `json:"name" msgpack:"name"`
-	// Configured indicates whether the device has been successfully configured and is ready
-	// for use.
+	// Configured indicates whether the device has been successfully configured and is
+	// ready for use.
 	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties contains device-specific configuration properties stored as JSON.
 	// Structure varies by device make and model.

@@ -13,6 +13,7 @@ package v2
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/ir/types/v1"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	gov1 "github.com/synnaxlabs/arc/types/types/v1"
@@ -28,14 +29,12 @@ type Handle struct {
 }
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
-type EdgeKind uint8
-
-//go:generate stringer -type=EdgeKind
+type EdgeKind = v1.EdgeKind
 
 const (
-	EdgeKindUnspecified EdgeKind = iota
-	EdgeKindContinuous
-	EdgeKindConditional
+	EdgeKindUnspecified EdgeKind = v1.EdgeKindUnspecified
+	EdgeKindContinuous  EdgeKind = v1.EdgeKindContinuous
+	EdgeKindConditional EdgeKind = v1.EdgeKindConditional
 )
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
@@ -52,25 +51,21 @@ type Edge struct {
 type Edges []Edge
 
 // ScopeMode defines the concurrency model of a Scope.
-type ScopeMode uint8
-
-//go:generate stringer -type=ScopeMode
+type ScopeMode = v1.ScopeMode
 
 const (
-	ScopeModeUnspecified ScopeMode = iota
-	ScopeModeParallel
-	ScopeModeSequential
+	ScopeModeUnspecified ScopeMode = v1.ScopeModeUnspecified
+	ScopeModeParallel    ScopeMode = v1.ScopeModeParallel
+	ScopeModeSequential  ScopeMode = v1.ScopeModeSequential
 )
 
 // Liveness defines whether a Scope is continuously active or must be activated.
-type Liveness uint8
-
-//go:generate stringer -type=Liveness
+type Liveness = v1.Liveness
 
 const (
-	LivenessUnspecified Liveness = iota
-	LivenessAlways
-	LivenessGated
+	LivenessUnspecified Liveness = v1.LivenessUnspecified
+	LivenessAlways      Liveness = v1.LivenessAlways
+	LivenessGated       Liveness = v1.LivenessGated
 )
 
 // Transition is a declarative state-transition rule on a sequential Scope.
@@ -109,22 +104,18 @@ type Scope struct {
 	// Activation is the handle whose truthy value activates a gated scope. Unset for
 	// always-live scopes.
 	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
-	// Strata contains stratified execution layers for parallel scopes. Empty for sequential
-	// scopes. Stratum N depends only on strata 0 to N-1.
+	// Strata contains stratified execution layers for parallel scopes. Empty for
+	// sequential scopes. Stratum N depends only on strata 0 to N-1.
 	Strata []Members `json:"strata,omitzero" msgpack:"strata,omitzero"`
 	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
 	Steps Members `json:"steps,omitzero" msgpack:"steps,omitzero"`
-	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
-	// scopes.
+	// Transitions contains state-transition rules for sequential scopes. Empty for
+	// parallel scopes.
 	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
 }
 
 // Body is raw function body source code with optional parsed AST.
-type Body struct {
-	// Raw is the raw source code text.
-	Raw string                  `json:"raw" msgpack:"raw"`
-	AST antlr.ParserRuleContext `json:"-"`
-}
+type Body = v1.Body
 
 // Function is a function template definition with typed parameters, serving as a
 // blueprint for node instantiation.

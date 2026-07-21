@@ -12,8 +12,8 @@
 package v1
 
 import (
-	"github.com/google/uuid"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/log/types/v0"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	notation "github.com/synnaxlabs/x/notation/types/v0"
 	telem "github.com/synnaxlabs/x/telem/types/v0"
@@ -22,7 +22,7 @@ import (
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // TimestampConfig is per-channel timestamp display configuration.
 type TimestampConfig struct {
@@ -97,8 +97,8 @@ type Log struct {
 	Channels []ChannelEntry `json:"channels,omitzero" msgpack:"channels,omitzero"`
 	// TimestampPrecision is the precision of displayed timestamps (0-3).
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
-	// HideChannelNames controls whether channel names are hidden. When false (the default),
-	// names are displayed.
+	// HideChannelNames controls whether channel names are hidden. When false (the
+	// default), names are displayed.
 	HideChannelNames bool `json:"hide_channel_names" msgpack:"hide_channel_names"`
 	// HideReceiptTimestamp controls whether the receipt timestamp column is hidden. When
 	// false (the default), it is displayed.

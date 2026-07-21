@@ -11,12 +11,7 @@
 
 package v2
 
-import (
-	xjson "github.com/synnaxlabs/x/encoding/json"
-	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/encoding/orc"
-	msgpack "github.com/vmihailenco/msgpack/v5"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 // EncodeOrc writes the value to w in the orc binary format.
 func (rv Rack) EncodeOrc(w *orc.Writer) error {
@@ -89,25 +84,5 @@ func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 		}
 		sd.Rack = Key(v)
 	}
-	return nil
-}
-
-// DecodeMsgpack coerces numeric or string msgpack values into Key.
-func (kv *Key) DecodeMsgpack(dec *msgpack.Decoder) error {
-	n, err := xmsgpack.UnmarshalUint32(dec)
-	if err != nil {
-		return err
-	}
-	*kv = Key(n)
-	return nil
-}
-
-// UnmarshalJSON coerces JSON numbers or strings into Key.
-func (kv *Key) UnmarshalJSON(b []byte) error {
-	n, err := xjson.UnmarshalStringUint32(b)
-	if err != nil {
-		return err
-	}
-	*kv = Key(n)
 	return nil
 }

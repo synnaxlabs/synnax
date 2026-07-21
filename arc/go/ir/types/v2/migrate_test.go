@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1_test
+package v2_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir/types/v1"
+	"github.com/synnaxlabs/arc/ir/types/v2"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Migrate", func() {
 	It("Should carry a Function's fields to the next version", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateFunction(ctx, v1.Function{
+		migrated := MustSucceed(v2.MigrateFunction(ctx, v1.Function{
 			Key:  "scale",
 			Body: v1.Body{Raw: "x * 2"},
 		}))
@@ -26,7 +27,7 @@ var _ = Describe("Migrate", func() {
 		Expect(migrated.Body.Raw).To(Equal("x * 2"))
 	})
 	It("Should carry a Node's key and type", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateNode(ctx, v1.Node{Key: "n1", Type: "add"}))
+		migrated := MustSucceed(v2.MigrateNode(ctx, v1.Node{Key: "n1", Type: "add"}))
 		Expect(migrated.Key).To(Equal("n1"))
 		Expect(migrated.Type).To(Equal("add"))
 	})

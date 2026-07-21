@@ -19,4 +19,4 @@ var _ gorp.Entry[Key] = Policy{}
 func (p Policy) GorpKey() Key { return p.Key }
 
 // SetOptions implements the gorp.Entry interface.
-func (p Policy) SetOptions() []any { return nil }
+func (Policy) SetOptions() []any { return nil }

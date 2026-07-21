@@ -92,49 +92,6 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the orc binary format.
-func (d Dimensions) EncodeOrc(w *orc.Writer) error {
-	w.Int8(int8(d.Length))
-	w.Int8(int8(d.Mass))
-	w.Int8(int8(d.Time))
-	w.Int8(int8(d.Current))
-	w.Int8(int8(d.Temperature))
-	w.Int8(int8(d.Angle))
-	w.Int8(int8(d.Count))
-	w.Int8(int8(d.Data))
-	return nil
-}
-
-// DecodeOrc reads the value from r in the orc binary format.
-func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if d.Length, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Mass, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Time, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Current, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Temperature, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Angle, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Count, err = r.Int8(); err != nil {
-		return err
-	}
-	if d.Data, err = r.Int8(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the orc binary format.
 func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
 	w.Bool(fp.Inputs != nil)
 	if fp.Inputs != nil {
@@ -391,31 +348,6 @@ func (t *Type) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		t.ChanDirection = ChanDirection(v)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the orc binary format.
-func (u Unit) EncodeOrc(w *orc.Writer) error {
-	if err := u.Dimensions.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Float64(float64(u.Scale))
-	w.String(u.Name)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the orc binary format.
-func (u *Unit) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = u.Dimensions.DecodeOrc(r); err != nil {
-		return err
-	}
-	if u.Scale, err = r.Float64(); err != nil {
-		return err
-	}
-	if u.Name, err = r.String(); err != nil {
-		return err
 	}
 	return nil
 }

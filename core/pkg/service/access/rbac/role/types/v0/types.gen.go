@@ -24,7 +24,8 @@ type Role struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the role (e.g., 'Administrator', 'Engineer').
 	Name string `json:"name" msgpack:"name"`
-	// Description is an optional description explaining what permissions the role provides.
+	// Description is an optional description explaining what permissions the role
+	// provides.
 	Description string `json:"description" msgpack:"description"`
 	// Internal is true if this is a built-in system role that cannot be deleted.
 	Internal bool `json:"internal" msgpack:"internal"`

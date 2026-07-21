@@ -12,8 +12,8 @@
 package v1
 
 import (
-	"github.com/google/uuid"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v0"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	text "github.com/synnaxlabs/x/text/types/v0"
@@ -22,7 +22,7 @@ import (
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // TickType selects how an axis renders its tick labels.
 type TickType string
@@ -233,8 +233,8 @@ type Axis struct {
 	// LabelLevel is the typography level of the label.
 	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
 	// Bounds is the value-space window of the axis. When the matching entry in
-	// manual_bounds is false the field is overwritten locally on every render; otherwise it
-	// is the user-set fixed bound.
+	// manual_bounds is false the field is overwritten locally on every render; otherwise
+	// it is the user-set fixed bound.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// ManualBounds controls per-edge manual bound override.
 	ManualBounds ManualBounds `json:"manual_bounds" msgpack:"manual_bounds"`

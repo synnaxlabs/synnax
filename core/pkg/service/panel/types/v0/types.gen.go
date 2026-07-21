@@ -58,7 +58,8 @@ type TabVariant interface {
 // TabResource is a tab displaying a backing core document.
 type TabResource struct {
 	TabBase
-	// Resource is the visualization resource displayed by this tab, set via SetTabResource.
+	// Resource is the visualization resource displayed by this tab, set via
+	// SetTabResource.
 	Resource ontology.ID `json:"resource" msgpack:"resource"`
 }
 

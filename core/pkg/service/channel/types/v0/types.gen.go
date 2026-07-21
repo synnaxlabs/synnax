@@ -84,13 +84,14 @@ type Channel struct {
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// LocalKey is the locally-unique portion of this channel's key.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
-	// LocalIndex is the channel used to index this channel's values, associating each value
-	// with a timestamp.
+	// LocalIndex is the channel used to index this channel's values, associating each
+	// value with a timestamp.
 	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
-	// Virtual is true if this channel does not persist data and is used only for streaming.
+	// Virtual is true if this channel does not persist data and is used only for
+	// streaming.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
-	// Concurrency sets the policy for concurrent writes to the channel's data. Only virtual
-	// channels can have a policy of shared concurrency.
+	// Concurrency sets the policy for concurrent writes to the channel's data. Only
+	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `json:"internal" msgpack:"internal"`

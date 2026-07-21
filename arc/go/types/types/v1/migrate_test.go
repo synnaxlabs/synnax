@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v0_test
+package v1_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/types/types/v0"
+	"github.com/synnaxlabs/arc/types/types/v1"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("MigrateFunctionProperties", func() {
 	It("Should carry inputs and outputs while dropping the removed config", func(ctx SpecContext) {
-		migrated := MustSucceed(v0.MigrateFunctionProperties(ctx, v0.FunctionProperties{
+		migrated := MustSucceed(v1.MigrateFunctionProperties(ctx, v0.FunctionProperties{
 			Inputs:  v0.Params{{Name: "in"}},
 			Outputs: v0.Params{{Name: "out"}},
 			Config:  v0.Params{{Name: "cfg"}},

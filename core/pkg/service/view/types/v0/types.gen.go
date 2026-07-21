@@ -28,7 +28,7 @@ type View struct {
 	Name string `json:"name" msgpack:"name"`
 	// Type is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
 	Type string `json:"type" msgpack:"type"`
-	// Query is a type-agnostic JSON object containing view-specific configuration and query
-	// parameters.
+	// Query is a type-agnostic JSON object containing view-specific configuration and
+	// query parameters.
 	Query msgpack.EncodedJSON `json:"query,omitzero" msgpack:"query,omitzero"`
 }

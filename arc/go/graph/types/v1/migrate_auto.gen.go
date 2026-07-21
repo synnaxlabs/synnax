@@ -25,7 +25,7 @@ func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
 	functions := make(ir.Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
-		if functions[i], err = irv1.MigrateFunction(ctx, v); err != nil {
+		if functions[i], err = ir.MigrateFunction(ctx, v); err != nil {
 			return graph.Graph{}, err
 		}
 	}

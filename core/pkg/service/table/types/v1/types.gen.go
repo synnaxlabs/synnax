@@ -12,20 +12,20 @@
 package v1
 
 import (
-	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/table/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // Cell is a single cell in a table, identified by key and variant.
 type Cell struct {
 	// Key is the unique identifier for this cell within the table.
 	Key string `json:"key" msgpack:"key"`
-	// Variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-	// the shape of props and which Pluto cell component renders the cell.
+	// Variant is the cell variant identifier (e.g. "text", "value"). The variant
+	// determines the shape of props and which Pluto cell component renders the cell.
 	Variant string `json:"variant" msgpack:"variant"`
 	// Props is the variant-specific cell configuration. The shape is determined by the
 	// variant; the wire format intentionally stores it as an opaque record so new variants
@@ -37,8 +37,8 @@ type Cell struct {
 // without identifying which cell. Used by actions that overwrite existing cells in
 // place (EraseCells), where the target cell's key is provided separately.
 type CellTemplate struct {
-	// Variant is the cell variant identifier (e.g. "text", "value"). The variant determines
-	// the shape of props and which Pluto cell component renders the cell.
+	// Variant is the cell variant identifier (e.g. "text", "value"). The variant
+	// determines the shape of props and which Pluto cell component renders the cell.
 	Variant string `json:"variant" msgpack:"variant"`
 	// Props is the variant-specific cell configuration. The shape is determined by the
 	// variant; the wire format intentionally stores it as an opaque record so new variants

@@ -12,43 +12,30 @@
 package v2
 
 import (
-	"github.com/google/uuid"
 	graph "github.com/synnaxlabs/arc/graph/types/v2"
 	program "github.com/synnaxlabs/arc/program/types/v2"
 	text "github.com/synnaxlabs/arc/text/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails struct {
-	// Running indicates whether the Arc module is currently executing.
-	Running bool `json:"running" msgpack:"running"`
-}
+type StatusDetails = v1.StatusDetails
 
 // Status is the status of an Arc module including execution state.
 type Status = status.Status[StatusDetails]
 
 // Key is a unique identifier for an Arc module.
-type Key = uuid.UUID
+type Key = v1.Key
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode string
+type Mode = v1.Mode
 
 const (
-	ModeText  Mode = "text"
-	ModeGraph Mode = "graph"
+	ModeText  Mode = v1.ModeText
+	ModeGraph Mode = v1.ModeGraph
 )
-
-// IsValid reports whether m is one of the defined Mode values.
-func (m Mode) IsValid() bool {
-	switch m {
-	case ModeText, ModeGraph:
-		return true
-	default:
-		return false
-	}
-}
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.

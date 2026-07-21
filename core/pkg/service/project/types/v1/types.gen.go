@@ -12,13 +12,13 @@
 package v1
 
 import (
-	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Key is a unique identifier for a project, represented as a UUID.
-type Key = uuid.UUID
+type Key = v0.Key
 
 // Project is a named, persistable container that stores the layout and organization of
 // the Console application. Projects allow users to save and restore custom arrangements
