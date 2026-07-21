@@ -9,9 +9,7 @@
 
 package rack
 
-import (
-	"github.com/synnaxlabs/synnax/pkg/service/node"
-)
+import "github.com/synnaxlabs/synnax/pkg/service/node"
 
 // NewKey instantiates a new rack key from its node and local key components.
 func NewKey(node node.Key, localKey uint16) Key {
