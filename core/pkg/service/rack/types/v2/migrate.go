@@ -19,9 +19,10 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func MigrateRack(ctx context.Context, old v1.Rack) (Rack, error) {
+func migrateRack(ctx context.Context, old v1.Rack) (Rack, error) {
 	return AutoMigrateRack(ctx, old)
 }
 
@@ -29,14 +30,17 @@ func MigrateRack(ctx context.Context, old v1.Rack) (Rack, error) {
 // depend on.
 const codecMigrationKey = "msgpack_to_orc"
 
-// CodecMigration re-encodes stored racks from msgpack to orc. It is pinned to
+// codecMigration re-encodes stored racks from msgpack to orc. It is pinned to
 // the v1 shapes so its output stays stable as Rack evolves.
-var CodecMigration = gorp.CodecMigration[v1.Key, v1.Rack](
-	codecMigrationKey, v0.Migration(v0.MigrationConfig{}).Key(),
+var codecMigration = gorp.CodecMigration[v1.Key, v1.Rack](
+	codecMigrationKey, v0.NewMigration(v0.MigrationConfig{}).Key(),
 )
 
-// Migration lifts stored racks from v1 to v2, dropping the persisted status
+// liftMigration lifts stored racks from v1 to v2, dropping the persisted status
 // field.
-var Migration = gorp.NewEntryMigration(
-	"v54_drop_status", MigrateRack, codecMigrationKey,
+var liftMigration = gorp.NewEntryMigration(
+	"v54_drop_status", migrateRack, codecMigrationKey,
 )
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{codecMigration, liftMigration}

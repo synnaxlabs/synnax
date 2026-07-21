@@ -19,9 +19,10 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func MigrateDevice(ctx context.Context, old v1.Device) (Device, error) {
+func migrateDevice(ctx context.Context, old v1.Device) (Device, error) {
 	return AutoMigrateDevice(ctx, old)
 }
 
@@ -29,14 +30,17 @@ func MigrateDevice(ctx context.Context, old v1.Device) (Device, error) {
 // depend on.
 const codecMigrationKey = "msgpack_to_orc"
 
-// CodecMigration re-encodes stored devices from msgpack to orc. It is pinned
+// codecMigration re-encodes stored devices from msgpack to orc. It is pinned
 // to the v1 shapes so its output stays stable as Device evolves.
-var CodecMigration = gorp.CodecMigration[Key, v1.Device](
-	codecMigrationKey, v0.Migration(v0.MigrationConfig{}).Key(),
+var codecMigration = gorp.CodecMigration[Key, v1.Device](
+	codecMigrationKey, v0.NewMigration(v0.MigrationConfig{}).Key(),
 )
 
-// Migration lifts stored devices from v1 to v2, dropping the persisted status
+// liftMigration lifts stored devices from v1 to v2, dropping the persisted status
 // and parent fields.
-var Migration = gorp.NewEntryMigration[Key, Key, v1.Device, Device](
-	"v54_drop_status_parent", MigrateDevice, codecMigrationKey,
+var liftMigration = gorp.NewEntryMigration[Key, Key, v1.Device, Device](
+	"v54_drop_status_parent", migrateDevice, codecMigrationKey,
 )
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{codecMigration, liftMigration}

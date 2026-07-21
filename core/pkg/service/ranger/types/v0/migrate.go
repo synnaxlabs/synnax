@@ -31,7 +31,7 @@ type MigrationConfig struct {
 	alamos.Instrumentation
 }
 
-func Migration(cfg MigrationConfig) migrate.Migration {
+func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"range_groups_1",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {

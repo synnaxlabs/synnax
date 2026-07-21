@@ -11,5 +11,5 @@ package v0
 
 import "github.com/synnaxlabs/x/gorp"
 
-// CodecMigration re-encodes stored entries from msgpack to orc.
-var CodecMigration = gorp.CodecMigration[Key, Group]("msgpack_to_orc")
+// Migration re-encodes stored entries from msgpack to orc.
+var Migration = gorp.CodecMigration[Key, Group]("msgpack_to_orc")

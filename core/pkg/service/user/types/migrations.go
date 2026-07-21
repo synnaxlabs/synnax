@@ -15,4 +15,4 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored users.
-var Migrations = []migrate.Migration{v0.CodecMigration}
+var Migrations = []migrate.Migration{v0.Migration}

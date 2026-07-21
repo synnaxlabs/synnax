@@ -16,4 +16,4 @@ import (
 )
 
 // Migrations is the ordered migration chain for stored policies.
-var Migrations = []migrate.Migration{v0.Migration(), v1.CodecMigration}
+var Migrations = []migrate.Migration{v0.Migration, v1.Migration}

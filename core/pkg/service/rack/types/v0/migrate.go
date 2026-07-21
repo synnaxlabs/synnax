@@ -30,13 +30,9 @@ type MigrationConfig struct {
 	Status       *status.Service
 }
 
-// migrationKey names the v0 embedded-rack rename and status backfill
-// migration.
-const migrationKey = "v0.embedded_rack_rename_status_backfill"
-
-func Migration(cfg MigrationConfig) migrate.Migration {
+func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		migrationKey,
+		"v0.embedded_rack_rename_status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			if err := renameEmbeddedRack(ctx, tx, ins, cfg); err != nil {
 				return err

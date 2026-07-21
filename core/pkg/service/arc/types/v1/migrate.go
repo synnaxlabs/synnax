@@ -15,6 +15,8 @@ package v1
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 
 	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
@@ -57,4 +59,31 @@ func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) strin
 		return v
 	}
 	return def
+}
+
+// codecMigrationKey names the codec migration all later arc migrations depend
+// on.
+const codecMigrationKey = "msgpack_to_orc"
+
+// codecMigration re-encodes stored arcs from msgpack to orc. It is pinned to
+// the v0 shape so its output stays stable as Arc evolves.
+var codecMigration = gorp.CodecMigration[Key, v0.Arc](codecMigrationKey)
+
+// dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted program
+// status.
+var dropProgramStatusMigration = gorp.NewEntryMigration(
+	"v54_drop_program_status", MigrateArc, codecMigrationKey,
+)
+
+// renameSetStatusMigration renames legacy set_status graph nodes onto the
+// current node type.
+var renameSetStatusMigration = gorp.NewEntryMigration(
+	"v55_rename_set_status", RenameSetStatus, dropProgramStatusMigration.Key(),
+)
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{
+	codecMigration,
+	dropProgramStatusMigration,
+	renameSetStatusMigration,
 }

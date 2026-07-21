@@ -15,8 +15,8 @@ import (
 )
 
 // ResourceMigrations is the ordered migration chain for stored resources.
-var ResourceMigrations = []migrate.Migration{v0.ResourceCodecMigration}
+var ResourceMigrations = []migrate.Migration{v0.ResourceMigration}
 
 // RelationshipMigrations is the ordered migration chain for stored
 // relationships.
-var RelationshipMigrations = []migrate.Migration{v0.RelationshipCodecMigration}
+var RelationshipMigrations = []migrate.Migration{v0.RelationshipMigration}

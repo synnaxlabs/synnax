@@ -253,21 +253,17 @@ const workspaceToProjectMigrationKey = "v56_migrate_workspace_to_project"
 
 // WorkspaceToProjectMigration lifts stored workspaces into projects. It
 // depends on the codec migration so it always reads orc-encoded entries.
-func WorkspaceToProjectMigration() migrate.Migration {
-	return migrate.WithAddedDeps(
-		gorp.NewMigration(workspaceToProjectMigrationKey, MigrateWorkspaceToProject),
-		v1.CodecMigration.Key(),
-	)
-}
+var WorkspaceToProjectMigration = migrate.WithAddedDeps(
+	gorp.NewMigration(workspaceToProjectMigrationKey, MigrateWorkspaceToProject),
+	v1.Migration.Key(),
+)
 
 // LayoutsToStagingMigration stages each project's legacy layout blob for the
 // panel service to adopt.
-func LayoutsToStagingMigration() migrate.Migration {
-	return migrate.WithAddedDeps(
-		gorp.NewMigration("v56_stage_project_layouts", MigrateLayoutsToStaging),
-		workspaceToProjectMigrationKey,
-	)
-}
+var LayoutsToStagingMigration = migrate.WithAddedDeps(
+	gorp.NewMigration("v56_stage_project_layouts", MigrateLayoutsToStaging),
+	workspaceToProjectMigrationKey,
+)
 
 // RemoveAuthorRelationshipsMigration drops the legacy author relationships
 // projects held in the ontology.
@@ -283,19 +279,19 @@ func RemoveAuthorRelationshipsMigration(otg *ontology.Ontology) migrate.Migratio
 	)
 }
 
-// MigrationConfig is the configuration for Migrations.
-type MigrationConfig struct {
+// MigrationsConfig is the configuration for NewMigrations.
+type MigrationsConfig struct {
 	// Ontology is the cluster ontology; the author-relationship cleanup runs
 	// against it.
 	Ontology *ontology.Ontology
 }
 
 // NewMigrations returns the ordered migration chain for stored projects.
-func NewMigrations(cfg MigrationConfig) []migrate.Migration {
+func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
 	return []migrate.Migration{
-		v1.CodecMigration,
-		WorkspaceToProjectMigration(),
-		LayoutsToStagingMigration(),
+		v1.Migration,
+		WorkspaceToProjectMigration,
+		LayoutsToStagingMigration,
 		RemoveAuthorRelationshipsMigration(cfg.Ontology),
 	}
 }

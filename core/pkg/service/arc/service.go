@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	arctypes "github.com/synnaxlabs/synnax/pkg/service/arc/types"
 	"io"
 	"slices"
 
@@ -22,9 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/status"
-	arcv0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
-	arcv1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
-	arcv2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -33,7 +31,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -217,22 +214,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			gorp.CodecMigration[Key, arcv0.Arc]("msgpack_to_orc"),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v54_drop_program_status", arcv1.MigrateArc),
-				"msgpack_to_orc",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v55_rename_set_status", arcv1.RenameSetStatus),
-				"v54_drop_program_status",
-			),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration("v56_to_live", arcv2.MigrateArc),
-				"v55_rename_set_status",
-			),
-		},
+		DB:              cfg.DB,
+		Migrations:      arctypes.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

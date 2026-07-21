@@ -11,9 +11,9 @@ package v0
 
 import "github.com/synnaxlabs/x/gorp"
 
-// ResourceCodecMigration re-encodes stored resources from msgpack to orc.
-var ResourceCodecMigration = gorp.CodecMigration[string, Resource]("msgpack_to_orc")
+// ResourceMigration re-encodes stored resources from msgpack to orc.
+var ResourceMigration = gorp.CodecMigration[string, Resource]("msgpack_to_orc")
 
-// RelationshipCodecMigration re-encodes stored relationships from msgpack to
+// RelationshipMigration re-encodes stored relationships from msgpack to
 // orc.
-var RelationshipCodecMigration = gorp.CodecMigration[string, Relationship]("msgpack_to_orc")
+var RelationshipMigration = gorp.CodecMigration[string, Relationship]("msgpack_to_orc")

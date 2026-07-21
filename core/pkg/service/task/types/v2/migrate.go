@@ -19,9 +19,10 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-func MigrateTask(ctx context.Context, old v1.Task) (Task, error) {
+func migrateTask(ctx context.Context, old v1.Task) (Task, error) {
 	return AutoMigrateTask(ctx, old)
 }
 
@@ -29,14 +30,17 @@ func MigrateTask(ctx context.Context, old v1.Task) (Task, error) {
 // on.
 const codecMigrationKey = "msgpack_to_orc"
 
-// CodecMigration re-encodes stored tasks from msgpack to orc. It is pinned to
+// codecMigration re-encodes stored tasks from msgpack to orc. It is pinned to
 // the v1 shapes so its output stays stable as Task evolves.
-var CodecMigration = gorp.CodecMigration[v1.Key, v1.Task](
-	codecMigrationKey, v0.Migration(v0.MigrationConfig{}).Key(),
+var codecMigration = gorp.CodecMigration[v1.Key, v1.Task](
+	codecMigrationKey, v0.NewMigration(v0.MigrationConfig{}).Key(),
 )
 
-// Migration lifts stored tasks from v1 to v2, dropping the persisted status
+// liftMigration lifts stored tasks from v1 to v2, dropping the persisted status
 // field.
-var Migration = gorp.NewEntryMigration(
-	"v54_drop_status", MigrateTask, codecMigrationKey,
+var liftMigration = gorp.NewEntryMigration(
+	"v54_drop_status", migrateTask, codecMigrationKey,
 )
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{codecMigration, liftMigration}

@@ -19,11 +19,12 @@ import (
 	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
 )
 
-// MigrateLinePlot transforms the previous line plot snapshot (v0) into the
+// migrateLinePlot transforms the previous line plot snapshot (v0) into the
 // current strongly-typed LinePlot. AutoMigrateLinePlot handles the
 // trivially-copyable gorp-entry fields (Key, Name); the body fields are
 // sourced from the per-plot blob the console used to persist alongside those
@@ -33,7 +34,7 @@ import (
 // live on the console slice and never reach the server. v0 is the last
 // snapshot in which LinePlot.Data is untyped; future migrations transform one
 // typed snapshot into another and never need this blob handling.
-func MigrateLinePlot(ctx context.Context, old lineplotv0.LinePlot) (LinePlot, error) {
+func migrateLinePlot(ctx context.Context, old lineplotv0.LinePlot) (LinePlot, error) {
 	out, err := AutoMigrateLinePlot(ctx, old)
 	if err != nil {
 		return LinePlot{}, err
@@ -168,12 +169,15 @@ func migrateRules(in []v0.Rule) []Rule {
 // codecMigrationKey names the codec migration the lift migration depends on.
 const codecMigrationKey = "msgpack_to_orc"
 
-// CodecMigration re-encodes stored line plots from msgpack to orc. It is
+// codecMigration re-encodes stored line plots from msgpack to orc. It is
 // pinned to the v5 shape so its output stays stable as LinePlot evolves.
-var CodecMigration = gorp.CodecMigration[Key, lineplotv0.LinePlot](codecMigrationKey)
+var codecMigration = gorp.CodecMigration[Key, lineplotv0.LinePlot](codecMigrationKey)
 
-// Migration lifts stored line plots from the v5 blob layout to the typed v6
+// liftMigration lifts stored line plots from the v5 blob layout to the typed v6
 // shape.
-var Migration = gorp.NewEntryMigration[Key, Key, lineplotv0.LinePlot, LinePlot](
-	"v55_lift_typed_lineplot", MigrateLinePlot, codecMigrationKey,
+var liftMigration = gorp.NewEntryMigration[Key, Key, lineplotv0.LinePlot, LinePlot](
+	"v55_lift_typed_lineplot", migrateLinePlot, codecMigrationKey,
 )
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{codecMigration, liftMigration}

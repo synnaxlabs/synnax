@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types
+package v1
 
-import (
-	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v6"
-)
+// CodecMigration exposes codecMigration to tests.
+var CodecMigration = codecMigration
 
-// Migrations is the ordered migration chain for stored line plots.
-var Migrations = v6.Migrations
+// ColorNullableMigration exposes colorNullableMigration to tests.
+var ColorNullableMigration = colorNullableMigration

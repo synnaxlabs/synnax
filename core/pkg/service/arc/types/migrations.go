@@ -10,8 +10,10 @@
 package types
 
 import (
-	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v6"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-// Migrations is the ordered migration chain for stored line plots.
-var Migrations = v6.Migrations
+// Migrations is the ordered migration chain for stored arcs.
+var Migrations = append(append([]migrate.Migration{}, v1.Migrations...), v2.Migration)

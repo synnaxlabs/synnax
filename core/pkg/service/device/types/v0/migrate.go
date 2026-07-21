@@ -28,7 +28,7 @@ type MigrationConfig struct {
 	Status *status.Service
 }
 
-func Migration(cfg MigrationConfig) migrate.Migration {
+func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {

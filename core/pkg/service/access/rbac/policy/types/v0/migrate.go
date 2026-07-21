@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -36,54 +35,52 @@ type LegacyUserMapping struct {
 // the Policy table, persists the user-to-policy mapping in KV, and deletes the
 // legacy entries. This runs before any oracle schema migrations that could
 // re-encode entries and lose the Subjects field.
-func Migration() migrate.Migration {
-	return gorp.NewMigration(
-		"v0.policy_conversion",
-		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-			migrated, err := alreadyMigrated(ctx, tx)
-			if migrated || err != nil {
-				return err
-			}
-			var legacyPolicies []Policy
-			reader := gorp.WrapReader[uuid.UUID, Policy](tx)
-			iter, err := reader.OpenIterator(gorp.IterOptions{})
-			if err != nil {
-				return err
-			}
-			defer func() { err = errors.Combine(err, iter.Close()) }()
-			for iter.First(); iter.Valid(); iter.Next() {
-				v := iter.Value(ctx)
-				if v == nil {
-					if err = iter.Error(); err != nil {
-						return err
-					}
-					continue
+var Migration = gorp.NewMigration(
+	"v0.policy_conversion",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		migrated, err := alreadyMigrated(ctx, tx)
+		if migrated || err != nil {
+			return err
+		}
+		var legacyPolicies []Policy
+		reader := gorp.WrapReader[uuid.UUID, Policy](tx)
+		iter, err := reader.OpenIterator(gorp.IterOptions{})
+		if err != nil {
+			return err
+		}
+		defer func() { err = errors.Combine(err, iter.Close()) }()
+		for iter.First(); iter.Valid(); iter.Next() {
+			v := iter.Value(ctx)
+			if v == nil {
+				if err = iter.Error(); err != nil {
+					return err
 				}
-				if len(v.Subjects) > 0 {
-					legacyPolicies = append(legacyPolicies, *v)
-				}
+				continue
 			}
-			if len(legacyPolicies) == 0 {
-				return nil
+			if len(v.Subjects) > 0 {
+				legacyPolicies = append(legacyPolicies, *v)
 			}
+		}
+		if len(legacyPolicies) == 0 {
+			return nil
+		}
 
-			userMappings := buildUserMappings(legacyPolicies)
-			mappingBytes, err := json.Marshal(userMappings)
-			if err != nil {
-				return errors.Wrap(err, "failed to marshal legacy permission mapping")
-			}
-			if err = tx.Set(ctx, []byte(LegacyMappingKVKey), mappingBytes); err != nil {
-				return err
-			}
+		userMappings := buildUserMappings(legacyPolicies)
+		mappingBytes, err := json.Marshal(userMappings)
+		if err != nil {
+			return errors.Wrap(err, "failed to marshal legacy permission mapping")
+		}
+		if err = tx.Set(ctx, []byte(LegacyMappingKVKey), mappingBytes); err != nil {
+			return err
+		}
 
-			legacyKeys := lo.Map(legacyPolicies, func(p Policy, _ int) uuid.UUID {
-				return p.Key
-			})
-			writer := gorp.WrapWriter[uuid.UUID, Policy](tx)
-			return writer.Delete(ctx, legacyKeys...)
-		},
-	)
-}
+		legacyKeys := lo.Map(legacyPolicies, func(p Policy, _ int) uuid.UUID {
+			return p.Key
+		})
+		writer := gorp.WrapWriter[uuid.UUID, Policy](tx)
+		return writer.Delete(ctx, legacyKeys...)
+	},
+)
 
 func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
 	performed, closer, err := tx.Get(ctx, []byte("sy_rbac_migration_performed"))

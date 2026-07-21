@@ -14,7 +14,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// CodecMigration re-encodes stored policies from msgpack to orc.
-var CodecMigration = gorp.CodecMigration[Key, Policy](
-	"msgpack_to_orc", v0.Migration().Key(),
+// Migration re-encodes stored policies from msgpack to orc.
+var Migration = gorp.CodecMigration[Key, Policy](
+	"msgpack_to_orc", v0.Migration.Key(),
 )

@@ -15,14 +15,10 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrationConfig is the configuration for Migrations.
-type MigrationConfig = v0.MigrationConfig
+// MigrationsConfig is the configuration for NewMigrations.
+type MigrationsConfig = v0.MigrationConfig
 
 // NewMigrations returns the ordered migration chain for stored devices.
-func NewMigrations(cfg MigrationConfig) []migrate.Migration {
-	return []migrate.Migration{
-		v0.Migration(cfg),
-		v2.CodecMigration,
-		v2.Migration,
-	}
+func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
+	return append([]migrate.Migration{v0.NewMigration(cfg)}, v2.Migrations...)
 }

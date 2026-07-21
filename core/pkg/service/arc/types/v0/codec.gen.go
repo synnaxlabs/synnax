@@ -12,7 +12,7 @@
 package v0
 
 import (
-	programv0 "github.com/synnaxlabs/arc/program/types/v0"
+	program "github.com/synnaxlabs/arc/program/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -72,7 +72,7 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v programv0.Program
+			var v program.Program
 			if err = v.DecodeOrc(r); err != nil {
 				return err
 			}

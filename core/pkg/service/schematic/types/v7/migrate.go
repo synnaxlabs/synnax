@@ -21,10 +21,11 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 )
 
-// MigrateSchematic transforms the previous schematic snapshot (v0) into the
+// migrateSchematic transforms the previous schematic snapshot (v0) into the
 // current strongly-typed Schematic. AutoMigrateSchematic handles the
 // trivially-copyable gorp-entry fields (Key, Name, Snapshot); the body
 // fields are sourced from the per-schematic blob the console used to
@@ -39,7 +40,7 @@ import (
 // schema declared in schematic.oracle. v0 is the last snapshot in which
 // Schematic.Data is untyped; future migrations transform one typed snapshot
 // into another and never need this blob handling.
-func MigrateSchematic(
+func migrateSchematic(
 	ctx context.Context,
 	old schematicv0.Schematic,
 ) (Schematic, error) {
@@ -271,12 +272,15 @@ func stringOrEmpty(s *string) string {
 // codecMigrationKey names the codec migration the lift migration depends on.
 const codecMigrationKey = "msgpack_to_orc"
 
-// CodecMigration re-encodes stored schematics from msgpack to orc. It is
+// codecMigration re-encodes stored schematics from msgpack to orc. It is
 // pinned to the v6 shape so its output stays stable as Schematic evolves.
-var CodecMigration = gorp.CodecMigration[Key, schematicv0.Schematic](codecMigrationKey)
+var codecMigration = gorp.CodecMigration[Key, schematicv0.Schematic](codecMigrationKey)
 
-// Migration lifts stored schematics from the v6 blob layout to the typed v7
+// liftMigration lifts stored schematics from the v6 blob layout to the typed v7
 // shape.
-var Migration = gorp.NewEntryMigration[Key, Key, schematicv0.Schematic, Schematic](
-	"v55_lift_typed_schematic", MigrateSchematic, codecMigrationKey,
+var liftMigration = gorp.NewEntryMigration[Key, Key, schematicv0.Schematic, Schematic](
+	"v55_lift_typed_schematic", migrateSchematic, codecMigrationKey,
 )
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{codecMigration, liftMigration}

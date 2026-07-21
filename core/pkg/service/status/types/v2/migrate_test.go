@@ -51,11 +51,9 @@ var _ = Describe("v1 -> current Status migration", func() {
 			Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Status",
-			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration("v54_drop_labels", v2.MigrateStatus[any]),
-			},
+			DB:         db,
+			Namespace:  "Status",
+			Migrations: []migrate.Migration{v2.Migration},
 		})).To(Succeed())
 
 		var got status.Status[any]

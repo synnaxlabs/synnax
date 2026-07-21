@@ -17,16 +17,17 @@ import (
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrateTable transforms the previous Table snapshot (v0) into the current
+// migrateTable transforms the previous Table snapshot (v0) into the current
 // strongly-typed Table. AutoMigrateTable handles the trivially-copyable
 // gorp-entry fields (Key, Name); the structural fields (Rows, Columns, Cells)
 // are sourced from the opaque blob the console used to persist alongside those
 // fields, after legacy.MigrateData decodes it as v0.Data. v0 is the last
 // snapshot in which Table.Data is untyped; future migrations transform one
 // typed snapshot into another and never need this blob handling.
-func MigrateTable(ctx context.Context, old tablev0.Table) (Table, error) {
+func migrateTable(ctx context.Context, old tablev0.Table) (Table, error) {
 	out, err := AutoMigrateTable(ctx, old)
 	if err != nil {
 		return Table{}, err
@@ -76,11 +77,14 @@ func migrateCells(in map[string]v0.Cell) map[string]Cell {
 // codecMigrationKey names the codec migration the lift migration depends on.
 const codecMigrationKey = "msgpack_to_orc"
 
-// CodecMigration re-encodes stored tables from msgpack to orc. It is pinned to
+// codecMigration re-encodes stored tables from msgpack to orc. It is pinned to
 // the v1 shape so its output stays stable as Table evolves.
-var CodecMigration = gorp.CodecMigration[Key, tablev0.Table](codecMigrationKey)
+var codecMigration = gorp.CodecMigration[Key, tablev0.Table](codecMigrationKey)
 
-// Migration lifts stored tables from the v1 blob layout to the typed v2 shape.
-var Migration = gorp.NewEntryMigration[Key, Key, tablev0.Table, Table](
-	"v55_lift_typed_table", MigrateTable, codecMigrationKey,
+// liftMigration lifts stored tables from the v1 blob layout to the typed v2 shape.
+var liftMigration = gorp.NewEntryMigration[Key, Key, tablev0.Table, Table](
+	"v55_lift_typed_table", migrateTable, codecMigrationKey,
 )
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{codecMigration, liftMigration}

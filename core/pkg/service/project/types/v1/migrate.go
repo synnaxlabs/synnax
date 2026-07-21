@@ -14,6 +14,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// CodecMigration re-encodes stored workspaces from msgpack to orc. It is
+// Migration re-encodes stored workspaces from msgpack to orc. It is
 // pinned to the v0 shape so its output stays stable as Project evolves.
-var CodecMigration = gorp.CodecMigration[Key, v0.Workspace]("msgpack_to_orc")
+var Migration = gorp.CodecMigration[Key, v0.Workspace]("msgpack_to_orc")

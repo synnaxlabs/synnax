@@ -35,7 +35,7 @@ var _ = Describe("ColorNullableMigration", func() {
 			Namespace: "Range",
 			Migrations: []migrate.Migration{
 				gorp.CodecMigration[v0.Key, v0.Range](v1.CodecMigration.Key()),
-				v1.ColorNullableMigration(),
+				v1.ColorNullableMigration,
 			},
 		})).To(Succeed())
 		out := make(map[uuid.UUID]v1.Range, len(seeds))

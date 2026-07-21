@@ -17,26 +17,21 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// MigrateStatus migrates a persisted v1 status into the current server-side Status
-// entity. Labels are intentionally dropped: they are no longer persisted on the status
-// and are instead resolved at read time from the label relationship. All other fields
-// are copied across unchanged.
-func MigrateStatus[Details any](
-	_ context.Context,
-	old statusv1.Status[Details],
-) (Status[Details], error) {
-	return Status[Details]{
-		Key:         old.Key,
-		Name:        old.Name,
-		Variant:     Variant(old.Variant),
-		Message:     old.Message,
-		Description: old.Description,
-		Time:        telem.TimeStamp(old.Time),
-		Details:     old.Details,
-		Labels:      nil,
-	}, nil
-}
-
-// Migration lifts stored statuses from v1 to v2, dropping the persisted labels
-// field.
-var Migration = gorp.NewEntryMigration("v54_drop_labels", MigrateStatus[any])
+// Migration lifts stored statuses from v1 to v2. Labels are intentionally
+// dropped: they are no longer persisted on the status and are instead resolved
+// at read time from the label relationship.
+var Migration = gorp.NewEntryMigration(
+	"v54_drop_labels",
+	func(_ context.Context, old statusv1.Status[any]) (Status[any], error) {
+		return Status[any]{
+			Key:         old.Key,
+			Name:        old.Name,
+			Variant:     Variant(old.Variant),
+			Message:     old.Message,
+			Description: old.Description,
+			Time:        telem.TimeStamp(old.Time),
+			Details:     old.Details,
+			Labels:      nil,
+		}, nil
+	},
+)

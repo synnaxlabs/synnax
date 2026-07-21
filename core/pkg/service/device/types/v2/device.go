@@ -16,7 +16,7 @@ import (
 
 var _ gorp.Entry[Key] = Device{}
 
-// GorpKey gives a unique key for the device for use in gorp.
+// GorpKey gives a unique key for the device for use in Gorp.
 func (d Device) GorpKey() Key { return d.Key }
 
 // SetOptions returns nil.

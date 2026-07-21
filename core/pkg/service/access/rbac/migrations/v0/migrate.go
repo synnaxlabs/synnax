@@ -37,7 +37,7 @@ type MigrationConfig struct {
 // (written by Phase 1 in the policy package), queries users for their RootUser
 // flag, determines the appropriate role for each user, and creates the ontology
 // relationships.
-func Migration(cfg MigrationConfig) migrate.Migration {
+func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.permission_assignment",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {

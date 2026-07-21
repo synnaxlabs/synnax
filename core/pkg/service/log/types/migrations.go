@@ -11,8 +11,7 @@ package types
 
 import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/types/v3"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored logs.
-var Migrations = []migrate.Migration{v3.CodecMigration, v3.Migration}
+var Migrations = v3.Migrations

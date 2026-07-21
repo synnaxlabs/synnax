@@ -25,29 +25,30 @@ const codecMigrationKey = "msgpack_to_orc"
 // from a stored value to a nullable pointer.
 const colorNullableMigrationKey = "range_color_nullable"
 
-// ColorNullableMigration converts every range from the orc value-color layout (Color
+// colorNullableMigration converts every range from the orc value-color layout (Color
 // stored inline) to the current nullable layout (Color a presence-flagged pointer). A
 // zero stored color denoted "no color" under the value layout, so it maps to nil. It
 // depends on the codec migration so it always reads the deterministic value-color
 // encoding that migration leaves behind.
-func ColorNullableMigration() migrate.Migration {
-	return gorp.NewEntryMigration(
-		colorNullableMigrationKey,
-		func(_ context.Context, old v0.Range) (Range, error) {
-			rng := Range{Key: old.Key, Name: old.Name, TimeRange: old.TimeRange}
-			if !old.Color.IsZero() {
-				c := old.Color
-				rng.Color = &c
-			}
-			return rng, nil
-		},
-		codecMigrationKey,
-	)
-}
+var colorNullableMigration = gorp.NewEntryMigration(
+	colorNullableMigrationKey,
+	func(_ context.Context, old v0.Range) (Range, error) {
+		rng := Range{Key: old.Key, Name: old.Name, TimeRange: old.TimeRange}
+		if !old.Color.IsZero() {
+			c := old.Color
+			rng.Color = &c
+		}
+		return rng, nil
+	},
+	codecMigrationKey,
+)
 
-// CodecMigration re-encodes ranges from the legacy msgpack layout to the orc
+// codecMigration re-encodes ranges from the legacy msgpack layout to the orc
 // value-color layout. It is pinned to v0.Range so it always produces the
 // value-color encoding regardless of how Range later evolves.
-var CodecMigration = gorp.CodecMigration[Key, v0.Range](
-	codecMigrationKey, v0.Migration(v0.MigrationConfig{}).Key(),
+var codecMigration = gorp.CodecMigration[Key, v0.Range](
+	codecMigrationKey, v0.NewMigration(v0.MigrationConfig{}).Key(),
 )
+
+// Migrations is the ordered set of migrations introduced at this version.
+var Migrations = []migrate.Migration{codecMigration, colorNullableMigration}

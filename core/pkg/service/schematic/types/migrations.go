@@ -11,8 +11,7 @@ package types
 
 import (
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v7"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored schematics.
-var Migrations = []migrate.Migration{v7.CodecMigration, v7.Migration}
+var Migrations = v7.Migrations

@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types
+package types_test
 
 import (
-	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v6"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// Migrations is the ordered migration chain for stored line plots.
-var Migrations = v6.Migrations
+func TestTypes(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Rack Types Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -11,8 +11,7 @@ package types
 
 import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/types/v2"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored tables.
-var Migrations = []migrate.Migration{v2.CodecMigration, v2.Migration}
+var Migrations = v2.Migrations
