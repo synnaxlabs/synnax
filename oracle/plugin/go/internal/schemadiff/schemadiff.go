@@ -46,11 +46,15 @@ func typesEqual(
 		if !ok {
 			return false
 		}
-		if len(oldForm.Fields) != len(newForm.Fields) || len(oldForm.Extends) != len(newForm.Extends) {
+		// Omitted fields are memory-only: their types never reach the stored
+		// shape, so only persisted fields compare. A field flipping between
+		// persisted and omitted surfaces as an add/remove here.
+		oldFields, newFields := PersistedFields(oldForm.Fields), PersistedFields(newForm.Fields)
+		if len(oldFields) != len(newFields) || len(oldForm.Extends) != len(newForm.Extends) {
 			return false
 		}
-		for i := range oldForm.Fields {
-			of, nf := oldForm.Fields[i], newForm.Fields[i]
+		for i := range oldFields {
+			of, nf := oldFields[i], newFields[i]
 			if of.Name != nf.Name || of.Optional != nf.Optional {
 				return false
 			}
@@ -130,6 +134,19 @@ func typesEqual(
 	default:
 		return false
 	}
+}
+
+// PersistedFields returns the fields that contribute to a type's stored
+// shape: those without a @go marshal omit directive.
+func PersistedFields(fields []resolution.Field) []resolution.Field {
+	out := make([]resolution.Field, 0, len(fields))
+	for _, f := range fields {
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
+			continue
+		}
+		out = append(out, f)
+	}
+	return out
 }
 
 func refsEqual(
@@ -250,7 +267,7 @@ func diffWalk(
 	fieldDiffs, selfChanged := diffStructFields(oldStruct, newStruct, oldTable, newTable)
 
 	hasDescendantChange := false
-	for _, f := range oldStruct.Fields {
+	for _, f := range PersistedFields(oldStruct.Fields) {
 		if diffRefWalk(f.Type, oldTable, newTable, result, visiting) != TypeUnchanged {
 			hasDescendantChange = true
 		}
@@ -279,25 +296,26 @@ func diffStructFields(
 	old, new resolution.StructForm,
 	oldTable, newTable *resolution.Table,
 ) (diffs []FieldDiff, selfChanged bool) {
-	newByName := make(map[string]resolution.Field, len(new.Fields))
-	for _, f := range new.Fields {
+	oldFields, newFields := PersistedFields(old.Fields), PersistedFields(new.Fields)
+	newByName := make(map[string]resolution.Field, len(newFields))
+	for _, f := range newFields {
 		newByName[f.Name] = f
 	}
-	oldByName := make(map[string]resolution.Field, len(old.Fields))
-	for _, f := range old.Fields {
+	oldByName := make(map[string]resolution.Field, len(oldFields))
+	for _, f := range oldFields {
 		oldByName[f.Name] = f
 	}
-	if len(old.Fields) != len(new.Fields) {
+	if len(oldFields) != len(newFields) {
 		selfChanged = true
 	} else {
-		for i := range old.Fields {
-			if old.Fields[i].Name != new.Fields[i].Name {
+		for i := range oldFields {
+			if oldFields[i].Name != newFields[i].Name {
 				selfChanged = true
 				break
 			}
 		}
 	}
-	for _, of := range old.Fields {
+	for _, of := range oldFields {
 		nf, exists := newByName[of.Name]
 		if !exists {
 			diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindRemoved, OldField: &of})
@@ -320,7 +338,7 @@ func diffStructFields(
 		}
 		diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindUnchanged, OldField: &of, NewField: &nf})
 	}
-	for _, nf := range new.Fields {
+	for _, nf := range newFields {
 		if _, exists := oldByName[nf.Name]; !exists {
 			diffs = append(diffs, FieldDiff{Name: nf.Name, Kind: FieldKindAdded, NewField: &nf})
 			selfChanged = true

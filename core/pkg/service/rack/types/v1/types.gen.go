@@ -13,7 +13,7 @@ package v1
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/validate"
 )
 

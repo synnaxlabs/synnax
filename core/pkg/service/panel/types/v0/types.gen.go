@@ -14,7 +14,7 @@ package v0
 import (
 	"encoding/json"
 	"github.com/google/uuid"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"

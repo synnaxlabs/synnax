@@ -99,8 +99,9 @@ func PathVersions(table *resolution.Table) (map[string]int, error) {
 
 // EntryPaths returns the version-laid-out output paths: every path declaring
 // a @go version. These packages emit their current version into types/vN, so
-// dependents — current and frozen alike — always pin an explicit version
-// directory and never reference live code. Declare @go version struct-level
+// dependents — current and frozen alike — pin an explicit version directory
+// for every persisted reference; only memory-only (marshal omit) references
+// track the root re-export. Declare @go version struct-level
 // when a file mixes storable and transient output paths (channel), so
 // transient paths stay out of the layout.
 func EntryPaths(table *resolution.Table) (map[string]int, error) {

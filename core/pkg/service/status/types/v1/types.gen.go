@@ -12,7 +12,7 @@
 package v1
 
 import (
-	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	telem "github.com/synnaxlabs/x/telem/types/v0"
 )

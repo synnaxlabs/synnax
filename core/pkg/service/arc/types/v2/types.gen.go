@@ -13,10 +13,10 @@ package v2
 
 import (
 	graph "github.com/synnaxlabs/arc/graph/types/v2"
-	program "github.com/synnaxlabs/arc/program/types/v2"
+	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/validate"
 )
 

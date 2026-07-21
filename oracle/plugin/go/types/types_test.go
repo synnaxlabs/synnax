@@ -1986,6 +1986,76 @@ var _ = Describe("Go Types Plugin", func() {
 					)
 			})
 
+			It("Should pin persisted cross-package references to the dependency version directory", func(ctx SpecContext) {
+				loader.Add("schemas/status.oracle", `
+					@go output "core/status"
+					@go version 1
+
+					Status struct {
+						key uuid @key
+						@go marshal
+						message string
+					}
+				`)
+				source := `
+					import "schemas/status"
+
+					@go output "core/rack"
+					@go version 2
+
+					Rack struct {
+						key uuid @key
+						@go marshal
+						embedded status.Status
+					}
+				`
+				resp := MustGenerate(ctx, source, "rack", loader, goPlugin)
+				ExpectContent(resp, "core/rack/types/v2/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(`status "github.com/synnaxlabs/synnax/core/status/types/v1"`).
+					ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
+			})
+
+			It("Should resolve omitted fields and transient declarations against the latest version", func(ctx SpecContext) {
+				loader.Add("schemas/status.oracle", `
+					@go output "core/status"
+					@go version 1
+
+					Status struct {
+						key uuid @key
+						@go marshal
+						message string
+					}
+				`)
+				source := `
+					import "schemas/status"
+
+					@go output "core/rack"
+					@go version 2
+
+					Alias = status.Status
+
+					Rack struct {
+						key uuid @key
+						@go marshal
+						status Alias? {
+							@go marshal omit
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "rack", loader, goPlugin)
+				ExpectContent(resp, "core/rack/types/v2/types.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						// The omitted field and the alias it references are
+						// memory-only, so they track the dependency root.
+						`"github.com/synnaxlabs/synnax/core/status"`+"\n",
+						"type Alias = status.Status",
+						"Status *Alias",
+					).
+					ToNotContain("core/status/types/v1")
+			})
+
 			It("Should re-declare type params on generic aliases", func(ctx SpecContext) {
 				source := `
 					@go output "out"

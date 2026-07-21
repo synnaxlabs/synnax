@@ -327,6 +327,12 @@ func (c *collector) structFuncFromForms(
 		c.addField(&fn, ext, "old."+name, name, false)
 	}
 	for _, oldField := range oldSF.Fields {
+		// Omitted fields are never persisted, so a decoded old entry always
+		// carries their zero value; copying them would also couple versions
+		// whose memory-only types have since diverged.
+		if domain.GetStringFromField(oldField, "go", "marshal") == "omit" {
+			continue
+		}
 		newField := findField(newSF.Fields, oldField.Name)
 		if newField == nil {
 			continue
