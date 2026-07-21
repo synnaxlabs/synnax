@@ -31,14 +31,14 @@ import (
 
 var _ = Describe("Migration", func() {
 	var (
-		db   *gorp.DB
-		stat *status.Service
+		db        *gorp.DB
+		statusSvc *status.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
@@ -46,13 +46,13 @@ var _ = Describe("Migration", func() {
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
+			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
-			Group:    g,
+			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
@@ -64,7 +64,7 @@ var _ = Describe("Migration", func() {
 			Namespace: "Rack",
 			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
 				HostProvider: mock.NewStaticHostProvider(1),
-				Status:       stat,
+				Status:       statusSvc,
 			})},
 		})).To(Succeed())
 	}
@@ -94,7 +94,7 @@ var _ = Describe("Migration", func() {
 		runMigration(ctx)
 
 		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
 			Where(status.MatchKeys[v0.StatusDetails](r.Key.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
@@ -162,7 +162,7 @@ var _ = Describe("Status backfill", func() {
 		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
@@ -170,13 +170,13 @@ var _ = Describe("Status backfill", func() {
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
+			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
-			Group:    g,
+			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
@@ -186,9 +186,9 @@ var _ = Describe("Status backfill", func() {
 		Expect(gorp.NewCreate[v0.Key, v0.Rack]().Entry(testRack).Exec(ctx, db)).
 			To(Succeed())
 
-		// Write a status using Status[any] with the rack key as float64,
-		// simulating legacy data where the key was encoded as a MessagePack
-		// float64 instead of uint32.
+		// Write a status using Status[any] with the rack key as float64, simulating
+		// legacy data where the key was encoded as a MessagePack float64 instead of
+		// uint32.
 		legacyStatus := status.Status[any]{
 			Key:     rackKey.OntologyID().String(),
 			Name:    "Legacy Rack Status",
@@ -199,23 +199,23 @@ var _ = Describe("Status backfill", func() {
 				"rack": float64(rackKey),
 			},
 		}
-		Expect(status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus)).To(Succeed())
+		Expect(status.NewWriter[any](statusSvc, nil).Set(ctx, &legacyStatus)).To(Succeed())
 
-		// The backfill reads existing statuses as Status[StatusDetails]. This
-		// would fail without the flex DecodeMsgpack on the Key type because
-		// the rack key is stored as a MessagePack float64.
+		// The backfill reads existing statuses as Status[StatusDetails]. This would
+		// fail without the flex DecodeMsgpack on the Key type because the rack key is
+		// stored as a MessagePack float64.
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Rack",
 			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
 				HostProvider: mock.NewStaticHostProvider(1),
-				Status:       stat,
+				Status:       statusSvc,
 			})},
 		})).To(Succeed())
 
 		// Verify the status is readable with the correct typed key.
 		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
 			Where(status.MatchKeys[v0.StatusDetails](rackKey.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())

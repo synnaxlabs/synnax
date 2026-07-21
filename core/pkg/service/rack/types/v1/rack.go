@@ -9,9 +9,7 @@
 
 package v1
 
-import (
-	"github.com/synnaxlabs/x/gorp"
-)
+import "github.com/synnaxlabs/x/gorp"
 
 var _ gorp.Entry[Key] = Rack{}
 

@@ -29,8 +29,8 @@ import (
 
 var _ = Describe("Migration", func() {
 	var (
-		db   *gorp.DB
-		stat *status.Service
+		db        *gorp.DB
+		statusSvc *status.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
@@ -47,7 +47,7 @@ var _ = Describe("Migration", func() {
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    groupSvc,
@@ -61,7 +61,7 @@ var _ = Describe("Migration", func() {
 			DB:        db,
 			Namespace: "Device",
 			Migrations: []migrate.Migration{
-				v0.NewMigration(v0.MigrationConfig{Status: stat}),
+				v0.NewMigration(v0.MigrationConfig{Status: statusSvc}),
 			},
 		})).To(Succeed())
 	}
@@ -80,7 +80,7 @@ var _ = Describe("Migration", func() {
 		runMigration(ctx)
 
 		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
 			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(d.Key).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
@@ -110,13 +110,13 @@ var _ = Describe("Migration", func() {
 			Time:    telem.Now(),
 			Details: v0.StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
-		Expect(status.NewWriter[v0.StatusDetails](stat, nil).
+		Expect(status.NewWriter[v0.StatusDetails](statusSvc, nil).
 			Set(ctx, &existing)).To(Succeed())
 
 		runMigration(ctx)
 
 		var deviceStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
 			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(d.Key).String())).
 			Entry(&deviceStatus).
 			Exec(ctx, nil)).To(Succeed())
