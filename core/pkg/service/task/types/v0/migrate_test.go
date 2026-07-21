@@ -30,14 +30,14 @@ import (
 
 var _ = Describe("Migration", func() {
 	var (
-		db   *gorp.DB
-		stat *status.Service
+		db        *gorp.DB
+		statusSvc *status.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
@@ -45,13 +45,13 @@ var _ = Describe("Migration", func() {
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
+			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
-			Group:    g,
+			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
@@ -62,7 +62,7 @@ var _ = Describe("Migration", func() {
 			DB:        db,
 			Namespace: "Task",
 			Migrations: []migrate.Migration{
-				v0.NewMigration(v0.MigrationConfig{Status: stat}),
+				v0.NewMigration(v0.MigrationConfig{Status: statusSvc}),
 			},
 		})).To(Succeed())
 	}
@@ -79,8 +79,8 @@ var _ = Describe("Migration", func() {
 		runMigration(ctx)
 
 		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](stat).
-			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(t.Key).String())).
+		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+			Where(status.MatchKeys[v0.StatusDetails](t.Key.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -97,21 +97,21 @@ var _ = Describe("Migration", func() {
 			Entry(&t).
 			Exec(ctx, db)).To(Succeed())
 		existing := status.Status[v0.StatusDetails]{
-			Key:     v0.OntologyID(t.Key).String(),
+			Key:     t.Key.OntologyID().String(),
 			Name:    t.Name,
 			Variant: status.VariantSuccess,
 			Message: "Started",
 			Time:    telem.Now(),
 			Details: v0.StatusDetails{Task: t.Key},
 		}
-		Expect(status.NewWriter[v0.StatusDetails](stat, nil).
+		Expect(status.NewWriter[v0.StatusDetails](statusSvc, nil).
 			Set(ctx, &existing)).To(Succeed())
 
 		runMigration(ctx)
 
 		var taskStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](stat).
-			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(t.Key).String())).
+		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+			Where(status.MatchKeys[v0.StatusDetails](t.Key.OntologyID().String())).
 			Entry(&taskStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
@@ -124,7 +124,7 @@ var _ = Describe("Status backfill", func() {
 		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
@@ -132,13 +132,13 @@ var _ = Describe("Status backfill", func() {
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Group:    g,
+			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
-			Group:    g,
+			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
@@ -152,11 +152,11 @@ var _ = Describe("Status backfill", func() {
 			Entry(&t).
 			Exec(ctx, db)).To(Succeed())
 
-		// Write a status using Status[any] with the task key as float64,
-		// simulating legacy data where the key was encoded as a MessagePack
-		// float64 instead of uint64.
+		// Write a status using Status[any] with the task key as float64, simulating
+		// legacy data where the key was encoded as a MessagePack float64 instead of
+		// uint64.
 		legacyStatus := status.Status[any]{
-			Key:     v0.OntologyID(taskKey).String(),
+			Key:     taskKey.OntologyID().String(),
 			Name:    "Legacy Task",
 			Variant: status.VariantSuccess,
 			Message: "Started",
@@ -167,23 +167,23 @@ var _ = Describe("Status backfill", func() {
 				"cmd":     "start",
 			},
 		}
-		Expect(status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus)).To(Succeed())
+		Expect(status.NewWriter[any](statusSvc, nil).Set(ctx, &legacyStatus)).To(Succeed())
 
-		// The backfill reads existing statuses as Status[StatusDetails]. This
-		// would fail without the flex DecodeMsgpack on the Key type because
-		// the task key is stored as a MessagePack float64.
+		// The backfill reads existing statuses as Status[StatusDetails]. This would
+		// fail without the flex DecodeMsgpack on the Key type because the task key is
+		// stored as a MessagePack float64.
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Task",
 			Migrations: []migrate.Migration{
-				v0.NewMigration(v0.MigrationConfig{Status: stat}),
+				v0.NewMigration(v0.MigrationConfig{Status: statusSvc}),
 			},
 		})).To(Succeed())
 
 		// Verify the status is readable with the correct typed key.
 		var restoredStatus status.Status[v0.StatusDetails]
-		Expect(status.NewRetrieve[v0.StatusDetails](stat).
-			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(taskKey).String())).
+		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
+			Where(status.MatchKeys[v0.StatusDetails](taskKey.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Details.Task).To(Equal(taskKey))

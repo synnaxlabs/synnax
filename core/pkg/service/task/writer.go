@@ -34,7 +34,7 @@ type Writer struct {
 func resolveStatus(t *Task, provided *Status) *Status {
 	if provided == nil {
 		return &Status{
-			Key:     OntologyID(t.Key).String(),
+			Key:     t.Key.OntologyID().String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
 			Message: fmt.Sprintf("%s status unknown", t.Name),
@@ -42,7 +42,7 @@ func resolveStatus(t *Task, provided *Status) *Status {
 			Details: StatusDetails{Task: t.Key},
 		}
 	}
-	provided.Key = OntologyID(t.Key).String()
+	provided.Key = t.Key.OntologyID().String()
 	provided.Details.Task = t.Key
 	provided.Name = t.Name
 	return provided
@@ -96,7 +96,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Internal {
 		return nil
 	}
-	otgID := OntologyID(t.Key)
+	otgID := t.Key.OntologyID()
 	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
 	if err != nil || exists {
 		return err
@@ -130,10 +130,10 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if err := w.otgWriter.DeleteResources(ctx, OntologyID(key)); err != nil {
+	if err := w.otgWriter.DeleteResources(ctx, key.OntologyID()); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, OntologyID(key).String())
+	return w.status.Delete(ctx, key.OntologyID().String())
 }
 
 func (w Writer) Copy(
@@ -160,7 +160,7 @@ func (w Writer) Copy(
 	if err = w.status.Set(ctx, resolveStatus(&res, nil)); err != nil {
 		return Task{}, err
 	}
-	if err = w.otgWriter.DefineResources(ctx, OntologyID(newKey)); err != nil {
+	if err = w.otgWriter.DefineResources(ctx, newKey.OntologyID()); err != nil {
 		return Task{}, err
 	}
 	return res, nil

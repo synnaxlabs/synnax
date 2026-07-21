@@ -26,13 +26,15 @@ import (
 
 // MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
-	// Status is the status service used to backfill unknown statuses for
-	// tasks missing them.
+	// Status is the status service used to backfill unknown statuses for tasks missing
+	// them.
 	Status *status.Service
 }
 
-// NewMigration returns the v0 migration, which backfills an unknown status
-// for every task missing one.
+type v0Status = status.Status[StatusDetails]
+
+// NewMigration returns the v0 migration, which backfills an unknown status for every
+// task missing one.
 func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.status_backfill",
@@ -59,9 +61,9 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 
 			statusKeys := make([]string, len(tasks))
 			for i, t := range tasks {
-				statusKeys[i] = OntologyID(t.Key).String()
+				statusKeys[i] = t.Key.OntologyID().String()
 			}
-			var existingStatuses []status.Status[StatusDetails]
+			var existingStatuses []v0Status
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
 				Where(status.MatchKeys[StatusDetails](statusKeys...)).
 				Entries(&existingStatuses).
@@ -72,11 +74,11 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 			for _, stat := range existingStatuses {
 				existingKeys.Add(stat.Key)
 			}
-			var missingStatuses []status.Status[StatusDetails]
+			var missingStatuses []v0Status
 			for _, t := range tasks {
-				key := OntologyID(t.Key).String()
+				key := t.Key.OntologyID().String()
 				if !existingKeys.Contains(key) {
-					missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
+					missingStatuses = append(missingStatuses, v0Status{
 						Key:     key,
 						Name:    t.Name,
 						Time:    telem.Now(),

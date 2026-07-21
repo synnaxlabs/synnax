@@ -23,6 +23,7 @@ import (
 // the low 32 bits contain the local task key within that rack.
 type Key uint64
 
+// String returns the key formatted as its decimal integer value.
 func (k Key) String() string { return strconv.FormatUint(uint64(k), 10) }
 
 // Rack returns the key of the rack this task belongs to.
@@ -33,6 +34,11 @@ func (k Key) LocalKey() uint32 { return uint32(uint64(k) & 0xFFFFFFFF) }
 
 // IsValid returns true when both the rack and local components are set.
 func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
+
+// OntologyID returns the unique ontology identifier for the task.
+func (k Key) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeTask, Key: k.String()}
+}
 
 // Status is task-specific status information including execution state and
 // task-specific data.
@@ -85,9 +91,8 @@ type Command struct {
 
 var _ gorp.Entry[Key] = Task{}
 
-func (t Task) GorpKey() Key      { return t.Key }
-func (t Task) SetOptions() []any { return nil }
+// GorpKey implements gorp.Entry.
+func (t Task) GorpKey() Key { return t.Key }
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTask, Key: k.String()}
-}
+// SetOptions implements gorp.Entry.
+func (Task) SetOptions() []any { return nil }

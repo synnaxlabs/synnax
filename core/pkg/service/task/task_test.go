@@ -353,7 +353,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](m.Key.OntologyID().String())).
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -369,7 +369,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var taskStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](m.Key.OntologyID().String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
@@ -396,14 +396,14 @@ var _ = Describe("Task", Ordered, func() {
 
 			var taskStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](m.Key.OntologyID().String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(taskStatus.Message).To(Equal("Custom task status"))
 			Expect(taskStatus.Description).To(Equal("Task is running"))
 			// Key should be auto-assigned
-			Expect(taskStatus.Key).To(Equal(task.OntologyID(m.Key).String()))
+			Expect(taskStatus.Key).To(Equal(m.Key.OntologyID().String()))
 			// Name should be auto-filled
 			Expect(taskStatus.Name).To(Equal(m.Name))
 			// Details.Task should be auto-filled
@@ -432,9 +432,9 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, t)).To(Succeed())
 
 			Expect(status.NewWriter[task.StatusDetails](stat, tx).
-				Delete(ctx, task.OntologyID(t.Key).String())).To(Succeed())
+				Delete(ctx, t.Key.OntologyID().String())).To(Succeed())
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](t.Key.OntologyID().String())).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 			reconfigured := &task.Task{Key: t.Key, Name: t.Name}
@@ -442,7 +442,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var healed task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](t.Key.OntologyID().String())).
 				Entry(&healed).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(healed.Details.Task).To(Equal(t.Key))
@@ -465,7 +465,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var preserved task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](t.Key.OntologyID().String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -483,7 +483,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var copiedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(copied.Key).String())).
+				Where(status.MatchKeys[task.StatusDetails](copied.Key.OntologyID().String())).
 				Entry(&copiedStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(copiedStatus.Variant).To(Equal(status.VariantWarning))
@@ -506,7 +506,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var taskStatus task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](stat).
-					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
+					Where(status.MatchKeys[task.StatusDetails](t.Key.OntologyID().String())).
 					Entry(&taskStatus).
 					Exec(ctx, nil)).To(Succeed())
 				g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))

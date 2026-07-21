@@ -25,17 +25,13 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeTask, Key: k.String()}
-}
-
 func OntologyIDs(keys []Key) []ontology.ID {
-	return lo.Map(keys, func(key Key, _ int) ontology.ID { return OntologyID(key) })
+	return lo.Map(keys, func(key Key, _ int) ontology.ID { return key.OntologyID() })
 }
 
 func OntologyIDsFromTasks(tasks []Task) []ontology.ID {
 	return lo.Map(tasks, func(task Task, _ int) ontology.ID {
-		return OntologyID(task.Key)
+		return task.Key.OntologyID()
 	})
 }
 
@@ -57,7 +53,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(t Task) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(t.Key), t.Name, t)
+	return ontology.NewResource(schema, t.Key.OntologyID(), t.Name, t)
 }
 
 type change = xchange.Change[Key, Task]
@@ -89,7 +85,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 func translateChange(c change) ontology.Change {
 	return ontology.Change{
 		Variant: c.Variant,
-		Key:     OntologyID(c.Key).String(),
+		Key:     c.Key.OntologyID().String(),
 		Value:   newResource(c.Value),
 	}
 }

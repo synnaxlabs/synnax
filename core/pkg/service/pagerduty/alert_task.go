@@ -242,7 +242,7 @@ func (t *alertTask) updateStatus(
 	message string,
 ) {
 	stat := task.Status{
-		Key:     task.OntologyID(t.task.Key).String(),
+		Key:     t.task.Key.OntologyID().String(),
 		Name:    t.task.Name,
 		Variant: variant,
 		Message: message,
