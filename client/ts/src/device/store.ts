@@ -17,22 +17,23 @@ export const STORE_KEY = "devices";
 
 const genericDeviceZ = deviceZ();
 
-/** Registers the device store on the given engine. */
-export const bindStore = (engine: cache.Engine): void => {
+/** Registers the device table on the given cache. */
+export const bindStore = (engine: cache.Cache): void => {
   // Explicitly omit 'status' from the device type to make sure we aren't storing two
   // copies of the statuses in the store.
-  const store = () => engine.store<Key, Omit<Device, "status">>(STORE_KEY);
+  const table = () => engine.table<Key, Omit<Device, "status">>(STORE_KEY);
   const set: cache.ChannelListener<{}, typeof genericDeviceZ> = {
     channel: SET_CHANNEL_NAME,
     schema: genericDeviceZ,
-    onChange: ({ changed }) => store().set(changed.key, changed),
+    onChange: ({ changed: { status: _, ...device } }) =>
+      table().set(device.key, device),
   };
   const del: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Omit<Device, "status">>(STORE_KEY, {
+  engine.registerTable<Key, Omit<Device, "status">>(STORE_KEY, {
     listeners: [set, del],
   });
 };

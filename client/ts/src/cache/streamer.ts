@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, strings, unique } from "@synnaxlabs/x";
+import { DataType, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type ChannelListener, type StoreConfig, type Stores } from "@/cache/store";
-import { type AsyncErrorHandler } from "@/cache/types";
+import { type ChannelListener, type TableConfigs, type Tables } from "@/cache/table";
 import { NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 
@@ -59,17 +58,17 @@ export interface StreamOpener {
 /**
  * Arguments for opening a cache streamer.
  *
- * @template ScopedStores - The type of the stores
+ * @template Tbls - The type of the tables
  */
-export interface StreamerParams<ScopedStores extends Stores> {
-  /** Function to handle errors that occur during streaming */
-  handleError: AsyncErrorHandler;
-  /** Configuration defining store structure and listeners */
-  storeConfig: StoreConfig<ScopedStores>;
+export interface StreamerParams<Tbls extends Tables> {
+  /** Receives frame-handling and listener errors. */
+  onError: (error: Error) => void;
+  /** Configuration defining table structure and listeners */
+  configs: TableConfigs<Tbls>;
   /** Function to open the change stream */
   openStreamer: StreamOpener;
-  /** The stores to update with streamed data */
-  store: ScopedStores;
+  /** The tables to update with streamed data */
+  tables: Tbls;
   /**
    * Called once when the stream first opens, before any frame is processed.
    */
@@ -82,7 +81,7 @@ export interface StreamerParams<ScopedStores extends Stores> {
 }
 
 /**
- * A lazily-opened change stream over the channels named in a store config.
+ * A lazily-opened change stream over the channels named in a table config.
  * Construction is synchronous and network-free; the underlying stream opens
  * on the first {@link Streamer.demand} call.
  */
@@ -100,28 +99,29 @@ export interface Streamer {
  * Creates a lazy streamer that, once demanded, listens to configured channels
  * and invokes the appropriate listeners when data changes.
  *
- * @template ScopedStores - The type of the stores
+ * @template Tbls - The type of the tables
  * @param params - Configuration for the streamer
  * @returns The lazy streamer handle
  */
-export const createStreamer = <ScopedStores extends Stores>({
+export const createStreamer = <Tbls extends Tables>({
   openStreamer: streamOpener,
-  storeConfig,
-  handleError,
-  store,
+  configs,
+  onError,
+  tables,
   onOpen,
   onReopen,
-}: StreamerParams<ScopedStores>): Streamer => {
+}: StreamerParams<Tbls>): Streamer => {
   let opened: Promise<ObservableStream> | null = null;
+  const report = (exc: unknown, message: string) => {
+    if (NotFoundError.matches(exc)) return;
+    onError(new Error(message, { cause: exc }));
+  };
   const open = async (): Promise<ObservableStream> => {
-    const configValues = Object.values(storeConfig);
+    const configValues = Object.values(configs);
     const channels = unique.unique(
       configValues.flatMap(({ listeners }) => listeners.map(({ channel }) => channel)),
     );
-    const listenersForChannels: Record<
-      string,
-      ChannelListener<ScopedStores, z.ZodType>[]
-    > = {};
+    const listenersForChannels: Record<string, ChannelListener<Tbls, z.ZodType>[]> = {};
     configValues.forEach(({ listeners }) =>
       listeners.forEach((lis) => {
         const { channel } = lis;
@@ -132,29 +132,30 @@ export const createStreamer = <ScopedStores extends Stores>({
     const handleChange = (frame: framer.Frame) => {
       const namesInFrame = [...frame.uniqueNames];
       namesInFrame.sort(channelNameSort);
-      void handleError(
-        async () => {
-          for (const name of namesInFrame) {
-            const series = frame.get(name);
-            const listeners = listenersForChannels[name];
-            if (listeners == null) continue;
-            for (const { onChange, schema } of listeners)
-              await handleError(async () => {
-                let parsed: z.output<typeof schema>[];
-                if (!series.dataType.equals(DataType.JSON))
-                  parsed = Array.from(series).map((s) => schema.parse(s));
-                else parsed = series.parseJSON(schema);
-                for (const changed of parsed)
-                  await handleError(
-                    () => onChange({ changed, store }),
-                    `Failed to handle streamer change for ${name}`,
-                    NotFoundError,
-                  );
-              }, `Failed to parse streamer change for ${name}`);
+      void (async () => {
+        for (const name of namesInFrame) {
+          const series = frame.get(name);
+          const listeners = listenersForChannels[name];
+          if (listeners == null) continue;
+          for (const { onChange, schema } of listeners) {
+            let parsed: z.output<typeof schema>[];
+            try {
+              if (!series.dataType.equals(DataType.JSON))
+                parsed = Array.from(series).map((s) => schema.parse(s));
+              else parsed = series.parseJSON(schema);
+            } catch (exc) {
+              report(exc, `failed to parse streamer change for ${name}`);
+              continue;
+            }
+            for (const changed of parsed)
+              try {
+                await onChange({ changed, store: tables });
+              } catch (exc) {
+                report(exc, `failed to handle streamer change for ${name}`);
+              }
           }
-        },
-        `Failed to handle streamer change for ${strings.naturalLanguageJoin(namesInFrame)}`,
-      );
+        }
+      })();
     };
     stream.onChange(handleChange);
     return stream;

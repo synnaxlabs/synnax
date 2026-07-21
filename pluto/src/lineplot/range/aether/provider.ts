@@ -75,7 +75,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     if (client == null) return;
     i.client = client;
     i.removeListener?.();
-    if (!client.cache.enabled) return;
     const removeOnSet = client.ranges.onSet((changed) => {
       if (color.isCrude(changed.color)) i.ranges.set(changed.key, changed);
       i.requestRender("tool");

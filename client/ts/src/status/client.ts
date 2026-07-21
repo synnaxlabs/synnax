@@ -67,9 +67,10 @@ export interface SetOptions {
   parent?: ontology.ID;
 }
 
-const MOUNT_SCOPE = "status.mounts";
-
 const BASE_REQUEST: Partial<RetrieveRequest> = { includeLabels: true };
+
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 const normalizeRequest = (params: MultiRetrieveParams): RetrieveRequest =>
   retrieveRequestZ.parse(params);
@@ -86,31 +87,68 @@ export class Client {
   readonly type: string = "status";
   private readonly client: UnaryClient;
   private readonly labelClient?: label.Client;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<Key, Status>;
-    request: cache.Queries<RetrieveRequest, Status[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<Key, Status, Key, Status>;
+    request: cache.Answers<RetrieveRequest, Status[], Key, Status>;
   };
 
-  constructor(client: UnaryClient, labelClient?: label.Client, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache, labelClient?: label.Client) {
     this.client = client;
     this.labelClient = labelClient;
-    if (engine == null) return;
+    this.cache_ = engine;
     bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.answers_ = {
+      single: engine.answers({
         name: "status",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.statusStore,
+        fetch: async (query) => [(await this.fetchSingle(query)).key],
+        compose: (records) => this.compose(records[0]),
+        keyOf: (query) => query,
+        single: true,
+        watch: [
+          cache.watch(this.relationshipStore, (event, query: Key) => {
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!label.matchLabeledBy(rel, ontologyID(query))) return null;
+            if (event.variant === "set") this.ensureLabel(rel);
+            return [query];
+          }),
+          cache.watch(this.labelStore, (event, query: Key) =>
+            this.isLabeledBy(query, event.key) ? [query] : null,
+          ),
+        ],
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "statuses",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.statusStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
+        compose: (records) => records.map((s) => this.compose(s)),
+        matches: (status, query) => this.requestFilter(query)(status),
+        serverFields: SERVER_FIELDS,
+        watch: [
+          cache.watch(this.relationshipStore, (event, _: RetrieveRequest) => {
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (
+              rel.type !== label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE ||
+              rel.from.type !== TYPE_ONTOLOGY_ID.type
+            )
+              return null;
+            if (event.variant === "set") this.ensureLabel(rel);
+            return [rel.from.key];
+          }),
+          cache.watch(this.labelStore, (event, _: RetrieveRequest) =>
+            this.statusesLabeledBy(event.key),
+          ),
+        ],
+        hydrate: async (keys) => {
+          await this.fetchKeys(keys);
+        },
       }),
     };
   }
@@ -126,14 +164,14 @@ export class Client {
     const isSingle = "key" in params;
     // Schema-parametrized retrieves validate details for one caller; their
     // results are not shared through the cache.
-    if (this.queries_ == null || params.detailsSchema != null) {
+    if (params.detailsSchema != null) {
       const statuses = await this.execRetrieve<DetailsSchema>(params);
       checkForMultipleOrNoResults("Status", params, statuses, isSingle);
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle)
-      return (await this.queries_.single.retrieve(params.key)) as Status<DetailsSchema>;
-    return (await this.queries_.request.retrieve(
+      return (await this.answers_.single.retrieve(params.key)) as Status<DetailsSchema>;
+    return (await this.answers_.request.retrieve(
       normalizeRequest(params),
     )) as Status<DetailsSchema>[];
   }
@@ -142,7 +180,6 @@ export class Client {
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a status; every other shape delivers the matching
    * statuses.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: SingleRetrieveParams,
@@ -156,13 +193,13 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Status> | cache.ChangeHandler<Status[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(
+      return answers.single.onChange(
         params.key,
         handler as cache.ChangeHandler<Status>,
       );
-    return queries.request.onChange(
+    return answers.request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<Status[]>,
     );
@@ -171,16 +208,15 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: SingleRetrieveParams): cache.Cached<Status> | undefined;
   getCached(params: MultiRetrieveParams): cache.Cached<Status[]> | undefined;
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Status> | cache.Cached<Status[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(params.key);
-    return queries.request.getCached(normalizeRequest(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(params.key);
+    return answers.request.getCached(normalizeRequest(params));
   }
 
   async set<DetailsSchema extends z.ZodType>(
@@ -206,7 +242,7 @@ export class Client {
       setResZ(opts.detailsSchema),
     );
     const created = res.statuses as Status<DetailsSchema>[];
-    this.writes?.set(created);
+    this.statusStore.setMany(created);
     return isMany ? created : created[0];
   }
 
@@ -214,11 +250,8 @@ export class Client {
     const stat = await this.retrieve({ key });
     const renamed = { ...stat, name };
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(writes.set(renamed));
-      rollback.add(ontology.renameCachedResource(this.engine_, ontologyID(key), name));
-    }
+    rollback.add(this.statusStore.set(renamed.key, renamed));
+    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.set(renamed);
@@ -228,64 +261,36 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     const keysArr = array.toArray(keys);
     await this.client.send("/status/delete", { keys: keysArr }, deleteReqZ, emptyResZ);
-    this.writes?.delete(keysArr);
-    this.relationshipWrites?.delete((r) =>
+    this.statusStore.delete(keysArr);
+    this.relationshipStore.delete((r) =>
       keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
     );
   }
 
-  private get writes(): cache.UnaryStore<Key, Status> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get statusStore(): cache.Table<Key, Status> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get relationshipWrites():
-    cache.UnaryStore<string, ontology.Relationship> | undefined {
-    return this.engine_?.store(ontology.RELATIONSHIPS_STORE_KEY);
+  private get labelStore(): cache.Table<label.Key, label.Label> {
+    return this.cache_.table(label.STORE_KEY);
   }
 
-  private get statusStore(): cache.UnaryStore<Key, Status> {
-    return this.requireEngine().store(STORE_KEY);
+  private get relationshipStore(): cache.Table<string, ontology.Relationship> {
+    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
   }
 
-  private get labelStore(): cache.UnaryStore<label.Key, label.Label> {
-    return this.requireEngine().store(label.STORE_KEY);
-  }
-
-  private get relationshipStore(): cache.UnaryStore<string, ontology.Relationship> {
-    return this.requireEngine().store(ontology.RELATIONSHIPS_STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
   /** Subscribes to every status set delivered to the cache. */
   onSet(handler: (status: Status) => void): destructor.Destructor {
-    return this.statusEvents.onSet(handler);
+    return this.statusStore.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
   }
 
   /** Subscribes to every status delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
-    return this.statusEvents.onDelete(handler);
-  }
-
-  private get statusEvents(): cache.UnaryStore<Key, Status> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private get relationshipEvents(): cache.UnaryStore<string, ontology.Relationship> {
-    return this.requireEngine().store(ontology.RELATIONSHIPS_STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+    return this.statusStore.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   private async execRetrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -314,7 +319,7 @@ export class Client {
   private writeThrough(status: Status): void {
     this.statusStore.set(status.key, status);
     if (status.labels == null) return;
-    this.labelStore.set(status.labels);
+    this.labelStore.setMany(status.labels);
     const id = ontologyID(status.key);
     status.labels.forEach((l) => {
       const rel: ontology.Relationship = {
@@ -327,15 +332,15 @@ export class Client {
   }
 
   /**
-   * Fetches the given keys, serving composed cached entries and fetching only
-   * the misses. Preserves the caller's key order.
+   * Fetches the given keys, serving cached entries and fetching only the
+   * misses. Preserves the caller's key order.
    */
   private async fetchKeys(keys: Key[]): Promise<Status[]> {
     const results: Status[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
       const cached = this.statusStore.get(key);
-      if (cached != null) results.push(this.compose(cached));
+      if (cached != null) results.push(cached);
       else misses.push(key);
     }
     if (misses.length > 0) {
@@ -348,49 +353,49 @@ export class Client {
 
   private async fetchSingle(query: Key): Promise<Status> {
     const cached = this.statusStore.get(query);
-    if (cached != null) return this.compose(cached);
+    if (cached != null) return cached;
     const statuses = await this.execRetrieve({ ...BASE_REQUEST, keys: [query] });
     checkForMultipleOrNoResults("Status", query, statuses, true);
     this.writeThrough(statuses[0]);
     return statuses[0];
   }
 
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, Status>) {
-    const id = ontologyID(query);
-    return [
-      this.statusEvents.onSet((status) => {
-        if (status.key === query) update(this.compose(status));
-      }),
-      this.statusEvents.onDelete((key) => {
-        if (key === query) remove(this.statusStore.getTombstone(key)?.corpse);
-      }),
-      this.relationshipEvents.onSet((rel) => {
-        if (!label.matchLabeledBy(rel, id)) return;
-        const recompose = () =>
-          update((prev) => (prev == null ? prev : this.compose(prev)));
-        recompose();
-        void this.ensureLabel(rel).then((fetched) => {
-          if (fetched) recompose();
-        });
-      }),
-      this.relationshipEvents.onDelete((relKey) => {
-        const rel = ontology.relationshipZ.parse(relKey);
-        if (!label.matchLabeledBy(rel, id)) return;
-        update((prev) => (prev == null ? prev : this.compose(prev)));
-      }),
-    ];
-  }
-
   /**
    * Fetches a labeled-by target the cache is missing so composition sees it.
-   * Returns whether a fetch occurred, so callers can recompose.
+   * The fetched label lands in the label table, which recomposes answers.
    */
-  private async ensureLabel(rel: ontology.Relationship): Promise<boolean> {
-    if (this.labelClient == null) return false;
-    if (rel.to.type !== "label" || this.labelStore.has(rel.to.key)) return false;
-    const fetched = await this.labelClient.retrieve({ key: rel.to.key });
-    this.labelStore.set(rel.to.key, fetched);
-    return true;
+  private ensureLabel(rel: ontology.Relationship): void {
+    if (this.labelClient == null) return;
+    if (rel.to.type !== "label" || this.labelStore.has(rel.to.key)) return;
+    void this.labelClient
+      .retrieve({ key: rel.to.key })
+      .catch((exc: unknown) =>
+        this.cache_.onError(new Error("failed to fetch status label", { cause: exc })),
+      );
+  }
+
+  /** Reports whether the status is labeled by the given label. */
+  private isLabeledBy(status: Key, labelKey: label.Key): boolean {
+    return this.relationshipStore.has(
+      ontology.relationshipToString({
+        from: ontologyID(status),
+        type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
+        to: label.ontologyID(labelKey),
+      }),
+    );
+  }
+
+  /** Returns the keys of cached statuses labeled by the given label. */
+  private statusesLabeledBy(labelKey: label.Key): Key[] {
+    return this.relationshipStore
+      .get(
+        (r) =>
+          r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
+          r.from.type === TYPE_ONTOLOGY_ID.type &&
+          r.to.type === "label" &&
+          r.to.key === labelKey,
+      )
+      .map((r) => r.from.key);
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Status[]> {
@@ -401,89 +406,24 @@ export class Client {
   }
 
   /**
-   * Client-side approximation of the server's matching for a request: exact
-   * for key, variant, and label filters, permissive for server-computed
-   * shapes (search), which accept every change and drift toward the server's
-   * answer.
+   * Client-side matching for a request: key sets, variants, and label
+   * membership via the relationship table. Server-computed shapes (search,
+   * limit/offset) never reach this filter; they refetch instead.
    */
   private requestFilter(req: RetrieveRequest): (s: Status) => boolean {
     const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-    const labelSet = primitive.isNonZero(req.hasLabels)
-      ? new Set(req.hasLabels)
-      : undefined;
     const variantSet = primitive.isNonZero(req.variants)
       ? new Set(req.variants)
       : undefined;
     return (s) => {
       if (keySet != null && !keySet.has(s.key)) return false;
       if (variantSet != null && !variantSet.has(s.variant)) return false;
-      if (labelSet != null && !(s.labels ?? []).some((l) => labelSet.has(l.key)))
+      if (
+        primitive.isNonZero(req.hasLabels) &&
+        !req.hasLabels.some((key) => this.isLabeledBy(s.key, key))
+      )
         return false;
       return true;
     };
-  }
-
-  private mountRequest({
-    query,
-    update,
-  }: cache.MountParams<RetrieveRequest, Status[]>) {
-    const matches = this.requestFilter(query);
-    return [
-      this.statusEvents.onSet((status) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((s) => s.key === status.key);
-          const merged = this.compose(status);
-          if (!matches(merged))
-            return existing ? prev.filter((s) => s.key !== status.key) : prev;
-          if (existing) return prev.map((s) => (s.key === status.key ? merged : s));
-          return [...prev, merged];
-        });
-      }),
-      this.statusEvents.onDelete((key) => {
-        update((prev) => prev?.filter((s) => s.key !== key));
-      }),
-      this.relationshipEvents.onSet((rel) => {
-        const apply = () => update((prev) => this.applyLabeledBy(prev, rel, matches));
-        apply();
-        void this.ensureLabel(rel).then((fetched) => {
-          if (fetched) apply();
-        });
-      }),
-      this.relationshipEvents.onDelete((relKey) => {
-        const rel = ontology.relationshipZ.parse(relKey);
-        update((prev) => this.applyLabeledBy(prev, rel, matches));
-      }),
-    ];
-  }
-
-  /**
-   * Applies a labeled-by change to a request answer: recomposes the affected
-   * member, drops it when it stops matching, and admits a stored status that
-   * now matches.
-   */
-  private applyLabeledBy(
-    prev: Status[] | undefined,
-    rel: ontology.Relationship,
-    matches: (s: Status) => boolean,
-  ): Status[] | undefined {
-    if (prev == null) return prev;
-    if (
-      rel.type !== label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE ||
-      rel.from.type !== TYPE_ONTOLOGY_ID.type
-    )
-      return prev;
-    const key = rel.from.key;
-    const member = prev.find((s) => s.key === key);
-    if (member != null) {
-      const composed = this.compose(member);
-      if (!matches(composed)) return prev.filter((s) => s.key !== key);
-      return prev.map((s) => (s.key === key ? composed : s));
-    }
-    const stored = this.statusStore.get(key);
-    if (stored == null) return prev;
-    const composed = this.compose(stored);
-    if (!matches(composed)) return prev;
-    return [...prev, composed];
   }
 }

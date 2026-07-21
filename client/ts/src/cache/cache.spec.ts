@@ -55,25 +55,6 @@ class MockStreamer implements framer.Streamer {
   }
 }
 
-const noopHandler = vi.fn((excOrFunc: any) => {
-  if (typeof excOrFunc === "function")
-    void (async () => {
-      try {
-        await excOrFunc();
-      } catch {
-        // swallowed
-      }
-    })();
-});
-const noopAsyncHandler = vi.fn(async (excOrFunc: any) => {
-  if (typeof excOrFunc === "function")
-    try {
-      await excOrFunc();
-    } catch {
-      // swallowed
-    }
-});
-
 const wrapOpener =
   (opener: framer.StreamOpener): cache.StreamOpener =>
   async (channels, { onOpen, onReopen }) => {
@@ -88,28 +69,27 @@ const wrapOpener =
   };
 
 const makeEngine = (openStreamer?: framer.StreamOpener) =>
-  new cache.Engine({
+  new cache.Cache({
     openStreamer: wrapOpener(openStreamer ?? (async () => new MockStreamer())),
-    handleError: noopHandler,
-    handleAsyncError: noopAsyncHandler,
+    onInternalError: vi.fn(),
   });
 
-describe("Engine", () => {
+describe("Cache", () => {
   describe("detached", () => {
-    it("auto-registers empty local stores on first access", () => {
-      const engine = new cache.Engine({ openStreamer: null });
+    it("auto-registers empty local tables on first access", () => {
+      const engine = new cache.Cache({ openStreamer: null });
       expect(engine.detached).toBe(true);
-      const store = engine.store<string, number>("docs");
-      store.set("a", 1);
-      expect(engine.store<string, number>("docs").get("a")).toEqual(1);
+      const table = engine.table<string, number>("docs");
+      table.set("a", 1);
+      expect(engine.table<string, number>("docs").get("a")).toEqual(1);
     });
 
     it("keeps ensureStreaming a no-op and stays at epoch 0", async () => {
-      const engine = new cache.Engine({ openStreamer: null });
-      engine.store<string, number>("docs");
+      const engine = new cache.Cache({ openStreamer: null });
+      engine.table<string, number>("docs");
       await engine.ensureStreaming();
       expect(engine.epoch).toEqual(0);
-      const registered = () => engine.registerStore("late", { listeners: [] });
+      const registered = () => engine.registerTable("late", { listeners: [] });
       expect(registered).not.toThrow();
       await engine.close();
     });
@@ -117,55 +97,68 @@ describe("Engine", () => {
     it("still throws on unknown keys when a stream source exists", () => {
       const engine = makeEngine();
       expect(engine.detached).toBe(false);
-      expect(() => engine.store("nope")).toThrow("not registered");
+      expect(() => engine.table("nope")).toThrow("not registered");
     });
   });
 
-  describe("registerStore", () => {
-    it("registers a store retrievable through store()", () => {
+  describe("registerTable", () => {
+    it("registers a table retrievable through table()", () => {
       const engine = makeEngine();
-      engine.registerStore("docs", { listeners: [] });
-      const store = engine.store<string, Doc>("docs");
-      store.set({ key: "k1", name: "a" });
-      expect(store.get("k1")).toEqual({ key: "k1", name: "a" });
+      engine.registerTable("docs", { listeners: [] });
+      const table = engine.table<string, Doc>("docs");
+      table.set("k1", { key: "k1", name: "a" });
+      expect(table.get("k1")).toEqual({ key: "k1", name: "a" });
     });
 
     it("throws on duplicate registration", () => {
       const engine = makeEngine();
-      engine.registerStore("docs", { listeners: [] });
-      expect(() => engine.registerStore("docs", { listeners: [] })).toThrow(
+      engine.registerTable("docs", { listeners: [] });
+      expect(() => engine.registerTable("docs", { listeners: [] })).toThrow(
         "already registered",
       );
     });
 
-    it("throws when accessing an unregistered store", () => {
+    it("throws when accessing an unregistered table", () => {
       const engine = makeEngine();
-      expect(() => engine.store("nope")).toThrow("not registered");
+      expect(() => engine.table("nope")).toThrow("not registered");
     });
 
     it("throws when registering after streaming has started", async () => {
       const engine = makeEngine();
-      engine.registerStore("docs", { listeners: [] });
+      engine.registerTable("docs", { listeners: [] });
       await engine.ensureStreaming();
-      expect(() => engine.registerStore("late", { listeners: [] })).toThrow(
+      expect(() => engine.registerTable("late", { listeners: [] })).toThrow(
         "after streaming",
       );
       await engine.close();
     });
 
-    it("shares data across scopes while suppressing same-scope listeners", () => {
+    it("silences sets whose value equals the cached row", () => {
       const engine = makeEngine();
-      engine.registerStore("docs", { listeners: [] });
-      const a = engine.store<string, Doc>("docs", "scopeA");
-      const b = engine.store<string, Doc>("docs", "scopeB");
-      const aListener = vi.fn();
-      const bListener = vi.fn();
-      a.onSet(aListener);
-      b.onSet(bListener);
-      a.set({ key: "k1", name: "a" });
-      expect(aListener).not.toHaveBeenCalled();
-      expect(bListener).toHaveBeenCalledTimes(1);
-      expect(b.get("k1")).toEqual({ key: "k1", name: "a" });
+      engine.registerTable("docs", { listeners: [] });
+      const table = engine.table<string, Doc>("docs");
+      const listener = vi.fn();
+      table.subscribe(listener);
+      table.set("k1", { key: "k1", name: "a" });
+      expect(listener).toHaveBeenCalledTimes(1);
+      table.set("k1", { key: "k1", name: "a" });
+      expect(listener).toHaveBeenCalledTimes(1);
+      table.set("k1", { key: "k1", name: "b" });
+      expect(listener).toHaveBeenCalledTimes(2);
+    });
+
+    it("respects a custom equal override from the table config", () => {
+      const engine = makeEngine();
+      engine.registerTable<string, Doc>("docs", {
+        listeners: [],
+        equal: (a, b) => a.name.toLowerCase() === b.name.toLowerCase(),
+      });
+      const table = engine.table<string, Doc>("docs");
+      const listener = vi.fn();
+      table.subscribe(listener);
+      table.set("k1", { key: "k1", name: "A" });
+      table.set("k1", { key: "k1", name: "a" });
+      expect(listener).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -173,7 +166,7 @@ describe("Engine", () => {
     it("does not open the stream until ensureStreaming is called", async () => {
       const opener = vi.fn(async () => new MockStreamer());
       const engine = makeEngine(opener);
-      engine.registerStore("docs", { listeners: [] });
+      engine.registerTable("docs", { listeners: [] });
       expect(opener).not.toHaveBeenCalled();
       expect(engine.epoch).toBe(0);
       await engine.ensureStreaming();
@@ -204,27 +197,28 @@ describe("Engine", () => {
       await engine.close();
     });
 
-    it("routes streamed changes into the registered store", async () => {
+    it("routes streamed changes into the registered table", async () => {
       const schema = z.object({ key: z.string(), name: z.string() });
       const opener = async () =>
         new MockStreamer([
           new framer.Frame({ docs_set: new Series([{ key: "k1", name: "remote" }]) }),
         ]);
       const engine = makeEngine(opener);
-      engine.registerStore("docs", {
+      engine.registerTable("docs", {
         listeners: [
           {
             channel: "docs_set",
             schema,
             onChange: ({ changed, store }) => {
-              (store.docs as cache.UnaryStore<string, Doc>).set(changed as Doc);
+              const doc = changed as Doc;
+              (store.docs as cache.Table<string, Doc>).set(doc.key, doc);
             },
           },
         ],
       });
       await engine.ensureStreaming();
-      const store = engine.store<string, Doc>("docs");
-      await expect.poll(() => store.get("k1")).toEqual({ key: "k1", name: "remote" });
+      const table = engine.table<string, Doc>("docs");
+      await expect.poll(() => table.get("k1")).toEqual({ key: "k1", name: "remote" });
       await engine.close();
     });
 
@@ -254,9 +248,9 @@ describe("Engine", () => {
         return new MockStreamer();
       };
       const engine = makeEngine(opener);
-      engine.registerStore("docs", { listeners: [], refetch });
-      const store = engine.store<string, Doc>("docs");
-      store.set([
+      engine.registerTable("docs", { listeners: [], refetch });
+      const table = engine.table<string, Doc>("docs");
+      table.setMany([
         { key: "kept", name: "stale" },
         { key: "gone", name: "deleted-on-server" },
       ]);
@@ -267,56 +261,56 @@ describe("Engine", () => {
       expect(epochs).toEqual([1, 2]);
       await expect.poll(() => refetch.mock.calls.length).toBeGreaterThan(0);
       expect(refetch).toHaveBeenCalledWith(["kept", "gone"]);
-      await expect.poll(() => store.status("gone")).toBe("tombstoned");
-      expect(store.getTombstone("gone")?.corpse).toEqual({
+      await expect.poll(() => table.status("gone")).toBe("tombstoned");
+      expect(table.getTombstone("gone")?.corpse).toEqual({
         key: "gone",
         name: "deleted-on-server",
       });
-      expect(store.get("kept")).toEqual({ key: "kept", name: "kept-fresh" });
+      expect(table.get("kept")).toEqual({ key: "kept", name: "kept-fresh" });
       await engine.close();
     });
   });
 
   describe("reconcile", () => {
-    it("skips stores without a refetch", async () => {
+    it("skips tables without a refetch", async () => {
       const engine = makeEngine();
-      engine.registerStore("docs", { listeners: [] });
-      engine.store<string, Doc>("docs").set({ key: "k1", name: "a" });
+      engine.registerTable("docs", { listeners: [] });
+      engine.table<string, Doc>("docs").set("k1", { key: "k1", name: "a" });
       await engine.reconcile();
-      expect(engine.store<string, Doc>("docs").get("k1")).toEqual({
+      expect(engine.table<string, Doc>("docs").get("k1")).toEqual({
         key: "k1",
         name: "a",
       });
     });
 
-    it("skips refetch when the store is empty", async () => {
+    it("skips refetch when the table is empty", async () => {
       const refetch = vi.fn(async () => []);
       const engine = makeEngine();
-      engine.registerStore("docs", { listeners: [], refetch });
+      engine.registerTable("docs", { listeners: [], refetch });
       await engine.reconcile();
       expect(refetch).not.toHaveBeenCalled();
     });
 
-    it("continues reconciling other stores when one refetch fails", async () => {
+    it("continues reconciling other tables when one refetch fails", async () => {
       const engine = makeEngine();
       const goodRefetch = vi.fn(async (keys: string[]) =>
         keys.map((k) => ({ key: k, name: "fresh" })),
       );
-      engine.registerStore("bad", {
+      engine.registerTable("bad", {
         listeners: [],
         refetch: async () => {
           throw new Error("network");
         },
       });
-      engine.registerStore("good", { listeners: [], refetch: goodRefetch });
-      engine.store<string, Doc>("bad").set({ key: "b1", name: "a" });
-      engine.store<string, Doc>("good").set({ key: "g1", name: "stale" });
+      engine.registerTable("good", { listeners: [], refetch: goodRefetch });
+      engine.table<string, Doc>("bad").set("b1", { key: "b1", name: "a" });
+      engine.table<string, Doc>("good").set("g1", { key: "g1", name: "stale" });
       await engine.reconcile();
-      expect(engine.store<string, Doc>("good").get("g1")).toEqual({
+      expect(engine.table<string, Doc>("good").get("g1")).toEqual({
         key: "g1",
         name: "fresh",
       });
-      expect(engine.store<string, Doc>("bad").get("b1")).toEqual({
+      expect(engine.table<string, Doc>("bad").get("b1")).toEqual({
         key: "b1",
         name: "a",
       });

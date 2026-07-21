@@ -21,8 +21,8 @@ import {
   List as PList,
   Menu,
   Select,
-  type state,
 } from "@synnaxlabs/pluto";
+import { type state } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 
 import { ContextMenu } from "@/feature/range/list/ContextMenu";

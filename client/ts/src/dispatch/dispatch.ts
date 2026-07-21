@@ -19,7 +19,7 @@ import {
 import type z from "zod";
 
 import { type cache } from "@/cache";
-import { ScopedUnaryStore } from "@/cache/store";
+import { Table } from "@/cache/table";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
@@ -161,85 +161,15 @@ export interface Frame<Key, Action> {
   actions: Action[];
 }
 
-/**
- * The action-dispatch surface for one document, bound to a caller scope.
- * Pure state transitions only (replay, recordEntry, prepareUndo,
- * applyRemote); the network send is the caller's job.
- */
-export interface Handle<Key extends record.Key, _State extends cache.Data, Action> {
-  /**
-   * Run preprocess + reduce against the cached doc and write the result.
-   * Returns the reducer output and a rollback that restores the prior doc
-   * state. Returns null if the doc isn't cached.
-   */
-  replay(
-    key: Key,
-    actions: Action[],
-    opts?: { skipPreprocess?: boolean },
-  ): ReplayResult<Action> | null;
-  /**
-   * Append an undoable entry to the stack. Filters non-undoable actions,
-   * derives the kind, and coalesces with the prior entry if it falls within
-   * the configured window with matching kind/targets. Clears redo.
-   */
-  recordEntry(
-    key: Key,
-    forward: Action[],
-    inverse: Action[],
-    targets: readonly string[],
-    kindOverride?: string,
-  ): destructor.Destructor;
-  /**
-   * Return the top live undo, dropping stale entries from the tail as it
-   * walks past them. Null when no live entry exists.
-   */
-  prepareUndo(key: Key): Reversal<Action> | null;
-  /** Mirror of prepareUndo for the redo stack. */
-  prepareRedo(key: Key): Reversal<Action> | null;
-  /**
-   * Stage actions to commit atomically as one undoable. The caller supplies
-   * `send` so the controller doesn't depend on the network.
-   */
-  beginTransaction(key: Key, send: Send<Action>, kind?: string): Transaction<Action>;
-  /**
-   * Register a dispatch as outstanding so when its broadcast echo arrives it
-   * can be recognized as own and a redundant reduce skipped. Called by the
-   * dispatcher *before* the network send so the registration always wins the
-   * race against a fast echo. A registration whose echo has already been
-   * applied (seq advanced past it) is silently dropped; that's the safe
-   * fallback when the echo arrives before the dispatch promise resolves.
-   */
-  registerOutstandingDispatch(key: Key, dispatchKey: string): void;
-  /**
-   * Apply a remote frame. The frame is dropped if its seq does not exceed the
-   * high-water mark previously applied for this key. If `dispatchKey` matches
-   * an entry the originator registered as outstanding, these actions were
-   * already applied via replay: if no foreign action interleaved during the
-   * outstanding window, skip the reduce; otherwise re-run it to recover from
-   * the foreign overwrite. A foreign frame (one whose dispatchKey is unknown)
-   * always reduces and marks every outstanding own dispatch with a greater
-   * seq as needing recovery.
-   */
-  applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void;
-  /** Mark internal keys as remote-touched at the given ts (default: now). */
-  markRemoteTouched(
-    key: Key,
-    targets: readonly string[],
-    ts?: TimeStamp,
-  ): destructor.Destructor;
-  hasUndo(key: Key): boolean;
-  hasRedo(key: Key): boolean;
-  onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor;
-}
-
 export interface ControllerParams<
   Key extends record.Key,
   State extends cache.Data,
   Action,
 > {
-  /** The raw store holding the documents this controller dispatches over. */
-  store: ScopedUnaryStore<Key, State>;
-  handleError: cache.ErrorHandler;
+  /** The table holding the documents this controller dispatches over. */
+  store: Table<Key, State>;
+  /** Reports listener errors that have no caller to throw to. */
+  onError: (error: Error) => void;
   reduce: Reducer<State, Action>;
   preprocess?: (state: State, actions: Action[]) => Action[];
   isUndoable?: (action: Action) => boolean;
@@ -249,14 +179,14 @@ export interface ControllerParams<
 }
 
 /**
- * Owns the action-dispatch loop for one document store: local replay with
+ * Owns the action-dispatch loop for one document table: local replay with
  * rollback, per-doc undo/redo stacks, echo recognition, and remote-frame
- * application. Operates on a plain cache store; all dispatch bookkeeping is
- * session-local and dropped when a document's entry is deleted (tombstoned).
+ * application. Operates on a plain cache table; all dispatch bookkeeping is
+ * session-local and dropped when a document's row is deleted (tombstoned).
  */
 export class Controller<Key extends record.Key, State extends cache.Data, Action> {
-  private readonly docs: ScopedUnaryStore<Key, State>;
-  private readonly undos: ScopedUnaryStore<Key, UndoState<Action>>;
+  private readonly docs: Table<Key, State>;
+  private readonly undos: Table<Key, UndoState<Action>>;
   private readonly params: Required<
     Omit<ControllerParams<Key, State, Action>, "store">
   >;
@@ -280,7 +210,7 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
-      handleError: opts.handleError,
+      onError: opts.onError,
       reduce: opts.reduce,
       preprocess: opts.preprocess ?? ((_, a) => a),
       isUndoable: opts.isUndoable ?? (() => true),
@@ -289,28 +219,35 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
       stackCap: opts.stackCap ?? DEFAULT_STACK_CAP,
     };
     this.docs = opts.store;
-    this.undos = new ScopedUnaryStore<Key, UndoState<Action>>(this.params.handleError);
+    // Undo states are rebuilt objects on every update; comparing them would
+    // be pure waste, so equality is disabled.
+    this.undos = new Table<Key, UndoState<Action>>(this.params.onError, () => false);
     // Stacks are session-local: when a document is deleted (tombstoned), its
     // dispatch bookkeeping goes with it.
-    this.docs.onDelete("__dispatch__", (key) => this.drop(key));
+    this.docs.subscribe((event) => {
+      if (event.variant === "delete") this.drop(event.key);
+    });
   }
 
   private drop(key: Key): void {
-    this.undos.delete("__dispatch__", key);
+    this.undos.delete(key);
     this.lastAppliedSeq.delete(key);
     this.outstandingDispatches.delete(key);
   }
 
   private updateUndo(
-    scope: string,
     key: Key,
     fn: (s: UndoState<Action>) => UndoState<Action>,
   ): destructor.Destructor {
-    return this.undos.set(scope, key, (prev) => fn(prev ?? ZERO_UNDO<Action>()));
+    return this.undos.set(key, (prev) => fn(prev ?? ZERO_UNDO<Action>()));
   }
 
+  /**
+   * Run preprocess + reduce against the cached doc and write the result.
+   * Returns the reducer output and a rollback that restores the prior doc
+   * state. Returns null if the doc isn't cached.
+   */
   replay(
-    scope: string,
     key: Key,
     actions: Action[],
     opts: { skipPreprocess?: boolean } = {},
@@ -326,12 +263,16 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
       inverse,
       targets,
       changed: next !== current,
-      rollback: this.docs.set(scope, key, next),
+      rollback: this.docs.set(key, next),
     };
   }
 
+  /**
+   * Append an undoable entry to the stack. Filters non-undoable actions,
+   * derives the kind, and coalesces with the prior entry if it falls within
+   * the configured window with matching kind/targets. Clears redo.
+   */
   recordEntry(
-    scope: string,
     key: Key,
     forward: Action[],
     inverse: Action[],
@@ -348,7 +289,7 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
       ts: TimeStamp.now(),
       targets,
     };
-    return this.updateUndo(scope, key, (s) => ({
+    return this.updateUndo(key, (s) => ({
       ...s,
       undo: pushOnto(s.undo, entry, this.params.coalesceWindow, this.params.stackCap),
       redo: [],
@@ -360,11 +301,7 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
   // STALE_AUTO_ADVANCE_CAP and drops a fully stale tail. On hit, returns the
   // entry's reversal actions (inverse for undo, forward for redo) and a
   // commit that moves the entry to the opposite stack.
-  private prepareReversal(
-    scope: string,
-    key: Key,
-    side: "undo" | "redo",
-  ): Reversal<Action> | null {
+  private prepareReversal(key: Key, side: "undo" | "redo"): Reversal<Action> | null {
     const state = this.undos.get(key);
     if (state == null) return null;
     const stack = state[side];
@@ -383,7 +320,7 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     }
     if (idx === -1) {
       if (stale > 0)
-        this.updateUndo(scope, key, (s) => ({
+        this.updateUndo(key, (s) => ({
           ...s,
           [side]: s[side].slice(0, s[side].length - stale),
         }));
@@ -394,7 +331,7 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     return {
       actions: side === "undo" ? entry.inverse : entry.forward,
       commit: () =>
-        this.updateUndo(scope, key, (s) => ({
+        this.updateUndo(key, (s) => ({
           ...s,
           [side]: s[side].slice(0, idx),
           [other]: [...s[other], entry],
@@ -407,7 +344,6 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
   // (the broadcast echo can race the HTTP response), and roll back stack and
   // state when the send fails. Returns false when the doc isn't cached.
   private async applySend(
-    scope: string,
     key: Key,
     actions: Action[],
     commitStack: (r: ReplayResult<Action>) => destructor.Destructor,
@@ -417,7 +353,7 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     const current = this.docs.get(key);
     if (current == null) return false;
     const processed = preprocess == null ? actions : preprocess(current, actions);
-    const r = this.replay(scope, key, processed, { skipPreprocess: true });
+    const r = this.replay(key, processed, { skipPreprocess: true });
     if (r == null) return false;
     const stackRollback = commitStack(r);
     // A replay that left the state untouched has nothing for the server: no
@@ -442,7 +378,6 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
    * doc isn't cached. Rolls back the local apply and rethrows on send failure.
    */
   async dispatch(
-    scope: string,
     key: Key,
     actions: Action[],
     send: SendDispatch<Action>,
@@ -450,11 +385,10 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
   ): Promise<boolean> {
     if (actions.length === 0) return true;
     return await this.applySend(
-      scope,
       key,
       actions,
       ({ processed, inverse, targets }) =>
-        this.recordEntry(scope, key, processed, inverse, targets),
+        this.recordEntry(key, processed, inverse, targets),
       send,
       preprocess,
     );
@@ -465,29 +399,17 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
    * Returns false when nothing is undoable. Rolls back and rethrows on send
    * failure.
    */
-  async undo(scope: string, key: Key, send: SendDispatch<Action>): Promise<boolean> {
-    const prepared = this.prepareUndo(scope, key);
+  async undo(key: Key, send: SendDispatch<Action>): Promise<boolean> {
+    const prepared = this.prepareUndo(key);
     if (prepared == null) return false;
-    return await this.applySend(
-      scope,
-      key,
-      prepared.actions,
-      () => prepared.commit(),
-      send,
-    );
+    return await this.applySend(key, prepared.actions, () => prepared.commit(), send);
   }
 
   /** Mirror of {@link undo} for the redo stack. */
-  async redo(scope: string, key: Key, send: SendDispatch<Action>): Promise<boolean> {
-    const prepared = this.prepareRedo(scope, key);
+  async redo(key: Key, send: SendDispatch<Action>): Promise<boolean> {
+    const prepared = this.prepareRedo(key);
     if (prepared == null) return false;
-    return await this.applySend(
-      scope,
-      key,
-      prepared.actions,
-      () => prepared.commit(),
-      send,
-    );
+    return await this.applySend(key, prepared.actions, () => prepared.commit(), send);
   }
 
   /**
@@ -496,13 +418,11 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
    * as own.
    */
   transaction(
-    scope: string,
     key: Key,
     send: SendDispatch<Action>,
     kind?: string,
   ): Transaction<Action> {
     return this.beginTransaction(
-      scope,
       key,
       async (actions) => {
         const dispatchKey = id.create();
@@ -513,20 +433,15 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     );
   }
 
-  prepareUndo(scope: string, key: Key): Reversal<Action> | null {
-    return this.prepareReversal(scope, key, "undo");
+  prepareUndo(key: Key): Reversal<Action> | null {
+    return this.prepareReversal(key, "undo");
   }
 
-  prepareRedo(scope: string, key: Key): Reversal<Action> | null {
-    return this.prepareReversal(scope, key, "redo");
+  prepareRedo(key: Key): Reversal<Action> | null {
+    return this.prepareReversal(key, "redo");
   }
 
-  beginTransaction(
-    scope: string,
-    key: Key,
-    send: Send<Action>,
-    kind?: string,
-  ): Transaction<Action> {
+  beginTransaction(key: Key, send: Send<Action>, kind?: string): Transaction<Action> {
     const initial = this.docs.get(key);
     const accumulated: Action[] = [];
     let done = false;
@@ -535,7 +450,7 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
         if (done) throw new Error("transaction finalized");
         if (initial == null) return;
         const arr = Array.isArray(actions) ? actions : [actions];
-        const r = this.replay(scope, key, arr);
+        const r = this.replay(key, arr);
         if (r != null) accumulated.push(...r.processed);
       },
       commit: async () => {
@@ -546,7 +461,6 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
         // undo restores to where the user started, not the last-add post-state.
         const { inverse, targets } = this.params.reduce(initial, accumulated);
         const stackRollback = this.recordEntry(
-          scope,
           key,
           accumulated,
           inverse,
@@ -558,26 +472,25 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
           return true;
         } catch (e) {
           stackRollback();
-          this.docs.set(scope, key, initial);
+          this.docs.set(key, initial);
           throw errors.fromUnknown(e);
         }
       },
       abort: () => {
         if (done) return;
         done = true;
-        if (initial != null) this.docs.set(scope, key, initial);
+        if (initial != null) this.docs.set(key, initial);
       },
     };
   }
 
   markRemoteTouched(
-    scope: string,
     key: Key,
     targets: readonly string[],
     ts: TimeStamp = TimeStamp.now(),
   ): destructor.Destructor {
     if (targets.length === 0) return destructor.NOOP;
-    return this.updateUndo(scope, key, (s) => {
+    return this.updateUndo(key, (s) => {
       const remoteTouched = { ...s.remoteTouched };
       for (const t of targets) remoteTouched[t] = ts;
       return { ...s, remoteTouched };
@@ -589,6 +502,14 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     return (this.outstandingDispatches.get(key)?.size ?? 0) > 0;
   }
 
+  /**
+   * Register a dispatch as outstanding so when its broadcast echo arrives it
+   * can be recognized as own and a redundant reduce skipped. Called by the
+   * dispatcher *before* the network send so the registration always wins the
+   * race against a fast echo. A registration whose echo has already been
+   * applied (seq advanced past it) is silently dropped; that's the safe
+   * fallback when the echo arrives before the dispatch promise resolves.
+   */
   registerOutstandingDispatch(key: Key, dispatchKey: string): void {
     let bucket = this.outstandingDispatches.get(key);
     if (bucket == null) {
@@ -598,13 +519,17 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     bucket.set(dispatchKey, { disturbed: false });
   }
 
-  applyRemote(
-    scope: string,
-    key: Key,
-    seq: number,
-    dispatchKey: string,
-    actions: Action[],
-  ): void {
+  /**
+   * Apply a remote frame. The frame is dropped if its seq does not exceed the
+   * high-water mark previously applied for this key. If `dispatchKey` matches
+   * an entry the originator registered as outstanding, these actions were
+   * already applied via replay: if no foreign action interleaved during the
+   * outstanding window, skip the reduce; otherwise re-run it to recover from
+   * the foreign overwrite. A foreign frame (one whose dispatchKey is unknown)
+   * always reduces and marks every outstanding own dispatch with a greater
+   * seq as needing recovery.
+   */
+  applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
     if (seq !== 0) {
       const last = this.lastAppliedSeq.get(key) ?? 0;
       if (seq <= last) return;
@@ -632,8 +557,8 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     const current = this.docs.get(key);
     if (current == null) return;
     const { next, targets } = this.params.reduce(current, actions);
-    this.docs.set(scope, key, next);
-    if (!isOwnEcho) this.markRemoteTouched(scope, key, targets);
+    this.docs.set(key, next);
+    if (!isOwnEcho) this.markRemoteTouched(key, targets);
   }
 
   hasUndo(key: Key): boolean {
@@ -646,58 +571,26 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
     return (s?.redo.length ?? 0) > 0;
   }
 
-  onUndoStateChange(
-    scope: string,
-    callback: () => void,
-    key?: Key,
-  ): destructor.Destructor {
-    const offSet = this.undos.onSet(scope, () => callback(), key);
-    const offDelete = this.undos.onDelete(scope, () => callback(), key);
-    return () => {
-      offSet();
-      offDelete();
-    };
+  onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
+    return this.undos.subscribe(() => callback(), key);
   }
 
   /**
    * Builds a channel listener that applies broadcast action frames from the
-   * given channel to this controller. Registered in the owning store's
+   * given channel to this controller. Registered in the owning table's
    * config.
    */
-  listener<ScopedStores extends cache.Stores>(
+  listener<Tbls extends cache.Tables>(
     channel: string,
     schema: z.ZodType<Frame<Key, Action>>,
-  ): cache.ChannelListener<ScopedStores> {
+  ): cache.ChannelListener<Tbls> {
     return {
       channel,
       schema,
       onChange: ({ changed }) => {
         const { key, seq, dispatchKey, actions } = changed as Frame<Key, Action>;
-        this.applyRemote("", key, seq, dispatchKey, actions);
+        this.applyRemote(key, seq, dispatchKey, actions);
       },
-    };
-  }
-
-  /** Binds every dispatch operation to the given caller scope. */
-  scope(scope: string): Handle<Key, State, Action> {
-    return {
-      replay: (key, actions, opts) => this.replay(scope, key, actions, opts),
-      recordEntry: (key, forward, inverse, targets, kindOverride) =>
-        this.recordEntry(scope, key, forward, inverse, targets, kindOverride),
-      prepareUndo: (key) => this.prepareUndo(scope, key),
-      prepareRedo: (key) => this.prepareRedo(scope, key),
-      beginTransaction: (key, send, kind) =>
-        this.beginTransaction(scope, key, send, kind),
-      registerOutstandingDispatch: (key, dispatchKey) =>
-        this.registerOutstandingDispatch(key, dispatchKey),
-      applyRemote: (key, seq, dispatchKey, actions) =>
-        this.applyRemote(scope, key, seq, dispatchKey, actions),
-      markRemoteTouched: (key, targets, ts) =>
-        this.markRemoteTouched(scope, key, targets, ts),
-      hasUndo: (key) => this.hasUndo(key),
-      hasRedo: (key) => this.hasRedo(key),
-      onUndoStateChange: (callback, key) =>
-        this.onUndoStateChange(scope, callback, key),
     };
   }
 }

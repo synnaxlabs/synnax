@@ -26,29 +26,29 @@ export const matchLabeledBy = (rel: ontology.Relationship, id: ontology.ID): boo
 
 /** Returns the cached labels attached to the given ontology ID. */
 export const cachedLabelsOf = (
-  relationships: cache.Store<string, ontology.Relationship>,
-  labels: cache.Store<Key, Label>,
+  relationships: cache.Table<string, ontology.Relationship>,
+  labels: cache.Table<Key, Label>,
   id: ontology.ID,
 ): Label[] =>
   labels.get(relationships.get((r) => matchLabeledBy(r, id)).map((r) => r.to.key));
 
-/** Registers the label store on the given engine. */
+/** Registers the label table on the given cache. */
 export const bindStore = (
-  engine: cache.Engine,
+  engine: cache.Cache,
   retrieve: (keys: Key[]) => Promise<Label[]>,
 ): void => {
-  const store = () => engine.store<Key, Label>(STORE_KEY);
+  const table = () => engine.table<Key, Label>(STORE_KEY);
   const set: cache.ChannelListener<{}, typeof labelZ> = {
     channel: SET_CHANNEL_NAME,
     schema: labelZ,
-    onChange: ({ changed }) => store().set(changed.key, changed),
+    onChange: ({ changed }) => table().set(changed.key, changed),
   };
   const del: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Label>(STORE_KEY, {
+  engine.registerTable<Key, Label>(STORE_KEY, {
     listeners: [set, del],
     refetch: retrieve,
   });

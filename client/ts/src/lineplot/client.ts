@@ -52,11 +52,9 @@ const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
 
-const MOUNT_SCOPE = "lineplot.mounts";
-
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * the requested key set, the only field a request carries.
+ * Client-side matching for a request: exact for the requested key set, the
+ * only field a request carries.
  */
 const requestFilter = (req: RetrieveRequest): ((p: LinePlot) => boolean) => {
   const keySet = new Set(req.keys);
@@ -65,39 +63,34 @@ const requestFilter = (req: RetrieveRequest): ((p: LinePlot) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly dispatcher_?: dispatch.Controller<Key, LinePlot, Action>;
-  private readonly queries_?: {
-    single: cache.Queries<Key, LinePlot>;
-    request: cache.Queries<RetrieveRequest, LinePlot[]>;
+  private readonly cache_: cache.Cache;
+  private readonly dispatcher_: dispatch.Controller<Key, LinePlot, Action>;
+  private readonly answers_: {
+    single: cache.Answers<Key, LinePlot, Key, LinePlot>;
+    request: cache.Answers<RetrieveRequest, LinePlot[], Key, LinePlot>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
     this.dispatcher_ = bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "line plot",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.linePlotStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "line plots",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.linePlotStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
+        compose: (records) => records,
+        matches: (plot, query) => requestFilter(query)(plot),
       }),
     };
-  }
-
-  private get dispatcher(): dispatch.Controller<Key, LinePlot, Action> {
-    if (this.dispatcher_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.dispatcher_;
   }
 
   async create(
@@ -118,7 +111,7 @@ export class Client {
     const isMany = Array.isArray(linePlots);
     const optimistic = array.toArray(linePlots).map((p) => linePlotZ.parse(p));
     const rollback = new cache.Rollback();
-    if (this.writes != null) rollback.add(this.writes.set(optimistic));
+    rollback.add(this.linePlotStore.setMany(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
@@ -129,17 +122,14 @@ export class Client {
           createResZ,
         ),
     );
-    this.writes?.set(res.linePlots);
+    this.linePlotStore.setMany(res.linePlots);
     return isMany ? res.linePlots : res.linePlots[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(cache.partialUpdate(writes, key, { name }));
-      rollback.add(ontology.renameCachedResource(this.engine_, ontologyID(key), name));
-    }
+    rollback.add(cache.partialUpdate(this.linePlotStore, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
@@ -150,15 +140,13 @@ export class Client {
    * recording an undoable entry. Returns false without side effects when the
    * line plot isn't cached. Rolls back the local apply and rethrows on send
    * failure.
-   * @throws when the cache was disabled at client construction.
    */
   async dispatch(
     key: Key,
     actions: Action | Action[],
     opts: dispatch.Options<LinePlot, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      "",
+    return await this.dispatcher_.dispatch(
       key,
       array.toArray(actions),
       this.dispatchSender(key),
@@ -169,29 +157,27 @@ export class Client {
   /**
    * Reverts the line plot's most recent undoable entry. Returns false when
    * nothing is undoable.
-   * @throws when the cache was disabled at client construction.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo("", key, this.dispatchSender(key));
+    return await this.dispatcher_.undo(key, this.dispatchSender(key));
   }
 
   /**
    * Re-applies the line plot's most recently undone entry. Returns false when
    * nothing is redoable.
-   * @throws when the cache was disabled at client construction.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo("", key, this.dispatchSender(key));
+    return await this.dispatcher_.redo(key, this.dispatchSender(key));
   }
 
   /** Whether the line plot has a live undo entry. */
   hasUndo(key: Key): boolean {
-    return this.dispatcher.hasUndo(key);
+    return this.dispatcher_.hasUndo(key);
   }
 
   /** Whether the line plot has a live redo entry. */
   hasRedo(key: Key): boolean {
-    return this.dispatcher.hasRedo(key);
+    return this.dispatcher_.hasRedo(key);
   }
 
   /**
@@ -199,15 +185,12 @@ export class Client {
    * destructor that unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher.onUndoStateChange(MOUNT_SCOPE, callback, key);
+    return this.dispatcher_.onUndoStateChange(callback, key);
   }
 
-  /**
-   * Stages actions committed atomically as one undoable entry.
-   * @throws when the cache was disabled at client construction.
-   */
+  /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
-    return this.dispatcher.transaction("", key, this.dispatchSender(key), kind);
+    return this.dispatcher_.transaction(key, this.dispatchSender(key), kind);
   }
 
   private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
@@ -234,20 +217,14 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<LinePlot | LinePlot[]> {
     const isSingle = "key" in params;
-    if (this.queries_ == null) {
-      const plots = await this.execRetrieve(params);
-      checkForMultipleOrNoResults("LinePlot", params, plots, isSingle);
-      return isSingle ? plots[0] : plots;
-    }
-    if (isSingle) return await this.queries_.single.retrieve(params.key);
-    return await this.queries_.request.retrieve(retrieveReqZ.parse(params));
+    if (isSingle) return await this.answers_.single.retrieve(params.key);
+    return await this.answers_.request.retrieve(retrieveReqZ.parse(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a line plot; every other shape delivers the matching
    * line plots.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -261,13 +238,13 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<LinePlot> | cache.ChangeHandler<LinePlot[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(
+      return answers.single.onChange(
         params.key,
         handler as cache.ChangeHandler<LinePlot>,
       );
-    return queries.request.onChange(
+    return answers.request.onChange(
       retrieveReqZ.parse(params),
       handler as cache.ChangeHandler<LinePlot[]>,
     );
@@ -276,26 +253,22 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<LinePlot> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<LinePlot[]> | undefined;
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<LinePlot> | cache.Cached<LinePlot[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(params.key);
-    return queries.request.getCached(retrieveReqZ.parse(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(params.key);
+    return answers.request.getCached(retrieveReqZ.parse(params));
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    if (this.engine_ != null)
-      rollback.add(
-        ontology.deleteCachedRelationships(this.engine_, ontologyID(keysArr)),
-      );
-    if (this.writes != null) rollback.add(this.writes.delete(keysArr));
+    rollback.add(ontology.deleteCachedRelationships(this.cache_, ontologyID(keysArr)));
+    rollback.add(this.linePlotStore.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -308,31 +281,8 @@ export class Client {
     );
   }
 
-  private get writes(): cache.UnaryStore<Key, LinePlot> | undefined {
-    return this.engine_?.store(STORE_KEY);
-  }
-
-  private get linePlotStore(): cache.UnaryStore<Key, LinePlot> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get linePlotEvents(): cache.UnaryStore<Key, LinePlot> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get linePlotStore(): cache.Table<Key, LinePlot> {
+    return this.cache_.table(STORE_KEY);
   }
 
   private async execRetrieve(
@@ -349,51 +299,17 @@ export class Client {
 
   // Dispatch mutates documents server-side, so a cached copy is only as fresh
   // as the streamer. Fetches always hit the network; setIfAbsent hydrates the
-  // store without clobbering a doc holding locally replayed edits. Answers
-  // read back from the store so replayed edits and reference identity win.
+  // table without clobbering a doc holding locally replayed edits.
   private async fetchSingle(query: Key): Promise<LinePlot> {
     const plots = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("LinePlot", query, plots, true);
     this.linePlotStore.setIfAbsent(plots);
-    return this.linePlotStore.get(query) ?? plots[0];
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, LinePlot>) {
-    return [
-      this.linePlotEvents.onSet((plot) => {
-        if (plot.key === query) update(plot);
-      }),
-      this.linePlotEvents.onDelete((key) => {
-        if (key === query) remove(this.linePlotStore.getTombstone(key)?.corpse);
-      }),
-    ];
+    return plots[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<LinePlot[]> {
     const plots = await this.execRetrieve(query);
     this.linePlotStore.setIfAbsent(plots);
-    return plots.map((p) => this.linePlotStore.get(p.key) ?? p);
-  }
-
-  private mountRequest({
-    query,
-    update,
-  }: cache.MountParams<RetrieveRequest, LinePlot[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.linePlotEvents.onSet((plot) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((p) => p.key === plot.key);
-          if (!matches(plot))
-            return existing ? prev.filter((p) => p.key !== plot.key) : prev;
-          if (existing) return prev.map((p) => (p.key === plot.key ? plot : p));
-          return [...prev, plot];
-        });
-      }),
-      this.linePlotEvents.onDelete((key) => {
-        update((prev) => prev?.filter((p) => p.key !== key));
-      }),
-    ];
+    return plots;
   }
 }

@@ -18,7 +18,7 @@ afterAll(() => client.close());
 
 describe("ontology store", () => {
   it("caches resource sets and corpses deletes from live signals", async () => {
-    await client.cache.engine.ensureStreaming();
+    await client.cache.ensureStreaming();
     const label = await client.labels.create({
       name: `cache-test-${id.create()}`,
       color: "#E774D0",
@@ -36,10 +36,14 @@ describe("ontology store", () => {
     expect(tombstone?.corpse.name).toEqual(label.name);
   }, 20000);
 
-  it("throws on store access when the cache is disabled", () => {
+  it("stays a detached, local-only cache when caching is disabled", async () => {
     const disabled = createTestClient({ cache: false });
-    expect(disabled.cache.enabled).toBe(false);
-    expect(() => disabled.ontology.resources).toThrow("cache is disabled");
+    expect(() => disabled.ontology.resources).not.toThrow();
+    expect(disabled.cache.epoch).toBe(0);
+    // Detached: ensureStreaming never opens a change stream, so the epoch
+    // never advances past 0.
+    await disabled.cache.ensureStreaming();
+    expect(disabled.cache.epoch).toBe(0);
     disabled.close();
   });
 });

@@ -10,7 +10,7 @@
 import z from "zod";
 
 import { aether } from "@/aether/aether";
-import { useAsyncErrorHandler, useErrorHandler } from "@/status/aether/aggregator";
+import { useErrorHandler } from "@/status/aether/aggregator";
 import { synnax } from "@/synnax/aether";
 
 /** State schema for the flux provider (currently empty) */
@@ -22,10 +22,7 @@ export type ProviderState = z.input<typeof providerStateZ>;
 /** Type identifier for the flux provider component */
 export const PROVIDER_TYPE = "flux.Provider";
 
-/**
- * Routes the worker client's cache errors to the status aggregator and starts
- * change streaming.
- */
+/** Starts change streaming on the worker client's cache. */
 class Provider extends aether.Composite<
   typeof providerStateZ,
   { clientKey: string | undefined }
@@ -40,7 +37,6 @@ class Provider extends aether.Composite<
     if (client == null || client.key === i.clientKey) return;
     i.clientKey = client.key;
     const handleError = useErrorHandler(ctx);
-    client.cache.setErrorHandlers(handleError, useAsyncErrorHandler(ctx));
     handleError(
       async () => await client.cache.ensureStreaming(),
       "failed to start flux change streaming",

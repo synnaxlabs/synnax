@@ -73,8 +73,6 @@ const deleteResZ = z.object({});
 export const SET_CHANNEL_NAME = "sy_user_set";
 export const DELETE_CHANNEL_NAME = "sy_user_delete";
 
-const MOUNT_SCOPE = "user.mounts";
-
 type SingleParams = KeyRetrieveRequest | UsernameRetrieveRequest;
 
 const isSingleParams = (params: RetrieveParams): params is SingleParams =>
@@ -107,30 +105,33 @@ const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<SingleParams, User>;
-    request: cache.Queries<RetrieveRequest, User[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<SingleParams, User, Key, User>;
+    request: cache.Answers<RetrieveRequest, User[], Key, User>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
     bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "user",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.userStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((u) => u.key),
+        compose: (records) => records[0],
+        keyOf: (query) => ("key" in query ? query.key : null),
+        matches: (u, query) =>
+          "key" in query ? u.key === query.key : u.username === query.username,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "users",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.userStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((u) => u.key),
+        compose: (records) => records,
+        matches: (u, query) => requestFilter(query)(u),
       }),
     };
   }
@@ -145,7 +146,7 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.writes?.set(res.users);
+    this.writes.setMany(res.users);
     return isMany ? res.users : res.users[0];
   }
 
@@ -157,28 +158,20 @@ export class Client {
       changeUsernameResZ,
     );
     this.mergeThrough(key, { username: newUsername });
-    if (this.engine_ != null)
-      ontology.renameCachedResource(this.engine_, ontologyID(key), newUsername);
+    ontology.renameCachedResource(this.cache_, ontologyID(key), newUsername);
   }
 
   async retrieve(params: KeyRetrieveRequest): Promise<User>;
   async retrieve(params: UsernameRetrieveRequest): Promise<User>;
   async retrieve(params: RetrieveParams): Promise<User[]>;
   async retrieve(params: RetrieveParams): Promise<User | User[]> {
-    if (this.queries_ == null) {
-      const users = await this.execRetrieve(params);
-      if (!isSingleParams(params)) return users;
-      checkSingle(params, users);
-      return users[0];
-    }
-    if (isSingleParams(params)) return await this.queries_.single.retrieve(params);
-    return await this.queries_.request.retrieve(normalizeRequest(params));
+    if (isSingleParams(params)) return await this.answers_.single.retrieve(params);
+    return await this.answers_.request.retrieve(normalizeRequest(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a user; every other shape delivers the matching users.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: SingleParams,
@@ -192,10 +185,10 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<User> | cache.ChangeHandler<User[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if (isSingleParams(params))
-      return queries.single.onChange(params, handler as cache.ChangeHandler<User>);
-    return queries.request.onChange(
+      return answers.single.onChange(params, handler as cache.ChangeHandler<User>);
+    return answers.request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<User[]>,
     );
@@ -204,7 +197,6 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: SingleParams): cache.Cached<User> | undefined;
   getCached(
@@ -213,9 +205,9 @@ export class Client {
   getCached(
     params: RetrieveParams,
   ): cache.Cached<User> | cache.Cached<User[]> | undefined {
-    const queries = this.requireQueries();
-    if (isSingleParams(params)) return queries.single.getCached(params);
-    return queries.request.getCached(normalizeRequest(params));
+    const answers = this.answers_;
+    if (isSingleParams(params)) return answers.single.getCached(params);
+    return answers.request.getCached(normalizeRequest(params));
   }
 
   async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
@@ -233,8 +225,7 @@ export class Client {
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    if (this.engine_ != null)
-      rollback.add(ontology.deleteCachedResources(this.engine_, ontologyID(keysArr)));
+    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -245,40 +236,20 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.writes?.delete(keysArr);
+    this.writes.delete(keysArr);
   }
 
-  private get writes(): cache.UnaryStore<Key, User> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get writes(): cache.Table<Key, User> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get userStore(): cache.UnaryStore<Key, User> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get userEvents(): cache.UnaryStore<Key, User> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get userStore(): cache.Table<Key, User> {
+    return this.cache_.table(STORE_KEY);
   }
 
   // Undefined fields are dropped: the server keeps prior values for them.
   private mergeThrough(key: Key, changes: Partial<User>): void {
     const store = this.writes;
-    if (store == null) return;
     const prev = store.get(key);
     if (prev != null) store.set(key, { ...prev, ...record.purgeUndefined(changes) });
   }
@@ -307,7 +278,7 @@ export class Client {
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.userStore.set(fetched);
+      this.userStore.setMany(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (u) => u.key);
@@ -323,54 +294,15 @@ export class Client {
     }
     const users = await this.execRetrieve(query);
     checkSingle(query, users);
-    this.userStore.set(users);
+    this.userStore.setMany(users);
     return users[0];
-  }
-
-  private mountSingle({
-    query,
-    update,
-    remove,
-  }: cache.MountParams<SingleParams, User>) {
-    const matches = (u: User) =>
-      "key" in query ? u.key === query.key : u.username === query.username;
-    return [
-      this.userEvents.onSet((user) => {
-        if (matches(user)) update(user);
-      }),
-      this.userEvents.onDelete((key) => {
-        const corpse = this.userStore.getTombstone(key)?.corpse;
-        const deleted =
-          "key" in query ? key === query.key : corpse != null && matches(corpse);
-        if (deleted) remove(corpse);
-      }),
-    ];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<User[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const users = await this.execRetrieve(query);
-    this.userStore.set(users);
+    this.userStore.setMany(users);
     return users;
-  }
-
-  private mountRequest({ query, update }: cache.MountParams<RetrieveRequest, User[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.userEvents.onSet((user) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((u) => u.key === user.key);
-          if (!matches(user))
-            return existing ? prev.filter((u) => u.key !== user.key) : prev;
-          if (existing) return prev.map((u) => (u.key === user.key ? user : u));
-          return [...prev, user];
-        });
-      }),
-      this.userEvents.onDelete((key) => {
-        update((prev) => prev?.filter((u) => u.key !== key));
-      }),
-    ];
   }
 }
 

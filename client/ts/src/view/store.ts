@@ -15,20 +15,20 @@ export const DELETE_CHANNEL_NAME = "sy_view_delete";
 
 export const STORE_KEY = "views";
 
-/** Registers the view store on the given engine. */
-export const bindStore = (engine: cache.Engine): void => {
-  const store = () => engine.store<Key, View>(STORE_KEY);
+/** Registers the view table on the given cache. */
+export const bindStore = (engine: cache.Cache): void => {
+  const table = () => engine.table<Key, View>(STORE_KEY);
   const setListener: cache.ChannelListener<{}, typeof viewZ> = {
     channel: SET_CHANNEL_NAME,
     schema: viewZ,
-    onChange: ({ changed }) => store().set(changed.key, changed),
+    onChange: ({ changed }) => table().set(changed.key, changed),
   };
   const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, View>(STORE_KEY, {
+  engine.registerTable<Key, View>(STORE_KEY, {
     listeners: [setListener, deleteListener],
   });
 };

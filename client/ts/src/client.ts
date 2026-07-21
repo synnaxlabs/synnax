@@ -53,6 +53,14 @@ export const synnaxParamsZ = z.object({
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
   cache: z.boolean().default(true),
+  /**
+   * Receives cache errors that have no caller to throw to (listener fan-out,
+   * streamer frame handling, background reconciliation). Defaults to console
+   * logging.
+   */
+  onInternalError: z
+    .function({ input: z.tuple([z.instanceof(Error)]), output: z.void() })
+    .optional(),
 });
 
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
@@ -93,7 +101,13 @@ export default class Synnax extends framer.Client {
   readonly tables: table.Client;
   readonly groups: group.Client;
   readonly imex: imex.Client;
-  readonly cache: cache.Handle;
+  /**
+   * The client's local mirror of cluster state. Live and streamed when
+   * `cache: true` (the default); detached (local-only, no streaming) when
+   * `cache: false`. Not a data access path: per-domain stores on the domain
+   * clients remain the only way to read cached records.
+   */
+  readonly cache: cache.Cache;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -139,9 +153,9 @@ export default class Synnax extends framer.Client {
       new channel.ClusterRetriever(transport.unary),
     );
     super(transport.stream, transport.unary, chRetriever);
-    const engine = parsedParams.cache
-      ? new cache.Engine({
-          openStreamer: async (channels, { onOpen, onReopen }) => {
+    const engine = new cache.Cache({
+      openStreamer: parsedParams.cache
+        ? async (channels, { onOpen, onReopen }) => {
             const hardened = await framer.HardenedStreamer.open(
               (config) => this.openStreamer(config),
               channels,
@@ -152,10 +166,11 @@ export default class Synnax extends framer.Client {
             // so onOpen fires strictly before any frame or reconnect.
             onOpen?.();
             return new framer.ObservableStreamer(hardened);
-          },
-        })
-      : undefined;
-    this.cache = new cache.Handle(engine ?? null);
+          }
+        : null,
+      onInternalError: parsedParams.onInternalError,
+    });
+    this.cache = engine;
     this.auth = new auth.Client(transport.unary, { username, password });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary, chRetriever);
@@ -166,7 +181,7 @@ export default class Synnax extends framer.Client {
     this.ontology = new ontology.Client(this.transport.unary, engine);
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary, engine);
-    this.statuses = new status.Client(this.transport.unary, this.labels, engine);
+    this.statuses = new status.Client(this.transport.unary, engine, this.labels);
     this.ranges = new ranger.Client(
       this,
       rangeWriter,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, type destructor, primitive, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
@@ -78,7 +78,8 @@ const createResZ = z.object({ racks: payloadZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-const MOUNT_SCOPE = "rack.mounts";
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset", "hostIsNode"] as const;
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
@@ -86,7 +87,7 @@ const normalizeSingle = (params: RetrieveSingleParams): SingleQuery => {
   return params.includeStatus === true ? { ...base, includeStatus: true } : base;
 };
 
-/** The store never holds statuses; the status store is their single home. */
+/** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> => rack;
 
 const isSingleParams = (params: RetrieveParams): params is RetrieveSingleParams =>
@@ -104,10 +105,9 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
   req.includeStatus !== true;
 
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * key and name sets and payload-held flags, permissive for server-computed
- * shapes (search, host resolution), which accept every change and drift
- * toward the server's answer.
+ * Client-side matching for a request: key and name sets and payload-held
+ * flags. Server-computed shapes (search, pagination, host resolution) never
+ * reach this filter; they refetch instead.
  */
 const requestFilter = (
   req: RetrieveRequest,
@@ -124,34 +124,62 @@ const requestFilter = (
   };
 };
 
+// Rack statuses live in the status table under the "rack:<key>" status key,
+// carrying the rack key in their details.
+const affectedRackKeys = (
+  event: cache.TableEvent<status.Key, status.Status>,
+): Key[] | null => {
+  if (event.variant === "set") {
+    const parsed = statusZ.safeParse(event.value);
+    return parsed.success ? [parsed.data.details.rack] : null;
+  }
+  const [type, key] = event.key.split(":");
+  if (type !== "rack") return null;
+  const parsed = keyZ.safeParse(Number(key));
+  return parsed.success ? [parsed.data] : null;
+};
+
 export class Client {
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<SingleQuery, Rack>;
-    request: cache.Queries<RetrieveRequest, Rack[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<SingleQuery, Rack, Key, Omit<Payload, "status">>;
+    request: cache.Answers<RetrieveRequest, Rack[], Key, Omit<Payload, "status">>;
   };
 
-  constructor(client: UnaryClient, taskClient: task.Client, engine?: cache.Engine) {
+  constructor(client: UnaryClient, taskClient: task.Client, engine: cache.Cache) {
     this.client = client;
     this.tasks = taskClient;
-    if (engine == null) return;
     bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    const statusWatch = <Q extends { includeStatus?: boolean }>() =>
+      cache.watch(this.statusStore, (event, query: Q) => {
+        if (query.includeStatus !== true) return null;
+        return affectedRackKeys(event);
+      });
+    this.answers_ = {
+      single: engine.answers({
         name: "rack",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.rackStore,
+        fetch: async (query) => [(await this.fetchSingle(query)).key],
+        compose: ([record], query) =>
+          this.compose(record, query.includeStatus === true),
+        keyOf: (query) => ("key" in query ? query.key : null),
+        matches: (r, query) =>
+          "key" in query ? r.key === query.key : r.name === query.name,
+        single: true,
+        watch: [statusWatch<SingleQuery>()],
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "racks",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.rackStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
+        compose: (records, query) =>
+          records.map((r) => this.compose(r, query.includeStatus === true)),
+        matches: (r, query) => requestFilter(query)(r),
+        serverFields: SERVER_FIELDS,
+        watch: [statusWatch<RetrieveRequest>()],
       }),
     };
   }
@@ -159,11 +187,8 @@ export class Client {
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(ontology.deleteCachedResources(this.engine_, ontologyID(keysArr)));
-      rollback.add(writes.delete(keysArr));
-    }
+    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
+    rollback.add(this.rackStore.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -174,16 +199,13 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.writes?.delete(keysArr);
+    this.rackStore.delete(keysArr);
   }
 
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(cache.partialUpdate(writes, key, { name }));
-      rollback.add(ontology.renameCachedResource(this.engine_, ontologyID(key), name));
-    }
+    rollback.add(cache.partialUpdate(this.rackStore, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       const r = await this.retrieve({ key });
@@ -201,7 +223,7 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.writes?.set(res.racks.map(stripStatus));
+    this.rackStore.setMany(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
     return isSingle ? sugared[0] : sugared;
   }
@@ -209,21 +231,14 @@ export class Client {
   async retrieve(params: RetrieveSingleParams): Promise<Rack>;
   async retrieve(params: RetrieveMultipleParams): Promise<Rack[]>;
   async retrieve(params: RetrieveParams): Promise<Rack | Rack[]> {
-    const isSingle = isSingleParams(params);
-    if (this.queries_ == null) {
-      const sugared = this.sugar(await this.execRetrieve(params));
-      checkForMultipleOrNoResults("Rack", params, sugared, isSingle);
-      return isSingle ? sugared[0] : sugared;
-    }
     if (isSingleParams(params))
-      return await this.queries_.single.retrieve(normalizeSingle(params));
-    return await this.queries_.request.retrieve(multiRetrieveParamsZ.parse(params));
+      return await this.answers_.single.retrieve(normalizeSingle(params));
+    return await this.answers_.request.retrieve(multiRetrieveParamsZ.parse(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a rack; every other shape delivers the matching racks.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -237,13 +252,13 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Rack> | cache.ChangeHandler<Rack[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if (isSingleParams(params))
-      return queries.single.onChange(
+      return answers.single.onChange(
         normalizeSingle(params),
         handler as cache.ChangeHandler<Rack>,
       );
-    return queries.request.onChange(
+    return answers.request.onChange(
       multiRetrieveParamsZ.parse(params),
       handler as cache.ChangeHandler<Rack[]>,
     );
@@ -252,17 +267,16 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<Rack> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<Rack[]> | undefined;
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Rack> | cache.Cached<Rack[]> | undefined {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if (isSingleParams(params))
-      return queries.single.getCached(normalizeSingle(params));
-    return queries.request.getCached(multiRetrieveParamsZ.parse(params));
+      return answers.single.getCached(normalizeSingle(params));
+    return answers.request.getCached(multiRetrieveParamsZ.parse(params));
   }
 
   sugar(payload: Payload): Rack;
@@ -278,43 +292,47 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  private get writes(): cache.UnaryStore<Key, Omit<Payload, "status">> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get rackStore(): cache.Table<Key, Omit<Payload, "status">> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get rackStore(): cache.UnaryStore<Key, Omit<Payload, "status">> {
-    return this.requireEngine().store(STORE_KEY);
+  private get statusStore(): cache.Table<status.Key, status.Status> {
+    return this.cache_.table(status.STORE_KEY);
   }
 
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get rackEvents(): cache.UnaryStore<Key, Omit<Payload, "status">> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
+  /** Rebuilds a cached rack, attaching its cached status when requested. */
+  private compose(cached: Omit<Payload, "status">, includeStatus: boolean): Rack {
+    if (!includeStatus) return this.sugar(cached);
+    const st = this.latestStatusOf(cached.key);
+    if (st == null) return this.sugar(cached);
+    return this.sugar({ ...cached, status: st });
   }
 
-  private get statusEvents(): cache.UnaryStore<status.Key, status.Status> {
-    return this.requireEngine().store(status.STORE_KEY, MOUNT_SCOPE);
+  // A rack's status may live under the "rack:<key>" row or under any status
+  // whose details reference the rack; the freshest wins.
+  private latestStatusOf(key: Key): Status | undefined {
+    const rackKey = statusKey(key);
+    const candidates = this.statusStore
+      .get(
+        (s) =>
+          s.key === rackKey ||
+          (s as { details?: { rack?: unknown } }).details?.rack === key,
+      )
+      .map((s) => statusZ.safeParse(s))
+      .filter((p) => p.success)
+      .map((p) => p.data);
+    if (candidates.length === 0) return undefined;
+    return candidates.reduce((latest, s) =>
+      new TimeStamp(s.time).afterEq(new TimeStamp(latest.time)) ? s : latest,
+    );
   }
 
-  /** Fires for streamed statuses that parse as rack statuses. */
-  private onRackStatusSet(apply: (changed: Status) => void): destructor.Destructor {
-    return this.statusEvents.onSet((changed) => {
-      const parsed = statusZ.safeParse(changed);
-      if (parsed.success) apply(parsed.data);
+  /** Writes fetched racks and their included statuses. */
+  private writeThrough(racks: Payload[]): void {
+    this.rackStore.setMany(racks.map(stripStatus));
+    racks.forEach(({ status: st }) => {
+      if (st != null) this.statusStore.set(st.key, st);
     });
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Payload[]> {
@@ -341,91 +359,30 @@ export class Client {
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.rackStore.set(fetched.map(stripStatus));
+      this.writeThrough(fetched);
       results.push(...this.sugar(fetched));
     }
     return cache.orderByKeys(keys, results, (r) => r.key);
   }
 
   private async fetchSingle(query: SingleQuery): Promise<Rack> {
-    // Names are not unique, so only key queries can be served from the store.
-    // Status-bearing answers cannot be served from the status-less store.
+    // Names are not unique, so only key queries can be served from the table.
+    // A status-bearing hit needs both the record and its status cached.
     if ("key" in query && query.includeStatus !== true) {
       const cached = this.rackStore.get(query.key);
       if (cached != null) return this.sugar(cached);
     }
     const racks = await this.execRetrieve(query);
     checkForMultipleOrNoResults("Rack", query, racks, true);
-    this.rackStore.set(racks.map(stripStatus));
+    this.writeThrough(racks);
     return this.sugar(racks[0]);
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<SingleQuery, Rack>) {
-    const matches = (r: Omit<Payload, "status">) =>
-      "key" in query ? r.key === query.key : r.name === query.name;
-    const listeners = [
-      this.rackEvents.onSet((rack) => {
-        // Store events carry no status; merging keeps a status-bearing answer.
-        if (matches(rack)) update((prev) => this.sugar({ ...prev?.payload, ...rack }));
-      }),
-      this.rackEvents.onDelete((key) => {
-        const corpse = this.rackStore.getTombstone(key)?.corpse;
-        const deleted =
-          "key" in query ? key === query.key : corpse != null && matches(corpse);
-        if (deleted) remove(corpse == null ? undefined : this.sugar(corpse));
-      }),
-    ];
-    if (query.includeStatus === true)
-      listeners.push(
-        this.onRackStatusSet((changed) =>
-          update((prev) => {
-            if (prev == null || prev.key !== changed.details.rack) return prev;
-            return this.sugar({ ...prev.payload, status: changed });
-          }),
-        ),
-      );
-    return listeners;
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Rack[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const racks = await this.execRetrieve(query);
-    this.rackStore.set(racks.map(stripStatus));
+    this.writeThrough(racks);
     return this.sugar(racks);
-  }
-
-  private mountRequest({ query, update }: cache.MountParams<RetrieveRequest, Rack[]>) {
-    const matches = requestFilter(query);
-    const listeners = [
-      this.rackEvents.onSet((rack) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.find((r) => r.key === rack.key);
-          if (!matches(rack))
-            return existing == null ? prev : prev.filter((r) => r.key !== rack.key);
-          const merged = this.sugar({ ...existing?.payload, ...rack });
-          if (existing != null)
-            return prev.map((r) => (r.key === rack.key ? merged : r));
-          return [...prev, merged];
-        });
-      }),
-      this.rackEvents.onDelete((key) => {
-        update((prev) => prev?.filter((r) => r.key !== key));
-      }),
-    ];
-    if (query.includeStatus === true)
-      listeners.push(
-        this.onRackStatusSet((changed) =>
-          update((prev) =>
-            prev?.map((r) =>
-              r.key === changed.details.rack
-                ? this.sugar({ ...r.payload, status: changed })
-                : r,
-            ),
-          ),
-        ),
-      );
-    return listeners;
   }
 }
 

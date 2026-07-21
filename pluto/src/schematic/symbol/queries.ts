@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group, NotFoundError, ontology, schematic } from "@synnaxlabs/client";
+import {
+  cache,
+  type group,
+  NotFoundError,
+  ontology,
+  schematic,
+} from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -119,7 +125,7 @@ export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "nam
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: cache.RENAME_VERBS,
   update: async ({ client, data }) => {
     await client.schematics.symbols.rename(data.key, data.name);
     return data;
@@ -130,7 +136,7 @@ export type DeleteParams = schematic.symbol.Key | schematic.symbol.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: cache.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.schematics.symbols.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),

@@ -19,8 +19,8 @@ afterAll(() => client.close());
 
 describe("label store", () => {
   it("caches sets and corpses deletes from live signals", async () => {
-    await client.cache.engine.ensureStreaming();
-    const store = client.cache.engine.store<Key, Label>(STORE_KEY);
+    await client.cache.ensureStreaming();
+    const store = client.cache.table<Key, Label>(STORE_KEY);
     const label = await client.labels.create({
       name: `label-${id.create()}`,
       color: "#12E774",

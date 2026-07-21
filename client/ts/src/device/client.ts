@@ -101,13 +101,14 @@ type RetrieveSchemas<
   Model extends z.ZodType<string>,
 > = { schemas: DeviceSchemas<Properties, Make, Model> };
 
-const MOUNT_SCOPE = "device.mounts";
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset", "includeParent"] as const;
 
 /** Drops includeStatus when unset so equivalent queries hash identically. */
 const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQuery =>
   includeStatus === true ? { key, includeStatus: true } : { key };
 
-/** The store never holds statuses; the status store is their single home. */
+/** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =>
   device;
 
@@ -125,10 +126,9 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
   req.includeParent !== true;
 
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * key, name, make, model, location, and rack sets, permissive for
- * server-computed shapes (search), which accept every change and drift toward
- * the server's answer.
+ * Client-side matching for a request: key, name, make, model, location, and
+ * rack sets. Server-computed shapes (search, pagination, parent resolution)
+ * never reach this filter; they refetch instead.
  */
 const requestFilter = (
   req: RetrieveRequest,
@@ -152,32 +152,57 @@ const requestFilter = (
   };
 };
 
+// Device statuses live in the status table under the "device:<key>" status
+// key, carrying the device key in their details.
+const affectedDeviceKeys = (
+  event: cache.TableEvent<status.Key, status.Status>,
+): Key[] | null => {
+  if (event.variant === "set") {
+    const parsed = statusZ.safeParse(event.value);
+    return parsed.success ? [parsed.data.details.device] : null;
+  }
+  const [type, key] = event.key.split(":");
+  if (type !== "device" || !primitive.isNonZero(key)) return null;
+  return [key];
+};
+
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<SingleQuery, Device>;
-    request: cache.Queries<RetrieveRequest, Device[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<SingleQuery, Device, Key, Omit<Device, "status">>;
+    request: cache.Answers<RetrieveRequest, Device[], Key, Omit<Device, "status">>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
     bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    const statusWatch = <Q extends { includeStatus?: boolean }>() =>
+      cache.watch(this.statusStore, (event, query: Q) => {
+        if (query.includeStatus !== true) return null;
+        return affectedDeviceKeys(event);
+      });
+    this.answers_ = {
+      single: engine.answers({
         name: "device",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.deviceStore,
+        fetch: async (query) => [(await this.fetchSingle(query)).key],
+        compose: ([record], query) =>
+          this.compose(record, query.includeStatus === true),
+        keyOf: (query) => query.key,
+        single: true,
+        watch: [statusWatch<SingleQuery>()],
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "devices",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.deviceStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((d) => d.key),
+        compose: (records, query) =>
+          records.map((d) => this.compose(d, query.includeStatus === true)),
+        matches: (d, query) => requestFilter(query)(d),
+        serverFields: SERVER_FIELDS,
+        watch: [statusWatch<RetrieveRequest>()],
       }),
     };
   }
@@ -209,20 +234,19 @@ export class Client {
     const isSingle = "key" in rest;
     // Schemas are not hashable, so schema-typed retrieves bypass the query
     // cache and hit the network, still writing records through.
-    if (this.queries_ == null || schemas != null) {
+    if (schemas != null) {
       const devices = await this.execRetrieve(rest, schemas);
       checkForMultipleOrNoResults("Device", rest, devices, isSingle);
-      this.writes?.set(devices.map(stripStatus));
+      this.writeThrough(devices);
       return isSingle ? devices[0] : devices;
     }
-    if (isSingle) return await this.queries_.single.retrieve(normalizeSingle(rest));
-    return await this.queries_.request.retrieve(retrieveRequestZ.parse(rest));
+    if (isSingle) return await this.answers_.single.retrieve(normalizeSingle(rest));
+    return await this.answers_.request.retrieve(retrieveRequestZ.parse(rest));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a device; every other shape delivers the matching devices.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -236,13 +260,13 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<Device> | cache.ChangeHandler<Device[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(
+      return answers.single.onChange(
         normalizeSingle(params),
         handler as cache.ChangeHandler<Device>,
       );
-    return queries.request.onChange(
+    return answers.request.onChange(
       retrieveRequestZ.parse(params),
       handler as cache.ChangeHandler<Device[]>,
     );
@@ -251,22 +275,21 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached. Unfetched filter queries
-   * are approximated from the record store when possible.
-   * @throws when the cache was disabled at client construction.
+   * are approximated from the record table when possible.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<Device> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<Device[]> | undefined;
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<Device> | cache.Cached<Device[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(normalizeSingle(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(normalizeSingle(params));
     const req = retrieveRequestZ.parse(params);
-    return queries.request.getCached(req) ?? this.approximateCached(req);
+    return answers.request.getCached(req) ?? this.approximateCached(req);
   }
 
   /**
-   * Approximates an unfetched filter query's answer from the record store.
+   * Approximates an unfetched filter query's answer from the record table.
    * Server-computed shapes (search, pagination) cannot be approximated.
    */
   private approximateCached(req: RetrieveRequest): cache.Cached<Device[]> | undefined {
@@ -314,18 +337,15 @@ export class Client {
       createReqZ(schemas),
       createResZ(schemas),
     );
-    this.writes?.set(res.devices.map(stripStatus));
+    this.deviceStore.setMany(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(ontology.deleteCachedResources(this.engine_, ontologyID(keysArr)));
-      rollback.add(writes.delete(keysArr));
-    }
+    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
+    rollback.add(this.deviceStore.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -336,60 +356,58 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.writes?.delete(keysArr);
+    this.deviceStore.delete(keysArr);
   }
 
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
     const dev = await this.retrieve({ key });
     const renamed = { ...dev, name };
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (writes != null) rollback.add(writes.set(stripStatus(renamed)));
+    rollback.add(this.deviceStore.set(renamed.key, stripStatus(renamed)));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.create(renamed);
     });
   }
 
-  private get writes(): cache.UnaryStore<Key, Omit<Device, "status">> | undefined {
-    return this.engine_?.store(STORE_KEY);
-  }
-
-  private get deviceStore(): cache.UnaryStore<Key, Omit<Device, "status">> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */
   onSet(handler: (device: Omit<Device, "status">) => void): destructor.Destructor {
-    return this.deviceEvents.onSet(handler);
+    return this.deviceStore.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
   }
 
   /** Subscribes to every device delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
-    return this.deviceEvents.onDelete(handler);
+    return this.deviceStore.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
-  private get deviceEvents(): cache.UnaryStore<Key, Omit<Device, "status">> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
+  private get deviceStore(): cache.Table<Key, Omit<Device, "status">> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get statusEvents(): cache.UnaryStore<status.Key, status.Status> {
-    return this.requireEngine().store(status.STORE_KEY, MOUNT_SCOPE);
+  private get statusStore(): cache.Table<status.Key, status.Status> {
+    return this.cache_.table(status.STORE_KEY);
   }
 
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
+  /** Rebuilds a cached device, attaching its cached status when requested. */
+  private compose(cached: Omit<Device, "status">, includeStatus: boolean): Device {
+    if (!includeStatus) return cached;
+    const st = this.statusStore.get(statusKey(cached.key));
+    if (st == null) return cached;
+    const parsed = statusZ.safeParse(st);
+    if (!parsed.success) return cached;
+    return { ...cached, status: parsed.data };
   }
 
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  /** Writes fetched devices and their included statuses. */
+  private writeThrough(devices: Device[]): void {
+    this.deviceStore.setMany(devices.map(stripStatus));
+    devices.forEach(({ status: st }) => {
+      if (st != null) this.statusStore.set(st.key, st);
+    });
   }
 
   private async execRetrieve(
@@ -419,90 +437,29 @@ export class Client {
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.deviceStore.set(fetched.map(stripStatus));
+      this.writeThrough(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (d) => d.key);
   }
 
   private async fetchSingle(query: SingleQuery): Promise<Device> {
-    // Status-bearing answers cannot be served from the status-less store.
+    // A status-bearing hit needs both the record and its status cached.
     if (query.includeStatus !== true) {
       const cached = this.deviceStore.get(query.key);
       if (cached != null) return cached;
     }
     const devices = await this.execRetrieve(query);
     checkForMultipleOrNoResults("Device", query, devices, true);
-    this.deviceStore.set(devices.map(stripStatus));
+    this.writeThrough(devices);
     return devices[0];
-  }
-
-  private mountSingle({
-    query,
-    update,
-    remove,
-  }: cache.MountParams<SingleQuery, Device>) {
-    const destructors = [
-      this.deviceEvents.onSet((device) => {
-        // Store events carry no status; merging keeps a status-bearing answer.
-        if (device.key === query.key) update((prev) => ({ ...prev, ...device }));
-      }),
-      this.deviceEvents.onDelete((key) => {
-        if (key === query.key) remove(this.deviceStore.getTombstone(key)?.corpse);
-      }),
-    ];
-    if (query.includeStatus === true)
-      destructors.push(
-        this.statusEvents.onSet((s) => {
-          const parsed = statusZ.safeParse(s);
-          if (!parsed.success) return;
-          update((prev) => (prev == null ? prev : { ...prev, status: parsed.data }));
-        }, statusKey(query.key)),
-      );
-    return destructors;
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Device[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const devices = await this.execRetrieve(query);
-    this.deviceStore.set(devices.map(stripStatus));
+    this.writeThrough(devices);
     return devices;
-  }
-
-  private mountRequest({
-    query,
-    update,
-  }: cache.MountParams<RetrieveRequest, Device[]>) {
-    const matches = requestFilter(query);
-    const destructors = [
-      this.deviceEvents.onSet((device) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((d) => d.key === device.key);
-          if (!matches(device))
-            return existing ? prev.filter((d) => d.key !== device.key) : prev;
-          if (existing)
-            return prev.map((d) => (d.key === device.key ? { ...d, ...device } : d));
-          return [...prev, device];
-        });
-      }),
-      this.deviceEvents.onDelete((key) => {
-        update((prev) => prev?.filter((d) => d.key !== key));
-      }),
-    ];
-    if (query.includeStatus === true)
-      destructors.push(
-        this.statusEvents.onSet((s) => {
-          const parsed = statusZ.safeParse(s);
-          if (!parsed.success) return;
-          update((prev) =>
-            prev?.map((d) =>
-              d.key === parsed.data.details.device ? { ...d, status: parsed.data } : d,
-            ),
-          );
-        }),
-      );
-    return destructors;
   }
 }
 

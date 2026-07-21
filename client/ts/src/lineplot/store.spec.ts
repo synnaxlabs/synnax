@@ -18,7 +18,7 @@ import { createTestClient } from "@/testutil/client";
 const client = createTestClient();
 afterAll(() => client.close());
 
-const store = () => client.cache.engine.store<Key, LinePlot>(STORE_KEY);
+const store = () => client.cache.table<Key, LinePlot>(STORE_KEY);
 
 const seed = async (): Promise<LinePlot> => {
   const project = await client.projects.create({ name: `lp-${id.create()}` });
@@ -31,7 +31,7 @@ const seed = async (): Promise<LinePlot> => {
 
 describe("lineplot store", () => {
   it("tombstones deletes from live delete signals", async () => {
-    await client.cache.engine.ensureStreaming();
+    await client.cache.ensureStreaming();
     const plot = await seed();
     await client.lineplots.delete(plot.key);
     await expect
@@ -41,7 +41,7 @@ describe("lineplot store", () => {
   }, 20000);
 
   it("reduces broadcast dispatch frames into the cached document", async () => {
-    await client.cache.engine.ensureStreaming();
+    await client.cache.ensureStreaming();
     const plot = await seed();
     const name = `renamed-${id.create()}`;
     await client.lineplots.dispatch(plot.key, [rename({ name })]);

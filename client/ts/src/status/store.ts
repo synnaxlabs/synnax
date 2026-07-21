@@ -21,12 +21,12 @@ import { type Status, statusZ } from "@/status/types.gen";
 
 export const STORE_KEY = "statuses";
 
-/** Registers the status store on the given engine. */
-export const bindStore = (engine: cache.Engine): void => {
-  const store = () => engine.store<Key, Status>(STORE_KEY);
+/** Registers the status table on the given cache. */
+export const bindStore = (engine: cache.Cache): void => {
+  const table = () => engine.table<Key, Status>(STORE_KEY);
   const cachedLabelsOf = (id: ontology.ID): label.Label[] => {
     const keys = engine
-      .store<string, ontology.Relationship>(ontology.RELATIONSHIPS_STORE_KEY)
+      .table<string, ontology.Relationship>(ontology.RELATIONSHIPS_STORE_KEY)
       .get((rel) =>
         ontology.matchRelationship(rel, {
           from: id,
@@ -34,13 +34,13 @@ export const bindStore = (engine: cache.Engine): void => {
         }),
       )
       .map((rel) => rel.to.key);
-    return engine.store<label.Key, label.Label>(label.STORE_KEY).get(keys);
+    return engine.table<label.Key, label.Label>(label.STORE_KEY).get(keys);
   };
   const set: cache.ChannelListener<{}, ReturnType<typeof statusZ>> = {
     channel: SET_CHANNEL_NAME,
     schema: statusZ(),
     onChange: ({ changed }) =>
-      store().set(changed.key, (p) => {
+      table().set(changed.key, (p) => {
         const next = { ...p, ...changed };
         next.labels = cachedLabelsOf(ontologyID(changed.key));
         return next;
@@ -49,7 +49,7 @@ export const bindStore = (engine: cache.Engine): void => {
   const del: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Status>(STORE_KEY, { listeners: [set, del] });
+  engine.registerTable<Key, Status>(STORE_KEY, { listeners: [set, del] });
 };

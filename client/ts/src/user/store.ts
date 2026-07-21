@@ -12,7 +12,7 @@ import { type Key, type User } from "@/user/types.gen";
 
 export const STORE_KEY = "users";
 
-/** Registers the user store on the given engine. */
-export const bindStore = (engine: cache.Engine): void => {
-  engine.registerStore<Key, User>(STORE_KEY, { listeners: [] });
+/** Registers the user table on the given cache. */
+export const bindStore = (engine: cache.Cache): void => {
+  engine.registerTable<Key, User>(STORE_KEY, { listeners: [] });
 };

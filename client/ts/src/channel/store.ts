@@ -18,26 +18,26 @@ export const DELETE_CHANNEL_NAME = "sy_channel_delete";
 export const STORE_KEY = "channels";
 
 /**
- * Registers the channel store on the given engine. Generic over the sugared
+ * Registers the channel table on the given cache. Generic over the sugared
  * channel type so this file stays independent of the Channel class.
  */
 export const bindStore = <C extends { key: Key; payload: Payload }>(
-  engine: cache.Engine,
+  engine: cache.Cache,
   sugar: (payload: Payload) => C,
   retrieve: (keys: Key[]) => Promise<C[]>,
 ): void => {
-  const store = () => engine.store<Key, C>(STORE_KEY);
+  const table = () => engine.table<Key, C>(STORE_KEY);
   const set: cache.ChannelListener<{}, typeof payloadZ> = {
     channel: SET_CHANNEL_NAME,
     schema: payloadZ,
-    onChange: ({ changed }) => store().set(sugar(changed)),
+    onChange: ({ changed }) => table().set(changed.key, sugar(changed)),
   };
   const del: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, C>(STORE_KEY, {
+  engine.registerTable<Key, C>(STORE_KEY, {
     equal: (a, b) => deep.equal(a.payload, b.payload),
     listeners: [set, del],
     refetch: retrieve,

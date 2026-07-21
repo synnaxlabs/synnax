@@ -18,20 +18,20 @@ export const DELETE_CHANNEL_NAME = "sy_table_delete";
 
 export const STORE_KEY = "tables";
 
-/** Registers the table store and its dispatch controller on the engine. */
+/** Registers the table's cache table and its dispatch controller. */
 export const bindStore = (
-  engine: cache.Engine,
+  engine: cache.Cache,
 ): dispatch.Controller<Key, Table, Action> => {
-  const store = () => engine.store<Key, Table>(STORE_KEY);
+  const table = () => engine.table<Key, Table>(STORE_KEY);
   const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Table>(STORE_KEY, { listeners: [deleteListener] });
+  engine.registerTable<Key, Table>(STORE_KEY, { listeners: [deleteListener] });
   const controller = new dispatch.Controller<Key, Table, Action>({
-    store: engine.unscoped(STORE_KEY),
-    handleError: engine.errorHandler,
+    store: table(),
+    onError: engine.onError,
     reduce: reduceAll,
     kindOf,
   });

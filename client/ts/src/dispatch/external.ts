@@ -7,4 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/dispatch/dispatch";
+export {
+  Controller,
+  type ControllerParams,
+  type Domain,
+  type Options,
+  type Preprocess,
+  type Reducer,
+  type SendDispatch,
+  type StackEntry,
+  type Transaction,
+} from "@/dispatch/dispatch";

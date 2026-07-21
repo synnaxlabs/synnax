@@ -25,12 +25,12 @@ const deleteReqZ = z.object({ range: keyZ, keys: z.string().array() });
 export class Client {
   private readonly rangeKey: Key;
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
+  private readonly cache_: cache.Cache;
 
-  constructor(rng: Key, client: UnaryClient, engine?: cache.Engine) {
+  constructor(rng: Key, client: UnaryClient, engine: cache.Cache) {
     this.rangeKey = rng;
     this.client = client;
-    this.engine_ = engine;
+    this.cache_ = engine;
   }
 
   async get(key: string): Promise<string>;
@@ -69,9 +69,9 @@ export class Client {
       z.unknown(),
     );
     const writes = this.writes;
-    // Pair.key is the bare key; the store is keyed by createPairKey, so an
-    // array set would mis-key entries.
-    if (writes != null) pairs.forEach((p) => writes.set(createPairKey(p), p));
+    // Pair.key is the bare key; the table is keyed by createPairKey, so
+    // setMany would mis-key entries.
+    pairs.forEach((p) => writes.set(createPairKey(p), p));
   }
 
   async delete(key: string | string[]): Promise<void> {
@@ -82,12 +82,12 @@ export class Client {
       deleteReqZ,
       z.unknown(),
     );
-    this.writes?.delete(
+    this.writes.delete(
       keys.map((k) => createPairKey({ range: this.rangeKey, key: k })),
     );
   }
 
-  private get writes(): cache.UnaryStore<string, Pair> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get writes(): cache.Table<string, Pair> {
+    return this.cache_.table(STORE_KEY);
   }
 }

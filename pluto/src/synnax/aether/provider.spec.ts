@@ -12,6 +12,7 @@ import { type SynnaxParams } from "@synnaxlabs/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type aether } from "@/aether/aether";
+import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 
 const { mockClose } = vi.hoisted(() => ({ mockClose: vi.fn() }));
@@ -39,12 +40,25 @@ const PARAMS: SynnaxParams = {
 };
 
 const makeProvider = (key: string): aether.Component => {
+  const agg = new status.Aggregator({
+    path: [`${key}-status`],
+    type: status.Aggregator.TYPE,
+    sender: MockSender,
+    instrumentation: NOOP,
+    parent: null,
+  });
+  agg._updateState({
+    path: [`${key}-status`],
+    state: { statuses: [] },
+    type: status.Aggregator.TYPE,
+    create: shouldNotCreate,
+  });
   const props: aether.ComponentConstructorProps = {
     path: [key],
     type: synnax.Provider.TYPE,
     sender: MockSender,
     instrumentation: NOOP,
-    parent: null,
+    parent: agg,
   };
   return new synnax.Provider(props);
 };

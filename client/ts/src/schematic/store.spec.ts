@@ -19,12 +19,12 @@ afterAll(() => client.close());
 
 describe("schematic store", () => {
   it("tombstones deletes from live delete signals", async () => {
-    await client.cache.engine.ensureStreaming();
+    await client.cache.ensureStreaming();
     const project = await client.projects.create({ name: `sch-${id.create()}` });
     const schematic = await client.schematics.create(project.key, {
       name: `schematic-${id.create()}`,
     });
-    const store = client.cache.engine.store<Key, Schematic>(STORE_KEY);
+    const store = client.cache.table<Key, Schematic>(STORE_KEY);
     store.set(schematic.key, schematic);
     await client.schematics.delete(schematic.key);
     await expect

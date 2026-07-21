@@ -12,12 +12,14 @@ import {
   array,
   caseconv,
   type CrudeTimeSpan,
+  deep,
   type destructor,
   id,
   primitive,
   type record,
   strings,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -55,25 +57,25 @@ export const STORE_KEY = "tasks";
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
-/** Registers the task store on the given engine. */
-const bindStore = (engine: cache.Engine, client: Client): void => {
-  const store = () => engine.store<Key, Omit<Task, "status">>(STORE_KEY);
+/** Registers the task table on the given cache. */
+const bindStore = (engine: cache.Cache, client: Client): void => {
+  const table = () => engine.table<Key, Omit<Task, "status">>(STORE_KEY);
   const setListener: cache.ChannelListener<{}, typeof keyZ> = {
     channel: SET_CHANNEL_NAME,
     schema: keyZ,
     onChange: async ({ changed: key }) =>
-      store().set(key, await client.retrieve({ key, includeStatus: true })),
+      table().set(key, await client.retrieve({ key, includeStatus: true })),
   };
   const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
   const commandListener: cache.ChannelListener<{}, typeof commandZ> = {
     channel: COMMAND_CHANNEL_NAME,
     schema: commandZ,
     onChange: ({ changed }) => {
-      const statuses = engine.store<status.Key, status.Status>(status.STORE_KEY);
+      const statuses = engine.table<status.Key, status.Status>(status.STORE_KEY);
       statuses.set(statusKey(changed.task), (prev) => {
         if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
         return status.create<StatusDetailsZodObject>({
@@ -86,7 +88,8 @@ const bindStore = (engine: cache.Engine, client: Client): void => {
       });
     },
   };
-  engine.registerStore<Key, Omit<Task, "status">>(STORE_KEY, {
+  engine.registerTable<Key, Omit<Task, "status">>(STORE_KEY, {
+    equal: (a, b) => deep.equal((a as Task).payload, (b as Task).payload),
     listeners: [setListener, deleteListener, commandListener],
   });
 };
@@ -277,8 +280,6 @@ export type RetrieveMultipleParams = z.input<typeof multiRetrieveParamsZ>;
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, multiRetrieveParamsZ]);
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
-const MOUNT_SCOPE = "task.mounts";
-
 interface SingleRequest extends Partial<
   Pick<z.infer<typeof retrieveReqZ>, "keys" | "names" | "types" | "rack">
 > {}
@@ -299,6 +300,9 @@ const normalizeRequest = (
   return rest;
 };
 
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
+
 const isKeysOnly = (req: RetrieveRequest): boolean =>
   primitive.isNonZero(req.keys) &&
   req.names == null &&
@@ -311,12 +315,13 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
   req.offset == null;
 
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * key, name, type, rack, and flag filters, permissive for server-computed
- * shapes (search), which accept every change and drift toward the server's
- * answer.
+ * Client-side matching for a request: key, name, type, rack, and flag
+ * filters. Server-computed shapes (search, pagination) never reach this
+ * filter; they refetch instead.
  */
-const requestFilter = (req: RetrieveRequest): ((t: Task) => boolean) => {
+const requestFilter = (
+  req: RetrieveRequest,
+): ((t: Omit<Task, "status">) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
   const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
   const typeSet = primitive.isNonZero(req.types) ? new Set(req.types) : undefined;
@@ -359,10 +364,10 @@ export class Client {
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
   private readonly rangeClient: ranger.Client;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<SingleRequest, Task>;
-    request: cache.Queries<RetrieveRequest, Task[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<SingleRequest, Task, Key, Omit<Task, "status">>;
+    request: cache.Answers<RetrieveRequest, Task[], Key, Omit<Task, "status">>;
   };
 
   constructor(
@@ -370,28 +375,43 @@ export class Client {
     frameClient: framer.Client,
     ontologyClient: ontology.Client,
     rangeClient: ranger.Client,
-    engine?: cache.Engine,
+    engine: cache.Cache,
   ) {
     this.client = client;
     this.frameClient = frameClient;
     this.ontologyClient = ontologyClient;
     this.rangeClient = rangeClient;
-    if (engine == null) return;
     bindStore(engine, this);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean => {
+      if (primitive.isNonZero(query.keys)) return t.key === query.keys[0];
+      if (primitive.isNonZero(query.names)) return t.name === query.names[0];
+      if (primitive.isNonZero(query.types))
+        return (
+          t.type === query.types[0] &&
+          (query.rack == null || rackKey(t.key) === query.rack)
+        );
+      return false;
+    };
+    this.answers_ = {
+      single: engine.answers({
         name: "task",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.taskStore,
+        fetch: async (query) => [(await this.fetchSingle(query)).key],
+        compose: ([record]) => this.compose(record),
+        keyOf: (query) => (primitive.isNonZero(query.keys) ? query.keys[0] : null),
+        matches: matchesSingle,
+        single: true,
+        watch: [cache.watch(this.statusStore, (event) => affectedTaskKeys(event))],
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "tasks",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.taskStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((t) => t.key),
+        compose: (records) => records.map((t) => this.compose(t)),
+        matches: (t, query) => requestFilter(query)(t),
+        serverFields: SERVER_FIELDS,
+        watch: [cache.watch(this.statusStore, (event) => affectedTaskKeys(event))],
       }),
     };
   }
@@ -423,11 +443,9 @@ export class Client {
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    if (this.engine_ != null) {
-      rollback.add(ontology.deleteCachedResources(this.engine_, ontologyID(keysArr)));
-      rollback.add(this.taskStore.delete(keysArr));
-      rollback.add(this.statusStore.delete(keysArr.map((k) => statusKey(k))));
-    }
+    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
+    rollback.add(this.taskStore.delete(keysArr));
+    rollback.add(this.statusStore.delete(keysArr.map((k) => statusKey(k))));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -438,21 +456,18 @@ export class Client {
           deleteResZ,
         ),
     );
-    if (this.engine_ == null) return;
     this.taskStore.delete(keysArr);
     this.statusStore.delete(keysArr.map((k) => statusKey(k)));
   }
 
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
     const rollback = new cache.Rollback();
-    if (this.engine_ != null) {
-      rollback.add(
-        this.taskStore.set(key, (p) =>
-          p == null ? undefined : this.sugar({ ...(p as Task).payload, name }),
-        ),
-      );
-      rollback.add(ontology.renameCachedResource(this.engine_, ontologyID(key), name));
-    }
+    rollback.add(
+      this.taskStore.set(key, (p) =>
+        p == null ? undefined : this.sugar({ ...(p as Task).payload, name }),
+      ),
+    );
+    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       const t = await this.retrieve({ key });
@@ -475,16 +490,16 @@ export class Client {
     const isSingle = singleRetrieveParamsZ.safeParse(params).success;
     // Schema-parametrized retrieves validate config/status for one caller;
     // their results are not shared through the cache.
-    if (this.queries_ == null || schemas != null) {
+    if (schemas != null) {
       const sugared = await this.execRetrieve<S>(params, schemas);
       checkForMultipleOrNoResults("Task", params, sugared, isSingle);
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle)
-      return (await this.queries_.single.retrieve(
+      return (await this.answers_.single.retrieve(
         normalizeSingle(params as RetrieveSingleParams),
       )) as Task<S>;
-    return (await this.queries_.request.retrieve(
+    return (await this.answers_.request.retrieve(
       normalizeRequest(params),
     )) as unknown as Task<S>[];
   }
@@ -492,7 +507,6 @@ export class Client {
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a task; every other shape delivers the matching tasks.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -506,13 +520,13 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Task> | cache.ChangeHandler<Task[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if (singleRetrieveParamsZ.safeParse(params).success)
-      return queries.single.onChange(
+      return answers.single.onChange(
         normalizeSingle(params as RetrieveSingleParams),
         handler as cache.ChangeHandler<Task>,
       );
-    return queries.request.onChange(
+    return answers.request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<Task[]>,
     );
@@ -521,17 +535,16 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<Task> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<Task[]> | undefined;
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Task> | cache.Cached<Task[]> | undefined {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if (singleRetrieveParamsZ.safeParse(params).success)
-      return queries.single.getCached(normalizeSingle(params as RetrieveSingleParams));
-    return queries.request.getCached(normalizeRequest(params));
+      return answers.single.getCached(normalizeSingle(params as RetrieveSingleParams));
+    return answers.request.getCached(normalizeRequest(params));
   }
 
   async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
@@ -558,35 +571,12 @@ export class Client {
     return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
   }
 
-  private get taskStore(): cache.UnaryStore<Key, Omit<Task, "status">> {
-    return this.requireEngine().store(STORE_KEY);
+  private get taskStore(): cache.Table<Key, Omit<Task, "status">> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get statusStore(): cache.UnaryStore<status.Key, status.Status> {
-    return this.requireEngine().store(status.STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get taskEvents(): cache.UnaryStore<Key, Omit<Task, "status">> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private get statusEvents(): cache.UnaryStore<status.Key, status.Status> {
-    return this.requireEngine().store(status.STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get statusStore(): cache.Table<status.Key, status.Status> {
+    return this.cache_.table(status.STORE_KEY);
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
@@ -604,23 +594,31 @@ export class Client {
 
   /** Rebuilds a cached task with its cached status attached. */
   private compose(cached: Omit<Task, "status">): Task {
-    const st = this.statusStore.get(statusKey(cached.key));
+    const st = this.latestStatusOf(cached.key);
     const payload = (cached as Task).payload;
     if (st == null) return this.sugar(payload);
     return this.sugar({ ...payload, status: st as unknown as Status });
   }
 
-  /** Rebuilds a cached task with the given status attached. */
-  private composeWith(cached: Omit<Task, "status">, st: status.Status): Task {
-    const payload = (cached as Task).payload;
-    return this.sugar({ ...payload, status: st as unknown as Status });
+  // A task's status may live under the "task:<key>" row or under any status
+  // whose details reference the task; the freshest wins.
+  private latestStatusOf(key: Key): status.Status | undefined {
+    const taskKey = statusKey(key);
+    const candidates = this.statusStore.get(
+      (s) =>
+        s.key === taskKey ||
+        (s as { details?: { task?: unknown } }).details?.task === key,
+    );
+    if (candidates.length === 0) return undefined;
+    return candidates.reduce((latest, s) =>
+      new TimeStamp(s.time).afterEq(new TimeStamp(latest.time)) ? s : latest,
+    );
   }
 
   /** Writes a fetched task and its included status. */
   private writeThrough(task: Task): void {
     this.taskStore.set(task.key, task);
-    if (task.status != null)
-      this.statusStore.set(task.status.key, task.status as unknown as status.Status);
+    if (task.status != null) this.statusStore.set(task.status.key, task.status);
   }
 
   /**
@@ -659,74 +657,11 @@ export class Client {
     return tasks[0];
   }
 
-  private mountSingle({
-    query,
-    update,
-    remove,
-  }: cache.MountParams<SingleRequest, Task>) {
-    const matches = (t: Omit<Task, "status">): boolean => {
-      if (primitive.isNonZero(query.keys)) return t.key === query.keys[0];
-      if (primitive.isNonZero(query.names)) return t.name === query.names[0];
-      if (primitive.isNonZero(query.types))
-        return (
-          t.type === query.types[0] &&
-          (query.rack == null || rackKey(t.key) === query.rack)
-        );
-      return false;
-    };
-    return [
-      this.taskEvents.onSet((task) => {
-        if (matches(task)) update(this.compose(task));
-      }),
-      this.taskEvents.onDelete((key) => {
-        const corpse = this.taskStore.getTombstone(key)?.corpse;
-        const deleted =
-          (primitive.isNonZero(query.keys) && key === query.keys[0]) ||
-          (corpse != null && matches(corpse));
-        if (deleted) remove(corpse == null ? undefined : this.compose(corpse));
-      }),
-      this.statusEvents.onSet((st) => {
-        update((prev) => {
-          if (prev == null || !statusRefersTo(st, prev.key)) return prev;
-          return this.composeWith(prev, st);
-        });
-      }),
-    ];
-  }
-
   private async fetchRequest(query: RetrieveRequest): Promise<Task[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const tasks = await this.execRetrieve({ ...query, includeStatus: true });
     tasks.forEach((t) => this.writeThrough(t));
     return tasks;
-  }
-
-  private mountRequest({ query, update }: cache.MountParams<RetrieveRequest, Task[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.taskEvents.onSet((task) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((t) => t.key === task.key);
-          const merged = this.compose(task);
-          if (!matches(merged))
-            return existing ? prev.filter((t) => t.key !== task.key) : prev;
-          if (existing) return prev.map((t) => (t.key === task.key ? merged : t));
-          return [...prev, merged];
-        });
-      }),
-      this.taskEvents.onDelete((key) => {
-        update((prev) => prev?.filter((t) => t.key !== key));
-      }),
-      this.statusEvents.onSet((st) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          return prev.map((t) =>
-            statusRefersTo(st, t.key) ? this.composeWith(t, st) : t,
-          );
-        });
-      }),
-    ];
   }
 
   sugar<S extends Schemas = Schemas>(payloads: Payload<S>[], schemas?: S): Task<S>[];
@@ -813,11 +748,19 @@ export const statusKey = (key: Key): string => ontology.idToString(ontologyID(ke
 const taskStatusZ = z.object({ details: z.object({ task: keyZ }) });
 
 // Task statuses may arrive under any status key; the referenced task lives in
-// the details.
-const statusRefersTo = (st: status.Status, key: Key): boolean => {
-  if (st.key === statusKey(key)) return true;
-  const parsed = taskStatusZ.safeParse(st);
-  return parsed.success && parsed.data.details.task === key;
+// the details, with the "task:<key>" status key as a fallback.
+const affectedTaskKeys = (
+  event: cache.TableEvent<status.Key, status.Status>,
+): Key[] | null => {
+  const keys: Key[] = [];
+  if (event.variant === "set") {
+    const parsed = taskStatusZ.safeParse(event.value);
+    if (parsed.success) keys.push(parsed.data.details.task);
+  }
+  const [type, key] = event.key.split(":");
+  if (type === "task" && primitive.isNonZero(key) && !keys.includes(key))
+    keys.push(key);
+  return keys.length === 0 ? null : keys;
 };
 
 interface ExecuteCommandInternalParams {

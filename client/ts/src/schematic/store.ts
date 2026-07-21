@@ -18,20 +18,20 @@ export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
 
 export const STORE_KEY = "schematics";
 
-/** Registers the schematic store and its dispatch controller on the engine. */
+/** Registers the schematic table and its dispatch controller on the cache. */
 export const bindStore = (
-  engine: cache.Engine,
+  engine: cache.Cache,
 ): dispatch.Controller<Key, Schematic, Action> => {
-  const store = () => engine.store<Key, Schematic>(STORE_KEY);
+  const table = () => engine.table<Key, Schematic>(STORE_KEY);
   const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Schematic>(STORE_KEY, { listeners: [deleteListener] });
+  engine.registerTable<Key, Schematic>(STORE_KEY, { listeners: [deleteListener] });
   const controller = new dispatch.Controller<Key, Schematic, Action>({
-    store: engine.unscoped(STORE_KEY),
-    handleError: engine.errorHandler,
+    store: table(),
+    onError: engine.onError,
     reduce: reduceAll,
     kindOf,
   });

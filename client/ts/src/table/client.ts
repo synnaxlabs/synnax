@@ -48,11 +48,9 @@ const createResZ = z.object({ tables: tableZ.array() });
 
 const emptyResZ = z.object({});
 
-const MOUNT_SCOPE = "table.mounts";
-
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * the requested key set, the only field a request carries.
+ * Client-side matching for a request: exact for the requested key set, the
+ * only field a request carries.
  */
 const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
   const keySet = new Set(req.keys);
@@ -61,39 +59,34 @@ const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly dispatcher_?: dispatch.Controller<Key, Table, Action>;
-  private readonly queries_?: {
-    single: cache.Queries<Key, Table>;
-    request: cache.Queries<RetrieveRequest, Table[]>;
+  private readonly cache_: cache.Cache;
+  private readonly dispatcher_: dispatch.Controller<Key, Table, Action>;
+  private readonly answers_: {
+    single: cache.Answers<Key, Table, Key, Table>;
+    request: cache.Answers<RetrieveRequest, Table[], Key, Table>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
     this.dispatcher_ = bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "table",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.tableStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((t) => t.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "tables",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.tableStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((t) => t.key),
+        compose: (records) => records,
+        matches: (table, query) => requestFilter(query)(table),
       }),
     };
-  }
-
-  private get dispatcher(): dispatch.Controller<Key, Table, Action> {
-    if (this.dispatcher_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.dispatcher_;
   }
 
   async create(
@@ -114,7 +107,7 @@ export class Client {
     const isMany = Array.isArray(tables);
     const optimistic = array.toArray(tables).map((t) => tableZ.parse(t));
     const rollback = new cache.Rollback();
-    if (this.writes != null) rollback.add(this.writes.set(optimistic));
+    rollback.add(this.tableStore.setMany(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
@@ -125,17 +118,14 @@ export class Client {
           createResZ,
         ),
     );
-    this.writes?.set(res.tables);
+    this.tableStore.setMany(res.tables);
     return isMany ? res.tables : res.tables[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(cache.partialUpdate(writes, key, { name }));
-      rollback.add(ontology.renameCachedResource(this.engine_, ontologyID(key), name));
-    }
+    rollback.add(cache.partialUpdate(this.tableStore, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
@@ -146,15 +136,13 @@ export class Client {
    * recording an undoable entry. Returns false without side effects when the
    * table isn't cached. Rolls back the local apply and rethrows on send
    * failure.
-   * @throws when the cache was disabled at client construction.
    */
   async dispatch(
     key: Key,
     actions: Action | Action[],
     opts: dispatch.Options<Table, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      "",
+    return await this.dispatcher_.dispatch(
       key,
       array.toArray(actions),
       this.dispatchSender(key),
@@ -165,29 +153,27 @@ export class Client {
   /**
    * Reverts the table's most recent undoable entry. Returns false when
    * nothing is undoable.
-   * @throws when the cache was disabled at client construction.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo("", key, this.dispatchSender(key));
+    return await this.dispatcher_.undo(key, this.dispatchSender(key));
   }
 
   /**
    * Re-applies the table's most recently undone entry. Returns false when
    * nothing is redoable.
-   * @throws when the cache was disabled at client construction.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo("", key, this.dispatchSender(key));
+    return await this.dispatcher_.redo(key, this.dispatchSender(key));
   }
 
   /** Whether the table has a live undo entry. */
   hasUndo(key: Key): boolean {
-    return this.dispatcher.hasUndo(key);
+    return this.dispatcher_.hasUndo(key);
   }
 
   /** Whether the table has a live redo entry. */
   hasRedo(key: Key): boolean {
-    return this.dispatcher.hasRedo(key);
+    return this.dispatcher_.hasRedo(key);
   }
 
   /**
@@ -195,15 +181,14 @@ export class Client {
    * destructor that unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher.onUndoStateChange(MOUNT_SCOPE, callback, key);
+    return this.dispatcher_.onUndoStateChange(callback, key);
   }
 
   /**
    * Stages actions committed atomically as one undoable entry.
-   * @throws when the cache was disabled at client construction.
    */
   beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
-    return this.dispatcher.transaction("", key, this.dispatchSender(key), kind);
+    return this.dispatcher_.transaction(key, this.dispatchSender(key), kind);
   }
 
   private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
@@ -230,19 +215,13 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Table | Table[]> {
     const isSingle = "key" in params;
-    if (this.queries_ == null) {
-      const tables = await this.execRetrieve(params);
-      checkForMultipleOrNoResults("Table", params, tables, isSingle);
-      return isSingle ? tables[0] : tables;
-    }
-    if (isSingle) return await this.queries_.single.retrieve(params.key);
-    return await this.queries_.request.retrieve(retrieveReqZ.parse(params));
+    if (isSingle) return await this.answers_.single.retrieve(params.key);
+    return await this.answers_.request.retrieve(retrieveReqZ.parse(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a table; every other shape delivers the matching tables.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -256,10 +235,10 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<Table> | cache.ChangeHandler<Table[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(params.key, handler as cache.ChangeHandler<Table>);
-    return queries.request.onChange(
+      return answers.single.onChange(params.key, handler as cache.ChangeHandler<Table>);
+    return answers.request.onChange(
       retrieveReqZ.parse(params),
       handler as cache.ChangeHandler<Table[]>,
     );
@@ -268,25 +247,21 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<Table> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<Table[]> | undefined;
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<Table> | cache.Cached<Table[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(params.key);
-    return queries.request.getCached(retrieveReqZ.parse(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(params.key);
+    return answers.request.getCached(retrieveReqZ.parse(params));
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    if (this.engine_ != null)
-      rollback.add(
-        ontology.deleteCachedRelationships(this.engine_, ontologyID(keysArr)),
-      );
+    rollback.add(ontology.deleteCachedRelationships(this.cache_, ontologyID(keysArr)));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -297,34 +272,11 @@ export class Client {
           emptyResZ,
         ),
     );
-    this.writes?.delete(keysArr);
+    this.tableStore.delete(keysArr);
   }
 
-  private get writes(): cache.UnaryStore<Key, Table> | undefined {
-    return this.engine_?.store(STORE_KEY);
-  }
-
-  private get tableStore(): cache.UnaryStore<Key, Table> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get tableEvents(): cache.UnaryStore<Key, Table> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get tableStore(): cache.Table<Key, Table> {
+    return this.cache_.table(STORE_KEY);
   }
 
   private async execRetrieve(
@@ -341,48 +293,17 @@ export class Client {
 
   // Dispatch mutates documents server-side, so a cached copy is only as fresh
   // as the streamer. Fetches always hit the network; setIfAbsent hydrates the
-  // store without clobbering a doc holding locally replayed edits. Answers
-  // read back from the store so replayed edits and reference identity win.
+  // table without clobbering a doc holding locally replayed edits.
   private async fetchSingle(query: Key): Promise<Table> {
     const tables = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("Table", query, tables, true);
     this.tableStore.setIfAbsent(tables);
-    return this.tableStore.get(query) ?? tables[0];
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, Table>) {
-    return [
-      this.tableEvents.onSet((table) => {
-        if (table.key === query) update(table);
-      }),
-      this.tableEvents.onDelete((key) => {
-        if (key === query) remove(this.tableStore.getTombstone(key)?.corpse);
-      }),
-    ];
+    return tables[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Table[]> {
     const tables = await this.execRetrieve(query);
     this.tableStore.setIfAbsent(tables);
-    return tables.map((t) => this.tableStore.get(t.key) ?? t);
-  }
-
-  private mountRequest({ query, update }: cache.MountParams<RetrieveRequest, Table[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.tableEvents.onSet((table) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((t) => t.key === table.key);
-          if (!matches(table))
-            return existing ? prev.filter((t) => t.key !== table.key) : prev;
-          if (existing) return prev.map((t) => (t.key === table.key ? table : t));
-          return [...prev, table];
-        });
-      }),
-      this.tableEvents.onDelete((key) => {
-        update((prev) => prev?.filter((t) => t.key !== key));
-      }),
-    ];
+    return tables;
   }
 }

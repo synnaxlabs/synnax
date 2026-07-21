@@ -15,18 +15,18 @@ export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
 export const STORE_KEY = "policies";
 
-/** Registers the policy store on the given engine. */
-export const bindStore = (engine: cache.Engine): void => {
-  const store = () => engine.store<Key, Policy>(STORE_KEY);
+/** Registers the policy table on the given cache. */
+export const bindStore = (engine: cache.Cache): void => {
+  const table = () => engine.table<Key, Policy>(STORE_KEY);
   const set: cache.ChannelListener<{}, typeof policyZ> = {
     channel: SET_CHANNEL_NAME,
     schema: policyZ,
-    onChange: ({ changed }) => store().set(changed.key, changed),
+    onChange: ({ changed }) => table().set(changed.key, changed),
   };
   const del: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Policy>(STORE_KEY, { listeners: [set, del] });
+  engine.registerTable<Key, Policy>(STORE_KEY, { listeners: [set, del] });
 };

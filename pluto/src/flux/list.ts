@@ -7,18 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache } from "@synnaxlabs/client";
+import { cache } from "@synnaxlabs/client";
 import {
   compare,
   type CrudeTimeSpan,
   type destructor,
   primitive,
   type record,
+  state,
   TimeSpan,
 } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 
-import { base } from "@/flux/base";
 import {
   errorResult,
   loadingResult,
@@ -33,7 +33,6 @@ import {
   useInitializerRef,
   useSyncedRef,
 } from "@/hooks";
-import { state } from "@/state";
 import { Synnax } from "@/synnax";
 
 export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
@@ -41,12 +40,12 @@ export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (keys: K[]): E[];
 }
 
-export interface AsyncListOptions extends base.FetchOptions {
+export interface AsyncListOptions extends cache.FetchOptions {
   mode?: "append" | "replace";
 }
 
 export type UseListReturn<
-  Query extends base.Query,
+  Query extends cache.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
@@ -64,7 +63,7 @@ export type UseListReturn<
 };
 
 export interface RetrieveByKeyParams<
-  Query extends base.Query,
+  Query extends cache.Query,
   K extends record.Key,
   AllowDisconnected extends boolean = false,
 > extends Omit<RetrieveParams<Query, AllowDisconnected>, "query"> {
@@ -73,7 +72,7 @@ export interface RetrieveByKeyParams<
 }
 
 export interface CreateListParams<
-  Query extends base.Query,
+  Query extends cache.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
   AllowDisconnected extends boolean = false,
@@ -93,7 +92,7 @@ export interface CreateListParams<
 }
 
 export interface UseListParams<
-  Query extends base.Query,
+  Query extends cache.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -105,7 +104,7 @@ export interface UseListParams<
 }
 
 export interface UseList<
-  Query extends base.Query,
+  Query extends cache.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -124,7 +123,7 @@ interface Page<K extends record.Key> {
 
 export const createList =
   <
-    Query extends base.Query,
+    Query extends cache.Query,
     Key extends record.Key,
     Data extends record.Keyed<Key>,
     AllowDisconnected extends boolean = false,
@@ -281,7 +280,7 @@ export const createList =
 
     const openPage = useCallback(
       (query: Query, keys: Key[]): void => {
-        const hash = base.hashQuery(query);
+        const hash = cache.hashQuery(query);
         const existing = pagesRef.current.find((p) => p.hash === hash);
         if (existing != null) {
           existing.keys = keys;
@@ -378,7 +377,7 @@ export const createList =
     }, [client]);
 
     const retrieveSingle = useCallback(
-      (key: Key, options: base.FetchOptions = {}) => {
+      (key: Key, options: cache.FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
           try {
@@ -450,7 +449,7 @@ export const createList =
 export interface UseListItemParams<
   K extends record.Key,
   E extends record.Keyed<K>,
-> extends Pick<UseListReturn<base.Query, K, E>, "subscribe" | "getItem"> {
+> extends Pick<UseListReturn<cache.Query, K, E>, "subscribe" | "getItem"> {
   key: K;
 }
 

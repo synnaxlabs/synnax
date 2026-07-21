@@ -30,19 +30,6 @@ interface ErrorHandler {
   (exc: unknown, message?: string, skip?: errors.Matchable | errors.Matchable[]): void;
 }
 
-interface AsyncErrorHandler {
-  (
-    func: () => Promise<void> | void,
-    message?: string,
-    skip?: errors.Matchable | errors.Matchable[],
-  ): Promise<void>;
-  (
-    exc: unknown,
-    message?: string,
-    skip?: errors.Matchable | errors.Matchable[],
-  ): Promise<void>;
-}
-
 const checkSkip = (
   err: unknown,
   skip: errors.Matchable | errors.Matchable[] | undefined,
@@ -110,24 +97,13 @@ const createErrorHandler =
     void handleFunc(excOrFunc, add, message, skip);
   };
 
-const createAsyncErrorHandler =
-  (add: Adder): AsyncErrorHandler =>
-  async (func, message, skip): Promise<void> => {
-    if (!handleException(func, add, message, skip)) return;
-    await handleFunc(func, add, message, skip);
-  };
-
-export type CreateSynnaxWrapperParams = Omit<
-  PCreateSynnaxWrapperParams,
-  "handleError" | "handleAsyncError"
->;
+export type CreateSynnaxWrapperParams = Omit<PCreateSynnaxWrapperParams, "handleError">;
 
 const withConsoleErrorHandlers = (
   params: CreateSynnaxWrapperParams,
 ): PCreateSynnaxWrapperParams => ({
   ...params,
   handleError: createErrorHandler(console.error),
-  handleAsyncError: createAsyncErrorHandler(console.error),
 });
 
 /**

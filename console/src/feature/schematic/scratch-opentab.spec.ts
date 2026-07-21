@@ -44,7 +44,7 @@ describe("scratch openTab", () => {
       );
       const panelKey = Session.Panel.selectSelected(hook.store.getState());
       expect(panelKey).not.toBeNull();
-      const tabs = Session.Panel.selectSelectedTabs(hook.store.getState(), panelKey!);
+      const tabs = Session.Panel.selectSelectedTabs(hook.store.getState(), panelKey);
       console.log("selected tabs", tabs);
       expect(tabs[0]).toBeDefined();
     });

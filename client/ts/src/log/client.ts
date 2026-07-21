@@ -41,11 +41,9 @@ const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
 
-const MOUNT_SCOPE = "log.mounts";
-
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * the requested key set, the only field a request carries.
+ * Client-side matching for a request: exact for the requested key set, the
+ * only field a request carries.
  */
 const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
   const keySet = new Set(req.keys);
@@ -54,39 +52,34 @@ const requestFilter = (req: RetrieveRequest): ((l: Log) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly dispatcher_?: dispatch.Controller<Key, Log, Action>;
-  private readonly queries_?: {
-    single: cache.Queries<Key, Log>;
-    request: cache.Queries<RetrieveRequest, Log[]>;
+  private readonly cache_: cache.Cache;
+  private readonly dispatcher_: dispatch.Controller<Key, Log, Action>;
+  private readonly answers_: {
+    single: cache.Answers<Key, Log, Key, Log>;
+    request: cache.Answers<RetrieveRequest, Log[], Key, Log>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
     this.dispatcher_ = bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "log",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.logStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((l) => l.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "logs",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.logStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((l) => l.key),
+        compose: (records) => records,
+        matches: (log, query) => requestFilter(query)(log),
       }),
     };
-  }
-
-  private get dispatcher(): dispatch.Controller<Key, Log, Action> {
-    if (this.dispatcher_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.dispatcher_;
   }
 
   async create(
@@ -107,7 +100,7 @@ export class Client {
     const isMany = Array.isArray(logs);
     const optimistic = array.toArray(logs).map((l) => logZ.parse(l));
     const rollback = new cache.Rollback();
-    if (this.writes != null) rollback.add(this.writes.set(optimistic));
+    rollback.add(this.logStore.setMany(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
@@ -118,17 +111,14 @@ export class Client {
           createResZ,
         ),
     );
-    this.writes?.set(res.logs);
+    this.logStore.setMany(res.logs);
     return isMany ? res.logs : res.logs[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(cache.partialUpdate(writes, key, { name }));
-      rollback.add(ontology.renameCachedResource(this.engine_, ontologyID(key), name));
-    }
+    rollback.add(cache.partialUpdate(this.logStore, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
@@ -139,15 +129,13 @@ export class Client {
    * recording an undoable entry. Returns false without side effects when the
    * log isn't cached. Rolls back the local apply and rethrows on send
    * failure.
-   * @throws when the cache was disabled at client construction.
    */
   async dispatch(
     key: Key,
     actions: Action | Action[],
     opts: dispatch.Options<Log, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      "",
+    return await this.dispatcher_.dispatch(
       key,
       array.toArray(actions),
       this.dispatchSender(key),
@@ -158,29 +146,27 @@ export class Client {
   /**
    * Reverts the log's most recent undoable entry. Returns false when
    * nothing is undoable.
-   * @throws when the cache was disabled at client construction.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo("", key, this.dispatchSender(key));
+    return await this.dispatcher_.undo(key, this.dispatchSender(key));
   }
 
   /**
    * Re-applies the log's most recently undone entry. Returns false when
    * nothing is redoable.
-   * @throws when the cache was disabled at client construction.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo("", key, this.dispatchSender(key));
+    return await this.dispatcher_.redo(key, this.dispatchSender(key));
   }
 
   /** Whether the log has a live undo entry. */
   hasUndo(key: Key): boolean {
-    return this.dispatcher.hasUndo(key);
+    return this.dispatcher_.hasUndo(key);
   }
 
   /** Whether the log has a live redo entry. */
   hasRedo(key: Key): boolean {
-    return this.dispatcher.hasRedo(key);
+    return this.dispatcher_.hasRedo(key);
   }
 
   /**
@@ -188,15 +174,12 @@ export class Client {
    * destructor that unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher.onUndoStateChange(MOUNT_SCOPE, callback, key);
+    return this.dispatcher_.onUndoStateChange(callback, key);
   }
 
-  /**
-   * Stages actions committed atomically as one undoable entry.
-   * @throws when the cache was disabled at client construction.
-   */
+  /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
-    return this.dispatcher.transaction("", key, this.dispatchSender(key), kind);
+    return this.dispatcher_.transaction(key, this.dispatchSender(key), kind);
   }
 
   private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
@@ -223,19 +206,13 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Log | Log[]> {
     const isSingle = "key" in params;
-    if (this.queries_ == null) {
-      const logs = await this.execRetrieve(params);
-      checkForMultipleOrNoResults("Log", params, logs, isSingle);
-      return isSingle ? logs[0] : logs;
-    }
-    if (isSingle) return await this.queries_.single.retrieve(params.key);
-    return await this.queries_.request.retrieve(retrieveReqZ.parse(params));
+    if (isSingle) return await this.answers_.single.retrieve(params.key);
+    return await this.answers_.request.retrieve(retrieveReqZ.parse(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a log; every other shape delivers the matching logs.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -249,10 +226,10 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<Log> | cache.ChangeHandler<Log[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(params.key, handler as cache.ChangeHandler<Log>);
-    return queries.request.onChange(
+      return answers.single.onChange(params.key, handler as cache.ChangeHandler<Log>);
+    return answers.request.onChange(
       retrieveReqZ.parse(params),
       handler as cache.ChangeHandler<Log[]>,
     );
@@ -261,26 +238,22 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<Log> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<Log[]> | undefined;
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<Log> | cache.Cached<Log[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(params.key);
-    return queries.request.getCached(retrieveReqZ.parse(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(params.key);
+    return answers.request.getCached(retrieveReqZ.parse(params));
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    if (this.engine_ != null)
-      rollback.add(
-        ontology.deleteCachedRelationships(this.engine_, ontologyID(keysArr)),
-      );
-    if (this.writes != null) rollback.add(this.writes.delete(keysArr));
+    rollback.add(ontology.deleteCachedRelationships(this.cache_, ontologyID(keysArr)));
+    rollback.add(this.logStore.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -288,31 +261,8 @@ export class Client {
     );
   }
 
-  private get writes(): cache.UnaryStore<Key, Log> | undefined {
-    return this.engine_?.store(STORE_KEY);
-  }
-
-  private get logStore(): cache.UnaryStore<Key, Log> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get logEvents(): cache.UnaryStore<Key, Log> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get logStore(): cache.Table<Key, Log> {
+    return this.cache_.table(STORE_KEY);
   }
 
   private async execRetrieve(
@@ -329,48 +279,17 @@ export class Client {
 
   // Dispatch mutates documents server-side, so a cached copy is only as fresh
   // as the streamer. Fetches always hit the network; setIfAbsent hydrates the
-  // store without clobbering a doc holding locally replayed edits. Answers
-  // read back from the store so replayed edits and reference identity win.
+  // table without clobbering a doc holding locally replayed edits.
   private async fetchSingle(query: Key): Promise<Log> {
     const logs = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("Log", query, logs, true);
     this.logStore.setIfAbsent(logs);
-    return this.logStore.get(query) ?? logs[0];
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, Log>) {
-    return [
-      this.logEvents.onSet((log) => {
-        if (log.key === query) update(log);
-      }),
-      this.logEvents.onDelete((key) => {
-        if (key === query) remove(this.logStore.getTombstone(key)?.corpse);
-      }),
-    ];
+    return logs[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Log[]> {
     const logs = await this.execRetrieve(query);
     this.logStore.setIfAbsent(logs);
-    return logs.map((l) => this.logStore.get(l.key) ?? l);
-  }
-
-  private mountRequest({ query, update }: cache.MountParams<RetrieveRequest, Log[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.logEvents.onSet((log) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((l) => l.key === log.key);
-          if (!matches(log))
-            return existing ? prev.filter((l) => l.key !== log.key) : prev;
-          if (existing) return prev.map((l) => (l.key === log.key ? log : l));
-          return [...prev, log];
-        });
-      }),
-      this.logEvents.onDelete((key) => {
-        update((prev) => prev?.filter((l) => l.key !== key));
-      }),
-    ];
+    return logs;
   }
 }

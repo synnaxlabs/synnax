@@ -8,10 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { status } from "@synnaxlabs/client";
-import { caseconv } from "@synnaxlabs/x";
+import { caseconv, type state } from "@synnaxlabs/x";
 import type z from "zod";
-
-import { type state } from "@/state";
 
 export type InitialStatusDetailsContainer<
   StatusDetails extends z.ZodType = z.ZodNever,

@@ -71,8 +71,6 @@ const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
 
 export type RetrieveParams = z.input<typeof retrieveParamsZ>;
 
-const MOUNT_SCOPE = "arc.mounts";
-
 const isSingleParams = (params: RetrieveParams): params is SingleRetrieveParams =>
   "key" in params || "name" in params;
 
@@ -100,10 +98,12 @@ const TASK_SCHEMAS = {
   statusData: taskStatusDataZ,
 } as const satisfies task.Schemas;
 
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
+
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * key and name sets, permissive for server-computed shapes (search,
- * pagination), which accept every change and drift toward the server's answer.
+ * Client-side matching for a request: key and name sets. Server-computed
+ * shapes (search, pagination) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((a: Arc) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -115,17 +115,42 @@ const requestFilter = (req: RetrieveRequest): ((a: Arc) => boolean) => {
   };
 };
 
+const isTaskChild = (rel: ontology.Relationship, arcKey: Key): boolean =>
+  ontology.matchRelationship(rel, {
+    from: ontologyID(arcKey),
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    to: { type: "task" },
+  });
+
+const taskStatusZ = z.object({ details: z.object({ task: task.keyZ }) });
+
+// Task statuses may arrive under any status key; the referenced task lives in
+// the details, with the "task:<key>" status key as a fallback.
+const affectedTaskKeys = (
+  event: cache.TableEvent<status.Key, status.Status>,
+): task.Key[] | null => {
+  const keys: task.Key[] = [];
+  if (event.variant === "set") {
+    const parsed = taskStatusZ.safeParse(event.value);
+    if (parsed.success) keys.push(parsed.data.details.task);
+  }
+  const [type, key] = event.key.split(":");
+  if (type === "task" && primitive.isNonZero(key) && !keys.includes(key))
+    keys.push(key);
+  return keys.length === 0 ? null : keys;
+};
+
 export class Client {
   private readonly client: UnaryClient;
   private readonly streamClient: StreamClient;
-  private readonly engine_?: cache.Engine;
-  private readonly dispatcher_?: dispatch.Controller<Key, Arc, Action>;
+  private readonly cache_: cache.Cache;
+  private readonly dispatcher_: dispatch.Controller<Key, Arc, Action>;
   private readonly ontologyClient: ontology.Client;
   private readonly taskClient: task.Client;
-  private readonly queries_?: {
-    single: cache.Queries<SingleRetrieveParams, Arc>;
-    request: cache.Queries<RetrieveRequest, Arc[]>;
-    task: cache.Queries<Key, task.Task | null>;
+  private readonly answers_: {
+    single: cache.Answers<SingleRetrieveParams, Arc, Key, Arc>;
+    request: cache.Answers<RetrieveRequest, Arc[], Key, Arc>;
+    task: cache.Answers<Key, task.Task | null, task.Key, Omit<task.Task, "status">>;
   };
 
   constructor(
@@ -133,42 +158,66 @@ export class Client {
     streamClient: StreamClient,
     ontologyClient: ontology.Client,
     taskClient: task.Client,
-    engine?: cache.Engine,
+    engine: cache.Cache,
   ) {
     this.client = client;
     this.streamClient = streamClient;
     this.ontologyClient = ontologyClient;
     this.taskClient = taskClient;
-    if (engine == null) return;
     this.dispatcher_ = bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "arc",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.arcStore,
+        fetch: async (query) => [(await this.fetchSingle(query)).key],
+        compose: ([record]) => record,
+        keyOf: (query) => ("key" in query ? query.key : null),
+        matches: (a, query) =>
+          "key" in query ? a.key === query.key : a.name === query.name,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "arcs",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.arcStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((a) => a.key),
+        compose: (records) => records,
+        matches: (a, query) => requestFilter(query)(a),
+        serverFields: SERVER_FIELDS,
       }),
-      task: new cache.Queries({
+      task: engine.answers({
         name: "arc task",
-        fetch: async (query) => await this.fetchTask(query),
-        mount: (params) => this.mountTask(params),
-        ensureStreaming,
+        table: this.taskStore,
+        fetch: async (query) => {
+          const tsk = await this.fetchTask(query);
+          return tsk == null ? [] : [tsk.key];
+        },
+        compose: (records) =>
+          records.length === 0 ? null : this.composeTask(records[0]),
+        matches: (t, query) =>
+          this.relationshipStore.has(
+            ontology.relationshipToString({
+              from: ontologyID(query),
+              type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+              to: task.ontologyID(t.key),
+            }),
+          ),
+        watch: [
+          cache.watch(this.relationshipStore, (event, query: Key) => {
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!isTaskChild(rel, query)) return null;
+            return [rel.to.key];
+          }),
+          cache.watch(this.statusStore, (event) => affectedTaskKeys(event)),
+        ],
+        hydrate: async (keys) => {
+          await this.taskClient.retrieve({ keys });
+        },
       }),
     };
-  }
-
-  private get dispatcher(): dispatch.Controller<Key, Arc, Action> {
-    if (this.dispatcher_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.dispatcher_;
   }
 
   async create(arc: CreateParams, opts?: cache.WriteOptions<Arc[]>): Promise<Arc>;
@@ -196,7 +245,7 @@ export class Client {
     }
     const optimistic = params.map((a) => arcZ.parse(a));
     const rollback = new cache.Rollback();
-    if (this.writes != null) rollback.add(this.writes.set(optimistic));
+    rollback.add(this.arcStore.setMany(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
@@ -207,7 +256,7 @@ export class Client {
           createResZ,
         ),
     );
-    this.writes?.set(res.arcs);
+    this.arcStore.setMany(res.arcs);
     for (const [i, taskKey] of taskKeys) {
       const created = res.arcs[i];
       const newTsk = await this.taskClient.create(
@@ -232,8 +281,7 @@ export class Client {
     const tsk = await this.retrieveTask(key);
     if (tsk != null) await this.taskClient.rename(tsk.key, name);
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (writes != null) rollback.add(cache.partialUpdate(writes, key, { name }));
+    rollback.add(cache.partialUpdate(this.arcStore, key, { name }));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () => await this.sendDispatch(key, id.create(), [renameAction({ name })]),
@@ -241,27 +289,19 @@ export class Client {
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {
-    if (this.queries_ != null) return await this.queries_.task.retrieve(key);
-    return await this.fetchTask(key);
+    return await this.answers_.task.retrieve(key);
   }
 
   async retrieve(params: SingleRetrieveParams): Promise<Arc>;
   async retrieve(params: RetrieveParams): Promise<Arc[]>;
   async retrieve(params: RetrieveParams): Promise<Arc | Arc[]> {
-    const isSingle = isSingleParams(params);
-    if (this.queries_ == null) {
-      const arcs = await this.execRetrieve(params);
-      checkForMultipleOrNoResults("Arc", params, arcs, isSingle);
-      return isSingle ? arcs[0] : arcs;
-    }
-    if (isSingleParams(params)) return await this.queries_.single.retrieve(params);
-    return await this.queries_.request.retrieve(retrieveReqZ.parse(params));
+    if (isSingleParams(params)) return await this.answers_.single.retrieve(params);
+    return await this.answers_.request.retrieve(retrieveReqZ.parse(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver an arc; every other shape delivers the matching arcs.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: SingleRetrieveParams,
@@ -275,10 +315,10 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Arc> | cache.ChangeHandler<Arc[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if (isSingleParams(params))
-      return queries.single.onChange(params, handler as cache.ChangeHandler<Arc>);
-    return queries.request.onChange(
+      return answers.single.onChange(params, handler as cache.ChangeHandler<Arc>);
+    return answers.request.onChange(
       retrieveReqZ.parse(params),
       handler as cache.ChangeHandler<Arc[]>,
     );
@@ -287,31 +327,34 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: SingleRetrieveParams): cache.Cached<Arc> | undefined;
   getCached(params: RetrieveRequest): cache.Cached<Arc[]> | undefined;
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Arc> | cache.Cached<Arc[]> | undefined {
-    const queries = this.requireQueries();
-    if (isSingleParams(params)) return queries.single.getCached(params);
-    return queries.request.getCached(retrieveReqZ.parse(params));
+    const answers = this.answers_;
+    if (isSingleParams(params)) return answers.single.getCached(params);
+    return answers.request.getCached(retrieveReqZ.parse(params));
   }
 
   /**
    * Cached queries for the task deployed for an arc, keyed by the arc's key.
    * Resolves null when the arc has no task.
-   * @throws when the cache was disabled at client construction.
    */
-  get task(): cache.Queries<Key, task.Task | null> {
-    return this.requireQueries().task;
+  get task(): cache.Answers<
+    Key,
+    task.Task | null,
+    task.Key,
+    Omit<task.Task, "status">
+  > {
+    return this.answers_.task;
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    if (this.writes != null) rollback.add(this.writes.delete(keysArr));
+    rollback.add(this.arcStore.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -328,15 +371,13 @@ export class Client {
    * recording an undoable entry. Returns false without side effects when the
    * arc isn't cached. Rolls back the local apply and rethrows on send
    * failure.
-   * @throws when the cache was disabled at client construction.
    */
   async dispatch(
     key: Key,
     actions: Action | Action[],
     opts: dispatch.Options<Arc, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      "",
+    return await this.dispatcher_.dispatch(
       key,
       array.toArray(actions),
       this.dispatchSender(key),
@@ -347,29 +388,27 @@ export class Client {
   /**
    * Reverts the arc's most recent undoable entry. Returns false when
    * nothing is undoable.
-   * @throws when the cache was disabled at client construction.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo("", key, this.dispatchSender(key));
+    return await this.dispatcher_.undo(key, this.dispatchSender(key));
   }
 
   /**
    * Re-applies the arc's most recently undone entry. Returns false when
    * nothing is redoable.
-   * @throws when the cache was disabled at client construction.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo("", key, this.dispatchSender(key));
+    return await this.dispatcher_.redo(key, this.dispatchSender(key));
   }
 
   /** Whether the arc has a live undo entry. */
   hasUndo(key: Key): boolean {
-    return this.dispatcher.hasUndo(key);
+    return this.dispatcher_.hasUndo(key);
   }
 
   /** Whether the arc has a live redo entry. */
   hasRedo(key: Key): boolean {
-    return this.dispatcher.hasRedo(key);
+    return this.dispatcher_.hasRedo(key);
   }
 
   /**
@@ -377,15 +416,14 @@ export class Client {
    * destructor that unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher.onUndoStateChange(MOUNT_SCOPE, callback, key);
+    return this.dispatcher_.onUndoStateChange(callback, key);
   }
 
   /**
    * Stages actions committed atomically as one undoable entry.
-   * @throws when the cache was disabled at client construction.
    */
   beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
-    return this.dispatcher.transaction("", key, this.dispatchSender(key), kind);
+    return this.dispatcher_.transaction(key, this.dispatchSender(key), kind);
   }
 
   private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
@@ -406,31 +444,20 @@ export class Client {
     );
   }
 
-  private get writes(): cache.UnaryStore<Key, Arc> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get arcStore(): cache.Table<Key, Arc> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get arcStore(): cache.UnaryStore<Key, Arc> {
-    return this.requireEngine().store(STORE_KEY);
+  private get statusStore(): cache.Table<status.Key, status.Status> {
+    return this.cache_.table(status.STORE_KEY);
   }
 
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get arcEvents(): cache.UnaryStore<Key, Arc> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
+  private get taskStore(): cache.Table<task.Key, Omit<task.Task, "status">> {
+    return this.cache_.table(task.STORE_KEY);
   }
 
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get relationshipStore(): cache.Table<string, ontology.Relationship> {
+    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {
@@ -457,7 +484,7 @@ export class Client {
   // replayed dispatch awaits its echo the replayed doc stays, but the
   // network doc answers: it carries the server-materialized text.
   private hydrate(a: Arc): Arc {
-    if (this.dispatcher_?.hasOutstanding(a.key) === true) {
+    if (this.dispatcher_.hasOutstanding(a.key) === true) {
       this.arcStore.setIfAbsent(a);
       return a;
     }
@@ -467,64 +494,9 @@ export class Client {
     return a;
   }
 
-  private mountSingle({
-    query,
-    update,
-    remove,
-  }: cache.MountParams<SingleRetrieveParams, Arc>) {
-    const matches = (a: Arc) =>
-      "key" in query ? a.key === query.key : a.name === query.name;
-    return [
-      this.arcEvents.onSet((arc) => {
-        if (matches(arc)) update(arc);
-      }),
-      this.arcEvents.onDelete((key) => {
-        const corpse = this.arcStore.getTombstone(key)?.corpse;
-        const deleted =
-          "key" in query ? key === query.key : corpse != null && matches(corpse);
-        if (deleted) remove(corpse);
-      }),
-    ];
-  }
-
   private async fetchRequest(query: RetrieveRequest): Promise<Arc[]> {
     const arcs = await this.execRetrieve(query);
     return arcs.map((a) => this.hydrate(a));
-  }
-
-  private mountRequest({ query, update }: cache.MountParams<RetrieveRequest, Arc[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.arcEvents.onSet((arc) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((a) => a.key === arc.key);
-          if (!matches(arc))
-            return existing ? prev.filter((a) => a.key !== arc.key) : prev;
-          if (existing) return prev.map((a) => (a.key === arc.key ? arc : a));
-          return [...prev, arc];
-        });
-      }),
-      this.arcEvents.onDelete((key) => {
-        update((prev) => prev?.filter((a) => a.key !== key));
-      }),
-    ];
-  }
-
-  private get statusStore(): cache.UnaryStore<status.Key, status.Status> {
-    return this.requireEngine().store(status.STORE_KEY);
-  }
-
-  private get taskEvents(): cache.UnaryStore<task.Key, Omit<task.Task, "status">> {
-    return this.requireEngine().store(task.STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private get statusEvents(): cache.UnaryStore<status.Key, status.Status> {
-    return this.requireEngine().store(status.STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private get relationshipEvents(): cache.UnaryStore<string, ontology.Relationship> {
-    return this.requireEngine().store(ontology.RELATIONSHIPS_STORE_KEY, MOUNT_SCOPE);
   }
 
   /** Rebuilds a cached task with its cached status attached. */
@@ -549,36 +521,5 @@ export class Client {
     const child = children[0];
     if (child == null) return null;
     return await this.taskClient.retrieve({ key: child.id.key });
-  }
-
-  private mountTask({ query, update }: cache.MountParams<Key, task.Task | null>) {
-    const isTaskChild = (rel: ontology.Relationship): boolean =>
-      ontology.matchRelationship(rel, {
-        from: ontologyID(query),
-        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-        to: { type: "task" },
-      });
-    return [
-      this.relationshipEvents.onSet((rel) => {
-        if (!isTaskChild(rel)) return;
-        this.taskClient
-          .retrieve({ key: rel.to.key })
-          .then((tsk) => update(() => tsk))
-          .catch(console.error);
-      }),
-      this.relationshipEvents.onDelete((relKey) => {
-        if (isTaskChild(ontology.relationshipZ.parse(relKey))) update(() => null);
-      }),
-      this.taskEvents.onSet((tsk) => {
-        update((prev) => (prev?.key === tsk.key ? this.composeTask(tsk) : prev));
-      }),
-      this.statusEvents.onSet((st) => {
-        update((prev) =>
-          prev != null && st.key === task.statusKey(prev.key)
-            ? this.composeTask(prev)
-            : prev,
-        );
-      }),
-    ];
   }
 }

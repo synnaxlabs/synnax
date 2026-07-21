@@ -17,28 +17,23 @@ import { Synnax } from "@/synnax";
 
 export interface ProviderProps extends PropsWithChildren {
   /**
-   * Overrides error reporting for cache listeners and change streaming.
-   * Defaults to the status aggregator.
+   * Overrides error reporting for starting change streaming. Defaults to the
+   * status aggregator.
    */
   handleError?: status.ErrorHandler;
-  /** Async counterpart of handleError. */
-  handleAsyncError?: status.AsyncErrorHandler;
 }
 
 /**
- * Routes the connected client's cache errors to the status aggregator and
- * starts change streaming, on both the main thread and the aether worker.
+ * Starts change streaming on the connected client's cache, on both the main
+ * thread and the aether worker.
  */
 export const Provider = ({
   children,
   handleError: handleErrorOverride,
-  handleAsyncError: handleAsyncErrorOverride,
 }: ProviderProps): ReactElement | null => {
   const client = Synnax.use();
   const aggregatorHandleError = Status.useErrorHandler();
-  const aggregatorHandleAsyncError = Status.useAsyncErrorHandler();
   const handleError = handleErrorOverride ?? aggregatorHandleError;
-  const handleAsyncError = handleAsyncErrorOverride ?? aggregatorHandleAsyncError;
   const { path } = Aether.useLifecycle({
     type: flux.PROVIDER_TYPE,
     schema: flux.providerStateZ,
@@ -46,11 +41,10 @@ export const Provider = ({
   });
   useEffect(() => {
     if (client == null) return;
-    client.cache.setErrorHandlers(handleError, handleAsyncError);
     handleError(
       async () => await client.cache.ensureStreaming(),
       "failed to start flux change streaming",
     );
-  }, [client, handleError, handleAsyncError]);
+  }, [client, handleError]);
   return <Aether.Composite path={path}>{children}</Aether.Composite>;
 };

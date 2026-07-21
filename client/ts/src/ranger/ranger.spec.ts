@@ -364,7 +364,7 @@ describe("cached reads", () => {
   // Changes made while the stream is still opening are lost (epoch
   // reconciliation repairs them in production); open it up front so remote
   // writes in these specs are always observed.
-  beforeAll(async () => await client.cache.engine.ensureStreaming());
+  beforeAll(async () => await client.cache.ensureStreaming());
 
   describe("retrieve", () => {
     it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
@@ -390,10 +390,8 @@ describe("cached reads", () => {
   });
 
   describe("getCached", () => {
-    it("returns undefined before a retrieve and the answer after", async () => {
+    it("serves a key query straight from the record written by create", async () => {
       const rng = await createRange();
-      expect(client.ranges.getCached(rng.key)).toBeUndefined();
-      await client.ranges.retrieve(rng.key);
       const cached = client.ranges.getCached(rng.key);
       expect(cached?.variant).toEqual("changed");
       if (cached?.variant === "changed") expect(cached.data.name).toEqual(rng.name);
@@ -579,8 +577,8 @@ describe("cached reads", () => {
 
 describe("store", () => {
   it("caches sugared sets and corpses deletes from live signals", async () => {
-    await client.cache.engine.ensureStreaming();
-    const store = client.cache.engine.store<ranger.Key, ranger.Range>(ranger.STORE_KEY);
+    await client.cache.ensureStreaming();
+    const store = client.cache.table<ranger.Key, ranger.Range>(ranger.STORE_KEY);
     const range = await createRange();
     await expect
       .poll(() => store.get(range.key)?.name, { timeout: 5000 })

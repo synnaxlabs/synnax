@@ -45,7 +45,8 @@ const emptyResZ = z.object({});
 
 export interface SetLayoutParams extends z.input<typeof setLayoutReqZ> {}
 
-const MOUNT_SCOPE = "project.mounts";
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 const isKeysOnly = (req: RetrieveRequest): boolean =>
   primitive.isNonZero(req.keys) &&
@@ -54,9 +55,8 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
   req.offset == null;
 
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * key sets, permissive for server-computed shapes (search), which accept
- * every change and drift toward the server's answer.
+ * Client-side matching for a request: key sets. Server-computed shapes
+ * (search, limit/offset) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -68,30 +68,32 @@ const toRequest = (params: Key[] | RetrieveRequest): RetrieveRequest =>
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<Key, Project>;
-    request: cache.Queries<RetrieveRequest, Project[]>;
+  private readonly cache: cache.Cache;
+  private readonly answers: {
+    single: cache.Answers<Key, Project, Key, Project>;
+    request: cache.Answers<RetrieveRequest, Project[], Key, Project>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, cache_: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
-    bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    bindStore(cache_);
+    this.cache = cache_;
+    this.answers = {
+      single: cache_.answers({
         name: "project",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.projectStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: cache_.answers({
         name: "projects",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.projectStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
+        compose: (records) => records,
+        matches: (project, query) => requestFilter(query)(project),
+        serverFields: SERVER_FIELDS,
       }),
     };
   }
@@ -106,15 +108,14 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.writes?.set(res.projects);
+    this.writes.setMany(res.projects);
     return isMany ? res.projects : res.projects[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     await this.client.send("/project/rename", { key, name }, renameReqZ, emptyResZ);
     this.mergeThrough(key, { name });
-    if (this.engine_ != null)
-      ontology.renameCachedResource(this.engine_, ontologyID(key), name);
+    ontology.renameCachedResource(this.cache, ontologyID(key), name);
   }
 
   async setLayout(
@@ -123,8 +124,7 @@ export class Client {
     opts: cache.WriteOptions = {},
   ): Promise<void> {
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (writes != null) rollback.add(cache.partialUpdate(writes, key, { layout }));
+    rollback.add(cache.partialUpdate(this.writes, key, { layout }));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -143,21 +143,14 @@ export class Client {
   async retrieve(req: RetrieveRequest): Promise<Project[]>;
   async retrieve(keys: Key | Key[] | RetrieveRequest): Promise<Project | Project[]> {
     const isSingle = typeof keys === "string";
-    if (this.queries_ == null) {
-      const req =
-        isSingle || Array.isArray(keys) ? { keys: array.toArray(keys) } : keys;
-      const projects = await this.execRetrieve(req);
-      return isSingle ? projects[0] : projects;
-    }
-    if (isSingle) return await this.queries_.single.retrieve(keys);
-    return await this.queries_.request.retrieve(toRequest(keys));
+    if (isSingle) return await this.answers.single.retrieve(keys);
+    return await this.answers.request.retrieve(toRequest(keys));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a project; every other shape delivers the matching
    * projects.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(key: Key, handler: cache.ChangeHandler<Project>): destructor.Destructor;
   onChange(keys: Key[], handler: cache.ChangeHandler<Project[]>): destructor.Destructor;
@@ -169,10 +162,10 @@ export class Client {
     keys: Key | Key[] | RetrieveRequest,
     handler: cache.ChangeHandler<Project> | cache.ChangeHandler<Project[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers;
     if (typeof keys === "string")
-      return queries.single.onChange(keys, handler as cache.ChangeHandler<Project>);
-    return queries.request.onChange(
+      return answers.single.onChange(keys, handler as cache.ChangeHandler<Project>);
+    return answers.request.onChange(
       toRequest(keys),
       handler as cache.ChangeHandler<Project[]>,
     );
@@ -181,7 +174,6 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(key: Key): cache.Cached<Project> | undefined;
   getCached(keys: Key[]): cache.Cached<Project[]> | undefined;
@@ -189,9 +181,9 @@ export class Client {
   getCached(
     keys: Key | Key[] | RetrieveRequest,
   ): cache.Cached<Project> | cache.Cached<Project[]> | undefined {
-    const queries = this.requireQueries();
-    if (typeof keys === "string") return queries.single.getCached(keys);
-    return queries.request.getCached(toRequest(keys));
+    const answers = this.answers;
+    if (typeof keys === "string") return answers.single.getCached(keys);
+    return answers.request.getCached(toRequest(keys));
   }
 
   async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
@@ -200,10 +192,8 @@ export class Client {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
     const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(ontology.deleteCachedResources(this.engine_, ontologyID(keysArr)));
-      rollback.add(writes.delete(keysArr));
-    }
+    rollback.add(ontology.deleteCachedResources(this.cache, ontologyID(keysArr)));
+    rollback.add(writes.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -214,40 +204,20 @@ export class Client {
           emptyResZ,
         ),
     );
-    this.writes?.delete(keysArr);
+    this.writes.delete(keysArr);
   }
 
-  private get writes(): cache.UnaryStore<Key, Project> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get writes(): cache.Table<Key, Project> {
+    return this.cache.table(STORE_KEY);
   }
 
-  private get projectStore(): cache.UnaryStore<Key, Project> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get projectEvents(): cache.UnaryStore<Key, Project> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get projectStore(): cache.Table<Key, Project> {
+    return this.cache.table(STORE_KEY);
   }
 
   // Undefined fields are dropped: the server keeps prior values for them.
   private mergeThrough(key: Key, changes: Partial<Project>): void {
     const store = this.writes;
-    if (store == null) return;
     const prev = store.get(key);
     if (prev != null) store.set(key, { ...prev, ...record.purgeUndefined(changes) });
   }
@@ -276,7 +246,7 @@ export class Client {
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.projectStore.set(fetched);
+      this.projectStore.setMany(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (p) => p.key);
@@ -287,47 +257,14 @@ export class Client {
     if (cached != null) return cached;
     const projects = await this.execRetrieve({ keys: [query] });
     checkForMultipleOrNoResults("Project", query, projects, true);
-    this.projectStore.set(projects);
+    this.projectStore.setMany(projects);
     return projects[0];
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, Project>) {
-    return [
-      this.projectEvents.onSet((project) => {
-        if (project.key === query) update(project);
-      }),
-      this.projectEvents.onDelete((key) => {
-        if (key === query) remove(this.projectStore.getTombstone(key)?.corpse);
-      }),
-    ];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Project[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const projects = await this.execRetrieve(query);
-    this.projectStore.set(projects);
+    this.projectStore.setMany(projects);
     return projects;
-  }
-
-  private mountRequest({
-    query,
-    update,
-  }: cache.MountParams<RetrieveRequest, Project[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.projectEvents.onSet((project) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((p) => p.key === project.key);
-          if (!matches(project))
-            return existing ? prev.filter((p) => p.key !== project.key) : prev;
-          if (existing) return prev.map((p) => (p.key === project.key ? project : p));
-          return [...prev, project];
-        });
-      }),
-      this.projectEvents.onDelete((key) => {
-        update((prev) => prev?.filter((p) => p.key !== key));
-      }),
-    ];
   }
 }

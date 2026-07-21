@@ -129,6 +129,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
   });
 
   const addStatus = Status.useAdder();
+  const handleError = Status.useErrorHandler();
 
   const handleChange = useCallback(
     (state: connection.State) => {
@@ -153,6 +154,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
         retry: DEFAULT_RETRY_CONFIG,
         ...connParams,
         connectivityPollFrequency: TimeSpan.seconds(2),
+        onInternalError: handleError,
       });
 
       setState({
@@ -208,7 +210,7 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
         setState(ZERO_CONTEXT_VALUE);
       };
     },
-    [connParams, handleChange],
+    [connParams, handleChange, handleError],
   );
 
   return (

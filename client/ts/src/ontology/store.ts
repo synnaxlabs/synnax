@@ -35,7 +35,7 @@ export const RESOURCES_STORE_KEY = "resources";
 
 /** Returns the cached parent ID of the given ontology ID, or null if unknown. */
 export const cachedParentID = (
-  relationships: cache.Store<string, Relationship>,
+  relationships: cache.Table<string, Relationship>,
   id: ID,
 ): ID | null => {
   const res = relationships.get((r) =>
@@ -50,12 +50,12 @@ export const cachedParentID = (
  * rollback restoring the prior name. A no-op when the resource isn't cached.
  */
 export const renameCachedResource = (
-  engine: cache.Engine,
+  engine: cache.Cache,
   id: ID,
   name: string,
 ): destructor.Destructor =>
   cache.partialUpdate(
-    engine.store<string, Resource>(RESOURCES_STORE_KEY),
+    engine.table<string, Resource>(RESOURCES_STORE_KEY),
     idToString(id),
     { name },
   );
@@ -65,11 +65,11 @@ export const renameCachedResource = (
  * Returns a rollback restoring them.
  */
 export const deleteCachedRelationships = (
-  engine: cache.Engine,
+  engine: cache.Cache,
   ids: ID | ID[],
 ): destructor.Destructor => {
   const idsArr = Array.isArray(ids) ? ids : [ids];
-  const relationships = engine.store<string, Relationship>(RELATIONSHIPS_STORE_KEY);
+  const relationships = engine.table<string, Relationship>(RELATIONSHIPS_STORE_KEY);
   return relationships.delete((rel) =>
     idsArr.some((id) => idsEqual(rel.to, id) || idsEqual(rel.from, id)),
   );
@@ -80,11 +80,11 @@ export const deleteCachedRelationships = (
  * relationship touching them. Returns a rollback restoring both.
  */
 export const deleteCachedResources = (
-  engine: cache.Engine,
+  engine: cache.Cache,
   ids: ID | ID[],
 ): destructor.Destructor => {
   const idsArr = Array.isArray(ids) ? ids : [ids];
-  const resources = engine.store<string, Resource>(RESOURCES_STORE_KEY);
+  const resources = engine.table<string, Resource>(RESOURCES_STORE_KEY);
   const undoRels = deleteCachedRelationships(engine, idsArr);
   const undoResources = resources.delete(idToString(idsArr));
   return () => {
@@ -93,13 +93,13 @@ export const deleteCachedResources = (
   };
 };
 
-/** Registers the relationship and resource stores on the given engine. */
+/** Registers the relationship and resource stores on the given cache. */
 export const bindStores = (
-  engine: cache.Engine,
+  engine: cache.Cache,
   retrieveResources: (ids: ID[]) => Promise<Resource[]>,
 ): void => {
   const relationships = () =>
-    engine.store<string, Relationship>(RELATIONSHIPS_STORE_KEY);
+    engine.table<string, Relationship>(RELATIONSHIPS_STORE_KEY);
   const relationshipSet: cache.ChannelListener<{}, typeof relationshipZ> = {
     channel: RELATIONSHIP_SET_CHANNEL_NAME,
     schema: relationshipZ,
@@ -111,13 +111,13 @@ export const bindStores = (
     schema: relationshipZ,
     onChange: ({ changed }) => relationships().delete(relationshipToString(changed)),
   };
-  engine.registerStore<string, Relationship>(RELATIONSHIPS_STORE_KEY, {
+  engine.registerTable<string, Relationship>(RELATIONSHIPS_STORE_KEY, {
     equal: (a, b) =>
       idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
     listeners: [relationshipSet, relationshipDelete],
   });
 
-  const resources = () => engine.store<string, Resource>(RESOURCES_STORE_KEY);
+  const resources = () => engine.table<string, Resource>(RESOURCES_STORE_KEY);
   const resourceSet: cache.ChannelListener<{}, typeof resourceZ> = {
     channel: RESOURCE_SET_CHANNEL_NAME,
     schema: resourceZ,
@@ -130,7 +130,7 @@ export const bindStores = (
     // The store is keyed by the full "type:key" string, not the bare key.
     onChange: ({ changed }) => resources().delete(idToString(changed)),
   };
-  engine.registerStore<string, Resource>(RESOURCES_STORE_KEY, {
+  engine.registerTable<string, Resource>(RESOURCES_STORE_KEY, {
     equal: (a, b) => deep.equal(a, b),
     listeners: [resourceSet, resourceDelete],
     refetch: async (keys) => await retrieveResources(parseIDs(keys)),

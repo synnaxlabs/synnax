@@ -14,7 +14,9 @@ import z from "zod";
 
 import { type cache } from "@/cache";
 import { createStreamer, type StreamerParams } from "@/cache/streamer";
+import { type TableConfigs } from "@/cache/table";
 import { type channel } from "@/channel";
+import { NotFoundError } from "@/errors";
 import { framer } from "@/framer";
 
 class MockHardenedStreamer implements framer.Streamer {
@@ -75,35 +77,6 @@ class MockHardenedStreamer implements framer.Streamer {
   }
 }
 
-/**
- * Creates a mock error handler that executes async functions
- * and swallows errors to prevent test failures.
- * Returns a vi.fn() mock so you can inspect calls.
- */
-const createMockErrorHandler = (): Mock =>
-  vi.fn((excOrFunc: unknown) => {
-    if (typeof excOrFunc === "function")
-      void (async () => {
-        try {
-          await excOrFunc();
-        } catch (_) {
-          // Swallow error to prevent test failure
-        }
-      })();
-  });
-
-/**
- * Creates a basic error handler that executes functions without swallowing errors.
- * Use this when you want onChange callbacks to execute normally.
- */
-const createBasicErrorHandler = (): Mock =>
-  vi.fn((excOrFunc: unknown) => {
-    if (typeof excOrFunc === "function")
-      void (async () => {
-        await excOrFunc();
-      })();
-  });
-
 const wrapOpener =
   (opener: framer.StreamOpener): cache.StreamOpener =>
   async (channels, { onOpen, onReopen }) => {
@@ -126,26 +99,26 @@ const createFrameStreamer = (frames: framer.Frame[]) =>
     });
   });
 
-const createStoreConfig = <T>(
+const createConfigs = <T>(
   channel: string,
   schema: z.ZodType<T>,
   onChange: Mock,
-): cache.StoreConfig<cache.Stores> => ({
+): TableConfigs<cache.Tables> => ({
   labels: { listeners: [{ channel, schema, onChange }] },
 });
 
 const createStreamerArgs = (
-  overrides?: Partial<StreamerParams<cache.Stores>>,
-): StreamerParams<cache.Stores> => ({
-  handleError: createBasicErrorHandler(),
-  storeConfig: { labels: { listeners: [] } },
-  store: {},
+  overrides?: Partial<StreamerParams<cache.Tables>>,
+): StreamerParams<cache.Tables> => ({
+  onError: vi.fn(),
+  configs: { labels: { listeners: [] } },
+  tables: {},
   openStreamer: wrapOpener(async () => new MockHardenedStreamer([])),
   ...overrides,
 });
 
 const openStreamer = async (
-  args: StreamerParams<cache.Stores>,
+  args: StreamerParams<cache.Tables>,
 ): Promise<() => Promise<void>> => {
   const streamer = createStreamer(args);
   await streamer.demand();
@@ -160,7 +133,7 @@ describe("openStreamer", () => {
 
     const closeStreamer = await openStreamer(
       createStreamerArgs({
-        storeConfig: createStoreConfig("test", schema, onChange),
+        configs: createConfigs("test", schema, onChange),
         openStreamer: createFrameStreamer(frames),
       }),
     );
@@ -173,19 +146,19 @@ describe("openStreamer", () => {
   });
 
   describe("Error Handling & Recovery", () => {
-    it("should call handleError when schema validation fails", async () => {
+    it("should call onError when schema validation fails", async () => {
       const onChange = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
       const schema = z.object({ name: z.string(), age: z.number() });
       const frames = [new framer.Frame({ test: new Series([{ name: "test" }]) })];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig: createStoreConfig("test", schema, onChange),
+          onError,
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
-      await expect.poll(() => handleError.mock.calls.length).toBeGreaterThan(0);
+      await expect.poll(() => onError.mock.calls.length).toBeGreaterThan(0);
       expect(onChange).not.toHaveBeenCalled();
       await closeStreamer();
     });
@@ -195,7 +168,7 @@ describe("openStreamer", () => {
         throw new Error("Listener 1 error");
       });
       const listener2 = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
       const frames = [
@@ -206,7 +179,7 @@ describe("openStreamer", () => {
         new framer.Frame({ test2: new Series([{ value: 3 }]) }),
       ];
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -217,27 +190,27 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig,
+          onError,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
 
       await expect.poll(() => listener2.mock.calls.length).toBe(2);
       expect(listener1).toHaveBeenCalledTimes(1);
-      expect(handleError.mock.calls.length).toBeGreaterThan(0);
+      expect(onError.mock.calls.length).toBeGreaterThan(0);
       await closeStreamer();
     });
 
     it("should handle EOF errors from the underlying streamer gracefully", async () => {
       const onChange = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig: createStoreConfig("test", schema, onChange),
+          onError,
+          configs: createConfigs("test", schema, onChange),
           openStreamer: wrapOpener(async () => {
             let i = 0;
             return new MockHardenedStreamer([], async () => {
@@ -277,7 +250,7 @@ describe("openStreamer", () => {
       ];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: {
+          configs: {
             labels: {
               listeners: [
                 { channel: "test", schema, onChange: listener1 },
@@ -285,7 +258,7 @@ describe("openStreamer", () => {
               ],
             },
           },
-          handleError: createMockErrorHandler(),
+          onError: vi.fn(),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -300,7 +273,7 @@ describe("openStreamer", () => {
         callCount++;
         if (callCount === 1) throw new Error("Async rejection");
       });
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
       const frames = [
@@ -311,17 +284,39 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig: createStoreConfig("test", schema, onChange),
+          onError,
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(3);
-      expect(handleError.mock.calls.length).toBeGreaterThan(0);
+      expect(onError.mock.calls.length).toBeGreaterThan(0);
       // First call should have errored, but subsequent calls should succeed
       expect(onChange.mock.calls[1][0].changed.value).toBe(2);
       expect(onChange.mock.calls[2][0].changed.value).toBe(3);
+      await closeStreamer();
+    });
+
+    it("should not report NotFoundError failures from listeners", async () => {
+      const onChange = vi.fn().mockImplementation(() => {
+        throw new NotFoundError("gone");
+      });
+      const onError = vi.fn();
+      const schema = z.object({ value: z.number() });
+      const frames = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
+
+      const closeStreamer = await openStreamer(
+        createStreamerArgs({
+          onError,
+          configs: createConfigs("test", schema, onChange),
+          openStreamer: createFrameStreamer(frames),
+        }),
+      );
+
+      await expect.poll(() => onChange.mock.calls.length).toBe(1);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(onError).not.toHaveBeenCalled();
       await closeStreamer();
     });
   });
@@ -333,7 +328,7 @@ describe("openStreamer", () => {
       const listener3 = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -350,7 +345,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -374,10 +369,10 @@ describe("openStreamer", () => {
         throw new Error("Listener 2 fails");
       });
       const listener3 = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -394,8 +389,8 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig,
+          onError,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -407,7 +402,7 @@ describe("openStreamer", () => {
       expect(listener2).toHaveBeenCalledTimes(2);
 
       // Error handler should have been invoked for each failure
-      expect(handleError.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(onError.mock.calls.length).toBeGreaterThanOrEqual(2);
 
       // Verify other listeners still received correct data
       expect(listener1.mock.calls[0][0].changed.value).toBe(1);
@@ -431,7 +426,7 @@ describe("openStreamer", () => {
       });
       const schema = z.object({ value: z.number() });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -449,7 +444,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -478,10 +473,10 @@ describe("openStreamer", () => {
         if (callCount % 2 === 0) throw new Error("Even calls fail");
       });
       const listener3 = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             { channel: "test", schema, onChange: listener1 },
@@ -500,8 +495,8 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig,
+          onError,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -513,7 +508,7 @@ describe("openStreamer", () => {
       expect(listener2).toHaveBeenCalledTimes(4);
 
       // Error handler should have been called for even numbered calls (2nd and 4th)
-      expect(handleError.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(onError.mock.calls.length).toBeGreaterThanOrEqual(2);
 
       // Verify all listeners received correct data
       for (let i = 0; i < 4; i++) {
@@ -527,13 +522,13 @@ describe("openStreamer", () => {
     it("should handle multiple listeners with different schemas on same channel", async () => {
       const listener1 = vi.fn();
       const listener2 = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
 
       // Different schemas for same channel
       const schema1 = z.object({ value: z.number() });
       const schema2 = z.object({ value: z.string() });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             { channel: "test", schema: schema1, onChange: listener1 },
@@ -547,8 +542,8 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig,
+          onError,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -562,7 +557,7 @@ describe("openStreamer", () => {
       expect(listener2).not.toHaveBeenCalled();
 
       // Error handler should have been called for schema2 validation failure
-      expect(handleError.mock.calls.length).toBeGreaterThan(0);
+      expect(onError.mock.calls.length).toBeGreaterThan(0);
 
       await closeStreamer();
     });
@@ -582,7 +577,7 @@ describe("openStreamer", () => {
       });
       const schema = z.object({ id: z.number() });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             { channel: "user_create", schema, onChange: createListener },
@@ -602,7 +597,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -629,18 +624,18 @@ describe("openStreamer", () => {
       ];
 
       const schema = z.object({ id: z.number() });
-      const storeListeners: cache.StoreConfig<cache.Stores>["labels"]["listeners"] = [];
+      const channelListeners: cache.ChannelListener<cache.Tables>[] = [];
 
       channels.forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
           executionOrder.push(channel);
         });
         listeners[channel] = listener;
-        storeListeners.push({ channel, schema, onChange: listener });
+        channelListeners.push({ channel, schema, onChange: listener });
       });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
-        labels: { listeners: storeListeners },
+      const configs: TableConfigs<cache.Tables> = {
+        labels: { listeners: channelListeners },
       };
 
       const frames = [
@@ -653,7 +648,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -690,7 +685,7 @@ describe("openStreamer", () => {
         type: z.string(),
       });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             {
@@ -721,7 +716,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -750,7 +745,7 @@ describe("openStreamer", () => {
     it("should handle frames with only delete channels", async () => {
       const executionOrder: string[] = [];
       const schema = z.object({ id: z.number() });
-      const listeners: cache.StoreConfig<cache.Stores>["labels"]["listeners"] = [];
+      const listeners: cache.ChannelListener<cache.Tables>[] = [];
 
       ["user_delete", "role_delete", "permission_delete"].forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -759,7 +754,7 @@ describe("openStreamer", () => {
         listeners.push({ channel, schema, onChange: listener });
       });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: { listeners },
       };
 
@@ -773,7 +768,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -792,7 +787,7 @@ describe("openStreamer", () => {
     it("should handle frames with no delete channels", async () => {
       const executionOrder: string[] = [];
       const schema = z.object({ id: z.number() });
-      const listeners: cache.StoreConfig<cache.Stores>["labels"]["listeners"] = [];
+      const listeners: cache.ChannelListener<cache.Tables>[] = [];
 
       ["user_create", "role_update", "permission_grant"].forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -801,7 +796,7 @@ describe("openStreamer", () => {
         listeners.push({ channel, schema, onChange: listener });
       });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: { listeners },
       };
 
@@ -815,7 +810,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -842,7 +837,7 @@ describe("openStreamer", () => {
         "update_user",
       ];
 
-      const listeners: cache.StoreConfig<cache.Stores>["labels"]["listeners"] = [];
+      const listeners: cache.ChannelListener<cache.Tables>[] = [];
       channels.forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
           executionOrder.push(channel);
@@ -850,7 +845,7 @@ describe("openStreamer", () => {
         listeners.push({ channel, schema, onChange: listener });
       });
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: { listeners },
       };
 
@@ -864,7 +859,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -906,7 +901,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -939,7 +934,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -967,7 +962,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -986,7 +981,7 @@ describe("openStreamer", () => {
       const frames = [new framer.Frame({ other_channel: new Series([{ value: 42 }]) })];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -997,17 +992,17 @@ describe("openStreamer", () => {
 
     it("should handle invalid data in series", async () => {
       const onChange = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
       const schema = z.object({ value: z.number() });
       const frames = [new framer.Frame({ test: new Series([{ invalid: "data" }]) })];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig: createStoreConfig("test", schema, onChange),
+          onError,
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
-      await expect.poll(() => handleError.mock.calls.length).toBeGreaterThan(0);
+      await expect.poll(() => onError.mock.calls.length).toBeGreaterThan(0);
       expect(onChange).not.toHaveBeenCalled();
       await closeStreamer();
     });
@@ -1015,12 +1010,12 @@ describe("openStreamer", () => {
     it("should handle mixed data types with different schemas", async () => {
       const jsonListener = vi.fn();
       const numericListener = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
 
       const jsonSchema = z.object({ id: z.number(), name: z.string() });
       const numericSchema = z.number();
 
-      const storeConfig: cache.StoreConfig<cache.Stores> = {
+      const configs: TableConfigs<cache.Tables> = {
         labels: {
           listeners: [
             { channel: "json_channel", schema: jsonSchema, onChange: jsonListener },
@@ -1048,8 +1043,8 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig,
+          onError,
+          configs,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -1065,7 +1060,7 @@ describe("openStreamer", () => {
 
     it("should handle schema validation errors for non-JSON data types", async () => {
       const onChange = vi.fn();
-      const handleError = createMockErrorHandler();
+      const onError = vi.fn();
       const schema = z.number();
       const frames = [
         new framer.Frame({
@@ -1078,13 +1073,13 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          handleError,
-          storeConfig: createStoreConfig("test", schema, onChange),
+          onError,
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
 
-      await expect.poll(() => handleError.mock.calls.length).toBeGreaterThan(0);
+      await expect.poll(() => onError.mock.calls.length).toBeGreaterThan(0);
       expect(onChange).not.toHaveBeenCalled();
 
       await closeStreamer();
@@ -1100,7 +1095,7 @@ describe("openStreamer", () => {
       let mockStreamer: MockHardenedStreamer;
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: wrapOpener(async () => {
             mockStreamer = new MockHardenedStreamer([]);
             return mockStreamer;
@@ -1131,7 +1126,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -1160,7 +1155,7 @@ describe("openStreamer", () => {
       const frames1 = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
       const closeStreamer1 = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange1),
+          configs: createConfigs("test", schema, onChange1),
           openStreamer: createFrameStreamer(frames1),
         }),
       );
@@ -1175,7 +1170,7 @@ describe("openStreamer", () => {
       const frames2 = [new framer.Frame({ test: new Series([{ value: 2 }]) })];
       const closeStreamer2 = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange2),
+          configs: createConfigs("test", schema, onChange2),
           openStreamer: createFrameStreamer(frames2),
         }),
       );
@@ -1196,7 +1191,7 @@ describe("openStreamer", () => {
       let mockStreamer: MockHardenedStreamer;
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: wrapOpener(async () => {
             mockStreamer = new MockHardenedStreamer([]);
             return mockStreamer;
@@ -1221,7 +1216,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: wrapOpener(async () => {
             const mockStreamer = new MockHardenedStreamer([]);
             // Make close throw an error
@@ -1250,7 +1245,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          storeConfig: createStoreConfig("test", schema, onChange),
+          configs: createConfigs("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );

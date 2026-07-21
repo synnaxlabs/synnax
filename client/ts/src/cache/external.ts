@@ -8,57 +8,39 @@
 // included in the file licenses/APL.txt.
 
 export {
-  consoleAsyncErrorHandler,
-  consoleErrorHandler,
-  Engine,
-  type EngineParams,
-  Handle,
-} from "@/cache/engine";
-export {
+  Answers,
+  type AnswersParams,
   type Cached,
   type ChangeHandler,
   hashQuery,
-  type MountParams,
-  Queries,
-  type QueriesParams,
-  type QueryState,
-} from "@/cache/queries";
+  watch,
+  type WatchEntry,
+} from "@/cache/answers";
+export { Cache, type CacheParams } from "@/cache/cache";
 export { Rollback } from "@/cache/rollback";
-export {
-  executeSetter,
-  isSetter,
-  type SetArg,
-  type SetFunc,
-  type State,
-} from "@/cache/state";
-export {
-  type ChannelListener,
-  type ChannelListenerParams,
-  type DeleteHandler,
-  type EntryStatus,
-  orderByKeys,
-  partialUpdate,
-  ScopedUnaryStore,
-  type SetHandler,
-  type Store,
-  type StoreConfig,
-  type Stores,
-  type Tombstone,
-  type UnaryStore,
-  type UnaryStoreConfig,
-} from "@/cache/store";
 export {
   type ObservableStream,
   type StreamOpener,
   type StreamOpenerHooks,
 } from "@/cache/streamer";
 export {
-  type AsyncErrorHandler,
+  type ChannelListener,
+  type ChannelListenerParams,
+  orderByKeys,
+  partialUpdate,
+  type RowStatus,
+  Table,
+  type TableConfig,
+  type TableEvent,
+  type Tables,
+  type TableSubscriber,
+  type Tombstone,
+} from "@/cache/table";
+export {
   COPY_VERBS,
   CREATE_VERBS,
   type Data,
   DELETE_VERBS,
-  type ErrorHandler,
   type FetchOptions,
   type Query,
   RENAME_VERBS,

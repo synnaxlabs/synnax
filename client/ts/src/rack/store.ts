@@ -15,20 +15,20 @@ export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
 export const STORE_KEY = "racks";
 
-/** Registers the rack store on the given engine. */
-export const bindStore = (engine: cache.Engine): void => {
-  const store = () => engine.store<Key, Omit<Payload, "status">>(STORE_KEY);
+/** Registers the rack table on the given cache. */
+export const bindStore = (engine: cache.Cache): void => {
+  const table = () => engine.table<Key, Omit<Payload, "status">>(STORE_KEY);
   const set: cache.ChannelListener<{}, typeof payloadZ> = {
     channel: SET_CHANNEL_NAME,
     schema: payloadZ,
-    onChange: ({ changed }) => store().set(changed),
+    onChange: ({ changed: { status: _, ...rack } }) => table().set(rack.key, rack),
   };
   const del: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Omit<Payload, "status">>(STORE_KEY, {
+  engine.registerTable<Key, Omit<Payload, "status">>(STORE_KEY, {
     listeners: [set, del],
   });
 };

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type dispatch, type Synnax as Client } from "@synnaxlabs/client";
+import { type cache, type dispatch, type Synnax as Client } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { useCallback, useSyncExternalStore } from "react";
 
-import { type base } from "@/flux/base";
 import { errorResult } from "@/flux/result";
 import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
@@ -29,7 +28,7 @@ const INERT_TX: dispatch.Transaction<never> = {
 
 export interface CreateDispatchParams<
   Key extends record.Key,
-  State extends base.Data,
+  State extends cache.Data,
   Action,
 > {
   /** Selects the domain's dispatch surface off the client. */
@@ -70,7 +69,7 @@ export interface CreateDispatchReturn<Key extends record.Key, Action> {
 
 export const createDispatch = <
   Key extends record.Key,
-  State extends base.Data,
+  State extends cache.Data,
   Action,
 >({
   domain,

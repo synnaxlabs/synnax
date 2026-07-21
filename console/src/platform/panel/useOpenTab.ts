@@ -34,10 +34,7 @@ export const useOpenTab = (): OpenTab => {
   );
   const { update: createPanel } = Panel.useCreate({
     afterOptimistic: useCallback(
-      ({
-        data: { key, root },
-        rollbacks,
-      }: Flux.AfterOptimisticParams<panel.Panel>) => {
+      ({ data: { key, root }, rollbacks }: Flux.AfterOptimisticParams<panel.Panel>) => {
         dispatchSession(Session.Panel.select({ key }));
         rollbacks.push(() => dispatchSession(Session.Panel.clearSelected({})));
         // This hook only creates panels with a single-tab leaf root (below), so the

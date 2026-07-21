@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
+import { cache, type task } from "@synnaxlabs/client";
 import { Flux, Task } from "@synnaxlabs/pluto";
 
 export interface SetDataSavingParams {
@@ -17,7 +17,7 @@ export interface SetDataSavingParams {
 
 export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingParams>({
   name: Task.RESOURCE_NAME,
-  verbs: Flux.UPDATE_VERBS,
+  verbs: cache.UPDATE_VERBS,
   update: async ({ client, data }) => {
     const { key, dataSaving } = data;
     const t = await Task.retrieveSingle({ client, query: { key } });

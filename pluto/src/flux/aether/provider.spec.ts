@@ -90,12 +90,12 @@ const updateFlux = (tree: { flux: aether.Component }, key: string) =>
 describe("flux.aether.Provider", () => {
   it("starts change streaming on the connected client's engine", async () => {
     const key = "flux-provider-stream";
-    const spy = vi.spyOn(cache.Engine.prototype, "ensureStreaming");
+    const spy = vi.spyOn(cache.Cache.prototype, "ensureStreaming");
     const tree = makeTree(key, TEST_CLIENT_PARAMS);
     updateFlux(tree, key);
 
     await expect.poll(() => spy.mock.calls.length).toBeGreaterThan(0);
-    const streamed = spy.mock.instances as unknown as cache.Engine[];
+    const streamed = spy.mock.instances as unknown as cache.Cache[];
     expect(streamed.some((engine) => !engine.detached)).toBe(true);
     spy.mockRestore();
 
@@ -105,7 +105,7 @@ describe("flux.aether.Provider", () => {
 
   it("does not start streaming when no client is connected", () => {
     const key = "flux-provider-detached";
-    const spy = vi.spyOn(cache.Engine.prototype, "ensureStreaming");
+    const spy = vi.spyOn(cache.Cache.prototype, "ensureStreaming");
     const tree = makeTree(key, null);
     updateFlux(tree, key);
 
@@ -118,7 +118,7 @@ describe("flux.aether.Provider", () => {
 
   it("rebinds onto a new engine when the underlying client swaps", async () => {
     const key = "flux-provider-swap";
-    const spy = vi.spyOn(cache.Engine.prototype, "ensureStreaming");
+    const spy = vi.spyOn(cache.Cache.prototype, "ensureStreaming");
     const tree = makeTree(key, TEST_CLIENT_PARAMS);
     updateFlux(tree, key);
     await expect.poll(() => spy.mock.calls.length).toBeGreaterThan(0);

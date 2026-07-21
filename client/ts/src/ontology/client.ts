@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, strings } from "@synnaxlabs/x";
+import { type destructor, primitive, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
@@ -62,8 +62,6 @@ const parentRel = (from: ID, to: ID): Relationship => ({
   to,
 });
 
-const MOUNT_SCOPE = "ontology.mounts";
-
 /** A retrieve request with IDs normalized to stable, sorted strings. */
 type NormalizedRequest = {
   ids?: string[];
@@ -90,6 +88,18 @@ type DependentOptions = Pick<
   RetrieveRequest,
   "types" | "searchTerm" | "offset" | "limit" | "excludeFieldData"
 >;
+
+/** Query fields only the server can evaluate. Dependent flags reach the
+ *  request space only in shapes it cannot check locally. */
+const REQUEST_SERVER_FIELDS = [
+  "searchTerm",
+  "limit",
+  "offset",
+  "children",
+  "parents",
+] as const;
+
+const DEPENDENT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 const normalizeIDs = (ids: ID | ID[]): string[] =>
   [...new Set(idToString(parseIDs(ids)))].sort();
@@ -128,9 +138,9 @@ const isSingleCacheable = (options?: RetrieveOptions): boolean =>
   (options.children !== true && options.parents !== true && options.types == null);
 
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * id and type sets, permissive for server-computed shapes (search), which
- * accept every change and drift toward the server's answer.
+ * Client-side matching for a request: exact for id and type sets.
+ * Server-computed shapes (search, limit/offset, dependents) never reach this
+ * filter; they refetch instead.
  */
 const requestFilter = (req: NormalizedRequest): ((r: Resource) => boolean) => {
   const idSet = primitive.isNonZero(req.ids) ? new Set(req.ids) : undefined;
@@ -151,72 +161,50 @@ export class Client {
   readonly type: string = "ontology";
   private readonly client: UnaryClient;
   private readonly writer: Writer;
-  private readonly relationships_?: cache.Store<string, Relationship>;
-  private readonly resources_?: cache.Store<string, Resource>;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<string, Resource>;
-    request: cache.Queries<NormalizedRequest, Resource[]>;
-    children: cache.Queries<DependentRequest, Resource[]>;
-    parents: cache.Queries<DependentRequest, Resource[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<string, Resource, string, Resource>;
+    request: cache.Answers<NormalizedRequest, Resource[], string, Resource>;
+    children: cache.Answers<DependentRequest, Resource[], string, Resource>;
+    parents: cache.Answers<DependentRequest, Resource[], string, Resource>;
   };
 
-  constructor(unary: UnaryClient, engine?: cache.Engine) {
+  constructor(unary: UnaryClient, engine: cache.Cache) {
     this.client = unary;
     this.writer = new Writer(unary);
-    if (engine == null) return;
+    this.cache_ = engine;
     // Reconciliation refetches must bypass the query cache.
     bindStores(engine, async (ids) => await this.execRetrieve({ ids }));
-    this.engine_ = engine;
-    this.relationships_ = engine.store(RELATIONSHIPS_STORE_KEY);
-    this.resources_ = engine.store(RESOURCES_STORE_KEY);
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.answers_ = {
+      single: engine.answers({
         name: "resource",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.resources,
+        fetch: async (query) => [(await this.fetchSingle(query)).key],
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "resources",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.resources,
+        fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
+        compose: (records) => records,
+        matches: (resource, query) => requestFilter(query)(resource),
+        serverFields: REQUEST_SERVER_FIELDS,
       }),
-      children: new cache.Queries({
-        name: "children",
-        fetch: async (query) => await this.fetchDependents(query, "to"),
-        mount: (params) => this.mountDependents(params, "to"),
-        ensureStreaming,
-      }),
-      parents: new cache.Queries({
-        name: "parents",
-        fetch: async (query) => await this.fetchDependents(query, "from"),
-        mount: (params) => this.mountDependents(params, "from"),
-        ensureStreaming,
-      }),
+      children: this.dependentAnswers(engine, "children", "to"),
+      parents: this.dependentAnswers(engine, "parents", "from"),
     };
   }
 
-  /**
-   * Read surface of the relationship cache.
-   * @throws when the cache was disabled at client construction.
-   */
-  get relationships(): cache.Store<string, Relationship> {
-    if (this.relationships_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.relationships_;
+  /** Read surface of the relationship cache. */
+  get relationships(): cache.Table<string, Relationship> {
+    return this.cache_.table(RELATIONSHIPS_STORE_KEY);
   }
 
-  /**
-   * Read surface of the resource cache.
-   * @throws when the cache was disabled at client construction.
-   */
-  get resources(): cache.Store<string, Resource> {
-    if (this.resources_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.resources_;
+  /** Read surface of the resource cache. */
+  get resources(): cache.Table<string, Resource> {
+    return this.cache_.table(RESOURCES_STORE_KEY);
   }
 
   /**
@@ -251,8 +239,8 @@ export class Client {
     if (!Array.isArray(ids) && typeof ids === "object" && !("key" in ids))
       return await this.routeRetrieve(ids);
     const parsedIDs = parseIDs(ids);
-    if (!Array.isArray(ids) && this.queries_ != null && isSingleCacheable(options))
-      return await this.queries_.single.retrieve(idToString(parsedIDs[0]));
+    if (!Array.isArray(ids) && isSingleCacheable(options))
+      return await this.answers_.single.retrieve(idToString(parsedIDs[0]));
     const resources = await this.routeRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;
     if (resources.length === 0)
@@ -275,13 +263,7 @@ export class Client {
     ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
-    if (this.queries_ == null)
-      return await this.execRetrieve({
-        ids: array.toArray(ids),
-        children: true,
-        ...options,
-      });
-    return await this.queries_.children.retrieve(normalizeDependents(ids, options));
+    return await this.answers_.children.retrieve(normalizeDependents(ids, options));
   }
 
   /**
@@ -297,20 +279,13 @@ export class Client {
     ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
-    if (this.queries_ == null)
-      return await this.execRetrieve({
-        ids: array.toArray(ids),
-        parents: true,
-        ...options,
-      });
-    return await this.queries_.parents.retrieve(normalizeDependents(ids, options));
+    return await this.answers_.parents.retrieve(normalizeDependents(ids, options));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a resource; every other shape delivers the matching
    * resources.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(params: ID, handler: cache.ChangeHandler<Resource>): destructor.Destructor;
   onChange(
@@ -321,34 +296,33 @@ export class Client {
     params: ID | ID[] | RetrieveRequest,
     handler: cache.ChangeHandler<Resource> | cache.ChangeHandler<Resource[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if (!Array.isArray(params) && "key" in params)
-      return queries.single.onChange(
+      return answers.single.onChange(
         idToString(params),
         handler as cache.ChangeHandler<Resource>,
       );
     const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
     const h = handler as cache.ChangeHandler<Resource[]>;
-    if (routed.space === "request") return queries.request.onChange(routed.query, h);
-    return queries[routed.space].onChange(routed.query, h);
+    if (routed.space === "request") return answers.request.onChange(routed.query, h);
+    return answers[routed.space].onChange(routed.query, h);
   }
 
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: ID): cache.Cached<Resource> | undefined;
   getCached(params: ID[] | RetrieveRequest): cache.Cached<Resource[]> | undefined;
   getCached(
     params: ID | ID[] | RetrieveRequest,
   ): cache.Cached<Resource> | cache.Cached<Resource[]> | undefined {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if (!Array.isArray(params) && "key" in params)
-      return queries.single.getCached(idToString(params));
+      return answers.single.getCached(idToString(params));
     const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
-    if (routed.space === "request") return queries.request.getCached(routed.query);
-    return queries[routed.space].getCached(routed.query);
+    if (routed.space === "request") return answers.request.getCached(routed.query);
+    return answers[routed.space].getCached(routed.query);
   }
 
   /**
@@ -358,8 +332,7 @@ export class Client {
    */
   async addChildren(id: ID, ...children: ID[]): Promise<void> {
     await this.writer.addChildren(id, ...children);
-    const rels = this.relationshipWrites;
-    if (rels == null) return;
+    const rels = this.relationships;
     children.forEach((child) => {
       const rel = parentRel(id, child);
       rels.set(relationshipToString(rel), rel);
@@ -373,9 +346,9 @@ export class Client {
    */
   async removeChildren(id: ID, ...children: ID[]): Promise<void> {
     await this.writer.removeChildren(id, ...children);
-    const rels = this.relationshipWrites;
+    const rels = this.relationships;
     children.forEach((child) =>
-      rels?.delete(relationshipToString(parentRel(id, child))),
+      rels.delete(relationshipToString(parentRel(id, child))),
     );
   }
 
@@ -386,9 +359,8 @@ export class Client {
    * @param children - The IDs of the children to move.
    */
   async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
-    const rels = this.relationshipWrites;
+    const rels = this.relationships;
     const move = (): destructor.Destructor[] => {
-      if (rels == null) return [];
       const deletions = children.map((child) =>
         rels.delete(relationshipToString(parentRel(from, child))),
       );
@@ -408,59 +380,32 @@ export class Client {
     move();
   }
 
-  private get relationshipWrites(): cache.UnaryStore<string, Relationship> | undefined {
-    return this.engine_?.store(RELATIONSHIPS_STORE_KEY);
-  }
-
-  private get resourceStore(): cache.UnaryStore<string, Resource> {
-    return this.requireEngine().store(RESOURCES_STORE_KEY);
-  }
-
-  private get relationshipStore(): cache.UnaryStore<string, Relationship> {
-    return this.requireEngine().store(RELATIONSHIPS_STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
   /** Subscribes to every resource set delivered to the cache. */
   onResourceSet(handler: (resource: Resource) => void): destructor.Destructor {
-    return this.resourceEvents.onSet(handler);
+    return this.resources.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
   }
 
   /** Subscribes to every resource delete delivered to the cache. */
   onResourceDelete(handler: (id: ID) => void): destructor.Destructor {
-    return this.resourceEvents.onDelete((key) => handler(idZ.parse(key)));
+    return this.resources.subscribe((event) => {
+      if (event.variant === "delete") handler(idZ.parse(event.key));
+    });
   }
 
   /** Subscribes to every relationship set delivered to the cache. */
   onRelationshipSet(handler: (rel: Relationship) => void): destructor.Destructor {
-    return this.relationshipEvents.onSet(handler);
+    return this.relationships.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
   }
 
   /** Subscribes to every relationship delete delivered to the cache. */
   onRelationshipDelete(handler: (rel: Relationship) => void): destructor.Destructor {
-    return this.relationshipEvents.onDelete((key) => handler(relationshipZ.parse(key)));
-  }
-
-  private get resourceEvents(): cache.UnaryStore<string, Resource> {
-    return this.requireEngine().store(RESOURCES_STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private get relationshipEvents(): cache.UnaryStore<string, Relationship> {
-    return this.requireEngine().store(RELATIONSHIPS_STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+    return this.relationships.subscribe((event) => {
+      if (event.variant === "delete") handler(relationshipZ.parse(event.key));
+    });
   }
 
   private routeRequest(request: RetrieveRequest): Routed {
@@ -479,17 +424,16 @@ export class Client {
   }
 
   private async routeRetrieve(request: RetrieveRequest): Promise<Resource[]> {
-    const queries = this.queries_;
-    if (queries == null) return await this.execRetrieve(request);
+    const answers = this.answers_;
     const routed = this.routeRequest(request);
-    if (routed.space === "request") return await queries.request.retrieve(routed.query);
-    return await queries[routed.space].retrieve(routed.query);
+    if (routed.space === "request") return await answers.request.retrieve(routed.query);
+    return await answers[routed.space].retrieve(routed.query);
   }
 
   /** Writes fetched resources without clobbering cached field data. */
   private writeResources(resources: Resource[]): void {
     resources.forEach((r) =>
-      this.resourceStore.set(r.key, (p) =>
+      this.resources.set(r.key, (p) =>
         p == null ? r : { ...r, data: r.data ?? p.data },
       ),
     );
@@ -506,17 +450,6 @@ export class Client {
     return resources[0];
   }
 
-  private mountSingle({ query, update, remove }: cache.MountParams<string, Resource>) {
-    return [
-      this.resourceEvents.onSet((resource) => {
-        if (resource.key === query) update(resource);
-      }),
-      this.resourceEvents.onDelete((key) => {
-        if (key === query) remove(this.resourceStore.getTombstone(key)?.corpse);
-      }),
-    ];
-  }
-
   private async fetchRequest(query: NormalizedRequest): Promise<Resource[]> {
     const { ids, ...rest } = query;
     const resources = await this.execRetrieve(
@@ -524,28 +457,6 @@ export class Client {
     );
     this.writeResources(resources);
     return resources;
-  }
-
-  private mountRequest({
-    query,
-    update,
-  }: cache.MountParams<NormalizedRequest, Resource[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.resourceEvents.onSet((resource) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((r) => r.key === resource.key);
-          if (!matches(resource))
-            return existing ? prev.filter((r) => r.key !== resource.key) : prev;
-          if (existing) return prev.map((r) => (r.key === resource.key ? resource : r));
-          return [...prev, resource];
-        });
-      }),
-      this.resourceEvents.onDelete((key) => {
-        update((prev) => prev?.filter((r) => r.key !== key));
-      }),
-    ];
   }
 
   private async fetchDependents(
@@ -566,63 +477,59 @@ export class Client {
       const anchor = idZ.parse(ids[0]);
       resources.forEach(({ id }) => {
         const rel = direction === "to" ? parentRel(anchor, id) : parentRel(id, anchor);
-        this.relationshipStore.set(relationshipToString(rel), rel);
+        this.relationships.set(relationshipToString(rel), rel);
       });
     }
     return resources;
   }
 
-  private mountDependents(
-    { query, update }: cache.MountParams<DependentRequest, Resource[]>,
+  private dependentAnswers(
+    engine: cache.Cache,
+    name: string,
     direction: RelationshipDirection,
-  ) {
+  ): cache.Answers<DependentRequest, Resource[], string, Resource> {
     const anchor = oppositeRelationshipDirection(direction);
-    const ids = new Set(query.ids);
-    const types = query.types == null ? null : new Set(query.types);
-    const isMember = (rel: Relationship): boolean =>
-      rel.type === PARENT_OF_RELATIONSHIP_TYPE &&
-      ids.has(idToString(rel[anchor])) &&
-      (types == null || types.has(rel[direction].type));
-    const isCachedMember = (resource: Resource): boolean =>
-      (types == null || types.has(resource.id.type)) &&
-      this.relationshipStore.get(
+    return engine.answers({
+      name,
+      table: this.resources,
+      fetch: async (query) =>
+        (await this.fetchDependents(query, direction)).map((r) => r.key),
+      compose: (records) => records,
+      matches: (resource, query) => this.isDependent(resource, query, direction),
+      serverFields: DEPENDENT_SERVER_FIELDS,
+      watch: [
+        cache.watch(this.relationships, (event, query: DependentRequest) => {
+          const rel =
+            event.variant === "set" ? event.value : relationshipZ.parse(event.key);
+          if (rel.type !== PARENT_OF_RELATIONSHIP_TYPE) return null;
+          if (!query.ids.includes(idToString(rel[anchor]))) return null;
+          if (query.types != null && !query.types.includes(rel[direction].type))
+            return null;
+          return [idToString(rel[direction])];
+        }),
+      ],
+      hydrate: async (keys) => {
+        await this.fetchRequest({ ids: keys });
+      },
+    });
+  }
+
+  /** Whether a cached relationship makes the resource a dependent of the query. */
+  private isDependent(
+    resource: Resource,
+    query: DependentRequest,
+    direction: RelationshipDirection,
+  ): boolean {
+    if (query.types != null && !query.types.includes(resource.id.type)) return false;
+    const anchor = oppositeRelationshipDirection(direction);
+    return (
+      this.relationships.get(
         (rel) =>
           rel.type === PARENT_OF_RELATIONSHIP_TYPE &&
-          ids.has(idToString(rel[anchor])) &&
+          query.ids.includes(idToString(rel[anchor])) &&
           idsEqual(rel[direction], resource.id),
-      ).length > 0;
-    const upsert = (prev: Resource[], resource: Resource): Resource[] => {
-      if (prev.some((r) => r.key === resource.key))
-        return prev.map((r) => (r.key === resource.key ? resource : r));
-      return [...prev, resource];
-    };
-    return [
-      this.resourceEvents.onSet((resource) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          if (prev.some((r) => r.key === resource.key) || isCachedMember(resource))
-            return upsert(prev, resource);
-          return prev;
-        });
-      }),
-      this.resourceEvents.onDelete((key) => {
-        update((prev) => prev?.filter((r) => r.key !== key));
-      }),
-      this.relationshipEvents.onSet((rel) => {
-        if (!isMember(rel)) return;
-        // Mounts stay synchronous: an uncached member is picked up by the
-        // resource set event that follows it.
-        const resource = this.resourceStore.get(idToString(rel[direction]));
-        if (resource == null) return;
-        update((prev) => (prev == null ? prev : upsert(prev, resource)));
-      }),
-      this.relationshipEvents.onDelete((relKey) => {
-        const rel = relationshipZ.parse(relKey);
-        if (!isMember(rel)) return;
-        const key = idToString(rel[direction]);
-        update((prev) => prev?.filter((r) => r.key !== key));
-      }),
-    ];
+      ).length > 0
+    );
   }
 
   private async execRetrieve(request: RetrieveRequest): Promise<Resource[]> {

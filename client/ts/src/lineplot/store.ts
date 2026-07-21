@@ -18,20 +18,20 @@ export const DELETE_CHANNEL_NAME = "sy_lineplot_delete";
 
 export const STORE_KEY = "lineplots";
 
-/** Registers the line plot store and its dispatch controller on the engine. */
+/** Registers the line plot table and its dispatch controller on the cache. */
 export const bindStore = (
-  engine: cache.Engine,
+  engine: cache.Cache,
 ): dispatch.Controller<Key, LinePlot, Action> => {
-  const store = () => engine.store<Key, LinePlot>(STORE_KEY);
+  const table = () => engine.table<Key, LinePlot>(STORE_KEY);
   const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, LinePlot>(STORE_KEY, { listeners: [deleteListener] });
+  engine.registerTable<Key, LinePlot>(STORE_KEY, { listeners: [deleteListener] });
   const controller = new dispatch.Controller<Key, LinePlot, Action>({
-    store: engine.unscoped(STORE_KEY),
-    handleError: engine.errorHandler,
+    store: table(),
+    onError: engine.onError,
     reduce: reduceAll,
     kindOf,
   });

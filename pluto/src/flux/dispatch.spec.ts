@@ -19,6 +19,8 @@ import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });
 
+const onError = (error: Error): void => console.error(error);
+
 type SendFn = (actions: schematic.Action[]) => Promise<void>;
 type SendMock = Mock<SendFn>;
 
@@ -28,29 +30,23 @@ type Handle = ReturnType<
   typeof Flux.createDispatch<schematic.Key, schematic.Schematic, schematic.Action>
 >;
 
-// The hooks subscribe in their own scope so writes made through the domain's
-// default scope still notify them.
-const HOOK_SCOPE = "hooks";
-
 interface Harness {
   domain: Domain;
-  docs: cache.ScopedUnaryStore<schematic.Key, schematic.Schematic>;
+  docs: cache.Table<schematic.Key, schematic.Schematic>;
   controller: dispatch.Controller<schematic.Key, schematic.Schematic, schematic.Action>;
 }
 
 // Binds the production dispatch controller to a controllable network send,
 // exposed through the same Domain surface client.schematics implements.
 const createHarness = (send: SendFn): Harness => {
-  const docs = new cache.ScopedUnaryStore<schematic.Key, schematic.Schematic>(
-    cache.consoleErrorHandler,
-  );
+  const docs = new cache.Table<schematic.Key, schematic.Schematic>(onError);
   const controller = new dispatch.Controller<
     schematic.Key,
     schematic.Schematic,
     schematic.Action
   >({
     store: docs,
-    handleError: cache.consoleErrorHandler,
+    onError,
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
   });
@@ -59,20 +55,17 @@ const createHarness = (send: SendFn): Harness => {
   const domain: Domain = {
     dispatch: async (key, actions, opts) =>
       await controller.dispatch(
-        "",
         key,
         array.toArray(actions),
         sendDispatch,
         opts?.preprocess,
       ),
-    undo: async (key) => await controller.undo("", key, sendDispatch),
-    redo: async (key) => await controller.redo("", key, sendDispatch),
+    undo: async (key) => await controller.undo(key, sendDispatch),
+    redo: async (key) => await controller.redo(key, sendDispatch),
     hasUndo: (key) => controller.hasUndo(key),
     hasRedo: (key) => controller.hasRedo(key),
-    onUndoStateChange: (callback, key) =>
-      controller.onUndoStateChange(HOOK_SCOPE, callback, key),
-    beginTransaction: (key, kind) =>
-      controller.transaction("", key, sendDispatch, kind),
+    onUndoStateChange: (callback, key) => controller.onUndoStateChange(callback, key),
+    beginTransaction: (key, kind) => controller.transaction(key, sendDispatch, kind),
   };
   return { domain, docs, controller };
 };
@@ -109,7 +102,7 @@ const setupHook = <H extends object>(
 ): SetupResult<H> => {
   const { domain, docs, controller } = createHarness(sendMock);
   const key = uuid.create();
-  docs.set("seed", key, createDoc(key));
+  docs.set(key, createDoc(key));
   const td = makeDispatch(domain);
   const { result } = renderHook(() => hookFn(td, key), { wrapper });
   return { result, send: sendMock, td, key, docs, controller };
@@ -345,12 +338,7 @@ describe("Flux.createDispatch", () => {
       // Stamp n1 strictly after the entry's ts so the only entry is stale;
       // undo should drop it without sending.
       act(() => {
-        controller.markRemoteTouched(
-          "",
-          key,
-          ["n1"],
-          TimeStamp.now().add(TimeSpan.SECOND),
-        );
+        controller.markRemoteTouched(key, ["n1"], TimeStamp.now().add(TimeSpan.SECOND));
       });
       act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
@@ -432,12 +420,7 @@ describe("Flux.createDispatch", () => {
       // Stamp n1 strictly after the entry's ts so the only redo entry is
       // stale; redo should drop it without sending.
       act(() => {
-        controller.markRemoteTouched(
-          "",
-          key,
-          ["n1"],
-          TimeStamp.now().add(TimeSpan.SECOND),
-        );
+        controller.markRemoteTouched(key, ["n1"], TimeStamp.now().add(TimeSpan.SECOND));
       });
       const callsBefore = send.mock.calls.length;
       act(() => result.current.redo.redo());
@@ -639,7 +622,7 @@ describe("Flux.createDispatch", () => {
       });
       await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
       act(() => {
-        docs.delete("remote", key);
+        docs.delete(key);
       });
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
       expect(getDoc(docs, key)).toBeUndefined();
@@ -680,8 +663,8 @@ describe("Flux.createDispatch", () => {
       const { domain, docs } = createHarness(send);
       const a = uuid.create();
       const b = uuid.create();
-      docs.set("seed", a, createDoc(a));
-      docs.set("seed", b, createDoc(b));
+      docs.set(a, createDoc(a));
+      docs.set(b, createDoc(b));
       const td = makeDispatch(domain);
       const { result } = renderHook(
         () => ({

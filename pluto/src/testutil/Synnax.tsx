@@ -39,7 +39,7 @@ const RenderContextSeed = ({
 
 const newWrapper = (
   client: Client | null,
-  handlers: Pick<Flux.ProviderProps, "handleError" | "handleAsyncError">,
+  handlers: Pick<Flux.ProviderProps, "handleError">,
   additionalRegistry?: aether.ComponentRegistry,
   renderContext?: canvasTest.Recorder,
 ) => {
@@ -74,8 +74,6 @@ export interface CreateSynnaxWrapperParams {
   client: Client | null;
   /** Overrides the flux error handler. Defaults to the status aggregator. */
   handleError?: status.ErrorHandler;
-  /** Overrides the flux async error handler. Defaults to the status aggregator. */
-  handleAsyncError?: status.AsyncErrorHandler;
   /** Extra aether components merged into the test render registry. */
   additionalRegistry?: aether.ComponentRegistry;
   /**
@@ -89,22 +87,15 @@ export interface CreateSynnaxWrapperParams {
 export const createSynnaxWrapper = ({
   client,
   handleError,
-  handleAsyncError,
   additionalRegistry,
   renderContext,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> =>
-  newWrapper(
-    client,
-    { handleError, handleAsyncError },
-    additionalRegistry,
-    renderContext,
-  );
+  newWrapper(client, { handleError }, additionalRegistry, renderContext);
 
 export const createAsyncSynnaxWrapper = async (
   params: CreateSynnaxWrapperParams,
 ): Promise<FC<PropsWithChildren>> => {
   const { client } = params;
-  if (client != null && client.cache.enabled)
-    await client.cache.engine.ensureStreaming();
+  if (client != null) await client.cache.ensureStreaming();
   return createSynnaxWrapper(params);
 };

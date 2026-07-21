@@ -372,7 +372,7 @@ describe("cached reads", () => {
   // Changes made while the stream is still opening are lost (epoch
   // reconciliation repairs them in production); open it up front so remote
   // writes in these specs are always observed.
-  beforeAll(async () => await client.cache.engine.ensureStreaming());
+  beforeAll(async () => await client.cache.ensureStreaming());
 
   describe("retrieve", () => {
     it("reflects remote changes on an unsubscribed repeat retrieve", async () => {
@@ -398,10 +398,8 @@ describe("cached reads", () => {
   });
 
   describe("getCached", () => {
-    it("returns undefined before a retrieve and the answer after", async () => {
+    it("serves a key query straight from the record written by create", async () => {
       const ch = await createVirtual();
-      expect(client.channels.getCached({ key: ch.key })).toBeUndefined();
-      await client.channels.retrieve(ch.key);
       const cached = client.channels.getCached({ key: ch.key });
       expect(cached?.variant).toEqual("changed");
       if (cached?.variant === "changed") expect(cached.data.name).toEqual(ch.name);

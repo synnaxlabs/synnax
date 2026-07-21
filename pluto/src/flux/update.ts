@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, type Synnax as Client } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, type destructor } from "@synnaxlabs/x";
+import { type cache, type status, type Synnax as Client } from "@synnaxlabs/client";
+import { type CrudeTimeSpan, type destructor, state } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
-import { type base } from "@/flux/base";
 import {
   errorResult,
   type InitialStatusDetailsContainer,
@@ -25,13 +24,12 @@ import {
   successResult,
 } from "@/flux/result";
 import { useDebouncedCallback } from "@/hooks";
-import { state } from "@/state";
 import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface UpdateParams<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -42,27 +40,27 @@ export interface UpdateParams<
 }
 
 export type CreateUpdateParams<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > = {
   name: string;
-  verbs: base.Verbs;
+  verbs: cache.Verbs;
   update: (
     params: UpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
   ) => Promise<Output | false>;
   allowDisconnected?: AllowDisconnected;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
-export interface UseObservableUpdateReturn<Input extends base.Data> {
-  update: (data: Input, opts?: base.FetchOptions) => void;
-  updateAsync: (data: Input, opts?: base.FetchOptions) => Promise<boolean>;
+export interface UseObservableUpdateReturn<Input extends cache.Data> {
+  update: (data: Input, opts?: cache.FetchOptions) => void;
+  updateAsync: (data: Input, opts?: cache.FetchOptions) => Promise<boolean>;
 }
 
 export interface UseObservableUpdateParams<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -83,7 +81,7 @@ export interface UseObservableUpdateParams<
 }
 
 export interface BeforeUpdateParams<
-  Data extends base.Data,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 > {
   /** Side-effect undos run in reverse order when the update fails. */
@@ -93,7 +91,7 @@ export interface BeforeUpdateParams<
 }
 
 export interface AfterOptimisticParams<
-  Output extends base.Data,
+  Output extends cache.Data,
   AllowDisconnected extends boolean = false,
 > {
   /** Side-effect undos run in reverse order when the update fails. */
@@ -103,7 +101,7 @@ export interface AfterOptimisticParams<
 }
 
 export interface AfterSuccessParams<
-  Output extends base.Data,
+  Output extends cache.Data,
   AllowDisconnected extends boolean = false,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
@@ -111,7 +109,7 @@ export interface AfterSuccessParams<
 }
 
 export interface AfterFailureParams<
-  Data extends base.Data,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
@@ -120,8 +118,8 @@ export interface AfterFailureParams<
 }
 
 export interface UseDirectUpdateParams<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > extends Omit<
@@ -130,13 +128,13 @@ export interface UseDirectUpdateParams<
 > {}
 
 export type UseDirectUpdateReturn<
-  Input extends base.Data,
+  Input extends cache.Data,
   StatusDetails extends z.ZodType = z.ZodNever,
 > = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input>;
 
 export interface UseObservableUpdate<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -146,8 +144,8 @@ export interface UseObservableUpdate<
 }
 
 export interface UseUpdate<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -157,8 +155,8 @@ export interface UseUpdate<
 }
 
 export interface CreateUpdateReturn<
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 > {
@@ -172,8 +170,8 @@ export interface CreateUpdateReturn<
 }
 
 const useObservable = <
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 >(
@@ -195,7 +193,7 @@ const useObservable = <
   const maybeClient = Synnax.use();
   const addStatus = useAdder();
   const runUpdate = useCallback(
-    async (data: Input, opts: base.FetchOptions = {}): Promise<boolean> => {
+    async (data: Input, opts: cache.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
 
       const rollbacks: destructor.Destructor[] = [];
@@ -297,7 +295,7 @@ const useObservable = <
     ],
   );
   const handleUpdate = useDebouncedCallback(
-    (data: Input, opts?: base.FetchOptions) => {
+    (data: Input, opts?: cache.FetchOptions) => {
       void runUpdate(data, opts);
     },
     debounce,
@@ -307,8 +305,8 @@ const useObservable = <
 };
 
 const useDirect = <
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 >(
@@ -335,8 +333,8 @@ const useDirect = <
 };
 
 export const createUpdate = <
-  Input extends base.Data,
-  Output extends base.Data = Input,
+  Input extends cache.Data,
+  Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
   AllowDisconnected extends boolean = false,
 >(

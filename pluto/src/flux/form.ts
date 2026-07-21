@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import { type cache, type Synnax as Client } from "@synnaxlabs/client";
+import { type destructor, state } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import { type z } from "zod";
 
-import { type base } from "@/flux/base";
 import {
   errorResult,
   loadingResult,
@@ -25,30 +24,29 @@ import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
 import { useAsyncEffect, useDestructors } from "@/hooks";
 import { useMemoDeepEqual } from "@/memo";
-import { state } from "@/state";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
-export interface FormUpdateParams<Schema extends z.ZodType<base.Data>>
+export interface FormUpdateParams<Schema extends z.ZodType<cache.Data>>
   extends
     Omit<UpdateParams<z.infer<Schema>>, "data" | "onChange" | "onOptimisticComplete">,
     Omit<Form.UseReturn<Schema>, "setStatus"> {}
 
 /** Client and query handles for a form operation. */
-interface FormClientParams<Query extends base.Query> {
+interface FormClientParams<Query extends cache.Query> {
   client: Client;
   query: Query;
 }
 
 export interface FormRetrieveParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
+  Query extends cache.Query,
+  Schema extends z.ZodType<cache.Data>,
 >
   extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 export interface CreateFormParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
+  Query extends cache.Query,
+  Schema extends z.ZodType<cache.Data>,
 > {
   name: string;
   schema: Schema;
@@ -60,39 +58,39 @@ export interface CreateFormParams<
   ) => destructor.Destructor | destructor.Destructor[];
 }
 
-export type UseFormReturn<Schema extends z.ZodType<base.Data>> = Omit<
+export type UseFormReturn<Schema extends z.ZodType<cache.Data>> = Omit<
   Result<z.infer<Schema>>,
   "data"
 > & {
   form: Form.UseReturn<Schema>;
-  save: (opts?: base.FetchOptions) => void;
+  save: (opts?: cache.FetchOptions) => void;
 };
 
 export interface FormBeforeSaveParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
+  Query extends cache.Query,
+  Schema extends z.ZodType<cache.Data>,
 >
   extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 interface FormMountListenersParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
+  Query extends cache.Query,
+  Schema extends z.ZodType<cache.Data>,
 >
   extends Form.UseReturn<Schema>, FormClientParams<Query> {}
 
 export interface AfterSaveParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
+  Query extends cache.Query,
+  Schema extends z.ZodType<cache.Data>,
 > extends FormBeforeSaveParams<Query, Schema> {}
 
 export interface BeforeValidateParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
+  Query extends cache.Query,
+  Schema extends z.ZodType<cache.Data>,
 > extends FormBeforeSaveParams<Query, Schema> {}
 
 export interface UseFormParams<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
+  Query extends cache.Query,
+  Schema extends z.ZodType<cache.Data>,
 > extends Pick<Form.UseParams<Schema>, "sync" | "onHasTouched" | "mode"> {
   initialValues?: z.infer<Schema>;
   autoSave?: boolean;
@@ -103,8 +101,8 @@ export interface UseFormParams<
 }
 
 export interface UseForm<
-  Query extends base.Query,
-  Schema extends z.ZodType<base.Data>,
+  Query extends cache.Query,
+  Schema extends z.ZodType<cache.Data>,
 > {
   (params: UseFormParams<Query, Schema>): UseFormReturn<Schema>;
 }
@@ -115,7 +113,7 @@ const DEFAULT_SET_OPTIONS: Form.SetOptions = {
 };
 
 export const createForm =
-  <Query extends base.Query, Schema extends z.ZodType<base.Data>>({
+  <Query extends cache.Query, Schema extends z.ZodType<cache.Data>>({
     name,
     schema,
     retrieve,
@@ -158,7 +156,7 @@ export const createForm =
       [form],
     );
     const retrieveAsync = useCallback(
-      async (query: Query, options: base.FetchOptions = {}) => {
+      async (query: Query, options: cache.FetchOptions = {}) => {
         const { signal } = options;
         try {
           if (client == null)
@@ -187,7 +185,7 @@ export const createForm =
     );
 
     const saveAsync = useCallback(
-      async (opts: base.FetchOptions = {}): Promise<boolean> => {
+      async (opts: cache.FetchOptions = {}): Promise<boolean> => {
         const { signal } = opts;
         try {
           if (client == null) {
@@ -228,7 +226,7 @@ export const createForm =
       [name, query, beforeSave, afterSave, beforeValidate],
     );
     const save = useCallback(
-      (opts?: base.FetchOptions) => void saveAsync(opts),
+      (opts?: cache.FetchOptions) => void saveAsync(opts),
       [saveAsync],
     );
 

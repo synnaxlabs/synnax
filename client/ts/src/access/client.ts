@@ -17,7 +17,7 @@ export class Client {
   readonly policies: policy.Client;
   readonly roles: role.Client;
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.policies = new policy.Client(client, engine);
     this.roles = new role.Client(client, engine);
   }

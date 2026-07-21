@@ -67,7 +67,8 @@ export interface CreateMultipleParams {
   parent: ontology.ID;
 }
 
-const MOUNT_SCOPE = "schematic.symbol.mounts";
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm"] as const;
 
 const isKeysOnly = (req: RetrieveRequest): boolean =>
   primitive.isNonZero(req.keys) && req.searchTerm == null && req.parent == null;
@@ -88,35 +89,51 @@ const matchChildRel = (rel: ontology.Relationship, parent: ontology.ID): boolean
 export class Client {
   private readonly client: UnaryClient;
   private readonly ontologyClient: ontology.Client;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<Key, Symbol>;
-    request: cache.Queries<RetrieveRequest, Symbol[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<Key, Symbol, Key, Symbol>;
+    request: cache.Answers<RetrieveRequest, Symbol[], Key, Symbol>;
   };
 
   constructor(
     client: UnaryClient,
     ontologyClient: ontology.Client,
-    engine?: cache.Engine,
+    engine: cache.Cache,
   ) {
     this.client = client;
     this.ontologyClient = ontologyClient;
-    if (engine == null) return;
     bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "schematic symbol",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.symbolStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((s) => s.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "schematic symbols",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.symbolStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
+        compose: (records) => records,
+        matches: (symbol, query) => this.requestFilter(query)(symbol),
+        serverFields: SERVER_FIELDS,
+        watch: [
+          cache.watch(this.relationshipStore, (event, query: RetrieveRequest) => {
+            if (query.parent == null) return null;
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!matchChildRel(rel, query.parent)) return null;
+            return [rel.to.key];
+          }),
+        ],
+        hydrate: async (keys) => {
+          await this.fetchKeys(keys);
+        },
       }),
     };
   }
@@ -134,15 +151,14 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    // Relationships first: parent-scoped listeners check membership when the
+    // Relationships first: parent-scoped answers check membership when the
     // symbol write lands.
-    const rels = this.relationshipWrites;
-    if (rels != null)
-      res.symbols.forEach((s) => {
-        const rel = childRel(options.parent, s.key);
-        rels.set(ontology.relationshipToString(rel), rel);
-      });
-    this.writes?.set(res.symbols);
+    const rels = this.relationshipStore;
+    res.symbols.forEach((s) => {
+      const rel = childRel(options.parent, s.key);
+      rels.set(ontology.relationshipToString(rel), rel);
+    });
+    this.symbolStore.setMany(res.symbols);
     return isMany ? res.symbols : res.symbols[0];
   }
 
@@ -160,19 +176,13 @@ export class Client {
   async retrieve(params: RetrieveMultipleParams): Promise<Symbol[]>;
   async retrieve(params: RetrieveParams): Promise<Symbol | Symbol[]> {
     const isSingle = "key" in params;
-    if (this.queries_ == null) {
-      const symbols = await this.execResolved(params);
-      checkForMultipleOrNoResults("Schematic Symbol", params, symbols, isSingle);
-      return isSingle ? symbols[0] : symbols;
-    }
-    if (isSingle) return await this.queries_.single.retrieve(params.key);
-    return await this.queries_.request.retrieve(retrieveRequestZ.parse(params));
+    if (isSingle) return await this.answers_.single.retrieve(params.key);
+    return await this.answers_.request.retrieve(retrieveRequestZ.parse(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a symbol; every other shape delivers the matching symbols.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -186,13 +196,13 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<Symbol> | cache.ChangeHandler<Symbol[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(
+      return answers.single.onChange(
         params.key,
         handler as cache.ChangeHandler<Symbol>,
       );
-    return queries.request.onChange(
+    return answers.request.onChange(
       retrieveRequestZ.parse(params),
       handler as cache.ChangeHandler<Symbol[]>,
     );
@@ -201,23 +211,21 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<Symbol> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<Symbol[]> | undefined;
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<Symbol> | cache.Cached<Symbol[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(params.key);
-    return queries.request.getCached(retrieveRequestZ.parse(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(params.key);
+    return answers.request.getCached(retrieveRequestZ.parse(params));
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    if (writes != null) rollback.add(writes.delete(keysArr));
+    rollback.add(this.symbolStore.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -228,8 +236,8 @@ export class Client {
           emptyResZ,
         ),
     );
-    this.writes?.delete(keysArr);
-    this.relationshipWrites?.delete(
+    this.symbolStore.delete(keysArr);
+    this.relationshipStore.delete(
       (r) =>
         r.type === ontology.PARENT_OF_RELATIONSHIP_TYPE &&
         r.to.type === "schematic_symbol" &&
@@ -247,50 +255,17 @@ export class Client {
     return res.group;
   }
 
-  private get writes(): cache.UnaryStore<Key, Symbol> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get symbolStore(): cache.Table<Key, Symbol> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get symbolStore(): cache.UnaryStore<Key, Symbol> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  private get relationshipWrites():
-    cache.UnaryStore<string, ontology.Relationship> | undefined {
-    return this.engine_?.store(ontology.RELATIONSHIPS_STORE_KEY);
-  }
-
-  private get relationshipStore(): cache.UnaryStore<string, ontology.Relationship> {
-    return this.requireEngine().store(ontology.RELATIONSHIPS_STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get symbolEvents(): cache.UnaryStore<Key, Symbol> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private get relationshipEvents(): cache.UnaryStore<string, ontology.Relationship> {
-    return this.requireEngine().store(ontology.RELATIONSHIPS_STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get relationshipStore(): cache.Table<string, ontology.Relationship> {
+    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
   }
 
   // Undefined fields are dropped: the server keeps prior values for them.
   private mergeThrough(key: Key, changes: Partial<Symbol>): void {
-    const store = this.writes;
-    if (store == null) return;
+    const store = this.symbolStore;
     const prev = store.get(key);
     if (prev != null) store.set(key, { ...prev, ...record.purgeUndefined(changes) });
   }
@@ -315,15 +290,6 @@ export class Client {
     return children.map(({ id: { key } }) => key);
   }
 
-  /** Cache-free retrieve that still honors parent scoping. */
-  private async execResolved(params: RetrieveParams): Promise<Symbol[]> {
-    if ("key" in params || params.parent == null)
-      return await this.execRetrieve(params);
-    const keys = await this.resolveChildKeys(ontology.idZ.parse(params.parent));
-    if (keys.length === 0) return [];
-    return await this.execRetrieve({ keys, searchTerm: params.searchTerm });
-  }
-
   /**
    * Fetches the given keys, serving cached entries and fetching only the
    * misses. Preserves the caller's key order.
@@ -338,7 +304,7 @@ export class Client {
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.symbolStore.set(fetched);
+      this.symbolStore.setMany(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (s) => s.key);
@@ -349,26 +315,15 @@ export class Client {
     if (cached != null) return cached;
     const symbols = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("Schematic Symbol", query, symbols, true);
-    this.symbolStore.set(symbols);
+    this.symbolStore.setMany(symbols);
     return symbols[0];
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, Symbol>) {
-    return [
-      this.symbolEvents.onSet((symbol) => {
-        if (symbol.key === query) update(symbol);
-      }),
-      this.symbolEvents.onDelete((key) => {
-        if (key === query) remove(this.symbolStore.getTombstone(key)?.corpse);
-      }),
-    ];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Symbol[]> {
     if (query.parent != null) return await this.fetchChildren(query);
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const symbols = await this.execRetrieve(query);
-    this.symbolStore.set(symbols);
+    this.symbolStore.setMany(symbols);
     return symbols;
   }
 
@@ -379,14 +334,14 @@ export class Client {
     if (keys.length === 0) return [];
     if (primitive.isZero(query.searchTerm)) return await this.fetchKeys(keys);
     const symbols = await this.execRetrieve({ keys, searchTerm: query.searchTerm });
-    this.symbolStore.set(symbols);
+    this.symbolStore.setMany(symbols);
     return symbols;
   }
 
   /**
-   * Client-side approximation of the server's matching for a request: exact
-   * for key sets and parent scopes, permissive for server-computed shapes
-   * (search), which accept every change and drift toward the server's answer.
+   * Client-side matching for a request: exact for key sets and parent
+   * membership via the relationship table. Server-computed shapes (search)
+   * never reach this filter; they refetch instead.
    */
   private requestFilter(req: RetrieveRequest): (s: Symbol) => boolean {
     const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -401,49 +356,5 @@ export class Client {
     return this.relationshipStore.has(
       ontology.relationshipToString(childRel(parent, key)),
     );
-  }
-
-  private mountRequest({
-    query,
-    update,
-  }: cache.MountParams<RetrieveRequest, Symbol[]>) {
-    const matches = this.requestFilter(query);
-    const listeners = [
-      this.symbolEvents.onSet((symbol) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((s) => s.key === symbol.key);
-          if (!matches(symbol))
-            return existing ? prev.filter((s) => s.key !== symbol.key) : prev;
-          if (existing) return prev.map((s) => (s.key === symbol.key ? symbol : s));
-          return [...prev, symbol];
-        });
-      }),
-      this.symbolEvents.onDelete((key) => {
-        update((prev) => prev?.filter((s) => s.key !== key));
-      }),
-    ];
-    const { parent } = query;
-    if (parent == null) return listeners;
-    return [
-      ...listeners,
-      this.relationshipEvents.onSet((rel) => {
-        if (!matchChildRel(rel, parent)) return;
-        void this.fetchKeys([rel.to.key]).then(([symbol]) => {
-          if (symbol == null) return;
-          update((prev) => {
-            if (prev == null) return prev;
-            if (prev.some((s) => s.key === symbol.key))
-              return prev.map((s) => (s.key === symbol.key ? symbol : s));
-            return [...prev, symbol];
-          });
-        });
-      }),
-      this.relationshipEvents.onDelete((relKey) => {
-        const rel = ontology.relationshipZ.parse(relKey);
-        if (!matchChildRel(rel, parent)) return;
-        update((prev) => prev?.filter((s) => s.key !== rel.to.key));
-      }),
-    ];
   }
 }

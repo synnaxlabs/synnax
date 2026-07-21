@@ -15,18 +15,18 @@ export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
 
 export const STORE_KEY = "schematicSymbols";
 
-/** Registers the schematic symbol store on the given engine. */
-export const bindStore = (engine: cache.Engine): void => {
-  const store = () => engine.store<Key, Symbol>(STORE_KEY);
+/** Registers the schematic symbol table on the given cache. */
+export const bindStore = (engine: cache.Cache): void => {
+  const table = () => engine.table<Key, Symbol>(STORE_KEY);
   const set: cache.ChannelListener<{}, typeof symbolZ> = {
     channel: SET_CHANNEL_NAME,
     schema: symbolZ,
-    onChange: ({ changed }) => store().set(changed.key, changed),
+    onChange: ({ changed }) => table().set(changed.key, changed),
   };
   const del: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Symbol>(STORE_KEY, { listeners: [set, del] });
+  engine.registerTable<Key, Symbol>(STORE_KEY, { listeners: [set, del] });
 };

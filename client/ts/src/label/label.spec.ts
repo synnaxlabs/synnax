@@ -90,15 +90,13 @@ describe("cached reads", () => {
   // Changes made while the stream is still opening are lost (epoch
   // reconciliation repairs them in production); open it up front so remote
   // writes in these specs are always observed.
-  beforeAll(async () => await client.cache.engine.ensureStreaming());
+  beforeAll(async () => await client.cache.ensureStreaming());
 
-  it("returns undefined before a retrieve and the answer after", async () => {
+  it("serves a key query straight from the record written by create", async () => {
     const lbl = await client.labels.create({
       name: `qry-${id.create()}`,
       color: "#E774D0",
     });
-    expect(client.labels.getCached({ key: lbl.key })).toBeUndefined();
-    await client.labels.retrieve({ key: lbl.key });
     const cached = client.labels.getCached({ key: lbl.key });
     expect(cached?.variant).toEqual("changed");
     if (cached?.variant === "changed") expect(cached.data.name).toEqual(lbl.name);

@@ -15,18 +15,18 @@ export const DELETE_CHANNEL_NAME = "sy_group_delete";
 
 export const STORE_KEY = "groups";
 
-/** Registers the group store on the given engine. */
-export const bindStore = (engine: cache.Engine): void => {
-  const store = () => engine.store<Key, Group>(STORE_KEY);
+/** Registers the group table on the given cache. */
+export const bindStore = (engine: cache.Cache): void => {
+  const table = () => engine.table<Key, Group>(STORE_KEY);
   const set: cache.ChannelListener<{}, typeof groupZ> = {
     channel: SET_CHANNEL_NAME,
     schema: groupZ,
-    onChange: ({ changed }) => store().set(changed.key, changed),
+    onChange: ({ changed }) => table().set(changed.key, changed),
   };
   const del: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Group>(STORE_KEY, { listeners: [set, del] });
+  engine.registerTable<Key, Group>(STORE_KEY, { listeners: [set, del] });
 };

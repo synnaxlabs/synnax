@@ -48,8 +48,8 @@ interface CreateSchemParams {
   prime?: boolean;
 }
 
-// prime populates the query cache via retrieve; without it getCached returns
-// undefined until a subscribed listener observes a write.
+// prime populates the answer cache via retrieve; without it a query only
+// resolves once a subscriber mounts and seeds from the record table.
 const createSchem = async ({
   name = "Alice",
   position = { x: 1, y: 2 },
@@ -124,11 +124,11 @@ describe("createSelector", () => {
       const { result } = renderHook(() => useSelectName({ key: schem.key }), {
         wrapper,
       });
-      expect(result.current).toBe("");
-
-      await act(async () => await rename(schem.key, "Alice"));
-
       expect(result.current).toBe("Alice");
+
+      await act(async () => await rename(schem.key, "Bob"));
+
+      expect(result.current).toBe("Bob");
     });
 
     it("should not re-render when a different key changes", async () => {

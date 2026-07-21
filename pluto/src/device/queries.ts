@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, device, ontology } from "@synnaxlabs/client";
+import { cache, device, ontology } from "@synnaxlabs/client";
 import { primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -69,7 +69,7 @@ export const retrieveMultiple = async <
           ...BASE_QUERY,
           keys,
         })) as unknown as device.Device<Properties, Make, Model>[]);
-  return Flux.orderByKeys(keys, devices, (d) => d.key);
+  return cache.orderByKeys(keys, devices, (d) => d.key);
 };
 
 export const createRetrieve = <
@@ -121,7 +121,7 @@ export type UseDeleteParams = device.Key | device.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: cache.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.devices.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -142,7 +142,7 @@ export const createCreate = <
     device.Device<Properties, Make, Model>
   >({
     name: RESOURCE_NAME,
-    verbs: Flux.CREATE_VERBS,
+    verbs: cache.CREATE_VERBS,
     update: async ({ data, client }) => {
       const dev =
         schemas != null
@@ -171,7 +171,7 @@ export interface RenameParams extends Pick<device.Device, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: cache.RENAME_VERBS,
   update: async ({ data, client, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.devices.rename(key, name, {

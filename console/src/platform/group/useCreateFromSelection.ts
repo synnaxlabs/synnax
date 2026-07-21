@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology } from "@synnaxlabs/client";
+import { cache, group, ontology } from "@synnaxlabs/client";
 import { Flux, Group, List, Text, Tree as PTree } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -26,7 +26,7 @@ interface CreateParams extends Tree.ContextMenuProps {
 
 const base = Flux.createUpdate<CreateParams>({
   name: Group.RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: cache.CREATE_VERBS,
   update: async ({ client, data }) => {
     const {
       selection: { parentID, ids },

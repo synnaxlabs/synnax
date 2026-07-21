@@ -50,7 +50,8 @@ interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
 const retrieveResponseZ = z.object({ views: viewZ.array().default(() => []) });
 
-const MOUNT_SCOPE = "view.mounts";
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
 const isKeysOnly = (req: RetrieveRequest): boolean =>
   primitive.isNonZero(req.keys) &&
@@ -60,9 +61,8 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
   req.offset == null;
 
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * key and type sets, permissive for server-computed shapes (search), which
- * accept every change and drift toward the server's answer.
+ * Client-side matching for a request: key and type sets. Server-computed
+ * shapes (search, limit/offset) never reach this filter; they refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -76,30 +76,32 @@ const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<Key, View>;
-    request: cache.Queries<RetrieveRequest, View[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<Key, View, Key, View>;
+    request: cache.Answers<RetrieveRequest, View[], Key, View>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
     bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "view",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.viewStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((v) => v.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "views",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.viewStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((v) => v.key),
+        compose: (records) => records,
+        matches: (view, query) => requestFilter(query)(view),
+        serverFields: SERVER_FIELDS,
       }),
     };
   }
@@ -110,19 +112,13 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<View | View[]> {
     const isSingle = "key" in params;
-    if (this.queries_ == null) {
-      const views = await this.execRetrieve(params);
-      checkForMultipleOrNoResults("View", params, views, isSingle);
-      return isSingle ? views[0] : views;
-    }
-    if (isSingle) return await this.queries_.single.retrieve(params.key);
-    return await this.queries_.request.retrieve(retrieveRequestZ.parse(params));
+    if (isSingle) return await this.answers_.single.retrieve(params.key);
+    return await this.answers_.request.retrieve(retrieveRequestZ.parse(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a view; every other shape delivers the matching views.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -136,10 +132,10 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<View> | cache.ChangeHandler<View[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(params.key, handler as cache.ChangeHandler<View>);
-    return queries.request.onChange(
+      return answers.single.onChange(params.key, handler as cache.ChangeHandler<View>);
+    return answers.request.onChange(
       retrieveRequestZ.parse(params),
       handler as cache.ChangeHandler<View[]>,
     );
@@ -148,16 +144,15 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<View> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<View[]> | undefined;
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<View> | cache.Cached<View[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(params.key);
-    return queries.request.getCached(retrieveRequestZ.parse(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(params.key);
+    return answers.request.getCached(retrieveRequestZ.parse(params));
   }
 
   async create(view: New): Promise<View>;
@@ -170,7 +165,7 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.writes?.set(res.views);
+    this.writes.setMany(res.views);
     return isMany ? res.views : res.views[0];
   }
 
@@ -178,10 +173,8 @@ export class Client {
     const v = await this.retrieve({ key });
     const rollback = new cache.Rollback();
     const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(cache.partialUpdate(writes, key, { name }));
-      rollback.add(ontology.renameCachedResource(this.engine_, ontologyID(key), name));
-    }
+    rollback.add(cache.partialUpdate(writes, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.create({ ...v, name });
@@ -192,15 +185,13 @@ export class Client {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
     const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      const ids = ontologyID(keysArr);
-      rollback.add(ontology.deleteCachedRelationships(this.engine_, ids));
-      rollback.add(writes.delete(keysArr));
-      const resources = this.engine_.store<string, ontology.Resource>(
-        ontology.RESOURCES_STORE_KEY,
-      );
-      rollback.add(resources.delete(ontology.idToString(ids)));
-    }
+    const ids = ontologyID(keysArr);
+    rollback.add(ontology.deleteCachedRelationships(this.cache_, ids));
+    rollback.add(writes.delete(keysArr));
+    const resources = this.cache_.table<string, ontology.Resource>(
+      ontology.RESOURCES_STORE_KEY,
+    );
+    rollback.add(resources.delete(ontology.idToString(ids)));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -211,44 +202,29 @@ export class Client {
           emptyResZ,
         ),
     );
-    this.writes?.delete(keysArr);
+    this.writes.delete(keysArr);
   }
 
-  private get writes(): cache.UnaryStore<Key, View> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get writes(): cache.Table<Key, View> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get viewStore(): cache.UnaryStore<Key, View> {
-    return this.requireEngine().store(STORE_KEY);
+  private get viewStore(): cache.Table<Key, View> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
   /** Subscribes to every view set delivered to the cache. */
   onSet(handler: (view: View) => void): destructor.Destructor {
-    return this.viewEvents.onSet(handler);
+    return this.viewStore.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
   }
 
   /** Subscribes to every view delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
-    return this.viewEvents.onDelete(handler);
-  }
-
-  private get viewEvents(): cache.UnaryStore<Key, View> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+    return this.viewStore.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   private async execRetrieve(
@@ -277,7 +253,7 @@ export class Client {
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.viewStore.set(fetched);
+      this.viewStore.setMany(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (v) => v.key);
@@ -288,44 +264,14 @@ export class Client {
     if (cached != null) return cached;
     const views = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("View", query, views, true);
-    this.viewStore.set(views);
+    this.viewStore.setMany(views);
     return views[0];
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, View>) {
-    return [
-      this.viewEvents.onSet((view) => {
-        if (view.key === query) update(view);
-      }),
-      this.viewEvents.onDelete((key) => {
-        if (key === query) remove(this.viewStore.getTombstone(key)?.corpse);
-      }),
-    ];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<View[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const views = await this.execRetrieve(query);
-    this.viewStore.set(views);
+    this.viewStore.setMany(views);
     return views;
-  }
-
-  private mountRequest({ query, update }: cache.MountParams<RetrieveRequest, View[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.viewEvents.onSet((view) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((v) => v.key === view.key);
-          if (!matches(view))
-            return existing ? prev.filter((v) => v.key !== view.key) : prev;
-          if (existing) return prev.map((v) => (v.key === view.key ? view : v));
-          return [...prev, view];
-        });
-      }),
-      this.viewEvents.onDelete((key) => {
-        update((prev) => prev?.filter((v) => v.key !== key));
-      }),
-    ];
   }
 }

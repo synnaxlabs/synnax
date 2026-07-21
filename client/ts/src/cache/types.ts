@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type errors, type primitive } from "@synnaxlabs/x";
-
-import { type State } from "@/cache/state";
+import { type primitive, type state } from "@synnaxlabs/x";
 
 /** Options to control async operations. */
 export interface FetchOptions {
@@ -55,35 +53,7 @@ export type Query =
  * {@link Query}, data values do not need to be hashable — they may carry
  * arbitrary state including class instances or non-serializable references.
  */
-export type Data = State;
-
-/**
- * Handles an error by reporting it and continuing. Accepts either a function
- * to run (sync or async) or an already-caught exception. `skip` suppresses
- * reporting for matching errors.
- */
-export interface ErrorHandler {
-  (
-    func: () => Promise<void> | void,
-    message?: string,
-    skip?: errors.Matchable | errors.Matchable[],
-  ): void;
-  (exc: unknown, message?: string, skip?: errors.Matchable | errors.Matchable[]): void;
-}
-
-/** {@link ErrorHandler} whose function form resolves after the work settles. */
-export interface AsyncErrorHandler {
-  (
-    func: () => Promise<void> | void,
-    message?: string,
-    skip?: errors.Matchable | errors.Matchable[],
-  ): Promise<void>;
-  (
-    exc: unknown,
-    message?: string,
-    skip?: errors.Matchable | errors.Matchable[],
-  ): Promise<void>;
-}
+export type Data = state.State;
 
 export interface Verbs {
   present: string;

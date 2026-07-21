@@ -18,20 +18,20 @@ export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
 export const STORE_KEY = "arcs";
 
-/** Registers the arc store and its dispatch controller on the engine. */
+/** Registers the arc table and its dispatch controller on the cache. */
 export const bindStore = (
-  engine: cache.Engine,
+  engine: cache.Cache,
 ): dispatch.Controller<Key, Arc, Action> => {
-  const store = () => engine.store<Key, Arc>(STORE_KEY);
+  const table = () => engine.table<Key, Arc>(STORE_KEY);
   const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
     channel: DELETE_CHANNEL_NAME,
     schema: keyZ,
-    onChange: ({ changed }) => store().delete(changed),
+    onChange: ({ changed }) => table().delete(changed),
   };
-  engine.registerStore<Key, Arc>(STORE_KEY, { listeners: [deleteListener] });
+  engine.registerTable<Key, Arc>(STORE_KEY, { listeners: [deleteListener] });
   const controller = new dispatch.Controller<Key, Arc, Action>({
-    store: engine.unscoped(STORE_KEY),
-    handleError: engine.errorHandler,
+    store: table(),
+    onError: engine.onError,
     reduce: reduceAll,
     isUndoable,
     kindOf,

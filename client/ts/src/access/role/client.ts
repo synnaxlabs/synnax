@@ -78,7 +78,8 @@ export type UnassignParams = z.input<typeof unassignReqZ>;
 
 const unassignResZ = z.object({});
 
-const MOUNT_SCOPE = "role.mounts";
+/** Query fields only the server can evaluate. */
+const SERVER_FIELDS = ["limit", "offset"] as const;
 
 const normalizeRequest = (params: RetrieveMultipleParams): RetrieveRequest =>
   retrieveRequestZ.parse(params);
@@ -90,10 +91,9 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
   req.offset == null;
 
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * key sets and the internal flag, permissive for server-computed shapes
- * (pagination), which accept every change and drift toward the server's
- * answer.
+ * Client-side matching for a request: key sets and the internal flag.
+ * Server-computed shapes (pagination) never reach this filter; they refetch
+ * instead.
  */
 const requestFilter = (req: RetrieveRequest): ((r: Role) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -112,30 +112,32 @@ const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => (
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<Key, Role>;
-    request: cache.Queries<RetrieveRequest, Role[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<Key, Role, Key, Role>;
+    request: cache.Answers<RetrieveRequest, Role[], Key, Role>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
     bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "role",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.roleStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((r) => r.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "roles",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.roleStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
+        compose: (records) => records,
+        matches: (role, query) => requestFilter(query)(role),
+        serverFields: SERVER_FIELDS,
       }),
     };
   }
@@ -150,7 +152,7 @@ export class Client {
       createParamsZ,
       createResZ,
     );
-    this.writes?.set(res.roles);
+    this.writes.setMany(res.roles);
     return isMany ? res.roles : res.roles[0];
   }
 
@@ -158,19 +160,13 @@ export class Client {
   async retrieve(params: RetrieveMultipleParams): Promise<Role[]>;
   async retrieve(params: RetrieveParams): Promise<Role | Role[]> {
     const isSingle = "key" in params;
-    if (this.queries_ == null) {
-      const roles = await this.execRetrieve(params);
-      checkForMultipleOrNoResults("Role", params, roles, isSingle);
-      return isSingle ? roles[0] : roles;
-    }
-    if (isSingle) return await this.queries_.single.retrieve(params.key);
-    return await this.queries_.request.retrieve(normalizeRequest(params));
+    if (isSingle) return await this.answers_.single.retrieve(params.key);
+    return await this.answers_.request.retrieve(normalizeRequest(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a role; every other shape delivers the matching roles.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -184,10 +180,10 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Role> | cache.ChangeHandler<Role[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(params.key, handler as cache.ChangeHandler<Role>);
-    return queries.request.onChange(
+      return answers.single.onChange(params.key, handler as cache.ChangeHandler<Role>);
+    return answers.request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<Role[]>,
     );
@@ -196,16 +192,15 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<Role> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<Role[]> | undefined;
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Role> | cache.Cached<Role[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(params.key);
-    return queries.request.getCached(normalizeRequest(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(params.key);
+    return answers.request.getCached(normalizeRequest(params));
   }
 
   async delete(params: DeleteParams, opts: cache.WriteOptions = {}): Promise<void> {
@@ -213,10 +208,8 @@ export class Client {
     const ids = ontologyID(keysArr);
     const rollback = new cache.Rollback();
     const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(ontology.deleteCachedResources(this.engine_, ids));
-      rollback.add(writes.delete(keysArr));
-    }
+    rollback.add(ontology.deleteCachedResources(this.cache_, ids));
+    rollback.add(writes.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -227,8 +220,8 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.writes?.delete(keysArr);
-    this.relationshipWrites?.delete((r) =>
+    this.writes.delete(keysArr);
+    this.relationshipWrites.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
   }
@@ -236,55 +229,32 @@ export class Client {
   async rename(key: Key, name: string): Promise<void> {
     const existing = await this.retrieve({ key });
     await this.create({ ...existing, name });
-    if (this.engine_ != null)
-      ontology.renameCachedResource(this.engine_, ontologyID(key), name);
+    ontology.renameCachedResource(this.cache_, ontologyID(key), name);
   }
 
   async assign(params: AssignParams): Promise<void> {
     await this.client.send("/access/role/assign", params, assignReqZ, assignResZ);
-    const rels = this.relationshipWrites;
-    if (rels == null) return;
     const rel = assignmentRel(params.role, params.user);
-    rels.set(ontology.relationshipToString(rel), rel);
+    this.relationshipWrites.set(ontology.relationshipToString(rel), rel);
   }
 
   async unassign(params: UnassignParams): Promise<void> {
     await this.client.send("/access/role/unassign", params, unassignReqZ, unassignResZ);
-    this.relationshipWrites?.delete(
+    this.relationshipWrites.delete(
       ontology.relationshipToString(assignmentRel(params.role, params.user)),
     );
   }
 
-  private get writes(): cache.UnaryStore<Key, Role> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get writes(): cache.Table<Key, Role> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get relationshipWrites():
-    cache.UnaryStore<string, ontology.Relationship> | undefined {
-    return this.engine_?.store(ontology.RELATIONSHIPS_STORE_KEY);
+  private get relationshipWrites(): cache.Table<string, ontology.Relationship> {
+    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
   }
 
-  private get roleStore(): cache.UnaryStore<Key, Role> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get roleEvents(): cache.UnaryStore<Key, Role> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get roleStore(): cache.Table<Key, Role> {
+    return this.cache_.table(STORE_KEY);
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Role[]> {
@@ -311,7 +281,7 @@ export class Client {
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.roleStore.set(fetched);
+      this.roleStore.setMany(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (r) => r.key);
@@ -322,44 +292,14 @@ export class Client {
     if (cached != null) return cached;
     const roles = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("Role", query, roles, true);
-    this.roleStore.set(roles);
+    this.roleStore.setMany(roles);
     return roles[0];
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, Role>) {
-    return [
-      this.roleEvents.onSet((role) => {
-        if (role.key === query) update(role);
-      }),
-      this.roleEvents.onDelete((key) => {
-        if (key === query) remove(this.roleStore.getTombstone(key)?.corpse);
-      }),
-    ];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Role[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const roles = await this.execRetrieve(query);
-    this.roleStore.set(roles);
+    this.roleStore.setMany(roles);
     return roles;
-  }
-
-  private mountRequest({ query, update }: cache.MountParams<RetrieveRequest, Role[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.roleEvents.onSet((role) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((r) => r.key === role.key);
-          if (!matches(role))
-            return existing ? prev.filter((r) => r.key !== role.key) : prev;
-          if (existing) return prev.map((r) => (r.key === role.key ? role : r));
-          return [...prev, role];
-        });
-      }),
-      this.roleEvents.onDelete((key) => {
-        update((prev) => prev?.filter((r) => r.key !== key));
-      }),
-    ];
   }
 }

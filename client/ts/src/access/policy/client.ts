@@ -71,7 +71,11 @@ const createResZ = z.object({ policies: policyZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-const MOUNT_SCOPE = "policy.mounts";
+/**
+ * Query fields only the server can evaluate: policy records do not carry
+ * their subjects, so subject membership cannot be checked locally.
+ */
+const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
 
 const normalizeRequest = (params: RetrieveMultipleParams): RetrieveRequest =>
   listRetrieveParamsZ.parse(params);
@@ -84,9 +88,9 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
   req.offset == null;
 
 /**
- * Client-side approximation of the server's matching for a request: exact for
- * key sets and the internal flag, permissive for server-computed shapes
- * (subjects), which accept every change and drift toward the server's answer.
+ * Client-side matching for a request: key sets and the internal flag.
+ * Server-computed shapes (subjects, pagination) never reach this filter; they
+ * refetch instead.
  */
 const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
@@ -99,30 +103,32 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly engine_?: cache.Engine;
-  private readonly queries_?: {
-    single: cache.Queries<Key, Policy>;
-    request: cache.Queries<RetrieveRequest, Policy[]>;
+  private readonly cache_: cache.Cache;
+  private readonly answers_: {
+    single: cache.Answers<Key, Policy, Key, Policy>;
+    request: cache.Answers<RetrieveRequest, Policy[], Key, Policy>;
   };
 
-  constructor(client: UnaryClient, engine?: cache.Engine) {
+  constructor(client: UnaryClient, engine: cache.Cache) {
     this.client = client;
-    if (engine == null) return;
     bindStore(engine);
-    this.engine_ = engine;
-    const ensureStreaming = async () => await engine.ensureStreaming();
-    this.queries_ = {
-      single: new cache.Queries({
+    this.cache_ = engine;
+    this.answers_ = {
+      single: engine.answers({
         name: "policy",
-        fetch: async (query) => await this.fetchSingle(query),
-        mount: (params) => this.mountSingle(params),
-        ensureStreaming,
+        table: this.policyStore,
+        fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
+        compose: (records) => records[0],
+        keyOf: (query) => query,
+        single: true,
       }),
-      request: new cache.Queries({
+      request: engine.answers({
         name: "policies",
-        fetch: async (query) => await this.fetchRequest(query),
-        mount: (params) => this.mountRequest(params),
-        ensureStreaming,
+        table: this.policyStore,
+        fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
+        compose: (records) => records,
+        matches: (policy, query) => requestFilter(query)(policy),
+        serverFields: SERVER_FIELDS,
       }),
     };
   }
@@ -137,7 +143,7 @@ export class Client {
       createParamsZ,
       createResZ,
     );
-    this.writes?.set(res.policies);
+    this.writes.setMany(res.policies);
     return isMany ? res.policies : res.policies[0];
   }
 
@@ -145,20 +151,14 @@ export class Client {
   async retrieve(params: RetrieveMultipleParams): Promise<Policy[]>;
   async retrieve(params: RetrieveParams): Promise<Policy | Policy[]> {
     const isSingle = "key" in params;
-    if (this.queries_ == null) {
-      const policies = await this.execRetrieve(params);
-      checkForMultipleOrNoResults("Policy", params, policies, isSingle);
-      return isSingle ? policies[0] : policies;
-    }
-    if (isSingle) return await this.queries_.single.retrieve(params.key);
-    return await this.queries_.request.retrieve(normalizeRequest(params));
+    if (isSingle) return await this.answers_.single.retrieve(params.key);
+    return await this.answers_.request.retrieve(normalizeRequest(params));
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. Single
    * queries deliver a policy; every other shape delivers the matching
    * policies.
-   * @throws when the cache was disabled at client construction.
    */
   onChange(
     params: RetrieveSingleParams,
@@ -172,13 +172,13 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Policy> | cache.ChangeHandler<Policy[]>,
   ): destructor.Destructor {
-    const queries = this.requireQueries();
+    const answers = this.answers_;
     if ("key" in params)
-      return queries.single.onChange(
+      return answers.single.onChange(
         params.key,
         handler as cache.ChangeHandler<Policy>,
       );
-    return queries.request.onChange(
+    return answers.request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<Policy[]>,
     );
@@ -187,16 +187,15 @@ export class Client {
   /**
    * Returns the cached answer to the given query without touching the
    * network, or undefined when nothing is cached.
-   * @throws when the cache was disabled at client construction.
    */
   getCached(params: RetrieveSingleParams): cache.Cached<Policy> | undefined;
   getCached(params: RetrieveMultipleParams): cache.Cached<Policy[]> | undefined;
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Policy> | cache.Cached<Policy[]> | undefined {
-    const queries = this.requireQueries();
-    if ("key" in params) return queries.single.getCached(params.key);
-    return queries.request.getCached(normalizeRequest(params));
+    const answers = this.answers_;
+    if ("key" in params) return answers.single.getCached(params.key);
+    return answers.request.getCached(normalizeRequest(params));
   }
 
   async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
@@ -206,10 +205,8 @@ export class Client {
     const ids = ontologyID(keysArr);
     const rollback = new cache.Rollback();
     const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(ontology.deleteCachedResources(this.engine_, ids));
-      rollback.add(writes.delete(keysArr));
-    }
+    rollback.add(ontology.deleteCachedResources(this.cache_, ids));
+    rollback.add(writes.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -220,8 +217,8 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.writes?.delete(keysArr);
-    this.relationshipWrites?.delete((r) =>
+    this.writes.delete(keysArr);
+    this.relationshipWrites.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
   }
@@ -230,46 +227,24 @@ export class Client {
     const existing = await this.retrieve({ key });
     const rollback = new cache.Rollback();
     const writes = this.writes;
-    if (this.engine_ != null && writes != null) {
-      rollback.add(cache.partialUpdate(writes, key, { name }));
-      rollback.add(ontology.renameCachedResource(this.engine_, ontologyID(key), name));
-    }
+    rollback.add(cache.partialUpdate(writes, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.create({ ...existing, name });
     });
   }
 
-  private get writes(): cache.UnaryStore<Key, Policy> | undefined {
-    return this.engine_?.store(STORE_KEY);
+  private get writes(): cache.Table<Key, Policy> {
+    return this.cache_.table(STORE_KEY);
   }
 
-  private get relationshipWrites():
-    cache.UnaryStore<string, ontology.Relationship> | undefined {
-    return this.engine_?.store(ontology.RELATIONSHIPS_STORE_KEY);
+  private get relationshipWrites(): cache.Table<string, ontology.Relationship> {
+    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
   }
 
-  private get policyStore(): cache.UnaryStore<Key, Policy> {
-    return this.requireEngine().store(STORE_KEY);
-  }
-
-  // Query mounts subscribe in their own scope: stores suppress notifications
-  // to listeners in the writer's scope, and the streamer writes in the default
-  // scope, which would silence default-scope subscriptions entirely.
-  private get policyEvents(): cache.UnaryStore<Key, Policy> {
-    return this.requireEngine().store(STORE_KEY, MOUNT_SCOPE);
-  }
-
-  private requireEngine(): cache.Engine {
-    if (this.engine_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.engine_;
-  }
-
-  private requireQueries(): NonNullable<typeof this.queries_> {
-    if (this.queries_ == null)
-      throw new Error("cache is disabled on this client (cache: false)");
-    return this.queries_;
+  private get policyStore(): cache.Table<Key, Policy> {
+    return this.cache_.table(STORE_KEY);
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Policy[]> {
@@ -296,7 +271,7 @@ export class Client {
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.policyStore.set(fetched);
+      this.policyStore.setMany(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (p) => p.key);
@@ -307,47 +282,14 @@ export class Client {
     if (cached != null) return cached;
     const policies = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("Policy", query, policies, true);
-    this.policyStore.set(policies);
+    this.policyStore.setMany(policies);
     return policies[0];
-  }
-
-  private mountSingle({ query, update, remove }: cache.MountParams<Key, Policy>) {
-    return [
-      this.policyEvents.onSet((policy) => {
-        if (policy.key === query) update(policy);
-      }),
-      this.policyEvents.onDelete((key) => {
-        if (key === query) remove(this.policyStore.getTombstone(key)?.corpse);
-      }),
-    ];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Policy[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const policies = await this.execRetrieve(query);
-    this.policyStore.set(policies);
+    this.policyStore.setMany(policies);
     return policies;
-  }
-
-  private mountRequest({
-    query,
-    update,
-  }: cache.MountParams<RetrieveRequest, Policy[]>) {
-    const matches = requestFilter(query);
-    return [
-      this.policyEvents.onSet((policy) => {
-        update((prev) => {
-          if (prev == null) return prev;
-          const existing = prev.some((p) => p.key === policy.key);
-          if (!matches(policy))
-            return existing ? prev.filter((p) => p.key !== policy.key) : prev;
-          if (existing) return prev.map((p) => (p.key === policy.key ? policy : p));
-          return [...prev, policy];
-        });
-      }),
-      this.policyEvents.onDelete((key) => {
-        update((prev) => prev?.filter((p) => p.key !== key));
-      }),
-    ];
   }
 }

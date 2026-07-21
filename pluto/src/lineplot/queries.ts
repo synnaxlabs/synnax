@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  cache,
   lineplot,
   NotFoundError,
   type project,
@@ -452,7 +453,7 @@ export type UseDeleteParams = lineplot.Key | lineplot.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: cache.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.lineplots.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -470,7 +471,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   lineplot.LinePlot
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: cache.CREATE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.lineplots.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -481,7 +482,7 @@ export interface RenameParams extends Pick<lineplot.LinePlot, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: cache.RENAME_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);

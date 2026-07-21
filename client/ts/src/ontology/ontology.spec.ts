@@ -232,7 +232,7 @@ describe("Ontology", () => {
     // Changes made while the stream is still opening are lost (epoch
     // reconciliation repairs them in production); open it up front so remote
     // writes in these specs are always observed.
-    beforeAll(async () => await client.cache.engine.ensureStreaming());
+    beforeAll(async () => await client.cache.ensureStreaming());
 
     describe("retrieveChildren", () => {
       it("reflects remote child changes on an unsubscribed repeat retrieve", async () => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { cache, label, type ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -96,7 +96,7 @@ export type DeleteParams = label.Key | label.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: cache.DELETE_VERBS,
   update: async ({ client, data }) => {
     await client.labels.delete(data);
     return data;

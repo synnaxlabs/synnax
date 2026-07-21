@@ -16,11 +16,10 @@ import {
   Icon,
   Label as PLabel,
   Menu,
-  state,
   Tag,
   Text,
 } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { location, state } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";

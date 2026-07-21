@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  cache,
   NotFoundError,
   type ontology,
   type project,
@@ -163,7 +164,7 @@ export type DeleteParams = schematic.Key | schematic.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: cache.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.schematics.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -179,7 +180,7 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.COPY_VERBS,
+  verbs: cache.COPY_VERBS,
   update: async ({ client, data }) => await client.schematics.copy(data),
 });
 
@@ -192,7 +193,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  verbs: Flux.CREATE_VERBS,
+  verbs: cache.CREATE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.schematics.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -208,7 +209,7 @@ export interface SnapshotParams {
 
 export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.SNAPSHOT_VERBS,
+  verbs: cache.SNAPSHOT_VERBS,
   update: async ({ client, data }) => {
     const { schematics, parentID } = data;
     const ids = await Promise.all(
@@ -273,7 +274,7 @@ export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> 
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: cache.RENAME_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import { cache, type Synnax as Client } from "@synnaxlabs/client";
+import { type destructor, state } from "@synnaxlabs/x";
 import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
-import { base } from "@/flux/base";
 import { DeletedError, DisconnectedError } from "@/flux/errors";
 import {
   errorResult,
@@ -23,12 +22,11 @@ import {
 import { useAsyncEffect } from "@/hooks";
 import { useDestructors } from "@/hooks/useDestructors";
 import { useMemoDeepEqual } from "@/memo";
-import { state } from "@/state";
 import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface RetrieveParams<
-  Query extends base.Query,
+  Query extends cache.Query,
   AllowDisconnected extends boolean = false,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
@@ -42,8 +40,8 @@ export interface RetrieveParams<
  * and `getCached` fetch on every mount and never receive live updates.
  */
 export interface CreateRetrieveParams<
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 > {
   name: string;
@@ -64,12 +62,12 @@ export interface CreateRetrieveParams<
   allowDisconnected?: AllowDisconnected;
 }
 
-export interface BeforeRetrieveParams<Query extends base.Query> {
+export interface BeforeRetrieveParams<Query extends cache.Query> {
   query: Query;
 }
 
 export interface UseObservableBaseRetrieveParams<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > {
   addStatusOnFailure?: boolean;
@@ -78,30 +76,30 @@ export interface UseObservableBaseRetrieveParams<
 }
 
 export interface UseRetrieveObservableParams<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > extends Omit<UseObservableBaseRetrieveParams<Query, Data>, "onChange"> {
   onChange: (result: Result<Data>, query: Query) => void;
 }
 
-export interface UseRetrieveObservableReturn<Query extends base.Query> {
+export interface UseRetrieveObservableReturn<Query extends cache.Query> {
   retrieve: (
     query: state.SetArg<Query, Partial<Query>>,
-    options?: base.FetchOptions,
+    options?: cache.FetchOptions,
   ) => void;
   retrieveAsync: (
     query: state.SetArg<Query, Partial<Query>>,
-    options?: base.FetchOptions,
+    options?: cache.FetchOptions,
   ) => Promise<void>;
 }
 
 export type UseRetrieveStatefulReturn<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > = Result<Data> & UseRetrieveObservableReturn<Query>;
 
 export interface UseDirectRetrieveParams<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > extends Pick<
   UseObservableBaseRetrieveParams<Query, Data>,
@@ -113,7 +111,7 @@ export interface UseDirectRetrieveParams<
 export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 
 export interface UseRetrieveEffectParams<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > extends Pick<
   UseObservableBaseRetrieveParams<Query, Data>,
@@ -123,26 +121,29 @@ export interface UseRetrieveEffectParams<
   query?: Query;
 }
 
-export interface UseRetrieve<Query extends base.Query, Data extends state.State> {
+export interface UseRetrieve<Query extends cache.Query, Data extends state.State> {
   (
     params: Query,
     opts?: Omit<UseDirectRetrieveParams<Query, Data>, "query">,
   ): UseDirectRetrieveReturn<Data>;
 }
 
-export interface UseRetrieveEffect<Query extends base.Query, Data extends state.State> {
+export interface UseRetrieveEffect<
+  Query extends cache.Query,
+  Data extends state.State,
+> {
   (params: UseRetrieveEffectParams<Query, Data>): void;
 }
 
 export interface UseRetrieveStateful<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > {
   (): UseRetrieveStatefulReturn<Query, Data>;
 }
 
 export interface UseRetrieveObservable<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > {
   (
@@ -156,7 +157,7 @@ export interface UseRetrieveObservable<
 /// query cache. Client-side listeners push new values into the cache, which
 /// notifies subscribed consumers without re-suspending.
 export interface UseSuspendedRetrieve<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > {
   (query: Query): Data;
@@ -179,12 +180,12 @@ export interface UseSuspendedRetrieve<
 ///
 /// Reach for `useRetrieveSuspended` instead if the caller itself needs the
 /// data or needs to re-render when it changes.
-export interface UseEnsureRetrieved<Query extends base.Query> {
+export interface UseEnsureRetrieved<Query extends cache.Query> {
   (query: Query): void;
 }
 
 export interface CreateRetrieveReturn<
-  Query extends base.Query,
+  Query extends cache.Query,
   Data extends state.State,
 > {
   useRetrieve: UseRetrieve<Query, Data>;
@@ -199,8 +200,8 @@ const initialResult = <Data extends state.State>(name: string): Result<Data> =>
   loadingResult<Data>(`Retrieving ${name}`, undefined);
 
 const useStateful = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >(
   createParams: CreateRetrieveParams<Query, Data, AllowDisconnected> &
@@ -219,8 +220,8 @@ const useStateful = <
 };
 
 const useObservableBase = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >({
   retrieve,
@@ -260,7 +261,7 @@ const useObservableBase = <
   const retrieveAsync = useCallback(
     async (
       querySetter: state.SetArg<Query, Partial<Query>>,
-      options: base.FetchOptions = {},
+      options: cache.FetchOptions = {},
     ) => {
       const { signal } = options;
       const query = state.executeSetter<Query, Partial<Query>>(
@@ -304,7 +305,7 @@ const useObservableBase = <
     [client, name, beforeRetrieve, addStatusOnFailure, onChange],
   );
   const retrieveSync = useCallback(
-    (query: state.SetArg<Query, Partial<Query>>, options?: base.FetchOptions) =>
+    (query: state.SetArg<Query, Partial<Query>>, options?: cache.FetchOptions) =>
       void retrieveAsync(query, options),
     [retrieveAsync],
   );
@@ -315,8 +316,8 @@ const useObservableBase = <
 };
 
 const useDirect = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >({
   query,
@@ -337,8 +338,8 @@ const useDirect = <
 };
 
 const useEffect = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >({
   query,
@@ -367,8 +368,8 @@ const useEffect = <
 };
 
 export const useObservableRetrieve = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >({
   onChange,
@@ -403,7 +404,7 @@ interface LocalCache<Data> {
   settled: Map<string, { data: Data } | { error: Error }>;
 }
 
-interface UseSuspendedParams<Query extends base.Query, Data extends base.Data> {
+interface UseSuspendedParams<Query extends cache.Query, Data extends cache.Data> {
   query: Query;
   local: LocalCache<Data>;
 }
@@ -411,8 +412,8 @@ interface UseSuspendedParams<Query extends base.Query, Data extends base.Data> {
 const NOOP_SUBSCRIBE = () => () => {};
 
 const suspendOnFetch = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >(
   params: RetrieveParams<Query, AllowDisconnected>,
@@ -426,7 +427,7 @@ const suspendOnFetch = <
     "name" | "retrieve" | "getCached"
   > & { local: LocalCache<Data> },
 ): Data => {
-  const hash = base.hashQuery(params.query);
+  const hash = cache.hashQuery(params.query);
   const settled = local.settled.get(hash);
   if (settled != null) {
     if ("error" in settled) throw settled.error;
@@ -455,8 +456,8 @@ const suspendOnFetch = <
 };
 
 const useSuspended = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >({
   query,
@@ -502,8 +503,8 @@ const useSuspended = <
 };
 
 const useEnsure = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >({
   query,
@@ -537,8 +538,8 @@ const useEnsure = <
 };
 
 export const createRetrieve = <
-  Query extends base.Query,
-  Data extends base.Data,
+  Query extends cache.Query,
+  Data extends cache.Data,
   AllowDisconnected extends boolean = false,
 >(
   createParams: CreateRetrieveParams<Query, Data, AllowDisconnected>,

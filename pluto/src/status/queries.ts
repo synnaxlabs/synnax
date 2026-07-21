@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type cache,
-  label,
-  type ontology,
-  status,
-  TimeStamp,
-} from "@synnaxlabs/client";
+import { cache, label, type ontology, status, TimeStamp } from "@synnaxlabs/client";
 import { primitive, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import type z from "zod";
@@ -37,7 +31,7 @@ export const useList = Flux.createList<ListParams, status.Key, status.Status>({
 
 export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Key[]>({
   name: RESOURCE_NAME,
-  verbs: Flux.DELETE_VERBS,
+  verbs: cache.DELETE_VERBS,
   update: async ({ client, data }) => {
     await client.statuses.delete(data);
     return data;
@@ -51,7 +45,7 @@ export interface SetParams {
 
 export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.SET_VERBS,
+  verbs: cache.SET_VERBS,
   update: async ({ client, data, data: { statuses, parent } }) => {
     if (Array.isArray(statuses)) await client.statuses.set(statuses, { parent });
     else await client.statuses.set(statuses, { parent });
@@ -186,7 +180,7 @@ export interface RenameParams extends Pick<status.Status, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: Flux.RENAME_VERBS,
+  verbs: cache.RENAME_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.statuses.rename(key, name, {

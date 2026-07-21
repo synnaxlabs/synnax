@@ -12,6 +12,7 @@ import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { useErrorHandler } from "@/status/aether/aggregator";
 
 const stateZ = z.object({
   props: synnaxParamsZ.nullable(),
@@ -47,7 +48,10 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
       return;
 
     this.closeClient();
-    this.internal.client = new Synnax(this.state.props);
+    this.internal.client = new Synnax({
+      ...this.state.props,
+      onInternalError: useErrorHandler(ctx),
+    });
     set(ctx, this.internal);
   }
 
