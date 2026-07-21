@@ -32,8 +32,7 @@ func nonZeroV2() v2.Data {
 		Legend:        v1.ZeroLegend,
 		Channels: v0.Channels{
 			X1: 1, X2: 2,
-			Y1: []channel.Key{10, 11},
-			Y2: []channel.Key{12},
+			Y1: []channel.Key{10}, Y2: []channel.Key{}, Y3: []channel.Key{}, Y4: []channel.Key{},
 		},
 		Ranges: v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
 		Axes: v2.AxesContainer{
