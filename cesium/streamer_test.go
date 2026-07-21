@@ -106,8 +106,8 @@ var _ = Describe("Streamer Behavior", func() {
 					r.Inlet() <- cesium.StreamerRequest{Channels: []cesium.ChannelKey{key}}
 
 					// The subscription update is applied asynchronously, so writes
-					// racing ahead of it are dropped. Retry with increasing
-					// timestamps until a frame comes through.
+					// racing ahead of it are dropped. Retry with increasing timestamps
+					// until a frame comes through.
 					var res cesium.StreamerResponse
 					ts := telem.TimeStamp(10)
 					Eventually(func(g Gomega) {
