@@ -37,35 +37,34 @@ var (
 	tx   gorp.Tx
 )
 
-var (
-	_ = BeforeSuite(func(ctx SpecContext) {
-		ShouldNotLeakGoroutines()
-		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		var (
-			searchIdx = MustOpen(search.OpenIndex())
-			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Search:   searchIdx,
-			}))
-			projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Group:    g,
-				Search:   searchIdx,
-			}))
-		)
-		svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Search:   searchIdx,
-		}))
-		proj.Name = "test-project"
-		Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
-	})
-	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-)
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.OpenIndex())
+	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	projectSvc := MustOpen(project.OpenService(ctx, project.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+	proj.Name = "test-project"
+	Expect(projectSvc.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
+})
+
+var _ = BeforeEach(func() {
+	tx = DeferClose(db.OpenTx())
+})
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

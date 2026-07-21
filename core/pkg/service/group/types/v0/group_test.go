@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/group/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var _ = Describe("Group", func() {
@@ -27,6 +28,14 @@ var _ = Describe("Group", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v0.Group{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the group ontology identifier", func() {
+			k := uuid.New()
+			Expect(v0.Group{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeGroup, Key: k.String(),
+			}))
 		})
 	})
 })

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var _ = Describe("Role", func() {
@@ -27,6 +28,14 @@ var _ = Describe("Role", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v0.Role{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the role ontology identifier", func() {
+			k := uuid.New()
+			Expect(v0.Role{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeRole, Key: k.String(),
+			}))
 		})
 	})
 })

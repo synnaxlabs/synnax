@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var _ = Describe("Arc", func() {
@@ -27,6 +28,14 @@ var _ = Describe("Arc", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v2.Arc{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the arc ontology identifier", func() {
+			k := uuid.New()
+			Expect(v2.Arc{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeArc, Key: k.String(),
+			}))
 		})
 	})
 })

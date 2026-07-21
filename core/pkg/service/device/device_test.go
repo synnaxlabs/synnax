@@ -267,7 +267,7 @@ var _ = Describe("Device", func() {
 
 			var deviceStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 				Entry(&deviceStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(deviceStatus.Name).To(Equal("New Name"))
@@ -294,14 +294,14 @@ var _ = Describe("Device", func() {
 
 			var deviceStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 				Entry(&deviceStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
 			Expect(deviceStatus.Message).To(Equal("Device is connected"))
 			Expect(deviceStatus.Description).To(Equal("Custom device description"))
 			// Key should be auto-assigned
-			Expect(deviceStatus.Key).To(Equal(device.OntologyID(d.Key).String()))
+			Expect(deviceStatus.Key).To(Equal(d.OntologyID().String()))
 			// Name should be auto-filled
 			Expect(deviceStatus.Name).To(Equal(d.Name))
 			// Details should be auto-filled
@@ -353,9 +353,9 @@ var _ = Describe("Device", func() {
 			Expect(w.Create(ctx, &d)).To(Succeed())
 
 			Expect(status.NewWriter[device.StatusDetails](stat, tx).
-				Delete(ctx, device.OntologyID(d.Key).String())).To(Succeed())
+				Delete(ctx, d.OntologyID().String())).To(Succeed())
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 			reconfigured := device.Device{
@@ -370,7 +370,7 @@ var _ = Describe("Device", func() {
 
 			var healed device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 				Entry(&healed).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(healed.Details.Device).To(Equal(d.Key))
@@ -404,7 +404,7 @@ var _ = Describe("Device", func() {
 
 			var preserved device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -807,7 +807,7 @@ var _ = Describe("Device", func() {
 				To(MatchError(query.ErrNotFound))
 			var deletedStatus device.Status
 			Expect(status.NewRetrieve[device.StatusDetails](stat).
-				Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+				Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -885,7 +885,7 @@ var _ = Describe("Device", func() {
 			Eventually(func(g Gomega) {
 				var deviceStatus device.Status
 				g.Expect(status.NewRetrieve[device.StatusDetails](stat).
-					Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+					Where(status.MatchKeys[device.StatusDetails](d.OntologyID().String())).
 					Entry(&deviceStatus).
 					Exec(ctx, nil)).To(Succeed())
 				g.Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))

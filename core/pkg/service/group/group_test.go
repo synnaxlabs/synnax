@@ -64,7 +64,7 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should create a nested group", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent", ontology.RootID))
 
-			child := MustSucceed(w.Create(ctx, "child", group.OntologyID(parent.Key)))
+			child := MustSucceed(w.Create(ctx, "child", parent.OntologyID()))
 			Expect(child.Name).To(Equal("child"))
 		})
 
@@ -115,7 +115,7 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should not delete a group with children", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent-to-keep", ontology.RootID))
 
-			_ = MustSucceed(w.Create(ctx, "child-blocking-delete", group.OntologyID(parent.Key)))
+			_ = MustSucceed(w.Create(ctx, "child-blocking-delete", parent.OntologyID()))
 
 			err := w.Delete(ctx, parent.Key)
 			Expect(err).To(HaveOccurred())
@@ -134,7 +134,7 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should delete multiple groups", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent-for-deletion", ontology.RootID))
 
-			child := MustSucceed(w.Create(ctx, "child-for-deletion", group.OntologyID(parent.Key)))
+			child := MustSucceed(w.Create(ctx, "child-for-deletion", parent.OntologyID()))
 
 			Expect(w.Delete(ctx, child.Key)).To(Succeed())
 			Expect(w.Delete(ctx, parent.Key)).To(Succeed())
@@ -146,9 +146,9 @@ var _ = Describe("Group", Ordered, func() {
 		It("Should allow batch deletion when parent is being deleted along with all of its children", func(ctx SpecContext) {
 			parent := MustSucceed(w.Create(ctx, "parent-batch-delete", ontology.RootID))
 
-			child1 := MustSucceed(w.Create(ctx, "child1-batch-delete", group.OntologyID(parent.Key)))
+			child1 := MustSucceed(w.Create(ctx, "child1-batch-delete", parent.OntologyID()))
 
-			child2 := MustSucceed(w.Create(ctx, "child2-batch-delete", group.OntologyID(parent.Key)))
+			child2 := MustSucceed(w.Create(ctx, "child2-batch-delete", parent.OntologyID()))
 
 			Expect(w.Delete(ctx, child2.Key, parent.Key, child1.Key)).To(Succeed())
 
@@ -161,9 +161,9 @@ var _ = Describe("Group", Ordered, func() {
 
 		It("Should allow deleting nested hierarchy when ordered leaf to root", func(ctx SpecContext) {
 			root := MustSucceed(w.Create(ctx, "root-nested", ontology.RootID))
-			level1 := MustSucceed(w.Create(ctx, "level1-nested", group.OntologyID(root.Key)))
-			level2 := MustSucceed(w.Create(ctx, "level2-nested", group.OntologyID(level1.Key)))
-			level3 := MustSucceed(w.Create(ctx, "level3-nested", group.OntologyID(level2.Key)))
+			level1 := MustSucceed(w.Create(ctx, "level1-nested", root.OntologyID()))
+			level2 := MustSucceed(w.Create(ctx, "level2-nested", level1.OntologyID()))
+			level3 := MustSucceed(w.Create(ctx, "level3-nested", level2.OntologyID()))
 
 			Expect(w.Delete(ctx, level3.Key, level2.Key, level1.Key, root.Key)).To(Succeed())
 

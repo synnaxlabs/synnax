@@ -31,9 +31,7 @@ func OntologyID(key Key) ontology.ID {
 
 // OntologyIDsFromDevices returns the ontology IDs for the given devices.
 func OntologyIDsFromDevices(devices []Device) []ontology.ID {
-	return lo.Map(devices, func(d Device, _ int) ontology.ID {
-		return d.OntologyID()
-	})
+	return lo.Map(devices, func(d Device, _ int) ontology.ID { return d.OntologyID() })
 }
 
 // OntologyIDs returns the ontology IDs for the given keys.

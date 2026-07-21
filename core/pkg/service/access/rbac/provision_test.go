@@ -40,7 +40,7 @@ var _ = Describe("Provision", func() {
 				Expect(rbacSvc.Role.NewRetrieve().Where(role.MatchNames(name)).Entry(&r).Exec(ctx, tx)).To(Succeed())
 				var policies []ontology.Resource
 				Expect(otg.NewRetrieve().
-					WhereIDs(role.OntologyID(r.Key)).
+					WhereIDs(r.OntologyID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entries(&policies).
 					Exec(ctx, tx)).To(Succeed())

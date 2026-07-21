@@ -30,13 +30,12 @@ var _ = Describe("Schematic", func() {
 			Expect(v7.Schematic{}.SetOptions()).To(BeNil())
 		})
 	})
-})
-
-var _ = Describe("OntologyID", func() {
-	It("Should return the schematic ontology identifier", func() {
-		k := uuid.New()
-		Expect(v7.Schematic{Key: k}.OntologyID()).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeSchematic, Key: k.String(),
-		}))
+	Describe("OntologyID", func() {
+		It("Should return the schematic ontology identifier", func() {
+			k := uuid.New()
+			Expect(v7.Schematic{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeSchematic, Key: k.String(),
+			}))
+		})
 	})
 })

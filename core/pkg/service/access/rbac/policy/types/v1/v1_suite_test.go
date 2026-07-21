@@ -19,7 +19,7 @@ import (
 
 func TestPolicyV1(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Policy v1 Suite")
+	RunSpecs(t, "Service Access RBAC Policy v1 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

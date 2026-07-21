@@ -132,7 +132,7 @@ func (w Writer) Create(
 	parent ontology.ID,
 ) (Group, error) {
 	g := Group{Key: uuid.New(), Name: name}
-	id := OntologyID(g.Key)
+	id := g.OntologyID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
 	}
@@ -160,7 +160,7 @@ func (w Writer) CreateWithKey(
 	if g.Key == uuid.Nil {
 		g.Key = uuid.New()
 	}
-	id := OntologyID(g.Key)
+	id := g.OntologyID()
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
 	}

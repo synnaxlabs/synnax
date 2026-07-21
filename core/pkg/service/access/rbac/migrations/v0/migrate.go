@@ -65,7 +65,7 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 			roleWriter := cfg.Role.NewWriter(tx, true)
 			otgWriter := cfg.Ontology.NewWriter(tx)
 			for _, u := range users {
-				userOntologyID := user.OntologyID(u.Key)
+				userOntologyID := u.OntologyID()
 				policies := policyByUser[userOntologyID.String()]
 				roleKey := determineRole(u, policies, cfg.Roles)
 				if err = otgWriter.DeleteRelationships(ctx, ontology.Relationship{

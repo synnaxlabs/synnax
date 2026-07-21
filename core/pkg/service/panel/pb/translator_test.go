@@ -25,7 +25,7 @@ import (
 
 func TestPanelPB(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Panel PB Suite")
+	RunSpecs(t, "Service Panel PB Suite")
 }
 
 // resourceTab builds a core-backed tab referencing a backing document.

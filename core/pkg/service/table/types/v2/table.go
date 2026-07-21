@@ -10,6 +10,7 @@
 package v2
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -20,3 +21,8 @@ func (t Table) GorpKey() Key { return t.Key }
 
 // SetOptions implements gorp.Entry.
 func (Table) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ontology identifier for the table.
+func (t Table) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeTable, Key: t.Key.String()}
+}

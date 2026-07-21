@@ -94,7 +94,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		// Seed legacy policies with Subjects field
 		adminPolicy := policyv0.Policy{
 			Key:      uuid.New(),
-			Subjects: []ontology.ID{user.OntologyID(adminUser.Key)},
+			Subjects: []ontology.ID{adminUser.OntologyID()},
 			Objects: []ontology.ID{
 				{Type: ontology.ResourceTypeUser},
 				{Type: "policy"},
@@ -103,7 +103,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		}
 		schematicPolicy := policyv0.Policy{
 			Key:      uuid.New(),
-			Subjects: []ontology.ID{user.OntologyID(schematicUser.Key)},
+			Subjects: []ontology.ID{schematicUser.OntologyID()},
 			Objects:  []ontology.ID{{Type: "schematic"}},
 			Actions:  []access.Action{"all"},
 		}
@@ -148,13 +148,13 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(roleSvc.NewRetrieve().Where(role.MatchNames("Operator")).Entry(&operatorRole).Exec(ctx, tx2)).To(Succeed())
 
 		// Root user -> Owner
-		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(rootUser.Key), ownerRole.Key)).To(BeTrue())
+		Expect(userHasSpecificRole(ctx, tx2, otg, rootUser.OntologyID(), ownerRole.Key)).To(BeTrue())
 		// Admin policy user -> Owner
-		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(adminUser.Key), ownerRole.Key)).To(BeTrue())
+		Expect(userHasSpecificRole(ctx, tx2, otg, adminUser.OntologyID(), ownerRole.Key)).To(BeTrue())
 		// Schematic policy user -> Engineer
-		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(schematicUser.Key), engineerRole.Key)).To(BeTrue())
+		Expect(userHasSpecificRole(ctx, tx2, otg, schematicUser.OntologyID(), engineerRole.Key)).To(BeTrue())
 		// Regular user -> Operator
-		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(regularUser.Key), operatorRole.Key)).To(BeTrue())
+		Expect(userHasSpecificRole(ctx, tx2, otg, regularUser.OntologyID(), operatorRole.Key)).To(BeTrue())
 
 		// Legacy policies should be deleted
 		reader := gorp.WrapReader[uuid.UUID, policyv0.Policy](tx2)

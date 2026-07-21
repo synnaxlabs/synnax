@@ -37,7 +37,7 @@ type Writer struct {
 func resolveStatus(d *Device, provided *Status) *Status {
 	if provided == nil {
 		return &Status{
-			Key:     OntologyID(d.Key).String(),
+			Key:     d.OntologyID().String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
@@ -46,7 +46,7 @@ func resolveStatus(d *Device, provided *Status) *Status {
 		}
 	}
 	stat := *provided
-	stat.Key = OntologyID(d.Key).String()
+	stat.Key = d.OntologyID().String()
 	stat.Name = d.Name
 	stat.Details.Device = d.Key
 	stat.Details.Rack = d.Rack
@@ -120,7 +120,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	if err = w.status.Set(ctx, stat); err != nil {
 		return err
 	}
-	otgID := OntologyID(device.Key)
+	otgID := device.OntologyID()
 	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}

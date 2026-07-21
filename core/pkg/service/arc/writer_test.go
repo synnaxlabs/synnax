@@ -139,7 +139,7 @@ var _ = Describe("Writer", func() {
 
 			Expect(otg.NewWriter(tx).DefineRelationships(
 				ctx,
-				arc.OntologyID(a.Key),
+				a.OntologyID(),
 				ontology.RelationshipTypeParentOf,
 				t.Key.OntologyID(),
 			)).To(Succeed())
@@ -180,13 +180,13 @@ var _ = Describe("Writer", func() {
 			otgWriter := otg.NewWriter(tx)
 			Expect(otgWriter.DefineRelationships(
 				ctx,
-				arc.OntologyID(a.Key),
+				a.OntologyID(),
 				ontology.RelationshipTypeParentOf,
 				t1.OntologyID(),
 			)).To(Succeed())
 			Expect(otgWriter.DefineRelationships(
 				ctx,
-				arc.OntologyID(a.Key),
+				a.OntologyID(),
 				ontology.RelationshipTypeParentOf,
 				t2.OntologyID(),
 			)).To(Succeed())

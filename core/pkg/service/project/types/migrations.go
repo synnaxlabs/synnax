@@ -18,10 +18,6 @@ import (
 // migration stages each project's legacy layout blob.
 const LegacyLayoutKVPrefix = v1.LegacyLayoutKVPrefix
 
-// LegacyLayoutKVKey returns the staging KV key holding the legacy layout blob for the
-// project with the given key.
-func LegacyLayoutKVKey(key Key) []byte { return v1.LegacyLayoutKVKey(key) }
-
 // MigrationsConfig is the configuration for NewMigrations.
 type MigrationsConfig = v1.MigrationsConfig
 

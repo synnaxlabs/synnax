@@ -10,6 +10,7 @@
 package v2
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -20,3 +21,8 @@ func (a Arc) GorpKey() Key { return a.Key }
 
 // SetOptions implements gorp.Entry.
 func (Arc) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ontology identifier for the arc.
+func (a Arc) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeArc, Key: a.Key.String()}
+}

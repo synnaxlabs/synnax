@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
@@ -65,7 +64,7 @@ var _ = Describe("ImEx", func() {
 				TimestampPrecision: 2,
 				HideChannelNames:   true,
 			})
-			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(l.Key)))
+			env := MustSucceed(imexSvc.Export(ctx, l.OntologyID()))
 			Expect(env.Version).To(Equal(log.Version))
 			Expect(env.Type).To(Equal("log"))
 			Expect(env.Name).To(Equal("exported"))
@@ -161,7 +160,7 @@ var _ = Describe("ImEx", func() {
 				imex.ImportOptions{Project: proj.Key},
 			))
 			Expect(otg.RelationshipExists(ctx, nil, ontology.Relationship{
-				From: project.OntologyID(proj.Key),
+				From: proj.OntologyID(),
 				Type: ontology.RelationshipTypeParentOf,
 				To:   id,
 			})).To(BeTrue())
@@ -225,7 +224,7 @@ var _ = Describe("ImEx", func() {
 				TimestampPrecision:   1,
 				HideReceiptTimestamp: true,
 			})
-			env := MustSucceed(imexSvc.Export(ctx, log.OntologyID(original.Key)))
+			env := MustSucceed(imexSvc.Export(ctx, original.OntologyID()))
 			id := MustSucceed(imexSvc.Import(ctx, db, wireRoundTrip(env), imex.ImportOptions{}))
 
 			key := MustSucceed(uuid.Parse(id.Key))

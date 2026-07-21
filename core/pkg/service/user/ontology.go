@@ -105,5 +105,5 @@ func (s *Service) OpenNexter(ctx context.Context) (iter.Seq[ontology.Resource], 
 }
 
 func newResource(u User) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(u.Key), u.Username, u)
+	return ontology.NewResource(schema, u.OntologyID(), u.Username, u)
 }

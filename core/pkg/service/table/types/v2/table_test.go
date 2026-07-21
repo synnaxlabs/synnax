@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/types/v2"
 )
 
@@ -27,6 +28,14 @@ var _ = Describe("Table", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v2.Table{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the table ontology identifier", func() {
+			k := uuid.New()
+			Expect(v2.Table{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeTable, Key: k.String(),
+			}))
 		})
 	})
 })

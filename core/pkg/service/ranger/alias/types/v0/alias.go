@@ -11,6 +11,7 @@ package v0
 
 import (
 	"fmt"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -26,3 +27,8 @@ func (a Alias) GorpKey() string {
 
 // SetOptions implements gorp.Entry.
 func (Alias) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ontology identifier for the alias.
+func (a Alias) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeRangeAlias, Key: a.GorpKey()}
+}

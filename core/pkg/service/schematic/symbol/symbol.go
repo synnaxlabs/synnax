@@ -11,6 +11,7 @@ package symbol
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -34,3 +35,8 @@ func (s Symbol) GorpKey() Key { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (Symbol) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ontology identifier for the symbol.
+func (s Symbol) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeSchematicSymbol, Key: s.Key.String()}
+}

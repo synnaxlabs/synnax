@@ -74,7 +74,7 @@ func (s *Service) Import(
 	if err = s.NewWriter(tx).Create(ctx, opts.Project, &l); err != nil {
 		return ontology.ID{}, err
 	}
-	return OntologyID(l.Key), nil
+	return l.OntologyID(), nil
 }
 
 func (s *Service) decodeImport(ctx context.Context, env imex.Envelope) (Log, error) {

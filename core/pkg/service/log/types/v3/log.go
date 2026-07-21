@@ -10,6 +10,7 @@
 package v3
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -20,3 +21,8 @@ func (l Log) GorpKey() Key { return l.Key }
 
 // SetOptions implements gorp.Entry.
 func (Log) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ontology identifier for the log.
+func (l Log) OntologyID() ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeLog, Key: l.Key.String()}
+}

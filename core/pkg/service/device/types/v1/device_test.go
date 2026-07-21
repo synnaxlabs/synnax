@@ -28,12 +28,11 @@ var _ = Describe("Device", func() {
 			Expect(v1.Device{}.SetOptions()).To(BeNil())
 		})
 	})
-})
-
-var _ = Describe("OntologyID", func() {
-	It("Should return the device ontology identifier", func() {
-		Expect(v1.Device{Key: "dev-1"}.OntologyID()).To(Equal(ontology.ID{
-			Type: ontology.ResourceTypeDevice, Key: "dev-1",
-		}))
+	Describe("OntologyID", func() {
+		It("Should return the device ontology identifier", func() {
+			Expect(v1.Device{Key: "dev-1"}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeDevice, Key: "dev-1",
+			}))
+		})
 	})
 })

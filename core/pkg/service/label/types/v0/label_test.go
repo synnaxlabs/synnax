@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 )
 
 var _ = Describe("Label", func() {
@@ -27,6 +28,14 @@ var _ = Describe("Label", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v0.Label{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the label ontology identifier", func() {
+			k := uuid.New()
+			Expect(v0.Label{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeLabel, Key: k.String(),
+			}))
 		})
 	})
 })

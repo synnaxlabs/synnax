@@ -15,6 +15,7 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -366,5 +367,14 @@ var _ = Describe("Operation DecodeMsgpack", func() {
 		Expect(msgpack.Unmarshal(data, &o)).To(
 			MatchError(ContainSubstring("failed to decode legacy operation from msgpack")),
 		)
+	})
+})
+
+var _ = Describe("OntologyID", func() {
+	It("Should return the channel ontology identifier", func() {
+		ch := v0.Channel{Leaseholder: 1, LocalKey: 2}
+		Expect(ch.OntologyID()).To(Equal(ontology.ID{
+			Type: ontology.ResourceTypeChannel, Key: ch.Key().String(),
+		}))
 	})
 })

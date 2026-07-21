@@ -35,7 +35,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 
 func OntologyIDsFromProjects(projects []Project) []ontology.ID {
 	return lo.Map(projects, func(p Project, _ int) ontology.ID {
-		return OntologyID(p.Key)
+		return p.OntologyID()
 	})
 }
 
@@ -51,7 +51,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(p Project) ontology.Resource {
-	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
+	return ontology.NewResource(schema, p.OntologyID(), p.Name, p)
 }
 
 type change = xchange.Change[Key, Project]

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
@@ -68,5 +69,28 @@ var _ = Describe("DecodeMsgpack", func() {
 		Expect(decoded.Username).To(Equal("charlie"))
 		Expect(decoded.FirstName).To(Equal("Charlie"))
 		Expect(decoded.LastName).To(Equal("Brown"))
+	})
+})
+
+var _ = Describe("User", func() {
+	Describe("GorpKey", func() {
+		It("Should return the user's key", func() {
+			k := uuid.New()
+			Expect(v0.User{Key: k}.GorpKey()).To(Equal(k))
+		})
+	})
+
+	Describe("SetOptions", func() {
+		It("Should return no options", func() {
+			Expect(v0.User{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the user ontology identifier", func() {
+			k := uuid.New()
+			Expect(v0.User{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeUser, Key: k.String(),
+			}))
+		})
 	})
 })

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 )
 
@@ -27,6 +28,14 @@ var _ = Describe("Project", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v1.Project{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the project ontology identifier", func() {
+			k := uuid.New()
+			Expect(v1.Project{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeProject, Key: k.String(),
+			}))
 		})
 	})
 })

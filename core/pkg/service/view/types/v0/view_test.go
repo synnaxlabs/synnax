@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/types/v0"
 )
 
@@ -27,6 +28,14 @@ var _ = Describe("View", func() {
 	Describe("SetOptions", func() {
 		It("Should return no options", func() {
 			Expect(v0.View{}.SetOptions()).To(BeNil())
+		})
+	})
+	Describe("OntologyID", func() {
+		It("Should return the view ontology identifier", func() {
+			k := uuid.New()
+			Expect(v0.View{Key: k}.OntologyID()).To(Equal(ontology.ID{
+				Type: ontology.ResourceTypeView, Key: k.String(),
+			}))
 		})
 	})
 })

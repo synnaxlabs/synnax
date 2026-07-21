@@ -115,15 +115,15 @@ var _ = Describe("Status", Ordered, func() {
 						Message: "Child status",
 						Time:    telem.Now(),
 					}
-					Expect(w.SetWithParent(ctx, &child, status.OntologyID(parent.Key))).To(Succeed())
+					Expect(w.SetWithParent(ctx, &child, parent.OntologyID())).To(Succeed())
 
 					var res ontology.Resource
 					Expect(otg.NewRetrieve().
-						WhereIDs(status.OntologyID(child.Key)).
+						WhereIDs(child.OntologyID()).
 						TraverseTo(ontology.ParentsTraverser).
 						Entry(&res).
 						Exec(ctx, tx)).To(Succeed())
-					Expect(res.ID).To(Equal(status.OntologyID(parent.Key)))
+					Expect(res.ID).To(Equal(parent.OntologyID()))
 				})
 			})
 		})
@@ -385,7 +385,7 @@ var _ = Describe("Status", Ordered, func() {
 					Time:    telem.Now(),
 				}
 				Expect(svc.NewWriter(tx).Set(ctx, s)).To(Succeed())
-				Expect(labelSvc.NewWriter(tx).Label(ctx, status.OntologyID(s.Key), []label.Key{l.Key})).To(Succeed())
+				Expect(labelSvc.NewWriter(tx).Label(ctx, s.OntologyID(), []label.Key{l.Key})).To(Succeed())
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().
 					Where(status.MatchLabels[any](l.Key)).

@@ -381,38 +381,38 @@ func (lv *Line) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (l LinePlot) EncodeOrc(w *orc.Writer) error {
-	w.Write(l.Key[:])
-	w.String(l.Name)
-	if err := l.Title.EncodeOrc(w); err != nil {
+func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
+	w.Write(lp.Key[:])
+	w.String(lp.Name)
+	if err := lp.Title.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := l.Legend.EncodeOrc(w); err != nil {
+	if err := lp.Legend.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := l.Channels.EncodeOrc(w); err != nil {
+	if err := lp.Channels.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := l.Ranges.EncodeOrc(w); err != nil {
+	if err := lp.Ranges.EncodeOrc(w); err != nil {
 		return err
 	}
-	if err := l.Axes.EncodeOrc(w); err != nil {
+	if err := lp.Axes.EncodeOrc(w); err != nil {
 		return err
 	}
-	w.Bool(l.Lines != nil)
-	if l.Lines != nil {
-		w.Uint32(uint32(len(l.Lines)))
-		for i := range l.Lines {
-			if err := l.Lines[i].EncodeOrc(w); err != nil {
+	w.Bool(lp.Lines != nil)
+	if lp.Lines != nil {
+		w.Uint32(uint32(len(lp.Lines)))
+		for i := range lp.Lines {
+			if err := lp.Lines[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
 	}
-	w.Bool(l.Rules != nil)
-	if l.Rules != nil {
-		w.Uint32(uint32(len(l.Rules)))
-		for i := range l.Rules {
-			if err := l.Rules[i].EncodeOrc(w); err != nil {
+	w.Bool(lp.Rules != nil)
+	if lp.Rules != nil {
+		w.Uint32(uint32(len(lp.Rules)))
+		for i := range lp.Rules {
+			if err := lp.Rules[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -421,27 +421,27 @@ func (l LinePlot) EncodeOrc(w *orc.Writer) error {
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (l *LinePlot) DecodeOrc(r *orc.Reader) error {
+func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(l.Key[:]); err != nil {
+	if _, err := r.Read(lp.Key[:]); err != nil {
 		return err
 	}
-	if l.Name, err = r.String(); err != nil {
+	if lp.Name, err = r.String(); err != nil {
 		return err
 	}
-	if err = l.Title.DecodeOrc(r); err != nil {
+	if err = lp.Title.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = l.Legend.DecodeOrc(r); err != nil {
+	if err = lp.Legend.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = l.Channels.DecodeOrc(r); err != nil {
+	if err = lp.Channels.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = l.Ranges.DecodeOrc(r); err != nil {
+	if err = lp.Ranges.DecodeOrc(r); err != nil {
 		return err
 	}
-	if err = l.Axes.DecodeOrc(r); err != nil {
+	if err = lp.Axes.DecodeOrc(r); err != nil {
 		return err
 	}
 	{
@@ -454,9 +454,9 @@ func (l *LinePlot) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			l.Lines = make([]Line, n)
-			for i := range l.Lines {
-				if err = l.Lines[i].DecodeOrc(r); err != nil {
+			lp.Lines = make([]Line, n)
+			for i := range lp.Lines {
+				if err = lp.Lines[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -472,9 +472,9 @@ func (l *LinePlot) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			l.Rules = make([]Rule, n)
-			for i := range l.Rules {
-				if err = l.Rules[i].DecodeOrc(r); err != nil {
+			lp.Rules = make([]Rule, n)
+			for i := range lp.Rules {
+				if err = lp.Rules[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}

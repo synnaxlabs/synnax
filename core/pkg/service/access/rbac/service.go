@@ -193,7 +193,7 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 		for _, r := range roots {
 			if err := w.AssignRole(
 				ctx,
-				user.OntologyID(r.Key),
+				r.OntologyID(),
 				ownerKey,
 			); err != nil {
 				return errors.Wrapf(

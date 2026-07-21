@@ -190,7 +190,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	statuses := make([]Status, len(devices))
 	for i, device := range devices {
 		statuses[i] = Status{
-			Key:         OntologyID(device.Key).String(),
+			Key:         device.OntologyID().String(),
 			Name:        device.Name,
 			Time:        telem.Now(),
 			Variant:     rackStat.Variant,

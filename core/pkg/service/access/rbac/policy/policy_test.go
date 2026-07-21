@@ -101,7 +101,7 @@ var _ = Describe("Writer", func() {
 
 			var res ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(policy.OntologyID(p.Key)).
+				WhereIDs(p.OntologyID()).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.ID.Key).To(Equal(p.Key.String()))
@@ -235,7 +235,7 @@ var _ = Describe("Writer", func() {
 
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(ontology.ResourceTypePolicy).
 				Entries(&children).
@@ -248,7 +248,7 @@ var _ = Describe("Writer", func() {
 
 			var children []ontology.Resource
 			Expect(otg.NewRetrieve().
-				WhereIDs(role.OntologyID(r.Key)).
+				WhereIDs(r.OntologyID()).
 				TraverseTo(ontology.ChildrenTraverser).
 				WhereTypes(ontology.ResourceTypePolicy).
 				Entries(&children).
