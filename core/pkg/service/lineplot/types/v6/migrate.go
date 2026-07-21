@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v1"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v2"
-	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
@@ -34,7 +34,7 @@ import (
 // live on the console slice and never reach the server. v0 is the last
 // snapshot in which LinePlot.Data is untyped; future migrations transform one
 // typed snapshot into another and never need this blob handling.
-func migrateLinePlot(ctx context.Context, old lineplotv0.LinePlot) (LinePlot, error) {
+func migrateLinePlot(ctx context.Context, old v5.LinePlot) (LinePlot, error) {
 	out, err := autoMigrateLinePlot(ctx, old)
 	if err != nil {
 		return LinePlot{}, err
@@ -168,7 +168,7 @@ func migrateRules(in []v0.Rule) []Rule {
 
 // codecMigration re-encodes stored line plots from msgpack to orc. It is
 // pinned to the v5 shape so its output stays stable as LinePlot evolves.
-var codecMigration = gorp.CodecMigration[Key, lineplotv0.LinePlot]("msgpack_to_orc")
+var codecMigration = gorp.CodecMigration[Key, v5.LinePlot]("msgpack_to_orc")
 
 // liftMigration lifts stored line plots from the v5 blob layout to the typed v6
 // shape.

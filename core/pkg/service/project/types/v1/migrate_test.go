@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -59,15 +59,15 @@ var _ = Describe("Workspace to project migration", func() {
 		// Seed two legacy workspace records under the "Workspace" gorp prefix.
 		wsA, wsB := uuid.New(), uuid.New()
 		wsTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[projectv0.Key, projectv0.Workspace]{DB: db},
+			ctx, gorp.TableConfig[v0.Key, v0.Workspace]{DB: db},
 		))
-		seedA := projectv0.Workspace{
+		seedA := v0.Workspace{
 			Key:    wsA,
 			Name:   "Ops",
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}
 		Expect(wsTable.NewCreate().Entry(&seedA).Exec(ctx, db)).To(Succeed())
-		seedB := projectv0.Workspace{Key: wsB, Name: "Analysis"}
+		seedB := v0.Workspace{Key: wsB, Name: "Analysis"}
 		Expect(wsTable.NewCreate().Entry(&seedB).Exec(ctx, db)).To(Succeed())
 
 		// Seed the root "Workspaces" group and the ontology nodes.
@@ -118,8 +118,8 @@ var _ = Describe("Workspace to project migration", func() {
 			Exists(ctx, db)).To(BeTrue())
 
 		By("Removing the legacy workspace records")
-		Expect(wsTable.NewRetrieve().Where(gorp.MatchKeys[projectv0.Key, projectv0.Workspace](wsA, wsB)).
-			Entries(&[]projectv0.Workspace{}).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		Expect(wsTable.NewRetrieve().Where(gorp.MatchKeys[v0.Key, v0.Workspace](wsA, wsB)).
+			Entries(&[]v0.Workspace{}).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 
 		By("Re-keying the workspace resource nodes to project")
 		projectAID := ontology.ID{Type: ontology.ResourceTypeProject, Key: wsA.String()}
