@@ -63,7 +63,8 @@ func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error 
 
 // EncodedJSON is a map[string]any that handles backwards-compatible MessagePack
 // decoding. When existing data was stored as a JSON string (the old format), it
-// unmarshals the string into a map. When new data arrives as a map, it uses it directly.
+// unmarshals the string into a map. When new data arrives as a map, it uses it
+// directly.
 type EncodedJSON map[string]any
 
 func (e *EncodedJSON) DecodeMsgpack(dec *msgpack.Decoder) error {

@@ -399,7 +399,8 @@ var _ = Describe("Migrate", func() {
 				Migrations: []migrate.Migration{migration},
 			})).To(Succeed())
 
-			// Verify entries are now readable with plain MessagePack (no fallback needed).
+			// Verify entries are now readable with plain MessagePack (no fallback
+			// needed).
 			msgpackDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 			r := gorp.WrapReader[int32, entryV1](msgpackDB)
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one"))
