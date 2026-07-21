@@ -13,10 +13,11 @@ package v6
 
 import (
 	"context"
-	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
+
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
 )
 
-func autoMigrateLinePlot(_ context.Context, old lineplotv0.LinePlot) (LinePlot, error) {
+func autoMigrateLinePlot(_ context.Context, old v5.LinePlot) (LinePlot, error) {
 	return LinePlot{
 		Key:  Key(old.Key),
 		Name: old.Name,

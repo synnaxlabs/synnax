@@ -315,7 +315,9 @@ func (g *generation) scaffoldIncoming(
 	oldImport := gomod.ResolveImportPath(
 		oldVersionedPath, g.req.RepoRoot, gomod.DefaultModulePrefix,
 	)
-	oldAlias := naming.DeriveVersionedAlias(oldVersionedPath, newDir)
+	// The predecessor is always a sibling version of the same resource, so it
+	// imports under its bare directory name.
+	oldAlias := filepath.Base(oldVersionedPath)
 	names := make([]string, 0, len(roots))
 	for name := range roots {
 		names = append(names, name)
@@ -502,6 +504,9 @@ func renderTypeMigrateTemplate(
 		if newGoPath != mirroredPath {
 			ip := gomod.ResolveImportPath(newGoPath, repoRoot, gomod.DefaultModulePrefix)
 			alias := naming.DeriveVersionedAlias(newGoPath, pkg)
+			if filepath.Dir(newGoPath) == filepath.Dir(mirroredPath) {
+				alias = filepath.Base(newGoPath)
+			}
 			importSet[ip] = versionImport{Alias: alias, Path: ip}
 			newTypeName = alias + "." + newTypeName
 		}

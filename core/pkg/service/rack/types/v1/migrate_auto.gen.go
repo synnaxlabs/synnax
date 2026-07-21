@@ -13,10 +13,11 @@ package v1
 
 import (
 	"context"
-	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
+
+	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 )
 
-func autoMigrateRack(_ context.Context, old rackv0.Rack) (Rack, error) {
+func autoMigrateRack(_ context.Context, old v0.Rack) (Rack, error) {
 	return Rack{
 		Key:          Key(old.Key),
 		Name:         old.Name,

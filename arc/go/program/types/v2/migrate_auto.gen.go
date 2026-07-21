@@ -13,6 +13,7 @@ package v2
 
 import (
 	"context"
+
 	compiler "github.com/synnaxlabs/arc/compiler"
 	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
 	v1 "github.com/synnaxlabs/arc/program/types/v1"

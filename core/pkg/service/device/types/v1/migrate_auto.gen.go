@@ -13,11 +13,12 @@ package v1
 
 import (
 	"context"
-	devicev0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
+
+	"github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
 )
 
-func autoMigrateDevice(_ context.Context, old devicev0.Device) (Device, error) {
+func autoMigrateDevice(_ context.Context, old v0.Device) (Device, error) {
 	return Device{
 		Key:        Key(old.Key),
 		Rack:       rack.Key(old.Rack),

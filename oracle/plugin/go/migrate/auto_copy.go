@@ -14,6 +14,7 @@ package migrate
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -112,6 +113,9 @@ var autoCopyTmpl = template.Must(template.New("autoCopy").Parse(`// Code generat
 package {{.Package}}
 
 import (
+	"context"
+{{- if .Imports}}
+{{end}}
 {{- range .Imports}}
 	{{.Alias}} "{{.Path}}"
 {{- end}}
@@ -212,9 +216,9 @@ func (c *collector) collect(types []resolution.Type) fileData {
 		c.pending = c.pending[1:]
 		c.ensureFunc(typ)
 	}
-	// Always import context because every AutoMigrate function signature
-	// includes context.Context as a parameter.
-	imps := []importEntry{{Path: "context"}}
+	// context renders as its own standard-library group in the template;
+	// every function signature includes context.Context.
+	imps := make([]importEntry, 0, len(c.imports))
 	for _, imp := range c.imports {
 		imps = append(imps, imp)
 	}
@@ -580,7 +584,13 @@ func (c *collector) addImport(goPath string) importEntry {
 	if imp, ok := c.imports[importPath]; ok {
 		return imp
 	}
-	imp := importEntry{Alias: naming.DeriveVersionedAlias(goPath, c.pkg), Path: importPath}
+	// A sibling version of the same resource imports under its bare directory
+	// name, matching the hand-written migration convention (v0 "…/types/v0").
+	alias := naming.DeriveVersionedAlias(goPath, c.pkg)
+	if filepath.Dir(goPath) == filepath.Dir(c.outputPath) {
+		alias = filepath.Base(goPath)
+	}
+	imp := importEntry{Alias: alias, Path: importPath}
 	c.imports[importPath] = imp
 	return imp
 }

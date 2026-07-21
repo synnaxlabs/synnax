@@ -14,10 +14,10 @@ package v3
 import (
 	"context"
 
-	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
 )
 
-func autoMigrateLog(_ context.Context, old logv0.Log) (Log, error) {
+func autoMigrateLog(_ context.Context, old v2.Log) (Log, error) {
 	return Log{
 		Key:  Key(old.Key),
 		Name: old.Name,

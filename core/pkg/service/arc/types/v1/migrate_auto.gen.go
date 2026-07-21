@@ -13,12 +13,13 @@ package v1
 
 import (
 	"context"
+
 	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
-	arcv0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 )
 
-func autoMigrateArc(ctx context.Context, old arcv0.Arc) (Arc, error) {
+func autoMigrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
 	graph, err := graphv1.MigrateGraph(ctx, old.Graph)
 	if err != nil {
 		return Arc{}, err
