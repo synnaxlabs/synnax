@@ -24,11 +24,10 @@ func autoMigrateArc(ctx context.Context, old arcv0.Arc) (Arc, error) {
 		return Arc{}, err
 	}
 	return Arc{
-		Key:     Key(old.Key),
-		Name:    old.Name,
-		Mode:    Mode(old.Mode),
-		Graph:   graph,
-		Text:    textv0.Text(old.Text),
+		Key:   Key(old.Key),
+		Name:  old.Name,
+		Mode:  Mode(old.Mode),
+		Graph: graph,
+		Text:  textv0.Text(old.Text),
 	}, nil
 }
-

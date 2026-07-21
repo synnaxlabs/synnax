@@ -29,4 +29,3 @@ func autoMigrateDevice(_ context.Context, old devicev0.Device) (Device, error) {
 		Properties: old.Properties,
 	}, nil
 }
-

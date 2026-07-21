@@ -26,4 +26,3 @@ func autoMigrateTask(_ context.Context, old taskv0.Task) (Task, error) {
 		Snapshot: old.Snapshot,
 	}, nil
 }
-

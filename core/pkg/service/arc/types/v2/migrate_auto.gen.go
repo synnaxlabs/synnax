@@ -42,4 +42,3 @@ func autoMigrateArc(ctx context.Context, old arcv1.Arc) (Arc, error) {
 		Program: program,
 	}, nil
 }
-

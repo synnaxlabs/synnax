@@ -25,4 +25,3 @@ func autoMigrateRack(_ context.Context, old rackv0.Rack) (Rack, error) {
 		Integrations: old.Integrations,
 	}, nil
 }
-
