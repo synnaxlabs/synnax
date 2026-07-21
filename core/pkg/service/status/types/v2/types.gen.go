@@ -47,8 +47,8 @@ type Status[Details any] struct {
 	Key string `json:"key" msgpack:"key"`
 	// Name is an optional human-readable name for the status.
 	Name string `json:"name" msgpack:"name"`
-	// Variant indicates the severity of the status. One of success, info, warning, error,
-	// loading, or disabled.
+	// Variant indicates the severity of the status. One of success, info, warning,
+	// error, loading, or disabled.
 	Variant Variant `json:"variant" msgpack:"variant"`
 	// Message is the main message text describing the status.
 	Message string `json:"message" msgpack:"message"`

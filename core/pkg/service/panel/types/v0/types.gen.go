@@ -26,9 +26,9 @@ type TabKey = uuid.UUID
 
 // TabBase carries the identity shared by every tab variant.
 type TabBase struct {
-	// Key is the stable unique identifier of this tab within the panel. It is independent
-	// of the tab's content, so a tab's content may be swapped without changing the tab's
-	// identity or position.
+	// Key is the stable unique identifier of this tab within the panel. It is
+	// independent of the tab's content, so a tab's content may be swapped without
+	// changing the tab's identity or position.
 	Key TabKey `json:"key" msgpack:"key"`
 }
 
@@ -184,8 +184,8 @@ func (l Leaf) Validate() error {
 type Split struct {
 	// Direction is the axis along which this node is split.
 	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Size is the fraction in [0, 1] of the parent area allocated to first. The remainder
-	// is allocated to last.
+	// Size is the fraction in [0, 1] of the parent area allocated to first. The
+	// remainder is allocated to last.
 	Size spatial.Decimal `json:"size" msgpack:"size"`
 	// First is the first child (left for x, top for y).
 	First Node `json:"first" msgpack:"first"`
@@ -335,10 +335,10 @@ type Panel struct {
 	Name string `json:"name" msgpack:"name"`
 	// Root is the root of the panel tree.
 	Root Node `json:"root" msgpack:"root"`
-	// Parent is an optional parent resource for the panel in the ontology. When absent on
-	// create, the panel is parented to the creating user as a draft. Parenthood lives in
-	// the ontology graph, so the field is not persisted on the panel record and is absent
-	// on retrieve.
+	// Parent is an optional parent resource for the panel in the ontology. When absent
+	// on create, the panel is parented to the creating user as a draft. Parenthood
+	// lives in the ontology graph, so the field is not persisted on the panel record
+	// and is absent on retrieve.
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 

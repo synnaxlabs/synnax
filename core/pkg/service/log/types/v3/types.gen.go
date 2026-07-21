@@ -100,8 +100,8 @@ type Log struct {
 	// HideChannelNames controls whether channel names are hidden. When false (the
 	// default), names are displayed.
 	HideChannelNames bool `json:"hide_channel_names" msgpack:"hide_channel_names"`
-	// HideReceiptTimestamp controls whether the receipt timestamp column is hidden. When
-	// false (the default), it is displayed.
+	// HideReceiptTimestamp controls whether the receipt timestamp column is hidden.
+	// When false (the default), it is displayed.
 	HideReceiptTimestamp bool `json:"hide_receipt_timestamp" msgpack:"hide_receipt_timestamp"`
 }
 

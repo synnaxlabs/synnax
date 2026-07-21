@@ -27,8 +27,9 @@ type Node struct {
 	Key string `json:"key" msgpack:"key"`
 	// Position is the top-left position of the node.
 	Position spatial.XY `json:"position" msgpack:"position"`
-	// ZIndex is the stacking order of the node within the schematic. Higher values render
-	// above lower values. Set by the user via send-to-back / bring-to-front actions.
+	// ZIndex is the stacking order of the node within the schematic. Higher values
+	// render above lower values. Set by the user via send-to-back / bring-to-front
+	// actions.
 	ZIndex int16 `json:"z_index" msgpack:"z_index"`
 }
 
@@ -65,9 +66,9 @@ type Schematic struct {
 	Nodes []Node `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Edges contains all connections between nodes.
 	Edges []Edge `json:"edges,omitzero" msgpack:"edges,omitzero"`
-	// Configs contains per-element configuration keyed by node or edge key. The shape of
-	// each value is determined by the element's variant; the wire format intentionally
-	// stores it as an opaque record.
+	// Configs contains per-element configuration keyed by node or edge key. The shape
+	// of each value is determined by the element's variant; the wire format
+	// intentionally stores it as an opaque record.
 	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
 }
 

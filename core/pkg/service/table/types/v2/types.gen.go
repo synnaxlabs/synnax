@@ -28,8 +28,8 @@ type Cell struct {
 	// determines the shape of props and which Pluto cell component renders the cell.
 	Variant string `json:"variant" msgpack:"variant"`
 	// Props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new variants
-	// can be added without a schema migration.
+	// variant; the wire format intentionally stores it as an opaque record so new
+	// variants can be added without a schema migration.
 	Props msgpack.EncodedJSON `json:"props,omitzero" msgpack:"props,omitzero"`
 }
 
@@ -41,8 +41,8 @@ type CellTemplate struct {
 	// determines the shape of props and which Pluto cell component renders the cell.
 	Variant string `json:"variant" msgpack:"variant"`
 	// Props is the variant-specific cell configuration. The shape is determined by the
-	// variant; the wire format intentionally stores it as an opaque record so new variants
-	// can be added without a schema migration.
+	// variant; the wire format intentionally stores it as an opaque record so new
+	// variants can be added without a schema migration.
 	Props msgpack.EncodedJSON `json:"props,omitzero" msgpack:"props,omitzero"`
 }
 
@@ -73,9 +73,9 @@ type Table struct {
 	Rows []Row `json:"rows,omitzero" msgpack:"rows,omitzero"`
 	// Columns are the table columns in display order, left to right.
 	Columns []Column `json:"columns,omitzero" msgpack:"columns,omitzero"`
-	// Cells contains all cells in the table, keyed by cell key. Cell positions are derived
-	// from rows[*].cells[*] references; cells not referenced by any row are orphaned and
-	// will be pruned on the next structural edit.
+	// Cells contains all cells in the table, keyed by cell key. Cell positions are
+	// derived from rows[*].cells[*] references; cells not referenced by any row are
+	// orphaned and will be pruned on the next structural edit.
 	Cells map[string]Cell `json:"cells,omitzero" msgpack:"cells,omitzero"`
 }
 

@@ -36,9 +36,10 @@ type TabType = v0.TabType
 const (
 	// TabTypeResource is a tab displaying a backing core document.
 	TabTypeResource TabType = v0.TabTypeResource
-	// TabTypeView is a tab displaying an inline, self-describing view. Unlike a resource,
-	// a view has no backing core document: it carries its own type and opaque args. Used
-	// for app-views and tools (docs, explorers, task forms, and the selector pickers).
+	// TabTypeView is a tab displaying an inline, self-describing view. Unlike a
+	// resource, a view has no backing core document: it carries its own type and opaque
+	// args. Used for app-views and tools (docs, explorers, task forms, and the selector
+	// pickers).
 	TabTypeView TabType = v0.TabTypeView
 )
 

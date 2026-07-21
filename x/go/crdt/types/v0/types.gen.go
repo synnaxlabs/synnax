@@ -20,8 +20,8 @@ import (
 // replica that created the character with that replica's per-character counter, making
 // the identifier globally unique without coordination.
 type ID struct {
-	// Replica is the replica that created the character. A zero replica marks the document
-	// root sentinel.
+	// Replica is the replica that created the character. A zero replica marks the
+	// document root sentinel.
 	Replica uint32 `json:"replica" msgpack:"replica"`
 	// Counter is the per-replica counter, incremented for every character the replica
 	// inserts.
@@ -32,8 +32,8 @@ type ID struct {
 type Insert struct {
 	// ID is the identity of the inserted character.
 	ID ID `json:"id" msgpack:"id"`
-	// Origin is the existing character this one anchors to. The root sentinel anchors to
-	// the start of the document.
+	// Origin is the existing character this one anchors to. The root sentinel anchors
+	// to the start of the document.
 	Origin ID `json:"origin" msgpack:"origin"`
 	// Side is the side of origin the character anchors to: left places it immediately
 	// before the origin, right immediately after.

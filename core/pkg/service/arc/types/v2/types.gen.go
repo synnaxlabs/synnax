@@ -44,8 +44,8 @@ type Arc struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the module.
 	Name string `json:"name" msgpack:"name"`
-	// Mode specifies the representation mode for this module. Either "text" for text-based
-	// Arc code or "graph" for visual dataflow.
+	// Mode specifies the representation mode for this module. Either "text" for
+	// text-based Arc code or "graph" for visual dataflow.
 	Mode Mode `json:"mode" msgpack:"mode"`
 	// Graph is the visual dataflow graph representation of the module.
 	Graph graph.Graph `json:"graph" msgpack:"graph"`

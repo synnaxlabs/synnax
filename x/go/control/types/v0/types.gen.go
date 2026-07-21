@@ -34,8 +34,8 @@ type Subject struct {
 	Key string `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the subject.
 	Name string `json:"name" msgpack:"name"`
-	// Group optional identifier shared by subjects from the same logical group (e.g.) all
-	// writers from the same Driver rack.
+	// Group optional identifier shared by subjects from the same logical group (e.g.)
+	// all writers from the same Driver rack.
 	Group uint32 `json:"group" msgpack:"group"`
 }
 

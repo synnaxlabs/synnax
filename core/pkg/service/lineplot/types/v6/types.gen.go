@@ -203,9 +203,9 @@ type Channels struct {
 // Ranges binds range keys to each x-axis.
 type Ranges struct {
 	// X1 are the range keys plotted against the x1 axis. Range keys are opaque strings
-	// rather than UUIDs because the console layers synthetic rolling-window ranges (e.g.
-	// "recent", "rolling1m") alongside persisted ranges; the server stores whatever the
-	// client sends.
+	// rather than UUIDs because the console layers synthetic rolling-window ranges
+	// (e.g. "recent", "rolling1m") alongside persisted ranges; the server stores
+	// whatever the client sends.
 	X1 []string `json:"x1,omitzero" msgpack:"x1,omitzero"`
 	// X2 are the range keys plotted against the x2 axis.
 	X2 []string `json:"x2,omitzero" msgpack:"x2,omitzero"`
@@ -233,8 +233,8 @@ type Axis struct {
 	// LabelLevel is the typography level of the label.
 	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
 	// Bounds is the value-space window of the axis. When the matching entry in
-	// manual_bounds is false the field is overwritten locally on every render; otherwise
-	// it is the user-set fixed bound.
+	// manual_bounds is false the field is overwritten locally on every render;
+	// otherwise it is the user-set fixed bound.
 	Bounds spatial.Bounds `json:"bounds" msgpack:"bounds"`
 	// ManualBounds controls per-edge manual bound override.
 	ManualBounds ManualBounds `json:"manual_bounds" msgpack:"manual_bounds"`
@@ -339,19 +339,20 @@ func (a Axes) Validate() error {
 
 // Line is the per-line styling and downsampling configuration.
 type Line struct {
-	// Key is the line identifier derived from its channel and range assignment. Format is
-	// internal to the client and stable across re-renders so styling overrides persist.
+	// Key is the line identifier derived from its channel and range assignment. Format
+	// is internal to the client and stable across re-renders so styling overrides
+	// persist.
 	Key string `json:"key" msgpack:"key"`
-	// Label is the user-specified line label. Null means derive from the channel name at
-	// render time; non-null is an override.
+	// Label is the user-specified line label. Null means derive from the channel name
+	// at render time; non-null is an override.
 	Label *string `json:"label,omitempty" msgpack:"label,omitempty"`
-	// Color is the line color. When null, the Console assigns one from the visualization
-	// palette at render time.
+	// Color is the line color. When null, the Console assigns one from the
+	// visualization palette at render time.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// StrokeWidth is the line stroke width in pixels.
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
-	// Downsample is the downsample factor applied before rendering. 1 means render every
-	// sample; higher values render every Nth sample.
+	// Downsample is the downsample factor applied before rendering. 1 means render
+	// every sample; higher values render every Nth sample.
 	Downsample uint32 `json:"downsample" msgpack:"downsample"`
 	// DownsampleMode selects how the downsample factor is applied.
 	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
@@ -384,8 +385,8 @@ type Rule struct {
 	Key string `json:"key" msgpack:"key"`
 	// Label is the human-readable label rendered alongside the rule.
 	Label string `json:"label" msgpack:"label"`
-	// Color is the display color of the rule. When null, the Console assigns a default at
-	// render time.
+	// Color is the display color of the rule. When null, the Console assigns a default
+	// at render time.
 	Color *color.Color `json:"color,omitempty" msgpack:"color,omitempty"`
 	// Axis is the axis the rule is anchored to.
 	Axis AxisKey `json:"axis" msgpack:"axis"`
@@ -432,8 +433,9 @@ type LinePlot struct {
 	Ranges Ranges `json:"ranges" msgpack:"ranges"`
 	// Axes bundles per-axis configuration.
 	Axes Axes `json:"axes" msgpack:"axes"`
-	// Lines holds per-line styling and downsampling configuration. Each entry corresponds
-	// to one channel and range combination produced by the channels and ranges bindings.
+	// Lines holds per-line styling and downsampling configuration. Each entry
+	// corresponds to one channel and range combination produced by the channels and
+	// ranges bindings.
 	Lines []Line `json:"lines,omitzero" msgpack:"lines,omitzero"`
 	// Rules holds annotation rules drawn over the plot.
 	Rules []Rule `json:"rules,omitzero" msgpack:"rules,omitzero"`

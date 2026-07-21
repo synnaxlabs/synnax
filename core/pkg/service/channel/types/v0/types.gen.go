@@ -73,14 +73,14 @@ func (o Operation) Validate() error {
 type Channel struct {
 	// Name is the human-readable channel name.
 	Name Name `json:"name" msgpack:"name"`
-	// Leaseholder is the node that holds the lease for this channel and is authorized to
-	// accept writes.
+	// Leaseholder is the node that holds the lease for this channel and is authorized
+	// to accept writes.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
 	// DataType is the data type of samples stored in this channel.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is true if this channel is an index channel. Index channels must have int64
-	// values (TIMESTAMP data type) written in ascending order, and are most commonly unix
-	// nanosecond timestamps.
+	// IsIndex is true if this channel is an index channel. Index channels must have
+	// int64 values (TIMESTAMP data type) written in ascending order, and are most
+	// commonly unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// LocalKey is the locally-unique portion of this channel's key.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`

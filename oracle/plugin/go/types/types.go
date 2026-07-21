@@ -40,6 +40,10 @@ import (
 
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
+// fieldDocIndent is the display width of the single tab indenting field-level
+// doc comments (tabs render at four columns per .editorconfig).
+const fieldDocIndent = 4
+
 // primitiveMapper is the Go-specific primitive type mapper.
 var primitiveMapper = goprimitives.Mapper()
 
@@ -868,7 +872,7 @@ var templateFuncs = template.FuncMap{
 	"join":      strings.Join,
 	"formatDoc": doc.FormatGo,
 	"formatFieldDoc": func(name, docStr string) string {
-		return doc.FormatGo(name, docStr, 1)
+		return doc.FormatGo(name, docStr, fieldDocIndent)
 	},
 }
 

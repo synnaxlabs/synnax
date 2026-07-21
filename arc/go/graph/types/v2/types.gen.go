@@ -52,7 +52,7 @@ type Graph struct {
 	// Nodes contains visual nodes with canvas positions.
 	Nodes Nodes `json:"nodes,omitzero" msgpack:"nodes,omitzero"`
 	// Inputs contains per-node inputs keyed by node key. Each value is a JSON object
-	// holding the node's function type under "type" plus its input parameter values. The
-	// wire format stores it as an opaque record; the client types it per function.
+	// holding the node's function type under "type" plus its input parameter values.
+	// The wire format stores it as an opaque record; the client types it per function.
 	Inputs map[string]msgpack.EncodedJSON `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 }

@@ -45,10 +45,11 @@ type Task struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the task.
 	Name string `json:"name" msgpack:"name"`
-	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan'). Determines
-	// which hardware integration handles the task.
+	// Type is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
+	// Determines which hardware integration handles the task.
 	Type string `json:"type" msgpack:"type"`
-	// Config is task-specific configuration stored as JSON. Structure varies by task type.
+	// Config is task-specific configuration stored as JSON. Structure varies by task
+	// type.
 	Config msgpack.EncodedJSON `json:"config,omitzero" msgpack:"config,omitzero"`
 	// Internal is true if this is an internal system task.
 	Internal bool `json:"internal" msgpack:"internal"`

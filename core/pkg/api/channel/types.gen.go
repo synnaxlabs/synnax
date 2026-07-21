@@ -33,23 +33,23 @@ type Channel struct {
 	Key servicechannel.Key `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
 	Name servicechannel.Name `json:"name" msgpack:"name"`
-	// Leaseholder is the node that holds the lease for this channel. Mostly for internal
-	// use.
+	// Leaseholder is the node that holds the lease for this channel. Mostly for
+	// internal use.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
-	// DataType is the data type of samples stored in this channel (e.g., Float64, Int32,
-	// TimeStamp).
+	// DataType is the data type of samples stored in this channel (e.g., Float64,
+	// Int32, TimeStamp).
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// IsIndex is true if this is an index channel. Index channels must have int64 values
-	// (TIMESTAMP data type) written in ascending order, and are most commonly unix
-	// nanosecond timestamps.
+	// IsIndex is true if this is an index channel. Index channels must have int64
+	// values (TIMESTAMP data type) written in ascending order, and are most commonly
+	// unix nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Index is the channel used to index this channel's values, associating each value
 	// with a timestamp.
 	Index servicechannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
 	Alias *string `json:"alias,omitempty" msgpack:"alias,omitempty"`
-	// Virtual is true if this channel does not store data in the database but can still be
-	// used for streaming purposes.
+	// Virtual is true if this channel does not store data in the database but can still
+	// be used for streaming purposes.
 	Virtual bool `json:"virtual" msgpack:"virtual"`
 	// Internal is true if this is a system channel hidden from normal user queries.
 	Internal bool `json:"internal" msgpack:"internal"`
