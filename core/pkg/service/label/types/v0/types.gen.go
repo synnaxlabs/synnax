@@ -31,8 +31,8 @@ type Label struct {
 	Color color.Color `json:"color" msgpack:"color"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (l Label) Validate() error {
 	v := validate.New("Label")
 	validate.NotEmptyString(v, "name", l.Name)

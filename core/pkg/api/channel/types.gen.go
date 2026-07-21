@@ -66,8 +66,8 @@ type Channel struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	for i := range c.Operations {

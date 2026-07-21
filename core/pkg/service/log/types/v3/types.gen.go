@@ -32,8 +32,8 @@ type TimestampConfig struct {
 	Tz telem.TimeZone `json:"tz" msgpack:"tz"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (t TimestampConfig) Validate() error {
 	v := validate.New("TimestampConfig")
 	v.Ternaryf("format", !t.Format.IsValid(), "invalid format: %v", t.Format)
@@ -74,8 +74,8 @@ func (c *ChannelEntry) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (c ChannelEntry) Validate() error {
 	v := validate.New("ChannelEntry")
 	v.Ternaryf("notation", !c.Notation.IsValid(), "invalid notation: %v", c.Notation)
@@ -112,8 +112,8 @@ func (l *Log) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (l Log) Validate() error {
 	v := validate.New("Log")
 	validate.NotEmptyString(v, "name", l.Name)

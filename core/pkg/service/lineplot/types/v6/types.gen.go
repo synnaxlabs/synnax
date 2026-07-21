@@ -135,8 +135,8 @@ func (t *Title) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (t Title) Validate() error {
 	v := validate.New("Title")
 	v.Ternaryf("level", !t.Level.IsValid(), "invalid level: %v", t.Level)
@@ -175,8 +175,8 @@ func (l *Legend) ApplyDefaults() {
 	l.Position.ApplyDefaults()
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (l Legend) Validate() error {
 	v := validate.New("Legend")
 	v.Exec(func() error { return validate.PathedError(l.Position.Validate(), "position") })
@@ -258,8 +258,8 @@ func (a *Axis) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (a Axis) Validate() error {
 	v := validate.New("Axis")
 	v.Ternaryf("key", !a.Key.IsValid(), "invalid key: %v", a.Key)
@@ -324,8 +324,8 @@ func (a *Axes) ApplyDefaults() {
 	a.Y4.ApplyDefaults()
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (a Axes) Validate() error {
 	v := validate.New("Axes")
 	v.Exec(func() error { return validate.PathedError(a.X1.Validate(), "x1") })
@@ -371,8 +371,8 @@ func (l *Line) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (l Line) Validate() error {
 	v := validate.New("Line")
 	v.Ternaryf("downsample_mode", !l.DownsampleMode.IsValid(), "invalid downsample_mode: %v", l.DownsampleMode)
@@ -407,8 +407,8 @@ func (r *Rule) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (r Rule) Validate() error {
 	v := validate.New("Rule")
 	v.Ternaryf("axis", !r.Axis.IsValid(), "invalid axis: %v", r.Axis)
@@ -454,8 +454,8 @@ func (l *LinePlot) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
 	validate.NotEmptyString(v, "name", l.Name)

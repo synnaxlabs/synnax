@@ -52,8 +52,8 @@ type Rack struct {
 	Integrations []string `json:"integrations,omitzero" msgpack:"integrations,omitzero"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (r Rack) Validate() error {
 	v := validate.New("Rack")
 	validate.NonZero(v, "key", r.Key)

@@ -124,8 +124,8 @@ type CornerLocation struct {
 	Y YLocation `json:"y" msgpack:"y"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (c CornerLocation) Validate() error {
 	v := validate.New("CornerLocation")
 	v.Ternaryf("x", !c.X.IsValid(), "invalid x: %v", c.X)
@@ -141,8 +141,8 @@ type StickyUnits struct {
 	Y StickyUnit `json:"y" msgpack:"y"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (s StickyUnits) Validate() error {
 	v := validate.New("StickyUnits")
 	v.Ternaryf("x", !s.X.IsValid(), "invalid x: %v", s.X)
@@ -179,8 +179,8 @@ func (s *StickyXY) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (s StickyXY) Validate() error {
 	v := validate.New("StickyXY")
 	v.Exec(func() error { return validate.PathedError(s.Root.Validate(), "root") })

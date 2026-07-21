@@ -79,8 +79,8 @@ type Table struct {
 	Cells map[string]Cell `json:"cells,omitzero" msgpack:"cells,omitzero"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (t Table) Validate() error {
 	v := validate.New("Table")
 	validate.NotEmptyString(v, "name", t.Name)

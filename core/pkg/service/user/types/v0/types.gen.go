@@ -35,8 +35,8 @@ type User struct {
 	RootUser bool `json:"root_user" msgpack:"root_user"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (u User) Validate() error {
 	v := validate.New("User")
 	validate.NotEmptyString(v, "username", u.Username)

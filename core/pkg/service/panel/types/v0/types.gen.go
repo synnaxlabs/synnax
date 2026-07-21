@@ -65,8 +65,8 @@ type TabResource struct {
 
 func (TabResource) isTabVariant() {}
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (t TabResource) Validate() error {
 	v := validate.New("TabResource")
 	v.Exec(func() error { return validate.PathedError(t.Resource.Validate(), "resource") })
@@ -154,8 +154,8 @@ func (u *Tab) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active
-// variant violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
 func (u Tab) Validate() error {
 	switch variant := u.Variant.(type) {
 	case TabResource:
@@ -170,8 +170,8 @@ type Leaf struct {
 	Tabs []Tab `json:"tabs,omitzero" msgpack:"tabs,omitzero"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (l Leaf) Validate() error {
 	v := validate.New("Leaf")
 	for i := range l.Tabs {
@@ -193,8 +193,8 @@ type Split struct {
 	Last Node `json:"last" msgpack:"last"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (s Split) Validate() error {
 	v := validate.New("Split")
 	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
@@ -220,8 +220,8 @@ type NodeLeaf struct {
 
 func (NodeLeaf) isNodeVariant() {}
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (n NodeLeaf) Validate() error {
 	v := validate.New("NodeLeaf")
 	v.Exec(n.Leaf.Validate)
@@ -234,8 +234,8 @@ type NodeSplit struct {
 
 func (NodeSplit) isNodeVariant() {}
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (n NodeSplit) Validate() error {
 	v := validate.New("NodeSplit")
 	v.Exec(n.Split.Validate)
@@ -310,8 +310,8 @@ func (u *Node) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Validate returns an error wrapping validate.ErrValidation if the active
-// variant violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
 func (u Node) Validate() error {
 	switch variant := u.Variant.(type) {
 	case NodeLeaf:
@@ -342,8 +342,8 @@ type Panel struct {
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (p Panel) Validate() error {
 	v := validate.New("Panel")
 	validate.NotEmptyString(v, "name", p.Name)

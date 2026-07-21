@@ -28,8 +28,8 @@ type Document struct {
 	Deletes []crdt.Delete `json:"deletes,omitzero" msgpack:"deletes,omitzero"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (d Document) Validate() error {
 	v := validate.New("Document")
 	for i := range d.Inserts {
@@ -48,8 +48,8 @@ type Text struct {
 	AST parser.IProgramContext `json:"-"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (t Text) Validate() error {
 	v := validate.New("Text")
 	v.Exec(func() error { return validate.PathedError(t.Doc.Validate(), "doc") })

@@ -43,8 +43,8 @@ type Range struct {
 	Parent *Range `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (r Range) Validate() error {
 	v := validate.New("Range")
 	validate.NotEmptyString(v, "name", r.Name)

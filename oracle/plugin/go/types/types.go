@@ -1067,8 +1067,8 @@ func ({{$s.Receiver}} *{{$s.Name}}) ApplyDefaults() {
 {{- end}}
 {{- if or .EnumChecks .ConstraintChecks .ValidateRecurse}}
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v := validate.New("{{$s.Name}}")
 {{- range $s.EnumChecks}}
@@ -1168,8 +1168,8 @@ func ({{$vt.Receiver}} *{{$vt.TypeName}}) ApplyDefaults() {
 {{- end}}
 {{- if .NeedsValidate}}
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v := validate.New("{{$vt.TypeName}}")
 {{- range $vt.ValidateRecurse}}
@@ -1277,8 +1277,8 @@ func (u *{{.Name}}) ApplyDefaults() {
 {{- end}}
 {{- if .NeedsValidate}}
 
-// Validate returns an error wrapping validate.ErrValidation if the active
-// variant violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
 func (u {{.Name}}) Validate() error {
 	switch variant := u.Variant.(type) {
 {{- range .Variants}}

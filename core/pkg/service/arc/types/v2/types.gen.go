@@ -57,8 +57,8 @@ type Arc struct {
 	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (a Arc) Validate() error {
 	v := validate.New("Arc")
 	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)

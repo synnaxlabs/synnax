@@ -59,8 +59,8 @@ type Operation struct {
 	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (o Operation) Validate() error {
 	v := validate.New("Operation")
 	v.Ternaryf("type", !o.Type.IsValid(), "invalid type: %v", o.Type)
@@ -102,8 +102,8 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (c Channel) Validate() error {
 	v := validate.New("Channel")
 	for i := range c.Operations {

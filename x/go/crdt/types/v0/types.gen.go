@@ -42,8 +42,8 @@ type Insert struct {
 	Char int32 `json:"char" msgpack:"char"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (i Insert) Validate() error {
 	v := validate.New("Insert")
 	v.Ternaryf("side", !i.Side.IsValid(), "invalid side: %v", i.Side)

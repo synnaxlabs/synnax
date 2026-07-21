@@ -65,8 +65,8 @@ type Device struct {
 	Parent *ontology.ID `json:"parent,omitempty" msgpack:"parent,omitempty"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (d Device) Validate() error {
 	v := validate.New("Device")
 	validate.NonZero(v, "rack", d.Rack)

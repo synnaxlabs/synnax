@@ -38,8 +38,8 @@ type Policy struct {
 	Internal bool `json:"internal" msgpack:"internal"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (p Policy) Validate() error {
 	v := validate.New("Policy")
 	for i := range p.Objects {

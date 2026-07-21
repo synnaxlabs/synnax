@@ -72,8 +72,8 @@ type Schematic struct {
 	Configs map[string]msgpack.EncodedJSON `json:"configs,omitzero" msgpack:"configs,omitzero"`
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field
-// violates its schema constraints.
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
 func (s Schematic) Validate() error {
 	v := validate.New("Schematic")
 	validate.NotEmptyString(v, "name", s.Name)
