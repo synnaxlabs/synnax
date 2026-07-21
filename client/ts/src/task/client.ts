@@ -269,7 +269,7 @@ const normalizeRequest = (
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.names == null &&
   req.types == null &&
@@ -393,7 +393,7 @@ export class Client {
   ): cache.Table<Key, Omit<Task, "status">> {
     const table = engine.createTable<Key, Omit<Task, "status">>({
       name: "tasks",
-      equal: (a, b) => deep.equal((a as Task).payload, (b as Task).payload),
+      equal: (a, b) => deep.equal(a.payload, b.payload),
     });
     const setListener: cache.ChannelListener<typeof keyZ> = {
       channel: SET_CHANNEL_NAME,
@@ -474,7 +474,7 @@ export class Client {
     const rollback = new cache.Rollback();
     rollback.add(
       this.store.set(key, (p) =>
-        p == null ? undefined : this.sugar({ ...(p as Task).payload, name }),
+        p == null ? undefined : this.sugar({ ...p.payload, name }),
       ),
     );
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
@@ -597,20 +597,21 @@ export class Client {
   /** Rebuilds a cached task with its cached status attached. */
   private compose(cached: Omit<Task, "status">): Task {
     const st = this.latestStatusOf(cached.key);
-    const payload = (cached as Task).payload;
+    const payload = cached.payload;
     if (st == null) return this.sugar(payload);
-    return this.sugar({ ...payload, status: st as unknown as Status });
+    return this.sugar({ ...payload, status: st });
   }
 
   // A task's status may live under the "task:<key>" row or under any status
-  // whose details reference the task; the freshest wins.
-  private latestStatusOf(key: Key): status.Status | undefined {
+  // whose details reference the task; the freshest wins. Rows are parsed
+  // because the status table holds every domain's statuses generically.
+  private latestStatusOf(key: Key): Status | undefined {
     const taskKey = statusKey(key);
-    const candidates = this.statusStore.get(
-      (s) =>
-        s.key === taskKey ||
-        (s as { details?: { task?: unknown } }).details?.task === key,
-    );
+    const candidates = this.statusStore
+      .get((s) => s.key === taskKey || status.detailsOf(s)?.task === key)
+      .map((s) => statusZ().safeParse(s))
+      .filter((p) => p.success)
+      .map((p) => p.data);
     if (candidates.length === 0) return undefined;
     return candidates.reduce((latest, s) =>
       new TimeStamp(s.time).afterEq(new TimeStamp(latest.time)) ? s : latest,
@@ -660,7 +661,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Task[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const tasks = await this.execRetrieve({ ...query, includeStatus: true });
     tasks.forEach((t) => this.writeThrough(t));
     return tasks;

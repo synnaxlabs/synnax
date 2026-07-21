@@ -50,7 +50,7 @@ export interface SetLayoutParams extends z.input<typeof setLayoutReqZ> {}
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.searchTerm == null &&
   req.limit == null &&
@@ -273,7 +273,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Project[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const projects = await this.execRetrieve(query);
     this.store.set(projects);
     return projects;

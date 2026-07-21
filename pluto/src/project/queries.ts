@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache, ontology, project } from "@synnaxlabs/client";
+import { ontology, project } from "@synnaxlabs/client";
 import { array, type record } from "@synnaxlabs/x";
 import type z from "zod";
 
@@ -43,7 +43,7 @@ export type DeleteParams = project.Key | project.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: cache.DELETE_VERBS,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     await client.projects.delete(keys, {
@@ -60,7 +60,7 @@ export interface RenameParams {
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: cache.RENAME_VERBS,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data }) => {
     const { key, name } = data;
     await client.projects.rename(key, name);
@@ -108,7 +108,7 @@ const LAYOUT_RESOURCE_NAME = "project layout";
 
 export const { useUpdate: useSaveLayout } = Flux.createUpdate<SaveLayoutParams>({
   name: LAYOUT_RESOURCE_NAME,
-  verbs: cache.CREATE_VERBS,
+  verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, layout } = data;
     await client.projects.setLayout(key, layout, {

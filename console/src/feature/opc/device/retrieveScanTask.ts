@@ -15,8 +15,4 @@ export const retrieveScanTask = async (
   client: Synnax,
   rack: number,
 ): Promise<task.Task<typeof SCAN_SCHEMAS>> =>
-  // The shared cache holds untyped tasks; the scan task's schemas are known.
-  (await client.tasks.retrieve({
-    type: SCAN_TYPE,
-    rack,
-  })) as unknown as task.Task<typeof SCAN_SCHEMAS>;
+  await client.tasks.retrieve<typeof SCAN_SCHEMAS>({ type: SCAN_TYPE, rack });

@@ -246,7 +246,9 @@ const onlyRangeKey = (options?: RetrieveOptions): boolean =>
   options == null ||
   Object.entries(options).every(([k, v]) => v === undefined || k === "rangeKey");
 
-const isKeysOnly = (req: NormalizedRequest): boolean =>
+const isKeysOnly = (
+  req: NormalizedRequest,
+): req is NormalizedRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.names == null &&
   req.searchTerm == null &&
@@ -565,9 +567,7 @@ export class Client {
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
     const normalized =
-      variant === "keys"
-        ? (rawNormalized as Key[]).filter((k) => k !== 0)
-        : rawNormalized;
+      variant === "keys" ? rawNormalized.filter((k) => k !== 0) : rawNormalized;
     if (normalized.length === 0) {
       checkForMultipleOrNoResults<Params, Channel>("channel", params, [], isSingle);
       return [];
@@ -648,7 +648,7 @@ export class Client {
   async delete(params: Params, opts: cache.WriteOptions = {}): Promise<void> {
     const { normalized, variant } = analyzeParams(params);
     if (variant === "keys") {
-      const keys = normalized as Key[];
+      const keys = normalized;
       const rollback = new cache.Rollback();
       const ids = ontologyID(keys);
       rollback.add(ontology.deleteCachedRelationships(this.ontology, ids));
@@ -661,7 +661,7 @@ export class Client {
       this.store.delete(keys);
       return;
     }
-    const names = normalized as string[];
+    const names = normalized;
     await this.writer.delete({ names });
     const cached = this.store.get((ch) => names.includes(ch.name));
     if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
@@ -708,7 +708,7 @@ export class Client {
           return await this.retriever.retrieve(channels);
         const { variant, normalized } = analyzeParams(channels);
         if (variant === "keys" && options == null)
-          return (await this.fetchKeys(normalized as Key[])).map((ch) => ch.payload);
+          return (await this.fetchKeys(normalized)).map((ch) => ch.payload);
         return await this.retriever.retrieve(channels, options);
       },
     };
@@ -831,7 +831,7 @@ export class Client {
   private async fetchRequest(query: NormalizedRequest): Promise<Channel[]> {
     const { rangeKey } = query;
     let channels: Channel[];
-    if (isKeysOnly(query)) channels = await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) channels = await this.fetchKeys(query.keys);
     else {
       channels = (await this.retriever.retrieve(query)).map((p) =>
         this.sugar(stripComposed(p)),

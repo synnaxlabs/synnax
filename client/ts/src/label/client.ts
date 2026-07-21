@@ -63,7 +63,7 @@ const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
 const normalizeRequest = (params: RetrieveMultipleParams): RetrieveRequest =>
   retrieveRequestZ.parse(params);
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.names == null &&
   req.for == null &&
@@ -277,7 +277,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Label[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const labels = await this.execRetrieve(query);
     this.store.set(labels);
     return labels;

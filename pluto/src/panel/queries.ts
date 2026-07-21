@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  cache,
   NotFoundError,
   type ontology,
   panel,
@@ -414,7 +413,7 @@ export interface CreateParams extends panel.New {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, panel.Panel>({
   name: RESOURCE_NAME,
-  verbs: cache.CREATE_VERBS,
+  verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.panels.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -425,7 +424,7 @@ export interface RenameParams extends Pick<panel.Panel, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: cache.RENAME_VERBS,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);
@@ -438,7 +437,7 @@ export type DeleteParams = panel.Key | panel.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: cache.DELETE_VERBS,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.panels.delete(array.toArray(data), {
       onOptimistic: async () => await onOptimisticComplete(data),

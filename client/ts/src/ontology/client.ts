@@ -446,16 +446,17 @@ export class Client {
   }
 
   private routeRequest(request: RetrieveRequest): Routed {
-    const hasIDs = request.ids != null && request.ids.length > 0;
+    const { ids } = request;
+    const hasIDs = ids != null && ids.length > 0;
     if (hasIDs && request.children === true && request.parents !== true)
       return {
         space: "children",
-        query: normalizeDependents(request.ids as ID[], request),
+        query: normalizeDependents(ids, request),
       };
     if (hasIDs && request.parents === true && request.children !== true)
       return {
         space: "parents",
-        query: normalizeDependents(request.ids as ID[], request),
+        query: normalizeDependents(ids, request),
       };
     return { space: "request", query: normalizeRequest(request) };
   }

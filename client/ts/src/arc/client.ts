@@ -514,12 +514,17 @@ export class Client {
     return arcs.map((a) => this.hydrate(a));
   }
 
-  /** Rebuilds a cached task with its cached status attached. */
+  /**
+   * Rebuilds a cached task with its cached status attached. The status is
+   * parsed because the status table holds every domain's statuses generically.
+   */
   private composeTask(cached: Omit<task.Task, "status">): task.Task {
-    const st = this.statusStore.get(task.statusKey(cached.key));
-    const payload = (cached as task.Task).payload;
-    if (st == null) return this.taskClient.sugar(payload);
-    return this.taskClient.sugar({ ...payload, status: st as unknown as task.Status });
+    const cachedStatus = this.statusStore.get(task.statusKey(cached.key));
+    const payload = cached.payload;
+    if (cachedStatus == null) return this.taskClient.sugar(payload);
+    const parsed = task.statusZ().safeParse(cachedStatus);
+    if (!parsed.success) return this.taskClient.sugar(payload);
+    return this.taskClient.sugar({ ...payload, status: parsed.data });
   }
 
   private async fetchTask(arcKey: Key): Promise<task.Task | null> {

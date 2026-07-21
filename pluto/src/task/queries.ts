@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache, type ontology, type rack, task } from "@synnaxlabs/client";
+import { type cache, type ontology, type rack, task } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
@@ -210,7 +210,7 @@ export type DeleteParams = task.Key | task.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams>({
   name: RESOURCE_NAME,
-  verbs: cache.DELETE_VERBS,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.tasks.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -228,7 +228,7 @@ export interface SnapshotParams {
 
 export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
-  verbs: cache.SNAPSHOT_VERBS,
+  verbs: Flux.SNAPSHOT_VERBS,
   update: async ({ client, data }) => {
     const { tasks: taskPairs, parentID } = data;
     const tasks = await Promise.all(
@@ -246,7 +246,7 @@ export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
-  verbs: cache.RENAME_VERBS,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.tasks.rename(key, name, {
@@ -271,7 +271,7 @@ export const shouldExecuteCommand = <StatusData extends z.ZodType = z.ZodNever>(
   );
 };
 
-const COMMAND_VERBS: cache.Verbs = {
+const COMMAND_VERBS: Flux.Verbs = {
   present: "command",
   participle: "commanding",
   past: "commanded",

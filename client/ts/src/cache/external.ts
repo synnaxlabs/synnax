@@ -35,17 +35,8 @@ export {
   type Tombstone,
 } from "@/cache/table";
 export {
-  COPY_VERBS,
-  CREATE_VERBS,
   type Data,
-  DELETE_VERBS,
   type FetchOptions,
   type Query,
-  RENAME_VERBS,
-  SAVE_VERBS,
-  SET_VERBS,
-  SNAPSHOT_VERBS,
-  UPDATE_VERBS,
-  type Verbs,
   type WriteOptions,
 } from "@/cache/types";

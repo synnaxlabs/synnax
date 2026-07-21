@@ -20,7 +20,7 @@ export interface DispatchInput<Key extends record.Key, Action> {
   actions: Action | Action[];
 }
 
-const INERT_TX: dispatch.Transaction<never> = {
+const INERT_TX: dispatch.Transaction<unknown> = {
   add: () => {},
   commit: async () => false,
   abort: () => {},
@@ -124,7 +124,7 @@ export const createDispatch = <
 
     const beginTransaction = useCallback(
       (input: { key: Key; kind?: string }): dispatch.Transaction<Action> => {
-        if (client == null) return INERT_TX as dispatch.Transaction<Action>;
+        if (client == null) return INERT_TX;
         const tx = domain(client).beginTransaction(input.key, input.kind);
         return {
           ...tx,

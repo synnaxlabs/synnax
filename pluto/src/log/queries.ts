@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import {
-  cache,
   type channel,
   type log,
   NotFoundError,
@@ -136,7 +135,7 @@ export const useRedo = Scope.bindHook(useRedoBase);
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: cache.DELETE_VERBS,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.logs.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -151,7 +150,7 @@ export interface CreateParams extends log.New {
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, log.Log>({
   name: RESOURCE_NAME,
-  verbs: cache.CREATE_VERBS,
+  verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.logs.create(data.project ?? uuid.ZERO, data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -162,7 +161,7 @@ export interface RenameParams extends Pick<log.Log, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: cache.RENAME_VERBS,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await onOptimisticComplete(data);

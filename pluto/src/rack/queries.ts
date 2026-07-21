@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache, type rack } from "@synnaxlabs/client";
+import { type rack } from "@synnaxlabs/client";
 
 import { Flux } from "@/flux";
 
@@ -50,7 +50,7 @@ export type UseDeleteParams = rack.Key | rack.Key[];
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: cache.DELETE_VERBS,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.racks.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -63,7 +63,7 @@ export interface RenameParams extends Pick<rack.Rack, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: cache.RENAME_VERBS,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ data, client, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.racks.rename(key, name, {

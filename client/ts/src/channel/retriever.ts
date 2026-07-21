@@ -121,7 +121,7 @@ export class DebouncedBatchRetriever implements Retriever {
 
     const a = new Promise<Payload[]>((resolve, reject) => {
       void this.mu.runExclusive(() => {
-        this.requests.set(normalized as Key[], { resolve, reject });
+        this.requests.set(normalized, { resolve, reject });
         this.debouncedRun();
       });
     });

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache, type device } from "@synnaxlabs/client";
+import { type device } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -81,7 +81,7 @@ export interface ToggleEnabledParams {
 
 export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
   name: "Toggle Enabled",
-  verbs: cache.UPDATE_VERBS,
+  verbs: Flux.UPDATE_VERBS,
   update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
 

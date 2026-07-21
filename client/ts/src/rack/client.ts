@@ -24,7 +24,7 @@ import {
   type Status,
   statusZ,
 } from "@/rack/types.gen";
-import { type status } from "@/status";
+import { status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -95,7 +95,7 @@ const stripStatus = ({ status: _, ...rack }: Payload): Omit<Payload, "status"> =
 const isSingleParams = (params: RetrieveParams): params is RetrieveSingleParams =>
   "key" in params || "name" in params;
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.names == null &&
   req.integration == null &&
@@ -331,11 +331,7 @@ export class Client {
   private latestStatusOf(key: Key): Status | undefined {
     const rackKey = statusKey(key);
     const candidates = this.statusStore
-      .get(
-        (s) =>
-          s.key === rackKey ||
-          (s as { details?: { rack?: unknown } }).details?.rack === key,
-      )
+      .get((s) => s.key === rackKey || status.detailsOf(s)?.rack === key)
       .map((s) => statusZ.safeParse(s))
       .filter((p) => p.success)
       .map((p) => p.data);
@@ -397,7 +393,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Rack[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const racks = await this.execRetrieve(query);
     this.writeThrough(racks);
     return this.sugar(racks);

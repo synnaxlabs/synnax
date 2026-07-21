@@ -86,7 +86,7 @@ const SERVER_FIELDS = ["limit", "offset"] as const;
 const normalizeRequest = (params: RetrieveMultipleParams): RetrieveRequest =>
   retrieveRequestZ.parse(params);
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.internal == null &&
   req.limit == null &&
@@ -307,7 +307,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Role[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const roles = await this.execRetrieve(query);
     this.store.set(roles);
     return roles;

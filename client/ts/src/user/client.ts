@@ -87,7 +87,7 @@ const normalizeRequest = (
     ? { usernames: params.usernames }
     : params;
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) && req.usernames == null;
 
 const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
@@ -295,7 +295,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<User[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const users = await this.execRetrieve(query);
     this.store.set(users);
     return users;

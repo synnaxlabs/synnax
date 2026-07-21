@@ -116,7 +116,7 @@ const normalizeSingle = ({ key, includeStatus }: RetrieveSingleParams): SingleQu
 const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =>
   device;
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.names == null &&
   req.makes == null &&
@@ -478,7 +478,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Device[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const devices = await this.execRetrieve(query);
     this.writeThrough(devices);
     return devices;

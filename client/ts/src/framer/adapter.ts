@@ -51,7 +51,7 @@ export class ReadAdapter {
     );
     if (variant === "keys") {
       this.adapter = null;
-      this.keys = new Set(normalized as channel.Key[]);
+      this.keys = new Set(normalized);
       return true;
     }
     const a = new Map<channel.Key, string>();

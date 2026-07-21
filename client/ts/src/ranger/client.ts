@@ -294,7 +294,7 @@ const normalizeRequest = (
   params: Exclude<RetrieveParams, Key | Name>,
 ): RetrieveRequest => retrieveParamsZ.parse(params);
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.names == null &&
   req.searchTerm == null &&
@@ -718,7 +718,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Range[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, ...query });
     ranges.forEach((r) => this.writeThrough(r));
     return ranges;

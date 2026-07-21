@@ -82,7 +82,7 @@ const SERVER_FIELDS = ["subjects", "limit", "offset"] as const;
 const normalizeRequest = (params: RetrieveMultipleParams): RetrieveRequest =>
   listRetrieveParamsZ.parse(params);
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) &&
   req.subjects == null &&
   req.internal == null &&
@@ -293,7 +293,7 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Policy[]> {
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const policies = await this.execRetrieve(query);
     this.store.set(policies);
     return policies;

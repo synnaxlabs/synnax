@@ -72,7 +72,7 @@ export interface CreateMultipleParams {
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm"] as const;
 
-const isKeysOnly = (req: RetrieveRequest): boolean =>
+const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) && req.searchTerm == null && req.parent == null;
 
 const childRel = (parent: ontology.ID, key: Key): ontology.Relationship => ({
@@ -329,17 +329,20 @@ export class Client {
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Symbol[]> {
-    if (query.parent != null) return await this.fetchChildren(query);
-    if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
+    const { parent } = query;
+    if (parent != null) return await this.fetchChildren({ ...query, parent });
+    if (isKeysOnly(query)) return await this.fetchKeys(query.keys);
     const symbols = await this.execRetrieve(query);
     this.store.set(symbols);
     return symbols;
   }
 
-  private async fetchChildren(query: RetrieveRequest): Promise<Symbol[]> {
+  private async fetchChildren(
+    query: RetrieveRequest & { parent: ontology.ID },
+  ): Promise<Symbol[]> {
     // retrieveChildren writes the parent relationships through, so membership
     // checks in requestFilter see them.
-    const keys = await this.resolveChildKeys(query.parent as ontology.ID);
+    const keys = await this.resolveChildKeys(query.parent);
     if (keys.length === 0) return [];
     if (primitive.isZero(query.searchTerm)) return await this.fetchKeys(keys);
     const symbols = await this.execRetrieve({ keys, searchTerm: query.searchTerm });

@@ -9,7 +9,6 @@
 
 import "@/feature/version/Info.css";
 
-import { cache } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import { Button, Flex, Flux, Icon, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
@@ -49,7 +48,7 @@ const { useUpdate } = Flux.createUpdate<
   true
 >({
   name: "Console",
-  verbs: cache.UPDATE_VERBS,
+  verbs: Flux.UPDATE_VERBS,
   allowDisconnected: true,
   initialStatusDetails: {
     total: Size.bytes(0),

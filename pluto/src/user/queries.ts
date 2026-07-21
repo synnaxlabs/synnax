@@ -9,7 +9,6 @@
 
 import {
   access,
-  cache,
   ontology,
   type Synnax,
   UnexpectedError,
@@ -26,7 +25,7 @@ const RESOURCE_NAME = "user";
 
 export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteParams>({
   name: RESOURCE_NAME,
-  verbs: cache.DELETE_VERBS,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const keys = array.toArray(data);
     await client.users.delete(keys, {
@@ -44,7 +43,7 @@ export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"
 
 export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>({
   name: RESOURCE_NAME,
-  verbs: cache.RENAME_VERBS,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data }) => {
     const { key, username } = data;
     await client.users.changeUsername(key, username);

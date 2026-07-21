@@ -139,6 +139,14 @@ export const create = <
     description: spec.description ?? "",
   }) as Status<DetailsSchema, z.ZodType<V>>;
 
+/**
+ * Reads the details of a status whose schema is not statically known, as when
+ * scanning the generically-typed status table for rows belonging to a domain.
+ * @returns The details, or undefined when the status carries none.
+ */
+export const detailsOf = (status: Status): record.Unknown | undefined =>
+  (status as { details?: record.Unknown }).details;
+
 export const keepVariants = (
   variant?: Variant,
   keep: Variant | Variant[] = [],

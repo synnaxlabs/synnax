@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, ontology } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
@@ -108,7 +108,7 @@ export interface MoveChildrenParams {
   ids: ontology.ID[];
 }
 
-const MOVE_VERBS: cache.Verbs = {
+const MOVE_VERBS: Flux.Verbs = {
   present: "move",
   participle: "moving",
   past: "moved",

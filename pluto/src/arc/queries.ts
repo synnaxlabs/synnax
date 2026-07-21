@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, cache, NotFoundError, type Synnax, type task } from "@synnaxlabs/client";
+import { arc, NotFoundError, type Synnax, type task } from "@synnaxlabs/client";
 import { compare, primitive, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
@@ -197,7 +197,7 @@ export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc>({
 
 export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   name: PLURAL_RESOURCE_NAME,
-  verbs: cache.DELETE_VERBS,
+  verbs: Flux.DELETE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     await client.arcs.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
@@ -236,7 +236,7 @@ export interface CreateParams extends arc.CreateParams {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, arc.Arc>({
   name: RESOURCE_NAME,
-  verbs: cache.CREATE_VERBS,
+  verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, onOptimisticComplete }) =>
     await client.arcs.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
@@ -255,7 +255,7 @@ export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
-  verbs: cache.RENAME_VERBS,
+  verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, onOptimisticComplete }) => {
     const { key, name } = data;
     await client.arcs.rename(key, name, {
