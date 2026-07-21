@@ -10,10 +10,11 @@
 package types
 
 import (
+	"slices"
+
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // Migrations is the ordered migration chain for stored arcs.
-var Migrations = append(append([]migrate.Migration{}, v1.Migrations...), v2.Migration)
+var Migrations = append(slices.Clone(v1.Migrations), v2.Migration)

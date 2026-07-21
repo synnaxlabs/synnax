@@ -9,9 +9,7 @@
 
 package types
 
-import (
-	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v7"
-)
+import v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v7"
 
 // Migrations is the ordered migration chain for stored schematics.
 var Migrations = v7.Migrations
