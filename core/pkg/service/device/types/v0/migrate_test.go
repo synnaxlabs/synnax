@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types_test
+package v0_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/device/types"
-	devicev0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -54,30 +56,32 @@ var _ = Describe("Migration", func() {
 		}))
 	})
 
-	runMigrations := func(ctx SpecContext) {
+	runMigration := func(ctx context.Context) {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Device",
-			Migrations: types.NewMigrations(types.MigrationsConfig{Status: stat}),
+			DB:        db,
+			Namespace: "Device",
+			Migrations: []migrate.Migration{
+				v0.NewMigration(v0.MigrationConfig{Status: stat}),
+			},
 		})).To(Succeed())
 	}
 
 	It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
-		d := devicev0.Device{
+		d := v0.Device{
 			Key:      "migration-device",
 			Rack:     1<<16 | 1,
 			Location: "loc",
 			Name:     "Migration Test Device",
 		}
-		Expect(gorp.NewCreate[string, devicev0.Device]().
+		Expect(gorp.NewCreate[string, v0.Device]().
 			Entry(&d).
 			Exec(ctx, db)).To(Succeed())
 
-		runMigrations(ctx)
+		runMigration(ctx)
 
-		var restoredStatus types.Status
-		Expect(status.NewRetrieve[types.StatusDetails](stat).
-			Where(status.MatchKeys[types.StatusDetails](devicev0.OntologyID(d.Key).String())).
+		var restoredStatus status.Status[v0.StatusDetails]
+		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(d.Key).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -87,7 +91,7 @@ var _ = Describe("Migration", func() {
 	})
 
 	It("Should not create statuses for devices that already have them", func(ctx SpecContext) {
-		d := devicev0.Device{
+		d := v0.Device{
 			Key:      "existing-status-device",
 			Rack:     1<<16 | 1,
 			Location: "loc",
@@ -95,25 +99,25 @@ var _ = Describe("Migration", func() {
 			Make:     "Test Make",
 			Model:    "Test Model",
 		}
-		Expect(gorp.NewCreate[string, devicev0.Device]().
+		Expect(gorp.NewCreate[string, v0.Device]().
 			Entry(&d).
 			Exec(ctx, db)).To(Succeed())
-		existing := types.Status{
-			Key:     devicev0.OntologyID(d.Key).String(),
+		existing := status.Status[v0.StatusDetails]{
+			Key:     v0.OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Variant: status.VariantSuccess,
 			Message: "Device With Status is configured",
 			Time:    telem.Now(),
-			Details: types.StatusDetails{Rack: d.Rack, Device: d.Key},
+			Details: v0.StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
-		Expect(status.NewWriter[types.StatusDetails](stat, nil).
+		Expect(status.NewWriter[v0.StatusDetails](stat, nil).
 			Set(ctx, &existing)).To(Succeed())
 
-		runMigrations(ctx)
+		runMigration(ctx)
 
-		var deviceStatus types.Status
-		Expect(status.NewRetrieve[types.StatusDetails](stat).
-			Where(status.MatchKeys[types.StatusDetails](devicev0.OntologyID(d.Key).String())).
+		var deviceStatus status.Status[v0.StatusDetails]
+		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(d.Key).String())).
 			Entry(&deviceStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types_test
+package v0_test
 
 import (
 	"context"
@@ -18,34 +18,30 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/types"
-	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Migration", func() {
 	var (
-		db        *gorp.DB
-		otg       *ontology.Ontology
-		g         *group.Service
-		labelSvc  *label.Service
-		stat      *status.Service
-		searchIdx *search.Index
+		db   *gorp.DB
+		stat *status.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx = MustOpen(search.OpenIndex())
-		g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.OpenIndex())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -60,44 +56,44 @@ var _ = Describe("Migration", func() {
 		}))
 	})
 
-	runMigrations := func(ctx context.Context) {
+	runMigration := func(ctx context.Context) {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Rack",
-			Migrations: types.NewMigrations(types.MigrationsConfig{
+			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
 				HostProvider: mock.NewStaticHostProvider(1),
 				Status:       stat,
-			}),
+			})},
 		})).To(Succeed())
 	}
 
-	retrieveRack := func(ctx context.Context, key types.Key) types.Rack {
-		var r types.Rack
-		Expect(gorp.NewRetrieve[types.Key, types.Rack]().
-			Where(gorp.MatchKeys[types.Key, types.Rack](key)).
+	retrieveRack := func(ctx context.Context, key v0.Key) v0.Rack {
+		var r v0.Rack
+		Expect(gorp.NewRetrieve[v0.Key, v0.Rack]().
+			Where(gorp.MatchKeys[v0.Key, v0.Rack](key)).
 			Entry(&r).
 			Exec(ctx, db)).To(Succeed())
 		return r
 	}
 
 	countRacks := func(ctx context.Context) int {
-		return MustSucceed(gorp.NewRetrieve[types.Key, types.Rack]().Count(ctx, db))
+		return MustSucceed(gorp.NewRetrieve[v0.Key, v0.Rack]().Count(ctx, db))
 	}
 
 	It("Should create unknown statuses for racks missing them", func(ctx SpecContext) {
-		r := rackv0.Rack{
-			Key:  rackv0.Key(1<<16 | 50),
+		r := v0.Rack{
+			Key:  v0.Key(1<<16 | 50),
 			Name: "rack without status",
 		}
-		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
+		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
 			Entry(&r).
 			Exec(ctx, db)).To(Succeed())
 
-		runMigrations(ctx)
+		runMigration(ctx)
 
-		var restoredStatus types.Status
-		Expect(status.NewRetrieve[types.StatusDetails](stat).
-			Where(status.MatchKeys[types.StatusDetails](r.Key.OntologyID().String())).
+		var restoredStatus status.Status[v0.StatusDetails]
+		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+			Where(status.MatchKeys[v0.StatusDetails](r.Key.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -105,34 +101,34 @@ var _ = Describe("Migration", func() {
 		Expect(restoredStatus.Details.Rack).To(Equal(r.Key))
 	})
 
-	It("Should correctly migrate a v1 rack to a v2 rack", func(ctx SpecContext) {
-		v1EmbeddedRack := rackv0.Rack{
+	It("Should rename the host's embedded rack", func(ctx SpecContext) {
+		legacyEmbeddedRack := v0.Rack{
 			Key:  65538,
 			Name: "sy_node_1_rack",
 		}
-		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
-			Entry(&v1EmbeddedRack).
+		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
+			Entry(&legacyEmbeddedRack).
 			Exec(ctx, db)).To(Succeed())
 
-		runMigrations(ctx)
+		runMigration(ctx)
 
-		embeddedRack := retrieveRack(ctx, types.Key(65538))
+		embeddedRack := retrieveRack(ctx, v0.Key(65538))
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
 		Expect(countRacks(ctx)).To(Equal(1))
 	})
 
 	It("Should not match an embedded rack with a mismatched name", func(ctx SpecContext) {
-		mismatchedRack := rackv0.Rack{
+		mismatchedRack := v0.Rack{
 			Key:      65538,
 			Name:     "Some Other Embedded Rack",
 			Embedded: true,
 		}
-		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
+		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
 			Entry(&mismatchedRack).
 			Exec(ctx, db)).To(Succeed())
 
-		runMigrations(ctx)
+		runMigration(ctx)
 
 		got := retrieveRack(ctx, mismatchedRack.Key)
 		Expect(got.Embedded).To(BeTrue())
@@ -140,17 +136,17 @@ var _ = Describe("Migration", func() {
 		Expect(countRacks(ctx)).To(Equal(1))
 	})
 
-	It("Should reuse an existing v2 embedded rack with the correct name", func(ctx SpecContext) {
-		existingRack := rackv0.Rack{
+	It("Should leave an already-renamed embedded rack untouched", func(ctx SpecContext) {
+		existingRack := v0.Rack{
 			Key:      65538,
 			Name:     "Node 1 Embedded Driver",
 			Embedded: true,
 		}
-		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
+		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
 			Entry(&existingRack).
 			Exec(ctx, db)).To(Succeed())
 
-		runMigrations(ctx)
+		runMigration(ctx)
 
 		embeddedRack := retrieveRack(ctx, existingRack.Key)
 		Expect(embeddedRack.Embedded).To(BeTrue())

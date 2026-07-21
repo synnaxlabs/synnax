@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types_test
+package v0_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -17,10 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task/types"
-	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -54,28 +56,30 @@ var _ = Describe("Migration", func() {
 		}))
 	})
 
-	runMigrations := func(ctx SpecContext) {
+	runMigration := func(ctx context.Context) {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Task",
-			Migrations: types.NewMigrations(types.MigrationsConfig{Status: stat}),
+			DB:        db,
+			Namespace: "Task",
+			Migrations: []migrate.Migration{
+				v0.NewMigration(v0.MigrationConfig{Status: stat}),
+			},
 		})).To(Succeed())
 	}
 
 	It("Should create unknown statuses for tasks missing them", func(ctx SpecContext) {
-		t := taskv0.Task{
-			Key:  taskv0.Key(65537<<32 | 99),
+		t := v0.Task{
+			Key:  v0.Key(65537<<32 | 99),
 			Name: "Migration Test Task",
 		}
-		Expect(gorp.NewCreate[taskv0.Key, taskv0.Task]().
+		Expect(gorp.NewCreate[v0.Key, v0.Task]().
 			Entry(&t).
 			Exec(ctx, db)).To(Succeed())
 
-		runMigrations(ctx)
+		runMigration(ctx)
 
-		var restoredStatus types.Status
-		Expect(status.NewRetrieve[types.StatusDetails](stat).
-			Where(status.MatchKeys[types.StatusDetails](taskv0.OntologyID(t.Key).String())).
+		var restoredStatus status.Status[v0.StatusDetails]
+		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(t.Key).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -84,29 +88,29 @@ var _ = Describe("Migration", func() {
 	})
 
 	It("Should not create statuses for tasks that already have them", func(ctx SpecContext) {
-		t := taskv0.Task{
-			Key:  taskv0.Key(65537<<32 | 1),
+		t := v0.Task{
+			Key:  v0.Key(65537<<32 | 1),
 			Name: "Task With Status",
 		}
-		Expect(gorp.NewCreate[taskv0.Key, taskv0.Task]().
+		Expect(gorp.NewCreate[v0.Key, v0.Task]().
 			Entry(&t).
 			Exec(ctx, db)).To(Succeed())
-		existing := types.Status{
-			Key:     taskv0.OntologyID(t.Key).String(),
+		existing := status.Status[v0.StatusDetails]{
+			Key:     v0.OntologyID(t.Key).String(),
 			Name:    t.Name,
 			Variant: status.VariantSuccess,
 			Message: "Started",
 			Time:    telem.Now(),
-			Details: types.StatusDetails{Task: t.Key},
+			Details: v0.StatusDetails{Task: t.Key},
 		}
-		Expect(status.NewWriter[types.StatusDetails](stat, nil).
+		Expect(status.NewWriter[v0.StatusDetails](stat, nil).
 			Set(ctx, &existing)).To(Succeed())
 
-		runMigrations(ctx)
+		runMigration(ctx)
 
-		var taskStatus types.Status
-		Expect(status.NewRetrieve[types.StatusDetails](stat).
-			Where(status.MatchKeys[types.StatusDetails](taskv0.OntologyID(t.Key).String())).
+		var taskStatus status.Status[v0.StatusDetails]
+		Expect(status.NewRetrieve[v0.StatusDetails](stat).
+			Where(status.MatchKeys[v0.StatusDetails](v0.OntologyID(t.Key).String())).
 			Entry(&taskStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))
