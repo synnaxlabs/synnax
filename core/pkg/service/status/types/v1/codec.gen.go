@@ -14,9 +14,9 @@ package v1
 import (
 	"encoding/json"
 
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
-	telemv0 "github.com/synnaxlabs/x/telem/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
@@ -73,7 +73,7 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		s.Time = telemv0.TimeStamp(v)
+		s.Time = telem.TimeStamp(v)
 	}
 	{
 		b, err := r.ReadWithLen()
@@ -94,7 +94,7 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.Labels = make([]labelv0.Label, n)
+			s.Labels = make([]label.Label, n)
 			for j := range s.Labels {
 				if err = s.Labels[j].DecodeOrc(r); err != nil {
 					return err

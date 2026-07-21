@@ -16,9 +16,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Policy represents the old policy format with a Subjects field that
-// associated policies directly with users. Used only for reading legacy data
-// during migration.
+// Policy represents the old policy format with a Subjects field that associated
+// policies directly with users. Used only for reading legacy data during migration.
 type Policy struct {
 	Subjects []ontology.ID   `json:"subjects" msgpack:"subjects"`
 	Objects  []ontology.ID   `json:"objects" msgpack:"objects"`
@@ -29,4 +28,5 @@ type Policy struct {
 var _ gorp.Entry[uuid.UUID] = Policy{}
 
 func (p Policy) GorpKey() uuid.UUID { return p.Key }
-func (Policy) SetOptions() []any    { return nil }
+
+func (Policy) SetOptions() []any { return nil }

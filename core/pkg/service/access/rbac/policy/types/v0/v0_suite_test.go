@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestPolicyTypesV0(t *testing.T) {
+func TestPolicyV0(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Policy Types v0 Suite")
+	RunSpecs(t, "Policy v0 Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

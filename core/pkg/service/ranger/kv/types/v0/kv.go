@@ -9,18 +9,16 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/x/gorp"
-)
+import "github.com/synnaxlabs/x/gorp"
 
 const keySeparator = "<--->"
 
 var _ gorp.Entry[string] = Pair{}
 
 // GorpKey implements gorp.Entry.
-func (k Pair) GorpKey() string { return k.Range.String() + keySeparator + k.Key }
+func (p Pair) GorpKey() string { return p.Range.String() + keySeparator + p.Key }
 
 // SetOptions implements gorp.Entry.
-func (k Pair) SetOptions() []any { return nil }
+func (Pair) SetOptions() []any { return nil }
 
-func (k Pair) CustomTypeName() string { return "KVPair" }
+func (p Pair) CustomTypeName() string { return "KVPair" }

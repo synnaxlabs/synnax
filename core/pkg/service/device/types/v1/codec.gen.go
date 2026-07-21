@@ -14,8 +14,8 @@ package v1
 import (
 	"encoding/json"
 
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
-	rackv1 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -63,7 +63,7 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		d.Rack = rackv1.Key(v)
+		d.Rack = rack.Key(v)
 	}
 	if d.Location, err = r.String(); err != nil {
 		return err
@@ -108,7 +108,7 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 			return err
 		}
 		if present {
-			var v ontologyv0.ID
+			var v ontology.ID
 			if err = v.DecodeOrc(r); err != nil {
 				return err
 			}
@@ -131,7 +131,7 @@ func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		sd.Rack = rackv1.Key(v)
+		sd.Rack = rack.Key(v)
 	}
 	if sd.Device, err = r.String(); err != nil {
 		return err

@@ -23,10 +23,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-const (
-	legacyMigrationPerformedKey = "sy_rbac_migration_performed"
-	LegacyMappingKVKey          = "sy_rbac_legacy_permission_mapping"
-)
+const LegacyMappingKVKey = "sy_rbac_legacy_permission_mapping"
 
 // LegacyUserMapping stores the legacy permission data for a single user,
 // persisted to KV between Phase 1 (extraction) and Phase 2 (role assignment).
@@ -89,7 +86,7 @@ func Migration() migrate.Migration {
 }
 
 func alreadyMigrated(ctx context.Context, tx gorp.Tx) (bool, error) {
-	performed, closer, err := tx.Get(ctx, []byte(legacyMigrationPerformedKey))
+	performed, closer, err := tx.Get(ctx, []byte("sy_rbac_migration_performed"))
 	if err != nil {
 		return false, errors.Skip(err, query.ErrNotFound)
 	}

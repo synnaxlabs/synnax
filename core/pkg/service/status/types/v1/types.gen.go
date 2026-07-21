@@ -12,8 +12,8 @@
 package v1
 
 import (
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	telemv0 "github.com/synnaxlabs/x/telem/types/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 // Variant is the severity or type of a status message.
@@ -44,13 +44,13 @@ type Status[Details any] struct {
 	// Description is an optional detailed description providing additional context.
 	Description string `json:"description" msgpack:"description"`
 	// Time is the timestamp when the status was created.
-	Time telemv0.TimeStamp `json:"time" msgpack:"time"`
+	Time telem.TimeStamp `json:"time" msgpack:"time"`
 	// Details contains optional component-specific custom details for the status.
 	Details Details `json:"details" msgpack:"details"`
 	// Labels contains optional labels for categorization and filtering.
-	Labels []labelv0.Label `json:"labels" msgpack:"labels"`
+	Labels []label.Label `json:"labels" msgpack:"labels"`
 }
 
-func (e Status[Details]) GorpKey() string { return e.Key }
+func (s Status[Details]) GorpKey() string { return s.Key }
 
-func (e Status[Details]) SetOptions() []any { return nil }
+func (Status[Details]) SetOptions() []any { return nil }
