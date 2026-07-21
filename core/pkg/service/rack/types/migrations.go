@@ -11,7 +11,7 @@ package types
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
 	"github.com/synnaxlabs/x/migrate"
 )
 
@@ -20,5 +20,5 @@ type MigrationsConfig = v0.MigrationConfig
 
 // NewMigrations returns the ordered migration chain for stored racks.
 func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
-	return append([]migrate.Migration{v0.NewMigration(cfg)}, v2.Migrations...)
+	return append([]migrate.Migration{v0.NewMigration(cfg)}, v1.Migrations...)
 }
