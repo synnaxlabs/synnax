@@ -18,7 +18,7 @@ import { renderLinkHook, resolveFocusedTab } from "@/testutil";
 const client = createTestClient();
 
 describe("Table.useLink", () => {
-  it("should retrieve the table and open it as a tab", async () => {
+  it("should open the table as a tab", async () => {
     const { layout: _, ...project } = await client.projects.create({
       name: id.create(),
       layout: {},

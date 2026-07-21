@@ -10,6 +10,7 @@
 import "@/panel/Mosaic.css";
 
 import { panel } from "@synnaxlabs/client";
+import { type direction } from "@synnaxlabs/x";
 import { type DragEventHandler, memo, type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
@@ -18,10 +19,12 @@ import { CSS } from "@/css";
 import { Errors } from "@/errors";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
+import { Menu } from "@/menu";
 import { Mosaic as Base } from "@/mosaic";
 import {
   useSelectLeafNode,
   useSelectNodeVariant,
+  useSelectRoot,
   useSelectSelection,
   useSelectSplitNode,
   useSelectTabKeys,
@@ -31,6 +34,7 @@ import { TabScope } from "@/panel/scope";
 import { Portal } from "@/portal";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
+import { type Triggers } from "@/triggers";
 
 export interface MosaicProps extends Omit<
   Base.FrameProps,
@@ -42,6 +46,7 @@ export interface MosaicProps extends Omit<
   tabName?: Component.RenderProp<{}>;
   onCreateTab?: () => panel.NewTab | undefined;
   resolveDroppedTab?: (key: string) => panel.NewTab | undefined;
+  extraMenuItems?: Component.RenderProp<Menu.ContextMenuMenuProps>;
 }
 
 interface TabProps extends Pick<MosaicProps, "tabName"> {
@@ -73,38 +78,41 @@ const Tab = ({ tabKey, tabName, onClose }: TabProps): ReactElement => {
 interface NodeProps
   extends Pick<Base.LeafProps, "nodeKey">, Pick<TabProps, "tabName" | "onClose"> {
   onAdd: (nodeKey: number) => void;
+  onContextMenu: Menu.ContextMenuOpen;
 }
 
-const Leaf = memo(({ nodeKey, onAdd, ...rest }: NodeProps): ReactElement => {
-  const { tabs } = useSelectLeafNode({ nodeKey });
-  const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
-  const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
-  const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
-  return (
-    <Base.Leaf nodeKey={nodeKey} grow>
-      <Tabs.Frame grow>
-        <Tabs.Selector {...selectorDropProps}>
-          {tabs.map((tabKey) => (
-            <Tab key={tabKey} tabKey={tabKey} {...rest} />
-          ))}
-          <Flex.Box grow />
-          <Button.Button variant="text" sharp onClick={handleAdd}>
-            <Icon.Add />
-          </Button.Button>
-        </Tabs.Selector>
-        <Tabs.Content grow>
-          {selected != null && (
-            <Portal.Out
-              itemKey={selected}
-              className={CSS.BE("panel-mosaic", "portal-out")}
-            />
-          )}
-          <Base.Shield />
-        </Tabs.Content>
-      </Tabs.Frame>
-    </Base.Leaf>
-  );
-});
+const Leaf = memo(
+  ({ nodeKey, onAdd, onContextMenu, ...rest }: NodeProps): ReactElement => {
+    const { tabs } = useSelectLeafNode({ nodeKey });
+    const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
+    const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
+    const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
+    return (
+      <Base.Leaf nodeKey={nodeKey} grow>
+        <Tabs.Frame grow>
+          <Tabs.Selector {...selectorDropProps} onContextMenu={onContextMenu}>
+            {tabs.map((tabKey) => (
+              <Tab key={tabKey} tabKey={tabKey} {...rest} />
+            ))}
+            <Flex.Box grow />
+            <Button.Button variant="text" sharp onClick={handleAdd}>
+              <Icon.Add />
+            </Button.Button>
+          </Tabs.Selector>
+          <Tabs.Content grow>
+            {selected != null && (
+              <Portal.Out
+                itemKey={selected}
+                className={CSS.BE("panel-mosaic", "portal-out")}
+              />
+            )}
+            <Base.Shield />
+          </Tabs.Content>
+        </Tabs.Frame>
+      </Base.Leaf>
+    );
+  },
+);
 Leaf.displayName = "Panel.Mosaic.Leaf";
 
 const Split = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
@@ -123,6 +131,52 @@ const Node = memo(({ nodeKey, ...rest }: NodeProps): ReactElement => {
   return <C nodeKey={nodeKey} {...rest} />;
 });
 Node.displayName = "Panel.Mosaic.Node";
+
+const CLOSE_TRIGGER: Triggers.Trigger = ["Control", "W"];
+
+interface TabMenuItemsProps {
+  tabKey: string;
+}
+
+const TabMenuItems = ({ tabKey }: TabMenuItemsProps): ReactElement => {
+  const dispatch = useSingleDispatch();
+  const root = useSelectRoot({});
+  const handleClose = useCallback(
+    () => dispatch(panel.removeTab({ key: tabKey })),
+    [dispatch, tabKey],
+  );
+  const handleSplit = useCallback(
+    (direction: direction.Direction) =>
+      dispatch(panel.splitTab({ key: tabKey, direction })),
+    [dispatch, tabKey],
+  );
+  return (
+    <>
+      <Menu.Item
+        itemKey="close"
+        onClick={handleClose}
+        trigger={CLOSE_TRIGGER}
+        triggerIndicator
+      >
+        <Icon.Close />
+        Close
+      </Menu.Item>
+      {panel.canSplitTab(root, tabKey) && (
+        <>
+          <Menu.Divider />
+          <Menu.Item itemKey="splitX" onClick={() => handleSplit("x")}>
+            <Icon.SplitX />
+            Split horizontally
+          </Menu.Item>
+          <Menu.Item itemKey="splitY" onClick={() => handleSplit("y")}>
+            <Icon.SplitY />
+            Split vertically
+          </Menu.Item>
+        </>
+      )}
+    </>
+  );
+};
 
 const EMPTY_SELECTED: string[] = [];
 
@@ -172,6 +226,7 @@ export const Mosaic = ({
   tabName,
   onCreateTab,
   resolveDroppedTab,
+  extraMenuItems,
   ...rest
 }: MosaicProps): ReactElement | null => {
   const dispatch = useSingleDispatch();
@@ -229,23 +284,49 @@ export const Mosaic = ({
 
   const selection = useSelectSelection({ selected });
 
+  const menuProps = Menu.useContextMenu();
+  const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
+    (props) => {
+      const tabKey: string | undefined = props.keys[0];
+      if (tabKey == null)
+        return (
+          <Menu.Menu level="small" gap="small">
+            {extraMenuItems?.(props)}
+          </Menu.Menu>
+        );
+      return (
+        <TabScope.Provider value={tabKey}>
+          <Menu.Menu level="small" gap="small">
+            <TabMenuItems tabKey={tabKey} />
+            {extraMenuItems != null && <Menu.Divider />}
+            {extraMenuItems?.(props)}
+          </Menu.Menu>
+        </TabScope.Provider>
+      );
+    },
+    [extraMenuItems],
+  );
+
   return (
     <Portal.Context>
       <PortaledContents onSelect={onSelect}>{children}</PortaledContents>
       <Select.Context value={selection} onSelect={onSelect}>
-        <Base.Frame
-          onDrop={handleDrop}
-          onCreate={handleCreate}
-          onResize={handleResize}
-          {...rest}
-        >
-          <Node
-            nodeKey={panel.ROOT_NODE_KEY}
-            onClose={handleClose}
-            onAdd={handleAdd}
-            tabName={tabName}
-          />
-        </Base.Frame>
+        <Menu.ContextMenu menu={renderMenu} {...menuProps}>
+          <Base.Frame
+            onDrop={handleDrop}
+            onCreate={handleCreate}
+            onResize={handleResize}
+            {...rest}
+          >
+            <Node
+              nodeKey={panel.ROOT_NODE_KEY}
+              onClose={handleClose}
+              onAdd={handleAdd}
+              onContextMenu={menuProps.open}
+              tabName={tabName}
+            />
+          </Base.Frame>
+        </Menu.ContextMenu>
       </Select.Context>
     </Portal.Context>
   );
