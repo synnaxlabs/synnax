@@ -255,7 +255,7 @@ func collectEntries[K gorp.Key, E gorp.Entry[K]](
 const workspaceToProjectMigrationKey = "v56_migrate_workspace_to_project"
 
 // workspaceToProjectMigration lifts stored workspaces into projects. It
-// depends on the codec migration so it always reads orc-encoded entries.
+// depends on the codec migration so it always reads Orc-encoded entries.
 var workspaceToProjectMigration = migrate.WithAddedDeps(
 	gorp.NewMigration(workspaceToProjectMigrationKey, migrateWorkspaceToProject),
 	codecMigration.Key(),

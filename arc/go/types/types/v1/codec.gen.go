@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (c Channels) EncodeOrc(w *orc.Writer) error {
 	w.Bool(c.Read != nil)
 	if c.Read != nil {
@@ -38,7 +38,7 @@ func (c Channels) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (c *Channels) DecodeOrc(r *orc.Reader) error {
 	{
 		present, err := r.Bool()
@@ -91,7 +91,7 @@ func (c *Channels) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
 	w.Bool(fp.Inputs != nil)
 	if fp.Inputs != nil {
@@ -114,7 +114,7 @@ func (fp FunctionProperties) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -159,7 +159,7 @@ func (fp *FunctionProperties) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (p Param) EncodeOrc(w *orc.Writer) error {
 	w.String(p.Name)
 	if err := p.Type.EncodeOrc(w); err != nil {
@@ -175,7 +175,7 @@ func (p Param) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (p *Param) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -200,7 +200,7 @@ func (p *Param) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (t Type) EncodeOrc(w *orc.Writer) error {
 	w.Bool(t.Inputs != nil)
 	if t.Inputs != nil {
@@ -250,7 +250,7 @@ func (t Type) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (t *Type) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err

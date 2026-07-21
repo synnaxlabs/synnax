@@ -31,7 +31,7 @@ func (u User) GorpKey() Key { return u.Key }
 func (User) SetOptions() []any { return nil }
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// msgpack field names (e.g. "Key", "Username") and new lowercase field names for
+// MessagePack field names (e.g. "Key", "Username") and new lowercase field names for
 // backward compatibility.
 func (u *User) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias User

@@ -310,7 +310,7 @@ func convertSize(s float64) float64 {
 }
 
 // projectLayoutsMigration adopts the project service's staged legacy layouts
-// as panels. It depends on the codec migration so it always reads orc-encoded
+// as panels. It depends on the codec migration so it always reads Orc-encoded
 // panels.
 var projectLayoutsMigration = migrate.WithAddedDeps(
 	gorp.NewMigration(

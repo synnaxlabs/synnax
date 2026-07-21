@@ -406,7 +406,7 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 		) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
 			if r.Command == framer.WriterCommandSetAuthority {
-				// We decode like this because msgpack has a tough time decoding slices
+				// We decode like this because MessagePack has a tough time decoding slices
 				// of uint8.
 				r.Config.Authorities = make(
 					[]control.Authority, len(req.Config.Authorities),

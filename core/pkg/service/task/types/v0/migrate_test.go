@@ -153,7 +153,7 @@ var _ = Describe("Status backfill", func() {
 			Exec(ctx, db)).To(Succeed())
 
 		// Write a status using Status[any] with the task key as float64,
-		// simulating legacy data where the key was encoded as a msgpack
+		// simulating legacy data where the key was encoded as a MessagePack
 		// float64 instead of uint64.
 		legacyStatus := status.Status[any]{
 			Key:     v0.OntologyID(taskKey).String(),
@@ -171,7 +171,7 @@ var _ = Describe("Status backfill", func() {
 
 		// The backfill reads existing statuses as Status[StatusDetails]. This
 		// would fail without the flex DecodeMsgpack on the Key type because
-		// the task key is stored as a msgpack float64.
+		// the task key is stored as a MessagePack float64.
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "Task",

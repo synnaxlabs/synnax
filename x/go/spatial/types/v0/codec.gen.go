@@ -13,14 +13,14 @@ package v0
 
 import "github.com/synnaxlabs/x/encoding/orc"
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (bv Bounds) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(bv.Lower))
 	w.Float64(float64(bv.Upper))
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (bv *Bounds) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if bv.Lower, err = r.Float64(); err != nil {
@@ -32,14 +32,14 @@ func (bv *Bounds) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (cl CornerLocation) EncodeOrc(w *orc.Writer) error {
 	w.String(string(cl.X))
 	w.String(string(cl.Y))
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (cl *CornerLocation) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.String()
@@ -58,14 +58,14 @@ func (cl *CornerLocation) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (su StickyUnits) EncodeOrc(w *orc.Writer) error {
 	w.String(string(su.X))
 	w.String(string(su.Y))
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (su *StickyUnits) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.String()
@@ -84,7 +84,7 @@ func (su *StickyUnits) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (sxy StickyXY) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(sxy.X))
 	w.Float64(float64(sxy.Y))
@@ -97,7 +97,7 @@ func (sxy StickyXY) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (sxy *StickyXY) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if sxy.X, err = r.Float64(); err != nil {
@@ -115,14 +115,14 @@ func (sxy *StickyXY) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (xy XY) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(xy.X))
 	w.Float64(float64(xy.Y))
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (xy *XY) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if xy.X, err = r.Float64(); err != nil {

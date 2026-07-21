@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (e Edge) EncodeOrc(w *orc.Writer) error {
 	if err := e.Source.EncodeOrc(w); err != nil {
 		return err
@@ -28,7 +28,7 @@ func (e Edge) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (e *Edge) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = e.Source.DecodeOrc(r); err != nil {
@@ -47,7 +47,7 @@ func (e *Edge) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (f Function) EncodeOrc(w *orc.Writer) error {
 	w.String(f.Key)
 	if err := f.Body.EncodeOrc(w); err != nil {
@@ -77,7 +77,7 @@ func (f Function) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (f *Function) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if f.Key, err = r.String(); err != nil {
@@ -128,14 +128,14 @@ func (f *Function) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (h Handle) EncodeOrc(w *orc.Writer) error {
 	w.String(h.Node)
 	w.String(h.Param)
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (h *Handle) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if h.Node, err = r.String(); err != nil {

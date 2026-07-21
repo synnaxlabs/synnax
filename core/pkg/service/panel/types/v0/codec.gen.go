@@ -19,7 +19,7 @@ import (
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (lv Leaf) EncodeOrc(w *orc.Writer) error {
 	w.Bool(lv.Tabs != nil)
 	if lv.Tabs != nil {
@@ -33,7 +33,7 @@ func (lv Leaf) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (lv *Leaf) DecodeOrc(r *orc.Reader) error {
 	{
 		present, err := r.Bool()
@@ -56,7 +56,7 @@ func (lv *Leaf) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	switch v := nv.Variant.(type) {
 	case NodeLeaf:
@@ -75,7 +75,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -104,7 +104,7 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (p Panel) EncodeOrc(w *orc.Writer) error {
 	w.Write(p.Key[:])
 	w.String(p.Name)
@@ -114,7 +114,7 @@ func (p Panel) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (p *Panel) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if _, err := r.Read(p.Key[:]); err != nil {
@@ -129,7 +129,7 @@ func (p *Panel) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (s Split) EncodeOrc(w *orc.Writer) error {
 	w.String(string(s.Direction))
 	w.Float64(float64(s.Size))
@@ -142,7 +142,7 @@ func (s Split) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (s *Split) DecodeOrc(r *orc.Reader) error {
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
 		return err
@@ -168,7 +168,7 @@ func (s *Split) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (t Tab) EncodeOrc(w *orc.Writer) error {
 	switch v := t.Variant.(type) {
 	case TabResource:
@@ -193,7 +193,7 @@ func (t Tab) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (t *Tab) DecodeOrc(r *orc.Reader) error {
 	tag, err := r.String()
 	if err != nil {
@@ -224,13 +224,13 @@ func (t *Tab) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (tb TabBase) EncodeOrc(w *orc.Writer) error {
 	w.Write(tb.Key[:])
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (tb *TabBase) DecodeOrc(r *orc.Reader) error {
 	if _, err := r.Read(tb.Key[:]); err != nil {
 		return err
@@ -238,7 +238,7 @@ func (tb *TabBase) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (vv View) EncodeOrc(w *orc.Writer) error {
 	w.String(vv.Type)
 	{
@@ -251,7 +251,7 @@ func (vv View) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (vv *View) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if vv.Type, err = r.String(); err != nil {

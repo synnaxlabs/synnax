@@ -13,14 +13,14 @@ package v0
 
 import "github.com/synnaxlabs/x/encoding/orc"
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (id ID) EncodeOrc(w *orc.Writer) error {
 	w.String(string(id.Type))
 	w.String(id.Key)
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (id *ID) DecodeOrc(r *orc.Reader) error {
 	var err error
 	{
@@ -36,7 +36,7 @@ func (id *ID) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (rv Relationship) EncodeOrc(w *orc.Writer) error {
 	if err := rv.From.EncodeOrc(w); err != nil {
 		return err
@@ -48,7 +48,7 @@ func (rv Relationship) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (rv *Relationship) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = rv.From.DecodeOrc(r); err != nil {
@@ -67,7 +67,7 @@ func (rv *Relationship) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (rv Resource) EncodeOrc(w *orc.Writer) error {
 	if err := rv.ID.EncodeOrc(w); err != nil {
 		return err
@@ -75,7 +75,7 @@ func (rv Resource) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (rv *Resource) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = rv.ID.DecodeOrc(r); err != nil {

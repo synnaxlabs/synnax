@@ -386,7 +386,7 @@ var _ = Describe("Migrate", func() {
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
 			Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
 
-			// Run CodecMigration with msgpack primary + JSON fallback.
+			// Run CodecMigration with MessagePack primary + JSON fallback.
 			// This reads entries via JSON fallback and writes them back as msgpack.
 			fallbackDB := gorp.Wrap(
 				kvDB,
@@ -399,7 +399,7 @@ var _ = Describe("Migrate", func() {
 				Migrations: []migrate.Migration{migration},
 			})).To(Succeed())
 
-			// Verify entries are now readable with plain msgpack (no fallback needed).
+			// Verify entries are now readable with plain MessagePack (no fallback needed).
 			msgpackDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 			r := gorp.WrapReader[int32, entryV1](msgpackDB)
 			Expect(MustSucceed(r.Get(ctx, 1)).Data).To(Equal("one"))

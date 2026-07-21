@@ -14,12 +14,12 @@ import (
 	"math"
 )
 
-// Raw provides zero-allocation navigation of orc-encoded binary data. Callers
+// Raw provides zero-allocation navigation of Orc-encoded binary data. Callers
 // can skip or read individual fields by type without fully deserializing the
 // record. A nil Raw signals that previous navigation went out of bounds.
 type Raw []byte
 
-// NewRaw creates a Raw from orc-encoded data, stripping the magic header.
+// NewRaw creates a Raw from Orc-encoded data, stripping the magic header.
 func NewRaw(data []byte) (Raw, error) {
 	if err := validateMagic(data); err != nil {
 		return nil, err

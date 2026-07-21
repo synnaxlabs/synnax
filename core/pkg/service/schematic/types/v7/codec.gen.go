@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (e Edge) EncodeOrc(w *orc.Writer) error {
 	w.String(e.Key)
 	if err := e.Source.EncodeOrc(w); err != nil {
@@ -30,7 +30,7 @@ func (e Edge) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (e *Edge) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if e.Key, err = r.String(); err != nil {
@@ -45,14 +45,14 @@ func (e *Edge) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (h Handle) EncodeOrc(w *orc.Writer) error {
 	w.String(h.Node)
 	w.String(h.Param)
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (h *Handle) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if h.Node, err = r.String(); err != nil {
@@ -64,7 +64,7 @@ func (h *Handle) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (nv Node) EncodeOrc(w *orc.Writer) error {
 	w.String(nv.Key)
 	if err := nv.Position.EncodeOrc(w); err != nil {
@@ -74,7 +74,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if nv.Key, err = r.String(); err != nil {
@@ -89,7 +89,7 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.String(s.Name)
@@ -129,7 +129,7 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if _, err := r.Read(s.Key[:]); err != nil {

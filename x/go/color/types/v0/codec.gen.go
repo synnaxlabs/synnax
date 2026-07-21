@@ -13,7 +13,7 @@ package v0
 
 import "github.com/synnaxlabs/x/encoding/orc"
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (c Color) EncodeOrc(w *orc.Writer) error {
 	w.Uint8(uint8(c.R))
 	w.Uint8(uint8(c.G))
@@ -22,7 +22,7 @@ func (c Color) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (c *Color) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if c.R, err = r.Uint8(); err != nil {

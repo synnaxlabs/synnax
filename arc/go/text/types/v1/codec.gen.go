@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (d Document) EncodeOrc(w *orc.Writer) error {
 	w.Bool(d.Inserts != nil)
 	if d.Inserts != nil {
@@ -39,7 +39,7 @@ func (d Document) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (d *Document) DecodeOrc(r *orc.Reader) error {
 	{
 		present, err := r.Bool()
@@ -80,7 +80,7 @@ func (d *Document) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (t Text) EncodeOrc(w *orc.Writer) error {
 	if err := t.Doc.EncodeOrc(w); err != nil {
 		return err
@@ -88,7 +88,7 @@ func (t Text) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (t *Text) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if err = t.Doc.DecodeOrc(r); err != nil {

@@ -61,7 +61,7 @@ func (c *codec) EncodeStream(ctx context.Context, w io.Writer, value any) error 
 	return encoding.SugarEncodingErr(value, err)
 }
 
-// EncodedJSON is a map[string]any that handles backwards-compatible msgpack
+// EncodedJSON is a map[string]any that handles backwards-compatible MessagePack
 // decoding. When existing data was stored as a JSON string (the old format), it
 // unmarshals the string into a map. When new data arrives as a map, it uses it directly.
 type EncodedJSON map[string]any
@@ -111,7 +111,7 @@ func (e EncodedJSON) Unmarshal(into any) error {
 	return json.Unmarshal(b, into)
 }
 
-// UnmarshalUint64 decodes a msgpack value into a uint64, handling type coercion
+// UnmarshalUint64 decodes a MessagePack value into a uint64, handling type coercion
 // from various numeric types, floats, and strings.
 func UnmarshalUint64(dec *msgpack.Decoder) (uint64, error) {
 	v, err := dec.DecodeInterface()
@@ -169,7 +169,7 @@ func UnmarshalUint64(dec *msgpack.Decoder) (uint64, error) {
 	}
 }
 
-// UnmarshalUint32 decodes a msgpack value into a uint32, handling type coercion
+// UnmarshalUint32 decodes a MessagePack value into a uint32, handling type coercion
 // from various numeric types, floats, and strings.
 func UnmarshalUint32(dec *msgpack.Decoder) (uint32, error) {
 	v, err := dec.DecodeInterface()

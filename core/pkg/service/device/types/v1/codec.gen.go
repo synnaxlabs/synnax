@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.String(d.Key)
 	w.Uint32(uint32(d.Rack))
@@ -37,7 +37,7 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (d *Device) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if d.Key, err = r.String(); err != nil {

@@ -1248,13 +1248,13 @@ import (
 {{- end}}
 )
 {{range .ConcreteCodecs}}
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func ({{.Receiver}} {{.GoName}}) EncodeOrc(w *orc.Writer) error {
 {{.EncodeBody}}
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func ({{.Receiver}} *{{.GoName}}) DecodeOrc(r *orc.Reader) error {
 {{- if .Recursive}}
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
@@ -1269,13 +1269,13 @@ func ({{.Receiver}} *{{.GoName}}) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 {{end}}{{range .GenericCodecs}}
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func ({{.Receiver}} {{.GoName}}[{{tpNames .TypeParams}}]) EncodeOrc(w *orc.Writer) error {
 {{.EncodeBody}}
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func ({{.Receiver}} *{{.GoName}}[{{tpNames .TypeParams}}]) DecodeOrc(r *orc.Reader) error {
 {{- if .Recursive}}
 	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {

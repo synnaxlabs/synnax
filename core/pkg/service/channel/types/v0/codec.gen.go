@@ -18,7 +18,7 @@ import (
 	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (c Channel) EncodeOrc(w *orc.Writer) error {
 	w.String(c.Name)
 	w.Uint16(uint16(c.Leaseholder))
@@ -42,7 +42,7 @@ func (c Channel) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (c *Channel) DecodeOrc(r *orc.Reader) error {
 	var err error
 	if c.Name, err = r.String(); err != nil {
@@ -116,7 +116,7 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-// EncodeOrc writes the value to w in the orc binary format.
+// EncodeOrc writes the value to w in the Orc binary format.
 func (o Operation) EncodeOrc(w *orc.Writer) error {
 	w.String(string(o.Type))
 	w.Uint32(uint32(o.ResetChannel))
@@ -124,7 +124,7 @@ func (o Operation) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-// DecodeOrc reads the value from r in the orc binary format.
+// DecodeOrc reads the value from r in the Orc binary format.
 func (o *Operation) DecodeOrc(r *orc.Reader) error {
 	{
 		v, err := r.String()
