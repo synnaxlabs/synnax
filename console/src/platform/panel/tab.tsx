@@ -62,6 +62,9 @@ export const createStaticTabName = ({
   return Name;
 };
 
+/** tabNameID returns the DOM id of a tab's editable name, the target of Text.edit. */
+export const tabNameID = (tabKey: string): string => `tab-name-${tabKey}`;
+
 export interface EditableTabNameService {
   useEnsureRetrieved: (args: { key: string }) => void;
   useSelectName: (args: { key: string }) => string;
@@ -73,6 +76,7 @@ export const createEditableTabName = (
   icon: Icon.ReactElement,
 ): TabName => {
   const Name: TabName = () => {
+    const tabKey = Panel.useTabKey();
     const { key } = Panel.useSelectTabResource();
     service.useEnsureRetrieved({ key });
     const name = service.useSelectName({ key });
@@ -80,7 +84,11 @@ export const createEditableTabName = (
     return (
       <>
         {icon}
-        <Text.Editable value={name} onChange={(name) => update({ key, name })} />
+        <Text.Editable
+          id={tabNameID(tabKey)}
+          value={name}
+          onChange={(name) => update({ key, name })}
+        />
       </>
     );
   };

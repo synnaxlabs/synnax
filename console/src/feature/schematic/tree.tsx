@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, ranger, schematic, type Synnax as Client } from "@synnaxlabs/client";
+import { ontology, ranger, schematic } from "@synnaxlabs/client";
 import {
   Access,
   type Flux,
@@ -17,7 +17,6 @@ import {
   Mosaic,
   Schematic as Base,
   Status,
-  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
@@ -169,35 +168,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const loadSchematic = async (
-  client: Client,
-  { key }: ontology.ID,
-  openTab: Panel.OpenTab,
-) => {
-  const retrieved = await client.schematics.retrieve({ key });
-  openTab({ variant: "resource", resource: schematic.ontologyID(retrieved.key) });
-};
-
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.use();
-  const openTab = Panel.useOpenTab();
-  const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      loadSchematic(client, resource.id, openTab).catch((e: unknown) =>
-        handleError(e, `Failed to select ${resource.name}`),
-      );
-    },
-    [client, openTab, handleError],
-  );
-};
-
 const TreeItem = Tree.createItem({
   type: "schematic",
   icon: <Icon.Schematic />,
   hasChildren: false,
-  useOnSelect,
+  useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
