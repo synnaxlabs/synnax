@@ -290,8 +290,8 @@ type MigrationConfig struct {
 	Ontology *ontology.Ontology
 }
 
-// Migrations returns the ordered migration chain for stored projects.
-func Migrations(cfg MigrationConfig) []migrate.Migration {
+// NewMigrations returns the ordered migration chain for stored projects.
+func NewMigrations(cfg MigrationConfig) []migrate.Migration {
 	return []migrate.Migration{
 		v1.CodecMigration,
 		WorkspaceToProjectMigration(),

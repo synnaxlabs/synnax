@@ -116,7 +116,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Range]{
 		DB: cfg.DB,
-		Migrations: types.Migrations(types.MigrationConfig{
+		Migrations: types.NewMigrations(types.MigrationConfig{
 			Ontology:        cfg.Ontology,
 			Group:           cfg.Group,
 			Instrumentation: cfg.Instrumentation,

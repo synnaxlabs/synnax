@@ -18,8 +18,8 @@ import (
 // MigrationConfig is the configuration for Migrations.
 type MigrationConfig = v0.MigrationConfig
 
-// Migrations returns the ordered migration chain for stored racks.
-func Migrations(cfg MigrationConfig) []migrate.Migration {
+// NewMigrations returns the ordered migration chain for stored racks.
+func NewMigrations(cfg MigrationConfig) []migrate.Migration {
 	return []migrate.Migration{
 		v0.Migration(cfg),
 		v2.CodecMigration,
