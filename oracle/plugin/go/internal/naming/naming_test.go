@@ -101,7 +101,7 @@ var _ = Describe("DerivePackageAlias", func() {
 	})
 
 	It("should keep the versioned form for a resource named types", func() {
-		Expect(naming.DerivePackageAlias("arc/go/types/types/v1", "v2")).To(Equal("gov1"))
+		Expect(naming.DerivePackageAlias("arc/go/types/types/v1", "v2")).To(Equal("typesv1"))
 	})
 })
 
@@ -113,8 +113,8 @@ var _ = Describe("DeriveVersionedAlias", func() {
 		Expect(naming.DeriveVersionedAlias("core/pkg/service/arc/migrations/v53", "other")).To(Equal("arcv53"))
 	})
 
-	It("should hop the nested types directory", func() {
-		Expect(naming.DeriveVersionedAlias("arc/go/types/types/v1", "v2")).To(Equal("gov1"))
+	It("should keep the version suffix for a resource named types", func() {
+		Expect(naming.DeriveVersionedAlias("arc/go/types/types/v1", "v2")).To(Equal("typesv1"))
 	})
 
 	It("should fall back to base-name rules for unversioned paths", func() {

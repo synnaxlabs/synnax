@@ -151,11 +151,6 @@ func DeriveVersionedAlias(outputPath, currentPackage string) string {
 	parent := filepath.Base(filepath.Dir(outputPath))
 	if parent == "types" || parent == "migrations" || parent == "legacy" {
 		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
-		if grandparent == "types" {
-			grandparent = filepath.Base(
-				filepath.Dir(filepath.Dir(filepath.Dir(outputPath))),
-			)
-		}
 		return grandparent + base
 	}
 	if base == currentPackage {

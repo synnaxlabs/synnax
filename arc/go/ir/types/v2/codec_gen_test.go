@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir/types/v2"
-	gov1 "github.com/synnaxlabs/arc/types/types/v1"
+	typesv1 "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -60,119 +60,119 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v2.Function{
 				Key:  "test_1",
 				Body: v2.Body{Raw: "test_3"},
-				Inputs: []gov1.Param{
+				Inputs: []typesv1.Param{
 					{
 						Name: "test_5",
-						Type: gov1.Type{
-							FunctionProperties: gov1.FunctionProperties{
-								Inputs: []gov1.Param{
+						Type: typesv1.Type{
+							FunctionProperties: typesv1.FunctionProperties{
+								Inputs: []typesv1.Param{
 									{
 										Name:  "test_8",
-										Type:  gov1.Type{},
+										Type:  typesv1.Type{},
 										Value: map[string]interface{}{"key_10": "value_10"},
 									},
 								},
-								Outputs: []gov1.Param{
+								Outputs: []typesv1.Param{
 									{
 										Name:  "test_12",
-										Type:  gov1.Type{},
+										Type:  typesv1.Type{},
 										Value: map[string]interface{}{"key_14": "value_14"},
 									},
 								},
 							},
-							Kind: gov1.Kind(0),
+							Kind: typesv1.Kind(0),
 							Name: "test_16",
-							Elem: new(gov1.Type{
-								FunctionProperties: gov1.FunctionProperties{
-									Inputs:  []gov1.Param{{}},
-									Outputs: []gov1.Param{{}},
+							Elem: new(typesv1.Type{
+								FunctionProperties: typesv1.FunctionProperties{
+									Inputs:  []typesv1.Param{{}},
+									Outputs: []typesv1.Param{{}},
 								},
-								Kind:          gov1.Kind(0),
+								Kind:          typesv1.Kind(0),
 								Name:          "test_21",
-								Elem:          new(gov1.Type{}),
-								Unit:          new(gov1.Unit{}),
-								Constraint:    new(gov1.Type{}),
-								ChanDirection: gov1.ChanDirection(0),
+								Elem:          new(typesv1.Type{}),
+								Unit:          new(typesv1.Unit{}),
+								Constraint:    new(typesv1.Type{}),
+								ChanDirection: typesv1.ChanDirection(0),
 							}),
-							Unit: new(gov1.Unit{
-								Dimensions: gov1.Dimensions{},
+							Unit: new(typesv1.Unit{
+								Dimensions: typesv1.Dimensions{},
 								Scale:      28.5,
 								Name:       "test_29",
 							}),
-							Constraint: new(gov1.Type{
-								FunctionProperties: gov1.FunctionProperties{
-									Inputs:  []gov1.Param{{}},
-									Outputs: []gov1.Param{{}},
+							Constraint: new(typesv1.Type{
+								FunctionProperties: typesv1.FunctionProperties{
+									Inputs:  []typesv1.Param{{}},
+									Outputs: []typesv1.Param{{}},
 								},
-								Kind:          gov1.Kind(0),
+								Kind:          typesv1.Kind(0),
 								Name:          "test_34",
-								Elem:          new(gov1.Type{}),
-								Unit:          new(gov1.Unit{}),
-								Constraint:    new(gov1.Type{}),
-								ChanDirection: gov1.ChanDirection(0),
+								Elem:          new(typesv1.Type{}),
+								Unit:          new(typesv1.Unit{}),
+								Constraint:    new(typesv1.Type{}),
+								ChanDirection: typesv1.ChanDirection(0),
 							}),
-							ChanDirection: gov1.ChanDirection(0),
+							ChanDirection: typesv1.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_40": "value_40"},
 					},
 				},
-				Outputs: []gov1.Param{
+				Outputs: []typesv1.Param{
 					{
 						Name: "test_42",
-						Type: gov1.Type{
-							FunctionProperties: gov1.FunctionProperties{
-								Inputs: []gov1.Param{
+						Type: typesv1.Type{
+							FunctionProperties: typesv1.FunctionProperties{
+								Inputs: []typesv1.Param{
 									{
 										Name:  "test_45",
-										Type:  gov1.Type{},
+										Type:  typesv1.Type{},
 										Value: map[string]interface{}{"key_47": "value_47"},
 									},
 								},
-								Outputs: []gov1.Param{
+								Outputs: []typesv1.Param{
 									{
 										Name:  "test_49",
-										Type:  gov1.Type{},
+										Type:  typesv1.Type{},
 										Value: map[string]interface{}{"key_51": "value_51"},
 									},
 								},
 							},
-							Kind: gov1.Kind(0),
+							Kind: typesv1.Kind(0),
 							Name: "test_53",
-							Elem: new(gov1.Type{
-								FunctionProperties: gov1.FunctionProperties{
-									Inputs:  []gov1.Param{{}},
-									Outputs: []gov1.Param{{}},
+							Elem: new(typesv1.Type{
+								FunctionProperties: typesv1.FunctionProperties{
+									Inputs:  []typesv1.Param{{}},
+									Outputs: []typesv1.Param{{}},
 								},
-								Kind:          gov1.Kind(0),
+								Kind:          typesv1.Kind(0),
 								Name:          "test_58",
-								Elem:          new(gov1.Type{}),
-								Unit:          new(gov1.Unit{}),
-								Constraint:    new(gov1.Type{}),
-								ChanDirection: gov1.ChanDirection(0),
+								Elem:          new(typesv1.Type{}),
+								Unit:          new(typesv1.Unit{}),
+								Constraint:    new(typesv1.Type{}),
+								ChanDirection: typesv1.ChanDirection(0),
 							}),
-							Unit: new(gov1.Unit{
-								Dimensions: gov1.Dimensions{},
+							Unit: new(typesv1.Unit{
+								Dimensions: typesv1.Dimensions{},
 								Scale:      65.5,
 								Name:       "test_66",
 							}),
-							Constraint: new(gov1.Type{
-								FunctionProperties: gov1.FunctionProperties{
-									Inputs:  []gov1.Param{{}},
-									Outputs: []gov1.Param{{}},
+							Constraint: new(typesv1.Type{
+								FunctionProperties: typesv1.FunctionProperties{
+									Inputs:  []typesv1.Param{{}},
+									Outputs: []typesv1.Param{{}},
 								},
-								Kind:          gov1.Kind(0),
+								Kind:          typesv1.Kind(0),
 								Name:          "test_71",
-								Elem:          new(gov1.Type{}),
-								Unit:          new(gov1.Unit{}),
-								Constraint:    new(gov1.Type{}),
-								ChanDirection: gov1.ChanDirection(0),
+								Elem:          new(typesv1.Type{}),
+								Unit:          new(typesv1.Unit{}),
+								Constraint:    new(typesv1.Type{}),
+								ChanDirection: typesv1.ChanDirection(0),
 							}),
-							ChanDirection: gov1.ChanDirection(0),
+							ChanDirection: typesv1.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_77": "value_77"},
 					},
 				},
-				Channels: gov1.Channels{
+				Channels: typesv1.Channels{
 					Read:  map[uint32]string{80: "test_79"},
 					Write: map[uint32]string{81: "test_80"},
 				},
@@ -182,14 +182,14 @@ var _ = Describe("Codec", func() {
 				Body:     v2.Body{Raw: ""},
 				Inputs:   nil,
 				Outputs:  nil,
-				Channels: gov1.Channels{Read: nil, Write: nil},
+				Channels: typesv1.Channels{Read: nil, Write: nil},
 			}),
 			Entry("empty collections", v2.Function{
 				Key:      "test_1",
 				Body:     v2.Body{Raw: "test_3"},
-				Inputs:   []gov1.Param{},
-				Outputs:  []gov1.Param{},
-				Channels: gov1.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
+				Inputs:   []typesv1.Param{},
+				Outputs:  []typesv1.Param{},
+				Channels: typesv1.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 			}),
 		)
 	})
@@ -235,119 +235,119 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 	seed := v2.Function{
 		Key:  "test_1",
 		Body: v2.Body{Raw: "test_3"},
-		Inputs: []gov1.Param{
+		Inputs: []typesv1.Param{
 			{
 				Name: "test_5",
-				Type: gov1.Type{
-					FunctionProperties: gov1.FunctionProperties{
-						Inputs: []gov1.Param{
+				Type: typesv1.Type{
+					FunctionProperties: typesv1.FunctionProperties{
+						Inputs: []typesv1.Param{
 							{
 								Name:  "test_8",
-								Type:  gov1.Type{},
+								Type:  typesv1.Type{},
 								Value: map[string]interface{}{"key_10": "value_10"},
 							},
 						},
-						Outputs: []gov1.Param{
+						Outputs: []typesv1.Param{
 							{
 								Name:  "test_12",
-								Type:  gov1.Type{},
+								Type:  typesv1.Type{},
 								Value: map[string]interface{}{"key_14": "value_14"},
 							},
 						},
 					},
-					Kind: gov1.Kind(0),
+					Kind: typesv1.Kind(0),
 					Name: "test_16",
-					Elem: new(gov1.Type{
-						FunctionProperties: gov1.FunctionProperties{
-							Inputs:  []gov1.Param{{}},
-							Outputs: []gov1.Param{{}},
+					Elem: new(typesv1.Type{
+						FunctionProperties: typesv1.FunctionProperties{
+							Inputs:  []typesv1.Param{{}},
+							Outputs: []typesv1.Param{{}},
 						},
-						Kind:          gov1.Kind(0),
+						Kind:          typesv1.Kind(0),
 						Name:          "test_21",
-						Elem:          new(gov1.Type{}),
-						Unit:          new(gov1.Unit{}),
-						Constraint:    new(gov1.Type{}),
-						ChanDirection: gov1.ChanDirection(0),
+						Elem:          new(typesv1.Type{}),
+						Unit:          new(typesv1.Unit{}),
+						Constraint:    new(typesv1.Type{}),
+						ChanDirection: typesv1.ChanDirection(0),
 					}),
-					Unit: new(gov1.Unit{
-						Dimensions: gov1.Dimensions{},
+					Unit: new(typesv1.Unit{
+						Dimensions: typesv1.Dimensions{},
 						Scale:      28.5,
 						Name:       "test_29",
 					}),
-					Constraint: new(gov1.Type{
-						FunctionProperties: gov1.FunctionProperties{
-							Inputs:  []gov1.Param{{}},
-							Outputs: []gov1.Param{{}},
+					Constraint: new(typesv1.Type{
+						FunctionProperties: typesv1.FunctionProperties{
+							Inputs:  []typesv1.Param{{}},
+							Outputs: []typesv1.Param{{}},
 						},
-						Kind:          gov1.Kind(0),
+						Kind:          typesv1.Kind(0),
 						Name:          "test_34",
-						Elem:          new(gov1.Type{}),
-						Unit:          new(gov1.Unit{}),
-						Constraint:    new(gov1.Type{}),
-						ChanDirection: gov1.ChanDirection(0),
+						Elem:          new(typesv1.Type{}),
+						Unit:          new(typesv1.Unit{}),
+						Constraint:    new(typesv1.Type{}),
+						ChanDirection: typesv1.ChanDirection(0),
 					}),
-					ChanDirection: gov1.ChanDirection(0),
+					ChanDirection: typesv1.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_40": "value_40"},
 			},
 		},
-		Outputs: []gov1.Param{
+		Outputs: []typesv1.Param{
 			{
 				Name: "test_42",
-				Type: gov1.Type{
-					FunctionProperties: gov1.FunctionProperties{
-						Inputs: []gov1.Param{
+				Type: typesv1.Type{
+					FunctionProperties: typesv1.FunctionProperties{
+						Inputs: []typesv1.Param{
 							{
 								Name:  "test_45",
-								Type:  gov1.Type{},
+								Type:  typesv1.Type{},
 								Value: map[string]interface{}{"key_47": "value_47"},
 							},
 						},
-						Outputs: []gov1.Param{
+						Outputs: []typesv1.Param{
 							{
 								Name:  "test_49",
-								Type:  gov1.Type{},
+								Type:  typesv1.Type{},
 								Value: map[string]interface{}{"key_51": "value_51"},
 							},
 						},
 					},
-					Kind: gov1.Kind(0),
+					Kind: typesv1.Kind(0),
 					Name: "test_53",
-					Elem: new(gov1.Type{
-						FunctionProperties: gov1.FunctionProperties{
-							Inputs:  []gov1.Param{{}},
-							Outputs: []gov1.Param{{}},
+					Elem: new(typesv1.Type{
+						FunctionProperties: typesv1.FunctionProperties{
+							Inputs:  []typesv1.Param{{}},
+							Outputs: []typesv1.Param{{}},
 						},
-						Kind:          gov1.Kind(0),
+						Kind:          typesv1.Kind(0),
 						Name:          "test_58",
-						Elem:          new(gov1.Type{}),
-						Unit:          new(gov1.Unit{}),
-						Constraint:    new(gov1.Type{}),
-						ChanDirection: gov1.ChanDirection(0),
+						Elem:          new(typesv1.Type{}),
+						Unit:          new(typesv1.Unit{}),
+						Constraint:    new(typesv1.Type{}),
+						ChanDirection: typesv1.ChanDirection(0),
 					}),
-					Unit: new(gov1.Unit{
-						Dimensions: gov1.Dimensions{},
+					Unit: new(typesv1.Unit{
+						Dimensions: typesv1.Dimensions{},
 						Scale:      65.5,
 						Name:       "test_66",
 					}),
-					Constraint: new(gov1.Type{
-						FunctionProperties: gov1.FunctionProperties{
-							Inputs:  []gov1.Param{{}},
-							Outputs: []gov1.Param{{}},
+					Constraint: new(typesv1.Type{
+						FunctionProperties: typesv1.FunctionProperties{
+							Inputs:  []typesv1.Param{{}},
+							Outputs: []typesv1.Param{{}},
 						},
-						Kind:          gov1.Kind(0),
+						Kind:          typesv1.Kind(0),
 						Name:          "test_71",
-						Elem:          new(gov1.Type{}),
-						Unit:          new(gov1.Unit{}),
-						Constraint:    new(gov1.Type{}),
-						ChanDirection: gov1.ChanDirection(0),
+						Elem:          new(typesv1.Type{}),
+						Unit:          new(typesv1.Unit{}),
+						Constraint:    new(typesv1.Type{}),
+						ChanDirection: typesv1.ChanDirection(0),
 					}),
-					ChanDirection: gov1.ChanDirection(0),
+					ChanDirection: typesv1.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_77": "value_77"},
 			},
 		},
-		Channels: gov1.Channels{
+		Channels: typesv1.Channels{
 			Read:  map[uint32]string{80: "test_79"},
 			Write: map[uint32]string{81: "test_80"},
 		},
@@ -443,119 +443,119 @@ func FuzzDecodeFunction(f *testing.F) {
 		seed := v2.Function{
 			Key:  "test_1",
 			Body: v2.Body{Raw: "test_3"},
-			Inputs: []gov1.Param{
+			Inputs: []typesv1.Param{
 				{
 					Name: "test_5",
-					Type: gov1.Type{
-						FunctionProperties: gov1.FunctionProperties{
-							Inputs: []gov1.Param{
+					Type: typesv1.Type{
+						FunctionProperties: typesv1.FunctionProperties{
+							Inputs: []typesv1.Param{
 								{
 									Name:  "test_8",
-									Type:  gov1.Type{},
+									Type:  typesv1.Type{},
 									Value: map[string]interface{}{"key_10": "value_10"},
 								},
 							},
-							Outputs: []gov1.Param{
+							Outputs: []typesv1.Param{
 								{
 									Name:  "test_12",
-									Type:  gov1.Type{},
+									Type:  typesv1.Type{},
 									Value: map[string]interface{}{"key_14": "value_14"},
 								},
 							},
 						},
-						Kind: gov1.Kind(0),
+						Kind: typesv1.Kind(0),
 						Name: "test_16",
-						Elem: new(gov1.Type{
-							FunctionProperties: gov1.FunctionProperties{
-								Inputs:  []gov1.Param{{}},
-								Outputs: []gov1.Param{{}},
+						Elem: new(typesv1.Type{
+							FunctionProperties: typesv1.FunctionProperties{
+								Inputs:  []typesv1.Param{{}},
+								Outputs: []typesv1.Param{{}},
 							},
-							Kind:          gov1.Kind(0),
+							Kind:          typesv1.Kind(0),
 							Name:          "test_21",
-							Elem:          new(gov1.Type{}),
-							Unit:          new(gov1.Unit{}),
-							Constraint:    new(gov1.Type{}),
-							ChanDirection: gov1.ChanDirection(0),
+							Elem:          new(typesv1.Type{}),
+							Unit:          new(typesv1.Unit{}),
+							Constraint:    new(typesv1.Type{}),
+							ChanDirection: typesv1.ChanDirection(0),
 						}),
-						Unit: new(gov1.Unit{
-							Dimensions: gov1.Dimensions{},
+						Unit: new(typesv1.Unit{
+							Dimensions: typesv1.Dimensions{},
 							Scale:      28.5,
 							Name:       "test_29",
 						}),
-						Constraint: new(gov1.Type{
-							FunctionProperties: gov1.FunctionProperties{
-								Inputs:  []gov1.Param{{}},
-								Outputs: []gov1.Param{{}},
+						Constraint: new(typesv1.Type{
+							FunctionProperties: typesv1.FunctionProperties{
+								Inputs:  []typesv1.Param{{}},
+								Outputs: []typesv1.Param{{}},
 							},
-							Kind:          gov1.Kind(0),
+							Kind:          typesv1.Kind(0),
 							Name:          "test_34",
-							Elem:          new(gov1.Type{}),
-							Unit:          new(gov1.Unit{}),
-							Constraint:    new(gov1.Type{}),
-							ChanDirection: gov1.ChanDirection(0),
+							Elem:          new(typesv1.Type{}),
+							Unit:          new(typesv1.Unit{}),
+							Constraint:    new(typesv1.Type{}),
+							ChanDirection: typesv1.ChanDirection(0),
 						}),
-						ChanDirection: gov1.ChanDirection(0),
+						ChanDirection: typesv1.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_40": "value_40"},
 				},
 			},
-			Outputs: []gov1.Param{
+			Outputs: []typesv1.Param{
 				{
 					Name: "test_42",
-					Type: gov1.Type{
-						FunctionProperties: gov1.FunctionProperties{
-							Inputs: []gov1.Param{
+					Type: typesv1.Type{
+						FunctionProperties: typesv1.FunctionProperties{
+							Inputs: []typesv1.Param{
 								{
 									Name:  "test_45",
-									Type:  gov1.Type{},
+									Type:  typesv1.Type{},
 									Value: map[string]interface{}{"key_47": "value_47"},
 								},
 							},
-							Outputs: []gov1.Param{
+							Outputs: []typesv1.Param{
 								{
 									Name:  "test_49",
-									Type:  gov1.Type{},
+									Type:  typesv1.Type{},
 									Value: map[string]interface{}{"key_51": "value_51"},
 								},
 							},
 						},
-						Kind: gov1.Kind(0),
+						Kind: typesv1.Kind(0),
 						Name: "test_53",
-						Elem: new(gov1.Type{
-							FunctionProperties: gov1.FunctionProperties{
-								Inputs:  []gov1.Param{{}},
-								Outputs: []gov1.Param{{}},
+						Elem: new(typesv1.Type{
+							FunctionProperties: typesv1.FunctionProperties{
+								Inputs:  []typesv1.Param{{}},
+								Outputs: []typesv1.Param{{}},
 							},
-							Kind:          gov1.Kind(0),
+							Kind:          typesv1.Kind(0),
 							Name:          "test_58",
-							Elem:          new(gov1.Type{}),
-							Unit:          new(gov1.Unit{}),
-							Constraint:    new(gov1.Type{}),
-							ChanDirection: gov1.ChanDirection(0),
+							Elem:          new(typesv1.Type{}),
+							Unit:          new(typesv1.Unit{}),
+							Constraint:    new(typesv1.Type{}),
+							ChanDirection: typesv1.ChanDirection(0),
 						}),
-						Unit: new(gov1.Unit{
-							Dimensions: gov1.Dimensions{},
+						Unit: new(typesv1.Unit{
+							Dimensions: typesv1.Dimensions{},
 							Scale:      65.5,
 							Name:       "test_66",
 						}),
-						Constraint: new(gov1.Type{
-							FunctionProperties: gov1.FunctionProperties{
-								Inputs:  []gov1.Param{{}},
-								Outputs: []gov1.Param{{}},
+						Constraint: new(typesv1.Type{
+							FunctionProperties: typesv1.FunctionProperties{
+								Inputs:  []typesv1.Param{{}},
+								Outputs: []typesv1.Param{{}},
 							},
-							Kind:          gov1.Kind(0),
+							Kind:          typesv1.Kind(0),
 							Name:          "test_71",
-							Elem:          new(gov1.Type{}),
-							Unit:          new(gov1.Unit{}),
-							Constraint:    new(gov1.Type{}),
-							ChanDirection: gov1.ChanDirection(0),
+							Elem:          new(typesv1.Type{}),
+							Unit:          new(typesv1.Unit{}),
+							Constraint:    new(typesv1.Type{}),
+							ChanDirection: typesv1.ChanDirection(0),
 						}),
-						ChanDirection: gov1.ChanDirection(0),
+						ChanDirection: typesv1.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_77": "value_77"},
 				},
 			},
-			Channels: gov1.Channels{
+			Channels: typesv1.Channels{
 				Read:  map[uint32]string{80: "test_79"},
 				Write: map[uint32]string{81: "test_80"},
 			},
@@ -572,7 +572,7 @@ func FuzzDecodeFunction(f *testing.F) {
 			Body:     v2.Body{Raw: ""},
 			Inputs:   nil,
 			Outputs:  nil,
-			Channels: gov1.Channels{Read: nil, Write: nil},
+			Channels: typesv1.Channels{Read: nil, Write: nil},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -584,9 +584,9 @@ func FuzzDecodeFunction(f *testing.F) {
 		seed := v2.Function{
 			Key:      "test_1",
 			Body:     v2.Body{Raw: "test_3"},
-			Inputs:   []gov1.Param{},
-			Outputs:  []gov1.Param{},
-			Channels: gov1.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
+			Inputs:   []typesv1.Param{},
+			Outputs:  []typesv1.Param{},
+			Channels: typesv1.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

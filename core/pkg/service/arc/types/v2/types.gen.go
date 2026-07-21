@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -35,7 +34,7 @@ const (
 type StatusDetails = v1.StatusDetails
 
 // Status is the status of an Arc module including execution state.
-type Status = status.Status[StatusDetails]
+type Status = v1.Status
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.

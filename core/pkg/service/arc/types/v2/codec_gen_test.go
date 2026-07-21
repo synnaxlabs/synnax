@@ -21,7 +21,7 @@ import (
 	graph "github.com/synnaxlabs/arc/graph/types/v2"
 	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	text "github.com/synnaxlabs/arc/text/types/v1"
-	gov1 "github.com/synnaxlabs/arc/types/types/v1"
+	typesv1 "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	crdt "github.com/synnaxlabs/x/crdt/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -50,21 +50,21 @@ var _ = Describe("Codec", func() {
 						{
 							Key:  "test_6",
 							Body: ir.Body{Raw: "test_8"},
-							Inputs: []gov1.Param{
+							Inputs: []typesv1.Param{
 								{
 									Name:  "test_10",
-									Type:  gov1.Type{},
+									Type:  typesv1.Type{},
 									Value: map[string]interface{}{"key_12": "value_12"},
 								},
 							},
-							Outputs: []gov1.Param{
+							Outputs: []typesv1.Param{
 								{
 									Name:  "test_14",
-									Type:  gov1.Type{},
+									Type:  typesv1.Type{},
 									Value: map[string]interface{}{"key_16": "value_16"},
 								},
 							},
-							Channels: gov1.Channels{
+							Channels: typesv1.Channels{
 								Read:  map[uint32]string{19: "test_18"},
 								Write: map[uint32]string{20: "test_19"},
 							},
@@ -123,21 +123,21 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 				{
 					Key:  "test_6",
 					Body: ir.Body{Raw: "test_8"},
-					Inputs: []gov1.Param{
+					Inputs: []typesv1.Param{
 						{
 							Name:  "test_10",
-							Type:  gov1.Type{},
+							Type:  typesv1.Type{},
 							Value: map[string]interface{}{"key_12": "value_12"},
 						},
 					},
-					Outputs: []gov1.Param{
+					Outputs: []typesv1.Param{
 						{
 							Name:  "test_14",
-							Type:  gov1.Type{},
+							Type:  typesv1.Type{},
 							Value: map[string]interface{}{"key_16": "value_16"},
 						},
 					},
-					Channels: gov1.Channels{
+					Channels: typesv1.Channels{
 						Read:  map[uint32]string{19: "test_18"},
 						Write: map[uint32]string{20: "test_19"},
 					},
@@ -196,21 +196,21 @@ func FuzzDecodeArc(f *testing.F) {
 					{
 						Key:  "test_6",
 						Body: ir.Body{Raw: "test_8"},
-						Inputs: []gov1.Param{
+						Inputs: []typesv1.Param{
 							{
 								Name:  "test_10",
-								Type:  gov1.Type{},
+								Type:  typesv1.Type{},
 								Value: map[string]interface{}{"key_12": "value_12"},
 							},
 						},
-						Outputs: []gov1.Param{
+						Outputs: []typesv1.Param{
 							{
 								Name:  "test_14",
-								Type:  gov1.Type{},
+								Type:  typesv1.Type{},
 								Value: map[string]interface{}{"key_16": "value_16"},
 							},
 						},
-						Channels: gov1.Channels{
+						Channels: typesv1.Channels{
 							Read:  map[uint32]string{19: "test_18"},
 							Write: map[uint32]string{20: "test_19"},
 						},
