@@ -15,7 +15,7 @@ import (
 	graph "github.com/synnaxlabs/arc/graph/types/v2"
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
 	"github.com/synnaxlabs/x/validate"
 )
 

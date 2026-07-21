@@ -13,7 +13,7 @@ package v1
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	telem "github.com/synnaxlabs/x/telem/types/v0"
 	"github.com/synnaxlabs/x/validate"

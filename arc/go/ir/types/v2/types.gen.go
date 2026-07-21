@@ -13,7 +13,7 @@ package v2
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/ir/types/v1"
+	v1 "github.com/synnaxlabs/arc/ir/types/v1"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	typesv1 "github.com/synnaxlabs/arc/types/types/v1"

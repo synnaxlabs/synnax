@@ -11,7 +11,7 @@
 
 package v1
 
-import "github.com/synnaxlabs/arc/types/types/v0"
+import v0 "github.com/synnaxlabs/arc/types/types/v0"
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.

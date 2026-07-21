@@ -15,7 +15,7 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	notation "github.com/synnaxlabs/x/notation/types/v0"
 	telem "github.com/synnaxlabs/x/telem/types/v0"

@@ -12,7 +12,7 @@
 package v7
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/validate"

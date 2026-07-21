@@ -12,7 +12,7 @@
 package v2
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )

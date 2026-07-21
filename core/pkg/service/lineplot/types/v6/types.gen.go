@@ -15,7 +15,7 @@ import (
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
 	color "github.com/synnaxlabs/x/color/types/v0"
 	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	text "github.com/synnaxlabs/x/text/types/v0"

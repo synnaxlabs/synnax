@@ -12,6 +12,7 @@ package imports
 
 import (
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -113,9 +114,18 @@ type InternalImportData struct {
 	Alias string
 }
 
-// NeedsAlias returns true if the import needs an alias in the generated code.
+// versionDir matches version sub-directory names ("v0", "v12").
+var versionDir = regexp.MustCompile(`^v\d+$`)
+
+// NeedsAlias returns true if the import renders with an explicit alias.
+// Version directories always do (v6 "…/types/v6"), even when the alias
+// matches the package name, so the qualifier's origin stays visible.
 func (i InternalImportData) NeedsAlias() bool {
-	return i.Alias != "" && i.Alias != filepath.Base(i.Path)
+	if i.Alias == "" {
+		return false
+	}
+	base := filepath.Base(i.Path)
+	return i.Alias != base || versionDir.MatchString(base)
 }
 
 // InternalImports returns sorted internal imports, excluding any that are already

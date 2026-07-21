@@ -13,7 +13,7 @@ package v1
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
