@@ -14,7 +14,7 @@ package v7
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
 )
 
 func autoMigrateSchematic(_ context.Context, old v6.Schematic) (Schematic, error) {

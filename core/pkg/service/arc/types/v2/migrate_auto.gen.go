@@ -15,10 +15,8 @@ import (
 	"context"
 
 	graph "github.com/synnaxlabs/arc/graph/types/v2"
-	program "github.com/synnaxlabs/arc/program"
-	programv2 "github.com/synnaxlabs/arc/program/types/v2"
 	text "github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
 )
 
 func autoMigrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
@@ -26,20 +24,11 @@ func autoMigrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 	if err != nil {
 		return Arc{}, err
 	}
-	var program *program.Program
-	if old.Program != nil {
-		v, err := programv2.MigrateProgram(ctx, *old.Program)
-		if err != nil {
-			return Arc{}, err
-		}
-		program = &v
-	}
 	return Arc{
-		Key:     old.Key,
-		Name:    old.Name,
-		Mode:    old.Mode,
-		Graph:   graph,
-		Text:    text.Text{Raw: old.Text.Raw},
-		Program: program,
+		Key:   old.Key,
+		Name:  old.Name,
+		Mode:  old.Mode,
+		Graph: graph,
+		Text:  text.Text{Raw: old.Text.Raw},
 	}, nil
 }

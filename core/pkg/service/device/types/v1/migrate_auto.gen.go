@@ -14,7 +14,7 @@ package v1
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 )
 
 func autoMigrateDevice(_ context.Context, old v0.Device) (Device, error) {

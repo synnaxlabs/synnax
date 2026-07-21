@@ -10,7 +10,7 @@
 package types
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/migrate"
 )
 

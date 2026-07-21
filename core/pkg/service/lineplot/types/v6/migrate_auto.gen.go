@@ -14,7 +14,7 @@ package v6
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
 )
 
 func autoMigrateLinePlot(_ context.Context, old v5.LinePlot) (LinePlot, error) {

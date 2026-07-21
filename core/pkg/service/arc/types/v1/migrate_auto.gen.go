@@ -15,7 +15,7 @@ import (
 	"context"
 
 	graph "github.com/synnaxlabs/arc/graph/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 )
 
 func autoMigrateArc(ctx context.Context, old v0.Arc) (Arc, error) {

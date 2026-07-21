@@ -12,7 +12,7 @@ package v2_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/graph/types/v2"
+	v2 "github.com/synnaxlabs/arc/graph/types/v2"
 	"github.com/synnaxlabs/arc/ir"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"

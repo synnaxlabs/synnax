@@ -14,7 +14,7 @@ package v1
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
 )
 
 func autoMigrateProject(_ context.Context, old v0.Workspace) (Project, error) {

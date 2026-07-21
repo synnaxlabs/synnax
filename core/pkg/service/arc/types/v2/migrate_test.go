@@ -13,21 +13,20 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	graphv0 "github.com/synnaxlabs/arc/graph/types/v0"
-	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
-	textv0 "github.com/synnaxlabs/arc/text/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
+	graph "github.com/synnaxlabs/arc/graph/types/v0"
+	ir "github.com/synnaxlabs/arc/ir/types/v0"
+	text "github.com/synnaxlabs/arc/text/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/telem"
-	telemv0 "github.com/synnaxlabs/x/telem/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -37,7 +36,7 @@ var _ = Describe("v1 -> current Arc migration", func() {
 			Key:  uuid.New(),
 			Name: "legacy",
 			Mode: v0.ModeText,
-			Text: textv0.Text{Raw: "x := 1"},
+			Text: text.Text{Raw: "x := 1"},
 		})
 		Expect(got.Text.Materialize().Raw).To(Equal("x := 1"))
 	})
@@ -78,25 +77,25 @@ var _ = Describe("v0 -> current Arc migration", func() {
 			Key:  uuid.New(),
 			Name: "Seed",
 			Mode: v0.ModeText,
-			Text: textv0.Text{Raw: "channel x; 1 -> x"},
-			Graph: graphv0.Graph{
-				Viewport: graphv0.Viewport{
-					Position: spatialv0.XY{X: 12, Y: -34},
+			Text: text.Text{Raw: "channel x; 1 -> x"},
+			Graph: graph.Graph{
+				Viewport: graph.Viewport{
+					Position: spatial.XY{X: 12, Y: -34},
 					Zoom:     1.5,
 				},
-				Functions: irv0.Functions{
-					{Key: "scale", Body: irv0.Body{Raw: "x * 2"}},
+				Functions: ir.Functions{
+					{Key: "scale", Body: ir.Body{Raw: "x * 2"}},
 				},
-				Edges: irv0.Edges{
+				Edges: ir.Edges{
 					{
-						Source: irv0.Handle{Node: "n1", Param: "out"},
-						Target: irv0.Handle{Node: "n2", Param: "in"},
-						Kind:   irv0.EdgeKindContinuous,
+						Source: ir.Handle{Node: "n1", Param: "out"},
+						Target: ir.Handle{Node: "n2", Param: "in"},
+						Kind:   ir.EdgeKindContinuous,
 					},
 				},
-				Nodes: graphv0.Nodes{
-					{Key: "n1", Type: "scale", Position: spatialv0.XY{X: 0, Y: 0}},
-					{Key: "n2", Type: "scale", Position: spatialv0.XY{X: 100, Y: 50}},
+				Nodes: graph.Nodes{
+					{Key: "n1", Type: "scale", Position: spatial.XY{X: 0, Y: 0}},
+					{Key: "n2", Type: "scale", Position: spatial.XY{X: 100, Y: 50}},
 				},
 			},
 		}
@@ -122,8 +121,8 @@ var _ = Describe("v0 -> current Arc migration", func() {
 			Key:  uuid.New(),
 			Name: "Legacy Status Graph",
 			Mode: v0.ModeGraph,
-			Graph: graphv0.Graph{
-				Nodes: graphv0.Nodes{
+			Graph: graph.Graph{
+				Nodes: graph.Nodes{
 					{
 						Key:  "alarm",
 						Type: "set_status",
@@ -133,13 +132,13 @@ var _ = Describe("v0 -> current Arc migration", func() {
 							"message":     "Overpressure",
 							"description": "dropped on migrate",
 						},
-						Position: spatialv0.XY{X: 0, Y: 0},
+						Position: spatial.XY{X: 0, Y: 0},
 					},
 					{
 						Key:      "scale",
 						Type:     "scale",
 						Config:   msgpack.EncodedJSON{"factor": "2"},
-						Position: spatialv0.XY{X: 100, Y: 0},
+						Position: spatial.XY{X: 100, Y: 0},
 					},
 				},
 			},
@@ -167,8 +166,8 @@ var _ = Describe("v0 -> current Arc migration", func() {
 			Key:  uuid.New(),
 			Name: "Bare Status Node",
 			Mode: v0.ModeGraph,
-			Graph: graphv0.Graph{
-				Nodes: graphv0.Nodes{{Key: "alarm", Type: "set_status"}},
+			Graph: graph.Graph{
+				Nodes: graph.Nodes{{Key: "alarm", Type: "set_status"}},
 			},
 		}
 		got := migrateFromV0(ctx, seed)
@@ -187,16 +186,16 @@ var _ = Describe("v0 -> current Arc migration", func() {
 			Key:  uuid.New(),
 			Name: "Loaded Seed",
 			Mode: v0.ModeGraph,
-			Text: textv0.Text{Raw: ""},
+			Text: text.Text{Raw: ""},
 			Status: &v0.Status{
 				Key:         statusKey,
 				Name:        "running",
 				Variant:     "success",
 				Message:     "task is running",
 				Description: "started 5s ago",
-				Time:        telemv0.TimeStamp(telem.Now()),
+				Time:        telem.Now(),
 				Details:     v0.StatusDetails{Running: true},
-				Labels: []labelv0.Label{
+				Labels: []label.Label{
 					{Key: labelKey, Name: "critical", Color: color.Color{R: 255, A: 1}},
 				},
 			},

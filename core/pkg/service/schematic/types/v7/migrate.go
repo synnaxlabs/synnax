@@ -15,9 +15,9 @@ import (
 	"math"
 
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v0"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v3"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,21 +25,19 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-// migrateSchematic transforms the previous schematic snapshot (v0) into the
-// current strongly-typed Schematic. autoMigrateSchematic handles the
-// trivially-copyable gorp-entry fields (Key, Name, Snapshot); the body
-// fields are sourced from the per-schematic blob the console used to
-// persist alongside those gorp fields, after legacy.MigrateData walks the
-// legacy migration chain up to v5.Data. UI-only fields (editable,
-// fitViewOnResize, viewport, mode, toolbar, control, viewportMode, authority,
-// legend, the wire-format key) are dropped; the latter live on the console
-// slice and never reach the server. Edges flip from the flat source /
-// sourceHandle pair into nested Handle objects, edge.data segments / color /
-// variant lift into the props map keyed by edge id, and node-prop "key"
-// renames to "variant" so the lifted shape matches the EdgeProps / NodeProps
-// schema declared in schematic.oracle. v0 is the last snapshot in which
-// Schematic.Data is untyped; future migrations transform one typed snapshot
-// into another and never need this blob handling.
+// migrateSchematic transforms the previous schematic snapshot (v0) into the current
+// strongly-typed Schematic. autoMigrateSchematic handles the trivially-copyable
+// gorp-entry fields (Key, Name, Snapshot); the body fields are sourced from the
+// per-schematic blob the console used to persist alongside those gorp fields, after
+// legacy.MigrateData walks the legacy migration chain up to v5.Data. UI-only fields
+// (editable, fitViewOnResize, viewport, mode, toolbar, control, viewportMode,
+// authority, legend, the wire-format key) are dropped; the latter live on the console
+// slice and never reach the server. Edges flip from the flat source / sourceHandle pair
+// into nested Handle objects, edge.data segments / color / variant lift into the props
+// map keyed by edge id, and node-prop "key" renames to "variant" so the lifted shape
+// matches the EdgeProps / NodeProps schema declared in schematic.oracle. v0 is the last
+// snapshot in which Schematic.Data is untyped; future migrations transform one typed
+// snapshot into another and never need this blob handling.
 func migrateSchematic(
 	ctx context.Context,
 	old v6.Schematic,

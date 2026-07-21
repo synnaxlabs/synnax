@@ -14,7 +14,7 @@ package v1
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 )
 
 func autoMigrateTask(_ context.Context, old v0.Task) (Task, error) {

@@ -12,7 +12,7 @@ package v0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 )
 
 var _ = Describe("Resource", func() {

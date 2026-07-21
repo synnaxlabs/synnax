@@ -14,8 +14,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/log/types/v3"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/log/types/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"

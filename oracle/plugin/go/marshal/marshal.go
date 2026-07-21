@@ -13,6 +13,8 @@ package marshal
 
 import (
 	"fmt"
+	"path/filepath"
+	"regexp"
 	"sort"
 
 	"github.com/synnaxlabs/oracle/plugin"
@@ -220,6 +222,9 @@ type importEntry struct {
 	Alias string
 }
 
+// versionDir matches version sub-directory names ("v0", "v12").
+var versionDir = regexp.MustCompile(`/v\d+$`)
+
 func sortedImports(m map[string]string) []importEntry {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -228,7 +233,13 @@ func sortedImports(m map[string]string) []importEntry {
 	sort.Strings(keys)
 	entries := make([]importEntry, 0, len(keys))
 	for _, k := range keys {
-		entries = append(entries, importEntry{Path: k, Alias: m[k]})
+		alias := m[k]
+		// Version directories always import under an explicit alias so the
+		// qualifier's origin stays visible.
+		if alias == "" && versionDir.MatchString(k) {
+			alias = filepath.Base(k)
+		}
+		entries = append(entries, importEntry{Path: k, Alias: alias})
 	}
 	return entries
 }

@@ -12,8 +12,8 @@ package v2_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/ir/types/v1"
-	"github.com/synnaxlabs/arc/ir/types/v2"
+	v1 "github.com/synnaxlabs/arc/ir/types/v1"
+	v2 "github.com/synnaxlabs/arc/ir/types/v2"
 	. "github.com/synnaxlabs/x/testutil"
 )
 

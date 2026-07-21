@@ -14,7 +14,7 @@ package v3
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
 )
 
 func autoMigrateLog(_ context.Context, old v2.Log) (Log, error) {
