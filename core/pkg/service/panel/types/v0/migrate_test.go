@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types_test
+package v0_test
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel/types"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 	projecttypes "github.com/synnaxlabs/synnax/pkg/service/project/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -30,11 +30,11 @@ import (
 var _ = Describe("Project layout to panel migration", func() {
 	openPanelTable := func(
 		ctx context.Context, db *gorp.DB,
-	) *gorp.Table[types.Key, types.Panel] {
+	) *gorp.Table[v0.Key, v0.Panel] {
 		return MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[types.Key, types.Panel]{
+			ctx, gorp.TableConfig[v0.Key, v0.Panel]{
 				DB:         db,
-				Migrations: types.Migrations,
+				Migrations: v0.Migrations,
 			},
 		))
 	}
@@ -56,44 +56,44 @@ var _ = Describe("Project layout to panel migration", func() {
 				Exec(ctx, db)).To(Succeed())
 		}
 	}
-	collectPanels := func(ctx context.Context, db *gorp.DB) []types.Panel {
+	collectPanels := func(ctx context.Context, db *gorp.DB) []v0.Panel {
 		seq, closer := MustSucceed2(
-			gorp.WrapReader[types.Key, types.Panel](db).OpenNexter(ctx),
+			gorp.WrapReader[v0.Key, v0.Panel](db).OpenNexter(ctx),
 		)
 		DeferClose(closer)
-		var out []types.Panel
+		var out []v0.Panel
 		for p := range seq {
 			out = append(out, p)
 		}
 		return out
 	}
-	findPanel := func(panels []types.Panel, name string) types.Panel {
+	findPanel := func(panels []v0.Panel, name string) v0.Panel {
 		for _, p := range panels {
 			if p.Name == name {
 				return p
 			}
 		}
 		Fail("no panel named " + name)
-		return types.Panel{}
+		return v0.Panel{}
 	}
 	// zeroTabKeys asserts every tab in the tree was assigned a fresh key and zeroes
 	// the keys so trees can be compared structurally.
-	var zeroTabKeys func(n *types.Node)
-	zeroTabKeys = func(n *types.Node) {
+	var zeroTabKeys func(n *v0.Node)
+	zeroTabKeys = func(n *v0.Node) {
 		if n == nil {
 			return
 		}
 		switch v := n.Variant.(type) {
-		case types.NodeLeaf:
+		case v0.NodeLeaf:
 			for i, t := range v.Tabs {
-				rt, ok := t.Variant.(types.TabResource)
+				rt, ok := t.Variant.(v0.TabResource)
 				Expect(ok).To(BeTrue())
 				Expect(rt.Key).ToNot(Equal(uuid.Nil))
 				rt.Key = uuid.Nil
-				v.Tabs[i] = types.Tab{Variant: rt}
+				v.Tabs[i] = v0.Tab{Variant: rt}
 			}
 			n.Variant = v
-		case types.NodeSplit:
+		case v0.NodeSplit:
 			zeroTabKeys(&v.First)
 			zeroTabKeys(&v.Last)
 			n.Variant = v
@@ -111,13 +111,13 @@ var _ = Describe("Project layout to panel migration", func() {
 			Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
 			Exists(ctx, db))
 	}
-	resourceTab := func(t ontology.ResourceType, key string) types.Tab {
-		return types.Tab{Variant: types.TabResource{
+	resourceTab := func(t ontology.ResourceType, key string) v0.Tab {
+		return v0.Tab{Variant: v0.TabResource{
 			Resource: ontology.ID{Type: t, Key: key},
 		}}
 	}
-	leaf := func(tabs ...types.Tab) *types.Node {
-		return &types.Node{Variant: types.NodeLeaf{Leaf: types.Leaf{Tabs: tabs}}}
+	leaf := func(tabs ...v0.Tab) *v0.Node {
+		return &v0.Node{Variant: v0.NodeLeaf{Leaf: v0.Leaf{Tabs: tabs}}}
 	}
 	mosaicTab := func(tabKey string) map[string]any {
 		return map[string]any{"tabKey": tabKey, "name": "Tab " + tabKey}
@@ -222,10 +222,10 @@ var _ = Describe("Project layout to panel migration", func() {
 
 		main := findPanel(panels, "Main")
 		zeroTabKeys(&main.Root)
-		Expect(main.Root).To(Equal(types.Node{Variant: types.NodeSplit{Split: types.Split{
+		Expect(main.Root).To(Equal(v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
 			Direction: spatial.DirectionX,
 			Size:      0.25,
-			First: types.Node{Variant: types.NodeSplit{Split: types.Split{
+			First: v0.Node{Variant: v0.NodeSplit{Split: v0.Split{
 				Direction: spatial.DirectionY,
 				Size:      0.5,
 				First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
@@ -242,7 +242,7 @@ var _ = Describe("Project layout to panel migration", func() {
 
 		By("Defining an ontology resource and parent relationship for each panel")
 		for _, p := range panels {
-			panelID := types.Panel{Key: p.Key}.OntologyID()
+			panelID := v0.Panel{Key: p.Key}.OntologyID()
 			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
 				Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
 				Exists(ctx, db))).To(BeTrue())

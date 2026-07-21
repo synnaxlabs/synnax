@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types_test
+package v1_test
 
 import (
 	"context"
@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project/types"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -33,14 +33,14 @@ func runMigrations(ctx context.Context, db *gorp.DB) {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Project",
-		Migrations: types.NewMigrations(types.MigrationsConfig{Ontology: otg}),
+		Migrations: v1.NewMigrations(v1.MigrationsConfig{Ontology: otg}),
 	})).To(Succeed())
 }
 
 var _ = Describe("Workspace to project migration", func() {
-	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[types.Key, types.Project] {
+	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[v1.Key, v1.Project] {
 		return MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[types.Key, types.Project]{DB: db},
+			ctx, gorp.TableConfig[v1.Key, v1.Project]{DB: db},
 		))
 	}
 	rel := func(from, to ontology.ID) ontology.Relationship {
@@ -106,15 +106,15 @@ var _ = Describe("Workspace to project migration", func() {
 		projectTable := openProjectTable(ctx, db)
 
 		By("Lifting every workspace into a project with identical fields")
-		var pA types.Project
-		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[types.Key, types.Project](wsA)).
+		var pA v1.Project
+		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[v1.Key, v1.Project](wsA)).
 			Entry(&pA).Exec(ctx, db)).To(Succeed())
-		Expect(pA).To(Equal(types.Project{
+		Expect(pA).To(Equal(v1.Project{
 			Key:    wsA,
 			Name:   "Ops",
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}))
-		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[types.Key, types.Project](wsB)).
+		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[v1.Key, v1.Project](wsB)).
 			Exists(ctx, db)).To(BeTrue())
 
 		By("Removing the legacy workspace records")
@@ -148,7 +148,7 @@ var _ = Describe("Workspace to project migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		runMigrations(ctx, db)
 		Expect(openProjectTable(ctx, db).NewRetrieve().
-			Where(gorp.MatchKeys[types.Key, types.Project](uuid.New())).
+			Where(gorp.MatchKeys[v1.Key, v1.Project](uuid.New())).
 			Exists(ctx, db)).To(BeFalse())
 	})
 })
@@ -202,29 +202,29 @@ var _ = Describe("Project layout staging migration", func() {
 	It("Should stage each non-empty layout under its key and skip empty ones", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[types.Key, types.Project]{DB: db},
+			ctx, gorp.TableConfig[v1.Key, v1.Project]{DB: db},
 		))
 		withLayout := uuid.New()
 		layout := msgpack.EncodedJSON{"active": "plot-1", "pinned": true}
-		Expect(table.NewCreate().Entry(&types.Project{
+		Expect(table.NewCreate().Entry(&v1.Project{
 			Key: withLayout, Name: "Ops", Layout: layout,
 		}).Exec(ctx, db)).To(Succeed())
 		empty := uuid.New()
-		Expect(table.NewCreate().Entry(&types.Project{
+		Expect(table.NewCreate().Entry(&v1.Project{
 			Key: empty, Name: "Empty",
 		}).Exec(ctx, db)).To(Succeed())
 
 		runMigrations(ctx, db)
 
 		By("Writing the layout blob under the project's staging key")
-		blob, closer := MustSucceed2(db.Get(ctx, types.LegacyLayoutKVKey(withLayout)))
+		blob, closer := MustSucceed2(db.Get(ctx, v1.LegacyLayoutKVKey(withLayout)))
 		var got msgpack.EncodedJSON
 		Expect(json.Unmarshal(blob, &got)).To(Succeed())
 		Expect(closer.Close()).To(Succeed())
 		Expect(got).To(Equal(layout))
 
 		By("Leaving no staging entry for a project without a layout")
-		Expect(db.Get(ctx, types.LegacyLayoutKVKey(empty))).Error().
+		Expect(db.Get(ctx, v1.LegacyLayoutKVKey(empty))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 })
