@@ -13,18 +13,18 @@ package v1
 
 import (
 	"context"
-	compiler "github.com/synnaxlabs/arc/compiler"
-	irv2 "github.com/synnaxlabs/arc/ir/types/v2"
-	program "github.com/synnaxlabs/arc/program/types/v2"
+	compilerv0 "github.com/synnaxlabs/arc/compiler/types/v0"
+	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
+	v0 "github.com/synnaxlabs/arc/program/types/v0"
 )
 
-func AutoMigrateProgram(ctx context.Context, old Program) (program.Program, error) {
-	ir, err := irv2.AutoMigrateIR(ctx, old.IR)
+func AutoMigrateProgram(ctx context.Context, old v0.Program) (Program, error) {
+	ir, err := irv1.MigrateIR(ctx, old.IR)
 	if err != nil {
-		return program.Program{}, err
+		return Program{}, err
 	}
-	return program.Program{
+	return Program{
 		IR:     ir,
-		Output: compiler.Output(old.Output),
+		Output: compilerv0.Output(old.Output),
 	}, nil
 }

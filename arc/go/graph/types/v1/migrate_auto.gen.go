@@ -13,67 +13,57 @@ package v1
 
 import (
 	"context"
-	uuid "github.com/google/uuid"
-	graph "github.com/synnaxlabs/arc/graph/types/v2"
+	v0 "github.com/synnaxlabs/arc/graph/types/v0"
 	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
-	ir "github.com/synnaxlabs/arc/ir/types/v2"
-	msgpack "github.com/synnaxlabs/x/encoding/msgpack"
-	spatial "github.com/synnaxlabs/x/spatial"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
-func AutoMigrateGraph(ctx context.Context, old Graph) (graph.Graph, error) {
-	functions := make(ir.Functions, len(old.Functions))
+func AutoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
+	viewport, err := AutoMigrateViewport(ctx, old.Viewport)
+	if err != nil {
+		return Graph{}, err
+	}
+	functions := make(irv1.Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
-		if functions[i], err = ir.MigrateFunction(ctx, v); err != nil {
-			return graph.Graph{}, err
+		if functions[i], err = irv1.MigrateFunction(ctx, v); err != nil {
+			return Graph{}, err
 		}
 	}
-	edges := make(graph.Edges, len(old.Edges))
+	edges := make(irv1.Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
-		if edges[i], err = AutoMigrateEdge(ctx, v); err != nil {
-			return graph.Graph{}, err
+		if edges[i], err = irv1.MigrateEdge(ctx, v); err != nil {
+			return Graph{}, err
 		}
 	}
-	nodes := make(graph.Nodes, len(old.Nodes))
+	nodes := make(Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
 		if nodes[i], err = AutoMigrateNode(ctx, v); err != nil {
-			return graph.Graph{}, err
+			return Graph{}, err
 		}
 	}
-	inputs := make(map[string]msgpack.EncodedJSON, len(old.Nodes))
-	for _, v := range old.Nodes {
-		cfg := msgpack.EncodedJSON{}
-		for k, val := range v.Config {
-			cfg[k] = val
-		}
-		cfg["type"] = v.Type
-		inputs[v.Key] = cfg
-	}
-	return graph.Graph{
+	return Graph{
+		Viewport:  viewport,
 		Functions: functions,
 		Edges:     edges,
 		Nodes:     nodes,
-		Inputs:    inputs,
 	}, nil
 }
 
-func AutoMigrateEdge(_ context.Context, old irv1.Edge) (graph.Edge, error) {
-	return graph.Edge{
-		Edge: ir.Edge{
-			Source: ir.Handle(old.Source),
-			Target: ir.Handle(old.Target),
-			Kind:   ir.EdgeKind(old.Kind),
-		},
-		Key: uuid.NewString(),
+func AutoMigrateViewport(_ context.Context, old v0.Viewport) (Viewport, error) {
+	return Viewport{
+		Position: spatialv0.XY(old.Position),
+		Zoom:     old.Zoom,
 	}, nil
 }
 
-func AutoMigrateNode(_ context.Context, old Node) (graph.Node, error) {
-	return graph.Node{
+func AutoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
+	return Node{
 		Key:      old.Key,
-		Position: spatial.XY(old.Position),
+		Type:     old.Type,
+		Config:   old.Config,
+		Position: spatialv0.XY(old.Position),
 	}, nil
 }

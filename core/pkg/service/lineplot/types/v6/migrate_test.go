@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/text"
 )
@@ -47,6 +46,25 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 	return m
 }
 
+// migrateSeed runs the v6 migration chain over a gorp-seeded v5 line plot and
+// returns the migrated typed LinePlot.
+func migrateSeed(ctx SpecContext, seed v5.LinePlot) lineplot.LinePlot {
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v5.LinePlot]{DB: db}))
+	Expect(gorp.NewCreate[uuid.UUID, v5.LinePlot]().Entry(&seed).Exec(ctx, db)).
+		To(Succeed())
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  "LinePlot",
+		Migrations: v6.Migrations,
+	})).To(Succeed())
+	var got lineplot.LinePlot
+	Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
+		Where(gorp.MatchKeys[lineplot.Key, lineplot.LinePlot](seed.Key)).
+		Entry(&got).Exec(ctx, db)).To(Succeed())
+	return got
+}
+
 // assertMigrated compares got against the canonical .migrated.json file for
 // fixture, or rewrites it if UPDATE_MIGRATED=1 is set. Outputs are
 // canonicalized via json.MarshalIndent (which sorts map keys) so diffs are
@@ -65,7 +83,7 @@ func assertMigrated(fixture string, got lineplot.LinePlot) {
 		"%s drifted from its canonical migrated form, review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }
 
-var _ = Describe("MigrateLinePlot", func() {
+var _ = Describe("v5 -> current LinePlot migration", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured fixture. Run with UPDATE_MIGRATED=1 to regenerate the
 	// .migrated.json files after intentional migration changes.
@@ -74,8 +92,9 @@ var _ = Describe("MigrateLinePlot", func() {
 		DescribeTable("Should produce the canonical typed LinePlot",
 			func(ctx SpecContext, fixture string) {
 				blob := loadFixture(fixture)
-				snap := v5.LinePlot{Key: fixedKey, Name: fixture, Data: blob}
-				out := MustSucceed(v6.MigrateLinePlot(ctx, snap))
+				out := migrateSeed(ctx, v5.LinePlot{
+					Key: fixedKey, Name: fixture, Data: blob,
+				})
 				assertMigrated(fixture, out)
 			},
 			Entry("v0 minimal", "v0_minimal.json"),
@@ -84,70 +103,38 @@ var _ = Describe("MigrateLinePlot", func() {
 		)
 	})
 
-	// Drives MigrateLinePlot through the real gorp migration pipeline so the
-	// on-disk v0 -> typed LinePlot path is exercised end-to-end.
 	Describe("storage integration", func() {
-		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, lineplot.LinePlot] {
-			return MustOpen(gorp.OpenTable(
-				ctx, gorp.TableConfig[uuid.UUID, lineplot.LinePlot]{
-					DB: db,
-					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration(
-							"v55_lift_typed_lineplot",
-							v6.MigrateLinePlot,
-						),
-					},
-				},
-			))
-		}
-
-		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v5.LinePlot {
-			t := MustOpen(gorp.OpenTable(
-				ctx, gorp.TableConfig[uuid.UUID, v5.LinePlot]{DB: db},
-			))
-			seed := v5.LinePlot{Key: uuid.New(), Name: name, Data: jsonMap(body)}
-			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-			return seed
-		}
-
-		retrieve := func(ctx SpecContext, db *gorp.DB, t *gorp.Table[uuid.UUID, lineplot.LinePlot], key uuid.UUID) lineplot.LinePlot {
-			var got lineplot.LinePlot
-			Expect(t.NewRetrieve().
-				Where(gorp.MatchKeys[lineplot.Key, lineplot.LinePlot](key)).
-				Entry(&got).Exec(ctx, db)).To(Succeed())
-			return got
-		}
-
 		It("Should lift a v4 wire-format blob into the typed LinePlot on retrieve", func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			seed := seedV55(ctx, db, "Tank Pressure", `{
-				"version": "4.0.0",
-				"key": "p1",
-				"remoteCreated": true,
-				"title": {"level": "h4", "visible": true},
-				"legend": {"visible": true, "position": {"x": 50, "y": 50, "units": {"x": "px", "y": "px"}, "root": {"x": "left", "y": "top"}}},
-				"channels": {"x1": 1, "x2": 0, "y1": [10], "y2": [], "y3": [], "y4": []},
-				"ranges": {"x1": ["00000000-0000-0000-0000-00000000aaaa"], "x2": []},
-				"axes": {"renderTrigger": 0, "hasHadChannelSet": true, "axes": {
-					"x1": {"key": "x1", "label": "t", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75, "type": "time"},
-					"x2": {"key": "x2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75, "type": "time"},
-					"y1": {"key": "y1", "label": "p", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 10}, "autoBounds": {"lower": false, "upper": false}, "tickSpacing": 75},
-					"y2": {"key": "y2", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
-					"y3": {"key": "y3", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
-					"y4": {"key": "y4", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75}
-				}},
-				"lines": [{"key": "y1-r-10", "label": "P1", "color": "#ff0000", "strokeWidth": 2, "downsample": 1, "downsampleMode": "decimate"}],
-				"rules": [],
-				"viewport": {"renderTrigger": 0, "zoom": {"width": 1, "height": 1}, "pan": {"x": 0, "y": 0}},
-				"selection": {"box": {"one": {"x": 0, "y": 0}, "two": {"x": 0, "y": 0}, "root": {"x": "left", "y": "top"}}},
-				"mode": "zoom",
-				"control": {"hold": false, "clickMode": null, "enableTooltip": true},
-				"toolbar": {"activeTab": "data"},
-				"measure": {"mode": "one"},
-				"annotations": {"visible": true}
-			}`)
-			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
-			Expect(got.Key).To(Equal(seed.Key))
+			key := uuid.New()
+			got := migrateSeed(ctx, v5.LinePlot{
+				Key: key, Name: "Tank Pressure", Data: jsonMap(`{
+					"version": "4.0.0",
+					"key": "p1",
+					"remoteCreated": true,
+					"title": {"level": "h4", "visible": true},
+					"legend": {"visible": true, "position": {"x": 50, "y": 50, "units": {"x": "px", "y": "px"}, "root": {"x": "left", "y": "top"}}},
+					"channels": {"x1": 1, "x2": 0, "y1": [10], "y2": [], "y3": [], "y4": []},
+					"ranges": {"x1": ["00000000-0000-0000-0000-00000000aaaa"], "x2": []},
+					"axes": {"renderTrigger": 0, "hasHadChannelSet": true, "axes": {
+						"x1": {"key": "x1", "label": "t", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75, "type": "time"},
+						"x2": {"key": "x2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75, "type": "time"},
+						"y1": {"key": "y1", "label": "p", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 10}, "autoBounds": {"lower": false, "upper": false}, "tickSpacing": 75},
+						"y2": {"key": "y2", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
+						"y3": {"key": "y3", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
+						"y4": {"key": "y4", "label": "", "labelDirection": "y", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75}
+					}},
+					"lines": [{"key": "y1-r-10", "label": "P1", "color": "#ff0000", "strokeWidth": 2, "downsample": 1, "downsampleMode": "decimate"}],
+					"rules": [],
+					"viewport": {"renderTrigger": 0, "zoom": {"width": 1, "height": 1}, "pan": {"x": 0, "y": 0}},
+					"selection": {"box": {"one": {"x": 0, "y": 0}, "two": {"x": 0, "y": 0}, "root": {"x": "left", "y": "top"}}},
+					"mode": "zoom",
+					"control": {"hold": false, "clickMode": null, "enableTooltip": true},
+					"toolbar": {"activeTab": "data"},
+					"measure": {"mode": "one"},
+					"annotations": {"visible": true}
+				}`),
+			})
+			Expect(got.Key).To(Equal(key))
 			Expect(got.Name).To(Equal("Tank Pressure"))
 			Expect(got.Title.Level).To(Equal(text.LevelH4))
 			Expect(got.Channels.X1).To(BeEquivalentTo(1))
@@ -161,28 +148,29 @@ var _ = Describe("MigrateLinePlot", func() {
 		})
 
 		It("Should chain a legacy v0 blob through every migration step on retrieve", func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			seed := seedV55(ctx, db, "Legacy", `{
-				"version": "0.0.0",
-				"key": "p0",
-				"remoteCreated": false,
-				"title": {"level": "h4", "visible": false},
-				"legend": {"visible": false},
-				"channels": {"x1": 0, "x2": 0, "y1": [], "y2": [], "y3": [], "y4": []},
-				"ranges": {"x1": [], "x2": []},
-				"axes": {"renderTrigger": 0, "hasHadChannelSet": false, "axes": {
-					"x1": {"key": "x1", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
-					"x2": {"key": "x2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
-					"y1": {"key": "y1", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
-					"y2": {"key": "y2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
-					"y3": {"key": "y3", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
-					"y4": {"key": "y4", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75}
-				}},
-				"lines": [],
-				"rules": []
-			}`)
-			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
-			Expect(got.Key).To(Equal(seed.Key))
+			key := uuid.New()
+			got := migrateSeed(ctx, v5.LinePlot{
+				Key: key, Name: "Legacy", Data: jsonMap(`{
+					"version": "0.0.0",
+					"key": "p0",
+					"remoteCreated": false,
+					"title": {"level": "h4", "visible": false},
+					"legend": {"visible": false},
+					"channels": {"x1": 0, "x2": 0, "y1": [], "y2": [], "y3": [], "y4": []},
+					"ranges": {"x1": [], "x2": []},
+					"axes": {"renderTrigger": 0, "hasHadChannelSet": false, "axes": {
+						"x1": {"key": "x1", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
+						"x2": {"key": "x2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
+						"y1": {"key": "y1", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
+						"y2": {"key": "y2", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
+						"y3": {"key": "y3", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75},
+						"y4": {"key": "y4", "label": "", "labelDirection": "x", "labelLevel": "small", "bounds": {"lower": 0, "upper": 0}, "autoBounds": {"lower": true, "upper": true}, "tickSpacing": 75}
+					}},
+					"lines": [],
+					"rules": []
+				}`),
+			})
+			Expect(got.Key).To(Equal(key))
 			// v1 lift forces the legend shown, so the typed Hidden is false, and sets
 			// default position.
 			Expect(got.Legend.Hidden).To(BeFalse())
@@ -204,10 +192,10 @@ var _ = Describe("MigrateLinePlot", func() {
 	// failures localize.
 	Describe("lift semantics", func() {
 		migrateV4 := func(ctx SpecContext, body string) lineplot.LinePlot {
-			return MustSucceed(v6.MigrateLinePlot(ctx, v5.LinePlot{
+			return migrateSeed(ctx, v5.LinePlot{
 				Key:  uuid.New(),
 				Data: jsonMap(`{"version": "4.0.0", ` + body + `}`),
-			}))
+			})
 		}
 
 		It("Should cast Title.Level into the typed text.Level enum", func(ctx SpecContext) {
@@ -309,18 +297,18 @@ var _ = Describe("MigrateLinePlot", func() {
 
 		It("Should pass through the gorp-entry fields (key, name)", func(ctx SpecContext) {
 			key := uuid.New()
-			out := MustSucceed(v6.MigrateLinePlot(ctx, v5.LinePlot{
+			out := migrateSeed(ctx, v5.LinePlot{
 				Key: key, Name: "tank-1",
 				Data: jsonMap(`{"version": "4.0.0"}`),
-			}))
+			})
 			Expect(out.Key).To(Equal(key))
 			Expect(out.Name).To(Equal("tank-1"))
 		})
 
 		It("Should handle a nil data blob without erroring", func(ctx SpecContext) {
-			out := MustSucceed(v6.MigrateLinePlot(ctx, v5.LinePlot{
+			out := migrateSeed(ctx, v5.LinePlot{
 				Key: uuid.New(), Name: "empty", Data: nil,
-			}))
+			})
 			Expect(out.Lines).To(BeEmpty())
 			Expect(out.Rules).To(BeEmpty())
 		})

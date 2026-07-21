@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2
+package v0
 
-// MigrateTable exposes migrateTable to tests.
-var MigrateTable = migrateTable
+import "github.com/synnaxlabs/x/gorp"
+
+// Migration re-encodes stored views from msgpack to orc.
+var Migration = gorp.CodecMigration[Key, View]("msgpack_to_orc")

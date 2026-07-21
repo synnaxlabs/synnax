@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package rack_test
+package types_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -27,7 +28,7 @@ import (
 )
 
 var _ = Describe("Migration v0", func() {
-	It("Should read a status whose rack key was stored as float64", func(ctx SpecContext) {
+	It("Should read a status whose task key was stored as float64", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New(), gorp.WithCodec(msgpack.Codec)))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
@@ -49,47 +50,64 @@ var _ = Describe("Migration v0", func() {
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
+		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:           db,
+			Ontology:     otg,
+			Group:        g,
+			HostProvider: mock.NewStaticHostProvider(1),
+			Status:       stat,
+			Search:       searchIdx,
+		}))
 
-		rackKey := rack.NewKey(1, 1)
-		testRack := &rack.Rack{Key: rackKey, Name: "Migration Test Rack"}
-		Expect(gorp.NewCreate[rack.Key, rack.Rack]().Entry(testRack).Exec(ctx, db)).
-			To(Succeed())
+		testRack := &rack.Rack{Name: "Migration Test Rack"}
+		Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
-		// Write a status using Status[any] with the rack key as float64,
+		taskKey := task.NewKey(testRack.Key, 99)
+		t := task.Task{
+			Key:  taskKey,
+			Name: "Legacy Task",
+		}
+		Expect(gorp.NewCreate[task.Key, task.Task]().
+			Entry(&t).
+			Exec(ctx, db)).To(Succeed())
+
+		// Write a status using Status[any] with the task key as float64,
 		// simulating legacy data where the key was encoded as a msgpack
-		// float64 instead of uint32.
+		// float64 instead of uint64.
 		legacyStatus := status.Status[any]{
-			Key:     rack.OntologyID(rackKey).String(),
-			Name:    "Legacy Rack Status",
+			Key:     task.OntologyID(taskKey).String(),
+			Name:    "Legacy Task",
 			Variant: status.VariantSuccess,
 			Message: "Started",
 			Time:    telem.Now(),
 			Details: map[string]any{
-				"rack": float64(rackKey),
+				"task":    float64(taskKey),
+				"running": true,
+				"cmd":     "start",
 			},
 		}
 		Expect(status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus)).To(Succeed())
 
-		// Opening the rack service triggers the v0.status_backfill migration,
+		// Opening the task service triggers the v0.status_backfill migration,
 		// which reads existing statuses as Status[StatusDetails]. This would
 		// fail without the flex DecodeMsgpack on the Key type because the
-		// rack key is stored as a msgpack float64.
-		MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               g,
-			HostProvider:        mock.NewStaticHostProvider(1),
-			Status:              stat,
-			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
+		// task key is stored as a msgpack float64.
+		MustOpen(task.OpenService(ctx, task.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    g,
+			Rack:     rackSvc,
+			Status:   stat,
+			Search:   searchIdx,
 		}))
 
 		// Verify the status is readable with the correct typed key.
-		var restoredStatus rack.Status
-		Expect(status.NewRetrieve[rack.StatusDetails](stat).
-			Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(rackKey).String())).
+		var restoredStatus task.Status
+		Expect(status.NewRetrieve[task.StatusDetails](stat).
+			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(taskKey).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
-		Expect(restoredStatus.Details.Rack).To(Equal(rackKey))
+		Expect(restoredStatus.Details.Task).To(Equal(taskKey))
+		Expect(restoredStatus.Details.Running).To(BeTrue())
 	})
 })

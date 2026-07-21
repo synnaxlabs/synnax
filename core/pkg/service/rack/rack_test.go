@@ -108,7 +108,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should return the ontology ID string for a rack key", func(ctx SpecContext) {
 			k := rack.NewKey(1, 2)
 			statusKey := rack.StatusKey(k)
-			Expect(statusKey).To(Equal(rack.OntologyID(k).String()))
+			Expect(statusKey).To(Equal(k.OntologyID().String()))
 		})
 		It("Should return consistent status keys for the same rack key", func(ctx SpecContext) {
 			k := rack.NewKey(5, 10)
@@ -482,7 +482,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(svc.NewRetrieve().Where(rack.MatchKeys(r.Key)).Entry(&res).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Where(status.MatchKeys[rack.StatusDetails]((r.Key).OntologyID().String())).
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -559,7 +559,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(s.Description).To(Equal("Custom description"))
 			Expect(s.Variant).To(Equal(status.VariantSuccess))
 			// Key should be auto-assigned to match ontology ID
-			Expect(s.Key).To(Equal(rack.OntologyID(r.Key).String()))
+			Expect(s.Key).To(Equal((r.Key).OntologyID().String()))
 			// Time should be auto-filled
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
 			// Name should be auto-filled from rack name
@@ -582,9 +582,9 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(writer.Create(ctx, &r)).To(Succeed())
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, tx).
-				Delete(ctx, rack.OntologyID(r.Key).String())).To(Succeed())
+				Delete(ctx, (r.Key).OntologyID().String())).To(Succeed())
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Where(status.MatchKeys[rack.StatusDetails]((r.Key).OntologyID().String())).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 
 			reconfigured := rack.Rack{Key: r.Key, Name: r.Name}
@@ -592,7 +592,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 			var healed rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Where(status.MatchKeys[rack.StatusDetails]((r.Key).OntologyID().String())).
 				Entry(&healed).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(healed.Details.Rack).To(Equal(r.Key))
@@ -614,7 +614,7 @@ var _ = Describe("Rack", Ordered, func() {
 
 			var preserved rack.Status
 			Expect(status.NewRetrieve[rack.StatusDetails](stat).
-				Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(r.Key).String())).
+				Where(status.MatchKeys[rack.StatusDetails]((r.Key).OntologyID().String())).
 				Entry(&preserved).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(preserved.Variant).To(Equal(status.VariantSuccess))
@@ -647,7 +647,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
-				Key:     rack.OntologyID(r.Key).String(),
+				Key:     (r.Key).OntologyID().String(),
 				Name:    r.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantSuccess,
@@ -717,7 +717,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Eventually(getCount).Should(Equal(1))
 
 			Expect(status.NewWriter[rack.StatusDetails](stat, nil).Set(ctx, &rack.Status{
-				Key:     rack.OntologyID(r.Key).String(),
+				Key:     (r.Key).OntologyID().String(),
 				Name:    r.Name,
 				Time:    telem.Now(),
 				Variant: status.VariantSuccess,

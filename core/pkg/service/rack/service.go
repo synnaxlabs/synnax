@@ -109,7 +109,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("hardware.rack")
+	v := validate.New("rack")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
@@ -201,7 +201,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
 	var stat status.Status[StatusDetails]
 	if err := status.NewRetrieve[StatusDetails](s.Status).
-		Where(status.MatchKeys[StatusDetails](OntologyID(key).String())).
+		Where(status.MatchKeys[StatusDetails](key.OntologyID().String())).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
 		return status.Status[StatusDetails]{}, err

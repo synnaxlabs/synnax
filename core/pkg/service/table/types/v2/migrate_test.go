@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -43,6 +42,31 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 	var m map[string]any
 	Expect(json.Unmarshal([]byte(raw), &m)).To(Succeed())
 	return m
+}
+
+// seedV1 stores a v1 wire-format table in a fresh gorp DB and returns the DB.
+func seedV1(ctx SpecContext, seed *v1.Table) *gorp.DB {
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v1.Table]{DB: db}))
+	Expect(gorp.NewCreate[uuid.UUID, v1.Table]().Entry(seed).Exec(ctx, db)).
+		To(Succeed())
+	return db
+}
+
+// migrateSeed runs the v2 migration chain over a seeded v1 table and returns the
+// migrated typed Table.
+func migrateSeed(ctx SpecContext, seed v1.Table) table.Table {
+	db := seedV1(ctx, &seed)
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  "Table",
+		Migrations: v2.Migrations,
+	})).To(Succeed())
+	var got table.Table
+	Expect(gorp.NewRetrieve[table.Key, table.Table]().
+		Where(gorp.MatchKeys[table.Key, table.Table](seed.Key)).
+		Entry(&got).Exec(ctx, db)).To(Succeed())
+	return got
 }
 
 // assertMigrated compares got against the canonical .migrated.json file for
@@ -63,7 +87,7 @@ func assertMigrated(fixture string, got table.Table) {
 		"%s drifted from its canonical migrated form — review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }
 
-var _ = Describe("MigrateTable", func() {
+var _ = Describe("v1 -> current Table migration", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured fixture. Run with UPDATE_MIGRATED=1 to regenerate the
 	// .migrated.json files after intentional migration changes.
@@ -72,8 +96,9 @@ var _ = Describe("MigrateTable", func() {
 		DescribeTable("Should produce the canonical typed Table",
 			func(ctx SpecContext, fixture string) {
 				blob := loadFixture(fixture)
-				snap := v1.Table{Key: fixedKey, Name: fixture, Data: blob}
-				out := MustSucceed(v2.MigrateTable(ctx, snap))
+				out := migrateSeed(ctx, v1.Table{
+					Key: fixedKey, Name: fixture, Data: blob,
+				})
 				assertMigrated(fixture, out)
 			},
 			Entry("v0 empty", "v0_empty.json"),
@@ -82,14 +107,12 @@ var _ = Describe("MigrateTable", func() {
 	})
 
 	Describe("v0 reshape semantics", func() {
-		migrate := func(ctx SpecContext, body string) table.Table {
-			return MustSucceed(v2.MigrateTable(ctx, v1.Table{
-				Key: uuid.New(), Data: jsonMap(body),
-			}))
+		migrateBody := func(ctx SpecContext, body string) table.Table {
+			return migrateSeed(ctx, v1.Table{Key: uuid.New(), Data: jsonMap(body)})
 		}
 
 		It("Should flatten layout.rows[*].cells from CellLayout[] to []string", func(ctx SpecContext) {
-			out := migrate(ctx, `{
+			out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {
 					"rows": [{"size": 36, "cells": [{"key": "a"}, {"key": "b"}]}],
@@ -103,7 +126,7 @@ var _ = Describe("MigrateTable", func() {
 		})
 
 		It("Should drop the per-cell selected flag", func(ctx SpecContext) {
-			out := migrate(ctx, `{
+			out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {"rows": [], "columns": []},
 				"cells": {
@@ -118,7 +141,7 @@ var _ = Describe("MigrateTable", func() {
 		})
 
 		It("Should preserve arbitrary key casing inside cell props through the migration", func(ctx SpecContext) {
-			out := migrate(ctx, `{
+			out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {"rows": [], "columns": []},
 				"cells": {
@@ -141,18 +164,18 @@ var _ = Describe("MigrateTable", func() {
 
 		It("Should pass through the gorp-entry fields (Key, Name)", func(ctx SpecContext) {
 			key := uuid.New()
-			out := MustSucceed(v2.MigrateTable(ctx, v1.Table{
+			out := migrateSeed(ctx, v1.Table{
 				Key: key, Name: "trip-table", Data: jsonMap(`{"version": "0.0.0"}`),
-			}))
+			})
 			Expect(out.Key).To(Equal(key))
 			Expect(out.Name).To(Equal("trip-table"))
 		})
 
 		DescribeTable("Should produce empty (not nil) collections for empty inputs",
 			func(ctx SpecContext, data msgpack.EncodedJSON) {
-				out := MustSucceed(v2.MigrateTable(ctx, v1.Table{
+				out := migrateSeed(ctx, v1.Table{
 					Key: uuid.New(), Name: "empty", Data: data,
-				}))
+				})
 				Expect(out.Rows).NotTo(BeNil())
 				Expect(out.Rows).To(BeEmpty())
 				Expect(out.Columns).NotTo(BeNil())
@@ -165,7 +188,7 @@ var _ = Describe("MigrateTable", func() {
 		)
 
 		It("Should preserve cell key, variant, and full props through the migration", func(ctx SpecContext) {
-			out := migrate(ctx, `{
+			out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {"rows": [], "columns": []},
 				"cells": {
@@ -192,7 +215,7 @@ var _ = Describe("MigrateTable", func() {
 		})
 
 		It("Should preserve multi-row layout ordering and per-row size", func(ctx SpecContext) {
-			out := migrate(ctx, `{
+			out := migrateBody(ctx, `{
 				"version": "0.0.0",
 				"layout": {
 					"rows": [
@@ -216,63 +239,39 @@ var _ = Describe("MigrateTable", func() {
 
 	Describe("malformed input", func() {
 		It("Should return an error for an invalid Data shape", func(ctx SpecContext) {
-			Expect(v2.MigrateTable(ctx, v1.Table{
+			db := seedV1(ctx, &v1.Table{
 				Key: uuid.New(), Data: msgpack.EncodedJSON{"layout": "not-an-object"},
-			})).Error().To(MatchError(ContainSubstring("table data")))
+			})
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "Table",
+				Migrations: v2.Migrations,
+			})).To(MatchError(ContainSubstring("table data")))
 		})
 	})
 
-	// Drives MigrateTable through the real gorp migration pipeline so the
-	// on-disk v0 → typed Table path is exercised end-to-end.
 	Describe("storage integration", func() {
-		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, table.Table] {
-			return MustOpen(gorp.OpenTable(
-				ctx, gorp.TableConfig[uuid.UUID, table.Table]{
-					DB: db,
-					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration("v55_lift_typed_table", v2.MigrateTable),
-					},
-				},
-			))
-		}
-
-		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v1.Table {
-			t := MustOpen(gorp.OpenTable(
-				ctx, gorp.TableConfig[uuid.UUID, v1.Table]{DB: db},
-			))
-			seed := v1.Table{Key: uuid.New(), Name: name, Data: jsonMap(body)}
-			Expect(t.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-			return seed
-		}
-
-		retrieve := func(ctx SpecContext, db *gorp.DB, t *gorp.Table[uuid.UUID, table.Table], key uuid.UUID) table.Table {
-			var got table.Table
-			Expect(t.NewRetrieve().
-				Where(gorp.MatchKeys[table.Key, table.Table](key)).
-				Entry(&got).Exec(ctx, db)).To(Succeed())
-			return got
-		}
-
 		It("Should lift a v0 wire-format blob into the typed Table on retrieve", func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			seed := seedV55(ctx, db, "Pressure Readouts", `{
-				"version": "0.0.0",
-				"editable": true,
-				"layout": {
-					"rows": [{"size": 36, "cells": [{"key": "pt1"}]}],
-					"columns": [{"size": 80}]
-				},
-				"cells": {
-					"pt1": {
-						"key": "pt1",
-						"variant": "value",
-						"selected": false,
-						"props": {"telem": {"channel": 7}, "color": "#00aaff"}
+			key := uuid.New()
+			got := migrateSeed(ctx, v1.Table{
+				Key: key, Name: "Pressure Readouts", Data: jsonMap(`{
+					"version": "0.0.0",
+					"editable": true,
+					"layout": {
+						"rows": [{"size": 36, "cells": [{"key": "pt1"}]}],
+						"columns": [{"size": 80}]
+					},
+					"cells": {
+						"pt1": {
+							"key": "pt1",
+							"variant": "value",
+							"selected": false,
+							"props": {"telem": {"channel": 7}, "color": "#00aaff"}
+						}
 					}
-				}
-			}`)
-			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
-			Expect(got.Key).To(Equal(seed.Key))
+				}`),
+			})
+			Expect(got.Key).To(Equal(key))
 			Expect(got.Name).To(Equal("Pressure Readouts"))
 			Expect(got.Rows).To(HaveLen(1))
 			Expect(got.Rows[0].Cells).To(Equal([]string{"pt1"}))
@@ -282,9 +281,9 @@ var _ = Describe("MigrateTable", func() {
 		})
 
 		It("Should lift a minimal blob lacking layout / cells fields", func(ctx SpecContext) {
-			db := DeferClose(gorp.Wrap(memkv.New()))
-			seed := seedV55(ctx, db, "Empty", `{"version": "0.0.0"}`)
-			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
+			got := migrateSeed(ctx, v1.Table{
+				Key: uuid.New(), Name: "Empty", Data: jsonMap(`{"version": "0.0.0"}`),
+			})
 			Expect(got.Rows).To(BeEmpty())
 			Expect(got.Columns).To(BeEmpty())
 			Expect(got.Cells).To(BeEmpty())

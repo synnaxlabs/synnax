@@ -17,29 +17,40 @@ import (
 	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
-	arcv1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
-	arcv2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	statusv0 "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 	"github.com/synnaxlabs/x/telem"
 	telemv0 "github.com/synnaxlabs/x/telem/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// migrateFromV0 runs the full arc migration chain over a gorp-seeded v0 arc and
+// returns the migrated current Arc.
+func migrateFromV0(ctx SpecContext, seed v0.Arc) arc.Arc {
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
+	Expect(gorp.NewCreate[v0.Key, v0.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  "Arc",
+		Migrations: types.Migrations,
+	})).To(Succeed())
+	var got arc.Arc
+	Expect(gorp.NewRetrieve[arc.Key, arc.Arc]().
+		Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).
+		Entry(&got).Exec(ctx, db)).To(Succeed())
+	return got
+}
+
 var _ = Describe("v0 -> current Arc migration", func() {
 	It("rewrites v0-encoded entries through the new codec", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-
-		v54Table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db},
-		))
 		seed := v0.Arc{
 			Key:  uuid.New(),
 			Name: "Seed",
@@ -66,18 +77,7 @@ var _ = Describe("v0 -> current Arc migration", func() {
 				},
 			},
 		}
-		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-
-		currentTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
-				DB:         db,
-				Migrations: arcMigrations(),
-			},
-		))
-
-		var got arc.Arc
-		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
+		got := migrateFromV0(ctx, seed)
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Mode).To(Equal(arc.Mode(seed.Mode)))
@@ -95,11 +95,6 @@ var _ = Describe("v0 -> current Arc migration", func() {
 	})
 
 	It("rewrites deprecated set_status graph nodes to status.set", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-
-		v54Table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db},
-		))
 		seed := v0.Arc{
 			Key:  uuid.New(),
 			Name: "Legacy Status Graph",
@@ -126,19 +121,7 @@ var _ = Describe("v0 -> current Arc migration", func() {
 				},
 			},
 		}
-		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-
-		currentTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
-				DB:         db,
-				Migrations: arcMigrations(),
-			},
-		))
-
-		var got arc.Arc
-		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).
-			Entry(&got).Exec(ctx, db)).To(Succeed())
+		got := migrateFromV0(ctx, seed)
 		Expect(got.Graph.Nodes).To(HaveLen(2))
 
 		_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
@@ -157,11 +140,6 @@ var _ = Describe("v0 -> current Arc migration", func() {
 	})
 
 	It("defaults missing set_status config parameters", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-
-		v54Table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db},
-		))
 		seed := v0.Arc{
 			Key:  uuid.New(),
 			Name: "Bare Status Node",
@@ -170,19 +148,7 @@ var _ = Describe("v0 -> current Arc migration", func() {
 				Nodes: graphv0.Nodes{{Key: "alarm", Type: "set_status"}},
 			},
 		}
-		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-
-		currentTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
-				DB:         db,
-				Migrations: arcMigrations(),
-			},
-		))
-
-		var got arc.Arc
-		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).
-			Entry(&got).Exec(ctx, db)).To(Succeed())
+		got := migrateFromV0(ctx, seed)
 		_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
 		alarmCfg := got.Graph.Inputs["alarm"]
 		Expect(alarmCfg["type"]).To(Equal("status.set"))
@@ -192,11 +158,6 @@ var _ = Describe("v0 -> current Arc migration", func() {
 	})
 
 	It("drops Status and Program and preserves core wire fields when v0 entries carry a populated Status", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-
-		v54Table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db},
-		))
 		statusKey := uuid.New().String()
 		labelKey := uuid.New()
 		seed := v0.Arc{
@@ -217,18 +178,7 @@ var _ = Describe("v0 -> current Arc migration", func() {
 				},
 			},
 		}
-		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-
-		currentTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[arc.Key, arc.Arc]{
-				DB:         db,
-				Migrations: arcMigrations(),
-			},
-		))
-
-		var got arc.Arc
-		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
+		got := migrateFromV0(ctx, seed)
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Mode).To(Equal(arc.Mode(seed.Mode)))
@@ -236,17 +186,3 @@ var _ = Describe("v0 -> current Arc migration", func() {
 		Expect(got.Program).To(BeNil())
 	})
 })
-
-func arcMigrations() []migrate.Migration {
-	return []migrate.Migration{
-		gorp.NewEntryMigration("v54_drop_program_status", arcv1.MigrateArc),
-		migrate.WithAddedDeps(
-			gorp.NewEntryMigration("v55_rename_set_status", arcv1.RenameSetStatus),
-			"v54_drop_program_status",
-		),
-		migrate.WithAddedDeps(
-			gorp.NewEntryMigration("v56_to_live", arcv2.MigrateArc),
-			"v55_rename_set_status",
-		),
-	}
-}

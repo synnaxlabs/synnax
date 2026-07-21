@@ -15,6 +15,7 @@ import (
 	"go/parser"
 	"go/printer"
 	"go/token"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -326,9 +327,7 @@ func packageDecls(dir string) (map[string][]string, map[string]string, error) {
 		for o, decls := range fo {
 			owners[o] = append(owners[o], decls...)
 		}
-		for n, spec := range fs {
-			specs[n] = spec
-		}
+		maps.Copy(specs, fs)
 	}
 	return owners, specs, nil
 }

@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1
+package types
 
-// MigrateTask exposes migrateTask to tests.
-var MigrateTask = migrateTask
+import (
+	v0 "github.com/synnaxlabs/synnax/pkg/service/view/types/v0"
+	"github.com/synnaxlabs/x/migrate"
+)
+
+// Migrations is the ordered migration chain for stored views.
+var Migrations = []migrate.Migration{v0.Migration}

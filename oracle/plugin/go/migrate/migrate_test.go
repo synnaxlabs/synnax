@@ -1059,7 +1059,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 		})
 
 		Context("unchanged dependency", func() {
-			It("Should pin the dependency without re-emitting its frozen package", func() {
+			It("Should copy the unchanged dep field without importing it", func() {
 				loader.Add("schemas/dep", `
 					@go output "dep"
 					@go version 1
@@ -1092,13 +1092,14 @@ var _ = Describe("Go Migrate Plugin", func() {
 				for _, path := range filePaths(resp) {
 					Expect(path).To(HavePrefix("out/types/v2/"))
 				}
-				Expect(fileContent(resp, "out/types/v2/migrate_auto.gen.go")).
-					To(ContainSubstring("dep/types/v1"))
+				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				Expect(content).To(ContainSubstring("Inner: old.Inner"))
+				Expect(content).NotTo(ContainSubstring("dep/types/v1"))
 			})
 		})
 
 		Context("version-laid-out dependency", func() {
-			It("Should pin imports at the dep's frozen version without re-emitting", func() {
+			It("Should copy the unchanged dep field without importing it", func() {
 				loader.Add("schemas/dep", `
 					@go output "dep"
 					@go version 1
@@ -1136,8 +1137,9 @@ var _ = Describe("Go Migrate Plugin", func() {
 				for _, path := range filePaths(resp) {
 					Expect(path).To(HavePrefix("out/types/v2/"))
 				}
-				Expect(fileContent(resp, "out/types/v2/migrate_auto.gen.go")).
-					To(ContainSubstring("dep/types/v1"))
+				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				Expect(content).To(ContainSubstring("Inner: old.Inner"))
+				Expect(content).NotTo(ContainSubstring("dep/types/v1"))
 			})
 		})
 
@@ -1468,7 +1470,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 		})
 
 		Context("cross-package unchanged types", func() {
-			It("Should generate local helpers for unchanged external Oracle types", func() {
+			It("Should copy unchanged external Oracle types directly", func() {
 				loader.Add("schemas/dep", `
 					@go output "dep"
 					@go version 1
@@ -1503,8 +1505,10 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("AutoMigrateLabel"))
 				Expect(content).To(ContainSubstring("AutoMigrateEntry"))
+				Expect(content).To(ContainSubstring("Label: old.Label"))
+				Expect(content).NotTo(ContainSubstring("AutoMigrateLabel"))
+				Expect(content).NotTo(ContainSubstring("dep/types"))
 			})
 		})
 

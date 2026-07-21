@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,17 +34,8 @@ var _ = Describe("Project layout to panel migration", func() {
 	) *gorp.Table[types.Key, types.Panel] {
 		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[types.Key, types.Panel]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.CodecMigration[types.Key, types.Panel]("msgpack_to_orc"),
-					migrate.WithAddedDeps(
-						gorp.NewMigration(
-							"v56_migrate_project_layouts_to_panels",
-							types.MigrateProjectLayouts(),
-						),
-						"msgpack_to_orc",
-					),
-				},
+				DB:         db,
+				Migrations: types.Migrations,
 			},
 		))
 	}

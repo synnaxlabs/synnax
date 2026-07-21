@@ -13,25 +13,23 @@ package v1
 
 import (
 	"context"
-	graphv0 "github.com/synnaxlabs/arc/graph/types/v0"
-	programv0 "github.com/synnaxlabs/arc/program/types/v0"
+	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
 	programv1 "github.com/synnaxlabs/arc/program/types/v1"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
 	arcv0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 
 	"github.com/synnaxlabs/x/telem"
 )
 
 func AutoMigrateArc(ctx context.Context, old arcv0.Arc) (Arc, error) {
-	graph, err := graphv0.AutoMigrateGraph(ctx, old.Graph)
+	graph, err := graphv1.AutoMigrateGraph(ctx, old.Graph)
 	if err != nil {
 		return Arc{}, err
 	}
 	var program *programv1.Program
 	if old.Program != nil {
-		v, err := programv0.AutoMigrateProgram(ctx, *old.Program)
+		v, err := programv1.AutoMigrateProgram(ctx, *old.Program)
 		if err != nil {
 			return Arc{}, err
 		}
@@ -56,14 +54,7 @@ func AutoMigrateArc(ctx context.Context, old arcv0.Arc) (Arc, error) {
 	}, nil
 }
 
-func AutoMigrateStatus(ctx context.Context, old arcv0.Status) (Status, error) {
-	labels := make([]labelv0.Label, len(old.Labels))
-	for i, v := range old.Labels {
-		var err error
-		if labels[i], err = AutoMigrateLabel(ctx, v); err != nil {
-			return Status{}, err
-		}
-	}
+func AutoMigrateStatus(_ context.Context, old arcv0.Status) (Status, error) {
 	return Status{
 		Key:         old.Key,
 		Name:        old.Name,
@@ -72,14 +63,6 @@ func AutoMigrateStatus(ctx context.Context, old arcv0.Status) (Status, error) {
 		Description: old.Description,
 		Time:        telem.TimeStamp(old.Time),
 		Details:     StatusDetails(old.Details),
-		Labels:      labels,
-	}, nil
-}
-
-func AutoMigrateLabel(_ context.Context, old labelv0.Label) (labelv0.Label, error) {
-	return labelv0.Label{
-		Key:   labelv0.Key(old.Key),
-		Name:  old.Name,
-		Color: old.Color,
+		Labels:      old.Labels,
 	}, nil
 }

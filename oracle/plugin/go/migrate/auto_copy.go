@@ -392,6 +392,12 @@ func (c *collector) sliceFunc(
 	}
 	td, hasDiff := c.diff[elemResolved.QualifiedName]
 	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
+	if !needsMigration && c.isSameType(elemResolved) {
+		return funcData{
+			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
+			Kind: "cast",
+		}
+	}
 	if needsMigration || c.hasOracleDefinedFields(elemResolved) {
 		return funcData{
 			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
@@ -419,18 +425,21 @@ func (c *collector) classifyField(
 	}
 	if bgf, ok := resolved.Form.(resolution.BuiltinGenericForm); ok {
 		if bgf.Name == "Array" && len(ref.TypeArgs) > 0 {
-			return c.classifySlice(ref.TypeArgs[0], accessor, goName, "[]")
+			return c.classifySlice(ref.TypeArgs[0], accessor, goName, nil)
 		}
 		return classification{inline: accessor}
 	}
 	if elemRef, ok := arrayBaseRef(resolved); ok {
-		return c.classifySlice(elemRef, accessor, goName, c.resolveNewTypeName(resolved))
+		return c.classifySlice(elemRef, accessor, goName, &resolved)
 	}
 	if !c.isOracleDefined(resolved) {
 		return classification{inline: accessor}
 	}
 	td, hasDiff := c.diff[resolved.QualifiedName]
 	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
+	if !needsMigration && c.isSameType(resolved) {
+		return classification{inline: accessor}
+	}
 	varName := naming.LowerFirst(goName)
 	if needsMigration || c.hasOracleDefinedFields(resolved) {
 		helper := c.requireFunc(resolved)
@@ -456,7 +465,7 @@ func (c *collector) classifyField(
 }
 
 func (c *collector) classifySlice(
-	elemRef resolution.TypeRef, accessor, goName, sliceTypePrefix string,
+	elemRef resolution.TypeRef, accessor, goName string, named *resolution.Type,
 ) classification {
 	elemResolved, ok := c.resolveRef(elemRef)
 	if !ok {
@@ -464,14 +473,15 @@ func (c *collector) classifySlice(
 	}
 	td, hasDiff := c.diff[elemResolved.QualifiedName]
 	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
-	if !needsMigration && !c.isOracleDefined(elemResolved) {
+	if !needsMigration &&
+		(!c.isOracleDefined(elemResolved) || c.isSameType(elemResolved)) {
 		return classification{inline: accessor}
 	}
 	varName := naming.LowerFirst(goName)
 	newElem := c.resolveNewTypeName(elemResolved)
-	sliceType := sliceTypePrefix
-	if sliceTypePrefix == "[]" {
-		sliceType = "[]" + newElem
+	sliceType := "[]" + newElem
+	if named != nil {
+		sliceType = c.resolveNewTypeName(*named)
 	}
 	if needsMigration || c.hasOracleDefinedFields(elemResolved) {
 		return classification{needsPreamble: true, usesCtx: true, step: step{
@@ -486,6 +496,21 @@ func (c *collector) classifySlice(
 }
 
 // --- Type resolution helpers ---
+
+// isSameType reports whether the old and new tables resolve typ to the same Go
+// type (same package path and name), making any migration a pure copy.
+func (c *collector) isSameType(typ resolution.Type) bool {
+	oldT, ok := c.oldTable.Get(typ.QualifiedName)
+	if !ok {
+		return false
+	}
+	newT, ok := c.newTable.Get(typ.QualifiedName)
+	if !ok {
+		return false
+	}
+	return naming.GetGoName(oldT) == naming.GetGoName(newT) &&
+		output.GetPath(oldT, "go") == output.GetPath(newT, "go")
+}
 
 func (c *collector) requireFunc(typ resolution.Type) string {
 	goName := naming.GetGoName(typ)

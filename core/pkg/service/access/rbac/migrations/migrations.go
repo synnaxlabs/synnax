@@ -14,10 +14,10 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrationsConfig is the configuration for NewMigrations.
-type MigrationsConfig = v0.MigrationConfig
+// Config is the configuration for New.
+type Config = v0.MigrationConfig
 
-// NewMigrations returns the ordered migration chain for RBAC.
-func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
+// New returns the ordered migration chain for RBAC.
+func New(cfg Config) []migrate.Migration {
 	return []migrate.Migration{v0.NewMigration(cfg)}
 }

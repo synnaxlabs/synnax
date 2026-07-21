@@ -10,28 +10,30 @@
 package v2_test
 
 import (
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 )
 
-var _ = Describe("MigrateArc", func() {
+var _ = Describe("v1 -> current Arc migration", func() {
 	It("Should seed the document from the previously persisted raw text", func(ctx SpecContext) {
-		old := v1.Arc{
+		got := migrateFromV0(ctx, v0.Arc{
+			Key:  uuid.New(),
 			Name: "legacy",
-			Mode: v1.ModeText,
+			Mode: v0.ModeText,
 			Text: textv0.Text{Raw: "x := 1"},
-		}
-		migrated := MustSucceed(v2.MigrateArc(ctx, old))
-		Expect(migrated.Text.Materialize().Raw).To(Equal("x := 1"))
+		})
+		Expect(got.Text.Materialize().Raw).To(Equal("x := 1"))
 	})
 
 	It("Should produce an empty document when there is no prior text", func(ctx SpecContext) {
-		old := v1.Arc{Name: "empty", Mode: v1.ModeGraph}
-		migrated := MustSucceed(v2.MigrateArc(ctx, old))
-		Expect(migrated.Text.Materialize().Raw).To(Equal(""))
+		got := migrateFromV0(ctx, v0.Arc{
+			Key:  uuid.New(),
+			Name: "empty",
+			Mode: v0.ModeGraph,
+		})
+		Expect(got.Text.Materialize().Raw).To(Equal(""))
 	})
 })

@@ -10,14 +10,17 @@
 package v1_test
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -28,12 +31,28 @@ import (
 )
 
 var _ = Describe("v1 -> current Task migration", func() {
-	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
+	migrateSeed := func(ctx SpecContext, seed v0.Task) task.Task {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Task]{DB: db}))
+		Expect(gorp.NewCreate[v0.Key, v0.Task]().
+			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		v0Applied := gorp.NewMigration(
+			v0.NewMigration(v0.MigrationConfig{}).Key(),
+			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
+		)
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Task",
+			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
+		})).To(Succeed())
+		var got task.Task
+		Expect(gorp.NewRetrieve[task.Key, task.Task]().
+			Where(gorp.MatchKeys[task.Key, task.Task](task.Key(seed.Key))).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		return got
+	}
 
-		v54Table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Task]{DB: db},
-		))
+	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		seed := v0.Task{
 			Key:      v0.Key(0x0000_0001_0000_0042),
 			Name:     "Seed Task",
@@ -42,20 +61,7 @@ var _ = Describe("v1 -> current Task migration", func() {
 			Internal: true,
 			Snapshot: false,
 		}
-		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-
-		currentTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[task.Key, task.Task]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration("v54_drop_status", v2.MigrateTask),
-				},
-			},
-		))
-
-		var got task.Task
-		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[task.Key, task.Task](task.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
+		got := migrateSeed(ctx, seed)
 		Expect(got.Key).To(Equal(task.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
@@ -66,11 +72,6 @@ var _ = Describe("v1 -> current Task migration", func() {
 	})
 
 	It("drops Status and preserves core wire fields when v1 entries carry a populated Status", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-
-		v54Table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Task]{DB: db},
-		))
 		key := v0.Key(0x0000_0001_0000_00ab)
 		seed := v0.Task{
 			Key:    key,
@@ -94,20 +95,7 @@ var _ = Describe("v1 -> current Task migration", func() {
 				},
 			},
 		}
-		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-
-		currentTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[task.Key, task.Task]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration("v54_drop_status", v2.MigrateTask),
-				},
-			},
-		))
-
-		var got task.Task
-		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[task.Key, task.Task](task.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
+		got := migrateSeed(ctx, seed)
 		Expect(got.Key).To(Equal(task.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))

@@ -160,7 +160,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
 		Namespace:       "RBAC",
-		Migrations: migrations.NewMigrations(migrations.MigrationsConfig{
+		Migrations: migrations.New(migrations.Config{
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     s.Role,

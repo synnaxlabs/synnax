@@ -7,7 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1
+package types_test
 
-// MigrateDevice exposes migrateDevice to tests.
-var MigrateDevice = migrateDevice
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestTypes(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Ranger Types Suite")
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

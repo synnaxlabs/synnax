@@ -56,7 +56,3 @@ var _ gorp.Entry[Key] = Rack{}
 
 func (r Rack) GorpKey() Key      { return r.Key }
 func (r Rack) SetOptions() []any { return nil }
-
-func OntologyID(k Key) ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeRack, Key: k.String()}
-}

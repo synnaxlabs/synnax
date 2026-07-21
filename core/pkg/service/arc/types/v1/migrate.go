@@ -15,20 +15,21 @@ package v1
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 
 	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
-func MigrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
+func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
 	return AutoMigrateArc(ctx, old)
 }
 
-// RenameSetStatus rewrites every deprecated set_status flow node in a to status.set.
-func RenameSetStatus(_ context.Context, a Arc) (Arc, error) {
+// renameSetStatus rewrites every deprecated set_status flow node in a to status.set.
+func renameSetStatus(_ context.Context, a Arc) (Arc, error) {
 	for i := range a.Graph.Nodes {
 		a.Graph.Nodes[i] = migrateLegacySetStatusNode(a.Graph.Nodes[i])
 	}
@@ -61,24 +62,20 @@ func legacyStatusConfigString(config msgpack.EncodedJSON, key, def string) strin
 	return def
 }
 
-// codecMigrationKey names the codec migration all later arc migrations depend
-// on.
-const codecMigrationKey = "msgpack_to_orc"
+// codecMigration re-encodes stored arcs from msgpack to orc. It is pinned to the v0
+// shape so its output stays stable as Arc evolves.
+var codecMigration = gorp.CodecMigration[Key, v0.Arc]("msgpack_to_orc")
 
-// codecMigration re-encodes stored arcs from msgpack to orc. It is pinned to
-// the v0 shape so its output stays stable as Arc evolves.
-var codecMigration = gorp.CodecMigration[Key, v0.Arc](codecMigrationKey)
-
-// dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted program
-// status.
+// dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted
+// program status.
 var dropProgramStatusMigration = gorp.NewEntryMigration(
-	"v54_drop_program_status", MigrateArc, codecMigrationKey,
+	"v54_drop_program_status", migrateArc, codecMigration.Key(),
 )
 
-// renameSetStatusMigration renames legacy set_status graph nodes onto the
-// current node type.
+// renameSetStatusMigration renames legacy set_status graph nodes onto the current node
+// type.
 var renameSetStatusMigration = gorp.NewEntryMigration(
-	"v55_rename_set_status", RenameSetStatus, dropProgramStatusMigration.Key(),
+	"v55_rename_set_status", renameSetStatus, dropProgramStatusMigration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

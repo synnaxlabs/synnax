@@ -35,30 +35,38 @@ import (
 
 // ServiceConfig is the configuration for creating a device service.
 type ServiceConfig struct {
-	// DB is the gorp database that devices will be stored in.
+	// DB is the Gorp database that devices will be stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between devices and other resources in
 	// the Synnax cluster.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create device related groups of ontology resources.
+	//
 	// [REQUIRED]
 	Group *group.Service
 	// Status is used to define and process statuses for devices.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Search is the search index for fuzzy searching devices.
+	//
 	// [REQUIRED]
 	Search *search.Index
 	// Signals is used to propagate device changes through the Synnax signals' channel
 	// communication mechanism.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Rack is used to retrieve and manage racks.
+	//
 	// [REQUIRED]
 	Rack *rack.Service
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
 }
@@ -81,7 +89,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate determines whether the configuration can be used for creating a device
 // service.
 func (c ServiceConfig) Validate() error {
-	v := validate.New("hardware.device")
+	v := validate.New("device")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "status", c.Status)

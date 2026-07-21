@@ -10,12 +10,15 @@
 package v1_test
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	statusv0 "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
@@ -30,12 +33,28 @@ import (
 )
 
 var _ = Describe("v1 -> current Device migration", func() {
-	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
+	migrateSeed := func(ctx SpecContext, seed v0.Device) device.Device {
 		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db}))
+		Expect(gorp.NewCreate[v0.Key, v0.Device]().
+			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		v0Applied := gorp.NewMigration(
+			v0.NewMigration(v0.MigrationConfig{}).Key(),
+			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
+		)
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Device",
+			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
+		})).To(Succeed())
+		var got device.Device
+		Expect(gorp.NewRetrieve[device.Key, device.Device]().
+			Where(gorp.MatchKeys[device.Key, device.Device](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		return got
+	}
 
-		v54Table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db},
-		))
+	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		seed := v0.Device{
 			Key:        "DEV-SERIAL-001",
 			Rack:       42,
@@ -46,21 +65,7 @@ var _ = Describe("v1 -> current Device migration", func() {
 			Configured: true,
 			Properties: msgpack.EncodedJSON{"sample_rate": float64(1000)},
 		}
-		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-
-		currentTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[device.Key, device.Device]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration("v54_drop_status_parent", v2.MigrateDevice),
-				},
-			},
-		))
-
-		var got device.Device
-		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[device.Key, device.Device](seed.Key)).
-			Entry(&got).Exec(ctx, db)).To(Succeed())
+		got := migrateSeed(ctx, seed)
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Rack).To(BeEquivalentTo(seed.Rack))
 		Expect(got.Location).To(Equal(seed.Location))
@@ -74,11 +79,6 @@ var _ = Describe("v1 -> current Device migration", func() {
 	})
 
 	It("drops Status and Parent and preserves core wire fields when v1 entries carry populated Status and Parent", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-
-		v54Table := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db},
-		))
 		key := "DEV-SERIAL-002"
 		seed := v0.Device{
 			Key:        key,
@@ -103,21 +103,7 @@ var _ = Describe("v1 -> current Device migration", func() {
 			},
 			Parent: &ontologyv0.ID{Type: "device", Key: "DEV-SERIAL-PARENT"},
 		}
-		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
-
-		currentTable := MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[device.Key, device.Device]{
-				DB: db,
-				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration("v54_drop_status_parent", v2.MigrateDevice),
-				},
-			},
-		))
-
-		var got device.Device
-		Expect(currentTable.NewRetrieve().
-			Where(gorp.MatchKeys[device.Key, device.Device](seed.Key)).
-			Entry(&got).Exec(ctx, db)).To(Succeed())
+		got := migrateSeed(ctx, seed)
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Status).To(BeNil())

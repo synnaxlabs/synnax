@@ -35,28 +35,30 @@ type ServiceConfig struct {
 	// Instrumentation for logging, tracing, and metrics.
 	alamos.Instrumentation
 	// DB is the database that the schematic service will store schematics in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Ontology is used to define relationships between schematics and other entities in
 	// the Synnax resource graph.
+	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
 	// Group is used to create and manage groups for symbols.
+	//
 	// [OPTIONAL]
 	Group *group.Service
-	// Signals is used to propagate changes to schematics and symbols throughout the cluster.
+	// Signals is used to propagate changes to schematics and symbols throughout the
+	// cluster.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Search is the search index for fuzzy searching schematics.
+	//
 	// [REQUIRED]
 	Search *search.Index
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening a schematic service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -91,7 +93,7 @@ type Service struct {
 // Each configuration will be used as an override for the previous configuration in the
 // list. See the Config struct for information on which fields should be set.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -140,17 +142,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 func (s *Service) Close() error { return s.closer.Close() }
 
 // OnAction subscribes the given handler to the action stream emitted by
-// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
-// underlying transaction commits. The returned Disconnect removes the handler.
+// Writer.Dispatch. The handler runs synchronously inside Dispatch after the underlying
+// transaction commits. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
 	return s.state.OnAction(handler)
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
-// tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting schematics in
+// Synnax. If tx is provided, the writer will use that transaction. If tx is nil, the
+// Writer will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
@@ -162,10 +164,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	}
 }
 
-// NewRetrieve opens a new query build for retrieving logs from Synnax.
+// NewRetrieve opens a new query build for retrieving schematics from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.DB,
-	}
+	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.DB}
 }

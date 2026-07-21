@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project/types"
@@ -24,25 +23,24 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// runMigrations runs the full project migration chain against db.
+func runMigrations(ctx context.Context, db *gorp.DB) {
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  "Project",
+		Migrations: types.NewMigrations(types.MigrationsConfig{Ontology: otg}),
+	})).To(Succeed())
+}
+
 var _ = Describe("Workspace to project migration", func() {
-	migrations := []migrate.Migration{
-		gorp.CodecMigration[types.Key, projectv0.Workspace]("msgpack_to_orc"),
-		migrate.WithAddedDeps(
-			gorp.NewMigration(
-				"v56_migrate_workspace_to_project",
-				types.MigrateWorkspaceToProject,
-			),
-			"msgpack_to_orc",
-		),
-	}
 	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[types.Key, types.Project] {
 		return MustOpen(gorp.OpenTable(
-			ctx, gorp.TableConfig[types.Key, types.Project]{DB: db, Migrations: migrations},
+			ctx, gorp.TableConfig[types.Key, types.Project]{DB: db},
 		))
 	}
 	rel := func(from, to ontology.ID) ontology.Relationship {
@@ -104,6 +102,7 @@ var _ = Describe("Workspace to project migration", func() {
 			Expect(relTable.NewCreate().Entry(&rr).Exec(ctx, db)).To(Succeed())
 		}
 
+		runMigrations(ctx, db)
 		projectTable := openProjectTable(ctx, db)
 
 		By("Lifting every workspace into a project with identical fields")
@@ -147,7 +146,7 @@ var _ = Describe("Workspace to project migration", func() {
 
 	It("Should be a no-op on a cluster that never created a workspace", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		// Opening the table runs the migration; it must succeed with nothing to lift.
+		runMigrations(ctx, db)
 		Expect(openProjectTable(ctx, db).NewRetrieve().
 			Where(gorp.MatchKeys[types.Key, types.Project](uuid.New())).
 			Exists(ctx, db)).To(BeFalse())
@@ -183,10 +182,7 @@ var _ = Describe("Remove author relationships migration", func() {
 			Expect(relTable.NewCreate().Entry(&rr).Exec(ctx, db)).To(Succeed())
 		}
 
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		tx := db.OpenTx()
-		Expect(types.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
-		Expect(tx.Commit(ctx)).To(Succeed())
+		runMigrations(ctx, db)
 
 		By("Deleting the author user-to-project relationship")
 		Expect(hasRel(ctx, db, authorToProject)).To(MatchError(query.ErrNotFound))
@@ -198,10 +194,7 @@ var _ = Describe("Remove author relationships migration", func() {
 
 	It("Should be a no-op when no author relationships exist", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		tx := db.OpenTx()
-		Expect(types.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
-		Expect(tx.Commit(ctx)).To(Succeed())
+		runMigrations(ctx, db)
 	})
 })
 
@@ -221,10 +214,7 @@ var _ = Describe("Project layout staging migration", func() {
 			Key: empty, Name: "Empty",
 		}).Exec(ctx, db)).To(Succeed())
 
-		tx := db.OpenTx()
-		Expect(types.MigrateLayoutsToStaging(ctx, tx, alamos.Instrumentation{})).
-			To(Succeed())
-		Expect(tx.Commit(ctx)).To(Succeed())
+		runMigrations(ctx, db)
 
 		By("Writing the layout blob under the project's staging key")
 		blob, closer := MustSucceed2(db.Get(ctx, types.LegacyLayoutKVKey(withLayout)))

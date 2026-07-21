@@ -35,10 +35,7 @@ type ServiceConfig struct {
 	Search   *search.Index
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements ServiceConfig.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -65,7 +62,7 @@ type Service struct {
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -38,10 +38,9 @@ type MigrationConfig struct {
 	Roles builtin.ProvisionResult
 }
 
-// Migration (Phase 2) reads the persisted user-to-policy mapping from KV
-// (written by Phase 1 in the policy package), queries users for their RootUser
-// flag, determines the appropriate role for each user, and creates the ontology
-// relationships.
+// Migration (Phase 2) reads the persisted user-to-policy mapping from KV (written by
+// Phase 1 in the policy package), queries users for their RootUser flag, determines the
+// appropriate role for each user, and creates the ontology relationships.
 func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.permission_assignment",
@@ -91,8 +90,8 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 }
 
 // determineRole maps a legacy user to a built-in role. Operator is the intentional
-// default because all pre-RBAC users had write access. Viewer is not used here
-// since no legacy deployment had read-only users.
+// default because all pre-RBAC users had write access. Viewer is not used here since no
+// legacy deployment had read-only users.
 func determineRole(u user.User, policies []policy.Policy, roles builtin.ProvisionResult) uuid.UUID {
 	if u.RootUser {
 		return roles.OwnerKey

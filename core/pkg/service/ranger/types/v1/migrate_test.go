@@ -10,9 +10,12 @@
 package v1_test
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
 	"github.com/synnaxlabs/x/color"
@@ -22,7 +25,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("ColorNullableMigration", func() {
+var _ = Describe("v1 -> current Range migration", func() {
 	migrateColors := func(ctx SpecContext, seeds ...v0.Range) map[uuid.UUID]v1.Range {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db}))
@@ -30,13 +33,14 @@ var _ = Describe("ColorNullableMigration", func() {
 			Expect(gorp.NewCreate[v0.Key, v0.Range]().Entry(&seeds[i]).Exec(ctx, db)).
 				To(Succeed())
 		}
+		v0Applied := gorp.NewMigration(
+			v0.NewMigration(v0.MigrationConfig{}).Key(),
+			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
+		)
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Range",
-			Migrations: []migrate.Migration{
-				gorp.CodecMigration[v0.Key, v0.Range](v1.CodecMigration.Key()),
-				v1.ColorNullableMigration,
-			},
+			DB:         db,
+			Namespace:  "Range",
+			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
 		})).To(Succeed())
 		out := make(map[uuid.UUID]v1.Range, len(seeds))
 		for _, seed := range seeds {
