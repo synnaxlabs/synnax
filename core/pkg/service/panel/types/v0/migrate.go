@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	projectv1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -128,7 +128,7 @@ func scanStagedLayouts(
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
 ) (out []stagedLayout, err error) {
-	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(projectv1.LegacyLayoutKVPrefix)))
+	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(project.LegacyLayoutKVPrefix)))
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func scanStagedLayouts(
 			key: key,
 			projectID: ontology.ID{
 				Type: ontology.ResourceTypeProject,
-				Key:  strings.TrimPrefix(string(key), projectv1.LegacyLayoutKVPrefix),
+				Key:  strings.TrimPrefix(string(key), project.LegacyLayoutKVPrefix),
 			},
 			slice: slice,
 		})

@@ -18,8 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
-	projecttypes "github.com/synnaxlabs/synnax/pkg/service/project/types"
-	projectv1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
+	project "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -41,12 +40,12 @@ var _ = Describe("Project layout to panel migration", func() {
 	}
 	// stageLayout stages a project's layout blob under its staging key, mirroring the
 	// project migration's Phase 1 so the panel migration finds the layout to convert.
-	stageLayout := func(ctx context.Context, db *gorp.DB, p projecttypes.Project) {
+	stageLayout := func(ctx context.Context, db *gorp.DB, p project.Project) {
 		if len(p.Layout) == 0 {
 			return
 		}
 		blob := MustSucceed(json.Marshal(p.Layout))
-		Expect(db.Set(ctx, []byte(projectv1.LegacyLayoutKVPrefix+p.Key.String()), blob)).To(Succeed())
+		Expect(db.Set(ctx, []byte(project.LegacyLayoutKVPrefix+p.Key.String()), blob)).To(Succeed())
 	}
 	seedResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
 		table := MustOpen(gorp.OpenTable(
@@ -144,7 +143,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			ontology.ID{Type: ontology.ResourceTypeLog, Key: logKey},
 			ontology.ID{Type: ontology.ResourceTypeTable, Key: tblKey},
 		)
-		stageLayout(ctx, db, projecttypes.Project{
+		stageLayout(ctx, db, project.Project{
 			Key:  projectKey,
 			Name: "Ops",
 			Layout: msgpack.EncodedJSON{
@@ -247,12 +246,12 @@ var _ = Describe("Project layout to panel migration", func() {
 			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
 				Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
 				Exists(ctx, db))).To(BeTrue())
-			Expect(hasRel(ctx, db, rel(projecttypes.Project{Key: projectKey}.OntologyID(), panelID))).
+			Expect(hasRel(ctx, db, rel(project.Project{Key: projectKey}.OntologyID(), panelID))).
 				To(BeTrue())
 		}
 
 		By("Deleting the staging entry once it has been consumed")
-		Expect(db.Get(ctx, []byte(projectv1.LegacyLayoutKVPrefix+projectKey.String()))).Error().
+		Expect(db.Get(ctx, []byte(project.LegacyLayoutKVPrefix+projectKey.String()))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 
@@ -262,7 +261,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		seedResources(ctx, db, ontology.ID{
 			Type: ontology.ResourceTypeLineplot, Key: lpKey,
 		})
-		stageLayout(ctx, db, projecttypes.Project{
+		stageLayout(ctx, db, project.Project{
 			Key:  uuid.New(),
 			Name: "Ops",
 			Layout: msgpack.EncodedJSON{
@@ -303,12 +302,12 @@ var _ = Describe("Project layout to panel migration", func() {
 
 	It("Should skip corrupt or unmigratable staged layouts", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		stageLayout(ctx, db, projecttypes.Project{
+		stageLayout(ctx, db, project.Project{
 			Key:    uuid.New(),
 			Name:   "Corrupt",
 			Layout: msgpack.EncodedJSON{"mosaics": "garbage"},
 		})
-		stageLayout(ctx, db, projecttypes.Project{
+		stageLayout(ctx, db, project.Project{
 			Key:  uuid.New(),
 			Name: "Unmigratable",
 			Layout: msgpack.EncodedJSON{
