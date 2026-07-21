@@ -8,33 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Arc } from "@/feature/arc";
+import { Link } from "@/platform/link";
 import { Session } from "@/session";
-import { renderLinkHook, resolveFocusedTab } from "@/testutil";
+import { renderLinkHook, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-describe("Arc.useLink", () => {
-  it("should open the arc as a tab", async () => {
-    const { layout: _, ...project } = await client.projects.create({
-      name: id.create(),
+const useOpenTable = Link.createUseOpenResourceTab("table");
+
+describe("Link.createUseOpenResourceTab", () => {
+  it("opens the linked key as a resource tab of the factory's type", async () => {
+    const project = await client.projects.create({
+      name: uniqueName("project"),
       layout: {},
     });
-    const created = await client.arcs.create({
-      name: "Control Sequence",
-      mode: "graph",
-      graph: { nodes: [], edges: [] },
+    const created = await client.tables.create(project.key, {
+      name: uniqueName("table"),
     });
-    const { handler, store } = await renderLinkHook(Arc.useLink, { client });
+    const { handler, store } = await renderLinkHook(useOpenTable, { client });
     store.dispatch(Session.Project.select(project.key));
     await handler({ client, key: created.key });
     const tab = await resolveFocusedTab(store, client);
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe("arc");
-    const retrieved = await client.arcs.retrieve({ key: tab.resource.key });
-    expect(retrieved.name).toBe("Control Sequence");
+    expect(tab.resource).toEqual({ type: "table", key: created.key });
   });
 });

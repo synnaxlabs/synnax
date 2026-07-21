@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log, ontology, type Synnax as Client } from "@synnaxlabs/client";
-import { Access, Icon, Log, Menu, Mosaic, Status, Synnax } from "@synnaxlabs/pluto";
+import { log, ontology } from "@synnaxlabs/client";
+import { Access, Icon, Log, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { useExport } from "@/feature/log/export";
 import { Cluster } from "@/platform/cluster";
@@ -83,35 +82,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const loadLog = async (
-  client: Client,
-  { key }: ontology.ID,
-  openTab: Panel.OpenTab,
-) => {
-  const l = await client.logs.retrieve({ key });
-  openTab({ variant: "resource", resource: log.ontologyID(l.key) });
-};
-
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.use();
-  const openTab = Panel.useOpenTab();
-  const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      loadLog(client, resource.id, openTab).catch((e: unknown) =>
-        handleError(e, `Failed to select ${resource.name}`),
-      );
-    },
-    [client, openTab, handleError],
-  );
-};
-
 const TreeItem = Tree.createItem({
   type: "log",
   icon: <Icon.Log />,
   hasChildren: false,
-  useOnSelect,
+  useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
