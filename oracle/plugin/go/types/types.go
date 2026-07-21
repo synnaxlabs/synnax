@@ -78,7 +78,10 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 // Version-laid-out packages (@go version + a keyed struct) emit their types into the
 // current types/vN sub-package, with a root alias file re-exporting the surface. Types
 // whose shape is unchanged from the predecessor version alias it instead of being
-// re-defined.
+// re-defined. Version-laid-out packages pin references to their dependencies' current
+// version directories (they must stay importable from frozen packages); unversioned
+// packages reference the root re-export surface, which always tracks the latest
+// version.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	rewritten, pathMap, err := versioning.RewriteCurrent(req.Resolutions)
 	if err != nil {
@@ -88,10 +91,15 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	gen := &framework.Generator{
+	currentPaths := make(set.Set[string], len(pathMap))
+	for _, current := range pathMap {
+		currentPaths.Add(current)
+	}
+	versionedGen := &framework.Generator{
 		Domain:          "go",
 		FilePattern:     p.Options.FileNamePattern,
 		FileGenerator:   &goFileGenerator{preds: preds},
+		PathFilter:      currentPaths.Contains,
 		MergeByName:     false,
 		CollectTypeDefs: true,
 		CollectEnums:    true,
@@ -99,10 +107,28 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 	versionedReq := *req
 	versionedReq.Resolutions = rewritten
-	resp, err := gen.Generate(&versionedReq)
+	resp, err := versionedGen.Generate(&versionedReq)
 	if err != nil {
 		return nil, err
 	}
+	unversionedGen := &framework.Generator{
+		Domain:        "go",
+		FilePattern:   p.Options.FileNamePattern,
+		FileGenerator: &goFileGenerator{},
+		PathFilter: func(outputPath string) bool {
+			_, versioned := pathMap[outputPath]
+			return !versioned
+		},
+		MergeByName:     false,
+		CollectTypeDefs: true,
+		CollectEnums:    true,
+		CollectUnions:   true,
+	}
+	unversionedResp, err := unversionedGen.Generate(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, unversionedResp.Files...)
 	if len(pathMap) == 0 {
 		return resp, nil
 	}

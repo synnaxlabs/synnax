@@ -2838,4 +2838,36 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 	})
 })
 
+var _ = Describe("Unversioned Consumers", func() {
+	It("Should reference versioned types through the root re-export", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		loader.Add("schemas/chan", `
+			@go output "core/pkg/service/channel"
+			@go version 0
+			Key = uint32
+			Channel struct {
+				key  Key {@key}
+				name string
+			}
+		`)
+		source := `
+			import "schemas/chan"
+
+			@go output "core/pkg/api/channel"
+			Request struct {
+				channels chan.Channel[]
+				key      chan.Key
+			}
+		`
+		resp := MustGenerate(ctx, source, "api", loader, types.New(types.DefaultOptions()))
+		ExpectContent(resp, "core/pkg/api/channel/types.gen.go").
+			ToBeValidGoSource().
+			ToContain(`service/channel"`, "servicechannel.Channel").
+			ToNotContain("types/v0")
+		// The versioned package itself still emits into its current directory.
+		ExpectContent(resp, "core/pkg/service/channel/types/v0/types.gen.go").
+			ToContain("type Channel struct")
+	})
+})
+
 var _ = ShouldNotLeakGoroutinesPerSpec()

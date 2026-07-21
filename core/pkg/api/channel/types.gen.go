@@ -12,11 +12,11 @@
 package channel
 
 import (
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	node "github.com/synnaxlabs/synnax/pkg/service/node/types/v0"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v2"
-	control "github.com/synnaxlabs/x/control/types/v0"
-	telem "github.com/synnaxlabs/x/telem/types/v0"
+	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	gotypes "go/types"
 	"strconv"
@@ -30,9 +30,9 @@ type Status = status.Status[gotypes.Nil]
 // in Synnax.
 type Channel struct {
 	// Key is the unique identifier for this channel, automatically assigned by Synnax.
-	Key channel.Key `json:"key" msgpack:"key"`
+	Key servicechannel.Key `json:"key" msgpack:"key"`
 	// Name is the human-readable channel name.
-	Name channel.Name `json:"name" msgpack:"name"`
+	Name servicechannel.Name `json:"name" msgpack:"name"`
 	// Leaseholder is the node that holds the lease for this channel. Mostly for internal
 	// use.
 	Leaseholder node.Key `json:"leaseholder" msgpack:"leaseholder"`
@@ -45,7 +45,7 @@ type Channel struct {
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Index is the channel used to index this channel's values, associating each value
 	// with a timestamp.
-	Index channel.Key `json:"index" msgpack:"index"`
+	Index servicechannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
 	Alias *string `json:"alias,omitempty" msgpack:"alias,omitempty"`
 	// Virtual is true if this channel does not store data in the database but can still be
@@ -58,7 +58,7 @@ type Channel struct {
 	Expression string `json:"expression" msgpack:"expression"`
 	// Operations contains optional aggregation operations (min, max, avg) applied to
 	// channel data over time or triggered by a reset channel.
-	Operations []channel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
+	Operations []servicechannel.Operation `json:"operations,omitzero" msgpack:"operations,omitzero"`
 	// Concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
