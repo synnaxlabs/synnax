@@ -882,6 +882,22 @@ var _ = Describe("Channel", func() {
 				Expect(firesOn(ctx, src)).To(BeFalse())
 				Expect(firesOn(ctx, src)).To(BeFalse())
 			})
+
+			It("Should fire a series re-delivered after the buffer moves past it", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				writeData(10, 99, 1, 100, al(0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				writeData(10, 99, 2, 101, al(1))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.ClearReads()
+				writeData(10, 99, 3, 102, al(2))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				channelState.ClearReads()
+				writeData(10, 99, 1, 100, al(0))
+				Expect(firesOn(ctx, src)).To(BeTrue(),
+					"identity tracking must not outlive the buffered series")
+				Expect(emittedValue("s0")).To(Equal(float32(1)))
+			})
 		})
 
 		Describe("Late or missing index", func() {
@@ -1381,6 +1397,22 @@ var _ = Describe("Channel", func() {
 
 				writePair(10, 99, 2, 1001, al(1, 1))
 				Expect(firesOn(ctx, src)).To(BeTrue(), "fresh data after a duplicate must fire")
+				Expect(emittedValue("s0")).To(Equal(float32(2)))
+			})
+
+			It("Should keep suppressing a duplicate across multiple cycles", func(ctx SpecContext) {
+				src := newSource(ctx, "s0", 10)
+				fr := writePair(10, 99, 1, 1000, al(1, 0))
+				Expect(firesOn(ctx, src)).To(BeTrue())
+				for range 3 {
+					channelState.ClearReads()
+					channelState.Ingest(fr)
+					Expect(firesOn(ctx, src)).To(BeFalse(),
+						"a re-ingested duplicate must stay suppressed while buffered")
+				}
+				channelState.ClearReads()
+				writePair(10, 99, 2, 1001, al(1, 1))
+				Expect(firesOn(ctx, src)).To(BeTrue())
 				Expect(emittedValue("s0")).To(Equal(float32(2)))
 			})
 

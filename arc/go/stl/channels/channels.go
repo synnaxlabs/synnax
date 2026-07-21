@@ -171,11 +171,18 @@ func (s *source) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
-	s.seen = slices.DeleteFunc(s.seen, func(a telem.Alignment) bool {
-		return !slices.ContainsFunc(data.Series, func(ser telem.Series) bool {
-			return ser.Alignment == a
-		})
-	})
+	// Drop seen entries whose series left the buffer, bounding seen to the
+	// buffer's length without allocating.
+	kept := s.seen[:0]
+	for _, a := range s.seen {
+		for _, ser := range data.Series {
+			if ser.Alignment == a {
+				kept = append(kept, a)
+				break
+			}
+		}
+	}
+	s.seen = kept
 	for _, ser := range data.Series {
 		if ser.Len() == 0 {
 			continue
