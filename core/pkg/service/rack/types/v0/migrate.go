@@ -29,13 +29,13 @@ import (
 type MigrationConfig struct {
 	// HostProvider resolves the host node, used to rename the embedded rack.
 	HostProvider cluster.HostProvider
-	// Status is the status service used to backfill unknown statuses for
-	// racks missing them.
+	// Status is the status service used to backfill unknown statuses for racks missing
+	// them.
 	Status *status.Service
 }
 
-// NewMigration returns the v0 migration, which renames the host's embedded
-// rack and backfills an unknown status for every rack missing one.
+// NewMigration returns the v0 migration, which renames the host's embedded rack and
+// backfills an unknown status for every rack missing one.
 func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"v0.embedded_rack_rename_status_backfill",

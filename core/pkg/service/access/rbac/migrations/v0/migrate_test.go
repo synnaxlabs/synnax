@@ -17,9 +17,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
-	migrationsv0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v0"
+	policyv0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -92,7 +92,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		regularUser := MustSucceed(w.Create(ctx, user.User{Username: "regular"}))
 
 		// Seed legacy policies with Subjects field
-		adminPolicy := v0.Policy{
+		adminPolicy := policyv0.Policy{
 			Key:      uuid.New(),
 			Subjects: []ontology.ID{user.OntologyID(adminUser.Key)},
 			Objects: []ontology.ID{
@@ -101,13 +101,13 @@ var _ = Describe("Legacy Permission Migration", func() {
 			},
 			Actions: []access.Action{"all"},
 		}
-		schematicPolicy := v0.Policy{
+		schematicPolicy := policyv0.Policy{
 			Key:      uuid.New(),
 			Subjects: []ontology.ID{user.OntologyID(schematicUser.Key)},
 			Objects:  []ontology.ID{{Type: "schematic"}},
 			Actions:  []access.Action{"all"},
 		}
-		writer := gorp.WrapWriter[uuid.UUID, v0.Policy](tx)
+		writer := gorp.WrapWriter[uuid.UUID, policyv0.Policy](tx)
 		Expect(writer.Set(ctx, adminPolicy)).To(Succeed())
 		Expect(writer.Set(ctx, schematicPolicy)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
@@ -128,7 +128,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			DB:        db,
 			Namespace: "RBAC",
 			Migrations: []migrate.Migration{
-				migrationsv0.NewMigration(migrationsv0.MigrationConfig{
+				v0.NewMigration(v0.MigrationConfig{
 					User:     userSvc,
 					Ontology: otg,
 					Role:     roleSvc,
@@ -157,7 +157,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(regularUser.Key), operatorRole.Key)).To(BeTrue())
 
 		// Legacy policies should be deleted
-		reader := gorp.WrapReader[uuid.UUID, v0.Policy](tx2)
+		reader := gorp.WrapReader[uuid.UUID, policyv0.Policy](tx2)
 		iter := MustOpen(reader.OpenIterator(gorp.IterOptions{}))
 		legacyCount := 0
 		for iter.First(); iter.Valid(); iter.Next() {
@@ -208,7 +208,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 				DB:        db,
 				Namespace: "RBAC",
 				Migrations: []migrate.Migration{
-					migrationsv0.NewMigration(migrationsv0.MigrationConfig{
+					v0.NewMigration(v0.MigrationConfig{
 						User:     userSvc,
 						Ontology: otg,
 						Role:     roleSvc,
