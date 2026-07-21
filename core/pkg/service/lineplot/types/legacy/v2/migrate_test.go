@@ -12,17 +12,12 @@ package v2_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/legacy/v2"
 	"github.com/synnaxlabs/x/color"
 )
-
-func nonZeroChannels() v0.Channels {
-	c := v0.Channels{X1: 1, X2: 2}
-	c.Y1 = append(c.Y1, 10)
-	return c
-}
 
 // nonZeroV1 builds a v1.Data with every model field populated so passthrough
 // regressions in v2.Migrate surface.
@@ -34,8 +29,12 @@ func nonZeroV1() v1.Data {
 		RemoteCreated: true,
 		Title:         v0.Title{Level: "h4", Visible: true},
 		Legend:        v1.ZeroLegend,
-		Channels:      nonZeroChannels(),
-		Ranges:        v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
+		Channels: v0.Channels{
+			X1: 1, X2: 2,
+			Y1: []channel.Key{10, 11},
+			Y2: []channel.Key{12},
+		},
+		Ranges: v0.Ranges{X1: []string{"00000000-0000-0000-0000-000000000010"}},
 		Axes: v0.AxesContainer{
 			RenderTrigger:    7,
 			HasHadChannelSet: true,

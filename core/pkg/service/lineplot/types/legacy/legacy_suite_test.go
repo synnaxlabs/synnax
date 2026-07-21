@@ -19,7 +19,7 @@ import (
 
 func TestLegacy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service LinePlot Legacy Suite")
+	RunSpecs(t, "Service Line Plot Legacy Suite")
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
