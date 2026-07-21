@@ -381,9 +381,6 @@ func (n *State) InputFresh(i int) bool {
 	return ts > n.accumulated[i].lastTimestamp || !n.accumulated[i].consumed
 }
 
-// InputCount returns the number of declared inputs.
-func (n *State) InputCount() int { return len(n.ir.inputs) }
-
 // LastChanged returns the series of the most-recently-changed input, marking it
 // consumed for last-write-wins. ok is false when no input has new data.
 func (n *State) LastChanged() (telem.Series, bool) {

@@ -10,7 +10,7 @@ nextURL: "/reference/control/arc/reference/variables"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import { ArcContext } from "@/components";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -98,9 +98,9 @@ name declares a channel read/write
 [variable](/reference/control/arc/reference/variables) that reads and writes the
 channel:
 
-<ArcContext.Tabs client:load>
+<Arc.Tabs client:load>
 
-<Fragment slot="Flow">
+<Fragment slot="flow">
 ```arc
 sequence {
   value := ox_pt_1 // binds to ox_pt_1
@@ -109,7 +109,7 @@ sequence {
 ```
 </Fragment>
 
-<Fragment slot="Function">
+<Fragment slot="function">
 ```arc
 func example{}(){
   value := ox_pt_1 // read from channel
@@ -118,7 +118,7 @@ func example{}(){
 ```
 </Fragment>
 
-</ArcContext.Tabs>
+</Arc.Tabs>
 
 Reading from a channel that has no data returns the zero value for that type.
 

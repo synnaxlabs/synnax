@@ -7,5 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/components/arc-context/ArcContext";
-export * from "@/components/arc-context/Tabs";
+// ExecutionContext distinguishes the two homes Arc code runs in: reactive
+// flows and imperative functions. Docs tab pages key their variants on it.
+export type ExecutionContext = "flow" | "function";

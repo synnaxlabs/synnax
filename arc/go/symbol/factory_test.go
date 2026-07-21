@@ -175,46 +175,45 @@ var _ = Describe("Value variable predicates", func() {
 	}
 	src := 7
 	DescribeTable("classify a symbol by kind and data type",
-		func(sym symbol.Symbol, valueVar, readWrite, reactive, literal, backsInternal bool) {
+		func(sym symbol.Symbol, valueVar, readWrite, reactive, literal bool) {
 			Expect(sym.IsValueVariable()).To(Equal(valueVar))
 			Expect(sym.IsChannelReadWrite()).To(Equal(readWrite))
 			Expect(sym.IsReactive()).To(Equal(reactive))
 			Expect(sym.IsLiteral()).To(Equal(literal))
-			Expect(sym.BacksInternalChannel()).To(Equal(backsInternal))
 		},
 		Entry("literal := variable",
 			symbol.Symbol{Kind: symbol.KindVariable, Type: types.I32()},
-			true, false, false, true, true),
+			true, false, false, true),
 		Entry("stateful $= variable",
 			symbol.Symbol{Kind: symbol.KindStatefulVariable, Type: types.F64()},
-			true, false, false, true, true),
+			true, false, false, true),
 		Entry("bare-channel read/write alias",
 			symbol.Symbol{Kind: symbol.KindVariable, Type: rwChan(types.F32()), SourceID: &src},
-			true, true, false, false, false),
+			true, true, false, false),
 		Entry("reactive channel-read variable",
 			symbol.Symbol{Kind: symbol.KindVariable, Type: types.ReadChan(types.F32())},
-			true, false, true, false, true),
+			true, false, true, false),
 		Entry("chan-typed variable with unset direction classifies as reactive",
 			symbol.Symbol{Kind: symbol.KindVariable, Type: types.Chan(types.F32())},
-			true, false, true, false, true),
+			true, false, true, false),
 		Entry("stateful bare-channel read/write alias",
 			symbol.Symbol{
 				Kind: symbol.KindStatefulVariable, Type: rwChan(types.F32()),
 				SourceID: &src,
 			},
-			true, true, false, false, false),
+			true, true, false, false),
 		Entry("stateful reactive channel-read variable",
 			symbol.Symbol{Kind: symbol.KindStatefulVariable, Type: types.ReadChan(types.F32())},
-			true, false, true, false, true),
+			true, false, true, false),
 		Entry("loop variable is not a value variable",
 			symbol.Symbol{Kind: symbol.KindLoopVariable, Type: types.I32()},
-			false, false, false, false, false),
+			false, false, false, false),
 		Entry("channel symbol is not a value variable",
 			symbol.Symbol{Kind: symbol.KindChannel, Type: types.Chan(types.F32())},
-			false, false, false, false, false),
+			false, false, false, false),
 		Entry("function symbol is not a value variable",
 			symbol.Symbol{Kind: symbol.KindFunction},
-			false, false, false, false, false),
+			false, false, false, false),
 	)
 })
 

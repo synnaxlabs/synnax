@@ -856,7 +856,7 @@ var _ = Describe("Scope", func() {
 
 var _ = Describe("Name conflicts", func() {
 	// A conflict message names the kind of the symbol already holding the name,
-	// exercising nounForKind for each kind.
+	// exercising Kind.noun for each kind.
 	DescribeTable("Should name the colliding symbol's kind",
 		func(bCtx SpecContext, kind symbol.Kind, noun string) {
 			ast := MustSucceed(parser.ParseStatement("x := 1"))
@@ -864,10 +864,9 @@ var _ = Describe("Name conflicts", func() {
 			MustSucceed(root.Add(bCtx, symbol.Symbol{
 				Name: "dup", Kind: kind, Type: types.I32(), AST: ast,
 			}))
-			_, err := root.Add(bCtx, symbol.Symbol{
+			Expect(root.Add(bCtx, symbol.Symbol{
 				Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
-			})
-			Expect(err).To(MatchError(ContainSubstring("conflicts with existing " + noun)))
+			})).Error().To(MatchError(ContainSubstring("conflicts with existing " + noun)))
 		},
 		Entry("variable", symbol.KindVariable, "variable"),
 		Entry("stateful variable", symbol.KindStatefulVariable, "variable"),

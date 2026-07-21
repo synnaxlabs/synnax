@@ -9,7 +9,7 @@ nextURL: "/reference/control/arc/how-to/alarms"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
-import { ArcContext } from "@/components";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -115,9 +115,9 @@ You can combine channels:
 Some calculations need to remember values across executions. Use `$=` to declare a
 stateful variable.
 
-<ArcContext.Tabs client:load>
+<Arc.Tabs client:load>
 
-<Fragment slot="Flow">
+<Fragment slot="flow">
 
 ```arc
 sequence monitor {
@@ -134,7 +134,7 @@ sequence monitor {
 
 </Fragment>
 
-<Fragment slot="Function">
+<Fragment slot="function">
 
 ```arc
 func counter() i64 {
@@ -148,7 +148,7 @@ trigger -> counter{} -> count_ch
 
 </Fragment>
 
-</ArcContext.Tabs>
+</Arc.Tabs>
 
 The [Stateful Variables](/reference/control/arc/concepts/stateful-variables) concept
 page explains persistence in more depth.

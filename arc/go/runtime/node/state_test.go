@@ -1737,14 +1737,6 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
-	Describe("InputCount", func() {
-		It("Should return the number of declared inputs", func(ctx SpecContext) {
-			s := newLinkedState(ctx)
-			Expect(s.Node("dst").InputCount()).To(Equal(1))
-			Expect(s.Node("src").InputCount()).To(BeZero())
-		})
-	})
-
 	Describe("Input and InputTime", func() {
 		It("Should expose the aligned data and time after a refresh", func(ctx SpecContext) {
 			s := newLinkedState(ctx)

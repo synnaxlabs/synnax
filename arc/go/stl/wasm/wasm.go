@@ -79,10 +79,10 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 
 	stringInputs := make([]bool, len(irFn.Inputs))
-	refInputs := make([]bool, len(irFn.Inputs))
+	chanInputs := make([]bool, len(irFn.Inputs))
 	for i, inp := range irFn.Inputs {
 		stringInputs[i] = inp.Type.Kind == types.KindString
-		refInputs[i] = inp.Type.Kind == types.KindChan
+		chanInputs[i] = inp.Type.Kind == types.KindChan
 	}
 
 	stringOutputs := make([]bool, len(irFn.Outputs))
@@ -109,7 +109,7 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		selIdx:        selIdx,
 		nodeKeySetter: w.NodeKeySetter,
 		stringInputs:  stringInputs,
-		refInputs:     refInputs,
+		chanInputs:    chanInputs,
 		stringOutputs: stringOutputs,
 		strings:       w.Strings,
 	}

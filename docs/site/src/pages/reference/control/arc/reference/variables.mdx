@@ -11,6 +11,7 @@ nextURL: "/reference/control/arc/reference/operators"
 ---
 
 import { Divider, Icon, Note, Text } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
@@ -38,7 +39,7 @@ Assign to existing variables with `=`:
 x = x + 1
 ```
 
-Supported compount assignment:
+Supported compound assignment:
 
 ```arc
 count += 1      // count = count + 1
@@ -56,6 +57,26 @@ A variable is visible from its declaration to the end of its enclosing block, an
 blocks can read variables from enclosing scopes. A variable is usable only after its
 declaration, including across stages.
 
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+sequence main {
+    // visible for the rest of the sequence
+    x := 10
+    stage s1 {
+        // visible only inside the stage
+        y := x + 1
+    }
+    // y is not visible here
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
+
 ```arc
 func example() {
     // visible for the rest of the function
@@ -68,13 +89,9 @@ func example() {
 }
 ```
 
-```arc
-threshold := 100
-stage watch {
-    warn := reading > threshold // threshold is declared above
-}
-// warn is not visiblyt here
-```
+</Fragment>
+
+</Arc.Tabs>
 
 <Note.Note variant="info">
   Top-level variables are global constants and cannot be reassigned or written to.
@@ -304,6 +321,23 @@ stage monitor {
 Arc does not allow shadowing. A variable cannot have the same name as one in an
 enclosing scope:
 
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+sequence example {
+    x i32 := 10
+    stage s1 {
+        x i32 := 20 // Error: conflicts with outer x
+    }
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
+
 ```arc
 func example() {
     x i32 := 10
@@ -313,7 +347,29 @@ func example() {
 }
 ```
 
+</Fragment>
+
+</Arc.Tabs>
+
 Use a different name or reassign the existing variable:
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+sequence example {
+    x i32 := 10
+    stage s1 {
+        inner_x i32 := 20 // different name
+        x = 20 // reassign existing
+    }
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
 
 ```arc
 func example() {
@@ -325,10 +381,32 @@ func example() {
 }
 ```
 
+</Fragment>
+
+</Arc.Tabs>
+
 Local variables can shadow built-in functions and constants:
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+sequence example {
+    min := 10 // shadows built-in min function
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
 
 ```arc
 func example() {
     min := 10 // shadows built-in min function
 }
 ```
+
+</Fragment>
+
+</Arc.Tabs>

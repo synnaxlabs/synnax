@@ -9,7 +9,7 @@ nextURL: "/reference/control/arc/concepts/control-authority"
 ---
 
 import { Divider, Icon, Note, Text } from "@synnaxlabs/pluto";
-import { ArcContext } from "@/components";
+import { Arc } from "@/components";
 import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
@@ -27,9 +27,9 @@ runs.
 Use `:=` for local variables that reset each run, and `$=` for stateful variables that
 persist across scope re-entry.
 
-<ArcContext.Tabs client:load>
+<Arc.Tabs client:load>
 
-<Fragment slot="Flow">
+<Fragment slot="flow">
 
 ```arc
 stage counting {
@@ -44,7 +44,7 @@ stage counting {
 
 </Fragment>
 
-<Fragment slot="Function">
+<Fragment slot="function">
 
 ```arc
 func example() {
@@ -58,7 +58,7 @@ func example() {
 
 </Fragment>
 
-</ArcContext.Tabs>
+</Arc.Tabs>
 
 <Divider.Divider x />
 
@@ -69,9 +69,9 @@ func example() {
 
 Track how many times a condition has occurred.
 
-<ArcContext.Tabs client:load>
+<Arc.Tabs client:load>
 
-<Fragment slot="Flow">
+<Fragment slot="flow">
 ```arc
 stage {
     count $= 0
@@ -83,7 +83,7 @@ stage {
 ```
 </Fragment>
 
-<Fragment slot="Function">
+<Fragment slot="function">
 ```arc
 func count_events{threshold f64} (value f64) i64 {
     count $= 0
@@ -95,7 +95,7 @@ func count_events{threshold f64} (value f64) i64 {
 ```
 </Fragment>
 
-</ArcContext.Tabs>
+</Arc.Tabs>
 
 </Details>
 
@@ -104,9 +104,9 @@ func count_events{threshold f64} (value f64) i64 {
 
 Sum values over time.
 
-<ArcContext.Tabs client:load>
+<Arc.Tabs client:load>
 
-<Fragment slot="Flow">
+<Fragment slot="flow">
 ```arc
 stage accumulate {
     total $= 0.0
@@ -116,7 +116,7 @@ stage accumulate {
 ```
 </Fragment>
 
-<Fragment slot="Function">
+<Fragment slot="function">
 ```arc
 func accumulate(value f64) f64 {
     total $= 0.0
@@ -126,7 +126,7 @@ func accumulate(value f64) f64 {
 ```
 </Fragment>
 
-</ArcContext.Tabs>
+</Arc.Tabs>
 
 </Details>
 
@@ -135,9 +135,9 @@ func accumulate(value f64) f64 {
 
 Compare the current value to the previous one.
 
-<ArcContext.Tabs client:load>
+<Arc.Tabs client:load>
 
-<Fragment slot="Flow">
+<Fragment slot="flow">
 ```arc
 sequence phase_delta {
     prev $= 0.0
@@ -148,7 +148,7 @@ sequence phase_delta {
 ```
 </Fragment>
 
-<Fragment slot="Function">
+<Fragment slot="function">
 ```arc
 func rate_of_change(value f64) f64 {
     prev $= 0.0
@@ -159,7 +159,7 @@ func rate_of_change(value f64) f64 {
 ```
 </Fragment>
 
-</ArcContext.Tabs>
+</Arc.Tabs>
 
 </Details>
 
@@ -168,9 +168,9 @@ func rate_of_change(value f64) f64 {
 
 Track the highest value seen.
 
-<ArcContext.Tabs client:load>
+<Arc.Tabs client:load>
 
-<Fragment slot="Flow">
+<Fragment slot="flow">
 ```arc
 stage running_max {
     max $= 0.0
@@ -182,7 +182,7 @@ stage running_max {
 ```
 </Fragment>
 
-<Fragment slot="Function">
+<Fragment slot="function">
 ```arc
 func running_max(value f64) f64 {
     max $= 0.0
@@ -194,7 +194,7 @@ func running_max(value f64) f64 {
 ```
 </Fragment>
 
-</ArcContext.Tabs>
+</Arc.Tabs>
 
 </Details>
 
@@ -203,9 +203,9 @@ func running_max(value f64) f64 {
 
 Maintain an on/off state.
 
-<ArcContext.Tabs client:load>
+<Arc.Tabs client:load>
 
-<Fragment slot="Flow">
+<Fragment slot="flow">
 
 ```arc
 stage toggle {
@@ -222,7 +222,7 @@ stage toggle {
 
 </Fragment>
 
-<Fragment slot="Function">
+<Fragment slot="function">
 
 ```arc
 func toggle(trigger u8) u8 {
@@ -240,7 +240,7 @@ func toggle(trigger u8) u8 {
 
 </Fragment>
 
-</ArcContext.Tabs>
+</Arc.Tabs>
 
 </Details>
 

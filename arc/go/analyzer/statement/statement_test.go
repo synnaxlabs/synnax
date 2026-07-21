@@ -625,7 +625,6 @@ var _ = Describe("Statement", func() {
 				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
 				Expect(varScope.IsChannelReadWrite()).To(BeTrue())
 				Expect(varScope.SourceID).ToNot(BeNil())
-				Expect(varScope.BacksInternalChannel()).To(BeFalse())
 			})
 		})
 

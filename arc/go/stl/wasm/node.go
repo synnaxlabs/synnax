@@ -55,7 +55,7 @@ type nodeImpl struct {
 	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
-	refInputs     []bool
+	chanInputs    []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
 }
@@ -91,7 +91,7 @@ func (n *nodeImpl) Init(node.Context) {}
 // dataFresh reports whether any input other than $sel has unconsumed data.
 func (n *nodeImpl) dataFresh() bool {
 	for i := range n.ir.Inputs {
-		if i == n.selIdx || n.ir.Inputs[i].Value != nil || n.refInputs[i] {
+		if i == n.selIdx || n.ir.Inputs[i].Value != nil || n.chanInputs[i] {
 			continue
 		}
 		if n.InputFresh(i) {
@@ -128,7 +128,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	// A KindChan param holds the key of the channel the body targets. The key
 	// is edge-fed and can rebind at runtime, so re-read the latest each pass.
 	for i := range n.ir.Inputs {
-		if !n.refInputs[i] || n.ir.Inputs[i].Value != nil {
+		if !n.chanInputs[i] || n.ir.Inputs[i].Value != nil {
 			continue
 		}
 		t := n.RefInput(i)
@@ -141,7 +141,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	maxLength := int64(0)
 	longestInputIdx := -1
 	for i := range n.ir.Inputs {
-		if n.ir.Inputs[i].Value != nil || n.refInputs[i] {
+		if n.ir.Inputs[i].Value != nil || n.chanInputs[i] {
 			continue
 		}
 		dataLen := n.Input(i).Len()
@@ -181,7 +181,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	var alignmentSum telem.Alignment
 	var timeRange telem.TimeRange
 	for i := range n.ir.Inputs {
-		if n.ir.Inputs[i].Value != nil || n.refInputs[i] {
+		if n.ir.Inputs[i].Value != nil || n.chanInputs[i] {
 			continue
 		}
 		input := n.Input(i)
@@ -210,7 +210,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
-			if n.ir.Inputs[j].Value != nil || n.refInputs[j] {
+			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] {
 				continue
 			}
 			inputLen := n.Input(j).Len()

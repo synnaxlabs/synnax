@@ -170,12 +170,6 @@ func (s *Symbol) IsLiteral() bool {
 	return s.IsValueVariable() && s.Type.Kind != types.KindChan
 }
 
-// BacksInternalChannel reports whether s is a value variable backed by a
-// program-local channel (reactive or literal) rather than an external channel.
-func (s *Symbol) BacksInternalChannel() bool {
-	return s.IsValueVariable() && s.SourceID == nil
-}
-
 // Symbol is a named entity in an Arc program and, when it has Children, a
 // container that holds other Symbols. Variables, functions, modules, channels,
 // blocks, loops, sequences, stages, and aliases are all Symbols distinguished
@@ -379,7 +373,7 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 			return nil, errors.Newf(
 				"name %s conflicts with existing %s at line %d, col %d",
 				sym.Name,
-				nounForKind(existing.Kind),
+				existing.Kind.noun(),
 				tok.GetLine(),
 				tok.GetColumn(),
 			)
@@ -414,9 +408,9 @@ func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	return child, nil
 }
 
-// nounForKind returns a human-readable noun for k, used in diagnostics so a
+// noun returns a human-readable noun for k, used in diagnostics so a
 // name conflict names what it collides with (variable, channel, function, ...).
-func nounForKind(k Kind) string {
+func (k Kind) noun() string {
 	switch k {
 	case KindVariable, KindStatefulVariable, KindLoopVariable:
 		return "variable"
