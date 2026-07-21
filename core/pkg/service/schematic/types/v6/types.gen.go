@@ -34,6 +34,6 @@ type Schematic struct {
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
 }
 
-func (e Schematic) GorpKey() Key { return e.Key }
+func (s Schematic) GorpKey() Key { return s.Key }
 
-func (e Schematic) SetOptions() []any { return nil }
+func (Schematic) SetOptions() []any { return nil }

@@ -39,9 +39,10 @@ type Range struct {
 
 var _ gorp.Entry[Key] = Range{}
 
-func (r Range) GorpKey() Key    { return r.Key }
+func (r Range) GorpKey() Key { return r.Key }
+
 func (Range) SetOptions() []any { return nil }
 
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRange, Key: k.String()}
 }

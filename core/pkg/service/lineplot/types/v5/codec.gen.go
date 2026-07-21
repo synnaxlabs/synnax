@@ -17,11 +17,11 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
-	w.Write(lp.Key[:])
-	w.String(lp.Name)
+func (l LinePlot) EncodeOrc(w *orc.Writer) error {
+	w.Write(l.Key[:])
+	w.String(l.Name)
 	{
-		b, err := json.Marshal(lp.Data)
+		b, err := json.Marshal(l.Data)
 		if err != nil {
 			return err
 		}
@@ -30,12 +30,12 @@ func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
+func (l *LinePlot) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(lp.Key[:]); err != nil {
+	if _, err := r.Read(l.Key[:]); err != nil {
 		return err
 	}
-	if lp.Name, err = r.String(); err != nil {
+	if l.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -43,7 +43,7 @@ func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &lp.Data); err != nil {
+		if err = json.Unmarshal(b, &l.Data); err != nil {
 			return err
 		}
 	}

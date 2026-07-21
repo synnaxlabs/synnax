@@ -33,4 +33,4 @@ var _ gorp.Entry[Key] = Symbol{}
 func (s Symbol) GorpKey() Key { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (s Symbol) SetOptions() []any { return nil }
+func (Symbol) SetOptions() []any { return nil }

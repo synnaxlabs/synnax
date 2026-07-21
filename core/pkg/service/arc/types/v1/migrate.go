@@ -16,12 +16,11 @@ package v1
 import (
 	"context"
 
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
-
 	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/migrate"
 )
 
 func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {

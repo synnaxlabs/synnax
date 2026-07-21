@@ -19,4 +19,4 @@ var _ gorp.Entry[Key] = Table{}
 func (t Table) GorpKey() Key { return t.Key }
 
 // SetOptions implements gorp.Entry.
-func (t Table) SetOptions() []any { return nil }
+func (Table) SetOptions() []any { return nil }

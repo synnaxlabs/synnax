@@ -18,15 +18,14 @@ import (
 	"github.com/synnaxlabs/alamos"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
-	telemv0 "github.com/synnaxlabs/x/telem/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -93,13 +92,13 @@ var _ = Describe("v1 -> current Device migration", func() {
 				Variant:     "success",
 				Message:     "device ready",
 				Description: "all modules detected",
-				Time:        telemv0.TimeStamp(telem.Now()),
+				Time:        telem.Now(),
 				Details:     v0.StatusDetails{Rack: 7, Device: key},
-				Labels: []labelv0.Label{
+				Labels: []label.Label{
 					{Key: uuid.New(), Name: "ni", Color: color.Color{R: 0, G: 173, B: 239, A: 1}},
 				},
 			},
-			Parent: &ontologyv0.ID{Type: "device", Key: "DEV-SERIAL-PARENT"},
+			Parent: &ontology.ID{Type: "device", Key: "DEV-SERIAL-PARENT"},
 		}
 		got := migrateSeed(ctx, seed)
 		Expect(got.Key).To(Equal(seed.Key))

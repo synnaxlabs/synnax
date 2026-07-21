@@ -71,4 +71,4 @@ type StatusDetails struct {
 
 func (a Arc) GorpKey() Key { return a.Key }
 
-func (e Arc) SetOptions() []any { return nil }
+func (Arc) SetOptions() []any { return nil }

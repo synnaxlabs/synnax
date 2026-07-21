@@ -17,11 +17,11 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
-func (lv Log) EncodeOrc(w *orc.Writer) error {
-	w.Write(lv.Key[:])
-	w.String(lv.Name)
+func (l Log) EncodeOrc(w *orc.Writer) error {
+	w.Write(l.Key[:])
+	w.String(l.Name)
 	{
-		b, err := json.Marshal(lv.Data)
+		b, err := json.Marshal(l.Data)
 		if err != nil {
 			return err
 		}
@@ -30,12 +30,12 @@ func (lv Log) EncodeOrc(w *orc.Writer) error {
 	return nil
 }
 
-func (lv *Log) DecodeOrc(r *orc.Reader) error {
+func (l *Log) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(lv.Key[:]); err != nil {
+	if _, err := r.Read(l.Key[:]); err != nil {
 		return err
 	}
-	if lv.Name, err = r.String(); err != nil {
+	if l.Name, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -43,7 +43,7 @@ func (lv *Log) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		if err = json.Unmarshal(b, &lv.Data); err != nil {
+		if err = json.Unmarshal(b, &l.Data); err != nil {
 			return err
 		}
 	}

@@ -16,7 +16,7 @@ import (
 var _ gorp.Entry[Key] = LinePlot{}
 
 // GorpKey implements gorp.Entry.
-func (p LinePlot) GorpKey() Key { return p.Key }
+func (l LinePlot) GorpKey() Key { return l.Key }
 
 // SetOptions implements gorp.Entry.
-func (p LinePlot) SetOptions() []any { return nil }
+func (LinePlot) SetOptions() []any { return nil }

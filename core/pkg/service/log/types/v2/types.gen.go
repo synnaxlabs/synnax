@@ -32,6 +32,6 @@ type Log struct {
 	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 }
 
-func (e Log) GorpKey() Key { return e.Key }
+func (l Log) GorpKey() Key { return l.Key }
 
-func (e Log) SetOptions() []any { return nil }
+func (Log) SetOptions() []any { return nil }

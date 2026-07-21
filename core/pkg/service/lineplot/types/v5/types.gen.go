@@ -32,6 +32,6 @@ type LinePlot struct {
 	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 }
 
-func (e LinePlot) GorpKey() Key { return e.Key }
+func (l LinePlot) GorpKey() Key { return l.Key }
 
-func (e LinePlot) SetOptions() []any { return nil }
+func (LinePlot) SetOptions() []any { return nil }
