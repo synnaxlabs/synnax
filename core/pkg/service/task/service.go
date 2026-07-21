@@ -165,7 +165,7 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	}
 	ids := make([]ontology.ID, 0, len(tasks))
 	for _, t := range tasks {
-		ids = append(ids, t.Key.OntologyID())
+		ids = append(ids, t.OntologyID())
 	}
 	if err := s.cfg.Ontology.NewWriter(nil).DeleteResources(ctx, ids...); err != nil {
 		s.cfg.L.Warn("unable to delete internal task resources", zap.Error(err))
@@ -205,7 +205,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	statuses := make([]Status, len(tasks))
 	for i, tsk := range tasks {
 		statuses[i] = Status{
-			Key:         tsk.Key.OntologyID().String(),
+			Key:         tsk.OntologyID().String(),
 			Time:        telem.Now(),
 			Name:        tsk.Name,
 			Variant:     rackStat.Variant,

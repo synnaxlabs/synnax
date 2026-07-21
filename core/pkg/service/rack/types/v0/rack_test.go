@@ -70,4 +70,10 @@ var _ = Describe("Rack", func() {
 			Expect(v0.Rack{}.SetOptions()).To(BeNil())
 		})
 	})
+	Describe("OntologyID", func() {
+		It("Should return the rack ontology identifier", func() {
+			Expect(v0.Rack{Key: key}.OntologyID()).To(Equal(key.OntologyID()))
+		})
+	})
+
 })

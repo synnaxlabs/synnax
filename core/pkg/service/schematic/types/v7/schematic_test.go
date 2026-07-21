@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v7"
 )
 
@@ -28,5 +29,14 @@ var _ = Describe("Schematic", func() {
 		It("Should return no options", func() {
 			Expect(v7.Schematic{}.SetOptions()).To(BeNil())
 		})
+	})
+})
+
+var _ = Describe("OntologyID", func() {
+	It("Should return the schematic ontology identifier", func() {
+		k := uuid.New()
+		Expect(v7.Schematic{Key: k}.OntologyID()).To(Equal(ontology.ID{
+			Type: ontology.ResourceTypeSchematic, Key: k.String(),
+		}))
 	})
 })

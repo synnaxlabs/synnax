@@ -119,7 +119,7 @@ func backfillStatuses(
 
 	statusKeys := make([]string, len(racks))
 	for i, r := range racks {
-		statusKeys[i] = r.Key.OntologyID().String()
+		statusKeys[i] = r.OntologyID().String()
 	}
 	var existingStatuses []status.Status[StatusDetails]
 	if err = status.NewRetrieve[StatusDetails](cfg.Status).
@@ -134,7 +134,7 @@ func backfillStatuses(
 	}
 	var missingStatuses []status.Status[StatusDetails]
 	for _, r := range racks {
-		key := r.Key.OntologyID().String()
+		key := r.OntologyID().String()
 		if !existingKeys.Contains(key) {
 			missingStatuses = append(missingStatuses, status.Status[StatusDetails]{
 				Key:     key,

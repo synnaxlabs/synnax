@@ -84,3 +84,6 @@ func (r Rack) GorpKey() Key { return r.Key }
 
 // SetOptions implements gorp.Entry.
 func (Rack) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ontology identifier for the rack.
+func (r Rack) OntologyID() ontology.ID { return r.Key.OntologyID() }

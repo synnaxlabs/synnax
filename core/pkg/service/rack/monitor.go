@@ -94,7 +94,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 		}
 		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
 		stat := Status{
-			Key:         r.Key.OntologyID().String(),
+			Key:         r.OntologyID().String(),
 			Name:        r.Name,
 			Variant:     status.VariantWarning,
 			Time:        state.lastUpdated,

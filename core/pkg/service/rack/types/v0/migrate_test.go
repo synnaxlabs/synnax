@@ -95,7 +95,7 @@ var _ = Describe("Migration", func() {
 
 		var restoredStatus status.Status[v0.StatusDetails]
 		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
-			Where(status.MatchKeys[v0.StatusDetails](r.Key.OntologyID().String())).
+			Where(status.MatchKeys[v0.StatusDetails](r.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))

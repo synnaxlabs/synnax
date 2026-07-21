@@ -96,3 +96,6 @@ func (t Task) GorpKey() Key { return t.Key }
 
 // SetOptions implements gorp.Entry.
 func (Task) SetOptions() []any { return nil }
+
+// OntologyID returns the unique ontology identifier for the task.
+func (t Task) OntologyID() ontology.ID { return t.Key.OntologyID() }

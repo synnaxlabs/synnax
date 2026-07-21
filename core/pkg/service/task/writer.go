@@ -34,7 +34,7 @@ type Writer struct {
 func resolveStatus(t *Task, provided *Status) *Status {
 	if provided == nil {
 		return &Status{
-			Key:     t.Key.OntologyID().String(),
+			Key:     t.OntologyID().String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
 			Message: fmt.Sprintf("%s status unknown", t.Name),
@@ -42,7 +42,7 @@ func resolveStatus(t *Task, provided *Status) *Status {
 			Details: StatusDetails{Task: t.Key},
 		}
 	}
-	provided.Key = t.Key.OntologyID().String()
+	provided.Key = t.OntologyID().String()
 	provided.Details.Task = t.Key
 	provided.Name = t.Name
 	return provided
@@ -71,8 +71,8 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		}
 		t.Key = NewKey(t.Rack(), localKey)
 	}
-	providedStatus := t.Status // Preserve before clearing for gorp
-	t.Status = nil             // Status stored separately, not in gorp
+	providedStatus := t.Status // Preserve before clearing for Gorp
+	t.Status = nil             // Status stored separately, not in Gorp
 	if err := w.table.NewCreate().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {
@@ -96,7 +96,7 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 	if t.Internal {
 		return nil
 	}
-	otgID := t.Key.OntologyID()
+	otgID := t.OntologyID()
 	exists, err := w.otg.NewRetrieve().WhereIDs(otgID).Exists(ctx, w.tx)
 	if err != nil || exists {
 		return err

@@ -80,7 +80,7 @@ var _ = Describe("Migration", func() {
 
 		var restoredStatus status.Status[v0.StatusDetails]
 		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
-			Where(status.MatchKeys[v0.StatusDetails](t.Key.OntologyID().String())).
+			Where(status.MatchKeys[v0.StatusDetails](t.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
@@ -97,7 +97,7 @@ var _ = Describe("Migration", func() {
 			Entry(&t).
 			Exec(ctx, db)).To(Succeed())
 		existing := status.Status[v0.StatusDetails]{
-			Key:     t.Key.OntologyID().String(),
+			Key:     t.OntologyID().String(),
 			Name:    t.Name,
 			Variant: status.VariantSuccess,
 			Message: "Started",
@@ -111,7 +111,7 @@ var _ = Describe("Migration", func() {
 
 		var taskStatus status.Status[v0.StatusDetails]
 		Expect(status.NewRetrieve[v0.StatusDetails](statusSvc).
-			Where(status.MatchKeys[v0.StatusDetails](t.Key.OntologyID().String())).
+			Where(status.MatchKeys[v0.StatusDetails](t.OntologyID().String())).
 			Entry(&taskStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(taskStatus.Variant).To(Equal(status.VariantSuccess))

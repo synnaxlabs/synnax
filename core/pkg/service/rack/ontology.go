@@ -30,7 +30,7 @@ func OntologyIDs(keys []Key) []ontology.ID {
 }
 
 func OntologyIDsFromRacks(racks []Rack) []ontology.ID {
-	return lo.Map(racks, func(r Rack, _ int) ontology.ID { return r.Key.OntologyID() })
+	return lo.Map(racks, func(r Rack, _ int) ontology.ID { return r.OntologyID() })
 }
 
 func KeyFromOntologyID(id ontology.ID) (Key, error) {
@@ -53,7 +53,7 @@ var schema = zyn.Object(map[string]zyn.Schema{
 })
 
 func newResource(r Rack) ontology.Resource {
-	return ontology.NewResource(schema, r.Key.OntologyID(), r.Name, r)
+	return ontology.NewResource(schema, r.OntologyID(), r.Name, r)
 }
 
 type change = xchange.Change[Key, Rack]

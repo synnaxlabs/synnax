@@ -9,7 +9,10 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/gorp"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/gorp"
+)
 
 var _ gorp.Entry[Key] = Rack{}
 
@@ -18,3 +21,6 @@ func (r Rack) GorpKey() Key { return r.Key }
 
 // SetOptions implements gorp.Entry.
 func (r Rack) SetOptions() []any { return []any{r.Key.Node()} }
+
+// OntologyID returns the unique ontology identifier for the rack.
+func (r Rack) OntologyID() ontology.ID { return r.Key.OntologyID() }

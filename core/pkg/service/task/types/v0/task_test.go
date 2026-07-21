@@ -74,4 +74,10 @@ var _ = Describe("Task", func() {
 			Expect(v0.Task{}.SetOptions()).To(BeNil())
 		})
 	})
+	Describe("OntologyID", func() {
+		It("Should return the task ontology identifier", func() {
+			Expect(v0.Task{Key: key}.OntologyID()).To(Equal(key.OntologyID()))
+		})
+	})
+
 })

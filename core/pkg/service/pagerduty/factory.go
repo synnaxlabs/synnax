@@ -103,7 +103,7 @@ func (f *factory) setConfigStatus(
 	message string,
 ) {
 	stat := task.Status{
-		Key:     t.Key.OntologyID().String(),
+		Key:     t.OntologyID().String(),
 		Name:    t.Name,
 		Variant: variant,
 		Message: message,

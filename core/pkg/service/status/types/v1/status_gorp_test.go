@@ -12,6 +12,7 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 )
 
@@ -26,5 +27,13 @@ var _ = Describe("Status", func() {
 		It("Should return no options", func() {
 			Expect(v1.Status[any]{}.SetOptions()).To(BeNil())
 		})
+	})
+})
+
+var _ = Describe("OntologyID", func() {
+	It("Should return the status ontology identifier", func() {
+		Expect(v1.Status[any]{Key: "st-1"}.OntologyID()).To(Equal(ontology.ID{
+			Type: ontology.ResourceTypeStatus, Key: "st-1",
+		}))
 	})
 })
