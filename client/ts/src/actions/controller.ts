@@ -582,12 +582,11 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
   listener(
     channel: string,
     schema: z.ZodType<Frame<Key, Action>>,
-  ): cache.ChannelListener {
+  ): cache.ChannelListener<z.ZodType<Frame<Key, Action>>> {
     return {
       channel,
       schema,
-      onChange: (changed) => {
-        const { key, seq, dispatchKey, actions } = changed as Frame<Key, Action>;
+      onChange: ({ key, seq, dispatchKey, actions }) => {
         this.applyRemote(key, seq, dispatchKey, actions);
       },
     };

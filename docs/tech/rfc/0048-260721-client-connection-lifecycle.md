@@ -277,15 +277,17 @@ The provider becomes a pure consumer:
   (`flux/Provider.tsx:42-48`, `flux/aether/provider.ts:34-44`); with the client bringing
   up its own stream, both files are empty shells. The console's provider tree loses a
   layer and the aether registry entry goes with it.
-- **`allowDisconnected` dies.** Its sole user is the probe query. The generic parameter
-  and the null-client guards it threads through `retrieve` and `update` collapse;
-  `nullClientResult` remains only as the library-level "no provider mounted" disabled
-  result.
+- **`allowDisconnected` dies.** Its users are the probe query and the console
+  version/update queries (`feature/version/useInfoModal.tsx:29,52`), which never touch
+  the cluster client at all and migrate off flux to plain async hooks. The generic
+  parameter and the null-client guards it threads through `retrieve` and `update`
+  collapse; `nullClientResult` remains only as the library-level "no provider mounted"
+  disabled result.
 - **The typed connection error lives in the client**, since the client is what
-  short-circuits (section 5.2a). That fixes the coupling where worker telem/control code
-  imports `DisconnectedError` from `@/flux/errors`
-  (`telem/control/aether/controller.ts:321`): control actuators gate on the worker
-  machine and throw the client's typed error, with no flux import.
+  short-circuits (section 5.2a). Worker telem/control already throws the client's
+  `DisconnectedError` (`telem/control/aether/controller.ts:321` imports from
+  `@synnaxlabs/client`); the flux-namespaced `DisconnectedError` (`flux/errors.ts:18`)
+  loses its last consumer when the `retrieve` guards collapse, and is deleted.
 - The provider forwards the fully resolved params to the worker, retry and cadence
   included, so both threads run identical policy. The worker keeps its own client and
   its own machine over its own sockets; no cross-thread state protocol. The console UX
@@ -316,22 +318,22 @@ connection, and navigation back to cluster selection and login, plus log out. Th
 takeover is keyed on warmth, not startup: if a persisted record cache later lands
 (Linear-style local bootstrap), the takeover simply becomes rare, with no redesign.
 
-**Warm + degraded -> passive.** Cached data keeps rendering; nothing unmounts. The badge
-shows the variant and a persistent banner appears with the state and a manual retry
-("Reconnecting...", then "Cannot reach cluster" after the escalation). On recovery the
-banner's last moment reads "Syncing" while the epoch reconcile pass runs, then
-dismisses. Reconciliation never re-suspends views (RFC 0046, diff-not-nuke). Per-widget
-telemetry staleness is out of scope here (section 7).
+**Warm + unreachable -> passive.** Cached data keeps rendering; nothing unmounts. The
+existing connection badge renders the variant and message directly, and the provider's
+status toasts announce transitions; no separate banner exists (a second surface saying
+what the badge already says is noise, and retry is automatic). Reconciliation on
+recovery never re-suspends views (RFC 0046, diff-not-nuke). Per-widget telemetry
+staleness is out of scope here (section 7).
 
-**`error(auth)` -> credential re-entry.** Cold: the takeover surface swaps its body for
-a credential form for the selected cluster; one surface, variants keyed by the typed
-reason. Warm: the banner reads "Authentication failed" with a "Sign in" action opening
-the credential form as a modal over the intact workspace. In both cases re-auth
-transitions the machine `error(auth) -> loading` and the user lands exactly where they
-were. Today's `Login.tsx` throwaway-client flow collapses into this surface: logging in
-and recovering from auth failure are the same form pointed at the same machine. The auth
-guard's role narrows to intent (no cluster selected -> login), and health never gates
-the layout.
+**`error(auth)` -> credential re-entry, blocking at any warmth.** The takeover surface
+swaps its body for a credential form for the selected cluster; one surface, variants
+keyed by the typed reason. Auth failure blocks even warm sessions: the user must act and
+nothing new can load, so blocking is honest (Figma and Notion block the same way on
+session expiry). No session state is touched until re-auth succeeds, so the workspace
+returns exactly as it was; re-auth transitions the machine `error(auth) -> loading`.
+Today's `Login.tsx` throwaway-client flow collapses into this surface: logging in and
+recovering from auth failure are the same form pointed at the same machine. The auth
+guard's role narrows to intent (no cluster selected -> login).
 
 ## 5.5 - Kill list
 
@@ -343,12 +345,13 @@ the layout.
 - The hard-coded 5000x1s streamer breaker as an unthreaded constant
   (`framer/streamer.ts:224-228`).
 - `Node.useConnectionState` and its `allowDisconnected` opt-in (`node/queries.ts:26`),
-  plus the `allowDisconnected` generic and guards in `flux/retrieve.ts` and
-  `flux/update.ts`.
+  plus the `allowDisconnected` generic and guards in `flux/retrieve.ts`,
+  `flux/update.ts`, and `flux/list.ts`, and the flux `useInfoModal` usages
+  (`feature/version/useInfoModal.tsx:29,52`, migrated to plain hooks).
 - `Flux.Provider` on both threads (`flux/Provider.tsx`, `flux/aether/provider.ts` and
   its registry entry).
-- The `@/flux/errors` `DisconnectedError` import in worker telem/control
-  (`telem/control/aether/controller.ts:321`).
+- The flux-namespaced `DisconnectedError` (`flux/errors.ts:18`), consumerless once the
+  retrieve guards collapse.
 - `Login.tsx`'s throwaway client construction (`Login.tsx:84-92`).
 - The destructive path from bad credentials to `Panel.reset()` via logout as the only
   recovery.
@@ -366,9 +369,9 @@ surface, now with real `loading` and `warning` states and typed errors. Earns it
 boundary as risk isolation: pure mechanism, no UX change, bisectable.
 
 **Phase 2: the console regimes.** The takeover surface (unreachable and auth variants),
-the banner, the auth-guard narrowing, the login collapse, and the removal of the
-destructive recovery path. Earns its boundary as a reviewable UX unit sitting entirely
-on phase 1's mechanism.
+the auth-guard narrowing, the login collapse, and the removal of the destructive
+recovery path. Earns its boundary as a reviewable UX unit sitting entirely on phase 1's
+mechanism.
 
 Compatibility: this changes the published client's public surface
 (`connectivity`/`Checker` replaced, `ensureStreaming` removed, `connect()` added). It
@@ -435,5 +438,5 @@ client surface; external consumers migrate once.
 3. `connect()` default timeout, and whether it defaults to the retry budget instead of
    wall-clock time.
 4. Worker heartbeat cadence relative to main (same, or slower to halve probe traffic).
-5. Banner and takeover copy, and whether the takeover's retry status shows the
-   next-probe countdown.
+5. Takeover copy, and whether the takeover's retry status shows the next-probe
+   countdown.

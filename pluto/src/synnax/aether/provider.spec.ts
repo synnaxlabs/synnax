@@ -17,13 +17,9 @@ import { synnax } from "@/synnax/aether";
 
 const { mockClose } = vi.hoisted(() => ({ mockClose: vi.fn() }));
 
-// Type assertions below follow existing vi.mock patterns (vitest doesn't expose module
-// types from importOriginal without import() annotations, which lint forbids).
 vi.mock("@synnaxlabs/client", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
-  const realSynnax = actual.Synnax as { connectivity: unknown };
   class MockSynnax {
-    static readonly connectivity = realSynnax.connectivity;
     close = mockClose;
   }
   return { ...actual, Synnax: MockSynnax };

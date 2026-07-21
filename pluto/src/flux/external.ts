@@ -12,7 +12,6 @@ export * from "@/flux/dispatch";
 export * from "@/flux/errors";
 export * from "@/flux/form";
 export * from "@/flux/list";
-export * from "@/flux/Provider";
 export * from "@/flux/result";
 export * from "@/flux/retrieve";
 export * from "@/flux/select";

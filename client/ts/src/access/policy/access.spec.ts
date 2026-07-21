@@ -162,7 +162,7 @@ describe("cached reads", () => {
   // Changes made while the stream is still opening are lost (epoch
   // reconciliation repairs them in production); open it up front so remote
   // writes in these specs are always observed.
-  beforeAll(async () => await client.cache.ensureStreaming());
+  beforeAll(async () => await client.connect());
 
   describe("retrieve", () => {
     it("reflects remote changes on an unsubscribed repeat retrieve", async () => {

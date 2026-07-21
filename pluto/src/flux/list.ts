@@ -65,8 +65,7 @@ export type UseListReturn<
 export interface RetrieveByKeyParams<
   Query extends cache.Query,
   K extends record.Key,
-  AllowDisconnected extends boolean = false,
-> extends Omit<RetrieveParams<Query, AllowDisconnected>, "query"> {
+> extends Omit<RetrieveParams<Query>, "query"> {
   query: Partial<Query>;
   key: K;
 }
@@ -75,18 +74,15 @@ export interface CreateListParams<
   Query extends cache.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
-  AllowDisconnected extends boolean = false,
-> extends CreateRetrieveParams<Query, E[], AllowDisconnected> {
+> extends CreateRetrieveParams<Query, E[]> {
   sort?: compare.Comparator<E>;
-  retrieveByKey: (
-    params: RetrieveByKeyParams<Query, K, AllowDisconnected>,
-  ) => Promise<E | undefined>;
+  retrieveByKey: (params: RetrieveByKeyParams<Query, K>) => Promise<E | undefined>;
   /**
    * Live updates for items fetched through retrieveByKey. Page members get
    * their updates from `subscribe`; this covers lookups outside any page.
    */
   subscribeByKey?: (
-    params: RetrieveByKeyParams<Query, K, AllowDisconnected>,
+    params: RetrieveByKeyParams<Query, K>,
     handler: cache.ChangeHandler<E>,
   ) => destructor.Destructor;
 }
@@ -122,12 +118,7 @@ interface Page<K extends record.Key> {
 }
 
 export const createList =
-  <
-    Query extends cache.Query,
-    Key extends record.Key,
-    Data extends record.Keyed<Key>,
-    AllowDisconnected extends boolean = false,
-  >({
+  <Query extends cache.Query, Key extends record.Key, Data extends record.Keyed<Key>>({
     name,
     retrieve,
     retrieveByKey,
@@ -135,11 +126,7 @@ export const createList =
     subscribeByKey,
     getCached,
     sort: defaultSort,
-  }: CreateListParams<Query, Key, Data, AllowDisconnected>): UseList<
-    Query,
-    Key,
-    Data
-  > =>
+  }: CreateListParams<Query, Key, Data>): UseList<Query, Key, Data> =>
   (params: UseListParams<Query, Key, Data> = {}) => {
     const {
       filter = defaultFilter,

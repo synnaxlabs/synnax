@@ -14,7 +14,6 @@ import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Code } from "@/code";
 import { Color } from "@/color";
-import { Flux } from "@/flux";
 import { Haul } from "@/haul";
 import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Status as StatusBase } from "@/status/base";
@@ -66,17 +65,15 @@ export const Provider = ({
           <Alamos.Provider {...alamos}>
             <StatusBase.Aggregator>
               <Synnax.Provider connParams={connParams}>
-                <Flux.Provider>
-                  <Color.Provider {...color}>
-                    <Theming.Provider {...theming}>
-                      <Code.Provider languages={ARC_LANGUAGES}>
-                        <CanDisableTelem {...telem}>
-                          <Control.StateProvider>{children}</Control.StateProvider>
-                        </CanDisableTelem>
-                      </Code.Provider>
-                    </Theming.Provider>
-                  </Color.Provider>
-                </Flux.Provider>
+                <Color.Provider {...color}>
+                  <Theming.Provider {...theming}>
+                    <Code.Provider languages={ARC_LANGUAGES}>
+                      <CanDisableTelem {...telem}>
+                        <Control.StateProvider>{children}</Control.StateProvider>
+                      </CanDisableTelem>
+                    </Code.Provider>
+                  </Theming.Provider>
+                </Color.Provider>
               </Synnax.Provider>
             </StatusBase.Aggregator>
           </Alamos.Provider>

@@ -11,11 +11,11 @@ import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
 import { errors, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ExpiredTokenError, InvalidTokenError } from "@/errors";
+import { AuthError, ExpiredTokenError, InvalidTokenError } from "@/errors";
 import { user } from "@/user";
 
 const credentialsZ = z.object({ username: z.string(), password: z.string() });
-interface Credentials extends z.infer<typeof credentialsZ> {}
+export interface Credentials extends z.infer<typeof credentialsZ> {}
 
 const clusterInfoZ = z.object({
   clusterKey: z.string(),
@@ -46,17 +46,38 @@ const RETRY_ON = [InvalidTokenError, ExpiredTokenError] as const;
 type AuthState =
   { authenticated: false } | { authenticated: true; user: user.User; token: string };
 
+/** Login outcome hooks. The connection machine is the sole consumer. */
+export interface Observer {
+  /** Fires after every successful login. */
+  onSuccess?: () => void;
+  /** Fires on a definitive credential rejection, never on token self-heal. */
+  onFailure?: (error: Error) => void;
+}
+
 export class Client {
   private readonly client: UnaryClient;
   private readonly credentials: Credentials;
+  private readonly observer: Observer;
   private authState: AuthState = { authenticated: false };
   authenticating: Promise<Error | null> | undefined;
   private retryCount: number;
+  private generation = 0;
 
-  constructor(client: UnaryClient, credentials: Credentials) {
+  constructor(client: UnaryClient, credentials: Credentials, observer: Observer = {}) {
     this.client = client;
     this.credentials = credentials;
+    this.observer = observer;
     this.retryCount = 0;
+  }
+
+  /** Replaces the stored credentials and clears auth state for a fresh login. */
+  setCredentials({ username, password }: Credentials): void {
+    this.credentials.username = username;
+    this.credentials.password = password;
+    this.authState = { authenticated: false };
+    this.authenticating = undefined;
+    this.retryCount = 0;
+    this.generation += 1;
   }
 
   get authenticated(): boolean {
@@ -98,6 +119,9 @@ export class Client {
     const mw: Middleware = async (reqCtx, next) => {
       if (!this.authenticated && !reqCtx.target.endsWith(LOGIN_ENDPOINT)) {
         this.authenticating ??= (async (): Promise<Error | null> => {
+          // failures of logins issued before a setCredentials are stale and
+          // must not reach the observer
+          const generation = this.generation;
           try {
             const res = await this.client.send(
               LOGIN_ENDPOINT,
@@ -110,13 +134,21 @@ export class Client {
               user: res.user,
               token: res.token,
             };
+            this.observer.onSuccess?.();
             return null;
           } catch (err) {
-            return errors.fromUnknown(err);
+            const parsed = errors.fromUnknown(err);
+            if (generation === this.generation && AuthError.matches(parsed))
+              this.observer.onFailure?.(parsed);
+            return parsed;
           }
         })();
         const err = await this.authenticating;
-        if (err != null) throw err;
+        if (err != null) {
+          // clear the memoized failure so the next request retries the login
+          this.authenticating = undefined;
+          throw err;
+        }
       }
       reqCtx.params.Authorization = `Bearer ${this.token}`;
       try {

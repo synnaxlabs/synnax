@@ -12,12 +12,6 @@ import { errors } from "@synnaxlabs/x";
 export class FluxError extends errors.createTyped("flux") {}
 
 /**
- * Thrown to the error boundary when a query requiring a cluster connection
- * runs without a connected client.
- */
-export class DisconnectedError extends FluxError.sub("disconnected") {}
-
-/**
  * Thrown to the error boundary when a query's cached answer is a deletion.
  * Carries the last value of the deleted record.
  */

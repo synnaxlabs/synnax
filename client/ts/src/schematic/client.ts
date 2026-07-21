@@ -11,8 +11,8 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { cache } from "@/cache";
-import { dispatch } from "@/dispatch";
 import { ontology } from "@/ontology";
 import { project } from "@/project";
 import { kindOf, reduceAll } from "@/schematic/actions";
@@ -88,7 +88,7 @@ export class Client extends cache.Reader<
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, Schematic>;
   private readonly ontology: ontology.Stores;
-  private readonly dispatcher: dispatch.Controller<Key, Schematic, Action>;
+  private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
 
   constructor(
     client: UnaryClient,
@@ -97,7 +97,7 @@ export class Client extends cache.Reader<
     ontologyStores: ontology.Stores,
   ) {
     const store = engine.createTable<Key, Schematic>({ name: "schematics" });
-    const dispatcher = new dispatch.Controller<Key, Schematic, Action>({
+    const dispatcher = new actions.Controller<Key, Schematic, Action>({
       store,
       onError: engine.onError,
       reduce: reduceAll,
@@ -191,7 +191,7 @@ export class Client extends cache.Reader<
   async dispatch(
     key: Key,
     actions: Action | Action[],
-    opts: dispatch.Options<Schematic, Action> = {},
+    opts: actions.Options<Schematic, Action> = {},
   ): Promise<boolean> {
     return await this.dispatcher.dispatch(
       key,
@@ -236,11 +236,11 @@ export class Client extends cache.Reader<
   }
 
   /** Stages actions committed atomically as one undoable entry. */
-  beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
+  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }
 
-  private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
+  private dispatchSender(key: Key): actions.SendDispatch<Action> {
     return async (actions, dispatchKey) =>
       await this.sendDispatch(key, dispatchKey, actions);
   }

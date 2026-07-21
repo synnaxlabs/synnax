@@ -70,4 +70,55 @@ describe("breaker", () => {
 
     expect(customSleep).toHaveBeenCalledTimes(2);
   });
+
+  it("should cap the scaled interval at maxInterval", async () => {
+    const mockSleep = vi.fn();
+    const brk = new breaker.Breaker({
+      baseInterval: TimeSpan.seconds(1),
+      maxInterval: TimeSpan.seconds(2),
+      maxRetries: 4,
+      scale: 3,
+      sleepFn: mockSleep,
+    });
+
+    await brk.wait(); // 1s
+    await brk.wait(); // 3s capped to 2s
+    await brk.wait(); // stays 2s
+
+    expect(mockSleep).toHaveBeenNthCalledWith(1, TimeSpan.seconds(1));
+    expect(mockSleep).toHaveBeenNthCalledWith(2, TimeSpan.seconds(2));
+    expect(mockSleep).toHaveBeenNthCalledWith(3, TimeSpan.seconds(2));
+  });
+
+  it("should add at most the jitter fraction to each wait", async () => {
+    const mockSleep = vi.fn();
+    const brk = new breaker.Breaker({
+      baseInterval: TimeSpan.seconds(1),
+      maxRetries: 10,
+      jitter: 0.5,
+      sleepFn: mockSleep,
+    });
+
+    for (let i = 0; i < 5; i++) await brk.wait();
+
+    for (const [slept] of mockSleep.mock.calls as [TimeSpan][]) {
+      expect(slept.milliseconds).toBeGreaterThanOrEqual(
+        TimeSpan.seconds(1).milliseconds,
+      );
+      expect(slept.milliseconds).toBeLessThanOrEqual(
+        TimeSpan.seconds(1.5).milliseconds,
+      );
+    }
+  });
+
+  it("should support unbounded retries", async () => {
+    const mockSleep = vi.fn();
+    const brk = new breaker.Breaker({
+      baseInterval: TimeSpan.milliseconds(1),
+      maxRetries: Infinity,
+      sleepFn: mockSleep,
+    });
+
+    for (let i = 0; i < 50; i++) expect(await brk.wait()).toBe(true);
+  });
 });

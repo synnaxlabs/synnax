@@ -11,8 +11,8 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { cache } from "@/cache";
-import { dispatch } from "@/dispatch";
 import { kindOf, reduceAll } from "@/lineplot/actions";
 import {
   type Action,
@@ -75,7 +75,7 @@ export class Client extends cache.Reader<
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, LinePlot>;
   private readonly ontology: ontology.Stores;
-  private readonly dispatcher: dispatch.Controller<Key, LinePlot, Action>;
+  private readonly dispatcher: actions.Controller<Key, LinePlot, Action>;
 
   constructor(
     client: UnaryClient,
@@ -83,7 +83,7 @@ export class Client extends cache.Reader<
     ontologyStores: ontology.Stores,
   ) {
     const store = engine.createTable<Key, LinePlot>({ name: "lineplots" });
-    const dispatcher = new dispatch.Controller<Key, LinePlot, Action>({
+    const dispatcher = new actions.Controller<Key, LinePlot, Action>({
       store,
       onError: engine.onError,
       reduce: reduceAll,
@@ -176,7 +176,7 @@ export class Client extends cache.Reader<
   async dispatch(
     key: Key,
     actions: Action | Action[],
-    opts: dispatch.Options<LinePlot, Action> = {},
+    opts: actions.Options<LinePlot, Action> = {},
   ): Promise<boolean> {
     return await this.dispatcher.dispatch(
       key,
@@ -221,11 +221,11 @@ export class Client extends cache.Reader<
   }
 
   /** Stages actions committed atomically as one undoable entry. */
-  beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
+  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }
 
-  private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
+  private dispatchSender(key: Key): actions.SendDispatch<Action> {
     return async (actions, dispatchKey) =>
       await this.sendDispatch(key, dispatchKey, actions);
   }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, type dispatch, type Synnax as Client } from "@synnaxlabs/client";
+import { type actions, type cache, type Synnax as Client } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { useCallback, useSyncExternalStore } from "react";
 
@@ -20,7 +20,7 @@ export interface DispatchInput<Key extends record.Key, Action> {
   actions: Action | Action[];
 }
 
-const INERT_TX: dispatch.Transaction<unknown> = {
+const INERT_TX: actions.Transaction<unknown> = {
   add: () => {},
   commit: async () => false,
   abort: () => {},
@@ -32,22 +32,19 @@ export interface CreateDispatchParams<
   Action,
 > {
   /** Selects the domain's dispatch surface off the client. */
-  domain: (client: Client) => dispatch.Domain<Key, State, Action>;
+  domain: (client: Client) => actions.Domain<Key, State, Action>;
   /**
    * Rewrites an action batch against the current document before replay and
    * send. Lives here rather than in the domain client when the rewrite needs
    * visualization-layer context (e.g. diagram geometry).
    */
-  preprocess?: dispatch.Preprocess<State, Action>;
+  preprocess?: actions.Preprocess<State, Action>;
 }
 
 export interface UseDispatchReturn<Key extends record.Key, Action> {
   dispatch: (input: DispatchInput<Key, Action>) => void;
   dispatchAsync: (input: DispatchInput<Key, Action>) => Promise<boolean>;
-  beginTransaction: (input: {
-    key: Key;
-    kind?: string;
-  }) => dispatch.Transaction<Action>;
+  beginTransaction: (input: { key: Key; kind?: string }) => actions.Transaction<Action>;
 }
 
 export interface UseUndoReturn {
@@ -123,7 +120,7 @@ export const createDispatch = <
     );
 
     const beginTransaction = useCallback(
-      (input: { key: Key; kind?: string }): dispatch.Transaction<Action> => {
+      (input: { key: Key; kind?: string }): actions.Transaction<Action> => {
         if (client == null) return INERT_TX;
         const tx = domain(client).beginTransaction(input.key, input.kind);
         return {

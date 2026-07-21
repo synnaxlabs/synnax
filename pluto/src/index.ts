@@ -45,7 +45,6 @@ export * from "@/memo";
 export { Menu } from "@/menu";
 export { Mosaic } from "@/mosaic";
 export { Nav } from "@/nav";
-export { Node } from "@/node";
 export { Notation } from "@/notation";
 export { Note } from "@/note";
 export { Ontology } from "@/ontology";

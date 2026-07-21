@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, unique } from "@synnaxlabs/x";
+import { DataType, errors, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { type ChannelListener } from "@/cache/table";
@@ -152,7 +152,13 @@ export const createStreamer = ({
   return {
     demand: async () => {
       opened ??= open();
-      await opened;
+      try {
+        await opened;
+      } catch (exc) {
+        // clear the memoized failure so a later demand can retry the open
+        opened = null;
+        throw errors.fromUnknown(exc);
+      }
     },
     close: async () => {
       if (opened == null) return;

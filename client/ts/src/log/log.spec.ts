@@ -48,7 +48,7 @@ describe("Log", () => {
 
 describe("store", () => {
   it("tombstones deletes from live delete signals", async () => {
-    await client.cache.ensureStreaming();
+    await client.connect();
     const project = await client.projects.create({ name: `log-${id.create()}` });
     const log = await client.logs.create(project.key, { name: `log-${id.create()}` });
     await client.logs.delete(log.key);

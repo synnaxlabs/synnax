@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Auth } from "@/feature/auth";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
+  createSessionConsoleWrapper,
   pinLocationOrigin,
   renderWithConsole,
   type TestStore,
@@ -94,11 +95,23 @@ describe("auth guard", () => {
     expect(cluster?.username).toBe("synnax");
   });
 
-  it("should surface an error status when credentials are rejected", async () => {
+  it("should take over with credential re-entry when credentials are rejected", async () => {
     pinLocationOrigin("http://localhost:9090");
-    const store = await renderGuard();
+    const { wrapper, store } = await createSessionConsoleWrapper({ client: null });
+    render(
+      <Auth.Guard>
+        <Auth.ConnectionGuard>
+          <span>authenticated content</span>
+        </Auth.ConnectionGuard>
+      </Auth.Guard>,
+      { wrapper },
+    );
     submitCredentials("synnax", uniqueName("wrong"));
+    await waitFor(() =>
+      expect(Session.Cluster.selectSelectedKey(store.getState())).toBeDefined(),
+    );
     expect(await screen.findByText(/invalid credentials/i)).toBeTruthy();
-    expect(Session.Cluster.selectSelectedKey(store.getState())).toBeUndefined();
+    expect(screen.getAllByText("Sign In").length).toBeGreaterThan(0);
+    expect(screen.queryByText("authenticated content")).toBeNull();
   });
 });

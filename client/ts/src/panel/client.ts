@@ -11,8 +11,8 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { cache } from "@/cache";
-import { dispatch } from "@/dispatch";
 import { ontology } from "@/ontology";
 import { kindOf, reduceAll } from "@/panel/actions";
 import {
@@ -72,7 +72,7 @@ export class Client extends cache.Reader<
 > {
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, Panel>;
-  private readonly dispatcher: dispatch.Controller<Key, Panel, Action>;
+  private readonly dispatcher: actions.Controller<Key, Panel, Action>;
   private readonly ontology: ontology.Stores;
 
   constructor(
@@ -81,7 +81,7 @@ export class Client extends cache.Reader<
     ontologyStores: ontology.Stores,
   ) {
     const store = engine.createTable<Key, Panel>({ name: "panels" });
-    const dispatcher = new dispatch.Controller<Key, Panel, Action>({
+    const dispatcher = new actions.Controller<Key, Panel, Action>({
       store,
       onError: engine.onError,
       reduce: reduceAll,
@@ -172,7 +172,7 @@ export class Client extends cache.Reader<
   async dispatch(
     key: Key,
     actions: Action | Action[],
-    opts: dispatch.Options<Panel, Action> = {},
+    opts: actions.Options<Panel, Action> = {},
   ): Promise<boolean> {
     return await this.dispatcher.dispatch(
       key,
@@ -217,11 +217,11 @@ export class Client extends cache.Reader<
   }
 
   /** Stages actions committed atomically as one undoable entry. */
-  beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
+  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }
 
-  private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
+  private dispatchSender(key: Key): actions.SendDispatch<Action> {
     return async (actions, dispatchKey) =>
       await this.sendDispatch(key, dispatchKey, actions);
   }

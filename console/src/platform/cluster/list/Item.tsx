@@ -9,18 +9,17 @@
 
 import "@/platform/cluster/list/List.css";
 
+import { checkConnection, type connection } from "@synnaxlabs/client";
 import {
   Flex,
   List,
-  Node,
   Select,
   Status,
-  Synnax,
   Text,
   Tooltip,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { caseconv } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { memo, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
@@ -30,6 +29,36 @@ interface ListItemProps extends List.ItemProps<string> {
   item: Session.Cluster.Cluster;
   loading: boolean;
 }
+
+const LABELS: Record<connection.State["variant"], string> = {
+  success: "Connected",
+  info: "Connected",
+  loading: "Connecting",
+  warning: "Reconnecting",
+  error: "Failed",
+  disabled: "Disconnected",
+};
+
+const useConnectionState = ({
+  host,
+  port,
+  secure,
+}: Session.Cluster.Cluster): connection.State | null => {
+  const [state, setState] = useState<connection.State | null>(null);
+  useAsyncEffect(
+    async (signal) => {
+      const s = await checkConnection({
+        host,
+        port,
+        secure,
+        retry: { maxRetries: 0 },
+      });
+      if (!signal.aborted) setState(s);
+    },
+    [host, port, secure],
+  );
+  return state;
+};
 
 const Base = ({
   validateName,
@@ -43,12 +72,11 @@ const Base = ({
     if (!validateName(value) || item == null) return;
     dispatch(Session.Cluster.rename({ key: item.key, name: value }));
   };
-  const { data } = Node.useConnectionState(item);
-  const status = data?.status ?? "disconnected";
-  let statusVariant = Synnax.CONNECTION_STATE_VARIANTS[status];
-  let statusMessage: string = status;
+  const state = useConnectionState(item);
+  let statusVariant = state?.variant ?? "disabled";
+  let statusMessage = LABELS[statusVariant];
   if (loading) {
-    statusMessage = "connecting";
+    statusMessage = "Connecting";
     statusVariant = "loading";
   }
   return (
@@ -73,9 +101,9 @@ const Base = ({
           className={CSS.BE("cluster-list-item", "name")}
         />
         <Flex.Box x>
-          {data?.nodeVersion != null && (
+          {state?.nodeVersion != null && (
             <Text.Text size="tiny" color={9}>
-              v{data.nodeVersion}
+              v{state.nodeVersion}
             </Text.Text>
           )}
           <Text.Text size="tiny" color={9}>
@@ -84,11 +112,8 @@ const Base = ({
         </Flex.Box>
       </Flex.Box>
       <Tooltip.Dialog>
-        <Text.Text level="h5">{data?.message}</Text.Text>
-        <Status.Summary
-          variant={statusVariant}
-          message={caseconv.capitalize(statusMessage)}
-        />
+        <Text.Text level="h5">{state?.message}</Text.Text>
+        <Status.Summary variant={statusVariant} message={statusMessage} />
       </Tooltip.Dialog>
     </List.Item>
   );

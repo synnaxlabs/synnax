@@ -111,7 +111,7 @@ describe("result", () => {
   });
 
   describe("nullClientResult", () => {
-    it("should create an error result with DisconnectedError", () => {
+    it("should create a disabled result when no client is connected", () => {
       const result = nullClientResult<TestState>("fetch user");
 
       expect(result.variant).toBe("disabled");

@@ -7,7 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, TimeSpan, TimeStamp, url, uuid, zod } from "@synnaxlabs/x";
+import { type Middleware } from "@synnaxlabs/freighter";
+import {
+  breaker,
+  type CrudeTimeSpan,
+  errors,
+  TimeSpan,
+  TimeStamp,
+  url,
+  uuid,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -18,7 +28,7 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
-import { errorsMiddleware } from "@/errors";
+import { DisconnectedError, errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { group } from "@/group";
 import { imex } from "@/imex";
@@ -69,7 +79,7 @@ export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
  *
  * @property channel - Channel client for creating and retrieving channels.
  * @property data - Data client for reading and writing telemetry.
- * @property connectivity - Client for retrieving connectivity information.
+ * @property connection - The connection state machine.
  * @property ontology - Client for querying the cluster's ontology.
  */
 export default class Synnax extends framer.Client {
@@ -81,7 +91,12 @@ export default class Synnax extends framer.Client {
   readonly auth: auth.Client;
   readonly users: user.Client;
   readonly access: access.Client;
-  readonly connectivity: connection.Checker;
+  /**
+   * The connection state machine: one observable lifecycle over the heartbeat,
+   * change-stream health, and auth outcomes. Read {@link connection.Machine.state}
+   * or subscribe via {@link connection.Machine.onChange}.
+   */
+  readonly connection: connection.Machine;
   readonly ontology: ontology.Client;
   readonly projects: project.Client;
   readonly labels: label.Client;
@@ -106,7 +121,6 @@ export default class Synnax extends framer.Client {
    * clients remain the only way to read cached records.
    */
   readonly cache: cache.Cache;
-  static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
   /**
@@ -121,13 +135,13 @@ export default class Synnax extends framer.Client {
    * cluster is insecure.
    * @param props.password - Password for authentication. Not required if the
    * cluster is insecure.
-   * @param props.connectivityPollFrequency - Frequency at which to poll the
-   * cluster for connectivity information. Defaults to 30 seconds.
+   * @param props.connectivityPollFrequency - Heartbeat cadence while the
+   * connection is healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster
    * must be configured to support TLS. Defaults to false.
    *
-   * A Synnax client must be closed when it is no longer needed. This will stop
-   * the client from polling the cluster for connectivity information.
+   * A Synnax client must be closed when it is no longer needed. This stops the
+   * connection machine and closes the change stream.
    */
   constructor(params: SynnaxParams) {
     const parsedParams = zod.parse(synnaxParamsZ, params);
@@ -155,19 +169,45 @@ export default class Synnax extends framer.Client {
             const hardened = await framer.HardenedStreamer.open(
               (config) => this.openStreamer(config),
               channels,
-              undefined,
-              onReopen,
+              breaker,
+              () => {
+                onReopen?.();
+                this.connection.notifyStreamLive();
+              },
+              (error) => this.connection.notifyStreamDrop(error),
             );
             // Reads start when the ObservableStreamer is constructed below,
             // so onOpen fires strictly before any frame or reconnect.
             onOpen?.();
+            this.connection.notifyStreamLive();
             return new framer.ObservableStreamer(hardened);
           }
         : null,
       onInternalError: parsedParams.onInternalError,
     });
     this.cache = engine;
-    this.auth = new auth.Client(transport.unary, { username, password });
+    this.connection = new connection.Machine({
+      unary: transport.unary,
+      clientVersion: __VERSION__,
+      name: parsedParams.name,
+      heartbeatInterval: connectivityPollFrequency,
+      clockSkewThreshold,
+      retry: breaker,
+      bringUpStream: parsedParams.cache
+        ? async () => await engine.ensureStreaming()
+        : undefined,
+      onInternalError: parsedParams.onInternalError,
+    });
+    engine.onEpoch((epoch) => this.connection.ingestEpoch(epoch));
+    transport.unary.use(this.shortCircuitMiddleware());
+    this.auth = new auth.Client(
+      transport.unary,
+      { username, password },
+      {
+        onSuccess: () => this.connection.notifyAuthSuccess(),
+        onFailure: (error) => this.connection.notifyAuthFailure(error),
+      },
+    );
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
@@ -209,13 +249,6 @@ export default class Synnax extends framer.Client {
       this.statuses.store,
       this.ranges.aliases,
       ontologyStores,
-    );
-    this.connectivity = new connection.Checker(
-      transport.unary,
-      connectivityPollFrequency,
-      this.clientVersion,
-      parsedParams.name,
-      clockSkewThreshold,
     );
     this.control = new control.Client(this);
     this.access = new access.Client(this.transport.unary, engine, ontologyStores);
@@ -268,26 +301,98 @@ export default class Synnax extends framer.Client {
       ontologyStores,
     );
     this.imex = new imex.Client(this.transport.file);
+    this.connection.start();
+  }
+
+  /**
+   * Awaits the connection machine's first success. Idempotent: resolves
+   * immediately when already connected.
+   * @throws {AuthError} on a definitive credential rejection.
+   * @throws {DisconnectedError | Unreachable} when the cluster cannot be
+   * reached after the configured retry budget, or on timeout.
+   */
+  async connect(opts: ConnectOptions = {}): Promise<connection.State> {
+    return await this.connection.awaitConnected(opts.timeout);
+  }
+
+  /** Supplies new credentials after an auth failure and resumes connecting. */
+  reauthenticate(credentials: auth.Credentials): void {
+    this.connection.reauthenticate(() => this.auth.setCredentials(credentials));
   }
 
   close(): void {
-    this.connectivity.stop();
+    this.connection.stop().catch(console.error);
     this.cache.close().catch(console.error);
   }
+
+  /**
+   * Rejects unary requests instantly while the machine knows the cluster is
+   * unreachable, instead of burning the transport's retry budget per call.
+   * The probe and login targets are exempt so the machine can heal.
+   */
+  private shortCircuitMiddleware(): Middleware {
+    const EXEMPT = ["/connectivity/check", "/auth/login"];
+    return async (ctx, next) => {
+      const state = this.connection.state;
+      if (
+        state.variant === "error" &&
+        state.reason === "unreachable" &&
+        !EXEMPT.some((target) => ctx.target.endsWith(target))
+      )
+        throw new DisconnectedError(
+          `Cannot reach cluster at ${this.params.host}:${this.params.port}`,
+        );
+      return await next(ctx);
+    };
+  }
 }
+
+export interface ConnectOptions {
+  /**
+   * Maximum time to wait before rejecting. Without it, connect rejects when
+   * the machine escalates to error(unreachable) after its retry budget.
+   */
+  timeout?: CrudeTimeSpan;
+}
+
+/**
+ * Constructs a client and awaits its first successful connection.
+ * On rejection the constructed client is closed before the error propagates.
+ * @throws see {@link Synnax.connect}.
+ */
+export const connect = async (
+  params: SynnaxParams,
+  opts?: ConnectOptions,
+): Promise<Synnax> => {
+  const client = new Synnax(params);
+  try {
+    await client.connect(opts);
+  } catch (err) {
+    client.close();
+    throw errors.fromUnknown(err);
+  }
+  return client;
+};
 
 export interface CheckConnectionParams extends Pick<
   SynnaxParams,
   "host" | "port" | "secure" | "retry" | "name"
 > {}
 
-export const checkConnection = async (params: CheckConnectionParams) =>
-  await newConnectionChecker(params).check();
-
-export const newConnectionChecker = (params: CheckConnectionParams) => {
+/** Runs a one-shot connectivity probe against the given cluster address. */
+export const checkConnection = async (
+  params: CheckConnectionParams,
+): Promise<connection.State> => {
   const { host, port, secure, name, retry } = params;
   const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
   const endpoint = new url.URL({ host, port: Number(port) });
   const transport = new Transport(endpoint, retryConfig, secure);
-  return new connection.Checker(transport.unary, undefined, __VERSION__, name);
+  transport.use(errorsMiddleware);
+  const machine = new connection.Machine({
+    unary: transport.unary,
+    clientVersion: __VERSION__,
+    name,
+    escalateAfter: 1,
+  });
+  return await machine.check();
 };

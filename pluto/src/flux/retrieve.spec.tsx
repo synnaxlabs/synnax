@@ -93,25 +93,6 @@ describe("retrieve", () => {
           );
         });
       });
-
-      it("should allow null client when allowDisconnected is true", async () => {
-        const { useRetrieve } = Flux.createRetrieve<{}, number, true>({
-          name: "Resource",
-          retrieve: async ({ client }) => {
-            if (client == null) return 42;
-            return 0;
-          },
-          allowDisconnected: true,
-        });
-
-        const { result } = renderHook(() => useRetrieve({ params: {} }), {
-          wrapper: createSynnaxWrapper({ client: null }),
-        });
-        await waitFor(() => {
-          expect(result.current.variant).toEqual("success");
-          expect(result.current.data).toEqual(42);
-        });
-      });
     });
 
     describe("subscriptions", () => {

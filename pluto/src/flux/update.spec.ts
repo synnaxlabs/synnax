@@ -10,10 +10,8 @@
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type z } from "zod";
 
 import { Flux } from "@/flux";
-import { UPDATE_VERBS } from "@/flux/update";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -21,7 +19,7 @@ const wrapper = createSynnaxWrapper({ client });
 
 const BASE_UPDATE_PARAMS: Pick<Flux.CreateUpdateParams<number>, "name" | "verbs"> = {
   name: "Resource",
-  verbs: UPDATE_VERBS,
+  verbs: Flux.UPDATE_VERBS,
 };
 
 describe("update", () => {
@@ -91,29 +89,6 @@ describe("update", () => {
         expect(result.current.variant).toEqual("disabled");
         expect(result.current.data).toEqual(undefined);
         expect(result.current.status.message).toEqual("Failed to update Resource");
-      });
-    });
-
-    it("should allow null client when allowDisconnected is true", async () => {
-      const update = vi.fn().mockImplementation(async ({ client }) => {
-        if (client == null) return 42;
-        return 0;
-      });
-      const { useUpdate } = Flux.createUpdate<number, number, z.ZodNever, true>({
-        ...BASE_UPDATE_PARAMS,
-        update,
-        allowDisconnected: true,
-      });
-      const { result } = renderHook(useUpdate, {
-        wrapper: createSynnaxWrapper({ client: null }),
-      });
-      await act(async () => {
-        await result.current.updateAsync(12, { signal: controller.signal });
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data).toEqual(12);
-        expect(update).toHaveBeenCalled();
       });
     });
 

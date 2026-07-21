@@ -8,3 +8,14 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/actions/actions";
+export {
+  Controller,
+  type ControllerParams,
+  type Domain,
+  type Options,
+  type Preprocess,
+  type Reducer,
+  type SendDispatch,
+  type StackEntry,
+  type Transaction,
+} from "@/actions/controller";

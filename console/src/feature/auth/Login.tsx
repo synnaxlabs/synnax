@@ -9,88 +9,45 @@
 
 import "@/feature/auth/Login.css";
 
-import { status, Synnax as Client } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import {
-  Button,
-  Flex,
-  Form,
-  type Input,
-  Status,
-  Text,
-  type Triggers,
-} from "@synnaxlabs/pluto";
+import { Button, Flex, Form, Text } from "@synnaxlabs/pluto";
+import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
-import { z } from "zod";
 
+import {
+  credentialsZ,
+  PASSWORD_INPUT_PROPS,
+  SIGN_IN_TRIGGER,
+  USERNAME_INPUT_PROPS,
+} from "@/feature/auth/CredentialsForm";
 import { LoginNav } from "@/feature/auth/LoginNav";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
-const SIGN_IN_TRIGGER: Triggers.Trigger = ["Enter"];
-
-const credentialsZ = z.object({
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
-});
-
-export interface Credentials extends z.infer<typeof credentialsZ> {}
-
-const USERNAME_INPUT_PROPS: Partial<Input.TextProps> = {
-  placeholder: "synnax",
-  autoFocus: true,
-  size: "large",
-};
-
-const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
-  placeholder: "seldon",
-  type: "password",
-  size: "large",
-};
-
 export const Login = (): ReactElement => {
   const servingCluster = Cluster.detectConnection();
-  const [stat, setStatus] = useState<status.Status>(() =>
-    status.create({ variant: "disabled", message: "" }),
-  );
   const clusters = Session.Cluster.useSelectMany();
   const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
   const selectedCluster = Session.Cluster.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
-  const handleError = Status.useErrorHandler();
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
     values: { username: "", password: "" },
-    onChange: () => {
-      const usernameTouched = methods.get("username").touched;
-      const passwordTouched = methods.get("password").touched;
-      setStatus(
-        status.create({
-          variant: usernameTouched && passwordTouched ? "success" : "disabled",
-          message: "",
-        }),
-      );
-    },
   });
 
-  const handleSubmit = (): void =>
-    handleError(async () => {
-      const clusterToConnect = servingCluster ?? selectedCluster;
-      if (!methods.validate() || clusterToConnect == null) return;
-      const credentials = methods.value();
-      setStatus(status.create({ variant: "loading", message: "Connecting..." }));
-      const client = new Client({ ...clusterToConnect, ...credentials });
-      const state = await client.connectivity.check();
-      const key = state.clusterKey;
-      if (state.status !== "connected") {
-        const message = state.message ?? "Unknown error";
-        return setStatus(status.create({ variant: "error", message }));
-      }
-      dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
-      dispatch(Session.Cluster.select(key));
-    }, "Failed to log in");
+  const handleSubmit = (): void => {
+    const clusterToConnect = servingCluster ?? selectedCluster;
+    if (!methods.validate() || clusterToConnect == null) return;
+    const credentials = methods.value();
+    const key =
+      servingCluster == null && selectedCluster != null
+        ? selectedCluster.key
+        : uuid.create();
+    dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
+    dispatch(Session.Cluster.select(key));
+  };
 
   const handleSelectedClusterChange = useCallback(
     (key?: string) => {
@@ -154,22 +111,14 @@ export const Login = (): ReactElement => {
                   <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
                   <Form.TextField path="password" inputProps={PASSWORD_INPUT_PROPS} />
                 </Flex.Box>
-                <Flex.Box gap="small" align="center">
-                  <Flex.Box className={CSS.BE("login", "status")}>
-                    {stat.message !== "" && (
-                      <Status.Summary variant={stat.variant} message={stat.message} />
-                    )}
-                  </Flex.Box>
-                  <Button.Button
-                    onClick={handleSubmit}
-                    status={stat.variant}
-                    trigger={SIGN_IN_TRIGGER}
-                    variant="filled"
-                    size="large"
-                  >
-                    Log In
-                  </Button.Button>
-                </Flex.Box>
+                <Button.Button
+                  onClick={handleSubmit}
+                  trigger={SIGN_IN_TRIGGER}
+                  variant="filled"
+                  size="large"
+                >
+                  Log In
+                </Button.Button>
               </Flex.Box>
             </Form.Form>
           </Flex.Box>

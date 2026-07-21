@@ -7,11 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { checkConnection, newConnectionChecker } from "@/client";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import { checkConnection, connect } from "@/client";
+import { AuthError, DisconnectedError } from "@/errors";
+import { createTestClient, TEST_CLIENT_PARAMS } from "@/testutil";
+
+const FAST_RETRY = {
+  baseInterval: TimeSpan.milliseconds(5),
+  scale: 1,
+  maxRetries: 2,
+};
 
 describe("checkConnection", () => {
   it("should check connection to the server", async () => {
@@ -20,7 +28,7 @@ describe("checkConnection", () => {
       port: TEST_CLIENT_PARAMS.port,
       secure: false,
     });
-    expect(state.status).toEqual("connected");
+    expect(state.variant).toEqual("success");
     expect(z.uuid().safeParse(state.clusterKey).success).toBe(true);
   });
 
@@ -41,7 +49,7 @@ describe("checkConnection", () => {
       secure: false,
       name: "test-client",
     });
-    expect(state.status).toEqual("connected");
+    expect(state.variant).toEqual("success");
   });
 
   it("should handle connection failure to invalid host", async () => {
@@ -49,97 +57,102 @@ describe("checkConnection", () => {
       host: "invalid-host-that-does-not-exist",
       port: 9999,
       secure: false,
-      retry: {
-        maxRetries: 0, // Disable retries for faster test
-      },
+      retry: { maxRetries: 0 },
     });
-    expect(state.status).toEqual("failed");
+    expect(state.variant).toEqual("error");
+    expect(state.reason).toEqual("unreachable");
   });
 
   it("should handle connection failure to invalid port", async () => {
     const state = await checkConnection({
       host: TEST_CLIENT_PARAMS.host,
-      port: 9999, // Wrong port
+      port: 9999,
       secure: false,
-      retry: {
-        maxRetries: 0, // Disable retries for faster test
-      },
+      retry: { maxRetries: 0 },
     });
-    expect(state.status).toEqual("failed");
+    expect(state.variant).toEqual("error");
   });
 });
 
-describe("newConnectionChecker", () => {
-  it("should create a connection checker", () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-    });
-    expect(checker).toBeDefined();
+describe("connect", () => {
+  it("should construct a client and await its first success", async () => {
+    const client = await connect(TEST_CLIENT_PARAMS);
+    expect(client.connection.state.variant).toEqual("success");
+    expect(client.connection.state.streamLive).toBe(true);
+    client.close();
   });
 
-  it("should create a checker that can check connection", async () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-    });
-    const state = await checker.check();
-    expect(state.status).toEqual("connected");
-    expect(z.uuid().safeParse(state.clusterKey).success).toBe(true);
+  it("should be idempotent on an already-connected client", async () => {
+    const client = await connect(TEST_CLIENT_PARAMS);
+    const state = await client.connect();
+    expect(state.variant).toEqual("success");
+    client.close();
   });
 
-  it("should support custom name parameter", async () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-      name: "custom-checker-name",
-    });
-    const state = await checker.check();
-    expect(state.status).toEqual("connected");
+  it("should reject with AuthError on bad credentials", async () => {
+    await expect(
+      connect({ ...TEST_CLIENT_PARAMS, password: "definitely-wrong" }),
+    ).rejects.toThrow(AuthError);
   });
 
-  it("should support secure connection parameter", () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: true,
-    });
-    expect(checker).toBeDefined();
+  it("should reject against an unreachable cluster after the retry budget", async () => {
+    await expect(
+      connect({ ...TEST_CLIENT_PARAMS, port: 9999, retry: FAST_RETRY }),
+    ).rejects.toThrow();
   });
 
-  it("should create multiple independent checkers", async () => {
-    const checker1 = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-      name: "checker-1",
+  it("should recover from an auth failure via reauthenticate", async () => {
+    const client = createTestClient({ password: "definitely-wrong" });
+    await expect(client.connect()).rejects.toThrow(AuthError);
+    expect(client.connection.state.reason).toEqual("auth");
+    client.reauthenticate({
+      username: TEST_CLIENT_PARAMS.username,
+      password: TEST_CLIENT_PARAMS.password,
     });
-    const checker2 = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
-      name: "checker-2",
-    });
-
-    const state1 = await checker1.check();
-    const state2 = await checker2.check();
-
-    expect(state1.status).toEqual("connected");
-    expect(state2.status).toEqual("connected");
-    expect(checker1).not.toBe(checker2); // Different instances
+    const state = await client.connect();
+    expect(state.variant).toEqual("success");
+    client.close();
   });
 
-  it("should handle version compatibility checking", async () => {
-    const checker = newConnectionChecker({
-      host: TEST_CLIENT_PARAMS.host,
-      port: TEST_CLIENT_PARAMS.port,
-      secure: false,
+  it("should reject on timeout", async () => {
+    await expect(
+      connect(
+        {
+          ...TEST_CLIENT_PARAMS,
+          port: 9999,
+          retry: { ...FAST_RETRY, maxRetries: Infinity },
+        },
+        { timeout: TimeSpan.milliseconds(50) },
+      ),
+    ).rejects.toThrow();
+  });
+});
+
+describe("short circuit", () => {
+  it("should reject requests instantly while unreachable and heal on recovery", async () => {
+    const client = createTestClient({
+      port: 9999,
+      retry: FAST_RETRY,
     });
-    const state = await checker.check();
-    expect(state.clientVersion).toBeDefined();
-    expect(state.clientServerCompatible).toBe(true);
+    await expect(client.connect()).rejects.toThrow();
+    expect(client.connection.state.reason).toEqual("unreachable");
+    const start = performance.now();
+    await expect(client.channels.retrieve(["missing"])).rejects.toThrow(
+      DisconnectedError,
+    );
+    expect(performance.now() - start).toBeLessThan(100);
+    client.close();
+  });
+
+  it("should not short-circuit while connected", async () => {
+    const client = createTestClient();
+    await client.connect();
+    const ch = await client.channels.create({
+      name: `short_circuit_test_${Math.floor(Math.random() * 1e9)}`,
+      dataType: "float32",
+      virtual: true,
+    });
+    expect(ch.key).not.toBe(0);
+    client.close();
   });
 });

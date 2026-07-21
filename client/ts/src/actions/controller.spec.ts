@@ -11,8 +11,8 @@ import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
+import { Controller, type Frame, type Reducer, type Send } from "@/actions/controller";
 import { Table } from "@/cache/table";
-import { Controller, type Frame, type Reducer, type Send } from "@/dispatch/dispatch";
 
 interface Doc {
   values: Record<string, number>;
@@ -78,7 +78,7 @@ const prime = (
   values: Record<string, number> = {},
 ) => docs.set(key, { values });
 
-describe("dispatch.Controller", () => {
+describe("actions.Controller", () => {
   describe("replay", () => {
     it("returns null when the doc is not cached", () => {
       const { controller } = setupStore();

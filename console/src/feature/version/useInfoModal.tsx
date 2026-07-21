@@ -9,112 +9,123 @@
 
 import "@/feature/version/Info.css";
 
+import { status } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Flux, Icon, Progress, Status, Text } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Icon,
+  Progress,
+  Status,
+  Text,
+  useAsyncEffect,
+} from "@synnaxlabs/pluto";
 import { Size } from "@synnaxlabs/x";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { z } from "zod";
+import { useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
-const { useRetrieve: useRetrieveUpdateAvailable } = Flux.createRetrieve<
-  {},
-  Update | null,
-  true
->({
-  name: "Version",
-  allowDisconnected: true,
-  retrieve: async () => {
-    if (Session.Runtime.ENGINE !== "tauri") return null;
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return await check();
-  },
-});
+type UpdateCheck =
+  | { variant: "loading" }
+  | { variant: "error"; status: status.Status }
+  | { variant: "success"; update: Update | null };
 
-export const statusDetailsSchema = z.object({
-  total: Size.z,
-  progress: Size.z,
-});
-
-interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
-
-const { useUpdate } = Flux.createUpdate<
-  Update,
-  Update,
-  typeof statusDetailsSchema,
-  true
->({
-  name: "Console",
-  verbs: Flux.UPDATE_VERBS,
-  allowDisconnected: true,
-  initialStatusDetails: {
-    total: Size.bytes(0),
-    progress: Size.bytes(0),
-  },
-  update: async ({ data: update, setStatus }) => {
-    await update.downloadAndInstall((prog) => {
-      const updateStatus = (v: (p: StatusDetails) => StatusDetails) =>
-        setStatus((p) => {
-          if (p.variant === "error") return p;
-          return {
-            ...p,
-            variant: "loading",
-            details: v(p.details),
-          };
-        });
-      switch (prog.event) {
-        case "Started":
-          updateStatus((p) => ({
-            ...p,
-            total: Size.bytes(prog.data.contentLength ?? 0),
-          }));
-          break;
-        case "Progress":
-          updateStatus((p) => ({
-            ...p,
-            progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
-          }));
-          break;
-        case "Finished":
-          updateStatus((p) => ({
-            ...p,
-            variant: "success",
-            details: { ...p, progress: p.total },
-          }));
-          break;
+const useUpdateCheck = (): UpdateCheck => {
+  const [result, setResult] = useState<UpdateCheck>({ variant: "loading" });
+  useAsyncEffect(async (signal) => {
+    try {
+      let update: Update | null = null;
+      if (Session.Runtime.ENGINE === "tauri") {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        update = await check();
       }
-    });
-    if (Session.Runtime.ENGINE === "tauri") await relaunch();
-    return update;
-  },
-});
+      if (!signal.aborted) setResult({ variant: "success", update });
+    } catch (error) {
+      if (signal.aborted) return;
+      setResult({
+        variant: "error",
+        status: status.fromException(error, "Failed to check for updates"),
+      });
+    }
+  }, []);
+  return result;
+};
+
+interface Download {
+  variant: "idle" | "loading" | "error";
+  total: Size;
+  progress: Size;
+  status?: status.Status;
+}
+
+const ZERO_DOWNLOAD: Download = {
+  variant: "idle",
+  total: Size.bytes(0),
+  progress: Size.bytes(0),
+};
+
+interface UseDownloadReturn {
+  download: Download;
+  start: (update: Update) => void;
+}
+
+const useDownload = (): UseDownloadReturn => {
+  const [download, setDownload] = useState<Download>(ZERO_DOWNLOAD);
+  const addStatus = Status.useAdder();
+  const start = (update: Update): void =>
+    void (async () => {
+      setDownload({ ...ZERO_DOWNLOAD, variant: "loading" });
+      try {
+        await update.downloadAndInstall((prog) => {
+          switch (prog.event) {
+            case "Started":
+              setDownload((p) => ({
+                ...p,
+                total: Size.bytes(prog.data.contentLength ?? 0),
+              }));
+              break;
+            case "Progress":
+              setDownload((p) => ({
+                ...p,
+                progress: p.progress.add(Size.bytes(prog.data.chunkLength)),
+              }));
+              break;
+            case "Finished":
+              setDownload((p) => ({ ...p, progress: p.total }));
+              break;
+          }
+        });
+        if (Session.Runtime.ENGINE === "tauri") await relaunch();
+      } catch (error) {
+        const st = status.fromException(error, "Failed to update Console");
+        addStatus(st);
+        setDownload((p) => ({ ...p, variant: "error", status: st }));
+      }
+    })();
+  return { download, start };
+};
 
 export const useInfoModal = Modals.create(() => {
   const version = Session.Version.use();
-  const availableQuery = useRetrieveUpdateAvailable({});
-  const updateQuery = useUpdate();
-  let totalSize: Size = Size.bytes(0);
-  let amountDownloaded: Size = Size.bytes(0);
-  if (updateQuery.status.variant !== "error") {
-    totalSize = updateQuery.status.details.total;
-    amountDownloaded = updateQuery.status.details.progress;
-  }
-
-  const progressPercent = (amountDownloaded.valueOf() / totalSize.valueOf()) * 100;
+  const available = useUpdateCheck();
+  const { download, start } = useDownload();
+  const progressPercent =
+    (download.progress.valueOf() / download.total.valueOf()) * 100;
 
   let updateContent = (
     <Status.Summary level="h4" weight={350} variant="loading" gap="medium">
       Checking for updates
     </Status.Summary>
   );
-  if (availableQuery.variant === "error")
-    updateContent = <Status.Summary level="h4" status={availableQuery.status} />;
-  else if (updateQuery.variant === "error")
-    updateContent = <Status.Summary level="h4" status={updateQuery.status} />;
-  else if (updateQuery.variant === "loading")
+  if (available.variant === "error")
+    updateContent = <Status.Summary level="h4" status={available.status} />;
+  else if (download.variant === "error" && download.status != null)
+    updateContent = <Status.Summary level="h4" status={download.status} />;
+  else if (download.variant === "loading")
     if (progressPercent === 100)
       updateContent = (
         <Status.Summary level="h4" variant="loading" gap="medium">
@@ -130,21 +141,21 @@ export const useInfoModal = Modals.create(() => {
           <Flex.Box x gap="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
             <Text.Text color={10} overflow="ellipsis">
-              {Math.ceil(amountDownloaded.megabytes)} / {Math.ceil(totalSize.megabytes)}{" "}
-              MB
+              {Math.ceil(download.progress.megabytes)} /{" "}
+              {Math.ceil(download.total.megabytes)} MB
             </Text.Text>
           </Flex.Box>
         </Flex.Box>
       );
-  else if (availableQuery.variant == "success")
-    if (availableQuery.data != null) {
-      const update = availableQuery.data;
+  else if (available.variant === "success")
+    if (available.update != null) {
+      const { update } = available;
       updateContent = (
         <>
           <Status.Summary level="h4" variant="success">
             Version {update.version} available
           </Status.Summary>
-          <Button.Button variant="filled" onClick={() => updateQuery.update(update)}>
+          <Button.Button variant="filled" onClick={() => start(update)}>
             Update & Restart
           </Button.Button>
         </>

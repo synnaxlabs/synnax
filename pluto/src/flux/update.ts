@@ -32,10 +32,9 @@ export interface UpdateParams<
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 > {
   data: Input;
-  client: AllowDisconnected extends true ? Client | null : Client;
+  client: Client;
   setStatus: (setter: state.SetArg<ResultStatus<StatusDetails>>) => void;
   onOptimisticComplete: (data: Output) => Promise<void>;
 }
@@ -44,14 +43,12 @@ export type CreateUpdateParams<
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 > = {
   name: string;
   verbs: flux.Verbs;
   update: (
-    params: UpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
+    params: UpdateParams<Input, Output, StatusDetails>,
   ) => Promise<Output | false>;
-  allowDisconnected?: AllowDisconnected;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
 export interface UseObservableUpdateReturn<Input extends cache.Data> {
@@ -63,57 +60,38 @@ export interface UseObservableUpdateParams<
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 > {
   debounce?: CrudeTimeSpan;
   onChange: state.Setter<Result<Input | undefined, StatusDetails>>;
   beforeUpdate?: (
-    params: BeforeUpdateParams<Input, AllowDisconnected>,
+    params: BeforeUpdateParams<Input>,
   ) => Promise<Input | boolean> | Input | boolean;
-  afterOptimistic?: (
-    params: AfterOptimisticParams<Output, AllowDisconnected>,
-  ) => Promise<void> | void;
-  afterSuccess?: (
-    params: AfterSuccessParams<Output, AllowDisconnected>,
-  ) => Promise<void> | void;
-  afterFailure?: (
-    params: AfterFailureParams<Input, AllowDisconnected>,
-  ) => Promise<void> | void;
+  afterOptimistic?: (params: AfterOptimisticParams<Output>) => Promise<void> | void;
+  afterSuccess?: (params: AfterSuccessParams<Output>) => Promise<void> | void;
+  afterFailure?: (params: AfterFailureParams<Input>) => Promise<void> | void;
 }
 
-export interface BeforeUpdateParams<
-  Data extends cache.Data,
-  AllowDisconnected extends boolean = false,
-> {
+export interface BeforeUpdateParams<Data extends cache.Data> {
   /** Side-effect undos run in reverse order when the update fails. */
   rollbacks: destructor.Destructor[];
-  client: AllowDisconnected extends true ? Client | null : Client;
+  client: Client;
   data: Data;
 }
 
-export interface AfterOptimisticParams<
-  Output extends cache.Data,
-  AllowDisconnected extends boolean = false,
-> {
+export interface AfterOptimisticParams<Output extends cache.Data> {
   /** Side-effect undos run in reverse order when the update fails. */
   rollbacks: destructor.Destructor[];
-  client: AllowDisconnected extends true ? Client | null : Client;
+  client: Client;
   data: Output;
 }
 
-export interface AfterSuccessParams<
-  Output extends cache.Data,
-  AllowDisconnected extends boolean = false,
-> {
-  client: AllowDisconnected extends true ? Client | null : Client;
+export interface AfterSuccessParams<Output extends cache.Data> {
+  client: Client;
   data: Output;
 }
 
-export interface AfterFailureParams<
-  Data extends cache.Data,
-  AllowDisconnected extends boolean = false,
-> {
-  client: AllowDisconnected extends true ? Client | null : Client;
+export interface AfterFailureParams<Data extends cache.Data> {
+  client: Client;
   status: status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
   data: Data;
 }
@@ -122,11 +100,7 @@ export interface UseDirectUpdateParams<
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
-> extends Omit<
-  UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
-  "onChange"
-> {}
+> extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
 
 export type UseDirectUpdateReturn<
   Input extends cache.Data,
@@ -137,10 +111,9 @@ export interface UseObservableUpdate<
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 > {
   (
-    params: UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
+    params: UseObservableUpdateParams<Input, Output, StatusDetails>,
   ): UseObservableUpdateReturn<Input>;
 }
 
@@ -148,10 +121,9 @@ export interface UseUpdate<
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 > {
   (
-    params?: UseDirectUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
+    params?: UseDirectUpdateParams<Input, Output, StatusDetails>,
   ): UseDirectUpdateReturn<Input, StatusDetails>;
 }
 
@@ -159,25 +131,18 @@ export interface CreateUpdateReturn<
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 > {
-  useObservableUpdate: UseObservableUpdate<
-    Input,
-    Output,
-    StatusDetails,
-    AllowDisconnected
-  >;
-  useUpdate: UseUpdate<Input, Output, StatusDetails, AllowDisconnected>;
+  useObservableUpdate: UseObservableUpdate<Input, Output, StatusDetails>;
+  useUpdate: UseUpdate<Input, Output, StatusDetails>;
 }
 
 const useObservable = <
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 >(
-  params: UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected> &
-    CreateUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
+  params: UseObservableUpdateParams<Input, Output, StatusDetails> &
+    CreateUpdateParams<Input, Output, StatusDetails>,
 ): UseObservableUpdateReturn<Input> => {
   const {
     onChange,
@@ -189,9 +154,8 @@ const useObservable = <
     afterOptimistic,
     afterSuccess,
     afterFailure,
-    allowDisconnected = false as AllowDisconnected,
   } = params;
-  const maybeClient = Synnax.use();
+  const client = Synnax.use();
   const addStatus = useAdder();
   const runUpdate = useCallback(
     async (data: Input, opts: cache.FetchOptions = {}): Promise<boolean> => {
@@ -206,7 +170,7 @@ const useObservable = <
         }
       };
 
-      if (maybeClient == null && !allowDisconnected) {
+      if (client == null) {
         onChange((p) =>
           nullClientResult(
             `${present} ${name}`,
@@ -215,10 +179,6 @@ const useObservable = <
         );
         return false;
       }
-
-      const client = maybeClient as AllowDisconnected extends true
-        ? Client | null
-        : Client;
 
       try {
         onChange((p) =>
@@ -280,8 +240,7 @@ const useObservable = <
       }
     },
     [
-      maybeClient,
-      allowDisconnected,
+      client,
       name,
       present,
       participle,
@@ -309,10 +268,9 @@ const useDirect = <
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 >(
-  params: UseDirectUpdateParams<Input, Output, StatusDetails, AllowDisconnected> &
-    CreateUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
+  params: UseDirectUpdateParams<Input, Output, StatusDetails> &
+    CreateUpdateParams<Input, Output, StatusDetails>,
 ): UseDirectUpdateReturn<Input, StatusDetails> => {
   const { name, verbs, ...restParams } = params;
   const initialStatusDetails = parseInitialStatusDetails<StatusDetails>(params);
@@ -323,7 +281,7 @@ const useDirect = <
       initialStatusDetails,
     ),
   );
-  const methods = useObservable<Input, Output, StatusDetails, AllowDisconnected>({
+  const methods = useObservable<Input, Output, StatusDetails>({
     ...restParams,
     initialStatusDetails,
     verbs,
@@ -337,21 +295,18 @@ export const createUpdate = <
   Input extends cache.Data,
   Output extends cache.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
-  AllowDisconnected extends boolean = false,
 >(
-  createParams: CreateUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
-): CreateUpdateReturn<Input, Output, StatusDetails, AllowDisconnected> => ({
+  createParams: CreateUpdateParams<Input, Output, StatusDetails>,
+): CreateUpdateReturn<Input, Output, StatusDetails> => ({
   useObservableUpdate: (
-    params: UseObservableUpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
+    params: UseObservableUpdateParams<Input, Output, StatusDetails>,
   ) =>
-    useObservable<Input, Output, StatusDetails, AllowDisconnected>({
+    useObservable<Input, Output, StatusDetails>({
       ...params,
       ...createParams,
     }),
-  useUpdate: (
-    params: UseDirectUpdateParams<Input, Output, StatusDetails, AllowDisconnected> = {},
-  ) =>
-    useDirect<Input, Output, StatusDetails, AllowDisconnected>({
+  useUpdate: (params: UseDirectUpdateParams<Input, Output, StatusDetails> = {}) =>
+    useDirect<Input, Output, StatusDetails>({
       ...params,
       ...createParams,
     }),

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache, dispatch, schematic } from "@synnaxlabs/client";
+import { actions, cache, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { array, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -24,7 +24,7 @@ const onError = (error: Error): void => console.error(error);
 type SendFn = (actions: schematic.Action[]) => Promise<void>;
 type SendMock = Mock<SendFn>;
 
-type Domain = dispatch.Domain<schematic.Key, schematic.Schematic, schematic.Action>;
+type Domain = actions.Domain<schematic.Key, schematic.Schematic, schematic.Action>;
 
 type Handle = ReturnType<
   typeof Flux.createDispatch<schematic.Key, schematic.Schematic, schematic.Action>
@@ -33,14 +33,14 @@ type Handle = ReturnType<
 interface Harness {
   domain: Domain;
   docs: cache.Table<schematic.Key, schematic.Schematic>;
-  controller: dispatch.Controller<schematic.Key, schematic.Schematic, schematic.Action>;
+  controller: actions.Controller<schematic.Key, schematic.Schematic, schematic.Action>;
 }
 
 // Binds the production dispatch controller to a controllable network send,
 // exposed through the same Domain surface client.schematics implements.
 const createHarness = (send: SendFn): Harness => {
   const docs = new cache.Table<schematic.Key, schematic.Schematic>(onError);
-  const controller = new dispatch.Controller<
+  const controller = new actions.Controller<
     schematic.Key,
     schematic.Schematic,
     schematic.Action
@@ -50,7 +50,7 @@ const createHarness = (send: SendFn): Harness => {
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
   });
-  const sendDispatch: dispatch.SendDispatch<schematic.Action> = async (actions) =>
+  const sendDispatch: actions.SendDispatch<schematic.Action> = async (actions) =>
     await send(actions);
   const domain: Domain = {
     dispatch: async (key, actions, opts) =>

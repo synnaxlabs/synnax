@@ -15,6 +15,7 @@ import {
 import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
+import { actions } from "@/actions";
 import { isUndoable, kindOf, reduceAll } from "@/arc/actions";
 import {
   type Action,
@@ -24,7 +25,6 @@ import {
 } from "@/arc/actions.gen";
 import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
 import { cache } from "@/cache";
-import { dispatch } from "@/dispatch";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
@@ -157,7 +157,7 @@ export class Client extends cache.Reader<
 > {
   private readonly client: UnaryClient;
   private readonly streamClient: StreamClient;
-  private readonly dispatcher: dispatch.Controller<Key, Arc, Action>;
+  private readonly dispatcher: actions.Controller<Key, Arc, Action>;
   private readonly ontologyClient: ontology.Client;
   private readonly taskClient: task.Client;
   private readonly store: cache.Table<Key, Arc>;
@@ -180,7 +180,7 @@ export class Client extends cache.Reader<
     statusStore: cache.Table<status.Key, status.Status>,
   ) {
     const store = engine.createTable<Key, Arc>({ name: "arcs" });
-    const dispatcher = new dispatch.Controller<Key, Arc, Action>({
+    const dispatcher = new actions.Controller<Key, Arc, Action>({
       store,
       onError: engine.onError,
       reduce: reduceAll,
@@ -380,7 +380,7 @@ export class Client extends cache.Reader<
   async dispatch(
     key: Key,
     actions: Action | Action[],
-    opts: dispatch.Options<Arc, Action> = {},
+    opts: actions.Options<Arc, Action> = {},
   ): Promise<boolean> {
     return await this.dispatcher.dispatch(
       key,
@@ -427,11 +427,11 @@ export class Client extends cache.Reader<
   /**
    * Stages actions committed atomically as one undoable entry.
    */
-  beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
+  beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }
 
-  private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
+  private dispatchSender(key: Key): actions.SendDispatch<Action> {
     return async (actions, dispatchKey) =>
       await this.sendDispatch(key, dispatchKey, actions);
   }

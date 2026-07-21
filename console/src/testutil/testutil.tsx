@@ -319,3 +319,27 @@ export const createConnectedConsoleWrapper = async ({
   );
   return { wrapper: Wrapper, store };
 };
+
+const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
+  const cluster = Session.Cluster.useSelectState();
+  return <Synnax.Provider connParams={cluster}>{children}</Synnax.Provider>;
+};
+SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
+
+/**
+ * Like createConnectedConsoleWrapper, but derives the provider's connection params from
+ * the store's selected cluster, exactly as the production Pluto.Context does. Use for
+ * tests that exercise the login -> select -> connect flow.
+ */
+export const createSessionConsoleWrapper = async (
+  args: CreateConsoleWrapperParams,
+): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+  const { wrapper: Console, store } = await createConsoleWrapper(args);
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <SessionSynnaxProvider>{children}</SessionSynnaxProvider>
+    </Console>
+  );
+  Wrapper.displayName = "SessionConsoleWrapper";
+  return { wrapper: Wrapper, store };
+};
