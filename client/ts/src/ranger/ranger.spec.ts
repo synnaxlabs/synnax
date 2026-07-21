@@ -580,19 +580,16 @@ describe("store", () => {
     await client.cache.ensureStreaming();
     const range = await createRange();
     await expect
-      .poll(
-        () => {
-          const cached = client.ranges.getCached(range.key);
-          return cached?.variant === "changed" ? cached.data.name : undefined;
-        },
-        { timeout: 5000 },
-      )
+      .poll(() => {
+        const cached = client.ranges.getCached(range.key);
+        return cached?.variant === "changed" ? cached.data.name : undefined;
+      })
       .toEqual(range.name);
     await client.ranges.delete(range.key);
     await expect
-      .poll(() => client.ranges.getCached(range.key)?.variant, { timeout: 5000 })
+      .poll(() => client.ranges.getCached(range.key)?.variant)
       .toBe("deleted");
     const cached = client.ranges.getCached(range.key);
     if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(range.name);
-  }, 20000);
+  });
 });

@@ -255,7 +255,7 @@ describe("Writer", () => {
       await expect(async () => {
         await writer.close();
       }).rejects.toThrow(ValidationError);
-    }, 5000000);
+    });
 
     test("write with errOnUnauthorized", async () => {
       const channels = await newIndexedPair(client);

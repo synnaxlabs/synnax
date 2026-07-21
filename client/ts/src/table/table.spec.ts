@@ -634,11 +634,9 @@ describe("store", () => {
     });
     await client.tables.delete(created.key);
     await expect
-      .poll(() => client.tables.getCached({ key: created.key })?.variant, {
-        timeout: 5000,
-      })
+      .poll(() => client.tables.getCached({ key: created.key })?.variant)
       .toBe("deleted");
     const cached = client.tables.getCached({ key: created.key });
     if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
-  }, 20000);
+  });
 });

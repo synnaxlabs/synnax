@@ -624,17 +624,15 @@ describe("store", () => {
       color: "#E774D0",
     });
     const resourceKey = ontology.idToString({ type: "label", key: label.key });
-    await expect
-      .poll(() => client.ontology.resources.get(resourceKey), { timeout: 5000 })
-      .toBeDefined();
+    await expect.poll(() => client.ontology.resources.get(resourceKey)).toBeDefined();
     expect(client.ontology.resources.status(resourceKey)).toBe("present");
     await client.labels.delete(label.key);
     await expect
-      .poll(() => client.ontology.resources.status(resourceKey), { timeout: 5000 })
+      .poll(() => client.ontology.resources.status(resourceKey))
       .toBe("tombstoned");
     const tombstone = client.ontology.resources.getTombstone(resourceKey);
     expect(tombstone?.corpse.name).toEqual(label.name);
-  }, 20000);
+  });
 
   it("stays a detached, local-only cache when caching is disabled", async () => {
     const disabled = createTestClient({ cache: false });

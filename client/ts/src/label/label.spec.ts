@@ -167,21 +167,16 @@ describe("store", () => {
       color: "#12E774",
     });
     await expect
-      .poll(
-        () => {
-          const cached = client.labels.getCached({ key: created.key });
-          return cached?.variant === "changed" ? cached.data.name : undefined;
-        },
-        { timeout: 5000 },
-      )
+      .poll(() => {
+        const cached = client.labels.getCached({ key: created.key });
+        return cached?.variant === "changed" ? cached.data.name : undefined;
+      })
       .toEqual(created.name);
     await client.labels.delete(created.key);
     await expect
-      .poll(() => client.labels.getCached({ key: created.key })?.variant, {
-        timeout: 5000,
-      })
+      .poll(() => client.labels.getCached({ key: created.key })?.variant)
       .toBe("deleted");
     const cached = client.labels.getCached({ key: created.key });
     if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
-  }, 20000);
+  });
 });

@@ -72,19 +72,17 @@ describe("store", () => {
     const plot = await seedPlot();
     await client.lineplots.delete(plot.key);
     await expect
-      .poll(() => client.lineplots.getCached({ key: plot.key })?.variant, {
-        timeout: 5000,
-      })
+      .poll(() => client.lineplots.getCached({ key: plot.key })?.variant)
       .toBe("deleted");
     const cached = client.lineplots.getCached({ key: plot.key });
     if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(plot.name);
-  }, 20000);
+  });
 
   it("reduces broadcast dispatch frames into the cached document", async () => {
     await client.cache.ensureStreaming();
     const plot = await seedPlot();
     const name = `renamed-${id.create()}`;
     await client.lineplots.dispatch(plot.key, [rename({ name })]);
-    await expect.poll(() => cachedName(plot.key), { timeout: 5000 }).toBe(name);
-  }, 20000);
+    await expect.poll(() => cachedName(plot.key)).toBe(name);
+  });
 });

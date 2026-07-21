@@ -239,7 +239,7 @@ describe("Cache", () => {
       const epochs: number[] = [];
       engine.onEpoch((epoch) => epochs.push(epoch));
       await engine.ensureStreaming();
-      await expect.poll(() => engine.epoch, { timeout: 5000 }).toBe(2);
+      await expect.poll(() => engine.epoch).toBe(2);
       expect(epochs).toEqual([1, 2]);
       await expect.poll(() => refetch.mock.calls.length).toBeGreaterThan(0);
       expect(refetch).toHaveBeenCalledWith(["kept", "gone"]);

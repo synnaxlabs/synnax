@@ -328,11 +328,9 @@ describe("store", () => {
     });
     await client.schematics.delete(created.key);
     await expect
-      .poll(() => client.schematics.getCached({ key: created.key })?.variant, {
-        timeout: 5000,
-      })
+      .poll(() => client.schematics.getCached({ key: created.key })?.variant)
       .toBe("deleted");
     const cached = client.schematics.getCached({ key: created.key });
     if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
-  }, 20000);
+  });
 });

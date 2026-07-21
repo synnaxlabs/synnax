@@ -53,9 +53,9 @@ describe("store", () => {
     const log = await client.logs.create(project.key, { name: `log-${id.create()}` });
     await client.logs.delete(log.key);
     await expect
-      .poll(() => client.logs.getCached({ key: log.key })?.variant, { timeout: 5000 })
+      .poll(() => client.logs.getCached({ key: log.key })?.variant)
       .toBe("deleted");
     const cached = client.logs.getCached({ key: log.key });
     if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(log.name);
-  }, 20000);
+  });
 });

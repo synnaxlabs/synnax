@@ -22,7 +22,7 @@ export class Rollback {
   }
 
   /** Runs every rollback in reverse order. Errors are logged, not thrown. */
-  run(): void {
+  private run(): void {
     try {
       this.destructors.reverse().forEach((d) => d());
     } catch (error) {

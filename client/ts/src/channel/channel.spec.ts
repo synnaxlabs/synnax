@@ -31,7 +31,7 @@ describe("Channel", () => {
       expect(channel.leaseholder).toEqual(1);
       expect(channel.virtual).toBe(true);
       expect(channel.dataType).toEqual(DataType.FLOAT32);
-    }, 80000);
+    });
 
     test("create calculated", async () => {
       const chOneName = id.create();
