@@ -514,6 +514,119 @@ describe("Panel.Mosaic", () => {
     });
   });
 
+  describe("context menu", () => {
+    // ExtraMenuProbe renders the tab key the menu resolved from the surrounding tab
+    // scope, so specs can assert that extras are scoped to the right-clicked tab.
+    const ExtraMenuProbe = (): ReactElement => {
+      const tabKey = Panel.useOptionalTabKey();
+      return <span>{`extra:${tabKey ?? "none"}`}</span>;
+    };
+
+    const extraMenuItems = (): ReactElement => <ExtraMenuProbe />;
+
+    const openMenuOn = async (utils: RenderResult, target: HTMLElement) => {
+      await act(async () => {
+        fireEvent.contextMenu(target);
+      });
+      await waitFor(() => expect(utils.getByText("Close")).toBeTruthy());
+    };
+
+    it("should scope the menu to the right-clicked tab", async () => {
+      const a = resourceTab();
+      const b = resourceTab();
+      const p = await createPanel(a, b);
+      const tabName = vi.fn(() => <TabKeyNameProbe />);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a.key],
+        tabName,
+        extraMenuItems,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+
+      await openMenuOn(utils, utils.getByText(`name:${b.key}`));
+
+      expect(utils.getByText(`extra:${b.key}`)).toBeTruthy();
+    });
+
+    it("should close the right-clicked tab", async () => {
+      const a = resourceTab();
+      const b = resourceTab();
+      const p = await createPanel(a, b);
+      const tabName = vi.fn(() => <TabKeyNameProbe />);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a.key],
+        tabName,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+
+      await openMenuOn(utils, utils.getByText(`name:${b.key}`));
+      await act(async () => {
+        fireEvent.click(utils.getByText("Close"));
+      });
+
+      await waitFor(async () => {
+        const fetched = await client.panels.retrieve(p.key);
+        expect(panel.findTab(fetched.root, b.key)).toBeUndefined();
+        expect(panel.findTab(fetched.root, a.key)).toBeDefined();
+      }, ROUND_TRIP);
+    });
+
+    it("should split the right-clicked tab into a new leaf", async () => {
+      const a = resourceTab();
+      const b = resourceTab();
+      const p = await createPanel(a, b);
+      const tabName = vi.fn(() => <TabKeyNameProbe />);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [a.key],
+        tabName,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+
+      await openMenuOn(utils, utils.getByText(`name:${b.key}`));
+      await act(async () => {
+        fireEvent.click(utils.getByText("Split horizontally"));
+      });
+
+      await waitFor(async () => {
+        const fetched = await client.panels.retrieve(p.key);
+        expect(fetched.root.variant).toEqual("split");
+      }, ROUND_TRIP);
+    });
+
+    it("should omit split items for a tab that cannot be split", async () => {
+      const a = resourceTab();
+      const p = await createPanel(a);
+      const tabName = vi.fn(() => <TabKeyNameProbe />);
+      const utils = await renderMosaic({ panelKey: p.key, tabName });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+
+      await openMenuOn(utils, utils.getByText(`name:${a.key}`));
+
+      expect(utils.queryByText("Split horizontally")).toBeNull();
+      expect(utils.queryByText("Split vertically")).toBeNull();
+    });
+
+    it("should render extras alone when the right-click misses every tab", async () => {
+      const a = resourceTab();
+      const p = await createPanel(a);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        extraMenuItems,
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+
+      await act(async () => {
+        fireEvent.contextMenu(utils.getByRole("tablist"));
+      });
+
+      await waitFor(() => expect(utils.getByText("extra:none")).toBeTruthy());
+      expect(utils.queryByText("Close")).toBeNull();
+    });
+  });
+
   describe("cross-client sync", () => {
     it("should render a split dispatched by another client", async () => {
       const a = resourceTab();

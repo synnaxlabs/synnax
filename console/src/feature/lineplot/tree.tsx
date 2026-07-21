@@ -8,17 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot, ontology } from "@synnaxlabs/client";
-import {
-  Access,
-  Icon,
-  LinePlot as Base,
-  Menu,
-  Mosaic,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Access, Icon, LinePlot as Base, Menu, Mosaic } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { useExport } from "@/feature/lineplot/export";
 import { Cluster } from "@/platform/cluster";
@@ -97,27 +88,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.use();
-  const openTab = Panel.useOpenTab();
-  const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      handleError(async () => {
-        const linePlot = await client.lineplots.retrieve({ key: resource.id.key });
-        openTab({ variant: "resource", resource: lineplot.ontologyID(linePlot.key) });
-      }, `Failed to select ${resource.name}`);
-    },
-    [client, openTab, handleError],
-  );
-};
-
 const TreeItem = Tree.createItem({
   type: "lineplot",
   icon: <Icon.LinePlot />,
   hasChildren: false,
-  useOnSelect,
+  useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });

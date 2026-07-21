@@ -7,21 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
-import { useCallback } from "react";
+import { Link } from "@/platform/link";
 
-import { type Link } from "@/platform/link";
-import { Panel } from "@/platform/panel";
-
-export const useLink = (): Link.Handler => {
-  const openTab = Panel.useOpenTab();
-  return useCallback(
-    async ({ client, key }) => {
-      const a = await client.arcs.retrieve({ key });
-      openTab({ variant: "resource", resource: arc.ontologyID(a.key) });
-    },
-    [openTab],
-  );
-};
+export const useLink = Link.createUseOpenResourceTab("arc");
 
 export const LINKS: Link.Registry = { arc: useLink };

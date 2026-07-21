@@ -19,9 +19,9 @@ import { Session } from "@/session";
 const EmptyContent = (): ReactElement => (
   <Toolbar.Content>
     <Toolbar.Header>
-      <Toolbar.Title icon={<Icon.Visualize />}>Visualization</Toolbar.Title>
+      <Toolbar.Title icon={<Icon.Visualize />}>Tab</Toolbar.Title>
     </Toolbar.Header>
-    <Empty.Action x message="No visualization selected." />
+    <Empty.Action x message="No tab selected." />
   </Toolbar.Content>
 );
 
@@ -49,9 +49,9 @@ const Wrapper = () => {
 };
 
 export const TOOLBAR: Nav.Toolbar = {
-  key: "visualization",
+  key: "tab",
   content: <Wrapper />,
-  tooltip: "Visualize",
+  tooltip: "Tab",
   icon: <Icon.Visualize />,
   sizeBounds: { lower: 160, upper: 300 },
   trigger: ["V"],
