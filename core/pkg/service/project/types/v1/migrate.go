@@ -26,12 +26,12 @@ import (
 // pinned to the v0 shape so its output stays stable as Project evolves.
 var codecMigration = gorp.CodecMigration[Key, v0.Workspace]("msgpack_to_orc")
 
-// LegacyLayoutKVPrefix is the KV key prefix under which the layout staging
-// migration stages each project's legacy layout blob. The remainder of the key is the
-// project's key. The panel migration scans this prefix to convert the blobs into
-// panels and deletes the entries as it consumes them, so it never reads the project
-// layout field and the field can later be removed without ordering a project-table
-// migration after a panel-table one.
+// LegacyLayoutKVPrefix is the KV key prefix under which the layout staging migration
+// stages each project's legacy layout blob. The remainder of the key is the project's
+// key. The panel migration scans this prefix to convert the blobs into panels and
+// deletes the entries as it consumes them, so it never reads the project layout field
+// and the field can later be removed without ordering a project-table migration after a
+// panel-table one.
 const LegacyLayoutKVPrefix = "sy_project_legacy_layout/"
 
 // LegacyLayoutKVKey returns the staging KV key holding the legacy layout blob for the

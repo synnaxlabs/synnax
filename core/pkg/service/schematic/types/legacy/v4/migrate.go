@@ -9,9 +9,7 @@
 
 package v4
 
-import (
-	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v3"
-)
+import v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v3"
 
 // Migrate transforms v3 schematic data into v4 by adding the default
 // authority of 1. Mirrors the console's v3 -> v4 step.
