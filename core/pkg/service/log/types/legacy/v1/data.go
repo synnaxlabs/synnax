@@ -23,8 +23,8 @@ const Version imex.Version = 1
 
 // TimestampConfig is per-channel timestamp display configuration. v1 was originally
 // frozen without this struct; the field was added later by Console clients and
-// persisted through the types/v0 gorp blob without bumping the wire-format version, so v1
-// captures it here for round-trip fidelity.
+// persisted through the types/v0 gorp blob without bumping the wire-format version, so
+// v1 captures it here for round-trip fidelity.
 type TimestampConfig struct {
 	Format telem.TimestampFormat `json:"format"`
 	Tz     telem.TimeZone        `json:"tz"`

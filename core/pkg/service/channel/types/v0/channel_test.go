@@ -12,7 +12,7 @@ package v0_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -35,14 +35,14 @@ var _ = Describe("Channel", func() {
 	Describe("Key", func() {
 		It("Should compose the key from the leaseholder and local key", func() {
 			ch := v0.Channel{Leaseholder: 1, LocalKey: 2}
-			Expect(ch.Key()).To(Equal(distchannel.NewKey(1, 2)))
+			Expect(ch.Key()).To(Equal(channel.NewKey(1, 2)))
 		})
 	})
 
 	Describe("Index", func() {
 		It("Should return the key of the channel's index channel", func() {
 			ch := v0.Channel{Leaseholder: 1, LocalIndex: 5}
-			Expect(ch.Index()).To(Equal(distchannel.NewKey(1, 5)))
+			Expect(ch.Index()).To(Equal(channel.NewKey(1, 5)))
 		})
 		It("Should return a zero key when the channel has no local index", func() {
 			Expect(v0.Channel{Leaseholder: 1}.Index()).To(Equal(v0.Key(0)))
@@ -90,7 +90,7 @@ var _ = Describe("Channel", func() {
 				Internal:    true,
 				Expression:  "a + b",
 			}
-			Expect(ch.Distribution()).To(Equal(distchannel.Channel{
+			Expect(ch.Distribution()).To(Equal(channel.Channel{
 				Name:        "temp",
 				Leaseholder: 1,
 				DataType:    telem.Float32T,
