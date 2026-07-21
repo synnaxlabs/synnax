@@ -27,11 +27,11 @@ type Table struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the table.
 	Name string `json:"name" msgpack:"name"`
-	// Data is the table configuration including column definitions, channel references, and
-	// formatting options.
+	// Data is the table configuration including column definitions, channel references,
+	// and formatting options.
 	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 }
 
-func (e Table) GorpKey() Key { return e.Key }
+func (t Table) GorpKey() Key { return t.Key }
 
-func (e Table) SetOptions() []any { return nil }
+func (Table) SetOptions() []any { return nil }

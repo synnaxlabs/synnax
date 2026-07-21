@@ -12,7 +12,7 @@
 package v1
 
 import (
-	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -22,7 +22,7 @@ type Key uint64
 
 // Status is task-specific status information including execution state and
 // task-specific data.
-type Status = statusv1.Status[StatusDetails]
+type Status = status.Status[StatusDetails]
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning
@@ -69,6 +69,6 @@ type Command struct {
 	Args msgpack.EncodedJSON `json:"args" msgpack:"args"`
 }
 
-func (e Task) GorpKey() Key { return e.Key }
+func (t Task) GorpKey() Key { return t.Key }
 
-func (e Task) SetOptions() []any { return nil }
+func (Task) SetOptions() []any { return nil }
