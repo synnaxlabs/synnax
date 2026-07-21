@@ -20,7 +20,7 @@ export const { useUpdate: useSetDataSaving } = Flux.createUpdate<SetDataSavingPa
   verbs: cache.UPDATE_VERBS,
   update: async ({ client, data }) => {
     const { key, dataSaving } = data;
-    const t = await Task.retrieveSingle({ client, query: { key } });
+    const t = await client.tasks.retrieve({ key, includeStatus: true });
     const config = t.payload.config;
     // Only tasks with a dataSaving field in their config (primarily read tasks)
     // are eligible. Write tasks without this field are skipped.

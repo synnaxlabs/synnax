@@ -994,7 +994,7 @@ describe("Status queries", () => {
     });
   });
 
-  describe("retrieveMultiple", () => {
+  describe("keyed multi-retrieve", () => {
     it("should retrieve multiple statuses from the server when none are cached", async () => {
       const status1 = await client.statuses.set({
         name: "Retrieve Multiple Direct 1",
@@ -1011,9 +1011,8 @@ describe("Status queries", () => {
         time: TimeStamp.now(),
       });
 
-      const statuses = await Status.retrieveMultiple({
-        client,
-        query: { keys: [status1.key, status2.key] },
+      const statuses = await client.statuses.retrieve({
+        keys: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
@@ -1039,9 +1038,8 @@ describe("Status queries", () => {
 
       await client.statuses.retrieve({ key: status1.key });
 
-      const statuses = await Status.retrieveMultiple({
-        client,
-        query: { keys: [status1.key, status2.key] },
+      const statuses = await client.statuses.retrieve({
+        keys: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
@@ -1069,23 +1067,13 @@ describe("Status queries", () => {
 
       await client.statuses.retrieve({ keys: [status1.key, status2.key] });
 
-      const statuses = await Status.retrieveMultiple({
-        client,
-        query: { keys: [status1.key, status2.key] },
+      const statuses = await client.statuses.retrieve({
+        keys: [status1.key, status2.key],
       });
 
       expect(statuses).toHaveLength(2);
       expect(statuses.map((s) => s.key)).toContain(status1.key);
       expect(statuses.map((s) => s.key)).toContain(status2.key);
-    });
-
-    it("should return an empty array when given empty keys", async () => {
-      const statuses = await Status.retrieveMultiple({
-        client,
-        query: { keys: [] },
-      });
-
-      expect(statuses).toHaveLength(0);
     });
   });
 });

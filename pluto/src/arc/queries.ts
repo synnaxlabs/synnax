@@ -269,17 +269,6 @@ export type RetrieveTaskParams = {
   arcKey: arc.Key;
 };
 
-interface RetrieveTaskClientParams {
-  client: Synnax;
-  query: RetrieveTaskParams;
-}
-
-export const retrieveTask = async ({
-  client,
-  query,
-}: RetrieveTaskClientParams): Promise<task.Task | undefined> =>
-  (await client.arcs.task.retrieve(query.arcKey)) ?? undefined;
-
 export const { useRetrieve: useRetrieveTask } = Flux.createRetrieve<
   RetrieveTaskParams,
   task.Task | null

@@ -32,15 +32,6 @@ export type RetrieveQuery = schematic.RetrieveSingleParams;
 
 // Prefers the cached copy: it may hold locally replayed edits ahead of the
 // server.
-export const retrieveSingle = async ({
-  client,
-  query,
-}: Flux.RetrieveParams<RetrieveQuery>): Promise<schematic.Schematic> => {
-  const cached = client.schematics.getCached(query);
-  if (cached?.variant === "changed") return cached.data;
-  return await client.schematics.retrieve(query);
-};
-
 export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved } =
   Flux.createRetrieve<RetrieveQuery, schematic.Schematic>({
     name: RESOURCE_NAME,

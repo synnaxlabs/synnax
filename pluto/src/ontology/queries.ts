@@ -102,18 +102,6 @@ export const useResourceList = Flux.createList<ListQuery, string, ontology.Resou
     client.ontology.onChange(ontology.idZ.parse(key), handler),
 });
 
-export type RetrieveParentIDQuery = {
-  id: ontology.ID;
-};
-
-export const retrieveParentID = async ({
-  client,
-  query: { id },
-}: Flux.RetrieveParams<RetrieveParentIDQuery>): Promise<ontology.ID> => {
-  const res = await client.ontology.retrieveParents(id);
-  return res[0].id;
-};
-
 export interface MoveChildrenParams {
   source: ontology.ID;
   destination: ontology.ID;

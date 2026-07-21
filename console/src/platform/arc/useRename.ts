@@ -21,7 +21,7 @@ export const useRename = (
     beforeUpdate: useCallback(
       async ({ data, client }: Flux.BeforeUpdateParams<Arc.RenameParams>) => {
         const { key, name } = data;
-        const tsk = await Arc.retrieveTask({ client, query: { arcKey: key } });
+        const tsk = await client.arcs.task.retrieve(key);
         const a = getItem(key);
         if (a == null) throw new UnexpectedError(`Arc with key ${key} not found`);
         if (tsk?.status?.details.running === true) {

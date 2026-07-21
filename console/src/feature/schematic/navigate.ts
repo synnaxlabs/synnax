@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { Schematic, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useMemo } from "react";
 
 import { Panel } from "@/platform/panel";
@@ -32,9 +32,7 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
   const getSchematic = Session.Schematic.useGet();
   const retrieve: SchematicRetriever | null = useMemo(
     () =>
-      client != null
-        ? (key: string) => Schematic.retrieveSingle({ client, query: { key } })
-        : null,
+      client != null ? (key: string) => client.schematics.retrieve({ key }) : null,
     [client],
   );
   const handleError = Status.useErrorHandler();

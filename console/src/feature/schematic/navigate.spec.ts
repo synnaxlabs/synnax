@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { panel, schematic } from "@synnaxlabs/client";
-import { Schematic as PSchematic, Status } from "@synnaxlabs/pluto";
+import { Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -50,7 +50,7 @@ const renderNavigateHook = async ({
   );
   hook.store.dispatch(Session.Project.select(await testProjectKey()));
   await act(async () => {
-    await PSchematic.retrieveSingle({ client, query: { key: source.key } });
+    await client.schematics.retrieve({ key: source.key });
   });
   return { source, ...hook };
 };

@@ -891,7 +891,7 @@ describe("queries", () => {
     });
   });
 
-  describe("retrieveMultiple", () => {
+  describe("keyed multi-retrieve", () => {
     it("should retrieve multiple devices from the server when none are cached", async () => {
       const rack = await client.racks.create({ name: "test" });
       const dev1 = await client.devices.create({
@@ -913,9 +913,9 @@ describe("queries", () => {
         properties: {},
       });
 
-      const devices = await Device.retrieveMultiple({
-        client,
-        query: { keys: [dev1.key, dev2.key] },
+      const devices = await client.devices.retrieve({
+        keys: [dev1.key, dev2.key],
+        includeStatus: true,
       });
 
       expect(devices).toHaveLength(2);
@@ -946,9 +946,9 @@ describe("queries", () => {
 
       await client.devices.retrieve({ key: dev1.key });
 
-      const devices = await Device.retrieveMultiple({
-        client,
-        query: { keys: [dev1.key, dev2.key] },
+      const devices = await client.devices.retrieve({
+        keys: [dev1.key, dev2.key],
+        includeStatus: true,
       });
 
       expect(devices).toHaveLength(2);
@@ -985,23 +985,14 @@ describe("queries", () => {
 
       await client.devices.retrieve({ keys: [dev1.key, dev2.key] });
 
-      const devices = await Device.retrieveMultiple({
-        client,
-        query: { keys: [dev1.key, dev2.key] },
+      const devices = await client.devices.retrieve({
+        keys: [dev1.key, dev2.key],
+        includeStatus: true,
       });
 
       expect(devices).toHaveLength(2);
       expect(devices.map((d) => d.key)).toContain(dev1.key);
       expect(devices.map((d) => d.key)).toContain(dev2.key);
-    });
-
-    it("should return an empty array when given empty keys", async () => {
-      const devices = await Device.retrieveMultiple({
-        client,
-        query: { keys: [] },
-      });
-
-      expect(devices).toHaveLength(0);
     });
 
     it("should include statuses on fetched devices", async () => {
@@ -1016,9 +1007,9 @@ describe("queries", () => {
         properties: {},
       });
 
-      const devices = await Device.retrieveMultiple({
-        client,
-        query: { keys: [dev.key] },
+      const devices = await client.devices.retrieve({
+        keys: [dev.key],
+        includeStatus: true,
       });
 
       expect(devices).toHaveLength(1);
@@ -1040,9 +1031,9 @@ describe("queries", () => {
 
       await client.devices.retrieve({ key: dev.key });
 
-      const devices = await Device.retrieveMultiple({
-        client,
-        query: { keys: [dev.key] },
+      const devices = await client.devices.retrieve({
+        keys: [dev.key],
+        includeStatus: true,
       });
 
       expect(devices).toHaveLength(1);
@@ -1050,7 +1041,7 @@ describe("queries", () => {
     });
   });
 
-  describe("retrieveSingle", () => {
+  describe("single retrieve", () => {
     it("should return an undefined status when a cached device has no status", async () => {
       const rack = await client.racks.create({ name: "test" });
       const key = id.create();
@@ -1064,10 +1055,7 @@ describe("queries", () => {
         configured: true,
         properties: {},
       });
-      const dev = await Device.retrieveSingle({
-        client,
-        query: { key, includeStatus: false },
-      });
+      const dev = await client.devices.retrieve({ key, includeStatus: false });
       expect(dev.key).toEqual(key);
       expect(dev.status).toBeUndefined();
     });
@@ -1446,7 +1434,7 @@ describe("queries", () => {
       });
     });
 
-    describe("retrieveSingle with a generically cached device", () => {
+    describe("schema-typed retrieve with a generically cached device", () => {
       it("should apply schema defaults to a cached device stored without vendor parsing", async () => {
         const defaultedSchemas = {
           properties: z.object({
@@ -1467,9 +1455,9 @@ describe("queries", () => {
           configured: true,
           properties: {},
         });
-        const dev = await Device.retrieveSingle({
-          client,
-          query: { key },
+        const dev = await client.devices.retrieve({
+          key,
+          includeStatus: true,
           schemas: defaultedSchemas,
         });
         expect(dev.properties.connection).toEqual({ host: "" });
@@ -1490,9 +1478,9 @@ describe("queries", () => {
           schemas,
         );
         await client.devices.retrieve({ key: dev.key });
-        const retrieved = await Device.retrieveSingle({
-          client,
-          query: { key: dev.key },
+        const retrieved = await client.devices.retrieve({
+          key: dev.key,
+          includeStatus: true,
           schemas,
         });
         expect(retrieved.properties.sampleRate).toEqual(100);

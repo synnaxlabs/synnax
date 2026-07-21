@@ -59,17 +59,6 @@ const BASE_QUERY: Pick<RetrieveQuery, "includeLabels"> = {
   includeLabels: true,
 };
 
-// Prefers the cached copy: it may hold locally replayed edits ahead of the
-// server.
-export const retrieveSingle = async ({
-  client,
-  query,
-}: Flux.RetrieveParams<RetrieveQuery>): Promise<status.Status> => {
-  const cached = client.statuses.getCached(query);
-  if (cached?.variant === "changed") return cached.data;
-  return await client.statuses.retrieve({ ...BASE_QUERY, ...query });
-};
-
 // Cached answers are untyped; a details schema only validates the fetch, so
 // schema-typed reads cast the shared cache entries.
 export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
@@ -88,14 +77,6 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
 
 export type RetrieveMultipleQuery = {
   keys: status.Key[];
-};
-
-export const retrieveMultiple = async ({
-  client,
-  query: { keys },
-}: Flux.RetrieveParams<RetrieveMultipleQuery>): Promise<status.Status[]> => {
-  if (keys.length === 0) return [];
-  return await client.statuses.retrieve({ keys });
 };
 
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<
@@ -149,7 +130,7 @@ export const useForm = Flux.createForm<Partial<RetrieveQuery>, typeof formSchema
   initialValues: INITIAL_VALUES,
   retrieve: async ({ client, query: { key }, reset }) => {
     if (primitive.isZero(key)) return;
-    const stat = await retrieveSingle({ client, query: { key } });
+    const stat = await client.statuses.retrieve({ ...BASE_QUERY, key });
     const labels = await client.labels.retrieve({ for: status.ontologyID(stat.key) });
     reset({ ...stat, labels: labels.map((l) => l.key) });
   },

@@ -23,19 +23,6 @@ export type RetrieveQuery = task.RetrieveSingleParams;
 
 const BASE_QUERY = { includeStatus: true };
 
-interface RetrieveSingleParams<
-  S extends task.Schemas = task.Schemas,
-> extends Flux.RetrieveParams<RetrieveQuery> {
-  schemas?: S;
-}
-
-export const retrieveSingle = async <S extends task.Schemas = task.Schemas>({
-  query,
-  schemas,
-  client,
-}: RetrieveSingleParams<S>): Promise<task.Task<S>> =>
-  await client.tasks.retrieve({ ...BASE_QUERY, ...query, schemas });
-
 // Cached answers are untyped; schemas only validate the fetch, so schema-typed
 // reads cast the shared cache entries.
 export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: S) =>
@@ -184,7 +171,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
     initialValues: actualInitialValues,
     retrieve: async ({ client, query: { key }, reset }): Promise<void> => {
       if (key == null) return;
-      const tsk = await retrieveSingle({ client, query: { key }, schemas });
+      const tsk = await client.tasks.retrieve({ ...BASE_QUERY, key, schemas });
       reset(taskToFormValues(tsk.payload));
     },
     update: async ({ client, ...form }) => {
@@ -257,22 +244,16 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<SnapshotParams
 
 export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 
-export const rename = async ({
-  client,
-  data,
-  onOptimisticComplete,
-}: Flux.UpdateParams<UseRenameParams>): Promise<UseRenameParams> => {
-  const { key, name } = data;
-  await client.tasks.rename(key, name, {
-    onOptimistic: async () => await onOptimisticComplete(data),
-  });
-  return data;
-};
-
 export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   name: RESOURCE_NAME,
   verbs: cache.RENAME_VERBS,
-  update: rename,
+  update: async ({ client, data, onOptimisticComplete }) => {
+    const { key, name } = data;
+    await client.tasks.rename(key, name, {
+      onOptimistic: async () => await onOptimisticComplete(data),
+    });
+    return data;
+  },
 });
 
 export type CommandParams = task.NewCommand | task.NewCommand[];

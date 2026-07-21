@@ -21,7 +21,6 @@ import {
   Nav,
   Rack,
   Status,
-  Task,
 } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -63,9 +62,10 @@ const beforeSave = async ({
   get,
   set,
 }: Flux.FormBeforeSaveParams<PDevice.RetrieveQuery, typeof PDevice.formSchema>) => {
-  const scanTask = await Task.retrieveSingle({
-    client,
-    query: { type: SCAN_TYPE, rack: get<rack.Key>("rack").value },
+  const scanTask = await client.tasks.retrieve({
+    type: SCAN_TYPE,
+    rack: get<rack.Key>("rack").value,
+    includeStatus: true,
     schemas: SCAN_SCHEMAS,
   });
   const state = await scanTask.executeCommandSync({

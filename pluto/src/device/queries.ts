@@ -29,49 +29,6 @@ export type RetrieveQuery = device.RetrieveSingleParams;
 
 const BASE_QUERY = { includeStatus: true } as const;
 
-export const retrieveSingle = async <
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodString,
-  Model extends z.ZodType<string> = z.ZodString,
->({
-  client,
-  query,
-  schemas,
-}: Flux.RetrieveParams<RetrieveQuery> & {
-  schemas?: device.DeviceSchemas<Properties, Make, Model>;
-}): Promise<device.Device<Properties, Make, Model>> => {
-  if (schemas != null)
-    return await client.devices.retrieve({ ...BASE_QUERY, ...query, schemas });
-  const dev = await client.devices.retrieve({ ...BASE_QUERY, ...query });
-  return dev as unknown as device.Device<Properties, Make, Model>;
-};
-
-export type RetrieveMultipleQuery = {
-  keys: device.Key[];
-};
-
-export const retrieveMultiple = async <
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
-  Make extends z.ZodType<string> = z.ZodString,
-  Model extends z.ZodType<string> = z.ZodString,
->({
-  client,
-  query: { keys },
-  schemas,
-}: Flux.RetrieveParams<RetrieveMultipleQuery> & {
-  schemas?: device.DeviceSchemas<Properties, Make, Model>;
-}): Promise<device.Device<Properties, Make, Model>[]> => {
-  if (keys.length === 0) return [];
-  const devices =
-    schemas != null
-      ? await client.devices.retrieve({ ...BASE_QUERY, keys, schemas })
-      : ((await client.devices.retrieve({
-          ...BASE_QUERY,
-          keys,
-        })) as unknown as device.Device<Properties, Make, Model>[]);
-  return cache.orderByKeys(keys, devices, (d) => d.key);
-};
-
 export const createRetrieve = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
   Make extends z.ZodType<string> = z.ZodString,
@@ -210,8 +167,11 @@ export const createForm = <
         set("key", uuid.create());
         return;
       }
-      const dev = await retrieveSingle({ client, query, schemas });
-      reset(dev);
+      reset(
+        schemas != null
+          ? await client.devices.retrieve({ ...BASE_QUERY, ...query, schemas })
+          : await client.devices.retrieve({ ...BASE_QUERY, ...query }),
+      );
     },
     update: async ({ value, client }) => {
       const data = value();

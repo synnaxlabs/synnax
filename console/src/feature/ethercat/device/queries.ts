@@ -85,9 +85,9 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledPa
   update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
 
-    const devices = await Device.retrieveMultiple({
-      client,
-      query: { keys },
+    const devices = await client.devices.retrieve({
+      keys,
+      includeStatus: true,
       schemas: SLAVE_SCHEMAS,
     });
 
