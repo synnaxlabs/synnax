@@ -19,7 +19,7 @@ import (
 
 func autoMigrateProject(_ context.Context, old v0.Workspace) (Project, error) {
 	return Project{
-		Key:    Key(old.Key),
+		Key:    old.Key,
 		Name:   old.Name,
 		Layout: old.Layout,
 	}, nil

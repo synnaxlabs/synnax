@@ -46,7 +46,7 @@ func autoMigrateFunction(ctx context.Context, old v1.Function) (Function, error)
 	}
 	return Function{
 		Key:      old.Key,
-		Body:     Body(old.Body),
+		Body:     old.Body,
 		Inputs:   inputs,
 		Outputs:  outputs,
 		Channels: types.Channels(old.Channels),

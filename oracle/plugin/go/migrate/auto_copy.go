@@ -449,32 +449,24 @@ func (c *collector) classifyField(
 		return classification{inline: accessor}
 	}
 	td, hasDiff := c.diff[resolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
-	if !needsMigration && c.isSameType(resolved) {
+	// An unchanged type aliases its predecessor in the new version, so old and
+	// new denote the same Go type and the value assigns directly.
+	if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
 		return classification{inline: accessor}
 	}
 	varName := naming.LowerFirst(goName)
-	if needsMigration || c.hasOracleDefinedFields(resolved) {
-		helper := c.requireFunc(resolved)
-		if isOptional {
-			newType := c.resolveNewTypeName(resolved)
-			return classification{needsPreamble: true, usesCtx: true, step: step{
-				Kind: "optionalMigrate", VarName: varName, Accessor: accessor,
-				Call: fmt.Sprintf("%s(ctx, *%s)", helper, accessor), Type: newType,
-			}}
-		}
-		return classification{needsPreamble: true, usesCtx: true, step: step{
-			Kind: "migrate", VarName: varName,
-			Call: fmt.Sprintf("%s(ctx, %s)", helper, accessor),
-		}}
-	}
-	newType := c.resolveNewTypeName(resolved)
+	helper := c.requireFunc(resolved)
 	if isOptional {
-		return classification{needsPreamble: true, step: step{
-			Kind: "optionalCast", VarName: varName, Accessor: accessor, Type: newType,
+		newType := c.resolveNewTypeName(resolved)
+		return classification{needsPreamble: true, usesCtx: true, step: step{
+			Kind: "optionalMigrate", VarName: varName, Accessor: accessor,
+			Call: fmt.Sprintf("%s(ctx, *%s)", helper, accessor), Type: newType,
 		}}
 	}
-	return classification{inline: fmt.Sprintf("%s(%s)", newType, accessor)}
+	return classification{needsPreamble: true, usesCtx: true, step: step{
+		Kind: "migrate", VarName: varName,
+		Call: fmt.Sprintf("%s(ctx, %s)", helper, accessor),
+	}}
 }
 
 func (c *collector) classifySlice(
@@ -485,26 +477,19 @@ func (c *collector) classifySlice(
 		return classification{inline: accessor}
 	}
 	td, hasDiff := c.diff[elemResolved.QualifiedName]
-	needsMigration := hasDiff && td.Kind != schemadiff.TypeUnchanged
-	if !needsMigration &&
-		(!c.isOracleDefined(elemResolved) || c.isSameType(elemResolved)) {
+	// Unchanged element types alias their predecessors, so the slice types are
+	// identical and the value assigns directly.
+	if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
 		return classification{inline: accessor}
 	}
 	varName := naming.LowerFirst(goName)
-	newElem := c.resolveNewTypeName(elemResolved)
-	sliceType := "[]" + newElem
+	sliceType := "[]" + c.resolveNewTypeName(elemResolved)
 	if named != nil {
 		sliceType = c.resolveNewTypeName(*named)
 	}
-	if needsMigration || c.hasOracleDefinedFields(elemResolved) {
-		return classification{needsPreamble: true, usesCtx: true, step: step{
-			Kind: "sliceMigrate", VarName: varName, Accessor: accessor,
-			Type: sliceType, ElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
-		}}
-	}
-	return classification{needsPreamble: true, step: step{
-		Kind: "sliceCast", VarName: varName, Accessor: accessor,
-		Type: sliceType, ElemExpr: newElem + "(v)",
+	return classification{needsPreamble: true, usesCtx: true, step: step{
+		Kind: "sliceMigrate", VarName: varName, Accessor: accessor,
+		Type: sliceType, ElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
 	}}
 }
 
@@ -586,9 +571,18 @@ func (c *collector) addImport(goPath string) importEntry {
 	}
 	// A sibling version of the same resource imports under its bare directory
 	// name, matching the hand-written migration convention (v0 "…/types/v0").
-	alias := naming.DeriveVersionedAlias(goPath, c.pkg)
+	// Other resources import under their resource name, falling back to the
+	// versioned form only when two versions of one resource meet in a file.
+	alias := naming.DerivePackageAlias(goPath, c.pkg)
 	if filepath.Dir(goPath) == filepath.Dir(c.outputPath) {
 		alias = filepath.Base(goPath)
+	} else {
+		for _, existing := range c.imports {
+			if existing.Alias == alias {
+				alias = naming.DeriveVersionedAlias(goPath, c.pkg)
+				break
+			}
+		}
 	}
 	imp := importEntry{Alias: alias, Path: importPath}
 	c.imports[importPath] = imp

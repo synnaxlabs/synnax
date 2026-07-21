@@ -16,6 +16,7 @@ import (
 	graph "github.com/synnaxlabs/arc/graph/types/v1"
 	program "github.com/synnaxlabs/arc/program/types/v1"
 	text "github.com/synnaxlabs/arc/text/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 )
 
@@ -26,22 +27,12 @@ type Key = uuid.UUID
 type Status = status.Status[StatusDetails]
 
 // Mode specifies whether an Arc module uses text-based or graph-based representation.
-type Mode string
+type Mode = v0.Mode
 
 const (
-	ModeText  Mode = "text"
-	ModeGraph Mode = "graph"
+	ModeText  Mode = v0.ModeText
+	ModeGraph Mode = v0.ModeGraph
 )
-
-// IsValid reports whether m is one of the defined Mode values.
-func (m Mode) IsValid() bool {
-	switch m {
-	case ModeText, ModeGraph:
-		return true
-	default:
-		return false
-	}
-}
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.

@@ -19,7 +19,7 @@ import (
 
 func autoMigrateTask(_ context.Context, old v0.Task) (Task, error) {
 	return Task{
-		Key:      Key(old.Key),
+		Key:      old.Key,
 		Name:     old.Name,
 		Type:     old.Type,
 		Config:   old.Config,

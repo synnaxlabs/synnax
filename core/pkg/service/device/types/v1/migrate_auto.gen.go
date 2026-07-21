@@ -15,13 +15,12 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
 )
 
 func autoMigrateDevice(_ context.Context, old v0.Device) (Device, error) {
 	return Device{
-		Key:        Key(old.Key),
-		Rack:       rack.Key(old.Rack),
+		Key:        old.Key,
+		Rack:       old.Rack,
 		Location:   old.Location,
 		Make:       old.Make,
 		Model:      old.Model,

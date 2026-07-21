@@ -71,12 +71,12 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}
 	return Type{
 		FunctionProperties: functionProperties,
-		Kind:               Kind(old.Kind),
+		Kind:               old.Kind,
 		Name:               old.Name,
 		Elem:               elem,
 		Unit:               unit,
 		Constraint:         constraint,
-		ChanDirection:      ChanDirection(old.ChanDirection),
+		ChanDirection:      old.ChanDirection,
 	}, nil
 }
 

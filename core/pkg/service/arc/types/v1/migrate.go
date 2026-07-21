@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Retargeted by oracle. Edit freely.
-//
-// autoMigrate handles field copying. Customize non-zero defaults below.
-
 package v1
 
 import (
 	"context"
 
-	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -29,27 +24,19 @@ func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
 
 // renameSetStatus rewrites every deprecated set_status flow node in a to status.set.
 func renameSetStatus(_ context.Context, a Arc) (Arc, error) {
-	for i := range a.Graph.Nodes {
-		a.Graph.Nodes[i] = migrateLegacySetStatusNode(a.Graph.Nodes[i])
+	for i, n := range a.Graph.Nodes {
+		if n.Type != "set_status" {
+			continue
+		}
+		n.Type = "status.set"
+		n.Config = msgpack.EncodedJSON{
+			"key_or_name": legacyStatusConfigString(n.Config, "statusKey", ""),
+			"variant":     legacyStatusConfigString(n.Config, "variant", "success"),
+			"message":     legacyStatusConfigString(n.Config, "message", ""),
+		}
+		a.Graph.Nodes[i] = n
 	}
 	return a, nil
-}
-
-// migrateLegacySetStatusNode rewrites a deprecated set_status flow node to status.set,
-// remapping the legacy statusKey config parameter to key_or_name and dropping any
-// parameters the new function no longer accepts. Nodes of any other type are returned
-// unchanged. This mirrors the Console-side migration in console/src/arc/types/v2.ts.
-func migrateLegacySetStatusNode(n graphv1.Node) graphv1.Node {
-	if n.Type != "set_status" {
-		return n
-	}
-	n.Type = "status.set"
-	n.Config = msgpack.EncodedJSON{
-		"key_or_name": legacyStatusConfigString(n.Config, "statusKey", ""),
-		"variant":     legacyStatusConfigString(n.Config, "variant", "success"),
-		"message":     legacyStatusConfigString(n.Config, "message", ""),
-	}
-	return n
 }
 
 // legacyStatusConfigString returns the string value stored at key in config, falling

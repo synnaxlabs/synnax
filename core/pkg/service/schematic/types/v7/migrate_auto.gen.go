@@ -19,7 +19,7 @@ import (
 
 func autoMigrateSchematic(_ context.Context, old v6.Schematic) (Schematic, error) {
 	return Schematic{
-		Key:      Key(old.Key),
+		Key:      old.Key,
 		Name:     old.Name,
 		Snapshot: old.Snapshot,
 	}, nil

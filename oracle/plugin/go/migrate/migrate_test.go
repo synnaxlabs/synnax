@@ -860,8 +860,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				autoCopy := fileContent(resp, "migrate_auto.gen.go")
-				Expect(autoCopy).To(ContainSubstring("Mode: Mode(old.Mode)"))
-				Expect(autoCopy).NotTo(ContainSubstring("Mode: old.Mode"))
+				Expect(autoCopy).To(ContainSubstring("Mode: old.Mode"))
+				Expect(autoCopy).NotTo(ContainSubstring("Mode(old.Mode)"))
 			})
 		})
 
@@ -1027,7 +1027,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 		})
 
 		Context("enum fields", func() {
-			It("Should use type cast for enum fields", func() {
+			It("Should assign unchanged enum fields directly", func() {
 				oldSchema := `
 					@go output "out"
 					@go version 1
@@ -1053,7 +1053,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("Mode(old.Mode)"))
+				Expect(content).To(ContainSubstring("Mode: old.Mode"))
 				Expect(content).NotTo(ContainSubstring("autoMigrateMode"))
 			})
 		})
@@ -1416,7 +1416,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("Color(old.Color)"))
+				Expect(content).To(ContainSubstring("Color: old.Color"))
 				Expect(content).NotTo(ContainSubstring("autoMigrateColor"))
 			})
 		})
@@ -1656,7 +1656,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				resp := MustSucceed(p.Generate(req))
 				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("autoMigrateEntry"))
-				Expect(content).NotTo(ContainSubstring(`ir "github.com`))
+				Expect(content).NotTo(ContainSubstring(`"github.com/synnaxlabs/synnax/ir"`))
 			})
 		})
 	})

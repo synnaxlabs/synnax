@@ -19,7 +19,7 @@ import (
 
 func autoMigrateTable(_ context.Context, old v1.Table) (Table, error) {
 	return Table{
-		Key:  Key(old.Key),
+		Key:  old.Key,
 		Name: old.Name,
 	}, nil
 }
