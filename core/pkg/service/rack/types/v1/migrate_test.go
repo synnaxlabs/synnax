@@ -17,10 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
-	statusv0 "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -31,7 +29,7 @@ import (
 )
 
 var _ = Describe("v1 -> current Rack migration", func() {
-	migrateSeed := func(ctx SpecContext, seed v0.Rack) rack.Rack {
+	migrateSeed := func(ctx SpecContext, seed v0.Rack) v1.Rack {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Rack]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Rack]().
@@ -45,9 +43,9 @@ var _ = Describe("v1 -> current Rack migration", func() {
 			Namespace:  "Rack",
 			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
 		})).To(Succeed())
-		var got rack.Rack
-		Expect(gorp.NewRetrieve[rack.Key, rack.Rack]().
-			Where(gorp.MatchKeys[rack.Key, rack.Rack](rack.Key(seed.Key))).
+		var got v1.Rack
+		Expect(gorp.NewRetrieve[v1.Key, v1.Rack]().
+			Where(gorp.MatchKeys[v1.Key, v1.Rack](seed.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		return got
 	}
@@ -61,7 +59,7 @@ var _ = Describe("v1 -> current Rack migration", func() {
 			Integrations: []string{"ni", "opc"},
 		}
 		got := migrateSeed(ctx, seed)
-		Expect(got.Key).To(Equal(rack.Key(seed.Key)))
+		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.TaskCounter).To(Equal(seed.TaskCounter))
 		Expect(got.Embedded).To(Equal(seed.Embedded))
@@ -78,7 +76,7 @@ var _ = Describe("v1 -> current Rack migration", func() {
 			Status: &v0.Status{
 				Key:         "rack:" + uuid.NewString(),
 				Name:        "healthy",
-				Variant:     statusv0.VariantSuccess,
+				Variant:     "success",
 				Message:     "rack heartbeat received",
 				Description: "all integrations responding",
 				Time:        telemv0.TimeStamp(telem.Now()),
@@ -89,7 +87,7 @@ var _ = Describe("v1 -> current Rack migration", func() {
 			},
 		}
 		got := migrateSeed(ctx, seed)
-		Expect(got.Key).To(Equal(rack.Key(seed.Key)))
+		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Status).To(BeNil())
 	})

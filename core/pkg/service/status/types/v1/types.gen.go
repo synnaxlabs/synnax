@@ -13,30 +13,21 @@ package v1
 
 import (
 	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 // Variant is the severity or type of a status message.
-type Variant string
+type Variant = v0.Variant
 
 const (
-	VariantSuccess  Variant = "success"
-	VariantInfo     Variant = "info"
-	VariantWarning  Variant = "warning"
-	VariantError    Variant = "error"
-	VariantLoading  Variant = "loading"
-	VariantDisabled Variant = "disabled"
+	VariantSuccess  Variant = v0.VariantSuccess
+	VariantInfo     Variant = v0.VariantInfo
+	VariantWarning  Variant = v0.VariantWarning
+	VariantError    Variant = v0.VariantError
+	VariantLoading  Variant = v0.VariantLoading
+	VariantDisabled Variant = v0.VariantDisabled
 )
-
-// IsValid reports whether v is one of the defined Variant values.
-func (v Variant) IsValid() bool {
-	switch v {
-	case VariantSuccess, VariantInfo, VariantWarning, VariantError, VariantLoading, VariantDisabled:
-		return true
-	default:
-		return false
-	}
-}
 
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry

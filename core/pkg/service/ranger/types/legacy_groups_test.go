@@ -10,14 +10,16 @@
 package types_test
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/types"
 	rangerv0 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
@@ -30,11 +32,9 @@ import (
 var _ = Describe("Migrate", func() {
 	var (
 		db        *gorp.DB
-		svc       *ranger.Service
 		otg       *ontology.Ontology
 		gSvc      *group.Service
 		searchIdx *search.Index
-		lab       *label.Service
 	)
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
@@ -45,13 +45,17 @@ var _ = Describe("Migrate", func() {
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		lab = MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    gSvc,
-			Search:   searchIdx,
-		}))
 	})
+	runMigrations := func(ctx context.Context) {
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "Range",
+			Migrations: types.NewMigrations(types.MigrationsConfig{
+				Ontology: otg,
+				Group:    gSvc,
+			}),
+		})).To(Succeed())
+	}
 	It("should migrate subgroups to parent ranges and delete groups", func(ctx SpecContext) {
 		// Open a bare Range table with only the codec transition migration.
 		// This simulates the state of the DB before the range_groups migration
@@ -89,32 +93,26 @@ var _ = Describe("Migrate", func() {
 		Expect(bareTable.NewCreate().Entry(&r2).Exec(ctx, tx)).To(Succeed())
 
 		otgWriter := otg.NewWriter(tx)
-		Expect(otgWriter.DefineResources(ctx, ranger.OntologyID(r1.Key))).To(Succeed())
-		Expect(otgWriter.DefineResources(ctx, ranger.OntologyID(r2.Key))).To(Succeed())
+		Expect(otgWriter.DefineResources(ctx, rangerv0.OntologyID(r1.Key))).To(Succeed())
+		Expect(otgWriter.DefineResources(ctx, rangerv0.OntologyID(r2.Key))).To(Succeed())
 		Expect(otgWriter.DefineRelationships(
 			ctx,
 			subGroup.OntologyID(),
 			ontology.RelationshipTypeParentOf,
-			ranger.OntologyID(r1.Key),
+			rangerv0.OntologyID(r1.Key),
 		)).To(Succeed())
 		Expect(otgWriter.DefineRelationships(
 			ctx,
 			subGroup.OntologyID(),
 			ontology.RelationshipTypeParentOf,
-			ranger.OntologyID(r2.Key),
+			rangerv0.OntologyID(r2.Key),
 		)).To(Succeed())
 
 		Expect(tx.Commit(ctx)).To(Succeed())
 		Expect(tx.Close()).To(Succeed())
 		Expect(bareTable.Close()).To(Succeed())
 
-		svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    gSvc,
-			Label:    lab,
-			Search:   searchIdx,
-		}))
+		runMigrations(ctx)
 
 		// The "Ranges" group and "Subgroup" should be deleted.
 		var g group.Group
@@ -125,9 +123,14 @@ var _ = Describe("Migrate", func() {
 
 		// There should be a new parent range named "Subgroup" whose time range
 		// is the union of r1 and r2.
-		var parentRange ranger.Range
-		Expect(svc.NewRetrieve().Where(ranger.MatchNames("Subgroup")).
-			Entry(&parentRange).Exec(ctx, nil)).To(Succeed())
+		var parentRange v1.Range
+		Expect(gorp.NewRetrieve[uuid.UUID, v1.Range]().
+			Where(gorp.Match[uuid.UUID, v1.Range](
+				func(_ gorp.Context, r *v1.Range) (bool, error) {
+					return r.Name == "Subgroup", nil
+				},
+			)).
+			Entry(&parentRange).Exec(ctx, db)).To(Succeed())
 		Expect(parentRange.TimeRange).To(Equal(telem.TimeRange{
 			Start: telem.TimeStamp(10 * telem.Second),
 			End:   telem.TimeStamp(25 * telem.Second),
@@ -139,13 +142,17 @@ var _ = Describe("Migrate", func() {
 			WhereIDs(parentRange.OntologyID()).
 			TraverseTo(ontology.ChildrenTraverser).
 			WhereTypes(ontology.ResourceTypeRange).
+			ExcludeFieldData(true).
 			Entries(&children).
 			Exec(ctx, nil)).To(Succeed())
-		var childNames []string
+		var childIDs []ontology.ID
 		for _, c := range children {
-			childNames = append(childNames, c.Name)
+			childIDs = append(childIDs, c.ID)
 		}
-		Expect(childNames).To(ConsistOf("Range1", "Range2"))
+		Expect(childIDs).To(ConsistOf(
+			rangerv0.OntologyID(r1.Key),
+			rangerv0.OntologyID(r2.Key),
+		))
 	})
 
 	It("should re-encode value-color ranges as nullable pointer color", func(ctx SpecContext) {
@@ -173,22 +180,18 @@ var _ = Describe("Migrate", func() {
 		Expect(tx.Close()).To(Succeed())
 		Expect(bareTable.Close()).To(Succeed())
 
-		svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    gSvc,
-			Label:    lab,
-			Search:   searchIdx,
-		}))
+		runMigrations(ctx)
 
-		var got ranger.Range
-		Expect(svc.NewRetrieve().Where(ranger.MatchKeys(colored.Key)).
-			Entry(&got).Exec(ctx, nil)).To(Succeed())
+		var got v1.Range
+		Expect(gorp.NewRetrieve[uuid.UUID, v1.Range]().
+			Where(gorp.MatchKeys[uuid.UUID, v1.Range](colored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Color).ToNot(BeNil())
 		Expect(*got.Color).To(Equal(color.Color{R: 255, G: 128, B: 0, A: 1}))
 
-		Expect(svc.NewRetrieve().Where(ranger.MatchKeys(uncolored.Key)).
-			Entry(&got).Exec(ctx, nil)).To(Succeed())
+		Expect(gorp.NewRetrieve[uuid.UUID, v1.Range]().
+			Where(gorp.MatchKeys[uuid.UUID, v1.Range](uncolored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Color).To(BeNil())
 	})
 })

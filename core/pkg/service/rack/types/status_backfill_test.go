@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/types"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -50,9 +50,9 @@ var _ = Describe("Migration v0", func() {
 			Search:   searchIdx,
 		}))
 
-		rackKey := rack.NewKey(1, 1)
-		testRack := &rack.Rack{Key: rackKey, Name: "Migration Test Rack"}
-		Expect(gorp.NewCreate[rack.Key, rack.Rack]().Entry(testRack).Exec(ctx, db)).
+		rackKey := types.Key(1<<16 | 1)
+		testRack := &types.Rack{Key: rackKey, Name: "Migration Test Rack"}
+		Expect(gorp.NewCreate[types.Key, types.Rack]().Entry(testRack).Exec(ctx, db)).
 			To(Succeed())
 
 		// Write a status using Status[any] with the rack key as float64,
@@ -70,24 +70,23 @@ var _ = Describe("Migration v0", func() {
 		}
 		Expect(status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus)).To(Succeed())
 
-		// Opening the rack service triggers the v0.status_backfill migration,
+		// Running the rack migrations triggers the v0.status_backfill migration,
 		// which reads existing statuses as Status[StatusDetails]. This would
 		// fail without the flex DecodeMsgpack on the Key type because the
 		// rack key is stored as a msgpack float64.
-		MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:                  db,
-			Ontology:            otg,
-			Group:               g,
-			HostProvider:        mock.NewStaticHostProvider(1),
-			Status:              stat,
-			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
-		}))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "Rack",
+			Migrations: types.NewMigrations(types.MigrationsConfig{
+				HostProvider: mock.NewStaticHostProvider(1),
+				Status:       stat,
+			}),
+		})).To(Succeed())
 
 		// Verify the status is readable with the correct typed key.
-		var restoredStatus rack.Status
-		Expect(status.NewRetrieve[rack.StatusDetails](stat).
-			Where(status.MatchKeys[rack.StatusDetails](rackKey.OntologyID().String())).
+		var restoredStatus types.Status
+		Expect(status.NewRetrieve[types.StatusDetails](stat).
+			Where(status.MatchKeys[types.StatusDetails](rackKey.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Details.Rack).To(Equal(rackKey))

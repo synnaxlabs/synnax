@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 	"github.com/synnaxlabs/x/color"
@@ -56,12 +55,12 @@ var _ = Describe("v1 -> current Status migration", func() {
 			Migrations: []migrate.Migration{v1.Migration},
 		})).To(Succeed())
 
-		var got status.Status[any]
-		Expect(gorp.NewRetrieve[string, status.Status[any]]().
-			Where(gorp.MatchKeys[string, status.Status[any]](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
+		var got v1.Status[any]
+		Expect(gorp.NewRetrieve[string, v1.Status[any]]().
+			Where(gorp.MatchKeys[string, v1.Status[any]](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
-		Expect(got.Variant).To(Equal(status.Variant(seed.Variant)))
+		Expect(got.Variant).To(Equal(v1.Variant(seed.Variant)))
 		Expect(got.Message).To(Equal(seed.Message))
 		Expect(got.Description).To(Equal(seed.Description))
 		Expect(got.Labels).To(BeEmpty())

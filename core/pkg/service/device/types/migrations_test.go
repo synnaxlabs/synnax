@@ -12,24 +12,26 @@ package types_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
+	"github.com/synnaxlabs/synnax/pkg/service/device/types"
 	devicev0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Migration", func() {
-	It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
+	var (
+		db   *gorp.DB
+		stat *status.Service
+	)
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -43,25 +45,27 @@ var _ = Describe("Migration", func() {
 			Group:    groupSvc,
 			Search:   searchIdx,
 		}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    groupSvc,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        groupSvc,
-			HostProvider: mock.NewStaticHostProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
+	})
 
+	runMigrations := func(ctx SpecContext) {
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Device",
+			Migrations: types.NewMigrations(types.MigrationsConfig{Status: stat}),
+		})).To(Succeed())
+	}
+
+	It("Should create unknown statuses for devices missing them", func(ctx SpecContext) {
 		d := devicev0.Device{
 			Key:      "migration-device",
-			Rack:     rackv0.Key(rackSvc.EmbeddedKey),
+			Rack:     1<<16 | 1,
 			Location: "loc",
 			Name:     "Migration Test Device",
 		}
@@ -69,81 +73,50 @@ var _ = Describe("Migration", func() {
 			Entry(&d).
 			Exec(ctx, db)).To(Succeed())
 
-		MustOpen(device.OpenService(ctx, device.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Status:   stat,
-			Rack:     rackSvc,
-			Search:   searchIdx,
-		}))
+		runMigrations(ctx)
 
-		var restoredStatus device.Status
-		Expect(status.NewRetrieve[device.StatusDetails](stat).
-			Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+		var restoredStatus types.Status
+		Expect(status.NewRetrieve[types.StatusDetails](stat).
+			Where(status.MatchKeys[types.StatusDetails](devicev0.OntologyID(d.Key).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 		Expect(restoredStatus.Message).To(Equal("Migration Test Device state unknown"))
 		Expect(restoredStatus.Details.Device).To(Equal(d.Key))
-		Expect(restoredStatus.Details.Rack).To(Equal(rackSvc.EmbeddedKey))
+		Expect(restoredStatus.Details.Rack).To(Equal(d.Rack))
 	})
 
 	It("Should not create statuses for devices that already have them", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Search:   searchIdx,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-		}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			Ontology: otg,
-			DB:       db,
-			Group:    groupSvc,
-			Label:    labelSvc,
-			Search:   searchIdx,
-		}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        groupSvc,
-			HostProvider: mock.NewStaticHostProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
-		svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Status:   stat,
-			Rack:     rackSvc,
-			Search:   searchIdx,
-		}))
-
-		d := device.Device{
+		d := devicev0.Device{
 			Key:      "existing-status-device",
-			Rack:     rackSvc.EmbeddedKey,
+			Rack:     1<<16 | 1,
 			Location: "loc",
 			Name:     "Device With Status",
 			Make:     "Test Make",
 			Model:    "Test Model",
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+		Expect(gorp.NewCreate[string, devicev0.Device]().
+			Entry(&d).
+			Exec(ctx, db)).To(Succeed())
+		existing := types.Status{
+			Key:     devicev0.OntologyID(d.Key).String(),
+			Name:    d.Name,
+			Variant: status.VariantSuccess,
+			Message: "Device With Status is configured",
+			Time:    telem.Now(),
+			Details: types.StatusDetails{Rack: d.Rack, Device: d.Key},
+		}
+		Expect(status.NewWriter[types.StatusDetails](stat, nil).
+			Set(ctx, &existing)).To(Succeed())
 
-		var deviceStatus device.Status
-		Expect(status.NewRetrieve[device.StatusDetails](stat).
-			Where(status.MatchKeys[device.StatusDetails](device.OntologyID(d.Key).String())).
+		runMigrations(ctx)
+
+		var deviceStatus types.Status
+		Expect(status.NewRetrieve[types.StatusDetails](stat).
+			Where(status.MatchKeys[types.StatusDetails](devicev0.OntologyID(d.Key).String())).
 			Entry(&deviceStatus).
 			Exec(ctx, nil)).To(Succeed())
-		Expect(deviceStatus.Variant).To(Equal(status.VariantWarning))
+		Expect(deviceStatus.Variant).To(Equal(status.VariantSuccess))
 		Expect(deviceStatus.Message).To(ContainSubstring("Device With Status"))
 	})
 })

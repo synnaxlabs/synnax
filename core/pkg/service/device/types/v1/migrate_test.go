@@ -16,12 +16,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/device"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
-	statusv0 "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -33,7 +31,7 @@ import (
 )
 
 var _ = Describe("v1 -> current Device migration", func() {
-	migrateSeed := func(ctx SpecContext, seed v0.Device) device.Device {
+	migrateSeed := func(ctx SpecContext, seed v0.Device) v1.Device {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Device]().
@@ -47,9 +45,9 @@ var _ = Describe("v1 -> current Device migration", func() {
 			Namespace:  "Device",
 			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
 		})).To(Succeed())
-		var got device.Device
-		Expect(gorp.NewRetrieve[device.Key, device.Device]().
-			Where(gorp.MatchKeys[device.Key, device.Device](seed.Key)).
+		var got v1.Device
+		Expect(gorp.NewRetrieve[v1.Key, v1.Device]().
+			Where(gorp.MatchKeys[v1.Key, v1.Device](seed.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		return got
 	}
@@ -92,7 +90,7 @@ var _ = Describe("v1 -> current Device migration", func() {
 			Status: &v0.Status{
 				Key:         "device:" + key,
 				Name:        "configured",
-				Variant:     statusv0.VariantSuccess,
+				Variant:     "success",
 				Message:     "device ready",
 				Description: "all modules detected",
 				Time:        telemv0.TimeStamp(telem.Now()),

@@ -16,7 +16,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
+	migrationsv0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
@@ -26,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -109,24 +112,40 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(writer.Set(ctx, schematicPolicy)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
-		// Open RBAC service, which runs Phase 1 (extraction) and Phase 2 (assignment)
-		testRBAC := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Search:   searchIdx,
-			User:     userSvc,
 		}))
+		builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "RBAC",
+			Migrations: []migrate.Migration{
+				migrationsv0.NewMigration(migrationsv0.MigrationConfig{
+					User:     userSvc,
+					Ontology: otg,
+					Role:     roleSvc,
+					Roles:    builtinRoles,
+				}),
+			},
+		})).To(Succeed())
 
 		// Look up the built-in role keys
 		tx2 := DeferClose(db.OpenTx())
 
 		var ownerRole role.Role
-		Expect(testRBAC.Role.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerRole).Exec(ctx, tx2)).To(Succeed())
+		Expect(roleSvc.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerRole).Exec(ctx, tx2)).To(Succeed())
 		var engineerRole role.Role
-		Expect(testRBAC.Role.NewRetrieve().Where(role.MatchNames("Engineer")).Entry(&engineerRole).Exec(ctx, tx2)).To(Succeed())
+		Expect(roleSvc.NewRetrieve().Where(role.MatchNames("Engineer")).Entry(&engineerRole).Exec(ctx, tx2)).To(Succeed())
 		var operatorRole role.Role
-		Expect(testRBAC.Role.NewRetrieve().Where(role.MatchNames("Operator")).Entry(&operatorRole).Exec(ctx, tx2)).To(Succeed())
+		Expect(roleSvc.NewRetrieve().Where(role.MatchNames("Operator")).Entry(&operatorRole).Exec(ctx, tx2)).To(Succeed())
 
 		// Root user -> Owner
 		Expect(userHasSpecificRole(ctx, tx2, otg, user.OntologyID(rootUser.Key), ownerRole.Key)).To(BeTrue())
@@ -150,7 +169,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(legacyCount).To(Equal(0))
 	})
 
-	It("Should be idempotent across multiple service opens", func(ctx SpecContext) {
+	It("Should be idempotent across repeated runs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		searchIdx := MustOpen(search.OpenIndex())
@@ -169,24 +188,36 @@ var _ = Describe("Legacy Permission Migration", func() {
 			RootCredentials: auth.Credentials{Username: "suite-root", Password: "p"},
 		}))
 
-		// First open
-		svc1 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
+		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Search:   searchIdx,
+		}))
+		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Search:   searchIdx,
-			User:     userSvc,
 		}))
-		Expect(svc1.Close()).To(Succeed())
-
-		// Second open should not fail
-		svc2 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    groupSvc,
-			Search:   searchIdx,
-			User:     userSvc,
-		}))
-		Expect(svc2.Close()).To(Succeed())
+		run := func() error {
+			builtinRoles, err := builtin.Provision(ctx, db, policySvc, roleSvc)
+			if err != nil {
+				return err
+			}
+			return gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:        db,
+				Namespace: "RBAC",
+				Migrations: []migrate.Migration{
+					migrationsv0.NewMigration(migrationsv0.MigrationConfig{
+						User:     userSvc,
+						Ontology: otg,
+						Role:     roleSvc,
+						Roles:    builtinRoles,
+					}),
+				},
+			})
+		}
+		Expect(run()).To(Succeed())
+		Expect(run()).To(Succeed())
 	})
 })

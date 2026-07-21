@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/types"
 	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -60,36 +60,49 @@ var _ = Describe("Migration", func() {
 		}))
 	})
 
-	openService := func(ctx context.Context) *rack.Service {
-		return MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.NewStaticHostProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
+	runMigrations := func(ctx context.Context) {
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "Rack",
+			Migrations: types.NewMigrations(types.MigrationsConfig{
+				HostProvider: mock.NewStaticHostProvider(1),
+				Status:       stat,
+			}),
+		})).To(Succeed())
+	}
+
+	retrieveRack := func(ctx context.Context, key types.Key) types.Rack {
+		var r types.Rack
+		Expect(gorp.NewRetrieve[types.Key, types.Rack]().
+			Where(gorp.MatchKeys[types.Key, types.Rack](key)).
+			Entry(&r).
+			Exec(ctx, db)).To(Succeed())
+		return r
+	}
+
+	countRacks := func(ctx context.Context) int {
+		return MustSucceed(gorp.NewRetrieve[types.Key, types.Rack]().Count(ctx, db))
 	}
 
 	It("Should create unknown statuses for racks missing them", func(ctx SpecContext) {
 		r := rackv0.Rack{
-			Key:  rackv0.Key(rack.NewKey(1, 50)),
+			Key:  rackv0.Key(1<<16 | 50),
 			Name: "rack without status",
 		}
 		Expect(gorp.NewCreate[rackv0.Key, rackv0.Rack]().
 			Entry(&r).
 			Exec(ctx, db)).To(Succeed())
 
-		openService(ctx)
+		runMigrations(ctx)
 
-		var restoredStatus rack.Status
-		Expect(status.NewRetrieve[rack.StatusDetails](stat).
-			Where(status.MatchKeys[rack.StatusDetails](rack.Key(r.Key).OntologyID().String())).
+		var restoredStatus types.Status
+		Expect(status.NewRetrieve[types.StatusDetails](stat).
+			Where(status.MatchKeys[types.StatusDetails](r.Key.OntologyID().String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Variant).To(Equal(status.VariantWarning))
 		Expect(restoredStatus.Message).To(Equal("Status unknown"))
-		Expect(restoredStatus.Details.Rack).To(Equal(rack.Key(r.Key)))
+		Expect(restoredStatus.Details.Rack).To(Equal(r.Key))
 	})
 
 	It("Should correctly migrate a v1 rack to a v2 rack", func(ctx SpecContext) {
@@ -101,17 +114,12 @@ var _ = Describe("Migration", func() {
 			Entry(&v1EmbeddedRack).
 			Exec(ctx, db)).To(Succeed())
 
-		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).To(Equal(rack.Key(65538)))
-		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().
-			Where(rack.MatchKeys(svc.EmbeddedKey)).
-			Entry(&embeddedRack).
-			Exec(ctx, db)).To(Succeed())
+		runMigrations(ctx)
+
+		embeddedRack := retrieveRack(ctx, types.Key(65538))
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
-		Expect(count).To(Equal(1))
+		Expect(countRacks(ctx)).To(Equal(1))
 	})
 
 	It("Should not match an embedded rack with a mismatched name", func(ctx SpecContext) {
@@ -124,19 +132,12 @@ var _ = Describe("Migration", func() {
 			Entry(&mismatchedRack).
 			Exec(ctx, db)).To(Succeed())
 
-		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).ToNot(BeEquivalentTo(mismatchedRack.Key))
+		runMigrations(ctx)
 
-		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().
-			Where(rack.MatchKeys(svc.EmbeddedKey)).
-			Entry(&embeddedRack).
-			Exec(ctx, db)).To(Succeed())
-		Expect(embeddedRack.Embedded).To(BeTrue())
-		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-
-		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
-		Expect(count).To(Equal(2))
+		got := retrieveRack(ctx, mismatchedRack.Key)
+		Expect(got.Embedded).To(BeTrue())
+		Expect(got.Name).To(Equal("Some Other Embedded Rack"))
+		Expect(countRacks(ctx)).To(Equal(1))
 	})
 
 	It("Should reuse an existing v2 embedded rack with the correct name", func(ctx SpecContext) {
@@ -149,18 +150,11 @@ var _ = Describe("Migration", func() {
 			Entry(&existingRack).
 			Exec(ctx, db)).To(Succeed())
 
-		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).To(Equal(rack.Key(existingRack.Key)))
+		runMigrations(ctx)
 
-		var embeddedRack rack.Rack
-		Expect(svc.NewRetrieve().
-			Where(rack.MatchKeys(svc.EmbeddedKey)).
-			Entry(&embeddedRack).
-			Exec(ctx, db)).To(Succeed())
+		embeddedRack := retrieveRack(ctx, existingRack.Key)
 		Expect(embeddedRack.Embedded).To(BeTrue())
 		Expect(embeddedRack.Name).To(Equal("Node 1 Embedded Driver"))
-
-		count := MustSucceed(svc.NewRetrieve().Count(ctx, db))
-		Expect(count).To(Equal(1))
+		Expect(countRacks(ctx)).To(Equal(1))
 	})
 })

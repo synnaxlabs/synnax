@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/v3"
 	"github.com/synnaxlabs/x/color"
@@ -68,7 +67,7 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.HideChannelNames).To(BeTrue())
 		Expect(out.HideReceiptTimestamp).To(BeFalse())
 		Expect(out.Channels).To(HaveLen(1))
-		Expect(out.Channels[0].Channel).To(Equal(channel.Key(42)))
+		Expect(out.Channels[0].Channel).To(BeEquivalentTo(42))
 		Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
 		Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
 		Expect(out.Channels[0].Precision).To(Equal(int32(3)))
@@ -175,7 +174,7 @@ var _ = Describe("MigrateLog", func() {
 		}
 		out := MustSucceed(v3.MigrateLog(ctx, old))
 		Expect(out.Channels).To(HaveLen(1))
-		Expect(out.Channels[0].Channel).To(Equal(channel.Key(7)))
+		Expect(out.Channels[0].Channel).To(BeEquivalentTo(7))
 		Expect(out.Channels[0].Color).To(Equal(color.Color{}))
 		Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
 		Expect(out.Channels[0].Timestamp.Format).To(Equal(telem.TimestampFormatPreciseDate))
@@ -208,12 +207,12 @@ var _ = Describe("MigrateLog", func() {
 			))
 			Expect(out.Name).To(Equal("Test Log V1"))
 			Expect(out.Channels).To(HaveLen(2))
-			Expect(out.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(out.Channels[0].Channel).To(BeEquivalentTo(1))
 			Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
 			Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
 			Expect(out.Channels[0].Precision).To(Equal(int32(2)))
 			Expect(out.Channels[0].Alias).To(Equal("temp"))
-			Expect(out.Channels[1].Channel).To(Equal(channel.Key(5)))
+			Expect(out.Channels[1].Channel).To(BeEquivalentTo(5))
 			Expect(out.Channels[1].Color).To(Equal(color.Color{}))
 			Expect(out.TimestampPrecision).To(Equal(int32(1)))
 			Expect(out.HideChannelNames).To(BeFalse())
@@ -226,7 +225,7 @@ var _ = Describe("MigrateLog", func() {
 			))
 			Expect(out.Name).To(Equal("Invalid Color"))
 			Expect(out.Channels).To(HaveLen(1))
-			Expect(out.Channels[0].Channel).To(Equal(channel.Key(1)))
+			Expect(out.Channels[0].Channel).To(BeEquivalentTo(1))
 			Expect(out.Channels[0].Color).To(Equal(color.Color{}))
 		})
 
@@ -236,9 +235,9 @@ var _ = Describe("MigrateLog", func() {
 			))
 			Expect(out.Name).To(Equal("Test Log V0"))
 			Expect(out.Channels).To(HaveLen(3))
-			Expect(out.Channels[0].Channel).To(Equal(channel.Key(1)))
-			Expect(out.Channels[1].Channel).To(Equal(channel.Key(2)))
-			Expect(out.Channels[2].Channel).To(Equal(channel.Key(3)))
+			Expect(out.Channels[0].Channel).To(BeEquivalentTo(1))
+			Expect(out.Channels[1].Channel).To(BeEquivalentTo(2))
+			Expect(out.Channels[2].Channel).To(BeEquivalentTo(3))
 			Expect(out.Channels[0].Notation).To(Equal(notation.NotationStandard))
 		})
 

@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrationConfig contains the dependencies needed by the Phase 2 migration.
 // MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
 	// User retrieves the users whose legacy permission flags are converted.

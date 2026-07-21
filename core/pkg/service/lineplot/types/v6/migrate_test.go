@@ -19,8 +19,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v6"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -48,7 +46,7 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 
 // migrateSeed runs the v6 migration chain over a gorp-seeded v5 line plot and
 // returns the migrated typed LinePlot.
-func migrateSeed(ctx SpecContext, seed v5.LinePlot) lineplot.LinePlot {
+func migrateSeed(ctx SpecContext, seed v5.LinePlot) v6.LinePlot {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v5.LinePlot]{DB: db}))
 	Expect(gorp.NewCreate[uuid.UUID, v5.LinePlot]().Entry(&seed).Exec(ctx, db)).
@@ -58,9 +56,9 @@ func migrateSeed(ctx SpecContext, seed v5.LinePlot) lineplot.LinePlot {
 		Namespace:  "LinePlot",
 		Migrations: v6.Migrations,
 	})).To(Succeed())
-	var got lineplot.LinePlot
-	Expect(gorp.NewRetrieve[lineplot.Key, lineplot.LinePlot]().
-		Where(gorp.MatchKeys[lineplot.Key, lineplot.LinePlot](seed.Key)).
+	var got v6.LinePlot
+	Expect(gorp.NewRetrieve[v6.Key, v6.LinePlot]().
+		Where(gorp.MatchKeys[v6.Key, v6.LinePlot](seed.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
 }
@@ -69,7 +67,7 @@ func migrateSeed(ctx SpecContext, seed v5.LinePlot) lineplot.LinePlot {
 // fixture, or rewrites it if UPDATE_MIGRATED=1 is set. Outputs are
 // canonicalized via json.MarshalIndent (which sorts map keys) so diffs are
 // deterministic.
-func assertMigrated(fixture string, got lineplot.LinePlot) {
+func assertMigrated(fixture string, got v6.LinePlot) {
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
@@ -138,9 +136,9 @@ var _ = Describe("v5 -> current LinePlot migration", func() {
 			Expect(got.Name).To(Equal("Tank Pressure"))
 			Expect(got.Title.Level).To(Equal(text.LevelH4))
 			Expect(got.Channels.X1).To(BeEquivalentTo(1))
-			Expect(got.Channels.Y1).To(ConsistOf(channel.Key(10)))
+			Expect(got.Channels.Y1).To(ConsistOf(BeEquivalentTo(10)))
 			Expect(got.Axes.X1.Type).NotTo(BeNil())
-			Expect(*got.Axes.X1.Type).To(Equal(lineplot.TickTypeTime))
+			Expect(*got.Axes.X1.Type).To(Equal(v6.TickTypeTime))
 			Expect(got.Axes.Y1.Type).To(BeNil())
 			Expect(got.Lines).To(HaveLen(1))
 			Expect(got.Lines[0].Label).NotTo(BeNil())
@@ -179,9 +177,9 @@ var _ = Describe("v5 -> current LinePlot migration", func() {
 			Expect(got.Legend.Position.Units.X).To(BeEquivalentTo("px"))
 			// v2 lift sets x-axes to "time" and flips y-axes labelDirection to "y".
 			Expect(got.Axes.X1.Type).NotTo(BeNil())
-			Expect(*got.Axes.X1.Type).To(Equal(lineplot.TickTypeTime))
+			Expect(*got.Axes.X1.Type).To(Equal(v6.TickTypeTime))
 			Expect(got.Axes.X2.Type).NotTo(BeNil())
-			Expect(*got.Axes.X2.Type).To(Equal(lineplot.TickTypeTime))
+			Expect(*got.Axes.X2.Type).To(Equal(v6.TickTypeTime))
 			Expect(got.Axes.Y1.LabelDirection).To(BeEquivalentTo("y"))
 			Expect(got.Axes.Y4.LabelDirection).To(BeEquivalentTo("y"))
 			Expect(got.Axes.Y1.Type).To(BeNil())
@@ -191,7 +189,7 @@ var _ = Describe("v5 -> current LinePlot migration", func() {
 	// Each spec asserts a single reshape rule. Keep one concern per spec so
 	// failures localize.
 	Describe("lift semantics", func() {
-		migrateV4 := func(ctx SpecContext, body string) lineplot.LinePlot {
+		migrateV4 := func(ctx SpecContext, body string) v6.LinePlot {
 			return migrateSeed(ctx, v5.LinePlot{
 				Key:  uuid.New(),
 				Data: jsonMap(`{"version": "4.0.0", ` + body + `}`),
@@ -223,8 +221,10 @@ var _ = Describe("v5 -> current LinePlot migration", func() {
 		It("Should preserve Channels arrays per axis", func(ctx SpecContext) {
 			out := migrateV4(ctx, `"channels": {"x1": 99, "x2": 0, "y1": [10, 11], "y2": [12], "y3": [], "y4": []}`)
 			Expect(out.Channels.X1).To(BeEquivalentTo(99))
-			Expect(out.Channels.Y1).To(Equal([]channel.Key{10, 11}))
-			Expect(out.Channels.Y2).To(Equal([]channel.Key{12}))
+			Expect(out.Channels.Y1).To(HaveExactElements(
+				BeEquivalentTo(10), BeEquivalentTo(11),
+			))
+			Expect(out.Channels.Y2).To(HaveExactElements(BeEquivalentTo(12)))
 		})
 
 		It("Should preserve Ranges arrays per x-axis", func(ctx SpecContext) {
@@ -282,7 +282,7 @@ var _ = Describe("v5 -> current LinePlot migration", func() {
 			out := migrateV4(ctx, `"lines": [
 				{"key": "l1", "color": "#ff0000", "strokeWidth": 1, "downsample": 4, "downsampleMode": "average"}
 			]`)
-			Expect(out.Lines[0].DownsampleMode).To(Equal(lineplot.DownsampleModeAverage))
+			Expect(out.Lines[0].DownsampleMode).To(Equal(v6.DownsampleModeAverage))
 		})
 
 		It("Should drop the wire-only Rule.Selected field when projecting to the typed Rule", func(ctx SpecContext) {
@@ -291,7 +291,7 @@ var _ = Describe("v5 -> current LinePlot migration", func() {
 			]`)
 			Expect(out.Rules).To(HaveLen(1))
 			Expect(out.Rules[0].Key).To(Equal("r1"))
-			Expect(out.Rules[0].Axis).To(Equal(lineplot.AxisKeyY1))
+			Expect(out.Rules[0].Axis).To(Equal(v6.AxisKeyY1))
 			Expect(out.Rules[0].Position).To(Equal(4.5))
 		})
 

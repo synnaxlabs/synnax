@@ -19,7 +19,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/table"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/table/types/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -55,16 +54,16 @@ func seedV1(ctx SpecContext, seed *v1.Table) *gorp.DB {
 
 // migrateSeed runs the v2 migration chain over a seeded v1 table and returns the
 // migrated typed Table.
-func migrateSeed(ctx SpecContext, seed v1.Table) table.Table {
+func migrateSeed(ctx SpecContext, seed v1.Table) v2.Table {
 	db := seedV1(ctx, &seed)
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Table",
 		Migrations: v2.Migrations,
 	})).To(Succeed())
-	var got table.Table
-	Expect(gorp.NewRetrieve[table.Key, table.Table]().
-		Where(gorp.MatchKeys[table.Key, table.Table](seed.Key)).
+	var got v2.Table
+	Expect(gorp.NewRetrieve[v2.Key, v2.Table]().
+		Where(gorp.MatchKeys[v2.Key, v2.Table](seed.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
 }
@@ -73,7 +72,7 @@ func migrateSeed(ctx SpecContext, seed v1.Table) table.Table {
 // fixture, or rewrites it if UPDATE_MIGRATED=1 is set. Outputs are
 // canonicalized via json.MarshalIndent (which sorts map keys) so diffs are
 // deterministic.
-func assertMigrated(fixture string, got table.Table) {
+func assertMigrated(fixture string, got v2.Table) {
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
@@ -107,7 +106,7 @@ var _ = Describe("v1 -> current Table migration", func() {
 	})
 
 	Describe("v0 reshape semantics", func() {
-		migrateBody := func(ctx SpecContext, body string) table.Table {
+		migrateBody := func(ctx SpecContext, body string) v2.Table {
 			return migrateSeed(ctx, v1.Table{Key: uuid.New(), Data: jsonMap(body)})
 		}
 

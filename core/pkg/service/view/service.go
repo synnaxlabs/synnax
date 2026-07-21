@@ -11,7 +11,6 @@ package view
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/service/view/types"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/view/types"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"

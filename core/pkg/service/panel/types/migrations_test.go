@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/types"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	projecttypes "github.com/synnaxlabs/synnax/pkg/service/project/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -41,7 +40,7 @@ var _ = Describe("Project layout to panel migration", func() {
 	}
 	// stageLayout stages a project's layout blob under its staging key, mirroring the
 	// project migration's Phase 1 so the panel migration finds the layout to convert.
-	stageLayout := func(ctx context.Context, db *gorp.DB, p project.Project) {
+	stageLayout := func(ctx context.Context, db *gorp.DB, p projecttypes.Project) {
 		if len(p.Layout) == 0 {
 			return
 		}
@@ -144,7 +143,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			ontology.ID{Type: ontology.ResourceTypeLog, Key: logKey},
 			ontology.ID{Type: ontology.ResourceTypeTable, Key: tblKey},
 		)
-		stageLayout(ctx, db, project.Project{
+		stageLayout(ctx, db, projecttypes.Project{
 			Key:  projectKey,
 			Name: "Ops",
 			Layout: msgpack.EncodedJSON{
@@ -247,7 +246,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
 				Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
 				Exists(ctx, db))).To(BeTrue())
-			Expect(hasRel(ctx, db, rel(project.OntologyID(projectKey), panelID))).
+			Expect(hasRel(ctx, db, rel(projecttypes.Project{Key: projectKey}.OntologyID(), panelID))).
 				To(BeTrue())
 		}
 
@@ -262,7 +261,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		seedResources(ctx, db, ontology.ID{
 			Type: ontology.ResourceTypeLineplot, Key: lpKey,
 		})
-		stageLayout(ctx, db, project.Project{
+		stageLayout(ctx, db, projecttypes.Project{
 			Key:  uuid.New(),
 			Name: "Ops",
 			Layout: msgpack.EncodedJSON{
@@ -303,12 +302,12 @@ var _ = Describe("Project layout to panel migration", func() {
 
 	It("Should skip corrupt or unmigratable staged layouts", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		stageLayout(ctx, db, project.Project{
+		stageLayout(ctx, db, projecttypes.Project{
 			Key:    uuid.New(),
 			Name:   "Corrupt",
 			Layout: msgpack.EncodedJSON{"mosaics": "garbage"},
 		})
-		stageLayout(ctx, db, project.Project{
+		stageLayout(ctx, db, projecttypes.Project{
 			Key:  uuid.New(),
 			Name: "Unmigratable",
 			Layout: msgpack.EncodedJSON{

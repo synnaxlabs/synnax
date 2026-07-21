@@ -12,7 +12,6 @@ package legacy_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/notation"
@@ -46,7 +45,7 @@ var _ = Describe("MigrateData", func() {
 		}
 		result := MustSucceed(legacy.MigrateData(blob))
 		Expect(result.Channels).To(HaveLen(1))
-		Expect(result.Channels[0].Channel).To(Equal(channel.Key(0)))
+		Expect(result.Channels[0].Channel).To(BeEquivalentTo(0))
 	})
 
 	It("Should lift a v0 payload forward to the latest", func() {
@@ -57,7 +56,7 @@ var _ = Describe("MigrateData", func() {
 		}
 		result := MustSucceed(legacy.MigrateData(blob))
 		Expect(result.Channels).To(HaveLen(3))
-		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+		Expect(result.Channels[0].Channel).To(BeEquivalentTo(1))
 		Expect(result.RemoteCreated).To(BeTrue())
 	})
 
@@ -65,7 +64,7 @@ var _ = Describe("MigrateData", func() {
 		blob := msgpack.EncodedJSON{"channels": []any{1, 2}}
 		result := MustSucceed(legacy.MigrateData(blob))
 		Expect(result.Channels).To(HaveLen(2))
-		Expect(result.Channels[0].Channel).To(Equal(channel.Key(1)))
+		Expect(result.Channels[0].Channel).To(BeEquivalentTo(1))
 	})
 
 	It("Should produce a zero v1.Data for a nil blob", func() {

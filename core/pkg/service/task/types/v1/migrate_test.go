@@ -17,8 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
 	"github.com/synnaxlabs/x/color"
@@ -31,7 +29,7 @@ import (
 )
 
 var _ = Describe("v1 -> current Task migration", func() {
-	migrateSeed := func(ctx SpecContext, seed v0.Task) task.Task {
+	migrateSeed := func(ctx SpecContext, seed v0.Task) v1.Task {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Task]{DB: db}))
 		Expect(gorp.NewCreate[v0.Key, v0.Task]().
@@ -45,9 +43,9 @@ var _ = Describe("v1 -> current Task migration", func() {
 			Namespace:  "Task",
 			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
 		})).To(Succeed())
-		var got task.Task
-		Expect(gorp.NewRetrieve[task.Key, task.Task]().
-			Where(gorp.MatchKeys[task.Key, task.Task](task.Key(seed.Key))).
+		var got v1.Task
+		Expect(gorp.NewRetrieve[v1.Key, v1.Task]().
+			Where(gorp.MatchKeys[v1.Key, v1.Task](seed.Key)).
 			Entry(&got).Exec(ctx, db)).To(Succeed())
 		return got
 	}
@@ -62,7 +60,7 @@ var _ = Describe("v1 -> current Task migration", func() {
 			Snapshot: false,
 		}
 		got := migrateSeed(ctx, seed)
-		Expect(got.Key).To(Equal(task.Key(seed.Key)))
+		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
 		Expect(got.Config).To(Equal(msgpack.EncodedJSON(seed.Config)))
@@ -81,7 +79,7 @@ var _ = Describe("v1 -> current Task migration", func() {
 			Status: &v0.Status{
 				Key:         "task:" + uuid.NewString(),
 				Name:        "running",
-				Variant:     status.VariantSuccess,
+				Variant:     "success",
 				Message:     "task acquiring",
 				Description: "5 channels",
 				Time:        telem.TimeStamp(telem.Now()),
@@ -96,7 +94,7 @@ var _ = Describe("v1 -> current Task migration", func() {
 			},
 		}
 		got := migrateSeed(ctx, seed)
-		Expect(got.Key).To(Equal(task.Key(seed.Key)))
+		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
 		Expect(got.Status).To(BeNil())

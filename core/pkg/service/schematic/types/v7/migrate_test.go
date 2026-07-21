@@ -19,7 +19,6 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v1"
@@ -55,7 +54,7 @@ func rawJSON(s string) json.RawMessage { return json.RawMessage(s) }
 
 // migrateSeed runs the v7 migration chain over a gorp-seeded v6 schematic and
 // returns the migrated typed Schematic.
-func migrateSeed(ctx SpecContext, seed schematicv0.Schematic) schematic.Schematic {
+func migrateSeed(ctx SpecContext, seed schematicv0.Schematic) schematicv1.Schematic {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(
 		ctx, gorp.TableConfig[uuid.UUID, schematicv0.Schematic]{DB: db},
@@ -67,9 +66,9 @@ func migrateSeed(ctx SpecContext, seed schematicv0.Schematic) schematic.Schemati
 		Namespace:  "Schematic",
 		Migrations: schematicv1.Migrations,
 	})).To(Succeed())
-	var got schematic.Schematic
-	Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
-		Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](seed.Key)).
+	var got schematicv1.Schematic
+	Expect(gorp.NewRetrieve[schematicv1.Key, schematicv1.Schematic]().
+		Where(gorp.MatchKeys[schematicv1.Key, schematicv1.Schematic](seed.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
 }
@@ -85,7 +84,7 @@ func stringOr(v any) string {
 // fixture, or rewrites it if UPDATE_MIGRATED=1 is set. Outputs are
 // canonicalized via json.MarshalIndent (which sorts map keys) so diffs are
 // deterministic.
-func assertMigrated(fixture string, got schematic.Schematic) {
+func assertMigrated(fixture string, got schematicv1.Schematic) {
 	pretty := MustSucceed(json.MarshalIndent(got, "", "  "))
 	pretty = append(pretty, '\n')
 	stem := strings.TrimSuffix(fixture, ".json")
@@ -169,7 +168,7 @@ var _ = Describe("v6 -> current Schematic migration", func() {
 					"legend": {"visible": true, "position": {"x": 50, "y": 50, "units": {"x": "px", "y": "px"}}, "colors": {}}
 				}`),
 			})
-			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "outlet"}))
+			Expect(got.Edges[0].Source).To(Equal(schematicv1.Handle{Node: "n1", Param: "outlet"}))
 			Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
 		})
 
@@ -182,7 +181,7 @@ var _ = Describe("v6 -> current Schematic migration", func() {
 					"props": {"n1": {"key": "valve"}}
 				}`),
 			})
-			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "out"}))
+			Expect(got.Edges[0].Source).To(Equal(schematicv1.Handle{Node: "n1", Param: "out"}))
 			Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
 		})
 	})
@@ -190,7 +189,7 @@ var _ = Describe("v6 -> current Schematic migration", func() {
 	// Each spec uses a v5-shaped blob and asserts a single reshape rule from
 	// the v6 console contract. Keep one concern per spec so failures localize.
 	Describe("v5 reshape semantics", func() {
-		migrateV5 := func(ctx SpecContext, body string) schematic.Schematic {
+		migrateV5 := func(ctx SpecContext, body string) schematicv1.Schematic {
 			return migrateSeed(ctx, schematicv0.Schematic{
 				Key:  uuid.New(),
 				Data: jsonMap(`{"version": "5.0.0", "nodes": [], "edges": [], "props": {}, ` + body + `}`),
@@ -206,8 +205,8 @@ var _ = Describe("v6 -> current Schematic migration", func() {
 					"edges": [{"key": "e1", "source": "n1", "target": "n2", "sourceHandle": "outlet", "targetHandle": "inlet"}]
 				}`),
 			})
-			Expect(out.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "outlet"}))
-			Expect(out.Edges[0].Target).To(Equal(schematic.Handle{Node: "n2", Param: "inlet"}))
+			Expect(out.Edges[0].Source).To(Equal(schematicv1.Handle{Node: "n1", Param: "outlet"}))
+			Expect(out.Edges[0].Target).To(Equal(schematicv1.Handle{Node: "n2", Param: "inlet"}))
 		})
 
 		It("Should lift edge.data segments, color, and variant into props keyed by edge id", func(ctx SpecContext) {

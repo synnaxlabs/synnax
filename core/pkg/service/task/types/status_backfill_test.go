@@ -12,14 +12,13 @@ package types_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/synnax/pkg/service/task/types"
+	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -50,24 +49,13 @@ var _ = Describe("Migration v0", func() {
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:           db,
-			Ontology:     otg,
-			Group:        g,
-			HostProvider: mock.NewStaticHostProvider(1),
-			Status:       stat,
-			Search:       searchIdx,
-		}))
 
-		testRack := &rack.Rack{Name: "Migration Test Rack"}
-		Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
-
-		taskKey := task.NewKey(testRack.Key, 99)
-		t := task.Task{
+		taskKey := types.Key(65537<<32 | 99)
+		t := types.Task{
 			Key:  taskKey,
 			Name: "Legacy Task",
 		}
-		Expect(gorp.NewCreate[task.Key, task.Task]().
+		Expect(gorp.NewCreate[types.Key, types.Task]().
 			Entry(&t).
 			Exec(ctx, db)).To(Succeed())
 
@@ -75,7 +63,7 @@ var _ = Describe("Migration v0", func() {
 		// simulating legacy data where the key was encoded as a msgpack
 		// float64 instead of uint64.
 		legacyStatus := status.Status[any]{
-			Key:     task.OntologyID(taskKey).String(),
+			Key:     taskv0.OntologyID(taskKey).String(),
 			Name:    "Legacy Task",
 			Variant: status.VariantSuccess,
 			Message: "Started",
@@ -88,23 +76,20 @@ var _ = Describe("Migration v0", func() {
 		}
 		Expect(status.NewWriter[any](stat, nil).Set(ctx, &legacyStatus)).To(Succeed())
 
-		// Opening the task service triggers the v0.status_backfill migration,
+		// Running the task migrations triggers the v0.status_backfill migration,
 		// which reads existing statuses as Status[StatusDetails]. This would
 		// fail without the flex DecodeMsgpack on the Key type because the
 		// task key is stored as a msgpack float64.
-		MustOpen(task.OpenService(ctx, task.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			Group:    g,
-			Rack:     rackSvc,
-			Status:   stat,
-			Search:   searchIdx,
-		}))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Task",
+			Migrations: types.NewMigrations(types.MigrationsConfig{Status: stat}),
+		})).To(Succeed())
 
 		// Verify the status is readable with the correct typed key.
-		var restoredStatus task.Status
-		Expect(status.NewRetrieve[task.StatusDetails](stat).
-			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(taskKey).String())).
+		var restoredStatus types.Status
+		Expect(status.NewRetrieve[types.StatusDetails](stat).
+			Where(status.MatchKeys[types.StatusDetails](taskv0.OntologyID(taskKey).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Details.Task).To(Equal(taskKey))
