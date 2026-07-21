@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/types/legacy/v1"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
+	notation "github.com/synnaxlabs/x/notation/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 var _ = Describe("Normalize", func() {

@@ -12,8 +12,8 @@ package v1
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
+	notation "github.com/synnaxlabs/x/notation/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 // Version is the imex schema version of log data at this state. The Console stamped it

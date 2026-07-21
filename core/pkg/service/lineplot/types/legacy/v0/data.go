@@ -16,7 +16,7 @@ package v0
 
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
-	"github.com/synnaxlabs/x/color"
+	color "github.com/synnaxlabs/x/color/types/v0"
 )
 
 // Version is the semantic version string written by the console at this state

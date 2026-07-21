@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -27,8 +28,8 @@ const LegacyMappingKVKey = "sy_rbac_legacy_permission_mapping"
 // LegacyUserMapping stores the legacy permission data for a single user,
 // persisted to KV between Phase 1 (extraction) and Phase 2 (role assignment).
 type LegacyUserMapping struct {
-	UserOntologyID ontology.ID `json:"user_ontology_id"`
-	Policies       []Policy    `json:"policies"`
+	UserOntologyID ontologyv0.ID `json:"user_ontology_id"`
+	Policies       []Policy      `json:"policies"`
 }
 
 // Migration (Phase 1) reads legacy policies with Subjects from

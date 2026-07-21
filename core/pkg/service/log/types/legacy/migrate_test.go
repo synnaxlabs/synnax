@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/log/types/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/notation"
+	notation "github.com/synnaxlabs/x/notation/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 

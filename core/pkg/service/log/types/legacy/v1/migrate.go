@@ -11,8 +11,8 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/types/legacy/v0"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
+	notation "github.com/synnaxlabs/x/notation/types/v0"
+	telem "github.com/synnaxlabs/x/telem/types/v0"
 )
 
 // Migrate lifts a typed v0.Data into a v1.Data, applying the v0→v1 schema
