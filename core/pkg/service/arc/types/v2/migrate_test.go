@@ -13,8 +13,22 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	graphv0 "github.com/synnaxlabs/arc/graph/types/v0"
+	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
+	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
+	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	"github.com/synnaxlabs/x/telem"
+	telemv0 "github.com/synnaxlabs/x/telem/types/v0"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("v1 -> current Arc migration", func() {
@@ -35,5 +49,163 @@ var _ = Describe("v1 -> current Arc migration", func() {
 			Mode: v0.ModeGraph,
 		})
 		Expect(got.Text.Materialize().Raw).To(Equal(""))
+	})
+})
+
+// migrateFromV0 runs the full arc migration chain over a gorp-seeded v0 arc and
+// returns the migrated current Arc.
+func migrateFromV0(ctx SpecContext, seed v0.Arc) v2.Arc {
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
+	Expect(gorp.NewCreate[v0.Key, v0.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:        db,
+		Namespace: "Arc",
+		Migrations: append(
+			append([]migrate.Migration{}, v1.Migrations...), v2.Migration,
+		),
+	})).To(Succeed())
+	var got v2.Arc
+	Expect(gorp.NewRetrieve[v2.Key, v2.Arc]().
+		Where(gorp.MatchKeys[v2.Key, v2.Arc](seed.Key)).
+		Entry(&got).Exec(ctx, db)).To(Succeed())
+	return got
+}
+
+var _ = Describe("v0 -> current Arc migration", func() {
+	It("rewrites v0-encoded entries through the new codec", func(ctx SpecContext) {
+		seed := v0.Arc{
+			Key:  uuid.New(),
+			Name: "Seed",
+			Mode: v0.ModeText,
+			Text: textv0.Text{Raw: "channel x; 1 -> x"},
+			Graph: graphv0.Graph{
+				Viewport: graphv0.Viewport{
+					Position: spatialv0.XY{X: 12, Y: -34},
+					Zoom:     1.5,
+				},
+				Functions: irv0.Functions{
+					{Key: "scale", Body: irv0.Body{Raw: "x * 2"}},
+				},
+				Edges: irv0.Edges{
+					{
+						Source: irv0.Handle{Node: "n1", Param: "out"},
+						Target: irv0.Handle{Node: "n2", Param: "in"},
+						Kind:   irv0.EdgeKindContinuous,
+					},
+				},
+				Nodes: graphv0.Nodes{
+					{Key: "n1", Type: "scale", Position: spatialv0.XY{X: 0, Y: 0}},
+					{Key: "n2", Type: "scale", Position: spatialv0.XY{X: 100, Y: 50}},
+				},
+			},
+		}
+		got := migrateFromV0(ctx, seed)
+		Expect(got.Key).To(Equal(seed.Key))
+		Expect(got.Name).To(Equal(seed.Name))
+		Expect(got.Mode).To(Equal(v2.Mode(seed.Mode)))
+		Expect(got.Text.Materialize().Raw).To(Equal(seed.Text.Raw))
+		Expect(got.Graph.Functions).To(HaveLen(1))
+		Expect(got.Graph.Functions[0].Key).To(Equal("scale"))
+		Expect(got.Graph.Functions[0].Body.Raw).To(Equal("x * 2"))
+		Expect(got.Graph.Edges).To(HaveLen(1))
+		Expect(got.Graph.Edges[0].Source.Node).To(Equal("n1"))
+		Expect(got.Graph.Edges[0].Target.Param).To(Equal("in"))
+		Expect(got.Graph.Nodes).To(HaveLen(2))
+		Expect(got.Graph.Nodes[1].Position.X).To(Equal(100.0))
+		Expect(got.Program).To(BeNil())
+		Expect(got.Status).To(BeNil())
+	})
+
+	It("rewrites deprecated set_status graph nodes to status.set", func(ctx SpecContext) {
+		seed := v0.Arc{
+			Key:  uuid.New(),
+			Name: "Legacy Status Graph",
+			Mode: v0.ModeGraph,
+			Graph: graphv0.Graph{
+				Nodes: graphv0.Nodes{
+					{
+						Key:  "alarm",
+						Type: "set_status",
+						Config: msgpack.EncodedJSON{
+							"statusKey":   "ox_alarm",
+							"variant":     "error",
+							"message":     "Overpressure",
+							"description": "dropped on migrate",
+						},
+						Position: spatialv0.XY{X: 0, Y: 0},
+					},
+					{
+						Key:      "scale",
+						Type:     "scale",
+						Config:   msgpack.EncodedJSON{"factor": "2"},
+						Position: spatialv0.XY{X: 100, Y: 0},
+					},
+				},
+			},
+		}
+		got := migrateFromV0(ctx, seed)
+		Expect(got.Graph.Nodes).To(HaveLen(2))
+
+		_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
+		alarmCfg := got.Graph.Inputs["alarm"]
+		Expect(alarmCfg["type"]).To(Equal("status.set"))
+		Expect(alarmCfg["key_or_name"]).To(Equal("ox_alarm"))
+		Expect(alarmCfg["variant"]).To(Equal("error"))
+		Expect(alarmCfg["message"]).To(Equal("Overpressure"))
+		Expect(alarmCfg).ToNot(HaveKey("statusKey"))
+		Expect(alarmCfg).ToNot(HaveKey("description"))
+
+		_ = MustBeOk(got.Graph.Nodes.Find("scale"))
+		scaleCfg := got.Graph.Inputs["scale"]
+		Expect(scaleCfg["type"]).To(Equal("scale"))
+		Expect(scaleCfg["factor"]).To(Equal("2"))
+	})
+
+	It("defaults missing set_status config parameters", func(ctx SpecContext) {
+		seed := v0.Arc{
+			Key:  uuid.New(),
+			Name: "Bare Status Node",
+			Mode: v0.ModeGraph,
+			Graph: graphv0.Graph{
+				Nodes: graphv0.Nodes{{Key: "alarm", Type: "set_status"}},
+			},
+		}
+		got := migrateFromV0(ctx, seed)
+		_ = MustBeOk(got.Graph.Nodes.Find("alarm"))
+		alarmCfg := got.Graph.Inputs["alarm"]
+		Expect(alarmCfg["type"]).To(Equal("status.set"))
+		Expect(alarmCfg["key_or_name"]).To(Equal(""))
+		Expect(alarmCfg["variant"]).To(Equal("success"))
+		Expect(alarmCfg["message"]).To(Equal(""))
+	})
+
+	It("drops Status and Program and preserves core wire fields when v0 entries carry a populated Status", func(ctx SpecContext) {
+		statusKey := uuid.New().String()
+		labelKey := uuid.New()
+		seed := v0.Arc{
+			Key:  uuid.New(),
+			Name: "Loaded Seed",
+			Mode: v0.ModeGraph,
+			Text: textv0.Text{Raw: ""},
+			Status: &v0.Status{
+				Key:         statusKey,
+				Name:        "running",
+				Variant:     "success",
+				Message:     "task is running",
+				Description: "started 5s ago",
+				Time:        telemv0.TimeStamp(telem.Now()),
+				Details:     v0.StatusDetails{Running: true},
+				Labels: []labelv0.Label{
+					{Key: labelKey, Name: "critical", Color: color.Color{R: 255, A: 1}},
+				},
+			},
+		}
+		got := migrateFromV0(ctx, seed)
+		Expect(got.Key).To(Equal(seed.Key))
+		Expect(got.Name).To(Equal(seed.Name))
+		Expect(got.Mode).To(Equal(v2.Mode(seed.Mode)))
+		Expect(got.Status).To(BeNil())
+		Expect(got.Program).To(BeNil())
 	})
 })
