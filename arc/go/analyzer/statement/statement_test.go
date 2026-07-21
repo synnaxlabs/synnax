@@ -129,10 +129,20 @@ var _ = Describe("Statement", func() {
 		})
 
 		Context("stateful variables", func() {
-			It("should analyze a stateful variable with inferred type", func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement(`counter $= 0`))
+			analyzeInStage := func(
+				bCtx SpecContext, code string,
+			) context.Context[parser.IStatementContext] {
+				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+				ctx.Scope = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
+					Name: "s1", Kind: symbol.KindStage,
+				}))
 				statement.Analyze(ctx)
+				return ctx
+			}
+
+			It("should analyze a stateful variable with inferred type", func(bCtx SpecContext) {
+				ctx := analyzeInStage(bCtx, `counter $= 0`)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "counter"))
@@ -143,13 +153,20 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("should analyze stateful variable with explicit type", func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement(`total f32 $= 0.0`))
-				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
-				statement.Analyze(ctx)
+				ctx := analyzeInStage(bCtx, `total f32 $= 0.0`)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "total"))
 				Expect(sym.Type).To(Equal(types.F32()))
+			})
+
+			It("rejects a stateful variable declared at the top level", func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement(`counter $= 0`))
+				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"stateful variables cannot be declared at the top level"))
 			})
 		})
 
@@ -158,11 +175,19 @@ var _ = Describe("Statement", func() {
 			sensorChan := []symbol.Symbol{
 				{Kind: symbol.KindChannel, Name: "sensor", Type: types.Chan(types.F64())},
 			}
+			// Declarations go into a stage child; top-level statefuls are illegal.
 			declareIn := func(
 				bCtx SpecContext, root *symbol.Symbol, code string,
 			) context.Context[parser.IVariableDeclarationContext] {
+				stage := root.FindChild("body")
+				if stage == nil {
+					stage = MustSucceed(root.Add(bCtx, symbol.Symbol{
+						Name: "body", Kind: symbol.KindStage,
+					}))
+				}
 				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.NewRoot(bCtx, stmt.VariableDeclaration(), root)
+				ctx.Scope = stage
 				statement.AnalyzeVariableDeclaration(ctx)
 				return ctx
 			}
@@ -285,11 +310,16 @@ var _ = Describe("Statement", func() {
 
 		It("validates an assignment through the exported entry point", func(bCtx SpecContext) {
 			root := NewRoot(nil)
+			stage := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "s1", Kind: symbol.KindStage,
+			}))
 			decl := MustSucceed(parser.ParseStatement("x := 42"))
-			statement.AnalyzeVariableDeclaration(
-				context.NewRoot(bCtx, decl.VariableDeclaration(), root))
+			declCtx := context.NewRoot(bCtx, decl.VariableDeclaration(), root)
+			declCtx.Scope = stage
+			statement.AnalyzeVariableDeclaration(declCtx)
 			assign := MustSucceed(parser.ParseStatement("x = 99"))
 			ctx := context.NewRoot(bCtx, assign.Assignment(), root)
+			ctx.Scope = stage
 			statement.AnalyzeAssignment(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
@@ -301,25 +331,33 @@ var _ = Describe("Statement", func() {
 			{Kind: symbol.KindChannel, Name: "backup", Type: types.Chan(types.F64())},
 			{Kind: symbol.KindChannel, Name: "wave", Type: types.Chan(types.Series(types.F64()))},
 		}
-		declare := func(bCtx SpecContext, root *symbol.Symbol, code string) {
+		declareIn := func(bCtx SpecContext, root, scope *symbol.Symbol, code string) {
 			stmt := MustSucceed(parser.ParseStatement(code))
 			ctx := context.NewRoot(bCtx, stmt.VariableDeclaration(), root)
+			ctx.Scope = scope
 			statement.AnalyzeVariableDeclaration(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		}
-		assign := func(
-			bCtx SpecContext, root *symbol.Symbol, code string,
+		assignIn := func(
+			bCtx SpecContext, root, scope *symbol.Symbol, code string,
 		) context.Context[parser.IAssignmentContext] {
 			stmt := MustSucceed(parser.ParseStatement(code))
 			ctx := context.NewRoot(bCtx, stmt.Assignment(), root)
+			ctx.Scope = scope
 			statement.AnalyzeAssignment(ctx)
 			return ctx
+		}
+		newStage := func(bCtx SpecContext, root *symbol.Symbol) *symbol.Symbol {
+			return MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "s1", Kind: symbol.KindStage,
+			}))
 		}
 
 		It("Should rebind a channel alias to a matching channel", func(bCtx SpecContext) {
 			root := NewRoot(nil, channels...)
-			declare(bCtx, root, "a := sensor")
-			ctx := assign(bCtx, root, "a = backup")
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "a := sensor")
+			ctx := assignIn(bCtx, root, stage, "a = backup")
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			alias := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
 			Expect(alias.Reassigned).To(BeTrue())
@@ -330,8 +368,9 @@ var _ = Describe("Statement", func() {
 
 		It("Should reject rebinding an alias to a channel of another structure", func(bCtx SpecContext) {
 			root := NewRoot(nil, channels...)
-			declare(bCtx, root, "a := sensor")
-			ctx := assign(bCtx, root, "a = wave")
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "a := sensor")
+			ctx := assignIn(bCtx, root, stage, "a = wave")
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(
 				ContainSubstring("type mismatch: cannot rebind"))
@@ -340,19 +379,57 @@ var _ = Describe("Statement", func() {
 
 		It("Should re-point a channel-read variable at a new derivation", func(bCtx SpecContext) {
 			root := NewRoot(nil, channels...)
-			declare(bCtx, root, "x := sensor + 1")
-			ctx := assign(bCtx, root, "x = sensor * 2")
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "x := sensor + 1")
+			ctx := assignIn(bCtx, root, stage, "x = sensor * 2")
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeTrue())
 		})
 
 		It("Should reject re-pointing a channel-read variable at another structure", func(bCtx SpecContext) {
 			root := NewRoot(nil, channels...)
-			declare(bCtx, root, "x := sensor + 1")
-			ctx := assign(bCtx, root, "x = [1.0, 2.0]")
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "x := sensor + 1")
+			ctx := assignIn(bCtx, root, stage, "x = [1.0, 2.0]")
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect((*ctx.Diagnostics)[0].Message).To(
 				ContainSubstring("type mismatch: cannot reassign"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
+		})
+
+		It("Should reject reassigning a top-level variable", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declareIn(bCtx, root, root, "gain := 2")
+			stage := newStage(bCtx, root)
+			ctx := assignIn(bCtx, root, stage, "gain = 3")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("cannot reassign top-level variable 'gain'"))
+			ctx = assignIn(bCtx, root, stage, "gain += 1")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("cannot reassign top-level variable 'gain'"))
+		})
+
+		It("Should reject rebinding a top-level alias", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declareIn(bCtx, root, root, "a := sensor")
+			stage := newStage(bCtx, root)
+			ctx := assignIn(bCtx, root, stage, "a = backup")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("cannot rebind top-level variable 'a'"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "a")).Reassigned).To(BeFalse())
+		})
+
+		It("Should reject re-pointing a top-level channel-read variable", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declareIn(bCtx, root, root, "x := sensor + 1")
+			stage := newStage(bCtx, root)
+			ctx := assignIn(bCtx, root, stage, "x = sensor * 2")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("cannot reassign top-level variable 'x'"))
 			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
 		})
 	})

@@ -230,6 +230,30 @@ var _ = Describe("Text", func() {
 			Expect(hasEdge(inter, constKey, writeKey)).To(BeTrue())
 		})
 
+		It("Should reject a top-level stateful variable declaration", func(ctx SpecContext) {
+			source := `total i64 $= 0`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring(
+				"stateful variables cannot be declared at the top level"))
+		})
+
+		It("Should reject a flow write to a top-level variable", func(ctx SpecContext) {
+			source := `
+			k i64 := 5
+			sequence main {
+				stage s1 {
+					count_ch -> k
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(
+				ContainSubstring("cannot write to top-level variable"))
+		})
+
 		It("Should lower a written stateful variable to a stateful_variable node", func(ctx SpecContext) {
 			source := `
 			sequence main {

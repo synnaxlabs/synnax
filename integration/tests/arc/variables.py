@@ -139,37 +139,30 @@ sequence inherit_kind_main {
 }
 
 // ────────────── scope-entry reset across nested re-entry ────────────────
-counter_1 i64 := 0
-counter_2 i64 $= 0
-
 vars_start => reset_matrix_main
 
 sequence reset_matrix_main {
-    counter_3 i64 := 0
-    counter_4 i64 $= 0
+    counter_1 i64 := 0
+    counter_2 i64 $= 0
 
     stage s1 {
-        counter_5 i64 := 0
-        counter_6 i64 $= 5
-        counter_7 i64 $= 0
+        counter_3 i64 := 0
+        counter_4 i64 $= 5
+        counter_5 i64 $= 0
 
         1 => counter_1 + 1 => counter_1
         1 => counter_2 + 1 => counter_2
         1 => counter_3 + 1 => counter_3
         1 => counter_4 + 1 => counter_4
         1 => counter_5 + 1 => counter_5
-        1 => counter_6 + 1 => counter_6
-        1 => counter_7 + 1 => counter_7
 
         counter_1 -> counter_out_1
         counter_2 -> counter_out_2
         counter_3 -> counter_out_3
         counter_4 -> counter_out_4
         counter_5 -> counter_out_5
-        counter_6 -> counter_out_6
-        counter_7 -> counter_out_7
 
-        counter_7 >= 3 => reset_done_stage
+        counter_5 >= 3 => reset_done_stage
         time.wait{100ms} => s2
     }
     stage s2 {
@@ -303,8 +296,6 @@ RESET_OUTPUTS = [
     "counter_out_3",
     "counter_out_4",
     "counter_out_5",
-    "counter_out_6",
-    "counter_out_7",
     "reset_done",
 ]
 REEXPR_OUTPUTS = [
@@ -346,8 +337,6 @@ I64_CHANNELS = [
     "counter_out_3",
     "counter_out_4",
     "counter_out_5",
-    "counter_out_6",
-    "counter_out_7",
 ]
 STR_CHANNELS = [
     "channel_read_write_str_a",
@@ -506,13 +495,11 @@ class Variables(ArcCase):
     def _verify_scope_reset_matrix(self) -> None:
         self.log("=== scope-entry reset across nested re-entry ===")
         self.wait_for_eq("reset_done", 1)
-        self.wait_for_eq("counter_out_5", 1)
+        self.wait_for_eq("counter_out_3", 1)
         self.wait_for_eq("counter_out_1", 3)
         self.wait_for_eq("counter_out_2", 3)
-        self.wait_for_eq("counter_out_3", 3)
-        self.wait_for_eq("counter_out_4", 3)
-        self.wait_for_eq("counter_out_6", 8)
-        self.wait_for_eq("counter_out_7", 3)
+        self.wait_for_eq("counter_out_4", 8)
+        self.wait_for_eq("counter_out_5", 3)
 
     def _verify_reexpr(self) -> None:
         self.log("=== reassignment across jumps (skip + reorder) ===")

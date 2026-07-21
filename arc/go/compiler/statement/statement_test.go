@@ -156,7 +156,11 @@ var _ = Describe("Statement Compiler", func() {
 	Describe("Stateful Variables", func() {
 		It("Should compile stateful variable declaration with explicit type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -173,7 +177,11 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable declaration with inferred type", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("count $= 0"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())
@@ -293,7 +301,11 @@ var _ = Describe("Statement Compiler", func() {
 
 		It("Should compile stateful variable with different types", func(bCtx SpecContext) {
 			stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
-			aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
+			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			aCtx := acontext.NewRoot(bCtx, stmt, fn)
 			analyzer.AnalyzeStatement(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 			ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, resolve.NewResolver())

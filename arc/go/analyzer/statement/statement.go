@@ -360,6 +360,11 @@ func getChannelSourceFromExpr[ASTNode antlr.ParserRuleContext](
 }
 
 func analyzeStatefulVariable(ctx context.Context[parser.IStatefulVariableContext]) {
+	if ctx.Scope == ctx.Scope.Root() {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"stateful variables cannot be declared at the top level"))
+		return
+	}
 	name := ctx.AST.IDENTIFIER().GetText()
 	expr := ctx.AST.Expression()
 	varType := analyzeVariableDeclarationType(
@@ -850,6 +855,11 @@ func analyzeAliasRebind(
 	ctx context.Context[parser.IAssignmentContext],
 	alias, rhs *symbol.Symbol,
 ) {
+	if alias.Parent == alias.Root() {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"cannot rebind top-level variable '%s'", alias.Name))
+		return
+	}
 	if !types.StructuralMatch(alias.Type.Unwrap(), rhs.Type.Unwrap()) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 			"type mismatch: cannot rebind '%s' (%s) to '%s' (%s)",
@@ -1228,6 +1238,16 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST, "cannot assign to loop variable '%s'", name,
 		))
+		return
+	}
+
+	// Top-level variables are immutable;
+	isChanAlias := varScope.Type.Kind == types.KindChan && varScope.SourceID != nil
+	if !isChanAlias && varScope.Parent == varScope.Root() &&
+		(varScope.Kind == symbol.KindVariable ||
+			varScope.Kind == symbol.KindStatefulVariable) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"cannot reassign top-level variable '%s'", name))
 		return
 	}
 

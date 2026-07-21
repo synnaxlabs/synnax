@@ -505,27 +505,27 @@ func cat() {
 			server, uri = SetupTestServer(lsp.Config{
 				NewRoot: func() *symbol.Symbol { return NewRoot(nil, channels...) },
 			})
-			OpenArcDocument(server, ctx, uri, "count := 0\ntotal $= 0\ncpu := sensorData\nrate := sensorData + 1.0\n")
+			OpenArcDocument(server, ctx, uri, "stage s {\ncount := 0\ntotal $= 0\ncpu := sensorData\nrate := sensorData + 1.0\n}\n")
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 
 			value := filterByType(tokens, tokenTypeVariable)
 			Expect(value).To(HaveLen(1))
-			Expect(value[0].Line).To(Equal(uint32(0)))
+			Expect(value[0].Line).To(Equal(uint32(1)))
 
 			stateful := filterByType(tokens, tokenTypeStatefulVariable)
 			Expect(stateful).To(HaveLen(1))
-			Expect(stateful[0].Line).To(Equal(uint32(1)))
+			Expect(stateful[0].Line).To(Equal(uint32(2)))
 
 			channelReadWrite := filterByType(tokens, tokenTypeChannelReadWrite)
 			Expect(channelReadWrite).To(HaveLen(1))
 			Expect(channelReadWrite[0]).To(Equal(decodedToken{
-				Line: 2, StartChar: 0, Length: 3, TokenType: tokenTypeChannelReadWrite,
+				Line: 3, StartChar: 0, Length: 3, TokenType: tokenTypeChannelReadWrite,
 			}))
 
 			channelRead := filterByType(tokens, tokenTypeChannelRead)
 			Expect(channelRead).To(HaveLen(1))
 			Expect(channelRead[0]).To(Equal(decodedToken{
-				Line: 3, StartChar: 0, Length: 4, TokenType: tokenTypeChannelRead,
+				Line: 4, StartChar: 0, Length: 4, TokenType: tokenTypeChannelRead,
 			}))
 		})
 

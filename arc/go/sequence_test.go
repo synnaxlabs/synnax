@@ -3250,14 +3250,14 @@ var _ = Describe("Sequence", func() {
 			Expect(lastString(out, 102)).To(Equal("updated"))
 		})
 
-		It("Reassigns a top-level-declared variable from inside a stage", func(ctx SpecContext) {
+		It("Reassigns a sequence-declared variable from inside a stage", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"out":       {types.String(), 102},
 			})
 			h := newRuntimeHarness(ctx, `
-				my_var := "top"
 				sequence s {
+				    my_var := "top"
 				    stage write {
 				        my_var = "updated"
 				        my_var -> out
@@ -4162,9 +4162,9 @@ var _ = Describe("Sequence", func() {
 				"log_s": {types.String(), 102},
 			})
 			h := newRuntimeHarness(ctx, `import time
-				counter_c := 0
-				counter_s $= 0
 				sequence main {
+				    counter_c := 0
+				    counter_s $= 0
 				    stage s1 {
 				        1 => counter_c + 1 => counter_c
 				        1 => counter_s + 1 => counter_s
