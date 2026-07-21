@@ -16,13 +16,11 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -80,13 +78,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[Key, Project](ctx, gorp.TableConfig[Key, Project]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v1.CodecMigration,
-			WorkspaceToProjectMigration(),
-			LayoutsToStagingMigration(),
-			RemoveAuthorRelationshipsMigration(cfg.Ontology),
-		},
+		DB:              cfg.DB,
+		Migrations:      migrations(cfg.Ontology),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

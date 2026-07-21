@@ -19,12 +19,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/task/types"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -119,12 +117,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0.Migration(v0.MigrationConfig{Status: cfg.Status}),
-			v2.CodecMigration,
-			v2.Migration,
-		},
+		DB:              cfg.DB,
+		Migrations:      types.Migrations(types.MigrationConfig{Status: cfg.Status}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

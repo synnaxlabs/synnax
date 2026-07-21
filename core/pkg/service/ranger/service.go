@@ -21,15 +21,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger/types"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
@@ -118,15 +116,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Range]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0.Migration(v0.MigrationConfig{
-				Ontology:        cfg.Ontology,
-				Group:           cfg.Group,
-				Instrumentation: cfg.Instrumentation,
-			}),
-			v1.CodecMigration,
-			v1.ColorNullableMigration(),
-		},
+		Migrations: types.Migrations(types.MigrationConfig{
+			Ontology:        cfg.Ontology,
+			Group:           cfg.Group,
+			Instrumentation: cfg.Instrumentation,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

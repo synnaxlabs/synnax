@@ -318,3 +318,8 @@ func ProjectLayoutsMigration() migrate.Migration {
 		v0.CodecMigration.Key(),
 	)
 }
+
+// migrations returns the ordered migration chain for stored panels.
+func migrations() []migrate.Migration {
+	return []migrate.Migration{v0.CodecMigration, ProjectLayoutsMigration()}
+}

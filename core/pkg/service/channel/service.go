@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -28,17 +28,16 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/types"
+	xtypes "github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // IntOverflowChecker reports whether a channel causes an integer overflow.
-type IntOverflowChecker = func(types.Uint20) error
+type IntOverflowChecker = func(xtypes.Uint20) error
 
 // ServiceConfig configures the service-layer channel service.
 type ServiceConfig struct {
@@ -153,7 +152,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{v0.CodecMigration},
+		Migrations:      types.Migrations(),
 		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -228,7 +227,7 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 			continue
 		}
 		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
-		if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
+		if err := s.cfg.IntOverflowCheck(xtypes.Uint20(channelNumber)); err != nil {
 			return err
 		}
 	}

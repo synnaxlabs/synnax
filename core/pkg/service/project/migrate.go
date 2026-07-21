@@ -282,3 +282,13 @@ func RemoveAuthorRelationshipsMigration(otg *ontology.Ontology) migrate.Migratio
 		workspaceToProjectMigrationKey,
 	)
 }
+
+// migrations returns the ordered migration chain for stored projects.
+func migrations(otg *ontology.Ontology) []migrate.Migration {
+	return []migrate.Migration{
+		v1.CodecMigration,
+		WorkspaceToProjectMigration(),
+		LayoutsToStagingMigration(),
+		RemoveAuthorRelationshipsMigration(otg),
+	}
+}

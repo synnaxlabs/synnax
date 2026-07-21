@@ -18,8 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/rack/types"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -27,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -143,14 +141,10 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Rack]{
 		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0.Migration(v0.MigrationConfig{
-				HostProvider: cfg.HostProvider,
-				Status:       cfg.Status,
-			}),
-			v2.CodecMigration,
-			v2.Migration,
-		},
+		Migrations: types.Migrations(types.MigrationConfig{
+			HostProvider: cfg.HostProvider,
+			Status:       cfg.Status,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

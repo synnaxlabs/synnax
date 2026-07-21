@@ -16,13 +16,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/group/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/group/types"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -72,7 +71,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	}
 	table, err := gorp.OpenTable[Key, Group](ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{v0.CodecMigration},
+		Migrations:      types.Migrations(),
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {

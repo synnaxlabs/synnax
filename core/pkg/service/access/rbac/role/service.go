@@ -14,7 +14,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types/v0"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -82,7 +81,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Role]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{v0.CodecMigration},
+		Migrations:      types.Migrations(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

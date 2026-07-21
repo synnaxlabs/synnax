@@ -14,15 +14,13 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -77,7 +75,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Policy]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
-		Migrations:      []migrate.Migration{v0.Migration(), v1.CodecMigration},
+		Migrations:      types.Migrations(),
 	}); err != nil {
 		return nil, err
 	}
