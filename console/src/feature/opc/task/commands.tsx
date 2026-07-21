@@ -7,29 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
-import { Access, Icon } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/pluto";
 
 import { READ_TYPE, WRITE_TYPE } from "@/feature/opc/task/types";
-import { Command } from "@/platform/command";
 import { Task } from "@/platform/task";
 
-const useVisible = () => Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-
-const CreateReadCommand = Command.create({
+const CreateReadCommand = Task.createCommand({
   key: "opc_ua_create_read_task",
   name: "Create an OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenTab(READ_TYPE),
-  useVisible,
+  type: READ_TYPE,
 });
 
-const CreateWriteCommand = Command.create({
+const CreateWriteCommand = Task.createCommand({
   key: "opc_ua_create_write_task",
   name: "Create an OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  useOnSelect: Task.createOpenTab(WRITE_TYPE),
-  useVisible,
+  type: WRITE_TYPE,
 });
 
 export const COMMANDS = [CreateReadCommand, CreateWriteCommand];
