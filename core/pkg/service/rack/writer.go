@@ -42,7 +42,7 @@ type Writer struct {
 func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 	if r.Status == nil {
 		return &status.Status[StatusDetails]{
-			Key:     (r.Key).OntologyID().String(),
+			Key:     r.Key.OntologyID().String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
 			Variant: status.VariantWarning,
@@ -51,7 +51,7 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 		}
 	}
 	stat := status.Status[StatusDetails](*r.Status)
-	stat.Key = (r.Key).OntologyID().String()
+	stat.Key = r.Key.OntologyID().String()
 	stat.Details.Rack = r.Key
 	stat.Name = r.Name
 	return &stat
@@ -90,7 +90,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	otgID := (r.Key).OntologyID()
+	otgID := r.Key.OntologyID()
 	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
 	}
@@ -130,7 +130,7 @@ func (w Writer) DeleteGuard(ctx context.Context, key Key, guard gorp.GuardFunc[K
 	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Rack](key)).Guard(guard).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.status.Delete(ctx, (key).OntologyID().String())
+	return w.status.Delete(ctx, key.OntologyID().String())
 }
 
 // NewTaskKey returns a new, unique key for the task on the provided rack.

@@ -663,7 +663,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 50 * time.Millisecond,
 			}))
 
-			statusKey := (embeddedRackKey(ctx)).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).OntologyID().String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
 				g.Expect(statusSvc.NewRetrieve().
@@ -688,7 +688,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := (embeddedRackKey(ctx)).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).OntologyID().String()
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
@@ -724,7 +724,7 @@ var _ = Describe("Driver", func() {
 				HeartbeatInterval: 25 * time.Millisecond,
 			}))
 
-			statusKey := (embeddedRackKey(ctx)).OntologyID().String()
+			statusKey := embeddedRackKey(ctx).OntologyID().String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
 				g.Expect(statusSvc.NewRetrieve().
