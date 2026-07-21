@@ -69,6 +69,6 @@ type StatusDetails struct {
 	Running bool `json:"running" msgpack:"running"`
 }
 
-func (e Arc) GorpKey() Key { return e.Key }
+func (a Arc) GorpKey() Key { return a.Key }
 
 func (e Arc) SetOptions() []any { return nil }

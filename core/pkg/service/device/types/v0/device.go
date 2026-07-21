@@ -64,8 +64,8 @@ type Device struct {
 
 var _ gorp.Entry[Key] = Device{}
 
-func (d Device) GorpKey() Key      { return d.Key }
-func (d Device) SetOptions() []any { return nil }
+func (d Device) GorpKey() Key    { return d.Key }
+func (Device) SetOptions() []any { return nil }
 
 func OntologyID(key string) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeDevice, Key: key}

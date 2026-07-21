@@ -17,4 +17,4 @@ var _ gorp.Entry[Key] = Label{}
 func (l Label) GorpKey() Key { return l.Key }
 
 // SetOptions implements gorp.Entry.
-func (l Label) SetOptions() []any { return nil }
+func (Label) SetOptions() []any { return nil }

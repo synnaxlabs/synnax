@@ -11,6 +11,5 @@ package v0
 
 import "github.com/synnaxlabs/synnax/pkg/distribution/node"
 
-// Key is a 12-bit unsigned integer that uniquely identifies a Node within a
-// cluster. Re-exported from [node.Key].
+// Key is a 12-bit unsigned integer that uniquely identifies a Node within a cluster.
 type Key = node.Key

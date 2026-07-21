@@ -28,7 +28,7 @@ func (u User) OntologyID() ontology.ID {
 func (u User) GorpKey() Key { return u.Key }
 
 // SetOptions implements gorp.Entry.
-func (u User) SetOptions() []any { return nil }
+func (User) SetOptions() []any { return nil }
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
 // msgpack field names (e.g. "Key", "Username") and new lowercase field names for

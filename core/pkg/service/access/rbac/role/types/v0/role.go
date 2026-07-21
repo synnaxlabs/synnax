@@ -20,7 +20,7 @@ var _ gorp.Entry[Key] = Role{}
 func (r Role) GorpKey() Key { return r.Key }
 
 // SetOptions implements the gorp.Entry interface.
-func (r Role) SetOptions() []any { return nil }
+func (Role) SetOptions() []any { return nil }
 
 // OntologyID returns the ontology ID for this role.
 func (r Role) OntologyID() ontology.ID {

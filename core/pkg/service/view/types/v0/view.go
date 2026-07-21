@@ -9,9 +9,7 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/x/gorp"
-)
+import "github.com/synnaxlabs/x/gorp"
 
 var _ gorp.Entry[Key] = View{}
 
@@ -19,4 +17,4 @@ var _ gorp.Entry[Key] = View{}
 func (v View) GorpKey() Key { return v.Key }
 
 // SetOptions implements gorp.Entry.
-func (v View) SetOptions() []any { return nil }
+func (View) SetOptions() []any { return nil }
