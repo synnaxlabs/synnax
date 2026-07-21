@@ -1446,43 +1446,26 @@ func (p *Plugin) generateGenericStructConversion(
 
 	forwardArgs := strings.Join(forwardConverters, ", ")
 	backwardArgs := strings.Join(backwardConverters, ", ")
-	typeArgsStr := "[" + strings.Join(explicitTypeArgs, ", ") + "]"
 
-	var genericGoType string
-	goOutput := output.GetPath(actualStruct, "go")
-	if goOutput != "" {
-		importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
-		if err == nil {
-			alias := naming.DerivePackageName(goOutput)
-			data.imports.AddInternal(alias, importPath)
-			genericGoType = fmt.Sprintf("%s.%s[%s]", alias, structName, strings.Join(explicitTypeArgs, ", "))
+	// The generated Go field type is (an alias of) the instantiated generic:
+	// the forward argument pins every type parameter and the backward result
+	// assigns directly. Backward inference needs a typed converter, so a nil
+	// converter keeps the explicit instantiation.
+	backwardTypeArgs := ""
+	for _, c := range backwardConverters {
+		if c == "nil" {
+			backwardTypeArgs = "[" + strings.Join(explicitTypeArgs, ", ") + "]"
+			break
 		}
 	}
 
-	aliasGoName := naming.GetGoName(originalResolved)
+	deref := ""
 	if isOptional {
-		if genericGoType != "" {
-			forward = fmt.Sprintf("%s%sToPB%s((%s)(*%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
-		} else {
-			forward = fmt.Sprintf("%s%sToPB%s(*%s, %s)", translatorPrefix, structName, typeArgsStr, goField, forwardArgs)
-		}
-		backward = fmt.Sprintf("%s%sFromPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
-		_, isAlias := originalResolved.Form.(resolution.AliasForm)
-		if !isAlias && len(explicitTypeArgs) > 0 {
-			backwardCast = fmt.Sprintf("(*%s.%s[%s])", data.parentAlias, aliasGoName, strings.Join(explicitTypeArgs, ", "))
-		} else {
-			backwardCast = fmt.Sprintf("(*%s.%s)", data.parentAlias, aliasGoName)
-		}
-	} else {
-		if genericGoType != "" {
-			forward = fmt.Sprintf("%s%sToPB%s((%s)(%s), %s)", translatorPrefix, structName, typeArgsStr, genericGoType, goField, forwardArgs)
-		} else {
-			forward = fmt.Sprintf("%s%sToPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, goField, forwardArgs)
-		}
-		backward = fmt.Sprintf("%s%sFromPB%s(%s, %s)", translatorPrefix, structName, typeArgsStr, pbField, backwardArgs)
+		deref = "*"
 	}
-
-	return forward, backward, backwardCast, true
+	forward = fmt.Sprintf("%s%sToPB(%s%s, %s)", translatorPrefix, structName, deref, goField, forwardArgs)
+	backward = fmt.Sprintf("%s%sFromPB%s(%s, %s)", translatorPrefix, structName, backwardTypeArgs, pbField, backwardArgs)
+	return forward, backward, "", true
 }
 
 func (p *Plugin) ensureAnyHelper(s resolution.Type, data *templateData) {

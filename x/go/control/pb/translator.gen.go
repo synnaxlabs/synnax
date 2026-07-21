@@ -172,14 +172,14 @@ func TransferToPB[R comparable](
 	pb := &Transfer{}
 	if r.From != nil {
 		var err error
-		pb.From, err = StateToPB[R]((control.State[R])(*r.From), translateR)
+		pb.From, err = StateToPB(*r.From, translateR)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if r.To != nil {
 		var err error
-		pb.To, err = StateToPB[R]((control.State[R])(*r.To), translateR)
+		pb.To, err = StateToPB(*r.To, translateR)
 		if err != nil {
 			return nil, err
 		}
@@ -197,18 +197,18 @@ func TransferFromPB[R comparable](
 		return r, nil
 	}
 	if pb.From != nil {
-		val, err := StateFromPB[R](pb.From, translateR)
+		val, err := StateFromPB(pb.From, translateR)
 		if err != nil {
 			return control.Transfer[R]{}, err
 		}
-		r.From = (*control.State[R])(&val)
+		r.From = &val
 	}
 	if pb.To != nil {
-		val, err := StateFromPB[R](pb.To, translateR)
+		val, err := StateFromPB(pb.To, translateR)
 		if err != nil {
 			return control.Transfer[R]{}, err
 		}
-		r.To = (*control.State[R])(&val)
+		r.To = &val
 	}
 	return r, nil
 }

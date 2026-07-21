@@ -907,8 +907,8 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("func TransferFromPB[R comparable](").
 					ToContain("func TransfersToPB[R comparable](").
 					ToContain("func TransfersFromPB[R comparable](").
-					ToContain("StateToPB[R]").
-					ToContain("StateFromPB[R]").
+					ToContain("StateToPB(*r.From, translateR)").
+					ToContain("StateFromPB(pb.From, translateR)").
 					ToContain("translateR")
 			})
 
@@ -2024,6 +2024,33 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 
 		Context("generic struct instantiated with a struct type arg", func() {
+			It("Should keep explicit instantiation only for backward conversion with nil converters", func(ctx SpecContext) {
+				source := `
+					@go output "core/control"
+					@pb
+
+					Status struct<D?> {
+						key     string
+						details D
+					}
+
+					ChannelStatus = Status<nil>
+
+					Channel struct {
+						status ChannelStatus?
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						// The typed argument pins the forward instantiation; the
+						// nil converter cannot pin the backward one.
+						"StatusToPB(*r.Status, nil)",
+						"StatusFromPB[gotypes.Nil](pb.Status, nil)",
+					)
+			})
+
 			It("Should emit ToPBAny/FromPBAny helpers for the struct-typed instantiation", func(ctx SpecContext) {
 				source := `
 					@go output "core/control"
@@ -2050,9 +2077,10 @@ var _ = Describe("Go PB Plugin", func() {
 						// for each struct-typed generic instantiation.
 						"DetailsToPBAny",
 						"DetailsFromPBAny",
-						// Generic struct conversion forwards the typed converters.
-						"StatusToPB[control.Details]",
-						"StatusFromPB[control.Details]",
+						// Generic struct conversion forwards the typed converters;
+						// the argument and converters pin the instantiation.
+						"StatusToPB(r.Status, DetailsToPBAny)",
+						"StatusFromPB(pb.Status, DetailsFromPBAny)",
 					)
 			})
 		})
