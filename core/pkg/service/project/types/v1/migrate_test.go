@@ -217,14 +217,14 @@ var _ = Describe("Project layout staging migration", func() {
 		runMigrations(ctx, db)
 
 		By("Writing the layout blob under the project's staging key")
-		blob, closer := MustSucceed2(db.Get(ctx, v1.LegacyLayoutKVKey(withLayout)))
+		blob, closer := MustSucceed2(db.Get(ctx, []byte(v1.LegacyLayoutKVPrefix+withLayout.String())))
 		var got msgpack.EncodedJSON
 		Expect(json.Unmarshal(blob, &got)).To(Succeed())
 		Expect(closer.Close()).To(Succeed())
 		Expect(got).To(Equal(layout))
 
 		By("Leaving no staging entry for a project without a layout")
-		Expect(db.Get(ctx, v1.LegacyLayoutKVKey(empty))).Error().
+		Expect(db.Get(ctx, []byte(v1.LegacyLayoutKVPrefix+empty.String()))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 })
