@@ -23,18 +23,6 @@ import "schemas/arc/program"
 @cpp output "client/cpp/arc"
 @pb
 
-StatusDetails struct {
-    running bool {
-        @doc value "indicates whether the Arc module is currently executing."
-    }
-
-    @doc value "contains Arc-specific status details for execution state."
-}
-
-Status = status.Status<StatusDetails> {
-    @doc value "is the status of an Arc module including execution state."
-}
-
 Key = uuid {
     @doc value "is a unique identifier for an Arc module."
 }
@@ -46,6 +34,18 @@ Mode enum {
     @doc value """
         specifies whether an Arc module uses text-based or graph-based representation.
     """
+}
+
+StatusDetails struct {
+    running bool {
+        @doc value "indicates whether the Arc module is currently executing."
+    }
+
+    @doc value "contains Arc-specific status details for execution state."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the status of an Arc module including execution state."
 }
 
 Arc struct {

@@ -20,12 +20,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails = v1.StatusDetails
-
-// Status is the status of an Arc module including execution state.
-type Status = status.Status[StatusDetails]
-
 // Key is a unique identifier for an Arc module.
 type Key = v1.Key
 
@@ -36,6 +30,12 @@ const (
 	ModeText  Mode = v1.ModeText
 	ModeGraph Mode = v1.ModeGraph
 )
+
+// StatusDetails contains Arc-specific status details for execution state.
+type StatusDetails = v1.StatusDetails
+
+// Status is the status of an Arc module including execution state.
+type Status = status.Status[StatusDetails]
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
