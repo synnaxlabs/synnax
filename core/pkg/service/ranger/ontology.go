@@ -28,7 +28,9 @@ import (
 )
 
 // OntologyID returns the unique ID to identify the range within the Synnax ontology.
-func OntologyID(k Key) ontology.ID { return Range{Key: k}.OntologyID() }
+func OntologyID(k Key) ontology.ID {
+	return ontology.ID{Type: ontology.ResourceTypeRange, Key: k.String()}
+}
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
 func OntologyIDs(keys []Key) []ontology.ID {

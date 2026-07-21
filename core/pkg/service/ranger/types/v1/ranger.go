@@ -20,7 +20,7 @@ var _ gorp.Entry[Key] = Range{}
 func (r Range) GorpKey() Key { return r.Key }
 
 // SetOptions implements gorp.Entry.
-func (r Range) SetOptions() []any { return nil }
+func (Range) SetOptions() []any { return nil }
 
 // OntologyID returns the semantic ID for this range to look it up from within the
 func (r Range) OntologyID() ontology.ID {

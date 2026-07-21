@@ -12,7 +12,7 @@ package v1
 import (
 	"context"
 
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/types/v0"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/migrate"
 )
@@ -32,7 +32,7 @@ const colorNullableMigrationKey = "range_color_nullable"
 // It depends on CodecMigrationKey so it always reads the deterministic value-color
 // encoding that migration leaves behind.
 func ColorNullableMigration() migrate.Migration {
-	return gorp.NewEntryMigration[Key, Key, v0.Range, Range](
+	return gorp.NewEntryMigration(
 		colorNullableMigrationKey,
 		func(_ context.Context, old v0.Range) (Range, error) {
 			rng := Range{Key: old.Key, Name: old.Name, TimeRange: old.TimeRange}
