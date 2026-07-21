@@ -14,10 +14,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// CodecMigrationKey names the codec migration the workspace-to-project
-// migration depends on.
-const CodecMigrationKey = "msgpack_to_orc"
-
 // CodecMigration re-encodes stored workspaces from msgpack to orc. It is
 // pinned to the v0 shape so its output stays stable as Project evolves.
-var CodecMigration = gorp.CodecMigration[Key, v0.Workspace](CodecMigrationKey)
+var CodecMigration = gorp.CodecMigration[Key, v0.Workspace]("msgpack_to_orc")

@@ -256,7 +256,7 @@ const workspaceToProjectMigrationKey = "v56_migrate_workspace_to_project"
 func WorkspaceToProjectMigration() migrate.Migration {
 	return migrate.WithAddedDeps(
 		gorp.NewMigration(workspaceToProjectMigrationKey, MigrateWorkspaceToProject),
-		v1.CodecMigrationKey,
+		v1.CodecMigration.Key(),
 	)
 }
 

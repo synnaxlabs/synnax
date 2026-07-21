@@ -31,13 +31,12 @@ type MigrationConfig struct {
 	alamos.Instrumentation
 }
 
-// MigrationKey names the v0 range-groups migration; later range migrations
-// depend on it.
-const MigrationKey = "range_groups_1"
+// migrationKey names the v0 range-groups migration.
+const migrationKey = "range_groups_1"
 
 func Migration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
-		MigrationKey,
+		migrationKey,
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
 			ins.L.Debug("swapping invalid time ranges")
 			var (

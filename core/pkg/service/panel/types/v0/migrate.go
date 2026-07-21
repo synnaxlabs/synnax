@@ -11,9 +11,5 @@ package v0
 
 import "github.com/synnaxlabs/x/gorp"
 
-// CodecMigrationKey names the codec migration the project-layout adoption
-// migration depends on.
-const CodecMigrationKey = "msgpack_to_orc"
-
 // CodecMigration re-encodes stored panels from msgpack to orc.
-var CodecMigration = gorp.CodecMigration[Key, Panel](CodecMigrationKey)
+var CodecMigration = gorp.CodecMigration[Key, Panel]("msgpack_to_orc")

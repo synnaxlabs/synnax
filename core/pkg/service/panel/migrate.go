@@ -315,6 +315,6 @@ func ProjectLayoutsMigration() migrate.Migration {
 		gorp.NewMigration(
 			"v56_migrate_project_layouts_to_panels", MigrateProjectLayouts(),
 		),
-		v0.CodecMigrationKey,
+		v0.CodecMigration.Key(),
 	)
 }

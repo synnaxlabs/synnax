@@ -32,7 +32,7 @@ const codecMigrationKey = "msgpack_to_orc"
 // CodecMigration re-encodes stored tasks from msgpack to orc. It is pinned to
 // the v1 shapes so its output stays stable as Task evolves.
 var CodecMigration = gorp.CodecMigration[v1.Key, v1.Task](
-	codecMigrationKey, v0.MigrationKey,
+	codecMigrationKey, v0.Migration(v0.MigrationConfig{}).Key(),
 )
 
 // Migration lifts stored tasks from v1 to v2, dropping the persisted status

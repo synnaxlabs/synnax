@@ -34,7 +34,7 @@ var _ = Describe("ColorNullableMigration", func() {
 			DB:        db,
 			Namespace: "Range",
 			Migrations: []migrate.Migration{
-				gorp.CodecMigration[v0.Key, v0.Range](v1.CodecMigrationKey),
+				gorp.CodecMigration[v0.Key, v0.Range](v1.CodecMigration.Key()),
 				v1.ColorNullableMigration(),
 			},
 		})).To(Succeed())

@@ -17,19 +17,18 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// CodecMigrationKey is the key of the migration that re-encodes ranges from the
-// legacy msgpack layout to the orc value-color layout. It is pinned to v0.Range so
-// it always produces the value-color encoding regardless of how Range later evolves.
-const CodecMigrationKey = "msgpack_to_orc"
+// codecMigrationKey is the key of the migration that re-encodes ranges from the legacy
+// msgpack layout to the orc value-color layout.
+const codecMigrationKey = "msgpack_to_orc"
 
 // colorNullableMigrationKey is the key of the migration that re-encodes Range.Color
 // from a stored value to a nullable pointer.
 const colorNullableMigrationKey = "range_color_nullable"
 
 // ColorNullableMigration converts every range from the orc value-color layout (Color
-// stored inline) to the current nullable layout (Color a presence-flagged pointer).
-// A zero stored color denoted "no color" under the value layout, so it maps to nil.
-// It depends on CodecMigrationKey so it always reads the deterministic value-color
+// stored inline) to the current nullable layout (Color a presence-flagged pointer). A
+// zero stored color denoted "no color" under the value layout, so it maps to nil. It
+// depends on the codec migration so it always reads the deterministic value-color
 // encoding that migration leaves behind.
 func ColorNullableMigration() migrate.Migration {
 	return gorp.NewEntryMigration(
@@ -42,7 +41,7 @@ func ColorNullableMigration() migrate.Migration {
 			}
 			return rng, nil
 		},
-		CodecMigrationKey,
+		codecMigrationKey,
 	)
 }
 
@@ -50,5 +49,5 @@ func ColorNullableMigration() migrate.Migration {
 // value-color layout. It is pinned to v0.Range so it always produces the
 // value-color encoding regardless of how Range later evolves.
 var CodecMigration = gorp.CodecMigration[Key, v0.Range](
-	CodecMigrationKey, v0.MigrationKey,
+	codecMigrationKey, v0.Migration(v0.MigrationConfig{}).Key(),
 )
