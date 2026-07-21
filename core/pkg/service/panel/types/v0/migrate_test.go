@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
 	projecttypes "github.com/synnaxlabs/synnax/pkg/service/project/types"
+	projectv1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -45,7 +46,7 @@ var _ = Describe("Project layout to panel migration", func() {
 			return
 		}
 		blob := MustSucceed(json.Marshal(p.Layout))
-		Expect(db.Set(ctx, []byte(projecttypes.LegacyLayoutKVPrefix+p.Key.String()), blob)).To(Succeed())
+		Expect(db.Set(ctx, []byte(projectv1.LegacyLayoutKVPrefix+p.Key.String()), blob)).To(Succeed())
 	}
 	seedResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
 		table := MustOpen(gorp.OpenTable(
@@ -251,7 +252,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		}
 
 		By("Deleting the staging entry once it has been consumed")
-		Expect(db.Get(ctx, []byte(projecttypes.LegacyLayoutKVPrefix+projectKey.String()))).Error().
+		Expect(db.Get(ctx, []byte(projectv1.LegacyLayoutKVPrefix+projectKey.String()))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 

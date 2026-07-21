@@ -14,10 +14,6 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// LegacyLayoutKVPrefix is the KV key prefix under which the layout staging
-// migration stages each project's legacy layout blob.
-const LegacyLayoutKVPrefix = v1.LegacyLayoutKVPrefix
-
 // MigrationsConfig is the configuration for NewMigrations.
 type MigrationsConfig = v1.MigrationsConfig
 

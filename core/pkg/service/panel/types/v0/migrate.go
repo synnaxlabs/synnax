@@ -20,7 +20,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	projecttypes "github.com/synnaxlabs/synnax/pkg/service/project/types"
+	projectv1 "github.com/synnaxlabs/synnax/pkg/service/project/types/v1"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -95,10 +95,10 @@ type stagedLayout struct {
 }
 
 // migrateProjectLayouts returns a migration that converts the legacy layout blobs the
-// project migration stages under projecttypes.LegacyLayoutKVPrefix into panels,
+// project migration stages under projectv1.LegacyLayoutKVPrefix into panels,
 // deleting each staged entry as it is consumed, so this migration never reads the
 // project layout field directly. Every window mosaic that references at least one live
-// visualization document becomes a panel parented under the projecttypes. Tabs whose
+// visualization document becomes a panel parented under the project. Tabs whose
 // layout entry is missing, whose layout type has no backing document, or whose document
 // no longer exists are dropped; splits that lose a side collapse into the surviving
 // child. Blobs that cannot be parsed are skipped, since the Console wrote them
@@ -128,7 +128,7 @@ func scanStagedLayouts(
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
 ) (out []stagedLayout, err error) {
-	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(projecttypes.LegacyLayoutKVPrefix)))
+	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(projectv1.LegacyLayoutKVPrefix)))
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func scanStagedLayouts(
 			key: key,
 			projectID: ontology.ID{
 				Type: ontology.ResourceTypeProject,
-				Key:  strings.TrimPrefix(string(key), projecttypes.LegacyLayoutKVPrefix),
+				Key:  strings.TrimPrefix(string(key), projectv1.LegacyLayoutKVPrefix),
 			},
 			slice: slice,
 		})
