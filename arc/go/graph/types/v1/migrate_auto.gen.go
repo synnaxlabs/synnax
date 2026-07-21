@@ -18,8 +18,8 @@ import (
 	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
-func AutoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
-	viewport, err := AutoMigrateViewport(ctx, old.Viewport)
+func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
+	viewport, err := autoMigrateViewport(ctx, old.Viewport)
 	if err != nil {
 		return Graph{}, err
 	}
@@ -40,7 +40,7 @@ func AutoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	nodes := make(Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
-		if nodes[i], err = AutoMigrateNode(ctx, v); err != nil {
+		if nodes[i], err = autoMigrateNode(ctx, v); err != nil {
 			return Graph{}, err
 		}
 	}
@@ -52,14 +52,14 @@ func AutoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 	}, nil
 }
 
-func AutoMigrateViewport(_ context.Context, old v0.Viewport) (Viewport, error) {
+func autoMigrateViewport(_ context.Context, old v0.Viewport) (Viewport, error) {
 	return Viewport{
 		Position: spatialv0.XY(old.Position),
 		Zoom:     old.Zoom,
 	}, nil
 }
 
-func AutoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
+func autoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
 	return Node{
 		Key:      old.Key,
 		Type:     old.Type,

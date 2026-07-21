@@ -14,34 +14,14 @@ package v1
 import (
 	"context"
 	graphv1 "github.com/synnaxlabs/arc/graph/types/v1"
-	programv1 "github.com/synnaxlabs/arc/program/types/v1"
 	textv0 "github.com/synnaxlabs/arc/text/types/v0"
 	arcv0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
-	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
-
-	"github.com/synnaxlabs/x/telem"
 )
 
-func AutoMigrateArc(ctx context.Context, old arcv0.Arc) (Arc, error) {
-	graph, err := graphv1.AutoMigrateGraph(ctx, old.Graph)
+func autoMigrateArc(ctx context.Context, old arcv0.Arc) (Arc, error) {
+	graph, err := graphv1.MigrateGraph(ctx, old.Graph)
 	if err != nil {
 		return Arc{}, err
-	}
-	var program *programv1.Program
-	if old.Program != nil {
-		v, err := programv1.AutoMigrateProgram(ctx, *old.Program)
-		if err != nil {
-			return Arc{}, err
-		}
-		program = &v
-	}
-	var status *Status
-	if old.Status != nil {
-		v, err := AutoMigrateStatus(ctx, *old.Status)
-		if err != nil {
-			return Arc{}, err
-		}
-		status = &v
 	}
 	return Arc{
 		Key:     Key(old.Key),
@@ -49,20 +29,6 @@ func AutoMigrateArc(ctx context.Context, old arcv0.Arc) (Arc, error) {
 		Mode:    Mode(old.Mode),
 		Graph:   graph,
 		Text:    textv0.Text(old.Text),
-		Program: program,
-		Status:  status,
 	}, nil
 }
 
-func AutoMigrateStatus(_ context.Context, old arcv0.Status) (Status, error) {
-	return Status{
-		Key:         old.Key,
-		Name:        old.Name,
-		Variant:     statusv1.Variant(old.Variant),
-		Message:     old.Message,
-		Description: old.Description,
-		Time:        telem.TimeStamp(old.Time),
-		Details:     StatusDetails(old.Details),
-		Labels:      old.Labels,
-	}, nil
-}

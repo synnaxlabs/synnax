@@ -18,7 +18,7 @@ import (
 )
 
 func MigrateFunction(ctx context.Context, old v0.Function) (Function, error) {
-	migrated, err := AutoMigrateFunction(ctx, old)
+	migrated, err := autoMigrateFunction(ctx, old)
 	if err != nil {
 		return Function{}, err
 	}
@@ -27,7 +27,7 @@ func MigrateFunction(ctx context.Context, old v0.Function) (Function, error) {
 }
 
 func MigrateEdge(ctx context.Context, old v0.Edge) (Edge, error) {
-	migrated, err := AutoMigrateEdge(ctx, old)
+	migrated, err := autoMigrateEdge(ctx, old)
 	if err != nil {
 		return Edge{}, err
 	}
@@ -36,7 +36,7 @@ func MigrateEdge(ctx context.Context, old v0.Edge) (Edge, error) {
 }
 
 func MigrateIR(ctx context.Context, old v0.IR) (IR, error) {
-	migrated, err := AutoMigrateIR(ctx, old)
+	migrated, err := autoMigrateIR(ctx, old)
 	if err != nil {
 		return IR{}, err
 	}
@@ -46,7 +46,7 @@ func MigrateIR(ctx context.Context, old v0.IR) (IR, error) {
 }
 
 func MigrateNode(ctx context.Context, old v0.Node) (Node, error) {
-	migrated, err := AutoMigrateNode(ctx, old)
+	migrated, err := autoMigrateNode(ctx, old)
 	if err != nil {
 		return Node{}, err
 	}
@@ -55,7 +55,7 @@ func MigrateNode(ctx context.Context, old v0.Node) (Node, error) {
 }
 
 func MigrateAuthorities(ctx context.Context, old v0.Authorities) (Authorities, error) {
-	migrated, err := AutoMigrateAuthorities(ctx, old)
+	migrated, err := autoMigrateAuthorities(ctx, old)
 	if err != nil {
 		return Authorities{}, err
 	}

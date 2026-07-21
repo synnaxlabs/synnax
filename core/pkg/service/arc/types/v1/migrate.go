@@ -9,7 +9,7 @@
 
 // Retargeted by oracle. Edit freely.
 //
-// AutoMigrate handles field copying. Customize non-zero defaults below.
+// autoMigrate handles field copying. Customize non-zero defaults below.
 
 package v1
 
@@ -24,7 +24,7 @@ import (
 )
 
 func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
-	return AutoMigrateArc(ctx, old)
+	return autoMigrateArc(ctx, old)
 }
 
 // renameSetStatus rewrites every deprecated set_status flow node in a to status.set.

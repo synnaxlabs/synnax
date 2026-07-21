@@ -16,18 +16,18 @@ import (
 	v0 "github.com/synnaxlabs/arc/ir/types/v0"
 )
 
-func AutoMigrateFunctions(ctx context.Context, old v0.Functions) (Functions, error) {
+func autoMigrateFunctions(ctx context.Context, old v0.Functions) (Functions, error) {
 	result := make(Functions, len(old))
 	for i, v := range old {
 		var err error
-		if result[i], err = AutoMigrateFunction(ctx, v); err != nil {
+		if result[i], err = autoMigrateFunction(ctx, v); err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
 }
 
-func AutoMigrateFunction(_ context.Context, old v0.Function) (Function, error) {
+func autoMigrateFunction(_ context.Context, old v0.Function) (Function, error) {
 	return Function{
 		Key:      old.Key,
 		Body:     Body(old.Body),
@@ -38,18 +38,18 @@ func AutoMigrateFunction(_ context.Context, old v0.Function) (Function, error) {
 	}, nil
 }
 
-func AutoMigrateEdges(ctx context.Context, old v0.Edges) (Edges, error) {
+func autoMigrateEdges(ctx context.Context, old v0.Edges) (Edges, error) {
 	result := make(Edges, len(old))
 	for i, v := range old {
 		var err error
-		if result[i], err = AutoMigrateEdge(ctx, v); err != nil {
+		if result[i], err = autoMigrateEdge(ctx, v); err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
 }
 
-func AutoMigrateEdge(_ context.Context, old v0.Edge) (Edge, error) {
+func autoMigrateEdge(_ context.Context, old v0.Edge) (Edge, error) {
 	return Edge{
 		Source: Handle(old.Source),
 		Target: Handle(old.Target),
@@ -57,29 +57,29 @@ func AutoMigrateEdge(_ context.Context, old v0.Edge) (Edge, error) {
 	}, nil
 }
 
-func AutoMigrateIR(ctx context.Context, old v0.IR) (IR, error) {
+func autoMigrateIR(ctx context.Context, old v0.IR) (IR, error) {
 	functions := make(Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
-		if functions[i], err = AutoMigrateFunction(ctx, v); err != nil {
+		if functions[i], err = autoMigrateFunction(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
 	nodes := make(Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
-		if nodes[i], err = AutoMigrateNode(ctx, v); err != nil {
+		if nodes[i], err = autoMigrateNode(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
 	edges := make(Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
-		if edges[i], err = AutoMigrateEdge(ctx, v); err != nil {
+		if edges[i], err = autoMigrateEdge(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
-	authorities, err := AutoMigrateAuthorities(ctx, old.Authorities)
+	authorities, err := autoMigrateAuthorities(ctx, old.Authorities)
 	if err != nil {
 		return IR{}, err
 	}
@@ -91,18 +91,18 @@ func AutoMigrateIR(ctx context.Context, old v0.IR) (IR, error) {
 	}, nil
 }
 
-func AutoMigrateNodes(ctx context.Context, old v0.Nodes) (Nodes, error) {
+func autoMigrateNodes(ctx context.Context, old v0.Nodes) (Nodes, error) {
 	result := make(Nodes, len(old))
 	for i, v := range old {
 		var err error
-		if result[i], err = AutoMigrateNode(ctx, v); err != nil {
+		if result[i], err = autoMigrateNode(ctx, v); err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
 }
 
-func AutoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
+func autoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
 	return Node{
 		Key:      old.Key,
 		Type:     old.Type,
@@ -113,7 +113,7 @@ func AutoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
 	}, nil
 }
 
-func AutoMigrateAuthorities(_ context.Context, old v0.Authorities) (Authorities, error) {
+func autoMigrateAuthorities(_ context.Context, old v0.Authorities) (Authorities, error) {
 	return Authorities{
 		Default:  old.Default,
 		Channels: old.Channels,

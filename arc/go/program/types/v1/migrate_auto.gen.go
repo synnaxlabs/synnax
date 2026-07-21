@@ -18,7 +18,7 @@ import (
 	v0 "github.com/synnaxlabs/arc/program/types/v0"
 )
 
-func AutoMigrateProgram(ctx context.Context, old v0.Program) (Program, error) {
+func autoMigrateProgram(ctx context.Context, old v0.Program) (Program, error) {
 	ir, err := irv1.MigrateIR(ctx, old.IR)
 	if err != nil {
 		return Program{}, err

@@ -14,33 +14,10 @@ package v1
 import (
 	"context"
 	devicev0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
-	label "github.com/synnaxlabs/synnax/pkg/service/label"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology"
-	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack"
-	status "github.com/synnaxlabs/synnax/pkg/service/status"
-	color "github.com/synnaxlabs/x/color"
-	telem "github.com/synnaxlabs/x/telem"
 )
 
-func autoMigrateDevice(ctx context.Context, old devicev0.Device) (Device, error) {
-	var status *Status
-	if old.Status != nil {
-		v, err := autoMigrateStatus(ctx, *old.Status)
-		if err != nil {
-			return Device{}, err
-		}
-		status = &v
-	}
-	var parent *ontology.ID
-	if old.Parent != nil {
-		v, err := autoMigrateID(ctx, *old.Parent)
-		if err != nil {
-			return Device{}, err
-		}
-		parent = &v
-	}
+func autoMigrateDevice(_ context.Context, old devicev0.Device) (Device, error) {
 	return Device{
 		Key:        Key(old.Key),
 		Rack:       rack.Key(old.Rack),
@@ -50,53 +27,6 @@ func autoMigrateDevice(ctx context.Context, old devicev0.Device) (Device, error)
 		Name:       old.Name,
 		Configured: old.Configured,
 		Properties: old.Properties,
-		Status:     status,
-		Parent:     parent,
 	}, nil
 }
 
-func autoMigrateStatus(ctx context.Context, old devicev0.Status) (Status, error) {
-	details, err := autoMigrateStatusDetails(ctx, old.Details)
-	if err != nil {
-		return Status{}, err
-	}
-	labels := make([]label.Label, len(old.Labels))
-	for i, v := range old.Labels {
-		var err error
-		if labels[i], err = autoMigrateLabel(ctx, v); err != nil {
-			return Status{}, err
-		}
-	}
-	return Status{
-		Key:         old.Key,
-		Name:        old.Name,
-		Variant:     status.Variant(old.Variant),
-		Message:     old.Message,
-		Description: old.Description,
-		Time:        telem.TimeStamp(old.Time),
-		Details:     details,
-		Labels:      labels,
-	}, nil
-}
-
-func autoMigrateID(_ context.Context, old ontologyv0.ID) (ontology.ID, error) {
-	return ontology.ID{
-		Type: ontology.ResourceType(old.Type),
-		Key:  old.Key,
-	}, nil
-}
-
-func autoMigrateStatusDetails(_ context.Context, old devicev0.StatusDetails) (StatusDetails, error) {
-	return StatusDetails{
-		Rack:   rack.Key(old.Rack),
-		Device: old.Device,
-	}, nil
-}
-
-func autoMigrateLabel(_ context.Context, old labelv0.Label) (label.Label, error) {
-	return label.Label{
-		Key:   label.Key(old.Key),
-		Name:  old.Name,
-		Color: color.Color(old.Color),
-	}, nil
-}
