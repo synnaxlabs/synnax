@@ -16,19 +16,19 @@ import (
 	v0 "github.com/synnaxlabs/arc/types/types/v0"
 )
 
-func AutoMigrateParams(ctx context.Context, old v0.Params) (Params, error) {
+func autoMigrateParams(ctx context.Context, old v0.Params) (Params, error) {
 	result := make(Params, len(old))
 	for i, v := range old {
 		var err error
-		if result[i], err = AutoMigrateParam(ctx, v); err != nil {
+		if result[i], err = autoMigrateParam(ctx, v); err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
 }
 
-func AutoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
-	typeVal, err := AutoMigrateType(ctx, old.Type)
+func autoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
+	typeVal, err := autoMigrateType(ctx, old.Type)
 	if err != nil {
 		return Param{}, err
 	}
@@ -39,14 +39,14 @@ func AutoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
 	}, nil
 }
 
-func AutoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
-	functionProperties, err := AutoMigrateFunctionProperties(ctx, old.FunctionProperties)
+func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
+	functionProperties, err := autoMigrateFunctionProperties(ctx, old.FunctionProperties)
 	if err != nil {
 		return Type{}, err
 	}
 	var elem *Type
 	if old.Elem != nil {
-		v, err := AutoMigrateType(ctx, *old.Elem)
+		v, err := autoMigrateType(ctx, *old.Elem)
 		if err != nil {
 			return Type{}, err
 		}
@@ -54,7 +54,7 @@ func AutoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}
 	var unit *Unit
 	if old.Unit != nil {
-		v, err := AutoMigrateUnit(ctx, *old.Unit)
+		v, err := autoMigrateUnit(ctx, *old.Unit)
 		if err != nil {
 			return Type{}, err
 		}
@@ -62,7 +62,7 @@ func AutoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}
 	var constraint *Type
 	if old.Constraint != nil {
-		v, err := AutoMigrateType(ctx, *old.Constraint)
+		v, err := autoMigrateType(ctx, *old.Constraint)
 		if err != nil {
 			return Type{}, err
 		}
@@ -79,18 +79,18 @@ func AutoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}, nil
 }
 
-func AutoMigrateFunctionProperties(ctx context.Context, old v0.FunctionProperties) (FunctionProperties, error) {
+func autoMigrateFunctionProperties(ctx context.Context, old v0.FunctionProperties) (FunctionProperties, error) {
 	inputs := make(Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
-		if inputs[i], err = AutoMigrateParam(ctx, v); err != nil {
+		if inputs[i], err = autoMigrateParam(ctx, v); err != nil {
 			return FunctionProperties{}, err
 		}
 	}
 	outputs := make(Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
-		if outputs[i], err = AutoMigrateParam(ctx, v); err != nil {
+		if outputs[i], err = autoMigrateParam(ctx, v); err != nil {
 			return FunctionProperties{}, err
 		}
 	}
@@ -100,7 +100,7 @@ func AutoMigrateFunctionProperties(ctx context.Context, old v0.FunctionPropertie
 	}, nil
 }
 
-func AutoMigrateUnit(_ context.Context, old v0.Unit) (Unit, error) {
+func autoMigrateUnit(_ context.Context, old v0.Unit) (Unit, error) {
 	return Unit{
 		Dimensions: Dimensions(old.Dimensions),
 		Scale:      old.Scale,

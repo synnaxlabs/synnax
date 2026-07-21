@@ -18,7 +18,7 @@ import (
 )
 
 func MigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
-	migrated, err := AutoMigrateFunction(ctx, old)
+	migrated, err := autoMigrateFunction(ctx, old)
 	if err != nil {
 		return Function{}, err
 	}
@@ -27,10 +27,16 @@ func MigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
 }
 
 func MigrateNode(ctx context.Context, old v1.Node) (Node, error) {
-	migrated, err := AutoMigrateNode(ctx, old)
+	migrated, err := autoMigrateNode(ctx, old)
 	if err != nil {
 		return Node{}, err
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil
+}
+
+// MigrateIR lifts a v1 IR into the current shape; program's generated
+// migrations consume it cross-package.
+func MigrateIR(ctx context.Context, old v1.IR) (IR, error) {
+	return autoMigrateIR(ctx, old)
 }

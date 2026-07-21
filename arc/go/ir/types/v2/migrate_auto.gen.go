@@ -17,29 +17,29 @@ import (
 	types "github.com/synnaxlabs/arc/types/types/v1"
 )
 
-func AutoMigrateFunctions(ctx context.Context, old v1.Functions) (Functions, error) {
+func autoMigrateFunctions(ctx context.Context, old v1.Functions) (Functions, error) {
 	result := make(Functions, len(old))
 	for i, v := range old {
 		var err error
-		if result[i], err = AutoMigrateFunction(ctx, v); err != nil {
+		if result[i], err = autoMigrateFunction(ctx, v); err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
 }
 
-func AutoMigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
+func autoMigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
 	inputs := make(types.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
-		if inputs[i], err = types.AutoMigrateParam(ctx, v); err != nil {
+		if inputs[i], err = types.MigrateParam(ctx, v); err != nil {
 			return Function{}, err
 		}
 	}
 	outputs := make(types.Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
-		if outputs[i], err = types.AutoMigrateParam(ctx, v); err != nil {
+		if outputs[i], err = types.MigrateParam(ctx, v); err != nil {
 			return Function{}, err
 		}
 	}
@@ -52,29 +52,29 @@ func AutoMigrateFunction(ctx context.Context, old v1.Function) (Function, error)
 	}, nil
 }
 
-func AutoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
+func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 	functions := make(Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
-		if functions[i], err = AutoMigrateFunction(ctx, v); err != nil {
+		if functions[i], err = autoMigrateFunction(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
 	nodes := make(Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
-		if nodes[i], err = AutoMigrateNode(ctx, v); err != nil {
+		if nodes[i], err = autoMigrateNode(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
 	edges := make(Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
-		if edges[i], err = AutoMigrateEdge(ctx, v); err != nil {
+		if edges[i], err = autoMigrateEdge(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
-	root, err := AutoMigrateScope(ctx, old.Root)
+	root, err := autoMigrateScope(ctx, old.Root)
 	if err != nil {
 		return IR{}, err
 	}
@@ -87,29 +87,29 @@ func AutoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 	}, nil
 }
 
-func AutoMigrateNodes(ctx context.Context, old v1.Nodes) (Nodes, error) {
+func autoMigrateNodes(ctx context.Context, old v1.Nodes) (Nodes, error) {
 	result := make(Nodes, len(old))
 	for i, v := range old {
 		var err error
-		if result[i], err = AutoMigrateNode(ctx, v); err != nil {
+		if result[i], err = autoMigrateNode(ctx, v); err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
 }
 
-func AutoMigrateNode(ctx context.Context, old v1.Node) (Node, error) {
+func autoMigrateNode(ctx context.Context, old v1.Node) (Node, error) {
 	inputs := make(types.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
-		if inputs[i], err = types.AutoMigrateParam(ctx, v); err != nil {
+		if inputs[i], err = types.MigrateParam(ctx, v); err != nil {
 			return Node{}, err
 		}
 	}
 	outputs := make(types.Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
-		if outputs[i], err = types.AutoMigrateParam(ctx, v); err != nil {
+		if outputs[i], err = types.MigrateParam(ctx, v); err != nil {
 			return Node{}, err
 		}
 	}
@@ -122,7 +122,7 @@ func AutoMigrateNode(ctx context.Context, old v1.Node) (Node, error) {
 	}, nil
 }
 
-func AutoMigrateEdge(_ context.Context, old v1.Edge) (Edge, error) {
+func autoMigrateEdge(_ context.Context, old v1.Edge) (Edge, error) {
 	return Edge{
 		Source: Handle(old.Source),
 		Target: Handle(old.Target),
@@ -130,7 +130,7 @@ func AutoMigrateEdge(_ context.Context, old v1.Edge) (Edge, error) {
 	}, nil
 }
 
-func AutoMigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
+func autoMigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
 	var activation *Handle
 	if old.Activation != nil {
 		v := Handle(*old.Activation)
@@ -139,21 +139,21 @@ func AutoMigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
 	strata := make([]Members, len(old.Strata))
 	for i, v := range old.Strata {
 		var err error
-		if strata[i], err = AutoMigrateMembers(ctx, v); err != nil {
+		if strata[i], err = autoMigrateMembers(ctx, v); err != nil {
 			return Scope{}, err
 		}
 	}
 	steps := make(Members, len(old.Steps))
 	for i, v := range old.Steps {
 		var err error
-		if steps[i], err = AutoMigrateMember(ctx, v); err != nil {
+		if steps[i], err = autoMigrateMember(ctx, v); err != nil {
 			return Scope{}, err
 		}
 	}
 	transitions := make([]Transition, len(old.Transitions))
 	for i, v := range old.Transitions {
 		var err error
-		if transitions[i], err = AutoMigrateTransition(ctx, v); err != nil {
+		if transitions[i], err = autoMigrateTransition(ctx, v); err != nil {
 			return Scope{}, err
 		}
 	}
@@ -168,21 +168,21 @@ func AutoMigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
 	}, nil
 }
 
-func AutoMigrateMembers(ctx context.Context, old v1.Members) (Members, error) {
+func autoMigrateMembers(ctx context.Context, old v1.Members) (Members, error) {
 	result := make(Members, len(old))
 	for i, v := range old {
 		var err error
-		if result[i], err = AutoMigrateMember(ctx, v); err != nil {
+		if result[i], err = autoMigrateMember(ctx, v); err != nil {
 			return nil, err
 		}
 	}
 	return result, nil
 }
 
-func AutoMigrateMember(ctx context.Context, old v1.Member) (Member, error) {
+func autoMigrateMember(ctx context.Context, old v1.Member) (Member, error) {
 	var scope *Scope
 	if old.Scope != nil {
-		v, err := AutoMigrateScope(ctx, *old.Scope)
+		v, err := autoMigrateScope(ctx, *old.Scope)
 		if err != nil {
 			return Member{}, err
 		}
@@ -194,7 +194,7 @@ func AutoMigrateMember(ctx context.Context, old v1.Member) (Member, error) {
 	}, nil
 }
 
-func AutoMigrateTransition(_ context.Context, old v1.Transition) (Transition, error) {
+func autoMigrateTransition(_ context.Context, old v1.Transition) (Transition, error) {
 	return Transition{
 		On:        Handle(old.On),
 		TargetKey: old.TargetKey,

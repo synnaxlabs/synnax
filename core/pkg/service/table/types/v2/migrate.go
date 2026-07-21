@@ -21,14 +21,14 @@ import (
 )
 
 // migrateTable transforms the previous Table snapshot (v0) into the current
-// strongly-typed Table. AutoMigrateTable handles the trivially-copyable
+// strongly-typed Table. autoMigrateTable handles the trivially-copyable
 // gorp-entry fields (Key, Name); the structural fields (Rows, Columns, Cells)
 // are sourced from the opaque blob the console used to persist alongside those
 // fields, after legacy.MigrateData decodes it as v0.Data. v0 is the last
 // snapshot in which Table.Data is untyped; future migrations transform one
 // typed snapshot into another and never need this blob handling.
 func migrateTable(ctx context.Context, old tablev0.Table) (Table, error) {
-	out, err := AutoMigrateTable(ctx, old)
+	out, err := autoMigrateTable(ctx, old)
 	if err != nil {
 		return Table{}, err
 	}

@@ -16,7 +16,7 @@ import (
 	schematicv0 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
 )
 
-func AutoMigrateSchematic(_ context.Context, old schematicv0.Schematic) (Schematic, error) {
+func autoMigrateSchematic(_ context.Context, old schematicv0.Schematic) (Schematic, error) {
 	return Schematic{
 		Key:      Key(old.Key),
 		Name:     old.Name,

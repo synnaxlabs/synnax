@@ -403,7 +403,7 @@ import (
 )
 {{end}}
 func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}{{.TypeParamsRef}}) ({{.GoName}}{{.TypeParamsRef}}, error) {
-	return AutoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
+	return autoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
 }
 `))
 
@@ -449,7 +449,7 @@ import (
 )
 {{range .Functions}}
 func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
-	migrated, err := AutoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
+	migrated, err := autoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
 	if err != nil {
 		return {{.NewTypeName}}{}, err
 	}

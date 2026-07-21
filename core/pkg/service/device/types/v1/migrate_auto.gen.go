@@ -24,10 +24,10 @@ import (
 	telem "github.com/synnaxlabs/x/telem"
 )
 
-func AutoMigrateDevice(ctx context.Context, old devicev0.Device) (Device, error) {
+func autoMigrateDevice(ctx context.Context, old devicev0.Device) (Device, error) {
 	var status *Status
 	if old.Status != nil {
-		v, err := AutoMigrateStatus(ctx, *old.Status)
+		v, err := autoMigrateStatus(ctx, *old.Status)
 		if err != nil {
 			return Device{}, err
 		}
@@ -35,7 +35,7 @@ func AutoMigrateDevice(ctx context.Context, old devicev0.Device) (Device, error)
 	}
 	var parent *ontology.ID
 	if old.Parent != nil {
-		v, err := AutoMigrateID(ctx, *old.Parent)
+		v, err := autoMigrateID(ctx, *old.Parent)
 		if err != nil {
 			return Device{}, err
 		}
@@ -55,15 +55,15 @@ func AutoMigrateDevice(ctx context.Context, old devicev0.Device) (Device, error)
 	}, nil
 }
 
-func AutoMigrateStatus(ctx context.Context, old devicev0.Status) (Status, error) {
-	details, err := AutoMigrateStatusDetails(ctx, old.Details)
+func autoMigrateStatus(ctx context.Context, old devicev0.Status) (Status, error) {
+	details, err := autoMigrateStatusDetails(ctx, old.Details)
 	if err != nil {
 		return Status{}, err
 	}
 	labels := make([]label.Label, len(old.Labels))
 	for i, v := range old.Labels {
 		var err error
-		if labels[i], err = AutoMigrateLabel(ctx, v); err != nil {
+		if labels[i], err = autoMigrateLabel(ctx, v); err != nil {
 			return Status{}, err
 		}
 	}
@@ -79,21 +79,21 @@ func AutoMigrateStatus(ctx context.Context, old devicev0.Status) (Status, error)
 	}, nil
 }
 
-func AutoMigrateID(_ context.Context, old ontologyv0.ID) (ontology.ID, error) {
+func autoMigrateID(_ context.Context, old ontologyv0.ID) (ontology.ID, error) {
 	return ontology.ID{
 		Type: ontology.ResourceType(old.Type),
 		Key:  old.Key,
 	}, nil
 }
 
-func AutoMigrateStatusDetails(_ context.Context, old devicev0.StatusDetails) (StatusDetails, error) {
+func autoMigrateStatusDetails(_ context.Context, old devicev0.StatusDetails) (StatusDetails, error) {
 	return StatusDetails{
 		Rack:   rack.Key(old.Rack),
 		Device: old.Device,
 	}, nil
 }
 
-func AutoMigrateLabel(_ context.Context, old labelv0.Label) (label.Label, error) {
+func autoMigrateLabel(_ context.Context, old labelv0.Label) (label.Label, error) {
 	return label.Label{
 		Key:   label.Key(old.Key),
 		Name:  old.Name,

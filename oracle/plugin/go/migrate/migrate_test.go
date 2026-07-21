@@ -351,7 +351,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				auto := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
-				Expect(auto).To(ContainSubstring("AutoMigrateEntry"))
+				Expect(auto).To(ContainSubstring("autoMigrateEntry"))
 				Expect(auto).NotTo(ContainSubstring("dep/types/"))
 			})
 		})
@@ -391,7 +391,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 
 			It("Should synthesize a full-copy passthrough auto-migrate", func() {
 				autoCopy := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
-				Expect(autoCopy).To(ContainSubstring("func AutoMigrateEntry"))
+				Expect(autoCopy).To(ContainSubstring("func autoMigrateEntry"))
 				Expect(autoCopy).To(ContainSubstring("Name: old.Name"))
 			})
 
@@ -399,7 +399,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				tmpl := fileContent(resp, "out/types/v2/migrate.go")
 				Expect(tmpl).To(ContainSubstring("package v2"))
 				Expect(tmpl).To(ContainSubstring("func MigrateEntry"))
-				Expect(tmpl).To(ContainSubstring("AutoMigrateEntry(ctx, old)"))
+				Expect(tmpl).To(ContainSubstring("autoMigrateEntry(ctx, old)"))
 			})
 		})
 
@@ -581,7 +581,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 
 			It("Should generate auto-copy with error propagation", func() {
 				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("func AutoMigrateEntry"))
+				Expect(content).To(ContainSubstring("func autoMigrateEntry"))
 				Expect(content).NotTo(ContainSubstring("var _ = context.Background"))
 				Expect(content).NotTo(ContainSubstring(", _ :="))
 				Expect(content).NotTo(ContainSubstring(", _ ="))
@@ -595,7 +595,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				content := fileContent(resp, "out/types/v2/migrate.go")
 				Expect(content).To(ContainSubstring("package v2"))
 				Expect(content).To(ContainSubstring("func MigrateEntry"))
-				Expect(content).To(ContainSubstring("AutoMigrateEntry"))
+				Expect(content).To(ContainSubstring("autoMigrateEntry"))
 				Expect(content).To(ContainSubstring("Edit this file"))
 			})
 		})
@@ -628,7 +628,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Expect(path).To(HavePrefix("out/types/v2/"))
 				}
 				autoCopy := fileContent(resp, "migrate_auto.gen.go")
-				Expect(autoCopy).To(ContainSubstring("AutoMigrateEntry"))
+				Expect(autoCopy).To(ContainSubstring("autoMigrateEntry"))
 				Expect(autoCopy).NotTo(ContainSubstring("Age"))
 			})
 		})
@@ -664,7 +664,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Expect(path).To(HavePrefix("out/types/v2/"))
 				}
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
-					To(ContainSubstring("AutoMigrateEntry"))
+					To(ContainSubstring("autoMigrateEntry"))
 			})
 
 			It("Should generate a migration when @go marshal omit is removed", func() {
@@ -697,7 +697,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Expect(path).To(HavePrefix("out/types/v2/"))
 				}
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
-					To(ContainSubstring("AutoMigrateEntry"))
+					To(ContainSubstring("autoMigrateEntry"))
 			})
 
 			It("Should migrate when json_only is added to a type-param field", func() {
@@ -728,12 +728,12 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Expect(path).To(HavePrefix("out/types/v2/"))
 				}
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
-					To(ContainSubstring("AutoMigrateEntry"))
+					To(ContainSubstring("autoMigrateEntry"))
 			})
 		})
 
 		Context("generic types", func() {
-			It("Should emit type-param decoration on a generic AutoMigrate", func() {
+			It("Should emit type-param decoration on a generic autoMigrate", func() {
 				oldSchema := `
 					@go output "out"
 					@go version 1
@@ -759,7 +759,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				autoCopy := fileContent(resp, "migrate_auto.gen.go")
-				Expect(autoCopy).To(ContainSubstring("func AutoMigrateEntry[Details any]"))
+				Expect(autoCopy).To(ContainSubstring("func autoMigrateEntry[Details any]"))
 				Expect(autoCopy).To(ContainSubstring("old outv1.Entry[Details]"))
 				Expect(autoCopy).To(ContainSubstring(") (Entry[Details], error)"))
 				Expect(autoCopy).To(ContainSubstring("return Entry[Details]{"))
@@ -794,7 +794,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				Expect(transform).To(ContainSubstring("func MigrateEntry[Details any]"))
 				Expect(transform).To(ContainSubstring("old outv1.Entry[Details]"))
 				Expect(transform).To(ContainSubstring(") (Entry[Details], error)"))
-				Expect(transform).To(ContainSubstring("AutoMigrateEntry[Details](ctx, old)"))
+				Expect(transform).To(ContainSubstring("autoMigrateEntry[Details](ctx, old)"))
 			})
 
 			It("Should omit defaulted type params from the function signature", func() {
@@ -827,7 +827,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				autoCopy := fileContent(resp, "migrate_auto.gen.go")
-				Expect(autoCopy).To(ContainSubstring("func AutoMigrateEntry[Details any]"))
+				Expect(autoCopy).To(ContainSubstring("func autoMigrateEntry[Details any]"))
 				Expect(autoCopy).NotTo(ContainSubstring("[Details any, M"))
 				Expect(autoCopy).NotTo(ContainSubstring("[Details, M]"))
 			})
@@ -955,7 +955,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("for i, v := range"))
-				Expect(content).To(ContainSubstring("AutoMigrateItem"))
+				Expect(content).To(ContainSubstring("autoMigrateItem"))
 				Expect(content).To(ContainSubstring("err"))
 			})
 		})
@@ -988,8 +988,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("func AutoMigrateItems"))
-				Expect(content).To(ContainSubstring("AutoMigrateItem(ctx, v)"))
+				Expect(content).To(ContainSubstring("func autoMigrateItems"))
+				Expect(content).To(ContainSubstring("autoMigrateItem(ctx, v)"))
 			})
 		})
 
@@ -1022,7 +1022,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
-					NotTo(ContainSubstring("AutoMigratePos"))
+					NotTo(ContainSubstring("autoMigratePos"))
 			})
 		})
 
@@ -1054,7 +1054,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("Mode(old.Mode)"))
-				Expect(content).NotTo(ContainSubstring("AutoMigrateMode"))
+				Expect(content).NotTo(ContainSubstring("autoMigrateMode"))
 			})
 		})
 
@@ -1206,8 +1206,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("AutoMigrateEntry"))
-				Expect(content).To(ContainSubstring("AutoMigrateBase"))
+				Expect(content).To(ContainSubstring("autoMigrateEntry"))
+				Expect(content).To(ContainSubstring("autoMigrateBase"))
 			})
 		})
 
@@ -1268,7 +1268,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("AutoMigrateNode"))
+				Expect(content).To(ContainSubstring("autoMigrateNode"))
 				Expect(content).To(ContainSubstring("if old.Child != nil"))
 			})
 		})
@@ -1300,7 +1300,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Expect(path).To(HavePrefix("out/types/v2/"))
 				}
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
-					To(ContainSubstring("AutoMigrateEntry"))
+					To(ContainSubstring("autoMigrateEntry"))
 			})
 		})
 
@@ -1417,7 +1417,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("Color(old.Color)"))
-				Expect(content).NotTo(ContainSubstring("AutoMigrateColor"))
+				Expect(content).NotTo(ContainSubstring("autoMigrateColor"))
 			})
 		})
 
@@ -1505,9 +1505,9 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("AutoMigrateEntry"))
+				Expect(content).To(ContainSubstring("autoMigrateEntry"))
 				Expect(content).To(ContainSubstring("Label: old.Label"))
-				Expect(content).NotTo(ContainSubstring("AutoMigrateLabel"))
+				Expect(content).NotTo(ContainSubstring("autoMigrateLabel"))
 				Expect(content).NotTo(ContainSubstring("dep/types"))
 			})
 		})
@@ -1540,9 +1540,9 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				content := fileContent(resp, "migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("AutoMigrateEntry"))
-				Expect(content).To(ContainSubstring("AutoMigrateBranch"))
-				Expect(content).To(ContainSubstring("AutoMigrateLeaf"))
+				Expect(content).To(ContainSubstring("autoMigrateEntry"))
+				Expect(content).To(ContainSubstring("autoMigrateBranch"))
+				Expect(content).To(ContainSubstring("autoMigrateLeaf"))
 			})
 		})
 
@@ -1575,7 +1575,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				}
 				auto := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
 				Expect(auto).To(ContainSubstring("package v2"))
-				Expect(auto).To(ContainSubstring("AutoMigrateEntry"))
+				Expect(auto).To(ContainSubstring("autoMigrateEntry"))
 				tmpl := fileContent(resp, "out/types/v2/migrate.go")
 				Expect(tmpl).To(ContainSubstring("func MigrateEntry"))
 			})
@@ -1603,7 +1603,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					Expect(path).To(HavePrefix("out/types/v2/"))
 				}
 				Expect(fileContent(resp, "out/types/v2/migrate_auto.gen.go")).
-					To(ContainSubstring("AutoMigrateEntry"))
+					To(ContainSubstring("autoMigrateEntry"))
 			})
 		})
 
@@ -1655,7 +1655,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				}
 				resp := MustSucceed(p.Generate(req))
 				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
-				Expect(content).To(ContainSubstring("AutoMigrateEntry"))
+				Expect(content).To(ContainSubstring("autoMigrateEntry"))
 				Expect(content).NotTo(ContainSubstring(`ir "github.com`))
 			})
 		})
@@ -1744,7 +1744,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			tmpl := fileContent(resp, "dep/types/v2/migrate.go")
 			Expect(tmpl).To(ContainSubstring("package v2"))
 			Expect(tmpl).To(ContainSubstring("func MigrateItem"))
-			Expect(tmpl).To(ContainSubstring("AutoMigrateItem"))
+			Expect(tmpl).To(ContainSubstring("autoMigrateItem"))
 			Expect(fileContent(resp, "dep/types/v2/migrate_auto.gen.go")).
 				NotTo(BeEmpty())
 		})
@@ -1753,7 +1753,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
 			Expect(content).To(ContainSubstring(".MigrateItem"))
 			Expect(content).To(ContainSubstring("dep/types/v2"))
-			Expect(content).NotTo(ContainSubstring(".AutoMigrateItem"))
+			Expect(content).NotTo(ContainSubstring(".autoMigrateItem"))
 		})
 	})
 
@@ -1790,8 +1790,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 			autoCopy := fileContent(resp, "migrate_auto.gen.go")
-			Expect(autoCopy).To(ContainSubstring("AutoMigrateMembers"))
-			Expect(autoCopy).To(ContainSubstring("AutoMigrateMember(ctx, v)"))
+			Expect(autoCopy).To(ContainSubstring("autoMigrateMembers"))
+			Expect(autoCopy).To(ContainSubstring("autoMigrateMember(ctx, v)"))
 		})
 	})
 
@@ -1825,7 +1825,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			Expect(content).To(ContainSubstring(`"context"`))
 		})
 
-		It("Should pass ctx to nested AutoMigrate calls", func() {
+		It("Should pass ctx to nested autoMigrate calls", func() {
 			oldSchema := `
 				@go output "out"
 				@go version 1
@@ -1850,7 +1850,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 			content := fileContent(resp, "migrate_auto.gen.go")
-			Expect(content).To(ContainSubstring("AutoMigrateInner(ctx,"))
+			Expect(content).To(ContainSubstring("autoMigrateInner(ctx,"))
 			Expect(content).To(ContainSubstring("ctx context.Context"))
 		})
 

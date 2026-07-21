@@ -25,7 +25,7 @@ import (
 )
 
 // migrateLinePlot transforms the previous line plot snapshot (v0) into the
-// current strongly-typed LinePlot. AutoMigrateLinePlot handles the
+// current strongly-typed LinePlot. autoMigrateLinePlot handles the
 // trivially-copyable gorp-entry fields (Key, Name); the body fields are
 // sourced from the per-plot blob the console used to persist alongside those
 // gorp fields, after legacy.MigrateData walks the legacy migration chain up
@@ -35,7 +35,7 @@ import (
 // snapshot in which LinePlot.Data is untyped; future migrations transform one
 // typed snapshot into another and never need this blob handling.
 func migrateLinePlot(ctx context.Context, old lineplotv0.LinePlot) (LinePlot, error) {
-	out, err := AutoMigrateLinePlot(ctx, old)
+	out, err := autoMigrateLinePlot(ctx, old)
 	if err != nil {
 		return LinePlot{}, err
 	}

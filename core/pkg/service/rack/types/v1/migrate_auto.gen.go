@@ -21,10 +21,10 @@ import (
 	telem "github.com/synnaxlabs/x/telem"
 )
 
-func AutoMigrateRack(ctx context.Context, old rackv0.Rack) (Rack, error) {
+func autoMigrateRack(ctx context.Context, old rackv0.Rack) (Rack, error) {
 	var status *Status
 	if old.Status != nil {
-		v, err := AutoMigrateStatus(ctx, *old.Status)
+		v, err := autoMigrateStatus(ctx, *old.Status)
 		if err != nil {
 			return Rack{}, err
 		}
@@ -40,15 +40,15 @@ func AutoMigrateRack(ctx context.Context, old rackv0.Rack) (Rack, error) {
 	}, nil
 }
 
-func AutoMigrateStatus(ctx context.Context, old rackv0.Status) (Status, error) {
-	details, err := AutoMigrateStatusDetails(ctx, old.Details)
+func autoMigrateStatus(ctx context.Context, old rackv0.Status) (Status, error) {
+	details, err := autoMigrateStatusDetails(ctx, old.Details)
 	if err != nil {
 		return Status{}, err
 	}
 	labels := make([]label.Label, len(old.Labels))
 	for i, v := range old.Labels {
 		var err error
-		if labels[i], err = AutoMigrateLabel(ctx, v); err != nil {
+		if labels[i], err = autoMigrateLabel(ctx, v); err != nil {
 			return Status{}, err
 		}
 	}
@@ -64,13 +64,13 @@ func AutoMigrateStatus(ctx context.Context, old rackv0.Status) (Status, error) {
 	}, nil
 }
 
-func AutoMigrateStatusDetails(_ context.Context, old rackv0.StatusDetails) (StatusDetails, error) {
+func autoMigrateStatusDetails(_ context.Context, old rackv0.StatusDetails) (StatusDetails, error) {
 	return StatusDetails{
 		Rack: Key(old.Rack),
 	}, nil
 }
 
-func AutoMigrateLabel(_ context.Context, old labelv0.Label) (label.Label, error) {
+func autoMigrateLabel(_ context.Context, old labelv0.Label) (label.Label, error) {
 	return label.Label{
 		Key:   label.Key(old.Key),
 		Name:  old.Name,

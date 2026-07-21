@@ -25,14 +25,14 @@ import (
 	telem "github.com/synnaxlabs/x/telem"
 )
 
-func AutoMigrateArc(ctx context.Context, old arcv1.Arc) (Arc, error) {
-	graph, err := graphv2.AutoMigrateGraph(ctx, old.Graph)
+func autoMigrateArc(ctx context.Context, old arcv1.Arc) (Arc, error) {
+	graph, err := graphv2.MigrateGraph(ctx, old.Graph)
 	if err != nil {
 		return Arc{}, err
 	}
 	var program *program.Program
 	if old.Program != nil {
-		v, err := programv2.AutoMigrateProgram(ctx, *old.Program)
+		v, err := programv2.MigrateProgram(ctx, *old.Program)
 		if err != nil {
 			return Arc{}, err
 		}
@@ -40,7 +40,7 @@ func AutoMigrateArc(ctx context.Context, old arcv1.Arc) (Arc, error) {
 	}
 	var status *Status
 	if old.Status != nil {
-		v, err := AutoMigrateStatus(ctx, *old.Status)
+		v, err := autoMigrateStatus(ctx, *old.Status)
 		if err != nil {
 			return Arc{}, err
 		}
@@ -57,11 +57,11 @@ func AutoMigrateArc(ctx context.Context, old arcv1.Arc) (Arc, error) {
 	}, nil
 }
 
-func AutoMigrateStatus(ctx context.Context, old arcv1.Status) (Status, error) {
+func autoMigrateStatus(ctx context.Context, old arcv1.Status) (Status, error) {
 	labels := make([]label.Label, len(old.Labels))
 	for i, v := range old.Labels {
 		var err error
-		if labels[i], err = AutoMigrateLabel(ctx, v); err != nil {
+		if labels[i], err = autoMigrateLabel(ctx, v); err != nil {
 			return Status{}, err
 		}
 	}
@@ -77,7 +77,7 @@ func AutoMigrateStatus(ctx context.Context, old arcv1.Status) (Status, error) {
 	}, nil
 }
 
-func AutoMigrateLabel(_ context.Context, old labelv0.Label) (label.Label, error) {
+func autoMigrateLabel(_ context.Context, old labelv0.Label) (label.Label, error) {
 	return label.Label{
 		Key:   label.Key(old.Key),
 		Name:  old.Name,

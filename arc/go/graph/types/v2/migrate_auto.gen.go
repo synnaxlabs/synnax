@@ -22,7 +22,7 @@ import (
 	"maps"
 )
 
-func AutoMigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
+func autoMigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
 	functions := make(ir.Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
@@ -33,14 +33,14 @@ func AutoMigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
 	edges := make(Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
-		if edges[i], err = AutoMigrateEdge(ctx, v); err != nil {
+		if edges[i], err = autoMigrateEdge(ctx, v); err != nil {
 			return Graph{}, err
 		}
 	}
 	nodes := make(Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
-		if nodes[i], err = AutoMigrateNode(ctx, v); err != nil {
+		if nodes[i], err = autoMigrateNode(ctx, v); err != nil {
 			return Graph{}, err
 		}
 	}
@@ -59,7 +59,7 @@ func AutoMigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
 	}, nil
 }
 
-func AutoMigrateEdge(_ context.Context, old irv1.Edge) (Edge, error) {
+func autoMigrateEdge(_ context.Context, old irv1.Edge) (Edge, error) {
 	return Edge{
 		Edge: ir.Edge{
 			Source: ir.Handle(old.Source),
@@ -70,7 +70,7 @@ func AutoMigrateEdge(_ context.Context, old irv1.Edge) (Edge, error) {
 	}, nil
 }
 
-func AutoMigrateNode(_ context.Context, old v1.Node) (Node, error) {
+func autoMigrateNode(_ context.Context, old v1.Node) (Node, error) {
 	return Node{
 		Key:      old.Key,
 		Position: spatial.XY(old.Position),

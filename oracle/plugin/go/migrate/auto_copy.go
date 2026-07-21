@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// auto_copy.go generates migrate_auto.gen.go files containing AutoMigrateX
+// auto_copy.go generates migrate_auto.gen.go files containing autoMigrateX
 // functions that convert between frozen and live type versions.
 package migrate
 
@@ -118,11 +118,11 @@ import (
 )
 {{range $fn := .Funcs}}
 {{- if eq $fn.Kind "cast"}}
-func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 	return {{$fn.NewTypeName}}(old), nil
 }
 {{else if eq $fn.Kind "slice"}}
-func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 	result := make({{$fn.NewTypeName}}, len(old))
 	for i, v := range old {
 {{- if $fn.SliceHasErr}}
@@ -137,7 +137,7 @@ func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 	return result, nil
 }
 {{else if eq $fn.Kind "struct"}}
-func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 {{- range $fn.Preamble}}
 {{- if eq .Kind "migrate"}}
 	{{.VarName}}, err := {{.Call}}
@@ -202,7 +202,7 @@ func (c *collector) collect(types []resolution.Type) fileData {
 		if !hasDiff || td.Kind == schemadiff.TypeUnchanged {
 			continue
 		}
-		if false && c.skipEntries && c.isEntryType(typ) { // TEMP
+		if c.skipEntries && c.isEntryType(typ) {
 			continue
 		}
 		c.ensureFunc(typ)
@@ -535,16 +535,13 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}
-		return "AutoMigrate" + goName
+		return "autoMigrate" + goName
 	}
-	// For schemadiff.TypeChanged types in external packages, call MigrateX (the developer
-	// template) instead of AutoMigrateX, so developer customization takes effect.
-	// Both live in the dependency's incoming version package, so the import
-	// targets the type's NEW path, not the frozen one being read from.
-	prefix := "AutoMigrate"
-	if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == schemadiff.TypeChanged {
-		prefix = "Migrate"
-	}
+	// External packages expose only MigrateX (the developer template); the
+	// auto-copy helpers are unexported. Both live in the dependency's incoming
+	// version package, so the import targets the type's NEW path, not the
+	// frozen one being read from.
+	prefix := "Migrate"
 	if nt, ok := c.newTable.Get(typ.QualifiedName); ok {
 		if p := output.GetPath(nt, "go"); p != "" {
 			goPath = p

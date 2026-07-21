@@ -26,7 +26,7 @@ import (
 )
 
 // migrateSchematic transforms the previous schematic snapshot (v0) into the
-// current strongly-typed Schematic. AutoMigrateSchematic handles the
+// current strongly-typed Schematic. autoMigrateSchematic handles the
 // trivially-copyable gorp-entry fields (Key, Name, Snapshot); the body
 // fields are sourced from the per-schematic blob the console used to
 // persist alongside those gorp fields, after legacy.MigrateData walks the
@@ -44,7 +44,7 @@ func migrateSchematic(
 	ctx context.Context,
 	old schematicv0.Schematic,
 ) (Schematic, error) {
-	out, err := AutoMigrateSchematic(ctx, old)
+	out, err := autoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}

@@ -18,10 +18,16 @@ import (
 )
 
 func MigrateFunctionProperties(ctx context.Context, old v0.FunctionProperties) (FunctionProperties, error) {
-	migrated, err := AutoMigrateFunctionProperties(ctx, old)
+	migrated, err := autoMigrateFunctionProperties(ctx, old)
 	if err != nil {
 		return FunctionProperties{}, err
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil
+}
+
+// MigrateParam lifts a v0 parameter into the current shape; ir's generated
+// migrations consume it cross-package.
+func MigrateParam(ctx context.Context, old v0.Param) (Param, error) {
+	return autoMigrateParam(ctx, old)
 }

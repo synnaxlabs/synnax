@@ -17,7 +17,7 @@ import (
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/types/v2"
 )
 
-func AutoMigrateLog(_ context.Context, old logv0.Log) (Log, error) {
+func autoMigrateLog(_ context.Context, old logv0.Log) (Log, error) {
 	return Log{
 		Key:  Key(old.Key),
 		Name: old.Name,

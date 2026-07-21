@@ -21,7 +21,7 @@ import (
 )
 
 // MigrateLog lifts the previous log snapshot (v0, {Key, Name, Data}) into the
-// strongly-typed Log. AutoMigrateLog copies the gorp-entry fields (Key, Name); the body
+// strongly-typed Log. autoMigrateLog copies the gorp-entry fields (Key, Name); the body
 // is decoded from the per-log JSON blob via legacy.MigrateData and lifted by logFromV1,
 // which normalizes out-of-set enums to their documented defaults. If legacy.MigrateData
 // fails (e.g. a channel key that cannot coerce to uint32), the body is dropped and only
@@ -31,7 +31,7 @@ import (
 // migrations transform one typed snapshot into another and never need this blob
 // handling.
 func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
-	out, err := AutoMigrateLog(ctx, old)
+	out, err := autoMigrateLog(ctx, old)
 	if err != nil {
 		return Log{}, err
 	}

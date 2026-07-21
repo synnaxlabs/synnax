@@ -16,7 +16,7 @@ import (
 	tablev0 "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
 )
 
-func AutoMigrateTable(_ context.Context, old tablev0.Table) (Table, error) {
+func autoMigrateTable(_ context.Context, old tablev0.Table) (Table, error) {
 	return Table{
 		Key:  Key(old.Key),
 		Name: old.Name,
