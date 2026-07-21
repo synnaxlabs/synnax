@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Arc", func() {
@@ -37,5 +39,29 @@ var _ = Describe("Arc", func() {
 				Type: ontology.ResourceTypeArc, Key: k.String(),
 			}))
 		})
+	})
+})
+
+var _ = Describe("StatusDetails DecodeMsgpack", func() {
+	It("Should decode new lowercase msgpack fields", func() {
+		original := v2.StatusDetails{Running: true}
+		data := MustSucceed(msgpack.Marshal(original))
+		var decoded v2.StatusDetails
+		Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+		Expect(decoded.Running).To(BeTrue())
+	})
+	It("Should decode legacy uppercase Go field name", func() {
+		legacy := struct{ Running bool }{Running: true}
+		data := MustSucceed(msgpack.Marshal(legacy))
+		var decoded v2.StatusDetails
+		Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+		Expect(decoded.Running).To(BeTrue())
+	})
+	It("Should handle false value correctly for both formats", func() {
+		original := v2.StatusDetails{Running: false}
+		data := MustSucceed(msgpack.Marshal(original))
+		var decoded v2.StatusDetails
+		Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+		Expect(decoded.Running).To(BeFalse())
 	})
 })
