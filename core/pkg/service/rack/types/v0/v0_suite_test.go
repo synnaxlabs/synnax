@@ -7,15 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package rack
+package v0_test
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// NewKey instantiates a new rack key from its node and local key components.
-func NewKey(node node.Key, localKey uint16) Key {
-	return Key(uint32(node)<<16 | uint32(localKey))
+func TestRackV0(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Rack v0 Suite")
 }
 
-func StatusKey(k Key) string { return k.OntologyID().String() }
+var _ = ShouldNotLeakGoroutinesPerSpec()
