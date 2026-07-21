@@ -26,6 +26,7 @@ import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { TabMenuItems } from "@/feature/panel/ContextMenu";
 import { Empty } from "@/platform";
 import { CSS } from "@/platform/css";
 import { useTab } from "@/platform/panel/tab";
@@ -109,6 +110,7 @@ const Content = (): ReactElement => {
 
 const content = Component.renderProp(Content);
 const tabName = Component.renderProp(TabName);
+const extraMenuItems = Component.renderProp(TabMenuItems);
 
 const resolveDroppedTab = (raw: string): panel.NewTab | undefined => {
   const parsed = ontology.idZ.safeParse(raw);
@@ -125,6 +127,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
       onSelect={handleSelect}
       onCreateTab={onCreateTab}
       resolveDroppedTab={resolveDroppedTab}
+      extraMenuItems={extraMenuItems}
       rounded={1}
       bordered
       borderColor={5}
