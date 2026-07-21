@@ -87,8 +87,8 @@ func (v *register) Reset() {
 		return
 	}
 	v.AbsorbInputs()
-	*v.Output(0) = v.Input(0).DeepCopy()
-	*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
+	v.Output(0).CopyFrom(v.Input(0))
+	telem.SetSeriesV(v.OutputTime(0), v.clock.Now())
 }
 
 func (v *register) Next(ctx node.Context) {
@@ -97,8 +97,8 @@ func (v *register) Next(ctx node.Context) {
 		return
 	}
 	// Feeders reuse their output buffers in place; the register value must not alias them.
-	*v.Output(0) = data.DeepCopy()
-	*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
+	v.Output(0).CopyFrom(data)
+	telem.SetSeriesV(v.OutputTime(0), v.clock.Now())
 	ctx.MarkChanged(0)
 }
 
@@ -135,8 +135,8 @@ func (v *exprRead) Next(ctx node.Context) {
 			bytes.Equal(data.Data, v.Output(0).Data) {
 			continue
 		}
-		*v.Output(0) = data.DeepCopy()
-		*v.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](v.clock.Now())
+		v.Output(0).CopyFrom(data)
+		telem.SetSeriesV(v.OutputTime(0), v.clock.Now())
 		ctx.MarkChanged(0)
 	}
 }
