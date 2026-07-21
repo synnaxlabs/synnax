@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/versioning"
+	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -58,17 +59,9 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	// Types that alias their predecessor version carry its codec methods
 	// through the alias; only defined types get codecs in the current package.
-	split, err := versioning.AliasSplit(
-		req.Resolutions, req.SnapshotVersion, req.LoadSnapshot,
-	)
+	aliased, err := gotypes.AliasedTypes(req)
 	if err != nil {
 		return nil, err
-	}
-	aliased := make(set.Set[string])
-	for _, pa := range split {
-		for qn := range pa.Aliased {
-			aliased.Add(qn)
-		}
 	}
 
 	// Version-laid-out packages emit their codecs alongside the current
@@ -82,12 +75,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	versionedReq.Resolutions = rewritten
 	req = &versionedReq
 
-	// Collect all entry types and their adapter status.
-	type entryInfo struct {
-		goName string
-		goPath string
-	}
-	var entryTypes []entryInfo
+	// Collect all entry types.
+	var entryTypes []resolution.Type
 	for _, entry := range req.Resolutions.StructTypes() {
 		if !domain.HasExprFromType(entry, "go", "marshal") {
 			continue
@@ -101,7 +90,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 				return nil, errors.Wrapf(err, "invalid output path for %s", entry.Name)
 			}
 		}
-		entryTypes = append(entryTypes, entryInfo{goName: naming.GetGoName(entry), goPath: goPath})
+		entryTypes = append(entryTypes, entry)
 	}
 
 	// Collect DistinctForm types with @go marshal flex.
@@ -129,14 +118,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	// Merge all entry types' dependency trees per package.
 	merged := make(map[string]map[string]resolution.Type)
-	for _, ei := range entryTypes {
-		var entry resolution.Type
-		for _, t := range req.Resolutions.StructTypes() {
-			if naming.GetGoName(t) == ei.goName {
-				entry = t
-				break
-			}
-		}
+	for _, entry := range entryTypes {
 		byPkg, _ := collectSerializableTypes(entry, req.Resolutions)
 		for goPath, types := range byPkg {
 			if merged[goPath] == nil {

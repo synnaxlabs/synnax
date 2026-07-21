@@ -100,9 +100,21 @@ When `go/types` generates a version-laid-out current package `vM`:
 
 - **Baseline** — the latest snapshot in `schemas/snapshots/` whose resolution
   declares version `M-1` for the path. Bumps are validated against the latest
-  snapshot (`detectBumps`, `oracle/plugin/go/migrate/migrate.go:140`), so this
-  snapshot always exists; snapshots are append-only and checked in, so the rule is
-  stateless and deterministic across syncs.
+  snapshot (`detectBumps`, `oracle/plugin/go/migrate/migrate.go`), so once
+  per-resource versions appear in snapshots this baseline always exists;
+  snapshots are append-only and checked in, so the rule is stateless and
+  deterministic across syncs.
+- **Frozen-source fallback** — when no snapshot declares `M-1` (all history
+  predates `@go version`, and the pre-versioning snapshots no longer parse under
+  the current grammar), the frozen predecessor package itself is the baseline:
+  the generator renders the would-be define-all file, parses it and the frozen
+  `types.gen.go` with comments stripped, and aliases exactly the types whose
+  declarations are identical — struct tags included — computed to a fixpoint so
+  a type referencing a re-defined local type is re-defined too
+  (`frozenAliasSplit`, `oracle/plugin/go/types/frozen.go`). An alias is emitted
+  only when it denotes literally the same code, which makes the retrofit immune
+  to generator-vintage drift (a frozen struct missing today's `omitzero` tags
+  simply stays defined).
 - **Define** a type when it has no baseline counterpart (brand-new types fold into
   the current version, `migrate.go:180`), or when `schemasEqual` against the
   baseline reports a change (own shape or transitive).
@@ -110,8 +122,8 @@ When `go/types` generates a version-laid-out current package `vM`:
   consts re-declared beside the alias. The emission machinery exists in
   `aliasFileGenerator` (`oracle/plugin/go/types/alias.go:26`), including generic
   type parameters (`Status[Details any] = vPrev.Status[Details]`).
-- **v0** and paths whose only snapshots predate per-resource versioning
-  (`versioning.PreVersioning`) define everything — the current fallback.
+- **v0** and paths with neither a declared baseline nor a frozen predecessor on
+  disk define everything.
 
 ## 4.1 - Codecs and Methods
 
@@ -143,11 +155,13 @@ versions, and decreases remain errors.
 Migration files for **all** paths live in the incoming version package: `vN` holds
 `migrate.go` / `migrate_auto.gen.go` transforming `v(N-1)` types into `vN` types.
 The generator already scaffolds both gorp-entry and value-type paths this way
-(`scaffoldIncoming`, `oracle/plugin/go/migrate/migrate.go`); the reverse-direction
-files on disk (`arc/go/types/types/v0/migrate.go` imports v1) predate it. Those
-legacy files are harmless under the chain: a cycle would need v1 to import v0, and
-frozen full-copy packages never alias backward. They can migrate to the incoming
-convention whenever their resources next bump.
+(`scaffoldIncoming`, `oracle/plugin/go/migrate/migrate.go`). Legacy
+reverse-direction files (migrations living in the frozen old package, importing
+the new version) form an import cycle the moment the current package aliases
+backward, so the retrofit moved them into the incoming packages for the affected
+paths (`arc/types` v0→v1, `arc/ir` v1→v2) and retargeted their callers; paths
+whose current packages emitted no aliases keep their legacy files until they
+next bump.
 
 Auto-copy generation simplifies: when a nested type is `TypeUnchanged`, old and new
 names denote the same Go type, and the generated copy is direct assignment. Only
@@ -186,14 +200,17 @@ move value-type migration scaffolding to the incoming package. Oracle's own test
 suite covers the split (unchanged → alias, own-change → define, descendant-change
 → define, new type → define at current, pre-versioning baseline → define all).
 
-**Phase 2 — activation.** No cutover sync is needed. Every snapshot on disk today
-(v53–v56) predates `@go version`, so no baseline resolves and the new generator is
-byte-identical on the current repo — `oracle check` passes unchanged. Existing
-full-copy current packages are exactly what no-baseline emission produces, so they
-are grandfathered by construction. The chain begins organically: the next
-`oracle snapshot` captures per-resource versions, and the first bump after it emits
-the first alias-form current package. Wire formats are untouched throughout — the
-change is purely source-level.
+**Phase 2 — retrofit cutover.** The pre-versioning snapshots no longer parse
+under the current grammar, so the frozen-source fallback drives the retrofit: one
+sync regenerated every current version package against its frozen predecessor,
+collapsing byte-identical declarations into aliases. Reconciliation moved
+hand-written methods whose receiver types became aliases to their definer
+packages (arc's `dimensions.go` and `ChanDirection` methods, rack/task `Key`
+methods, arc service's `StatusDetails` decoder), deleted the now-duplicate enum
+`_string.go` files from current packages, and relocated the cycle-inducing legacy
+migrations (§4.3). Frozen packages gained only files; no frozen declaration
+changed. Wire formats are untouched throughout — the change is purely
+source-level.
 
 ---
 
@@ -219,10 +236,21 @@ stay as they are; an alias-form current version chains into them exactly as it
 would into alias-form history. Rewriting history for uniformity was rejected as pure
 churn against immutable packages.
 
+**6.2a - Frozen-source baseline over transcribed or annotated history.** Two
+retrofit alternatives were rejected: transcribing the pre-versioning snapshots
+into current grammar (hand-authoring ~30 schemas of history, and the frozen
+snapshots are frozen), and a per-type `@go changed` annotation (relies on humans
+reconstructing which types changed, and cannot see tag-level drift the schema
+does not express). Comparing against the frozen generated source is the only
+baseline that is both authoritative and already machine-readable. The trade is
+real: the generator reads its own prior output, and a future generator-style
+change makes affected types fall back to definitions rather than aliases — safe,
+but churny; the snapshot-declared baseline takes over from the first
+post-versioning snapshot onward.
+
 **6.3 - Migrations live in the incoming package for all paths.** The generator
-already scaffolds this way; the RFC ratifies it. Legacy reverse-direction files
-(arc's `v0/migrate.go`) stay where they are — no cycle is possible against frozen
-full-copy packages (§4.3) — and adopt the convention at their next bump.
+already scaffolds this way; the RFC ratifies it, and the retrofit moved the
+legacy reverse-direction files that would otherwise cycle (§4.3).
 
 **6.4 - Version directories become permanently pinned.** Full copies allowed, in
 principle, deleting ancient version packages wholesale. The chain gives that up:

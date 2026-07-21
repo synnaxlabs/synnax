@@ -1389,4 +1389,32 @@ var _ = Describe("Predecessor Aliasing", func() {
 	})
 })
 
+var _ = Describe("Same-Named Entries Across Namespaces", func() {
+	It("Should emit each entry's codec at its own path", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		loader.Add("schemas/panel", `
+			@go output "core/pkg/service/panel"
+			View struct {
+				name string
+			}
+		`)
+		source := `
+			import "schemas/panel"
+
+			@go output "core/pkg/service/view"
+			Key = uuid
+			View struct {
+				key  Key {@key}
+				name string
+				@go marshal
+			}
+			Linked struct { view panel.View }
+		`
+		resp := MustGenerate(ctx, source, "view", loader,
+			marshal.New(marshal.DefaultOptions()))
+		ExpectContent(resp, "core/pkg/service/view/codec.gen.go").
+			ToContain("View) EncodeOrc")
+	})
+})
+
 var _ = ShouldNotLeakGoroutinesPerSpec()

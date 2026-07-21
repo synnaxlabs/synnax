@@ -14,6 +14,8 @@ import (
 	gojson "encoding/json"
 	"go/parser"
 	"go/token"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -2699,6 +2701,140 @@ var _ = Describe("Predecessor Aliasing", func() {
 			ToContain("type Stable = types.Stable", "type Leaf = types.Leaf")
 		ExpectContent(resp, "out/types/types.gen.go").
 			ToContain("type Stable = v1.Stable", "type Leaf = v1.Leaf")
+	})
+})
+
+var _ = Describe("Frozen Predecessor Baseline", func() {
+	var (
+		tmpDir   string
+		loader   *MockFileLoader
+		goPlugin *types.Plugin
+	)
+
+	BeforeEach(func() {
+		tmpDir = GinkgoT().TempDir()
+		loader = NewMockFileLoaderWithRoot(tmpDir)
+		goPlugin = types.New(types.DefaultOptions())
+	})
+
+	// freeze generates oldSource at its declared version and writes the
+	// emitted version package to disk, simulating a frozen predecessor.
+	freeze := func(ctx context.Context, oldSource, path string) {
+		GinkgoHelper()
+		resp := MustGenerate(ctx, oldSource, "test", loader, goPlugin)
+		content := MustContentOf(resp, path)
+		abs := filepath.Join(tmpDir, path)
+		Expect(os.MkdirAll(filepath.Dir(abs), 0755)).To(Succeed())
+		Expect(os.WriteFile(abs, []byte(content), 0644)).To(Succeed())
+	}
+
+	const oldSource = `
+		@go output "out"
+		@go version 0
+		Mode enum {
+			active = "active"
+			paused = "paused"
+		}
+		Stable struct {
+			name string
+			mode Mode
+		}
+		Leaf struct { value int32 }
+		Holder struct { leaf Leaf }
+	`
+	const newSource = `
+		@go output "out"
+		@go version 1
+		Mode enum {
+			active = "active"
+			paused = "paused"
+		}
+		Stable struct {
+			name string
+			mode Mode
+		}
+		Leaf struct { value int32  extra string }
+		Holder struct { leaf Leaf }
+	`
+
+	It("Should alias types whose declarations match the frozen predecessor", func(ctx SpecContext) {
+		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
+		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToBeValidGoSource().
+			ToContain(
+				"type Stable = v0.Stable",
+				"type Mode = v0.Mode",
+				"ModeActive Mode = v0.ModeActive",
+				"type Leaf struct",
+			).
+			ToNotContain("type Stable struct")
+	})
+
+	It("Should re-define types referencing a re-defined local type", func(ctx SpecContext) {
+		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
+		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Holder struct").
+			ToNotContain("type Holder = v0.Holder")
+	})
+
+	It("Should re-define types whose frozen bytes drifted from current output", func(ctx SpecContext) {
+		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
+		abs := filepath.Join(tmpDir, "out/types/v0/types.gen.go")
+		drifted := strings.Replace(
+			string(MustSucceed(os.ReadFile(abs))),
+			"Name string `json:\"name\" msgpack:\"name\"`",
+			"Name string `json:\"name,omitempty\" msgpack:\"name,omitempty\"`",
+			1,
+		)
+		Expect(os.WriteFile(abs, []byte(drifted), 0644)).To(Succeed())
+		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Stable struct", "type Mode = v0.Mode").
+			ToNotContain("type Stable = v0.Stable")
+	})
+
+	It("Should re-define types with extra methods in the frozen file", func(ctx SpecContext) {
+		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
+		abs := filepath.Join(tmpDir, "out/types/v0/types.gen.go")
+		appended := string(MustSucceed(os.ReadFile(abs))) +
+			"\nfunc (s Stable) GorpKey() string { return s.Name }\n"
+		Expect(os.WriteFile(abs, []byte(appended), 0644)).To(Succeed())
+		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Stable struct").
+			ToNotContain("type Stable = v0.Stable")
+	})
+
+	It("Should ignore doc-comment differences in the frozen file", func(ctx SpecContext) {
+		freeze(ctx, `
+			@go output "out"
+			@go version 0
+			Stable struct {
+				name string
+				@doc value "is the old wording of the doc."
+			}
+			Leaf struct { value int32 }
+		`, "out/types/v0/types.gen.go")
+		resp := MustGenerate(ctx, `
+			@go output "out"
+			@go version 1
+			Stable struct {
+				name string
+				@doc value "is entirely new wording for the same shape."
+			}
+			Leaf struct { value int32  extra string }
+		`, "test", loader, goPlugin)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Stable = v0.Stable")
+	})
+
+	It("Should define everything when no frozen predecessor exists", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
+		ExpectContent(resp, "out/types/v1/types.gen.go").
+			ToContain("type Stable struct").
+			ToNotContain("v0.Stable")
 	})
 })
 

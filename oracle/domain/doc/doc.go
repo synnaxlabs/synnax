@@ -96,17 +96,23 @@ func wrapText(text string, firstLineWidth, subsequentLineWidth int) []string {
 // FormatGo formats documentation for Go comments.
 // Single-line: "// Name doc text"
 // Multi-line: "// Name line1\n// line2\n// line3"
-// Text is wrapped to 88 characters including the comment prefix.
-func FormatGo(name, doc string) string {
+// Text is wrapped to 88 characters including the comment prefix and the indentation
+// the comment is emitted at (in tabs; gofmt indents every line of the comment).
+func FormatGo(name, doc string, indent ...int) string {
 	if doc == "" {
 		return ""
+	}
+
+	width := maxLineWidth
+	if len(indent) > 0 {
+		width -= indent[0]
 	}
 
 	// Calculate available width: "// Name " for first line, "// " for subsequent
 	firstPrefix := "// " + name + " "
 	subsequentPrefix := "// "
-	firstLineWidth := maxLineWidth - len(firstPrefix)
-	subsequentLineWidth := maxLineWidth - len(subsequentPrefix)
+	firstLineWidth := width - len(firstPrefix)
+	subsequentLineWidth := width - len(subsequentPrefix)
 
 	lines := wrapText(doc, firstLineWidth, subsequentLineWidth)
 	if len(lines) == 0 {
