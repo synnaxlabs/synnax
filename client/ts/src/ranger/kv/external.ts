@@ -9,5 +9,4 @@
 
 export * from "@/ranger/kv/client";
 export * from "@/ranger/kv/payload";
-export * from "@/ranger/kv/store";
 export * from "@/ranger/kv/types.gen";

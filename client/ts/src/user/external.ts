@@ -19,5 +19,4 @@ export {
   type UsernameRetrieveRequest,
   type UsernamesRetrieveRequest,
 } from "@/user/client";
-export { STORE_KEY } from "@/user/store";
 export * from "@/user/types.gen";

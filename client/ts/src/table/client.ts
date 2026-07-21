@@ -12,11 +12,16 @@ import { array, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
-import { type dispatch } from "@/dispatch";
+import { dispatch } from "@/dispatch";
 import { ontology } from "@/ontology";
 import { project } from "@/project";
-import { type Action, dispatchReqZ, rename as renameAction } from "@/table/actions.gen";
-import { bindStore, STORE_KEY } from "@/table/store";
+import { kindOf, reduceAll } from "@/table/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+  scopedActionZ,
+} from "@/table/actions.gen";
 import {
   type Key,
   keyZ,
@@ -26,6 +31,9 @@ import {
   tableZ,
 } from "@/table/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_table_set";
+export const DELETE_CHANNEL_NAME = "sy_table_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -59,21 +67,42 @@ const requestFilter = (req: RetrieveRequest): ((t: Table) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly cache_: cache.Cache;
-  private readonly dispatcher_: dispatch.Controller<Key, Table, Action>;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, Table>;
+  private readonly ontology: ontology.Stores;
+  private readonly dispatcher: dispatch.Controller<Key, Table, Action>;
+  private readonly answers: {
     single: cache.Answers<Key, Table, Key, Table>;
     request: cache.Answers<RetrieveRequest, Table[], Key, Table>;
   };
 
-  constructor(client: UnaryClient, engine: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
     this.client = client;
-    this.dispatcher_ = bindStore(engine);
-    this.cache_ = engine;
-    this.answers_ = {
+    this.store = engine.createTable<Key, Table>({ name: "tables" });
+    this.dispatcher = new dispatch.Controller<Key, Table, Action>({
+      store: this.store,
+      onError: engine.onError,
+      reduce: reduceAll,
+      kindOf,
+    });
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => this.store.delete(changed),
+    };
+    engine.addListeners(
+      this.store,
+      del,
+      this.dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
+    );
+    this.ontology = ontologyStores;
+    this.answers = {
       single: engine.answers({
         name: "table",
-        table: this.tableStore,
+        table: this.store,
         fetch: async (query) => [await this.fetchSingle(query)].map((t) => t.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -81,7 +110,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "tables",
-        table: this.tableStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((t) => t.key),
         compose: (records) => records,
         matches: (table, query) => requestFilter(query)(table),
@@ -107,7 +136,7 @@ export class Client {
     const isMany = Array.isArray(tables);
     const optimistic = array.toArray(tables).map((t) => tableZ.parse(t));
     const rollback = new cache.Rollback();
-    rollback.add(this.tableStore.setMany(optimistic));
+    rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
@@ -118,14 +147,14 @@ export class Client {
           createResZ,
         ),
     );
-    this.tableStore.setMany(res.tables);
+    this.store.set(res.tables);
     return isMany ? res.tables : res.tables[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.tableStore, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
@@ -142,7 +171,7 @@ export class Client {
     actions: Action | Action[],
     opts: dispatch.Options<Table, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher_.dispatch(
+    return await this.dispatcher.dispatch(
       key,
       array.toArray(actions),
       this.dispatchSender(key),
@@ -155,7 +184,7 @@ export class Client {
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher_.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key, this.dispatchSender(key));
   }
 
   /**
@@ -163,17 +192,17 @@ export class Client {
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher_.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key, this.dispatchSender(key));
   }
 
   /** Whether the table has a live undo entry. */
   hasUndo(key: Key): boolean {
-    return this.dispatcher_.hasUndo(key);
+    return this.dispatcher.hasUndo(key);
   }
 
   /** Whether the table has a live redo entry. */
   hasRedo(key: Key): boolean {
-    return this.dispatcher_.hasRedo(key);
+    return this.dispatcher.hasRedo(key);
   }
 
   /**
@@ -181,14 +210,14 @@ export class Client {
    * destructor that unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher_.onUndoStateChange(callback, key);
+    return this.dispatcher.onUndoStateChange(callback, key);
   }
 
   /**
    * Stages actions committed atomically as one undoable entry.
    */
   beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
-    return this.dispatcher_.transaction(key, this.dispatchSender(key), kind);
+    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }
 
   private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
@@ -215,8 +244,8 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Table | Table[]> {
     const isSingle = "key" in params;
-    if (isSingle) return await this.answers_.single.retrieve(params.key);
-    return await this.answers_.request.retrieve(retrieveReqZ.parse(params));
+    if (isSingle) return await this.answers.single.retrieve(params.key);
+    return await this.answers.request.retrieve(retrieveReqZ.parse(params));
   }
 
   /**
@@ -235,10 +264,10 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<Table> | cache.ChangeHandler<Table[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if ("key" in params)
-      return answers.single.onChange(params.key, handler as cache.ChangeHandler<Table>);
-    return answers.request.onChange(
+      return single.onChange(params.key, handler as cache.ChangeHandler<Table>);
+    return request.onChange(
       retrieveReqZ.parse(params),
       handler as cache.ChangeHandler<Table[]>,
     );
@@ -253,15 +282,17 @@ export class Client {
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<Table> | cache.Cached<Table[]> | undefined {
-    const answers = this.answers_;
-    if ("key" in params) return answers.single.getCached(params.key);
-    return answers.request.getCached(retrieveReqZ.parse(params));
+    const { request, single } = this.answers;
+    if ("key" in params) return single.getCached(params.key);
+    return request.getCached(retrieveReqZ.parse(params));
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    rollback.add(ontology.deleteCachedRelationships(this.cache_, ontologyID(keysArr)));
+    rollback.add(
+      ontology.deleteCachedRelationships(this.ontology, ontologyID(keysArr)),
+    );
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -272,11 +303,7 @@ export class Client {
           emptyResZ,
         ),
     );
-    this.tableStore.delete(keysArr);
-  }
-
-  private get tableStore(): cache.Table<Key, Table> {
-    return this.cache_.table(STORE_KEY);
+    this.store.delete(keysArr);
   }
 
   private async execRetrieve(
@@ -297,13 +324,13 @@ export class Client {
   private async fetchSingle(query: Key): Promise<Table> {
     const tables = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("Table", query, tables, true);
-    this.tableStore.setIfAbsent(tables);
+    this.store.setIfAbsent(tables);
     return tables[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Table[]> {
     const tables = await this.execRetrieve(query);
-    this.tableStore.setIfAbsent(tables);
+    this.store.setIfAbsent(tables);
     return tables;
   }
 }

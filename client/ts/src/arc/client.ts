@@ -15,16 +15,24 @@ import {
 import { array, deep, type destructor, errors, id, primitive } from "@synnaxlabs/x";
 import { z } from "zod/v4";
 
-import { type Action, dispatchReqZ, rename as renameAction } from "@/arc/actions.gen";
-import { bindStore, STORE_KEY } from "@/arc/store";
+import { isUndoable, kindOf, reduceAll } from "@/arc/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+  scopedActionZ,
+} from "@/arc/actions.gen";
 import { type Arc, arcZ, type Key, keyZ, type New, ontologyID } from "@/arc/types.gen";
 import { cache } from "@/cache";
-import { type dispatch } from "@/dispatch";
+import { dispatch } from "@/dispatch";
 import { NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
 import { status } from "@/status";
 import { task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_arc_set";
+export const DELETE_CHANNEL_NAME = "sy_arc_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -143,11 +151,14 @@ const affectedTaskKeys = (
 export class Client {
   private readonly client: UnaryClient;
   private readonly streamClient: StreamClient;
-  private readonly cache_: cache.Cache;
-  private readonly dispatcher_: dispatch.Controller<Key, Arc, Action>;
+  private readonly dispatcher: dispatch.Controller<Key, Arc, Action>;
   private readonly ontologyClient: ontology.Client;
   private readonly taskClient: task.Client;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, Arc>;
+  private readonly statusStore: cache.Table<status.Key, status.Status>;
+  private readonly taskStore: cache.Table<task.Key, Omit<task.Task, "status">>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<SingleRetrieveParams, Arc, Key, Arc>;
     request: cache.Answers<RetrieveRequest, Arc[], Key, Arc>;
     task: cache.Answers<Key, task.Task | null, task.Key, Omit<task.Task, "status">>;
@@ -159,17 +170,37 @@ export class Client {
     ontologyClient: ontology.Client,
     taskClient: task.Client,
     engine: cache.Cache,
+    statusStore: cache.Table<status.Key, status.Status>,
   ) {
     this.client = client;
     this.streamClient = streamClient;
     this.ontologyClient = ontologyClient;
     this.taskClient = taskClient;
-    this.dispatcher_ = bindStore(engine);
-    this.cache_ = engine;
-    this.answers_ = {
+    this.statusStore = statusStore;
+    this.taskStore = taskClient.store;
+    this.ontology = ontologyClient.stores;
+    this.store = engine.createTable<Key, Arc>({ name: "arcs" });
+    this.dispatcher = new dispatch.Controller<Key, Arc, Action>({
+      store: this.store,
+      onError: engine.onError,
+      reduce: reduceAll,
+      isUndoable,
+      kindOf,
+    });
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => this.store.delete(changed),
+    };
+    engine.addListeners(
+      this.store,
+      del,
+      this.dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
+    );
+    this.answers = {
       single: engine.answers({
         name: "arc",
-        table: this.arcStore,
+        table: this.store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: ([record]) => record,
         keyOf: (query) => ("key" in query ? query.key : null),
@@ -179,7 +210,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "arcs",
-        table: this.arcStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((a) => a.key),
         compose: (records) => records,
         matches: (a, query) => requestFilter(query)(a),
@@ -195,7 +226,7 @@ export class Client {
         compose: (records) =>
           records.length === 0 ? null : this.composeTask(records[0]),
         matches: (t, query) =>
-          this.relationshipStore.has(
+          this.ontology.relationships.has(
             ontology.relationshipToString({
               from: ontologyID(query),
               type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -203,7 +234,7 @@ export class Client {
             }),
           ),
         watch: [
-          cache.watch(this.relationshipStore, (event, query: Key) => {
+          cache.watch(this.ontology.relationships, (event, query: Key) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -245,7 +276,7 @@ export class Client {
     }
     const optimistic = params.map((a) => arcZ.parse(a));
     const rollback = new cache.Rollback();
-    rollback.add(this.arcStore.setMany(optimistic));
+    rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
@@ -256,7 +287,7 @@ export class Client {
           createResZ,
         ),
     );
-    this.arcStore.setMany(res.arcs);
+    this.store.set(res.arcs);
     for (const [i, taskKey] of taskKeys) {
       const created = res.arcs[i];
       const newTsk = await this.taskClient.create(
@@ -281,7 +312,7 @@ export class Client {
     const tsk = await this.retrieveTask(key);
     if (tsk != null) await this.taskClient.rename(tsk.key, name);
     const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.arcStore, key, { name }));
+    rollback.add(cache.partialUpdate(this.store, key, { name }));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () => await this.sendDispatch(key, id.create(), [renameAction({ name })]),
@@ -289,14 +320,14 @@ export class Client {
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {
-    return await this.answers_.task.retrieve(key);
+    return await this.answers.task.retrieve(key);
   }
 
   async retrieve(params: SingleRetrieveParams): Promise<Arc>;
   async retrieve(params: RetrieveParams): Promise<Arc[]>;
   async retrieve(params: RetrieveParams): Promise<Arc | Arc[]> {
-    if (isSingleParams(params)) return await this.answers_.single.retrieve(params);
-    return await this.answers_.request.retrieve(retrieveReqZ.parse(params));
+    if (isSingleParams(params)) return await this.answers.single.retrieve(params);
+    return await this.answers.request.retrieve(retrieveReqZ.parse(params));
   }
 
   /**
@@ -315,10 +346,10 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Arc> | cache.ChangeHandler<Arc[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if (isSingleParams(params))
-      return answers.single.onChange(params, handler as cache.ChangeHandler<Arc>);
-    return answers.request.onChange(
+      return single.onChange(params, handler as cache.ChangeHandler<Arc>);
+    return request.onChange(
       retrieveReqZ.parse(params),
       handler as cache.ChangeHandler<Arc[]>,
     );
@@ -333,9 +364,9 @@ export class Client {
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Arc> | cache.Cached<Arc[]> | undefined {
-    const answers = this.answers_;
-    if (isSingleParams(params)) return answers.single.getCached(params);
-    return answers.request.getCached(retrieveReqZ.parse(params));
+    const { request, single } = this.answers;
+    if (isSingleParams(params)) return single.getCached(params);
+    return request.getCached(retrieveReqZ.parse(params));
   }
 
   /**
@@ -348,13 +379,13 @@ export class Client {
     task.Key,
     Omit<task.Task, "status">
   > {
-    return this.answers_.task;
+    return this.answers.task;
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    rollback.add(this.arcStore.delete(keysArr));
+    rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -377,7 +408,7 @@ export class Client {
     actions: Action | Action[],
     opts: dispatch.Options<Arc, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher_.dispatch(
+    return await this.dispatcher.dispatch(
       key,
       array.toArray(actions),
       this.dispatchSender(key),
@@ -390,7 +421,7 @@ export class Client {
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher_.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key, this.dispatchSender(key));
   }
 
   /**
@@ -398,17 +429,17 @@ export class Client {
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher_.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key, this.dispatchSender(key));
   }
 
   /** Whether the arc has a live undo entry. */
   hasUndo(key: Key): boolean {
-    return this.dispatcher_.hasUndo(key);
+    return this.dispatcher.hasUndo(key);
   }
 
   /** Whether the arc has a live redo entry. */
   hasRedo(key: Key): boolean {
-    return this.dispatcher_.hasRedo(key);
+    return this.dispatcher.hasRedo(key);
   }
 
   /**
@@ -416,14 +447,14 @@ export class Client {
    * destructor that unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher_.onUndoStateChange(callback, key);
+    return this.dispatcher.onUndoStateChange(callback, key);
   }
 
   /**
    * Stages actions committed atomically as one undoable entry.
    */
   beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
-    return this.dispatcher_.transaction(key, this.dispatchSender(key), kind);
+    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }
 
   private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
@@ -442,22 +473,6 @@ export class Client {
       dispatchReqZ,
       emptyResZ,
     );
-  }
-
-  private get arcStore(): cache.Table<Key, Arc> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get statusStore(): cache.Table<status.Key, status.Status> {
-    return this.cache_.table(status.STORE_KEY);
-  }
-
-  private get taskStore(): cache.Table<task.Key, Omit<task.Task, "status">> {
-    return this.cache_.table(task.STORE_KEY);
-  }
-
-  private get relationshipStore(): cache.Table<string, ontology.Relationship> {
-    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {
@@ -484,13 +499,13 @@ export class Client {
   // replayed dispatch awaits its echo the replayed doc stays, but the
   // network doc answers: it carries the server-materialized text.
   private hydrate(a: Arc): Arc {
-    if (this.dispatcher_.hasOutstanding(a.key) === true) {
-      this.arcStore.setIfAbsent(a);
+    if (this.dispatcher.hasOutstanding(a.key) === true) {
+      this.store.setIfAbsent(a);
       return a;
     }
-    const prev = this.arcStore.get(a.key);
+    const prev = this.store.get(a.key);
     if (prev != null && deep.equal(prev, a)) return prev;
-    this.arcStore.set(a.key, a);
+    this.store.set(a.key, a);
     return a;
   }
 

@@ -10,11 +10,5 @@
 export * from "@/schematic/actions";
 export * from "@/schematic/actions.gen";
 export * from "@/schematic/client";
-export {
-  bindStore,
-  DELETE_CHANNEL_NAME,
-  SET_CHANNEL_NAME,
-  STORE_KEY,
-} from "@/schematic/store";
 export * from "@/schematic/symbol";
 export * from "@/schematic/types.gen";

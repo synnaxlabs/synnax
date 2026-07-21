@@ -10,10 +10,4 @@
 export * from "@/table/actions";
 export * from "@/table/actions.gen";
 export * from "@/table/client";
-export {
-  bindStore,
-  DELETE_CHANNEL_NAME,
-  SET_CHANNEL_NAME,
-  STORE_KEY,
-} from "@/table/store";
 export * from "@/table/types.gen";

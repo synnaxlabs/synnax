@@ -25,14 +25,12 @@ export {
 } from "@/cache/streamer";
 export {
   type ChannelListener,
-  type ChannelListenerParams,
   orderByKeys,
   partialUpdate,
   type RowStatus,
   Table,
   type TableConfig,
   type TableEvent,
-  type Tables,
   type TableSubscriber,
   type Tombstone,
 } from "@/cache/table";

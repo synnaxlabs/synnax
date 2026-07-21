@@ -14,7 +14,6 @@ import { z } from "zod";
 import { cache } from "@/cache";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ontology } from "@/ontology";
-import { bindStore, STORE_KEY } from "@/user/store";
 import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
 
 const retrieveRequestZ = z.object({
@@ -105,20 +104,25 @@ const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, User>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<SingleParams, User, Key, User>;
     request: cache.Answers<RetrieveRequest, User[], Key, User>;
   };
 
-  constructor(client: UnaryClient, engine: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
     this.client = client;
-    bindStore(engine);
-    this.cache_ = engine;
-    this.answers_ = {
+    this.store = engine.createTable<Key, User>({ name: "users" });
+    this.ontology = ontologyStores;
+    this.answers = {
       single: engine.answers({
         name: "user",
-        table: this.userStore,
+        table: this.store,
         fetch: async (query) => [await this.fetchSingle(query)].map((u) => u.key),
         compose: (records) => records[0],
         keyOf: (query) => ("key" in query ? query.key : null),
@@ -128,7 +132,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "users",
-        table: this.userStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((u) => u.key),
         compose: (records) => records,
         matches: (u, query) => requestFilter(query)(u),
@@ -146,7 +150,7 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.writes.setMany(res.users);
+    this.store.set(res.users);
     return isMany ? res.users : res.users[0];
   }
 
@@ -158,15 +162,15 @@ export class Client {
       changeUsernameResZ,
     );
     this.mergeThrough(key, { username: newUsername });
-    ontology.renameCachedResource(this.cache_, ontologyID(key), newUsername);
+    ontology.renameCachedResource(this.ontology, ontologyID(key), newUsername);
   }
 
   async retrieve(params: KeyRetrieveRequest): Promise<User>;
   async retrieve(params: UsernameRetrieveRequest): Promise<User>;
   async retrieve(params: RetrieveParams): Promise<User[]>;
   async retrieve(params: RetrieveParams): Promise<User | User[]> {
-    if (isSingleParams(params)) return await this.answers_.single.retrieve(params);
-    return await this.answers_.request.retrieve(normalizeRequest(params));
+    if (isSingleParams(params)) return await this.answers.single.retrieve(params);
+    return await this.answers.request.retrieve(normalizeRequest(params));
   }
 
   /**
@@ -185,10 +189,10 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<User> | cache.ChangeHandler<User[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if (isSingleParams(params))
-      return answers.single.onChange(params, handler as cache.ChangeHandler<User>);
-    return answers.request.onChange(
+      return single.onChange(params, handler as cache.ChangeHandler<User>);
+    return request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<User[]>,
     );
@@ -205,9 +209,9 @@ export class Client {
   getCached(
     params: RetrieveParams,
   ): cache.Cached<User> | cache.Cached<User[]> | undefined {
-    const answers = this.answers_;
-    if (isSingleParams(params)) return answers.single.getCached(params);
-    return answers.request.getCached(normalizeRequest(params));
+    const { request, single } = this.answers;
+    if (isSingleParams(params)) return single.getCached(params);
+    return request.getCached(normalizeRequest(params));
   }
 
   async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {
@@ -225,7 +229,7 @@ export class Client {
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
+    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -236,22 +240,14 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.writes.delete(keysArr);
-  }
-
-  private get writes(): cache.Table<Key, User> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get userStore(): cache.Table<Key, User> {
-    return this.cache_.table(STORE_KEY);
+    this.store.delete(keysArr);
   }
 
   // Undefined fields are dropped: the server keeps prior values for them.
   private mergeThrough(key: Key, changes: Partial<User>): void {
-    const store = this.writes;
-    const prev = store.get(key);
-    if (prev != null) store.set(key, { ...prev, ...record.purgeUndefined(changes) });
+    const prev = this.store.get(key);
+    if (prev != null)
+      this.store.set(key, { ...prev, ...record.purgeUndefined(changes) });
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<User[]> {
@@ -272,13 +268,13 @@ export class Client {
     const results: User[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
-      const cached = this.userStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(cached);
       else misses.push(key);
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.userStore.setMany(fetched);
+      this.store.set(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (u) => u.key);
@@ -286,22 +282,22 @@ export class Client {
 
   private async fetchSingle(query: SingleParams): Promise<User> {
     if ("key" in query) {
-      const cached = this.userStore.get(query.key);
+      const cached = this.store.get(query.key);
       if (cached != null) return cached;
     } else {
-      const [cached] = this.userStore.get((u) => u.username === query.username);
+      const [cached] = this.store.get((u) => u.username === query.username);
       if (cached != null) return cached;
     }
     const users = await this.execRetrieve(query);
     checkSingle(query, users);
-    this.userStore.setMany(users);
+    this.store.set(users);
     return users[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<User[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const users = await this.execRetrieve(query);
-    this.userStore.setMany(users);
+    this.store.set(users);
     return users;
   }
 }

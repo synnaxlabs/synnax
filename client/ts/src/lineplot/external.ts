@@ -11,10 +11,4 @@ export * from "@/lineplot/actions";
 export * from "@/lineplot/actions.gen";
 export * from "@/lineplot/client";
 export * from "@/lineplot/line";
-export {
-  bindStore,
-  DELETE_CHANNEL_NAME,
-  SET_CHANNEL_NAME,
-  STORE_KEY,
-} from "@/lineplot/store";
 export * from "@/lineplot/types.gen";

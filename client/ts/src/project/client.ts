@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { cache } from "@/cache";
 import { ontology } from "@/ontology";
-import { bindStore, STORE_KEY } from "@/project/store";
 import {
   type Key,
   keyZ,
@@ -23,6 +22,9 @@ import {
   projectZ,
 } from "@/project/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_project_set";
+export const DELETE_CHANNEL_NAME = "sy_project_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -68,34 +70,55 @@ const toRequest = (params: Key[] | RetrieveRequest): RetrieveRequest =>
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly cache: cache.Cache;
+  private readonly store: cache.Table<Key, Project>;
+  private readonly ontology: ontology.Stores;
   private readonly answers: {
     single: cache.Answers<Key, Project, Key, Project>;
     request: cache.Answers<RetrieveRequest, Project[], Key, Project>;
   };
 
-  constructor(client: UnaryClient, cache_: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
     this.client = client;
-    bindStore(cache_);
-    this.cache = cache_;
+    this.ontology = ontologyStores;
+    this.store = this.createTable(engine);
     this.answers = {
-      single: cache_.answers({
+      single: engine.answers({
         name: "project",
-        table: this.projectStore,
+        table: this.store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
         single: true,
       }),
-      request: cache_.answers({
+      request: engine.answers({
         name: "projects",
-        table: this.projectStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
         compose: (records) => records,
         matches: (project, query) => requestFilter(query)(project),
         serverFields: SERVER_FIELDS,
       }),
     };
+  }
+
+  private createTable(engine: cache.Cache): cache.Table<Key, Project> {
+    const table = engine.createTable<Key, Project>({ name: "projects" });
+    const set: cache.ChannelListener<typeof projectZ> = {
+      channel: SET_CHANNEL_NAME,
+      schema: projectZ,
+      onChange: (changed) => table.set(changed.key, changed),
+    };
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => table.delete(changed),
+    };
+    engine.addListeners(table, set, del);
+    return table;
   }
 
   async create(project: New): Promise<Project>;
@@ -108,14 +131,14 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.writes.setMany(res.projects);
+    this.store.set(res.projects);
     return isMany ? res.projects : res.projects[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     await this.client.send("/project/rename", { key, name }, renameReqZ, emptyResZ);
     this.mergeThrough(key, { name });
-    ontology.renameCachedResource(this.cache, ontologyID(key), name);
+    ontology.renameCachedResource(this.ontology, ontologyID(key), name);
   }
 
   async setLayout(
@@ -124,7 +147,7 @@ export class Client {
     opts: cache.WriteOptions = {},
   ): Promise<void> {
     const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.writes, key, { layout }));
+    rollback.add(cache.partialUpdate(this.store, key, { layout }));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -162,13 +185,10 @@ export class Client {
     keys: Key | Key[] | RetrieveRequest,
     handler: cache.ChangeHandler<Project> | cache.ChangeHandler<Project[]>,
   ): destructor.Destructor {
-    const answers = this.answers;
+    const { request, single } = this.answers;
     if (typeof keys === "string")
-      return answers.single.onChange(keys, handler as cache.ChangeHandler<Project>);
-    return answers.request.onChange(
-      toRequest(keys),
-      handler as cache.ChangeHandler<Project[]>,
-    );
+      return single.onChange(keys, handler as cache.ChangeHandler<Project>);
+    return request.onChange(toRequest(keys), handler as cache.ChangeHandler<Project[]>);
   }
 
   /**
@@ -181,9 +201,9 @@ export class Client {
   getCached(
     keys: Key | Key[] | RetrieveRequest,
   ): cache.Cached<Project> | cache.Cached<Project[]> | undefined {
-    const answers = this.answers;
-    if (typeof keys === "string") return answers.single.getCached(keys);
-    return answers.request.getCached(toRequest(keys));
+    const { request, single } = this.answers;
+    if (typeof keys === "string") return single.getCached(keys);
+    return request.getCached(toRequest(keys));
   }
 
   async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
@@ -191,9 +211,8 @@ export class Client {
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    rollback.add(ontology.deleteCachedResources(this.cache, ontologyID(keysArr)));
-    rollback.add(writes.delete(keysArr));
+    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
+    rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -204,22 +223,14 @@ export class Client {
           emptyResZ,
         ),
     );
-    this.writes.delete(keysArr);
-  }
-
-  private get writes(): cache.Table<Key, Project> {
-    return this.cache.table(STORE_KEY);
-  }
-
-  private get projectStore(): cache.Table<Key, Project> {
-    return this.cache.table(STORE_KEY);
+    this.store.delete(keysArr);
   }
 
   // Undefined fields are dropped: the server keeps prior values for them.
   private mergeThrough(key: Key, changes: Partial<Project>): void {
-    const store = this.writes;
-    const prev = store.get(key);
-    if (prev != null) store.set(key, { ...prev, ...record.purgeUndefined(changes) });
+    const prev = this.store.get(key);
+    if (prev != null)
+      this.store.set(key, { ...prev, ...record.purgeUndefined(changes) });
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Project[]> {
@@ -240,31 +251,31 @@ export class Client {
     const results: Project[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
-      const cached = this.projectStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(cached);
       else misses.push(key);
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.projectStore.setMany(fetched);
+      this.store.set(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (p) => p.key);
   }
 
   private async fetchSingle(query: Key): Promise<Project> {
-    const cached = this.projectStore.get(query);
+    const cached = this.store.get(query);
     if (cached != null) return cached;
     const projects = await this.execRetrieve({ keys: [query] });
     checkForMultipleOrNoResults("Project", query, projects, true);
-    this.projectStore.setMany(projects);
+    this.store.set(projects);
     return projects[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Project[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const projects = await this.execRetrieve(query);
-    this.projectStore.setMany(projects);
+    this.store.set(projects);
     return projects;
   }
 }

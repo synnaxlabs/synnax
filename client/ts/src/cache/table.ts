@@ -129,19 +129,22 @@ export class Table<
    * one, is a no-op.
    * @returns A rollback that undoes the set.
    */
-  set(key: Key, value: state.SetArg<Value | undefined>): destructor.Destructor {
-    return this.setOne(key, value) ?? (() => {});
-  }
-
+  set(key: Key, value: state.SetArg<Value | undefined>): destructor.Destructor;
   /**
-   * Sets every given keyed value.
+   * Sets every given keyed value, keying each row by its key property.
    * @returns A rollback that undoes the inserted values in reverse order.
    */
-  setMany(
+  set(
     values: (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+  ): destructor.Destructor;
+  set(
+    keyOrValues: Key | (Value & record.Keyed<Key>) | Array<Value & record.Keyed<Key>>,
+    value?: state.SetArg<Value | undefined>,
   ): destructor.Destructor {
+    if (typeof keyOrValues !== "object")
+      return this.setOne(keyOrValues as Key, value) ?? (() => {});
     const rollbacks: destructor.Destructor[] = [];
-    array.toArray(values).forEach((val) => {
+    array.toArray(keyOrValues).forEach((val) => {
       const rollback = this.setOne(val.key, val);
       if (rollback != null) rollbacks.push(rollback);
     });
@@ -267,49 +270,28 @@ export class Table<
 /**
  * Configuration for listening to changes on a specific Synnax channel.
  *
- * @template Tbls - The tables available to the listener
  * @template Z - Zod schema type for validating channel data
  */
-export interface ChannelListener<
-  Tbls extends Tables = {},
-  Z extends z.ZodType = z.ZodType,
-> {
+export interface ChannelListener<Z extends z.ZodType = z.ZodType> {
   /** The name of the Synnax channel to listen to */
   channel: string;
   /** Zod schema for parsing and validating channel data */
   schema: Z;
   /** Callback function invoked when the channel data changes */
-  onChange: (params: ChannelListenerParams<Tbls, Z>) => Promise<unknown> | unknown;
+  onChange: (changed: z.output<Z>) => Promise<unknown> | unknown;
 }
 
 /**
- * Arguments passed to a channel listener's onChange callback.
- *
- * @template Tbls - The tables available to the listener
- * @template Z - Zod schema type for validating channel data
- */
-export type ChannelListenerParams<
-  Tbls extends Tables = {},
-  Z extends z.ZodType = z.ZodType,
-> = {
-  /** The parsed and validated data that changed */
-  changed: z.output<Z>;
-  /** The tables available to the listener */
-  store: Tbls;
-};
-
-/**
- * Configuration for a single {@link Table} including its channel listeners.
+ * Configuration for a single {@link Table}.
  */
 export interface TableConfig<
-  Tbls extends Tables = {},
   Key extends record.Key = record.Key,
   Value extends state.State = state.State,
 > {
+  /** Names the table in diagnostics (reconciliation errors). */
+  name: string;
   /** Overrides the deep-equality default used to silence redundant sets. */
   equal?: (a: Value, b: Value, key: Key) => boolean;
-  /** Array of channel listeners to register for this table */
-  listeners: ChannelListener<Tbls>[];
   /**
    * Fetches the current value of the given keys, returning only the rows
    * that still exist. Used by epoch reconciliation: keys missing from the
@@ -317,21 +299,6 @@ export interface TableConfig<
    * a refetch are skipped during reconciliation.
    */
   refetch?: (keys: Key[]) => Promise<Array<Value & record.Keyed<Key>>>;
-}
-
-/**
- * Configuration map for a cache's tables. Keys are table names and values are
- * their configurations.
- */
-export interface TableConfigs<Tbls extends Tables = {}> {
-  [key: string]: TableConfig<Tbls, any, any>;
-}
-
-/**
- * A collection of tables keyed by name, as handed to channel listeners.
- */
-export interface Tables {
-  [key: string]: Table<any, any>;
 }
 
 export const partialUpdate = <Key extends record.Key, Value extends Record<any, any>>(

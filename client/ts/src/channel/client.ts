@@ -16,6 +16,7 @@ import {
   type CrudeTimeSpan,
   type CrudeTimeStamp,
   DataType,
+  deep,
   type destructor,
   errors,
   type MultiSeries,
@@ -29,15 +30,12 @@ import { cache } from "@/cache";
 import { type Params, statusKey } from "@/channel/payload";
 import {
   analyzeParams,
-  CacheRetriever,
-  ClusterRetriever,
   DebouncedBatchRetriever,
   type RetrieveOptions,
   type Retriever,
   type RetrieveRequest,
   retrieveRequestZ,
 } from "@/channel/retriever";
-import { bindStore, STORE_KEY } from "@/channel/store";
 import {
   type Key,
   keyZ,
@@ -56,9 +54,11 @@ import { group } from "@/group";
 import { ontology } from "@/ontology";
 import { type ranger } from "@/ranger";
 import { createKey, decodeDeleteChange } from "@/ranger/alias/payload";
-import { STORE_KEY as ALIASES_STORE_KEY } from "@/ranger/alias/store";
 import { status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_channel_set";
+export const DELETE_CHANNEL_NAME = "sy_channel_delete";
 
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
@@ -74,7 +74,7 @@ interface CreateOptions {
  * information on what channels are and how to use them.
  */
 export class Channel {
-  private readonly _frameClient: framer.Client | null;
+  private readonly frameClient: framer.Client | null;
   /**
    * A unique key identifying the channel in the Synnax database. This key is
    * automatically assigned by Synnax.
@@ -164,13 +164,13 @@ export class Channel {
     this.operations = operations;
     this.concurrency = concurrency;
     if (argsStatus != null) this.status = status.create(argsStatus);
-    this._frameClient = frameClient ?? null;
+    this.frameClient = frameClient ?? null;
   }
 
   private get framer(): framer.Client {
-    if (this._frameClient == null)
+    if (this.frameClient == null)
       throw new ValidationError("cannot read from a channel that has not been created");
-    return this._frameClient;
+    return this.frameClient;
   }
 
   /**
@@ -326,10 +326,13 @@ export class Client {
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
   readonly writer: Writer;
-  private readonly statuses_?: status.Client;
-  private readonly ranges_?: ranger.Client;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly statuses?: status.Client;
+  private readonly ranges?: ranger.Client;
+  private readonly store: cache.Table<Key, Channel>;
+  private readonly statusStore: cache.Table<status.Key, status.Status>;
+  private readonly aliasStore: cache.Table<string, ranger.alias.Alias>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<RetrieveSingleParams, Channel, Key, Channel>;
     request: cache.Answers<NormalizedRequest, Channel[], Key, Channel>;
   };
@@ -342,24 +345,24 @@ export class Client {
     statuses: status.Client | undefined,
     ranges: ranger.Client | undefined,
     engine: cache.Cache,
+    statusStore: cache.Table<status.Key, status.Status>,
+    aliasStore: cache.Table<string, ranger.alias.Alias>,
+    ontologyStores: ontology.Stores,
   ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
     this.client = client;
     this.writer = writer;
-    this.statuses_ = statuses;
-    this.ranges_ = ranges;
-    this.cache_ = engine;
-    bindStore(
-      engine,
-      (payload) => this.sugar(stripComposed(payload)),
-      async (keys) =>
-        (await this.retriever.retrieve(keys)).map((p) => this.sugar(stripComposed(p))),
-    );
-    this.answers_ = {
+    this.statuses = statuses;
+    this.ranges = ranges;
+    this.statusStore = statusStore;
+    this.aliasStore = aliasStore;
+    this.ontology = ontologyStores;
+    this.store = this.createTable(engine);
+    this.answers = {
       single: engine.answers({
         name: "channel",
-        table: this.channelStore,
+        table: this.store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: (records, query) => this.compose(records[0].payload, query.rangeKey),
         keyOf: (query) => query.key,
@@ -377,7 +380,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "channels",
-        table: this.channelStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((ch) => ch.key),
         compose: (records, query) => {
           const { rangeKey } = query;
@@ -402,6 +405,27 @@ export class Client {
         },
       }),
     };
+  }
+
+  private createTable(engine: cache.Cache): cache.Table<Key, Channel> {
+    const table = engine.createTable<Key, Channel>({
+      name: "channels",
+      equal: (a, b) => deep.equal(a.payload, b.payload),
+      refetch: async (keys) =>
+        (await this.retriever.retrieve(keys)).map((p) => this.sugar(stripComposed(p))),
+    });
+    const set: cache.ChannelListener<typeof payloadZ> = {
+      channel: SET_CHANNEL_NAME,
+      schema: payloadZ,
+      onChange: (changed) => table.set(changed.key, this.sugar(stripComposed(changed))),
+    };
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => table.delete(changed),
+    };
+    engine.addListeners(table, set, del);
+    return table;
   }
 
   /**
@@ -481,9 +505,7 @@ export class Client {
       created = this.sugar(res);
     }
     created = created.concat(this.sugar(await this.writer.create(toCreate)));
-    this.channelStore.setMany(
-      created.map((ch) => this.sugar(stripComposed(ch.payload))),
-    );
+    this.store.set(created.map((ch) => this.sugar(stripComposed(ch.payload))));
     return single ? created[0] : created;
   }
 
@@ -539,7 +561,7 @@ export class Client {
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
     if (typeof params === "object" && !Array.isArray(params))
-      return await this.answers_.request.retrieve(retrieveRequestZ.parse(params));
+      return await this.answers.request.retrieve(retrieveRequestZ.parse(params));
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
     const normalized =
@@ -551,10 +573,10 @@ export class Client {
       return [];
     }
     if (isSingle && variant === "keys" && onlyRangeKey(options))
-      return await this.answers_.single.retrieve(
+      return await this.answers.single.retrieve(
         normalizeSingle({ key: normalized[0] as Key, rangeKey: options?.rangeKey }),
       );
-    const res = await this.answers_.request.retrieve(
+    const res = await this.answers.request.retrieve(
       retrieveRequestZ.parse({ [variant]: normalized, ...options }),
     );
     checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
@@ -577,13 +599,13 @@ export class Client {
     params: RetrieveSingleParams | RetrieveRequest,
     handler: cache.ChangeHandler<Channel> | cache.ChangeHandler<Channel[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if ("key" in params)
-      return answers.single.onChange(
+      return single.onChange(
         normalizeSingle(params),
         handler as cache.ChangeHandler<Channel>,
       );
-    return answers.request.onChange(
+    return request.onChange(
       retrieveRequestZ.parse(params),
       handler as cache.ChangeHandler<Channel[]>,
     );
@@ -599,10 +621,10 @@ export class Client {
   getCached(
     params: RetrieveSingleParams | RetrieveRequest,
   ): cache.Cached<Channel> | cache.Cached<Channel[]> | undefined {
-    const answers = this.answers_;
-    if ("key" in params) return answers.single.getCached(normalizeSingle(params));
+    const { request, single } = this.answers;
+    if ("key" in params) return single.getCached(normalizeSingle(params));
     const req = retrieveRequestZ.parse(params);
-    return answers.request.getCached(req) ?? this.approximateCached(req);
+    return request.getCached(req) ?? this.approximateCached(req);
   }
 
   /**
@@ -614,7 +636,7 @@ export class Client {
   ): cache.Cached<Channel[]> | undefined {
     if (req.searchTerm != null || req.limit != null || req.offset != null)
       return undefined;
-    const matches = this.channelStore.get(requestFilter(req));
+    const matches = this.store.get(requestFilter(req));
     if (matches.length === 0) return undefined;
     return { variant: "changed", data: matches };
   }
@@ -628,27 +650,21 @@ export class Client {
     if (variant === "keys") {
       const keys = normalized as Key[];
       const rollback = new cache.Rollback();
-      const channels = this.channelStore;
       const ids = ontologyID(keys);
-      rollback.add(ontology.deleteCachedRelationships(this.cache_, ids));
-      rollback.add(channels.delete(keys));
-      rollback.add(
-        this.cache_
-          .table<string, ontology.Resource>(ontology.RESOURCES_STORE_KEY)
-          .delete(ontology.idToString(ids)),
-      );
+      rollback.add(ontology.deleteCachedRelationships(this.ontology, ids));
+      rollback.add(this.store.delete(keys));
+      rollback.add(this.ontology.resources.delete(ontology.idToString(ids)));
       await opts.onOptimistic?.();
       await rollback.guard(async () => await this.writer.delete({ keys }));
       // Re-applied after success: a stale streamer echo may have resurrected
       // an optimistically deleted entry while the send was in flight.
-      channels.delete(keys);
+      this.store.delete(keys);
       return;
     }
     const names = normalized as string[];
     await this.writer.delete({ names });
-    const channels = this.channelStore;
-    const cached = channels.get((ch) => names.includes(ch.name));
-    if (cached.length > 0) channels.delete(cached.map((ch) => ch.key));
+    const cached = this.store.get((ch) => names.includes(ch.name));
+    if (cached.length > 0) this.store.delete(cached.map((ch) => ch.key));
   }
 
   async rename(key: Key, name: string, opts?: cache.WriteOptions): Promise<void>;
@@ -664,7 +680,7 @@ export class Client {
     keysArr.forEach((key, i) => {
       const name = namesArr[i];
       rollback.add(this.renameThrough(key, name));
-      rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+      rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     });
     await opts.onOptimistic?.();
     await rollback.guard(async () => await this.writer.rename(keysArr, namesArr));
@@ -675,7 +691,7 @@ export class Client {
 
   /** Renames the cached channel, skipping when absent. Returns a rollback. */
   private renameThrough(key: Key, name: string): destructor.Destructor {
-    return this.channelStore.set(key, (p) =>
+    return this.store.set(key, (p) =>
       p == null ? undefined : this.sugar({ ...p.payload, name }),
     );
   }
@@ -683,9 +699,20 @@ export class Client {
   createDebouncedBatchRetriever(
     deb: CrudeTimeSpan = TimeSpan.milliseconds(10),
   ): Retriever {
-    return new CacheRetriever(
-      new DebouncedBatchRetriever(new ClusterRetriever(this.client), deb),
-    );
+    const cached: Retriever = {
+      retrieve: async (
+        channels: Params | RetrieveRequest,
+        options?: RetrieveOptions,
+      ): Promise<Payload[]> => {
+        if (!Array.isArray(channels) && typeof channels === "object")
+          return await this.retriever.retrieve(channels);
+        const { variant, normalized } = analyzeParams(channels);
+        if (variant === "keys" && options == null)
+          return (await this.fetchKeys(normalized as Key[])).map((ch) => ch.payload);
+        return await this.retriever.retrieve(channels, options);
+      },
+    };
+    return new DebouncedBatchRetriever(cached, deb);
   }
 
   sugar(payload: Payload): Channel;
@@ -707,28 +734,16 @@ export class Client {
     return res.group;
   }
 
-  private get channelStore(): cache.Table<Key, Channel> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get statusStore(): cache.Table<string, status.Status> {
-    return this.cache_.table(status.STORE_KEY);
-  }
-
-  private get aliasStore(): cache.Table<string, ranger.alias.Alias> {
-    return this.cache_.table(ALIASES_STORE_KEY);
-  }
-
   private requireStatuses(): status.Client {
-    if (this.statuses_ == null)
+    if (this.statuses == null)
       throw new Error("cache is disabled on this client (cache: false)");
-    return this.statuses_;
+    return this.statuses;
   }
 
   private requireRanges(): ranger.Client {
-    if (this.ranges_ == null)
+    if (this.ranges == null)
       throw new Error("cache is disabled on this client (cache: false)");
-    return this.ranges_;
+    return this.ranges;
   }
 
   /** Rebuilds a cached channel with its cached status and alias attached. */
@@ -772,12 +787,12 @@ export class Client {
 
   private async fetchSingle(query: RetrieveSingleParams): Promise<Channel> {
     const { key, rangeKey } = query;
-    let ch = this.channelStore.get(key);
+    let ch = this.store.get(key);
     if (ch == null) {
       const payloads = await this.retriever.retrieve([key]);
       checkForMultipleOrNoResults("channel", key, payloads, true);
       ch = this.sugar(stripComposed(payloads[0]));
-      this.channelStore.set(key, ch);
+      this.store.set(key, ch);
     }
     // A cached calculated channel without a cached status is ambiguous: the
     // status may not exist, or may simply never have been fetched.
@@ -799,7 +814,7 @@ export class Client {
     const results: Channel[] = [];
     const misses: Key[] = [];
     keys.forEach((key) => {
-      const cached = this.channelStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(cached);
       else misses.push(key);
     });
@@ -807,7 +822,7 @@ export class Client {
       const fetched = (await this.retriever.retrieve(misses)).map((p) =>
         this.sugar(stripComposed(p)),
       );
-      this.channelStore.setMany(fetched);
+      this.store.set(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (ch) => ch.key);
@@ -821,7 +836,7 @@ export class Client {
       channels = (await this.retriever.retrieve(query)).map((p) =>
         this.sugar(stripComposed(p)),
       );
-      this.channelStore.setMany(channels);
+      this.store.set(channels);
     }
     if (rangeKey != null)
       await this.ensureAliases(

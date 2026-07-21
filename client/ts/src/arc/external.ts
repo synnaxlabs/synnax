@@ -14,11 +14,5 @@ export * from "@/arc/compiler";
 export * from "@/arc/graph";
 export * from "@/arc/ir";
 export * from "@/arc/module";
-export {
-  bindStore,
-  DELETE_CHANNEL_NAME,
-  SET_CHANNEL_NAME,
-  STORE_KEY,
-} from "@/arc/store";
 export * from "@/arc/text";
 export * from "@/arc/types.gen";

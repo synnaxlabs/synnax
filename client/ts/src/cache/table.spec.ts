@@ -39,7 +39,7 @@ describe("Table", () => {
         expect(table.get("key1")).toEqual({ key: "key1", value: "value1" });
       });
 
-      it("should set multiple values with key property using setMany", () => {
+      it("should set multiple values with key property via keyed-object set", () => {
         interface KeyedValue extends record.Keyed<string> {
           key: string;
           value: string;
@@ -51,7 +51,7 @@ describe("Table", () => {
           { key: "key2", value: "value2" },
           { key: "key3", value: "value3" },
         ];
-        table.setMany(items);
+        table.set(items);
 
         expect(table.get("key1")).toEqual({ key: "key1", value: "value1" });
         expect(table.get("key2")).toEqual({ key: "key2", value: "value2" });
@@ -117,11 +117,11 @@ describe("Table", () => {
         table.set("explicitKey", { key: "valueKey", data: 100 });
         expect(table.get("explicitKey")).toEqual({ key: "valueKey", data: 100 });
 
-        // setMany keys each row by the object's key property.
-        table.setMany([{ key: "derivedKey", data: 200 }]);
+        // Keyed-object set keys each row by the object's key property.
+        table.set([{ key: "derivedKey", data: 200 }]);
         expect(table.get("derivedKey")).toEqual({ key: "derivedKey", data: 200 });
 
-        table.setMany([
+        table.set([
           { key: "arrayKey1", data: 300 },
           { key: "arrayKey2", data: 400 },
         ]);
@@ -138,8 +138,8 @@ describe("Table", () => {
         const table = new cache.Table<string, KeyedData>(noopError);
 
         table.set("key1", { key: "key1", value: 100 });
-        table.setMany([{ key: "key2", value: 200 }]);
-        table.setMany([
+        table.set([{ key: "key2", value: 200 }]);
+        table.set([
           { key: "key3", value: 300 },
           { key: "key4", value: 400 },
         ]);
@@ -165,14 +165,14 @@ describe("Table", () => {
 
       it("should leave an existing value untouched", () => {
         const table = new cache.Table<string, KeyedValue>(noopError);
-        table.setMany([{ key: "key1", value: "original" }]);
+        table.set([{ key: "key1", value: "original" }]);
         table.setIfAbsent({ key: "key1", value: "replacement" });
         expect(table.get("key1")).toEqual({ key: "key1", value: "original" });
       });
 
       it("should insert only the absent keys from an array", () => {
         const table = new cache.Table<string, KeyedValue>(noopError);
-        table.setMany([{ key: "key1", value: "original" }]);
+        table.set([{ key: "key1", value: "original" }]);
         table.setIfAbsent([
           { key: "key1", value: "replacement" },
           { key: "key2", value: "value2" },
@@ -185,7 +185,7 @@ describe("Table", () => {
         const table = new cache.Table<string, KeyedValue>(noopError);
         const listener = vi.fn();
 
-        table.setMany([{ key: "key1", value: "original" }]);
+        table.set([{ key: "key1", value: "original" }]);
         table.subscribe(listener);
         table.setIfAbsent([
           { key: "key1", value: "replacement" },
@@ -202,7 +202,7 @@ describe("Table", () => {
 
       it("should only roll back the keys it inserted", () => {
         const table = new cache.Table<string, KeyedValue>(noopError);
-        table.setMany([{ key: "key1", value: "original" }]);
+        table.set([{ key: "key1", value: "original" }]);
         const rollback = table.setIfAbsent([
           { key: "key1", value: "replacement" },
           { key: "key2", value: "value2" },
@@ -241,7 +241,7 @@ describe("Table", () => {
             value: string;
           }
           const table = new cache.Table<string, KeyedString>(noopError);
-          const rollback = table.setMany([
+          const rollback = table.set([
             { key: "key1", value: "value1" },
             { key: "key2", value: "value2" },
             { key: "key3", value: "value3" },
@@ -265,7 +265,7 @@ describe("Table", () => {
           const table = new cache.Table<string, KeyedString>(noopError);
 
           const item: KeyedString = { key: "key1", value: "value1" };
-          const rollback = table.setMany([item]);
+          const rollback = table.set([item]);
 
           expect(table.get("key1")).toEqual({ key: "key1", value: "value1" });
 
@@ -280,8 +280,8 @@ describe("Table", () => {
           }
           const table = new cache.Table<string, KeyedString>(noopError);
 
-          table.setMany([{ key: "key1", value: "initial" }]);
-          const rollback = table.setMany([{ key: "key1", value: "updated" }]);
+          table.set([{ key: "key1", value: "initial" }]);
+          const rollback = table.set([{ key: "key1", value: "updated" }]);
 
           expect(table.get("key1")).toEqual({ key: "key1", value: "updated" });
 
@@ -627,7 +627,7 @@ describe("Table", () => {
           { key: "key3", value: "value3" },
         ];
 
-        table.setMany(items);
+        table.set(items);
 
         const values = table.list();
         expect(values).toHaveLength(3);
@@ -799,13 +799,13 @@ describe("Table", () => {
         expect(listener2).toHaveBeenCalledWith(event);
       });
 
-      it("should notify subscribers for every value in a setMany", () => {
+      it("should notify subscribers for every value in a multi-value set", () => {
         const table = new cache.Table<string, record.Keyed<string>>(noopError);
         const listener = vi.fn();
         const keyed = vi.fn();
         table.subscribe(listener);
         table.subscribe(keyed, "key1");
-        table.setMany([{ key: "key1" }, { key: "key2" }]);
+        table.set([{ key: "key1" }, { key: "key2" }]);
         expect(listener).toHaveBeenCalledTimes(2);
         expect(keyed).toHaveBeenCalledTimes(1);
         expect(keyed).toHaveBeenCalledWith({
@@ -1095,7 +1095,7 @@ describe("Table", () => {
         expect(listener).toHaveBeenCalledTimes(2);
       });
 
-      it("should silence equal-value setMany entries individually", () => {
+      it("should silence equal-value multi-set entries individually", () => {
         interface KeyedValue extends record.Keyed<string> {
           key: string;
           value: string;
@@ -1103,9 +1103,9 @@ describe("Table", () => {
         const table = new cache.Table<string, KeyedValue>(noopError);
         const listener = vi.fn();
 
-        table.setMany([{ key: "key1", value: "a" }]);
+        table.set([{ key: "key1", value: "a" }]);
         table.subscribe(listener);
-        table.setMany([
+        table.set([
           { key: "key1", value: "a" },
           { key: "key2", value: "b" },
         ]);
@@ -1183,8 +1183,8 @@ describe("Table", () => {
         const table1 = new cache.Table<string, record.Keyed<string>>(noopError);
         const table2 = new cache.Table<string, record.Keyed<string>>(noopError);
 
-        table1.setMany([{ key: "key1" }]);
-        table2.setMany([{ key: "key2" }]);
+        table1.set([{ key: "key1" }]);
+        table2.set([{ key: "key2" }]);
 
         expect(table1.get("key1")).toEqual({ key: "key1" });
         expect(table1.get("key2")).toBeUndefined();
@@ -1326,7 +1326,7 @@ describe("Tombstones", () => {
 
   it("should corpse entries deleted through a filter", () => {
     const table = newTable();
-    table.setMany([
+    table.set([
       { key: "k1", name: "a" },
       { key: "k2", name: "b" },
     ]);

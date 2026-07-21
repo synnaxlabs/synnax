@@ -12,10 +12,15 @@ import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
-import { type dispatch } from "@/dispatch";
+import { dispatch } from "@/dispatch";
 import { ontology } from "@/ontology";
-import { type Action, dispatchReqZ, rename as renameAction } from "@/panel/actions.gen";
-import { bindStore, STORE_KEY } from "@/panel/store";
+import { kindOf, reduceAll } from "@/panel/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  rename as renameAction,
+  scopedActionZ,
+} from "@/panel/actions.gen";
 import {
   type Key,
   keyZ,
@@ -25,6 +30,9 @@ import {
   panelZ,
 } from "@/panel/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_panel_set";
+export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -57,21 +65,42 @@ const toRequest = (params: Key[] | RetrieveRequest): RetrieveRequest =>
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly cache_: cache.Cache;
-  private readonly dispatcher_: dispatch.Controller<Key, Panel, Action>;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, Panel>;
+  private readonly dispatcher: dispatch.Controller<Key, Panel, Action>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<Key, Panel, Key, Panel>;
     request: cache.Answers<RetrieveRequest, Panel[], Key, Panel>;
   };
 
-  constructor(client: UnaryClient, engine: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
     this.client = client;
-    this.dispatcher_ = bindStore(engine);
-    this.cache_ = engine;
-    this.answers_ = {
+    this.ontology = ontologyStores;
+    this.store = engine.createTable<Key, Panel>({ name: "panels" });
+    this.dispatcher = new dispatch.Controller<Key, Panel, Action>({
+      store: this.store,
+      onError: engine.onError,
+      reduce: reduceAll,
+      kindOf,
+    });
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => this.store.delete(changed),
+    };
+    engine.addListeners(
+      this.store,
+      del,
+      this.dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
+    );
+    this.answers = {
       single: engine.answers({
         name: "panel",
-        table: this.panelStore,
+        table: this.store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -79,7 +108,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "panels",
-        table: this.panelStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
         compose: (records) => records,
         matches: (panel, query) => requestFilter(query)(panel),
@@ -97,12 +126,12 @@ export class Client {
     const isMany = Array.isArray(panels);
     const optimistic = array.toArray(panels).map((p) => panelZ.parse(p));
     const rollback = new cache.Rollback();
-    rollback.add(this.panelStore.setMany(optimistic));
+    rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     // onOptimistic may dispatch further local mutations against these keys
     // before the panels exist on the cluster. Send the latest cached docs so
     // the server response doesn't stomp those changes back out.
-    const latest = optimistic.map((p) => this.panelStore.get(p.key) ?? p);
+    const latest = optimistic.map((p) => this.store.get(p.key) ?? p);
     const res = await rollback.guard(
       async () =>
         await this.client.send(
@@ -112,14 +141,14 @@ export class Client {
           createResZ,
         ),
     );
-    this.panelStore.setMany(res.panels);
+    this.store.set(res.panels);
     return isMany ? res.panels : res.panels[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.panelStore, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     // Rename routes through dispatch so the action channel broadcasts the change
     // to other connected clients.
     await rollback.guard(
@@ -138,7 +167,7 @@ export class Client {
     actions: Action | Action[],
     opts: dispatch.Options<Panel, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher_.dispatch(
+    return await this.dispatcher.dispatch(
       key,
       array.toArray(actions),
       this.dispatchSender(key),
@@ -151,7 +180,7 @@ export class Client {
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher_.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key, this.dispatchSender(key));
   }
 
   /**
@@ -159,17 +188,17 @@ export class Client {
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher_.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key, this.dispatchSender(key));
   }
 
   /** Whether the panel has a live undo entry. */
   hasUndo(key: Key): boolean {
-    return this.dispatcher_.hasUndo(key);
+    return this.dispatcher.hasUndo(key);
   }
 
   /** Whether the panel has a live redo entry. */
   hasRedo(key: Key): boolean {
-    return this.dispatcher_.hasRedo(key);
+    return this.dispatcher.hasRedo(key);
   }
 
   /**
@@ -177,12 +206,12 @@ export class Client {
    * destructor that unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher_.onUndoStateChange(callback, key);
+    return this.dispatcher.onUndoStateChange(callback, key);
   }
 
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
-    return this.dispatcher_.transaction(key, this.dispatchSender(key), kind);
+    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }
 
   private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
@@ -208,8 +237,8 @@ export class Client {
   async retrieve(req: RetrieveRequest): Promise<Panel[]>;
   async retrieve(keys: Key | Key[] | RetrieveRequest): Promise<Panel | Panel[]> {
     const isSingle = typeof keys === "string";
-    if (isSingle) return await this.answers_.single.retrieve(keys);
-    return await this.answers_.request.retrieve(toRequest(keys));
+    if (isSingle) return await this.answers.single.retrieve(keys);
+    return await this.answers.request.retrieve(toRequest(keys));
   }
 
   /**
@@ -226,13 +255,10 @@ export class Client {
     keys: Key | Key[] | RetrieveRequest,
     handler: cache.ChangeHandler<Panel> | cache.ChangeHandler<Panel[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if (typeof keys === "string")
-      return answers.single.onChange(keys, handler as cache.ChangeHandler<Panel>);
-    return answers.request.onChange(
-      toRequest(keys),
-      handler as cache.ChangeHandler<Panel[]>,
-    );
+      return single.onChange(keys, handler as cache.ChangeHandler<Panel>);
+    return request.onChange(toRequest(keys), handler as cache.ChangeHandler<Panel[]>);
   }
 
   /**
@@ -245,9 +271,9 @@ export class Client {
   getCached(
     keys: Key | Key[] | RetrieveRequest,
   ): cache.Cached<Panel> | cache.Cached<Panel[]> | undefined {
-    const answers = this.answers_;
-    if (typeof keys === "string") return answers.single.getCached(keys);
-    return answers.request.getCached(toRequest(keys));
+    const { request, single } = this.answers;
+    if (typeof keys === "string") return single.getCached(keys);
+    return request.getCached(toRequest(keys));
   }
 
   async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
@@ -255,8 +281,8 @@ export class Client {
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
-    rollback.add(this.panelStore.delete(keysArr));
+    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
+    rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -267,10 +293,6 @@ export class Client {
           emptyResZ,
         ),
     );
-  }
-
-  private get panelStore(): cache.Table<Key, Panel> {
-    return this.cache_.table(STORE_KEY);
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Panel[]> {
@@ -289,13 +311,13 @@ export class Client {
   private async fetchSingle(query: Key): Promise<Panel> {
     const panels = await this.execRetrieve({ keys: [query] });
     checkForMultipleOrNoResults("Panel", query, panels, true);
-    this.panelStore.setIfAbsent(panels);
+    this.store.setIfAbsent(panels);
     return panels[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Panel[]> {
     const panels = await this.execRetrieve(query);
-    this.panelStore.setIfAbsent(panels);
+    this.store.setIfAbsent(panels);
     return panels;
   }
 }

@@ -10,6 +10,5 @@
 export * from "@/channel/client";
 export * from "@/channel/payload";
 export * from "@/channel/retriever";
-export { DELETE_CHANNEL_NAME, SET_CHANNEL_NAME, STORE_KEY } from "@/channel/store";
 export * from "@/channel/types.gen";
 export * from "@/channel/writer";

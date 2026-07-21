@@ -10,5 +10,4 @@
 export * from "@/status/client";
 export * from "@/status/payload";
 export * from "@/status/status";
-export { STORE_KEY } from "@/status/store";
 export * from "@/status/types.gen";

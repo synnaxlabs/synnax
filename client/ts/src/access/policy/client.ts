@@ -11,7 +11,6 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { bindStore, STORE_KEY } from "@/access/policy/store";
 import {
   type Key,
   keyZ,
@@ -23,6 +22,9 @@ import {
 import { cache } from "@/cache";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_policy_set";
+export const DELETE_CHANNEL_NAME = "sy_policy_delete";
 
 const retrieveRequestZ = z.object({
   keys: keyZ.array().optional(),
@@ -103,20 +105,25 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, Policy>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<Key, Policy, Key, Policy>;
     request: cache.Answers<RetrieveRequest, Policy[], Key, Policy>;
   };
 
-  constructor(client: UnaryClient, engine: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
     this.client = client;
-    bindStore(engine);
-    this.cache_ = engine;
-    this.answers_ = {
+    this.store = this.createTable(engine);
+    this.ontology = ontologyStores;
+    this.answers = {
       single: engine.answers({
         name: "policy",
-        table: this.policyStore,
+        table: this.store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -124,13 +131,29 @@ export class Client {
       }),
       request: engine.answers({
         name: "policies",
-        table: this.policyStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
         compose: (records) => records,
         matches: (policy, query) => requestFilter(query)(policy),
         serverFields: SERVER_FIELDS,
       }),
     };
+  }
+
+  private createTable(engine: cache.Cache): cache.Table<Key, Policy> {
+    const table = engine.createTable<Key, Policy>({ name: "policies" });
+    const set: cache.ChannelListener<typeof policyZ> = {
+      channel: SET_CHANNEL_NAME,
+      schema: policyZ,
+      onChange: (changed) => table.set(changed.key, changed),
+    };
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => table.delete(changed),
+    };
+    engine.addListeners(table, set, del);
+    return table;
   }
 
   async create(policy: New): Promise<Policy>;
@@ -143,7 +166,7 @@ export class Client {
       createParamsZ,
       createResZ,
     );
-    this.writes.setMany(res.policies);
+    this.store.set(res.policies);
     return isMany ? res.policies : res.policies[0];
   }
 
@@ -151,8 +174,8 @@ export class Client {
   async retrieve(params: RetrieveMultipleParams): Promise<Policy[]>;
   async retrieve(params: RetrieveParams): Promise<Policy | Policy[]> {
     const isSingle = "key" in params;
-    if (isSingle) return await this.answers_.single.retrieve(params.key);
-    return await this.answers_.request.retrieve(normalizeRequest(params));
+    if (isSingle) return await this.answers.single.retrieve(params.key);
+    return await this.answers.request.retrieve(normalizeRequest(params));
   }
 
   /**
@@ -172,13 +195,10 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Policy> | cache.ChangeHandler<Policy[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if ("key" in params)
-      return answers.single.onChange(
-        params.key,
-        handler as cache.ChangeHandler<Policy>,
-      );
-    return answers.request.onChange(
+      return single.onChange(params.key, handler as cache.ChangeHandler<Policy>);
+    return request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<Policy[]>,
     );
@@ -193,9 +213,9 @@ export class Client {
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Policy> | cache.Cached<Policy[]> | undefined {
-    const answers = this.answers_;
-    if ("key" in params) return answers.single.getCached(params.key);
-    return answers.request.getCached(normalizeRequest(params));
+    const { request, single } = this.answers;
+    if ("key" in params) return single.getCached(params.key);
+    return request.getCached(normalizeRequest(params));
   }
 
   async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
@@ -204,9 +224,8 @@ export class Client {
     const keysArr = array.toArray(keys);
     const ids = ontologyID(keysArr);
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    rollback.add(ontology.deleteCachedResources(this.cache_, ids));
-    rollback.add(writes.delete(keysArr));
+    rollback.add(ontology.deleteCachedResources(this.ontology, ids));
+    rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -217,8 +236,8 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.writes.delete(keysArr);
-    this.relationshipWrites.delete((r) =>
+    this.store.delete(keysArr);
+    this.ontology.relationships.delete((r) =>
       ids.some((id) => ontology.idsEqual(r.from, id) || ontology.idsEqual(r.to, id)),
     );
   }
@@ -226,25 +245,12 @@ export class Client {
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
     const existing = await this.retrieve({ key });
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    rollback.add(cache.partialUpdate(writes, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.create({ ...existing, name });
     });
-  }
-
-  private get writes(): cache.Table<Key, Policy> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get relationshipWrites(): cache.Table<string, ontology.Relationship> {
-    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
-  }
-
-  private get policyStore(): cache.Table<Key, Policy> {
-    return this.cache_.table(STORE_KEY);
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Policy[]> {
@@ -265,31 +271,31 @@ export class Client {
     const results: Policy[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
-      const cached = this.policyStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(cached);
       else misses.push(key);
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.policyStore.setMany(fetched);
+      this.store.set(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (p) => p.key);
   }
 
   private async fetchSingle(query: Key): Promise<Policy> {
-    const cached = this.policyStore.get(query);
+    const cached = this.store.get(query);
     if (cached != null) return cached;
     const policies = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("Policy", query, policies, true);
-    this.policyStore.setMany(policies);
+    this.store.set(policies);
     return policies[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Policy[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const policies = await this.execRetrieve(query);
-    this.policyStore.setMany(policies);
+    this.store.set(policies);
     return policies;
   }
 }

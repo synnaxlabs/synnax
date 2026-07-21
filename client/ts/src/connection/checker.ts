@@ -66,7 +66,7 @@ const createWarning = (
 /** Polls a synnax cluster for connectivity information. */
 export class Checker {
   static readonly DEFAULT: State = DEFAULT;
-  private readonly _state: State;
+  private readonly liveState: State;
   private readonly pollFrequency: TimeSpan;
   private readonly client: UnaryClient;
   private readonly name?: string;
@@ -91,7 +91,7 @@ export class Checker {
     name?: string,
     clockSkewThreshold: CrudeTimeSpan = TimeSpan.seconds(1),
   ) {
-    this._state = { ...DEFAULT };
+    this.liveState = { ...DEFAULT };
     this.client = client;
     this.pollFrequency = new TimeSpan(pollFreq);
     this.clientVersion = clientVersion;
@@ -112,8 +112,8 @@ export class Checker {
    * well as calling any registered change handlers.
    */
   async check(): Promise<State> {
-    const prevStatus = this._state.status;
-    const prevSkewExceeded = this._state.clockSkewExceeded;
+    const prevStatus = this.liveState.status;
+    const prevSkewExceeded = this.liveState.clockSkewExceeded;
     const measureSkew = !this.checking;
     this.checking = true;
     try {
@@ -126,9 +126,11 @@ export class Checker {
       );
       if (measureSkew) {
         this.skewCalc.end(res.nodeTime);
-        this._state.clockSkew = this.skewCalc.skew;
-        this._state.clockSkewExceeded = this.skewCalc.exceeds(this.clockSkewThreshold);
-        if (this._state.clockSkewExceeded) {
+        this.liveState.clockSkew = this.skewCalc.skew;
+        this.liveState.clockSkewExceeded = this.skewCalc.exceeds(
+          this.clockSkewThreshold,
+        );
+        if (this.liveState.clockSkewExceeded) {
           const direction = this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
           console.warn(
             `Measured excessive clock skew between this host and ` +
@@ -138,11 +140,10 @@ export class Checker {
         }
       }
       const nodeVersion = res.nodeVersion;
-      const clientVersion = this.clientVersion;
-      const warned = this.versionWarned;
+      const { clientVersion } = this;
       if (nodeVersion == null) {
-        this._state.clientServerCompatible = false;
-        if (!warned) {
+        this.liveState.clientServerCompatible = false;
+        if (!this.versionWarned) {
           console.warn(createWarning(null, clientVersion, true));
           this.versionWarned = true;
         }
@@ -153,8 +154,8 @@ export class Checker {
           checkPatch: false,
         })
       ) {
-        this._state.clientServerCompatible = false;
-        if (!warned) {
+        this.liveState.clientServerCompatible = false;
+        if (!this.versionWarned) {
           console.warn(
             createWarning(
               nodeVersion,
@@ -164,22 +165,22 @@ export class Checker {
           );
           this.versionWarned = true;
         }
-      } else this._state.clientServerCompatible = true;
-      this._state.status = "connected";
-      this._state.message = `Connected to ${this.name ?? "cluster"}`;
-      this._state.clusterKey = res.clusterKey;
-      this._state.nodeVersion = res.nodeVersion;
-      this._state.clientVersion = this.clientVersion;
+      } else this.liveState.clientServerCompatible = true;
+      this.liveState.status = "connected";
+      this.liveState.message = `Connected to ${this.name ?? "cluster"}`;
+      this.liveState.clusterKey = res.clusterKey;
+      this.liveState.nodeVersion = res.nodeVersion;
+      this.liveState.clientVersion = this.clientVersion;
     } catch (err) {
-      this._state.status = "failed";
-      this._state.error = errors.fromUnknown(err);
-      this._state.message = this.state.error?.message;
+      this.liveState.status = "failed";
+      this.liveState.error = errors.fromUnknown(err);
+      this.liveState.message = this.state.error?.message;
     } finally {
       this.checking = false;
     }
     const changed =
-      prevStatus !== this._state.status ||
-      prevSkewExceeded !== this._state.clockSkewExceeded;
+      prevStatus !== this.liveState.status ||
+      prevSkewExceeded !== this.liveState.clockSkewExceeded;
     if (this.onChangeHandlers.length > 0 && changed)
       this.onChangeHandlers.forEach((handler) => handler(this.state));
     return this.state;
@@ -187,7 +188,7 @@ export class Checker {
 
   /** @returns a copy of the current client state. */
   get state(): State {
-    return { ...this._state };
+    return { ...this.liveState };
   }
 
   /** @param callback - The function to call when the client status changes. */

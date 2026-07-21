@@ -641,7 +641,7 @@ describe("Answers", () => {
     it("evicts a record that stops matching the query", async () => {
       const table = newTable();
       const answers = listSpace(table, async () => {
-        table.setMany([rec("a", 5), rec("b", 4)]);
+        table.set([rec("a", 5), rec("b", 4)]);
         return ["a", "b"];
       });
       const handler = vi.fn();
@@ -761,7 +761,7 @@ describe("Answers", () => {
         matches: (r) => foreign.has(r.key),
         watch: [cache.watch(foreign, (event) => [event.key])],
         hydrate: async (keys) => {
-          primary.setMany(keys.map((k) => rec(k, 10)));
+          primary.set(keys.map((k) => rec(k, 10)));
         },
       });
       const handler = vi.fn();

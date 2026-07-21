@@ -14,8 +14,14 @@ import z from "zod";
 import { cache } from "@/cache";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
-import { type Key, keyZ, ontologyID, TYPE_ONTOLOGY_ID } from "@/status/payload";
-import { bindStore, STORE_KEY } from "@/status/store";
+import {
+  DELETE_CHANNEL_NAME,
+  type Key,
+  keyZ,
+  ontologyID,
+  SET_CHANNEL_NAME,
+  TYPE_ONTOLOGY_ID,
+} from "@/status/payload";
 import { type New, type Status, statusZ } from "@/status/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -85,29 +91,41 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
 
 export class Client {
   readonly type: string = "status";
+  /** The status record table; injected into sibling clients at wiring. */
+  readonly store: cache.Table<Key, Status>;
   private readonly client: UnaryClient;
   private readonly labelClient?: label.Client;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly engine: cache.Cache;
+  private readonly labels: cache.Table<label.Key, label.Label>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<Key, Status, Key, Status>;
     request: cache.Answers<RetrieveRequest, Status[], Key, Status>;
   };
 
-  constructor(client: UnaryClient, engine: cache.Cache, labelClient?: label.Client) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    labels: cache.Table<label.Key, label.Label>,
+    ontologyStores: ontology.Stores,
+    labelClient?: label.Client,
+  ) {
     this.client = client;
     this.labelClient = labelClient;
-    this.cache_ = engine;
-    bindStore(engine);
-    this.answers_ = {
+    this.engine = engine;
+    this.labels = labels;
+    this.ontology = ontologyStores;
+    this.store = this.createTable(engine, ontologyStores.relationships, labels);
+    this.answers = {
       single: engine.answers({
         name: "status",
-        table: this.statusStore,
+        table: this.store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: (records) => this.compose(records[0]),
         keyOf: (query) => query,
         single: true,
         watch: [
-          cache.watch(this.relationshipStore, (event, query: Key) => {
+          cache.watch(this.ontology.relationships, (event, query: Key) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -116,20 +134,20 @@ export class Client {
             if (event.variant === "set") this.ensureLabel(rel);
             return [query];
           }),
-          cache.watch(this.labelStore, (event, query: Key) =>
+          cache.watch(this.labels, (event, query: Key) =>
             this.isLabeledBy(query, event.key) ? [query] : null,
           ),
         ],
       }),
       request: engine.answers({
         name: "statuses",
-        table: this.statusStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
         compose: (records) => records.map((s) => this.compose(s)),
         matches: (status, query) => this.requestFilter(query)(status),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(this.relationshipStore, (event, _: RetrieveRequest) => {
+          cache.watch(this.ontology.relationships, (event, _: RetrieveRequest) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -142,7 +160,7 @@ export class Client {
             if (event.variant === "set") this.ensureLabel(rel);
             return [rel.from.key];
           }),
-          cache.watch(this.labelStore, (event, _: RetrieveRequest) =>
+          cache.watch(this.labels, (event, _: RetrieveRequest) =>
             this.statusesLabeledBy(event.key),
           ),
         ],
@@ -151,6 +169,32 @@ export class Client {
         },
       }),
     };
+  }
+
+  private createTable(
+    engine: cache.Cache,
+    relationships: cache.Table<string, ontology.Relationship>,
+    labels: cache.Table<label.Key, label.Label>,
+  ): cache.Table<Key, Status> {
+    const table = engine.createTable<Key, Status>({ name: "statuses" });
+    const set: cache.ChannelListener<ReturnType<typeof statusZ>> = {
+      channel: SET_CHANNEL_NAME,
+      schema: statusZ(),
+      onChange: (changed) =>
+        table.set(changed.key, (p) => {
+          const next = { ...p, ...changed };
+          const id = ontologyID(changed.key);
+          next.labels = label.cachedLabelsOf(relationships, labels, id);
+          return next;
+        }),
+    };
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => table.delete(changed),
+    };
+    engine.addListeners(table, set, del);
+    return table;
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
@@ -170,8 +214,8 @@ export class Client {
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle)
-      return (await this.answers_.single.retrieve(params.key)) as Status<DetailsSchema>;
-    return (await this.answers_.request.retrieve(
+      return (await this.answers.single.retrieve(params.key)) as Status<DetailsSchema>;
+    return (await this.answers.request.retrieve(
       normalizeRequest(params),
     )) as Status<DetailsSchema>[];
   }
@@ -193,13 +237,10 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Status> | cache.ChangeHandler<Status[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if ("key" in params)
-      return answers.single.onChange(
-        params.key,
-        handler as cache.ChangeHandler<Status>,
-      );
-    return answers.request.onChange(
+      return single.onChange(params.key, handler as cache.ChangeHandler<Status>);
+    return request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<Status[]>,
     );
@@ -214,9 +255,9 @@ export class Client {
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Status> | cache.Cached<Status[]> | undefined {
-    const answers = this.answers_;
-    if ("key" in params) return answers.single.getCached(params.key);
-    return answers.request.getCached(normalizeRequest(params));
+    const { request, single } = this.answers;
+    if ("key" in params) return single.getCached(params.key);
+    return request.getCached(normalizeRequest(params));
   }
 
   async set<DetailsSchema extends z.ZodType>(
@@ -242,7 +283,7 @@ export class Client {
       setResZ(opts.detailsSchema),
     );
     const created = res.statuses as Status<DetailsSchema>[];
-    this.statusStore.setMany(created);
+    this.store.set(created);
     return isMany ? created : created[0];
   }
 
@@ -250,8 +291,8 @@ export class Client {
     const stat = await this.retrieve({ key });
     const renamed = { ...stat, name };
     const rollback = new cache.Rollback();
-    rollback.add(this.statusStore.set(renamed.key, renamed));
-    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+    rollback.add(this.store.set(renamed.key, renamed));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.set(renamed);
@@ -261,34 +302,22 @@ export class Client {
   async delete(keys: Key | Key[]): Promise<void> {
     const keysArr = array.toArray(keys);
     await this.client.send("/status/delete", { keys: keysArr }, deleteReqZ, emptyResZ);
-    this.statusStore.delete(keysArr);
-    this.relationshipStore.delete((r) =>
+    this.store.delete(keysArr);
+    this.ontology.relationships.delete((r) =>
       keysArr.some((key) => label.matchLabeledBy(r, ontologyID(key))),
     );
   }
 
-  private get statusStore(): cache.Table<Key, Status> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get labelStore(): cache.Table<label.Key, label.Label> {
-    return this.cache_.table(label.STORE_KEY);
-  }
-
-  private get relationshipStore(): cache.Table<string, ontology.Relationship> {
-    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
-  }
-
   /** Subscribes to every status set delivered to the cache. */
   onSet(handler: (status: Status) => void): destructor.Destructor {
-    return this.statusStore.subscribe((event) => {
+    return this.store.subscribe((event) => {
       if (event.variant === "set") handler(event.value);
     });
   }
 
   /** Subscribes to every status delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
-    return this.statusStore.subscribe((event) => {
+    return this.store.subscribe((event) => {
       if (event.variant === "delete") handler(event.key);
     });
   }
@@ -308,8 +337,8 @@ export class Client {
   /** Rebuilds a cached status with its cached labels attached. */
   private compose(cached: Status): Status {
     const labels = label.cachedLabelsOf(
-      this.relationshipStore,
-      this.labelStore,
+      this.ontology.relationships,
+      this.labels,
       ontologyID(cached.key),
     );
     return { ...cached, labels };
@@ -317,9 +346,9 @@ export class Client {
 
   /** Writes a fetched status and its included label relationships. */
   private writeThrough(status: Status): void {
-    this.statusStore.set(status.key, status);
+    this.store.set(status.key, status);
     if (status.labels == null) return;
-    this.labelStore.setMany(status.labels);
+    this.labels.set(status.labels);
     const id = ontologyID(status.key);
     status.labels.forEach((l) => {
       const rel: ontology.Relationship = {
@@ -327,7 +356,7 @@ export class Client {
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
         to: label.ontologyID(l.key),
       };
-      this.relationshipStore.set(ontology.relationshipToString(rel), rel);
+      this.ontology.relationships.set(ontology.relationshipToString(rel), rel);
     });
   }
 
@@ -339,7 +368,7 @@ export class Client {
     const results: Status[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
-      const cached = this.statusStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(cached);
       else misses.push(key);
     }
@@ -352,7 +381,7 @@ export class Client {
   }
 
   private async fetchSingle(query: Key): Promise<Status> {
-    const cached = this.statusStore.get(query);
+    const cached = this.store.get(query);
     if (cached != null) return cached;
     const statuses = await this.execRetrieve({ ...BASE_REQUEST, keys: [query] });
     checkForMultipleOrNoResults("Status", query, statuses, true);
@@ -366,17 +395,17 @@ export class Client {
    */
   private ensureLabel(rel: ontology.Relationship): void {
     if (this.labelClient == null) return;
-    if (rel.to.type !== "label" || this.labelStore.has(rel.to.key)) return;
+    if (rel.to.type !== "label" || this.labels.has(rel.to.key)) return;
     void this.labelClient
       .retrieve({ key: rel.to.key })
       .catch((exc: unknown) =>
-        this.cache_.onError(new Error("failed to fetch status label", { cause: exc })),
+        this.engine.onError(new Error("failed to fetch status label", { cause: exc })),
       );
   }
 
   /** Reports whether the status is labeled by the given label. */
   private isLabeledBy(status: Key, labelKey: label.Key): boolean {
-    return this.relationshipStore.has(
+    return this.ontology.relationships.has(
       ontology.relationshipToString({
         from: ontologyID(status),
         type: label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE,
@@ -387,7 +416,7 @@ export class Client {
 
   /** Returns the keys of cached statuses labeled by the given label. */
   private statusesLabeledBy(labelKey: label.Key): Key[] {
-    return this.relationshipStore
+    return this.ontology.relationships
       .get(
         (r) =>
           r.type === label.LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&

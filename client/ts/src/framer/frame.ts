@@ -246,8 +246,8 @@ export class Frame {
    */
   get isWeaklyAligned(): boolean {
     if (this.columns.length <= 1) return true;
-    const ranges = this.timeRanges;
-    return ranges.every((tr) => tr.equals(ranges[0]));
+    const { timeRanges } = this;
+    return timeRanges.every((tr) => tr.equals(timeRanges[0]));
   }
 
   timeRange(col?: channel.Key | channel.Name): TimeRange {

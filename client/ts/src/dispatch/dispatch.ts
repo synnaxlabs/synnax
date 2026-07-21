@@ -577,17 +577,16 @@ export class Controller<Key extends record.Key, State extends cache.Data, Action
 
   /**
    * Builds a channel listener that applies broadcast action frames from the
-   * given channel to this controller. Registered in the owning table's
-   * config.
+   * given channel to this controller. Registered onto the owning table.
    */
-  listener<Tbls extends cache.Tables>(
+  listener(
     channel: string,
     schema: z.ZodType<Frame<Key, Action>>,
-  ): cache.ChannelListener<Tbls> {
+  ): cache.ChannelListener {
     return {
       channel,
       schema,
-      onChange: ({ changed }) => {
+      onChange: (changed) => {
         const { key, seq, dispatchKey, actions } = changed as Frame<Key, Action>;
         this.applyRemote(key, seq, dispatchKey, actions);
       },

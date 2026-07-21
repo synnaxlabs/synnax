@@ -12,15 +12,16 @@ import { array, type destructor, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
-import { type dispatch } from "@/dispatch";
+import { dispatch } from "@/dispatch";
 import { ontology } from "@/ontology";
 import { project } from "@/project";
+import { kindOf, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   dispatchReqZ,
   rename as renameAction,
+  scopedActionZ,
 } from "@/schematic/actions.gen";
-import { bindStore, STORE_KEY } from "@/schematic/store";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -31,6 +32,9 @@ import {
   schematicZ,
 } from "@/schematic/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_schematic_set";
+export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
@@ -76,9 +80,10 @@ const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
 export class Client {
   readonly symbols: symbol.Client;
   private readonly client: UnaryClient;
-  private readonly cache_: cache.Cache;
-  private readonly dispatcher_: dispatch.Controller<Key, Schematic, Action>;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, Schematic>;
+  private readonly ontology: ontology.Stores;
+  private readonly dispatcher: dispatch.Controller<Key, Schematic, Action>;
+  private readonly answers: {
     single: cache.Answers<Key, Schematic, Key, Schematic>;
     request: cache.Answers<RetrieveRequest, Schematic[], Key, Schematic>;
   };
@@ -87,15 +92,32 @@ export class Client {
     client: UnaryClient,
     ontologyClient: ontology.Client,
     engine: cache.Cache,
+    ontologyStores: ontology.Stores,
   ) {
     this.client = client;
-    this.symbols = new symbol.Client(client, ontologyClient, engine);
-    this.dispatcher_ = bindStore(engine);
-    this.cache_ = engine;
-    this.answers_ = {
+    this.symbols = new symbol.Client(client, ontologyClient, engine, ontologyStores);
+    this.store = engine.createTable<Key, Schematic>({ name: "schematics" });
+    this.dispatcher = new dispatch.Controller<Key, Schematic, Action>({
+      store: this.store,
+      onError: engine.onError,
+      reduce: reduceAll,
+      kindOf,
+    });
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => this.store.delete(changed),
+    };
+    engine.addListeners(
+      this.store,
+      del,
+      this.dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
+    );
+    this.ontology = ontologyStores;
+    this.answers = {
       single: engine.answers({
         name: "schematic",
-        table: this.schematicStore,
+        table: this.store,
         fetch: async (query) => [await this.fetchSingle(query)].map((s) => s.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -103,7 +125,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "schematics",
-        table: this.schematicStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
         compose: (records) => records,
         matches: (schematic, query) => requestFilter(query)(schematic),
@@ -129,7 +151,7 @@ export class Client {
     const isMany = Array.isArray(schematics);
     const optimistic = array.toArray(schematics).map((s) => schematicZ.parse(s));
     const rollback = new cache.Rollback();
-    rollback.add(this.schematicStore.setMany(optimistic));
+    rollback.add(this.store.set(optimistic));
     await opts.onOptimistic?.(optimistic);
     const res = await rollback.guard(
       async () =>
@@ -140,14 +162,14 @@ export class Client {
           createResZ,
         ),
     );
-    this.schematicStore.setMany(res.schematics);
+    this.store.set(res.schematics);
     return isMany ? res.schematics : res.schematics[0];
   }
 
   async rename(key: Key, name: string): Promise<void> {
     const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.schematicStore, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await rollback.guard(
       async () => await this.sendDispatch(key, "", [renameAction({ name })]),
     );
@@ -164,7 +186,7 @@ export class Client {
     actions: Action | Action[],
     opts: dispatch.Options<Schematic, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher_.dispatch(
+    return await this.dispatcher.dispatch(
       key,
       array.toArray(actions),
       this.dispatchSender(key),
@@ -177,7 +199,7 @@ export class Client {
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher_.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key, this.dispatchSender(key));
   }
 
   /**
@@ -185,17 +207,17 @@ export class Client {
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher_.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key, this.dispatchSender(key));
   }
 
   /** Whether the document has a live undo entry. */
   hasUndo(key: Key): boolean {
-    return this.dispatcher_.hasUndo(key);
+    return this.dispatcher.hasUndo(key);
   }
 
   /** Whether the document has a live redo entry. */
   hasRedo(key: Key): boolean {
-    return this.dispatcher_.hasRedo(key);
+    return this.dispatcher.hasRedo(key);
   }
 
   /**
@@ -203,12 +225,12 @@ export class Client {
    * destructor that unsubscribes.
    */
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor {
-    return this.dispatcher_.onUndoStateChange(callback, key);
+    return this.dispatcher.onUndoStateChange(callback, key);
   }
 
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): dispatch.Transaction<Action> {
-    return this.dispatcher_.transaction(key, this.dispatchSender(key), kind);
+    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
   }
 
   private dispatchSender(key: Key): dispatch.SendDispatch<Action> {
@@ -235,8 +257,8 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<Schematic | Schematic[]> {
     const isSingle = "key" in params;
-    if (isSingle) return await this.answers_.single.retrieve(params.key);
-    return await this.answers_.request.retrieve(retrieveReqZ.parse(params));
+    if (isSingle) return await this.answers.single.retrieve(params.key);
+    return await this.answers.request.retrieve(retrieveReqZ.parse(params));
   }
 
   /**
@@ -256,13 +278,10 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<Schematic> | cache.ChangeHandler<Schematic[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if ("key" in params)
-      return answers.single.onChange(
-        params.key,
-        handler as cache.ChangeHandler<Schematic>,
-      );
-    return answers.request.onChange(
+      return single.onChange(params.key, handler as cache.ChangeHandler<Schematic>);
+    return request.onChange(
       retrieveReqZ.parse(params),
       handler as cache.ChangeHandler<Schematic[]>,
     );
@@ -277,15 +296,17 @@ export class Client {
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<Schematic> | cache.Cached<Schematic[]> | undefined {
-    const answers = this.answers_;
-    if ("key" in params) return answers.single.getCached(params.key);
-    return answers.request.getCached(retrieveReqZ.parse(params));
+    const { request, single } = this.answers;
+    if ("key" in params) return single.getCached(params.key);
+    return request.getCached(retrieveReqZ.parse(params));
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    rollback.add(ontology.deleteCachedRelationships(this.cache_, ontologyID(keysArr)));
+    rollback.add(
+      ontology.deleteCachedRelationships(this.ontology, ontologyID(keysArr)),
+    );
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -296,17 +317,13 @@ export class Client {
           emptyResZ,
         ),
     );
-    this.schematicStore.delete(keysArr);
+    this.store.delete(keysArr);
   }
 
   async copy(params: CopyParams): Promise<Schematic> {
     const res = await this.client.send("/schematic/copy", params, copyReqZ, copyResZ);
-    this.schematicStore.set(res.schematic.key, res.schematic);
+    this.store.set(res.schematic.key, res.schematic);
     return res.schematic;
-  }
-
-  private get schematicStore(): cache.Table<Key, Schematic> {
-    return this.cache_.table(STORE_KEY);
   }
 
   private async execRetrieve(
@@ -327,13 +344,13 @@ export class Client {
   private async fetchSingle(query: Key): Promise<Schematic> {
     const schematics = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("Schematic", query, schematics, true);
-    this.schematicStore.setIfAbsent(schematics);
+    this.store.setIfAbsent(schematics);
     return schematics[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Schematic[]> {
     const schematics = await this.execRetrieve(query);
-    this.schematicStore.setIfAbsent(schematics);
+    this.store.setIfAbsent(schematics);
     return schematics;
   }
 }

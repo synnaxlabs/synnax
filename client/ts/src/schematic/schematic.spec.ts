@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/errors";
@@ -317,4 +317,22 @@ describe("Schematic", () => {
       expect((nested.InnerPascalCase as Record<string, unknown>).deepKey).toBe(true);
     });
   });
+});
+
+describe("store", () => {
+  it("tombstones deletes from live delete signals", async () => {
+    await client.cache.ensureStreaming();
+    const project = await client.projects.create({ name: `sch-${id.create()}` });
+    const created = await client.schematics.create(project.key, {
+      name: `schematic-${id.create()}`,
+    });
+    await client.schematics.delete(created.key);
+    await expect
+      .poll(() => client.schematics.getCached({ key: created.key })?.variant, {
+        timeout: 5000,
+      })
+      .toBe("deleted");
+    const cached = client.schematics.getCached({ key: created.key });
+    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
+  }, 20000);
 });

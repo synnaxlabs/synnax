@@ -874,13 +874,10 @@ describe("dispatch.Controller", () => {
       const listener = controller.listener("docs_dispatch", frameZ);
       expect(listener.channel).toBe("docs_dispatch");
       void listener.onChange({
-        changed: {
-          key: "k",
-          dispatchKey: "remote-1",
-          seq: 1,
-          actions: [{ type: "set", key: "a", value: 42 }],
-        },
-        store: {},
+        key: "k",
+        dispatchKey: "remote-1",
+        seq: 1,
+        actions: [{ type: "set", key: "a", value: 42 }],
       });
       expect(docs.get("k")).toEqual({ values: { a: 42 } });
     });

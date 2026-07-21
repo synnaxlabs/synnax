@@ -10,10 +10,4 @@
 export * from "@/log/actions";
 export * from "@/log/actions.gen";
 export * from "@/log/client";
-export {
-  bindStore,
-  DELETE_CHANNEL_NAME,
-  SET_CHANNEL_NAME,
-  STORE_KEY,
-} from "@/log/store";
 export * from "@/log/types.gen";

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type destructor, primitive, strings } from "@synnaxlabs/x";
+import { deep, type destructor, primitive, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
@@ -31,9 +31,11 @@ import {
   resourceZ,
 } from "@/ontology/payload";
 import {
-  bindStores,
-  RELATIONSHIPS_STORE_KEY,
-  RESOURCES_STORE_KEY,
+  RELATIONSHIP_DELETE_CHANNEL_NAME,
+  RELATIONSHIP_SET_CHANNEL_NAME,
+  RESOURCE_DELETE_CHANNEL_NAME,
+  RESOURCE_SET_CHANNEL_NAME,
+  type Stores,
 } from "@/ontology/store";
 import { Writer } from "@/ontology/writer";
 
@@ -159,10 +161,11 @@ type Routed =
 /** The main client class for executing queries against a Synnax cluster ontology */
 export class Client {
   readonly type: string = "ontology";
+  /** The ontology tables injected into sibling domain clients at wiring. */
+  readonly stores: Stores;
   private readonly client: UnaryClient;
   private readonly writer: Writer;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly answers: {
     single: cache.Answers<string, Resource, string, Resource>;
     request: cache.Answers<NormalizedRequest, Resource[], string, Resource>;
     children: cache.Answers<DependentRequest, Resource[], string, Resource>;
@@ -172,10 +175,8 @@ export class Client {
   constructor(unary: UnaryClient, engine: cache.Cache) {
     this.client = unary;
     this.writer = new Writer(unary);
-    this.cache_ = engine;
-    // Reconciliation refetches must bypass the query cache.
-    bindStores(engine, async (ids) => await this.execRetrieve({ ids }));
-    this.answers_ = {
+    this.stores = this.createTables(engine);
+    this.answers = {
       single: engine.answers({
         name: "resource",
         table: this.resources,
@@ -197,14 +198,54 @@ export class Client {
     };
   }
 
+  private createTables(engine: cache.Cache): Stores {
+    const relationships = engine.createTable<string, Relationship>({
+      name: "relationships",
+      equal: (a, b) =>
+        idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
+    });
+    const relationshipSet: cache.ChannelListener<typeof relationshipZ> = {
+      channel: RELATIONSHIP_SET_CHANNEL_NAME,
+      schema: relationshipZ,
+      onChange: (changed) => relationships.set(relationshipToString(changed), changed),
+    };
+    const relationshipDelete: cache.ChannelListener<typeof relationshipZ> = {
+      channel: RELATIONSHIP_DELETE_CHANNEL_NAME,
+      schema: relationshipZ,
+      onChange: (changed) => relationships.delete(relationshipToString(changed)),
+    };
+    engine.addListeners(relationships, relationshipSet, relationshipDelete);
+
+    const resources = engine.createTable<string, Resource>({
+      name: "resources",
+      equal: (a, b) => deep.equal(a, b),
+      // Reconciliation refetches must bypass the query cache.
+      refetch: async (keys) => await this.execRetrieve({ ids: parseIDs(keys) }),
+    });
+    const resourceSet: cache.ChannelListener<typeof resourceZ> = {
+      channel: RESOURCE_SET_CHANNEL_NAME,
+      schema: resourceZ,
+      onChange: (changed) =>
+        resources.set(changed.key, (p) => (p == null ? changed : { ...p, ...changed })),
+    };
+    const resourceDelete: cache.ChannelListener<typeof idZ> = {
+      channel: RESOURCE_DELETE_CHANNEL_NAME,
+      schema: idZ,
+      // The store is keyed by the full "type:key" string, not the bare key.
+      onChange: (changed) => resources.delete(idToString(changed)),
+    };
+    engine.addListeners(resources, resourceSet, resourceDelete);
+    return { relationships, resources };
+  }
+
   /** Read surface of the relationship cache. */
   get relationships(): cache.Table<string, Relationship> {
-    return this.cache_.table(RELATIONSHIPS_STORE_KEY);
+    return this.stores.relationships;
   }
 
   /** Read surface of the resource cache. */
   get resources(): cache.Table<string, Resource> {
-    return this.cache_.table(RESOURCES_STORE_KEY);
+    return this.stores.resources;
   }
 
   /**
@@ -240,7 +281,7 @@ export class Client {
       return await this.routeRetrieve(ids);
     const parsedIDs = parseIDs(ids);
     if (!Array.isArray(ids) && isSingleCacheable(options))
-      return await this.answers_.single.retrieve(idToString(parsedIDs[0]));
+      return await this.answers.single.retrieve(idToString(parsedIDs[0]));
     const resources = await this.routeRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;
     if (resources.length === 0)
@@ -263,7 +304,7 @@ export class Client {
     ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
-    return await this.answers_.children.retrieve(normalizeDependents(ids, options));
+    return await this.answers.children.retrieve(normalizeDependents(ids, options));
   }
 
   /**
@@ -279,7 +320,7 @@ export class Client {
     ids: ID | ID[],
     options?: RetrieveOptions,
   ): Promise<Resource[]> {
-    return await this.answers_.parents.retrieve(normalizeDependents(ids, options));
+    return await this.answers.parents.retrieve(normalizeDependents(ids, options));
   }
 
   /**
@@ -296,16 +337,16 @@ export class Client {
     params: ID | ID[] | RetrieveRequest,
     handler: cache.ChangeHandler<Resource> | cache.ChangeHandler<Resource[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
     if (!Array.isArray(params) && "key" in params)
-      return answers.single.onChange(
+      return this.answers.single.onChange(
         idToString(params),
         handler as cache.ChangeHandler<Resource>,
       );
     const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
     const h = handler as cache.ChangeHandler<Resource[]>;
-    if (routed.space === "request") return answers.request.onChange(routed.query, h);
-    return answers[routed.space].onChange(routed.query, h);
+    if (routed.space === "request")
+      return this.answers.request.onChange(routed.query, h);
+    return this.answers[routed.space].onChange(routed.query, h);
   }
 
   /**
@@ -317,12 +358,11 @@ export class Client {
   getCached(
     params: ID | ID[] | RetrieveRequest,
   ): cache.Cached<Resource> | cache.Cached<Resource[]> | undefined {
-    const answers = this.answers_;
     if (!Array.isArray(params) && "key" in params)
-      return answers.single.getCached(idToString(params));
+      return this.answers.single.getCached(idToString(params));
     const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
-    if (routed.space === "request") return answers.request.getCached(routed.query);
-    return answers[routed.space].getCached(routed.query);
+    if (routed.space === "request") return this.answers.request.getCached(routed.query);
+    return this.answers[routed.space].getCached(routed.query);
   }
 
   /**
@@ -332,10 +372,9 @@ export class Client {
    */
   async addChildren(id: ID, ...children: ID[]): Promise<void> {
     await this.writer.addChildren(id, ...children);
-    const rels = this.relationships;
     children.forEach((child) => {
       const rel = parentRel(id, child);
-      rels.set(relationshipToString(rel), rel);
+      this.relationships.set(relationshipToString(rel), rel);
     });
   }
 
@@ -346,9 +385,8 @@ export class Client {
    */
   async removeChildren(id: ID, ...children: ID[]): Promise<void> {
     await this.writer.removeChildren(id, ...children);
-    const rels = this.relationships;
     children.forEach((child) =>
-      rels.delete(relationshipToString(parentRel(id, child))),
+      this.relationships.delete(relationshipToString(parentRel(id, child))),
     );
   }
 
@@ -359,14 +397,13 @@ export class Client {
    * @param children - The IDs of the children to move.
    */
   async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
-    const rels = this.relationships;
     const move = (): destructor.Destructor[] => {
       const deletions = children.map((child) =>
-        rels.delete(relationshipToString(parentRel(from, child))),
+        this.relationships.delete(relationshipToString(parentRel(from, child))),
       );
       const insertions = children.map((child) => {
         const rel = parentRel(to, child);
-        return rels.set(relationshipToString(rel), rel);
+        return this.relationships.set(relationshipToString(rel), rel);
       });
       return [...deletions, ...insertions];
     };
@@ -424,10 +461,10 @@ export class Client {
   }
 
   private async routeRetrieve(request: RetrieveRequest): Promise<Resource[]> {
-    const answers = this.answers_;
     const routed = this.routeRequest(request);
-    if (routed.space === "request") return await answers.request.retrieve(routed.query);
-    return await answers[routed.space].retrieve(routed.query);
+    if (routed.space === "request")
+      return await this.answers.request.retrieve(routed.query);
+    return await this.answers[routed.space].retrieve(routed.query);
   }
 
   /** Writes fetched resources without clobbering cached field data. */

@@ -14,7 +14,6 @@ import z from "zod";
 
 import { type cache } from "@/cache";
 import { createStreamer, type StreamerParams } from "@/cache/streamer";
-import { type TableConfigs } from "@/cache/table";
 import { type channel } from "@/channel";
 import { NotFoundError } from "@/errors";
 import { framer } from "@/framer";
@@ -99,27 +98,20 @@ const createFrameStreamer = (frames: framer.Frame[]) =>
     });
   });
 
-const createConfigs = <T>(
+const createListeners = (
   channel: string,
-  schema: z.ZodType<T>,
+  schema: z.ZodType,
   onChange: Mock,
-): TableConfigs<cache.Tables> => ({
-  labels: { listeners: [{ channel, schema, onChange }] },
-});
+): cache.ChannelListener[] => [{ channel, schema, onChange }];
 
-const createStreamerArgs = (
-  overrides?: Partial<StreamerParams<cache.Tables>>,
-): StreamerParams<cache.Tables> => ({
+const createStreamerArgs = (overrides?: Partial<StreamerParams>): StreamerParams => ({
   onError: vi.fn(),
-  configs: { labels: { listeners: [] } },
-  tables: {},
+  listeners: [],
   openStreamer: wrapOpener(async () => new MockHardenedStreamer([])),
   ...overrides,
 });
 
-const openStreamer = async (
-  args: StreamerParams<cache.Tables>,
-): Promise<() => Promise<void>> => {
+const openStreamer = async (args: StreamerParams): Promise<() => Promise<void>> => {
   const streamer = createStreamer(args);
   await streamer.demand();
   return streamer.close;
@@ -133,7 +125,7 @@ describe("openStreamer", () => {
 
     const closeStreamer = await openStreamer(
       createStreamerArgs({
-        configs: createConfigs("test", schema, onChange),
+        listeners: createListeners("test", schema, onChange),
         openStreamer: createFrameStreamer(frames),
       }),
     );
@@ -142,7 +134,7 @@ describe("openStreamer", () => {
     await expect.poll(() => onChange.mock.calls.length).toBeGreaterThan(0);
     await closeStreamer();
     expect(onChange).toHaveBeenCalledTimes(1);
-    expect(onChange.mock.calls[0][0].changed.name).toBe("test");
+    expect(onChange.mock.calls[0][0].name).toBe("test");
   });
 
   describe("Error Handling & Recovery", () => {
@@ -154,7 +146,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -179,19 +171,15 @@ describe("openStreamer", () => {
         new framer.Frame({ test2: new Series([{ value: 3 }]) }),
       ];
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            { channel: "test", schema, onChange: listener1 },
-            { channel: "test2", schema, onChange: listener2 },
-          ],
-        },
-      };
+      const listeners: cache.ChannelListener[] = [
+        { channel: "test", schema, onChange: listener1 },
+        { channel: "test2", schema, onChange: listener2 },
+      ];
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -210,7 +198,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: wrapOpener(async () => {
             let i = 0;
             return new MockHardenedStreamer([], async () => {
@@ -232,7 +220,7 @@ describe("openStreamer", () => {
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
-      expect(onChange.mock.calls[0][0].changed.value).toBe(1);
+      expect(onChange.mock.calls[0][0].value).toBe(1);
       // Wait a bit to ensure the streamer handles the EOF
       await new Promise((resolve) => setTimeout(resolve, 100));
       await closeStreamer();
@@ -250,14 +238,10 @@ describe("openStreamer", () => {
       ];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: {
-            labels: {
-              listeners: [
-                { channel: "test", schema, onChange: listener1 },
-                { channel: "test", schema, onChange: listener2 },
-              ],
-            },
-          },
+          listeners: [
+            { channel: "test", schema, onChange: listener1 },
+            { channel: "test", schema, onChange: listener2 },
+          ],
           onError: vi.fn(),
           openStreamer: createFrameStreamer(frames),
         }),
@@ -285,7 +269,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -293,8 +277,8 @@ describe("openStreamer", () => {
       await expect.poll(() => onChange.mock.calls.length).toBe(3);
       expect(onError.mock.calls.length).toBeGreaterThan(0);
       // First call should have errored, but subsequent calls should succeed
-      expect(onChange.mock.calls[1][0].changed.value).toBe(2);
-      expect(onChange.mock.calls[2][0].changed.value).toBe(3);
+      expect(onChange.mock.calls[1][0].value).toBe(2);
+      expect(onChange.mock.calls[2][0].value).toBe(3);
       await closeStreamer();
     });
 
@@ -309,7 +293,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -328,15 +312,11 @@ describe("openStreamer", () => {
       const listener3 = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            { channel: "test", schema, onChange: listener1 },
-            { channel: "test", schema, onChange: listener2 },
-            { channel: "test", schema, onChange: listener3 },
-          ],
-        },
-      };
+      const listeners: cache.ChannelListener[] = [
+        { channel: "test", schema, onChange: listener1 },
+        { channel: "test", schema, onChange: listener2 },
+        { channel: "test", schema, onChange: listener3 },
+      ];
 
       const frames = [
         new framer.Frame({ test: new Series([{ value: 1 }]) }),
@@ -345,7 +325,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -356,8 +336,8 @@ describe("openStreamer", () => {
 
       // Verify all listeners received the same data
       for (const listener of [listener1, listener2, listener3]) {
-        expect(listener.mock.calls[0][0].changed.value).toBe(1);
-        expect(listener.mock.calls[1][0].changed.value).toBe(2);
+        expect(listener.mock.calls[0][0].value).toBe(1);
+        expect(listener.mock.calls[1][0].value).toBe(2);
       }
 
       await closeStreamer();
@@ -372,15 +352,11 @@ describe("openStreamer", () => {
       const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            { channel: "test", schema, onChange: listener1 },
-            { channel: "test", schema, onChange: listener2 },
-            { channel: "test", schema, onChange: listener3 },
-          ],
-        },
-      };
+      const listeners: cache.ChannelListener[] = [
+        { channel: "test", schema, onChange: listener1 },
+        { channel: "test", schema, onChange: listener2 },
+        { channel: "test", schema, onChange: listener3 },
+      ];
 
       const frames = [
         new framer.Frame({ test: new Series([{ value: 1 }]) }),
@@ -390,7 +366,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -405,10 +381,10 @@ describe("openStreamer", () => {
       expect(onError.mock.calls.length).toBeGreaterThanOrEqual(2);
 
       // Verify other listeners still received correct data
-      expect(listener1.mock.calls[0][0].changed.value).toBe(1);
-      expect(listener1.mock.calls[1][0].changed.value).toBe(2);
-      expect(listener3.mock.calls[0][0].changed.value).toBe(1);
-      expect(listener3.mock.calls[1][0].changed.value).toBe(2);
+      expect(listener1.mock.calls[0][0].value).toBe(1);
+      expect(listener1.mock.calls[1][0].value).toBe(2);
+      expect(listener3.mock.calls[0][0].value).toBe(1);
+      expect(listener3.mock.calls[1][0].value).toBe(2);
 
       await closeStreamer();
     });
@@ -426,15 +402,11 @@ describe("openStreamer", () => {
       });
       const schema = z.object({ value: z.number() });
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            { channel: "test", schema, onChange: listener1 },
-            { channel: "test", schema, onChange: listener2 },
-            { channel: "test", schema, onChange: listener3 },
-          ],
-        },
-      };
+      const listeners: cache.ChannelListener[] = [
+        { channel: "test", schema, onChange: listener1 },
+        { channel: "test", schema, onChange: listener2 },
+        { channel: "test", schema, onChange: listener3 },
+      ];
 
       const frames = [
         new framer.Frame({ test: new Series([{ value: 1 }]) }),
@@ -444,7 +416,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -476,15 +448,11 @@ describe("openStreamer", () => {
       const onError = vi.fn();
       const schema = z.object({ value: z.number() });
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            { channel: "test", schema, onChange: listener1 },
-            { channel: "test", schema, onChange: listener2 },
-            { channel: "test", schema, onChange: listener3 },
-          ],
-        },
-      };
+      const listeners: cache.ChannelListener[] = [
+        { channel: "test", schema, onChange: listener1 },
+        { channel: "test", schema, onChange: listener2 },
+        { channel: "test", schema, onChange: listener3 },
+      ];
 
       const frames = [
         new framer.Frame({ test: new Series([{ value: 1 }]) }),
@@ -496,7 +464,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -512,8 +480,8 @@ describe("openStreamer", () => {
 
       // Verify all listeners received correct data
       for (let i = 0; i < 4; i++) {
-        expect(listener1.mock.calls[i][0].changed.value).toBe(i + 1);
-        expect(listener3.mock.calls[i][0].changed.value).toBe(i + 1);
+        expect(listener1.mock.calls[i][0].value).toBe(i + 1);
+        expect(listener3.mock.calls[i][0].value).toBe(i + 1);
       }
 
       await closeStreamer();
@@ -528,14 +496,10 @@ describe("openStreamer", () => {
       const schema1 = z.object({ value: z.number() });
       const schema2 = z.object({ value: z.string() });
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            { channel: "test", schema: schema1, onChange: listener1 },
-            { channel: "test", schema: schema2, onChange: listener2 },
-          ],
-        },
-      };
+      const listeners: cache.ChannelListener[] = [
+        { channel: "test", schema: schema1, onChange: listener1 },
+        { channel: "test", schema: schema2, onChange: listener2 },
+      ];
 
       // Data that satisfies schema1 but not schema2
       const frames = [new framer.Frame({ test: new Series([{ value: 123 }]) })];
@@ -543,7 +507,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -551,7 +515,7 @@ describe("openStreamer", () => {
       await expect.poll(() => listener1.mock.calls.length).toBe(1);
 
       // Listener1 should succeed with number schema
-      expect(listener1.mock.calls[0][0].changed.value).toBe(123);
+      expect(listener1.mock.calls[0][0].value).toBe(123);
 
       // Listener2 should fail validation (expecting string, got number)
       expect(listener2).not.toHaveBeenCalled();
@@ -577,15 +541,11 @@ describe("openStreamer", () => {
       });
       const schema = z.object({ id: z.number() });
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            { channel: "user_create", schema, onChange: createListener },
-            { channel: "user_delete", schema, onChange: deleteListener },
-            { channel: "user_update", schema, onChange: updateListener },
-          ],
-        },
-      };
+      const listeners: cache.ChannelListener[] = [
+        { channel: "user_create", schema, onChange: createListener },
+        { channel: "user_delete", schema, onChange: deleteListener },
+        { channel: "user_update", schema, onChange: updateListener },
+      ];
 
       const frames = [
         new framer.Frame({
@@ -597,7 +557,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -624,7 +584,7 @@ describe("openStreamer", () => {
       ];
 
       const schema = z.object({ id: z.number() });
-      const channelListeners: cache.ChannelListener<cache.Tables>[] = [];
+      const channelListeners: cache.ChannelListener[] = [];
 
       channels.forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -633,10 +593,6 @@ describe("openStreamer", () => {
         listeners[channel] = listener;
         channelListeners.push({ channel, schema, onChange: listener });
       });
-
-      const configs: TableConfigs<cache.Tables> = {
-        labels: { listeners: channelListeners },
-      };
 
       const frames = [
         new framer.Frame(
@@ -648,7 +604,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs,
+          listeners: channelListeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -672,10 +628,10 @@ describe("openStreamer", () => {
 
     it("should correctly handle relationship changes (delete then create)", async () => {
       const operations: Array<{ channel: string; data: unknown }> = [];
-      const deleteListener = vi.fn().mockImplementation(({ changed }) => {
+      const deleteListener = vi.fn().mockImplementation((changed) => {
         operations.push({ channel: "relationship_delete", data: changed });
       });
-      const createListener = vi.fn().mockImplementation(({ changed }) => {
+      const createListener = vi.fn().mockImplementation((changed) => {
         operations.push({ channel: "relationship_create", data: changed });
       });
 
@@ -685,22 +641,18 @@ describe("openStreamer", () => {
         type: z.string(),
       });
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            {
-              channel: "relationship_create",
-              schema: relationshipSchema,
-              onChange: createListener,
-            },
-            {
-              channel: "relationship_delete",
-              schema: relationshipSchema,
-              onChange: deleteListener,
-            },
-          ],
+      const listeners: cache.ChannelListener[] = [
+        {
+          channel: "relationship_create",
+          schema: relationshipSchema,
+          onChange: createListener,
         },
-      };
+        {
+          channel: "relationship_delete",
+          schema: relationshipSchema,
+          onChange: deleteListener,
+        },
+      ];
 
       // Simulate updating a relationship (delete old, create new)
       const frames = [
@@ -716,7 +668,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -745,7 +697,7 @@ describe("openStreamer", () => {
     it("should handle frames with only delete channels", async () => {
       const executionOrder: string[] = [];
       const schema = z.object({ id: z.number() });
-      const listeners: cache.ChannelListener<cache.Tables>[] = [];
+      const listeners: cache.ChannelListener[] = [];
 
       ["user_delete", "role_delete", "permission_delete"].forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -753,10 +705,6 @@ describe("openStreamer", () => {
         });
         listeners.push({ channel, schema, onChange: listener });
       });
-
-      const configs: TableConfigs<cache.Tables> = {
-        labels: { listeners },
-      };
 
       const frames = [
         new framer.Frame({
@@ -768,7 +716,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -787,7 +735,7 @@ describe("openStreamer", () => {
     it("should handle frames with no delete channels", async () => {
       const executionOrder: string[] = [];
       const schema = z.object({ id: z.number() });
-      const listeners: cache.ChannelListener<cache.Tables>[] = [];
+      const listeners: cache.ChannelListener[] = [];
 
       ["user_create", "role_update", "permission_grant"].forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
@@ -795,10 +743,6 @@ describe("openStreamer", () => {
         });
         listeners.push({ channel, schema, onChange: listener });
       });
-
-      const configs: TableConfigs<cache.Tables> = {
-        labels: { listeners },
-      };
 
       const frames = [
         new framer.Frame({
@@ -810,7 +754,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -837,17 +781,13 @@ describe("openStreamer", () => {
         "update_user",
       ];
 
-      const listeners: cache.ChannelListener<cache.Tables>[] = [];
+      const listeners: cache.ChannelListener[] = [];
       channels.forEach((channel) => {
         const listener = vi.fn().mockImplementation(() => {
           executionOrder.push(channel);
         });
         listeners.push({ channel, schema, onChange: listener });
       });
-
-      const configs: TableConfigs<cache.Tables> = {
-        labels: { listeners },
-      };
 
       const frames = [
         new framer.Frame(
@@ -859,7 +799,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -901,19 +841,19 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(2);
 
-      expect(onChange.mock.calls[0][0].changed).toEqual({
+      expect(onChange.mock.calls[0][0]).toEqual({
         name: "Alice",
         age: 30,
         active: true,
       });
-      expect(onChange.mock.calls[1][0].changed).toEqual({
+      expect(onChange.mock.calls[1][0]).toEqual({
         name: "Bob",
         age: 25,
         active: false,
@@ -934,15 +874,15 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(2);
 
-      expect(onChange.mock.calls[0][0].changed).toBe(42);
-      expect(onChange.mock.calls[1][0].changed).toBe(84);
+      expect(onChange.mock.calls[0][0]).toBe(42);
+      expect(onChange.mock.calls[1][0]).toBe(84);
 
       await closeStreamer();
     });
@@ -962,15 +902,15 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
 
       await expect.poll(() => onChange.mock.calls.length).toBe(2);
 
-      expect(onChange.mock.calls[0][0].changed).toBe("hello");
-      expect(onChange.mock.calls[1][0].changed).toBe("world");
+      expect(onChange.mock.calls[0][0]).toBe("hello");
+      expect(onChange.mock.calls[1][0]).toBe("world");
 
       await closeStreamer();
     });
@@ -981,7 +921,7 @@ describe("openStreamer", () => {
       const frames = [new framer.Frame({ other_channel: new Series([{ value: 42 }]) })];
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -998,7 +938,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -1015,18 +955,14 @@ describe("openStreamer", () => {
       const jsonSchema = z.object({ id: z.number(), name: z.string() });
       const numericSchema = z.number();
 
-      const configs: TableConfigs<cache.Tables> = {
-        labels: {
-          listeners: [
-            { channel: "json_channel", schema: jsonSchema, onChange: jsonListener },
-            {
-              channel: "numeric_channel",
-              schema: numericSchema,
-              onChange: numericListener,
-            },
-          ],
+      const listeners: cache.ChannelListener[] = [
+        { channel: "json_channel", schema: jsonSchema, onChange: jsonListener },
+        {
+          channel: "numeric_channel",
+          schema: numericSchema,
+          onChange: numericListener,
         },
-      };
+      ];
 
       const frames = [
         new framer.Frame({
@@ -1044,7 +980,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs,
+          listeners,
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -1052,8 +988,8 @@ describe("openStreamer", () => {
       await expect.poll(() => numericListener.mock.calls.length).toBe(1);
       await expect.poll(() => jsonListener.mock.calls.length).toBe(1);
 
-      expect(jsonListener.mock.calls[0][0].changed).toEqual({ id: 1, name: "test" });
-      expect(numericListener.mock.calls[0][0].changed).toBe(42);
+      expect(jsonListener.mock.calls[0][0]).toEqual({ id: 1, name: "test" });
+      expect(numericListener.mock.calls[0][0]).toBe(42);
 
       await closeStreamer();
     });
@@ -1074,7 +1010,7 @@ describe("openStreamer", () => {
       const closeStreamer = await openStreamer(
         createStreamerArgs({
           onError,
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -1095,7 +1031,7 @@ describe("openStreamer", () => {
       let mockStreamer: MockHardenedStreamer;
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: wrapOpener(async () => {
             mockStreamer = new MockHardenedStreamer([]);
             return mockStreamer;
@@ -1126,7 +1062,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );
@@ -1155,13 +1091,13 @@ describe("openStreamer", () => {
       const frames1 = [new framer.Frame({ test: new Series([{ value: 1 }]) })];
       const closeStreamer1 = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange1),
+          listeners: createListeners("test", schema, onChange1),
           openStreamer: createFrameStreamer(frames1),
         }),
       );
 
       await expect.poll(() => onChange1.mock.calls.length).toBe(1);
-      expect(onChange1.mock.calls[0][0].changed.value).toBe(1);
+      expect(onChange1.mock.calls[0][0].value).toBe(1);
 
       // Close first streamer
       await closeStreamer1();
@@ -1170,13 +1106,13 @@ describe("openStreamer", () => {
       const frames2 = [new framer.Frame({ test: new Series([{ value: 2 }]) })];
       const closeStreamer2 = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange2),
+          listeners: createListeners("test", schema, onChange2),
           openStreamer: createFrameStreamer(frames2),
         }),
       );
 
       await expect.poll(() => onChange2.mock.calls.length).toBe(1);
-      expect(onChange2.mock.calls[0][0].changed.value).toBe(2);
+      expect(onChange2.mock.calls[0][0].value).toBe(2);
 
       // Verify first listener wasn't called again
       expect(onChange1.mock.calls.length).toBe(1);
@@ -1191,7 +1127,7 @@ describe("openStreamer", () => {
       let mockStreamer: MockHardenedStreamer;
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: wrapOpener(async () => {
             mockStreamer = new MockHardenedStreamer([]);
             return mockStreamer;
@@ -1216,7 +1152,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: wrapOpener(async () => {
             const mockStreamer = new MockHardenedStreamer([]);
             // Make close throw an error
@@ -1245,7 +1181,7 @@ describe("openStreamer", () => {
 
       const closeStreamer = await openStreamer(
         createStreamerArgs({
-          configs: createConfigs("test", schema, onChange),
+          listeners: createListeners("test", schema, onChange),
           openStreamer: createFrameStreamer(frames),
         }),
       );

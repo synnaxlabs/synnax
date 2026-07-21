@@ -11,22 +11,14 @@ import { type destructor, observe, type record, type state } from "@synnaxlabs/x
 
 import { Answers, type AnswersParams } from "@/cache/answers";
 import { createStreamer, type Streamer, type StreamOpener } from "@/cache/streamer";
-import {
-  type ChannelListener,
-  Table,
-  type TableConfig,
-  type TableConfigs,
-  type Tables,
-} from "@/cache/table";
+import { type ChannelListener, Table, type TableConfig } from "@/cache/table";
 import { type Data, type Query } from "@/cache/types";
 
 export interface CacheParams {
   /**
    * Opens the frame streamer used to receive change signals. Null constructs
-   * a detached cache: purely local tables, no change stream ever opens, and
-   * unknown table keys auto-register empty configs on first access. Used for
-   * UI layers that need working tables before a cluster connection exists,
-   * and for clients constructed with `cache: false`.
+   * a detached cache: purely local tables and no change stream. Used for
+   * clients constructed with `cache: false`.
    */
   openStreamer: StreamOpener | null;
   /**
@@ -37,20 +29,24 @@ export interface CacheParams {
   onInternalError?: (error: Error) => void;
 }
 
+interface TableEntry {
+  config: TableConfig<any, any>;
+  listeners: ChannelListener[];
+}
+
 /**
  * The client's local mirror of cluster state: keyed tables, the change-stream
  * loop, connection epochs, and reconciliation. Holds zero domain knowledge —
- * domain clients register their table configs and expose typed query spaces.
+ * domain clients create their tables here and expose typed query spaces.
  * Always present on a client; detached (see {@link CacheParams.openStreamer})
  * stands in for "disabled" or "not yet connected" rather than a null cache.
  *
  * The change stream opens lazily: nothing touches the network until the
- * first {@link ensureStreaming} call. All tables must be registered before
+ * first {@link ensureStreaming} call. All tables must be created before
  * streaming starts.
  */
 export class Cache {
-  private readonly configs: TableConfigs<any> = {};
-  private readonly tables: Tables = {};
+  private readonly entries = new Map<Table<any, any>, TableEntry>();
   private readonly epochObserver = new observe.Observer<number>();
   private readonly onInternalError: (error: Error) => void;
   private readonly openStreamer: StreamOpener | null;
@@ -71,59 +67,38 @@ export class Cache {
   }
 
   /**
-   * Registers a table under the given key. Must be called before streaming
-   * starts; registering after {@link ensureStreaming} throws, as the new
-   * table's channels would never be streamed.
+   * Creates a table owned by this cache and returns it. Must be called before
+   * streaming starts; creating after {@link ensureStreaming} throws, as the
+   * new table's channels would never be streamed.
    */
-  registerTable<Key extends record.Key, Value extends state.State>(
-    key: string,
-    config: TableConfig<any, Key, Value>,
-  ): void {
+  createTable<Key extends record.Key, Value extends state.State>(
+    config: TableConfig<Key, Value>,
+  ): Table<Key, Value> {
     if (this.streamer != null)
-      throw new Error(`cannot register table ${key} after streaming has started`);
-    if (key in this.configs) throw new Error(`table ${key} is already registered`);
-    this.configs[key] = config;
-    this.tables[key] = new Table<Key, Value>(this.onError, config.equal);
+      throw new Error(`cannot create table ${config.name} after streaming has started`);
+    const table = new Table<Key, Value>(this.onError, config.equal);
+    this.entries.set(table, { config, listeners: [] });
+    return table;
   }
 
   /**
-   * Registers additional channel listeners on an already-registered table.
-   * Same pre-streaming constraint as {@link registerTable}. Used by machinery
-   * (dispatch controllers) that needs the table to exist before it can build
-   * its listener.
+   * Registers channel listeners driving the given table. Same pre-streaming
+   * constraint as {@link createTable}. The table anchors the listeners'
+   * lifecycle; their callbacks close over whatever tables they write.
    */
-  addListeners(key: string, ...listeners: ChannelListener<any>[]): void {
+  addListeners(table: Table<any, any>, ...listeners: ChannelListener<any>[]): void {
+    const entry = this.entries.get(table);
+    if (entry == null) throw new Error("table was not created by this cache");
     if (this.streamer != null)
-      throw new Error(`cannot add listeners to ${key} after streaming has started`);
-    const config = this.configs[key];
-    if (config == null) throw new Error(`table ${key} is not registered`);
-    config.listeners.push(...listeners);
+      throw new Error(
+        `cannot add listeners to ${entry.config.name} after streaming has started`,
+      );
+    entry.listeners.push(...listeners);
   }
 
   /** True when the cache has no stream source and tables are purely local. */
   get detached(): boolean {
     return this.openStreamer == null;
-  }
-
-  // Detached caches have no domain clients to register configs, so unknown
-  // keys become empty local tables on first access.
-  private resolve(key: string): Table<any, any> | null {
-    const table = this.tables[key];
-    if (table != null || !this.detached) return table ?? null;
-    this.registerTable(key, { listeners: [] });
-    return this.tables[key];
-  }
-
-  /**
-   * Returns the table registered under the given key. Throws when the key was
-   * never registered.
-   */
-  table<Key extends record.Key, Value extends state.State>(
-    key: string,
-  ): Table<Key, Value> {
-    const table = this.resolve(key);
-    if (table == null) throw new Error(`table ${key} is not registered`);
-    return table as Table<Key, Value>;
   }
 
   /**
@@ -150,13 +125,12 @@ export class Cache {
    * fetch and the stream opening.
    */
   async ensureStreaming(): Promise<void> {
-    const opener = this.openStreamer;
-    if (opener == null) return;
+    const { openStreamer } = this;
+    if (openStreamer == null) return;
     this.streamer ??= createStreamer({
-      openStreamer: opener,
-      configs: this.configs,
+      openStreamer,
+      listeners: [...this.entries.values()].flatMap(({ listeners }) => listeners),
       onError: this.onError,
-      tables: this.tables,
       onOpen: () => {
         this.epochCount = 1;
         this.epochObserver.notify(this.epochCount);
@@ -186,10 +160,9 @@ export class Cache {
    */
   async reconcile(): Promise<void> {
     await Promise.all(
-      Object.entries(this.configs).map(async ([key, config]) => {
-        const { refetch } = config;
+      [...this.entries.entries()].map(async ([table, { config }]) => {
+        const { name, refetch } = config;
         if (refetch == null) return;
-        const table = this.tables[key];
         const keys = table.list().map((value: record.Keyed<record.Key>) => value.key);
         if (keys.length === 0) return;
         try {
@@ -197,10 +170,10 @@ export class Cache {
           const present = new Set(values.map(({ key }) => key));
           const vanished = keys.filter((k) => !present.has(k));
           if (vanished.length > 0) table.delete(vanished);
-          if (values.length > 0) table.setMany(values);
+          if (values.length > 0) table.set(values);
         } catch (exc) {
           this.onInternalError(
-            new Error(`failed to reconcile ${key} cache`, { cause: exc }),
+            new Error(`failed to reconcile ${name} cache`, { cause: exc }),
           );
         }
       }),

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { group } from "@/group";
@@ -612,5 +613,37 @@ describe("Ontology", () => {
         ontology.idToString(["group:one", "channel:two", "dog"]);
       }).toThrow();
     });
+  });
+});
+
+describe("store", () => {
+  it("caches resource sets and corpses deletes from live signals", async () => {
+    await client.cache.ensureStreaming();
+    const label = await client.labels.create({
+      name: `cache-test-${id.create()}`,
+      color: "#E774D0",
+    });
+    const resourceKey = ontology.idToString({ type: "label", key: label.key });
+    await expect
+      .poll(() => client.ontology.resources.get(resourceKey), { timeout: 5000 })
+      .toBeDefined();
+    expect(client.ontology.resources.status(resourceKey)).toBe("present");
+    await client.labels.delete(label.key);
+    await expect
+      .poll(() => client.ontology.resources.status(resourceKey), { timeout: 5000 })
+      .toBe("tombstoned");
+    const tombstone = client.ontology.resources.getTombstone(resourceKey);
+    expect(tombstone?.corpse.name).toEqual(label.name);
+  }, 20000);
+
+  it("stays a detached, local-only cache when caching is disabled", async () => {
+    const disabled = createTestClient({ cache: false });
+    expect(() => disabled.ontology.resources).not.toThrow();
+    expect(disabled.cache.epoch).toBe(0);
+    // Detached: ensureStreaming never opens a change stream, so the epoch
+    // never advances past 0.
+    await disabled.cache.ensureStreaming();
+    expect(disabled.cache.epoch).toBe(0);
+    disabled.close();
   });
 });

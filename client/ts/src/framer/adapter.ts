@@ -74,10 +74,10 @@ export class ReadAdapter {
       if (shouldFilter) return frm.filter((k) => this.keys.has(k as channel.Key));
       return frm;
     }
-    const a = this.adapter;
+    const { adapter } = this;
     return frm.mapFilter((col, arr) => {
       if (typeof col === "number") {
-        const name = a.get(col);
+        const name = adapter.get(col);
         if (name == null) return [col, arr, false];
         return [name, arr, true];
       }

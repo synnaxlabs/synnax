@@ -40,8 +40,12 @@ describe("arc", () => {
       const gen = new crdt.Text(2);
       const ops = gen.insert(0, "hello").map((op) => arc.insertChar(op));
       await client.arcs.dispatch(created.key, ops);
-      const res = await client.arcs.retrieve({ key: created.key });
-      expect(res.text.raw).toEqual("hello");
+      await expect
+        .poll(async () => {
+          const res = await client.arcs.retrieve({ key: created.key });
+          return res.text.raw;
+        })
+        .toEqual("hello");
     });
 
     it("drops deleted characters from the materialized raw text", async () => {

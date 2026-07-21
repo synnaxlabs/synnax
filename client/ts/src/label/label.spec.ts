@@ -158,3 +158,30 @@ describe("cached reads", () => {
     }
   });
 });
+
+describe("store", () => {
+  it("caches sets and corpses deletes from live signals", async () => {
+    await client.cache.ensureStreaming();
+    const created = await client.labels.create({
+      name: `label-${id.create()}`,
+      color: "#12E774",
+    });
+    await expect
+      .poll(
+        () => {
+          const cached = client.labels.getCached({ key: created.key });
+          return cached?.variant === "changed" ? cached.data.name : undefined;
+        },
+        { timeout: 5000 },
+      )
+      .toEqual(created.name);
+    await client.labels.delete(created.key);
+    await expect
+      .poll(() => client.labels.getCached({ key: created.key })?.variant, {
+        timeout: 5000,
+      })
+      .toBe("deleted");
+    const cached = client.labels.getCached({ key: created.key });
+    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(created.name);
+  }, 20000);
+});

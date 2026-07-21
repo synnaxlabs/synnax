@@ -15,9 +15,8 @@ export {
   deleteCachedResources,
   RELATIONSHIP_DELETE_CHANNEL_NAME,
   RELATIONSHIP_SET_CHANNEL_NAME,
-  RELATIONSHIPS_STORE_KEY,
   renameCachedResource,
   RESOURCE_DELETE_CHANNEL_NAME,
   RESOURCE_SET_CHANNEL_NAME,
-  RESOURCES_STORE_KEY,
+  type Stores,
 } from "@/ontology/store";

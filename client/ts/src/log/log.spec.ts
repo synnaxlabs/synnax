@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { id, uuid } from "@synnaxlabs/x";
+import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
 import { createTestClient } from "@/testutil";
@@ -44,4 +44,18 @@ describe("Log", () => {
       );
     });
   });
+});
+
+describe("store", () => {
+  it("tombstones deletes from live delete signals", async () => {
+    await client.cache.ensureStreaming();
+    const project = await client.projects.create({ name: `log-${id.create()}` });
+    const log = await client.logs.create(project.key, { name: `log-${id.create()}` });
+    await client.logs.delete(log.key);
+    await expect
+      .poll(() => client.logs.getCached({ key: log.key })?.variant, { timeout: 5000 })
+      .toBe("deleted");
+    const cached = client.logs.getCached({ key: log.key });
+    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(log.name);
+  }, 20000);
 });

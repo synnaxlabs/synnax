@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/access/role/client";
-export { DELETE_CHANNEL_NAME, SET_CHANNEL_NAME, STORE_KEY } from "@/access/role/store";
 export * from "@/access/role/types.gen";

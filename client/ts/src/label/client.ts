@@ -13,10 +13,13 @@ import z from "zod";
 
 import { cache } from "@/cache";
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
-import { bindStore, matchLabeledBy, STORE_KEY } from "@/label/store";
+import { matchLabeledBy } from "@/label/store";
 import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_label_set";
+export const DELETE_CHANNEL_NAME = "sy_label_delete";
 
 const createReqZ = z.object({ labels: labelZ.array() });
 const createResZ = z.object({ labels: labelZ.array() });
@@ -70,21 +73,27 @@ const isKeysOnly = (req: RetrieveRequest): boolean =>
 
 export class Client {
   readonly type: string = "label";
+  /** The label record table; injected into sibling clients at wiring. */
+  readonly store: cache.Table<Key, Label>;
   private readonly client: UnaryClient;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly relationships: cache.Table<string, ontology.Relationship>;
+  private readonly answers: {
     single: cache.Answers<Key, Label, Key, Label>;
     request: cache.Answers<RetrieveRequest, Label[], Key, Label>;
   };
 
-  constructor(client: UnaryClient, engine: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    relationships: cache.Table<string, ontology.Relationship>,
+  ) {
     this.client = client;
-    this.cache_ = engine;
-    bindStore(engine, async (keys) => await this.execRetrieve({ keys }));
-    this.answers_ = {
+    this.relationships = relationships;
+    this.store = this.createTable(engine);
+    this.answers = {
       single: engine.answers({
         name: "label",
-        table: this.labelStore,
+        table: this.store,
         fetch: async (query) => [await this.fetchSingle(query)].map((l) => l.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -92,13 +101,13 @@ export class Client {
       }),
       request: engine.answers({
         name: "labels",
-        table: this.labelStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((l) => l.key),
         compose: (records) => records,
         matches: (label, query) => this.requestFilter(query)(label),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(this.relationshipStore, (event, query: RetrieveRequest) => {
+          cache.watch(this.relationships, (event, query: RetrieveRequest) => {
             if (query.for == null) return null;
             const rel =
               event.variant === "set"
@@ -115,12 +124,31 @@ export class Client {
     };
   }
 
+  private createTable(engine: cache.Cache): cache.Table<Key, Label> {
+    const table = engine.createTable<Key, Label>({
+      name: "labels",
+      refetch: async (keys) => await this.execRetrieve({ keys }),
+    });
+    const set: cache.ChannelListener<typeof labelZ> = {
+      channel: SET_CHANNEL_NAME,
+      schema: labelZ,
+      onChange: table.set.bind(table),
+    };
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: table.delete.bind(table),
+    };
+    engine.addListeners(table, set, del);
+    return table;
+  }
+
   async retrieve(params: RetrieveSingleParams): Promise<Label>;
   async retrieve(params: RetrieveMultipleParams): Promise<Label[]>;
   async retrieve(params: RetrieveParams): Promise<Label | Label[]> {
     const isSingle = "key" in params;
-    if (isSingle) return await this.answers_.single.retrieve(params.key);
-    return await this.answers_.request.retrieve(normalizeRequest(params));
+    if (isSingle) return await this.answers.single.retrieve(params.key);
+    return await this.answers.request.retrieve(normalizeRequest(params));
   }
 
   /**
@@ -139,10 +167,10 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Label> | cache.ChangeHandler<Label[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if ("key" in params)
-      return answers.single.onChange(params.key, handler as cache.ChangeHandler<Label>);
-    return answers.request.onChange(
+      return single.onChange(params.key, handler as cache.ChangeHandler<Label>);
+    return request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<Label[]>,
     );
@@ -157,9 +185,9 @@ export class Client {
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Label> | cache.Cached<Label[]> | undefined {
-    const answers = this.answers_;
-    if ("key" in params) return answers.single.getCached(params.key);
-    return answers.request.getCached(normalizeRequest(params));
+    const { request, single } = this.answers;
+    if ("key" in params) return single.getCached(params.key);
+    return request.getCached(normalizeRequest(params));
   }
 
   async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {
@@ -169,17 +197,16 @@ export class Client {
       setReqZ,
       emptyResZ,
     );
-    const rels = this.relationshipStore;
-    if (opts.replace === true) rels.delete((r) => matchLabeledBy(r, id));
+    if (opts.replace === true) this.relationships.delete((r) => matchLabeledBy(r, id));
     labels.forEach((key) => {
       const rel = labeledByRel(id, key);
-      rels.set(ontology.relationshipToString(rel), rel);
+      this.relationships.set(ontology.relationshipToString(rel), rel);
     });
   }
 
   async remove(id: ontology.ID, labels: Key[]): Promise<void> {
     await this.client.send("/label/remove", { id, labels }, removeReqZ, emptyResZ);
-    this.relationshipStore.delete(
+    this.relationships.delete(
       (r) => matchLabeledBy(r, id) && labels.includes(r.to.key),
     );
   }
@@ -194,28 +221,20 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.labelStore.setMany(res.labels);
+    this.store.set(res.labels);
     return isMany ? res.labels : res.labels[0];
   }
 
   async delete(keys: Key | Key[]): Promise<void> {
     const keysArr = array.toArray(keys);
     await this.client.send("/label/delete", { keys: keysArr }, deleteReqZ, emptyResZ);
-    this.labelStore.delete(keysArr);
-    this.relationshipStore.delete(
+    this.store.delete(keysArr);
+    this.relationships.delete(
       (r) =>
         r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE &&
         r.to.type === "label" &&
         keysArr.includes(r.to.key),
     );
-  }
-
-  private get labelStore(): cache.Table<Key, Label> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get relationshipStore(): cache.Table<string, ontology.Relationship> {
-    return this.cache_.table(ontology.RELATIONSHIPS_STORE_KEY);
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Label[]> {
@@ -236,31 +255,31 @@ export class Client {
     const results: Label[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
-      const cached = this.labelStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(cached);
       else misses.push(key);
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.labelStore.setMany(fetched);
+      this.store.set(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (l) => l.key);
   }
 
   private async fetchSingle(query: Key): Promise<Label> {
-    const cached = this.labelStore.get(query);
+    const cached = this.store.get(query);
     if (cached != null) return cached;
     const labels = await this.execRetrieve({ keys: [query] });
     checkForMultipleOrNoResults("Label", query, labels, true);
-    this.labelStore.setMany(labels);
+    this.store.set(labels);
     return labels[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<Label[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const labels = await this.execRetrieve(query);
-    this.labelStore.setMany(labels);
+    this.store.set(labels);
     return labels;
   }
 
@@ -281,9 +300,7 @@ export class Client {
   }
 
   private isLabelOf(id: ontology.ID, key: Key): boolean {
-    return this.relationshipStore.has(
-      ontology.relationshipToString(labeledByRel(id, key)),
-    );
+    return this.relationships.has(ontology.relationshipToString(labeledByRel(id, key)));
   }
 }
 

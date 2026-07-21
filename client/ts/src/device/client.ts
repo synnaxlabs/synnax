@@ -12,7 +12,6 @@ import { array, type destructor, primitive, type record, zod } from "@synnaxlabs
 import { z } from "zod";
 
 import { cache } from "@/cache";
-import { bindStore, STORE_KEY } from "@/device/store";
 import {
   type Device,
   type DeviceSchemas,
@@ -25,8 +24,13 @@ import {
 } from "@/device/types.gen";
 import { ontology } from "@/ontology";
 import { keyZ as rackKeyZ } from "@/rack/types.gen";
-import { status } from "@/status";
+import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_device_set";
+export const DELETE_CHANNEL_NAME = "sy_device_delete";
+
+const genericDeviceZ = deviceZ();
 
 const createReqZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -168,25 +172,33 @@ const affectedDeviceKeys = (
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, Omit<Device, "status">>;
+  private readonly statusStore: cache.Table<status.Key, status.Status>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<SingleQuery, Device, Key, Omit<Device, "status">>;
     request: cache.Answers<RetrieveRequest, Device[], Key, Omit<Device, "status">>;
   };
 
-  constructor(client: UnaryClient, engine: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    statusStore: cache.Table<status.Key, status.Status>,
+    ontologyStores: ontology.Stores,
+  ) {
     this.client = client;
-    bindStore(engine);
-    this.cache_ = engine;
+    this.statusStore = statusStore;
+    this.ontology = ontologyStores;
+    this.store = this.createTable(engine);
     const statusWatch = <Q extends { includeStatus?: boolean }>() =>
       cache.watch(this.statusStore, (event, query: Q) => {
         if (query.includeStatus !== true) return null;
         return affectedDeviceKeys(event);
       });
-    this.answers_ = {
+    this.answers = {
       single: engine.answers({
         name: "device",
-        table: this.deviceStore,
+        table: this.store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: ([record], query) =>
           this.compose(record, query.includeStatus === true),
@@ -196,7 +208,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "devices",
-        table: this.deviceStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((d) => d.key),
         compose: (records, query) =>
           records.map((d) => this.compose(d, query.includeStatus === true)),
@@ -205,6 +217,24 @@ export class Client {
         watch: [statusWatch<RetrieveRequest>()],
       }),
     };
+  }
+
+  private createTable(engine: cache.Cache): cache.Table<Key, Omit<Device, "status">> {
+    // Explicitly omit 'status' from the device type to make sure we aren't storing two
+    // copies of the statuses in the store.
+    const table = engine.createTable<Key, Omit<Device, "status">>({ name: "devices" });
+    const set: cache.ChannelListener<typeof genericDeviceZ> = {
+      channel: SET_CHANNEL_NAME,
+      schema: genericDeviceZ,
+      onChange: ({ status: _, ...device }) => table.set(device.key, device),
+    };
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => table.delete(changed),
+    };
+    engine.addListeners(table, set, del);
+    return table;
   }
 
   async retrieve<
@@ -240,8 +270,8 @@ export class Client {
       this.writeThrough(devices);
       return isSingle ? devices[0] : devices;
     }
-    if (isSingle) return await this.answers_.single.retrieve(normalizeSingle(rest));
-    return await this.answers_.request.retrieve(retrieveRequestZ.parse(rest));
+    if (isSingle) return await this.answers.single.retrieve(normalizeSingle(rest));
+    return await this.answers.request.retrieve(retrieveRequestZ.parse(rest));
   }
 
   /**
@@ -260,13 +290,13 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<Device> | cache.ChangeHandler<Device[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if ("key" in params)
-      return answers.single.onChange(
+      return single.onChange(
         normalizeSingle(params),
         handler as cache.ChangeHandler<Device>,
       );
-    return answers.request.onChange(
+    return request.onChange(
       retrieveRequestZ.parse(params),
       handler as cache.ChangeHandler<Device[]>,
     );
@@ -282,10 +312,10 @@ export class Client {
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<Device> | cache.Cached<Device[]> | undefined {
-    const answers = this.answers_;
-    if ("key" in params) return answers.single.getCached(normalizeSingle(params));
+    const { request, single } = this.answers;
+    if ("key" in params) return single.getCached(normalizeSingle(params));
     const req = retrieveRequestZ.parse(params);
-    return answers.request.getCached(req) ?? this.approximateCached(req);
+    return request.getCached(req) ?? this.approximateCached(req);
   }
 
   /**
@@ -295,7 +325,7 @@ export class Client {
   private approximateCached(req: RetrieveRequest): cache.Cached<Device[]> | undefined {
     if (req.searchTerm != null || req.limit != null || req.offset != null)
       return undefined;
-    const matches = this.deviceStore.get(requestFilter(req));
+    const matches = this.store.get(requestFilter(req));
     if (matches.length === 0) return undefined;
     return { variant: "changed", data: matches };
   }
@@ -337,15 +367,15 @@ export class Client {
       createReqZ(schemas),
       createResZ(schemas),
     );
-    this.deviceStore.setMany(res.devices.map(stripStatus));
+    this.store.set(res.devices.map(stripStatus));
     return isSingle ? res.devices[0] : res.devices;
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
-    rollback.add(this.deviceStore.delete(keysArr));
+    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
+    rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -356,14 +386,14 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.deviceStore.delete(keysArr);
+    this.store.delete(keysArr);
   }
 
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
     const dev = await this.retrieve({ key });
     const renamed = { ...dev, name };
     const rollback = new cache.Rollback();
-    rollback.add(this.deviceStore.set(renamed.key, stripStatus(renamed)));
+    rollback.add(this.store.set(renamed.key, stripStatus(renamed)));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.create(renamed);
@@ -372,24 +402,16 @@ export class Client {
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */
   onSet(handler: (device: Omit<Device, "status">) => void): destructor.Destructor {
-    return this.deviceStore.subscribe((event) => {
+    return this.store.subscribe((event) => {
       if (event.variant === "set") handler(event.value);
     });
   }
 
   /** Subscribes to every device delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
-    return this.deviceStore.subscribe((event) => {
+    return this.store.subscribe((event) => {
       if (event.variant === "delete") handler(event.key);
     });
-  }
-
-  private get deviceStore(): cache.Table<Key, Omit<Device, "status">> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get statusStore(): cache.Table<status.Key, status.Status> {
-    return this.cache_.table(status.STORE_KEY);
   }
 
   /** Rebuilds a cached device, attaching its cached status when requested. */
@@ -404,7 +426,7 @@ export class Client {
 
   /** Writes fetched devices and their included statuses. */
   private writeThrough(devices: Device[]): void {
-    this.deviceStore.setMany(devices.map(stripStatus));
+    this.store.set(devices.map(stripStatus));
     devices.forEach(({ status: st }) => {
       if (st != null) this.statusStore.set(st.key, st);
     });
@@ -431,7 +453,7 @@ export class Client {
     const results: Device[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
-      const cached = this.deviceStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(cached);
       else misses.push(key);
     }
@@ -446,7 +468,7 @@ export class Client {
   private async fetchSingle(query: SingleQuery): Promise<Device> {
     // A status-bearing hit needs both the record and its status cached.
     if (query.includeStatus !== true) {
-      const cached = this.deviceStore.get(query.key);
+      const cached = this.store.get(query.key);
       if (cached != null) return cached;
     }
     const devices = await this.execRetrieve(query);

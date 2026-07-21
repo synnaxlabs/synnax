@@ -8,9 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/access/policy/client";
-export {
-  DELETE_CHANNEL_NAME,
-  SET_CHANNEL_NAME,
-  STORE_KEY,
-} from "@/access/policy/store";
 export * from "@/access/policy/types.gen";

@@ -10,7 +10,7 @@
 import { DataType, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type ChannelListener, type TableConfigs, type Tables } from "@/cache/table";
+import { type ChannelListener } from "@/cache/table";
 import { NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 
@@ -57,18 +57,14 @@ export interface StreamOpener {
 
 /**
  * Arguments for opening a cache streamer.
- *
- * @template Tbls - The type of the tables
  */
-export interface StreamerParams<Tbls extends Tables> {
+export interface StreamerParams {
   /** Receives frame-handling and listener errors. */
   onError: (error: Error) => void;
-  /** Configuration defining table structure and listeners */
-  configs: TableConfigs<Tbls>;
+  /** The channel listeners to drive with streamed changes. */
+  listeners: ChannelListener[];
   /** Function to open the change stream */
   openStreamer: StreamOpener;
-  /** The tables to update with streamed data */
-  tables: Tbls;
   /**
    * Called once when the stream first opens, before any frame is processed.
    */
@@ -99,35 +95,28 @@ export interface Streamer {
  * Creates a lazy streamer that, once demanded, listens to configured channels
  * and invokes the appropriate listeners when data changes.
  *
- * @template Tbls - The type of the tables
  * @param params - Configuration for the streamer
  * @returns The lazy streamer handle
  */
-export const createStreamer = <Tbls extends Tables>({
+export const createStreamer = ({
   openStreamer: streamOpener,
-  configs,
+  listeners: allListeners,
   onError,
-  tables,
   onOpen,
   onReopen,
-}: StreamerParams<Tbls>): Streamer => {
+}: StreamerParams): Streamer => {
   let opened: Promise<ObservableStream> | null = null;
   const report = (exc: unknown, message: string) => {
     if (NotFoundError.matches(exc)) return;
     onError(new Error(message, { cause: exc }));
   };
   const open = async (): Promise<ObservableStream> => {
-    const configValues = Object.values(configs);
-    const channels = unique.unique(
-      configValues.flatMap(({ listeners }) => listeners.map(({ channel }) => channel)),
-    );
-    const listenersForChannels: Record<string, ChannelListener<Tbls, z.ZodType>[]> = {};
-    configValues.forEach(({ listeners }) =>
-      listeners.forEach((lis) => {
-        const { channel } = lis;
-        listenersForChannels[channel] = [...(listenersForChannels[channel] || []), lis];
-      }),
-    );
+    const channels = unique.unique(allListeners.map(({ channel }) => channel));
+    const listenersForChannels: Record<string, ChannelListener<z.ZodType>[]> = {};
+    allListeners.forEach((lis) => {
+      const { channel } = lis;
+      listenersForChannels[channel] = [...(listenersForChannels[channel] || []), lis];
+    });
     const stream = await streamOpener(channels, { onOpen, onReopen });
     const handleChange = (frame: framer.Frame) => {
       const namesInFrame = [...frame.uniqueNames];
@@ -149,7 +138,7 @@ export const createStreamer = <Tbls extends Tables>({
             }
             for (const changed of parsed)
               try {
-                await onChange({ changed, store: tables });
+                await onChange(changed);
               } catch (exc) {
                 report(exc, `failed to handle streamer change for ${name}`);
               }

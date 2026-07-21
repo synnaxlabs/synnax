@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { id, uuid } from "@synnaxlabs/x";
+import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/errors";
+import { rename } from "@/lineplot/actions.gen";
+import { type LinePlot } from "@/lineplot/types.gen";
 import { createTestClient } from "@/testutil";
 
 const client = createTestClient();
@@ -52,4 +54,37 @@ describe("LinePlot", () => {
       );
     });
   });
+});
+
+const seedPlot = async (): Promise<LinePlot> => {
+  const project = await client.projects.create({ name: `lp-${id.create()}` });
+  return await client.lineplots.create(project.key, { name: `plot-${id.create()}` });
+};
+
+const cachedName = (key: LinePlot["key"]): string | undefined => {
+  const cached = client.lineplots.getCached({ key });
+  return cached?.variant === "changed" ? cached.data.name : undefined;
+};
+
+describe("store", () => {
+  it("tombstones deletes from live delete signals", async () => {
+    await client.cache.ensureStreaming();
+    const plot = await seedPlot();
+    await client.lineplots.delete(plot.key);
+    await expect
+      .poll(() => client.lineplots.getCached({ key: plot.key })?.variant, {
+        timeout: 5000,
+      })
+      .toBe("deleted");
+    const cached = client.lineplots.getCached({ key: plot.key });
+    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(plot.name);
+  }, 20000);
+
+  it("reduces broadcast dispatch frames into the cached document", async () => {
+    await client.cache.ensureStreaming();
+    const plot = await seedPlot();
+    const name = `renamed-${id.create()}`;
+    await client.lineplots.dispatch(plot.key, [rename({ name })]);
+    await expect.poll(() => cachedName(plot.key), { timeout: 5000 }).toBe(name);
+  }, 20000);
 });

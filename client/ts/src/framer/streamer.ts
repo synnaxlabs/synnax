@@ -206,7 +206,7 @@ class BaseStreamer implements Streamer {
  * logic when the connection is lost or errors occur.
  */
 export class HardenedStreamer implements Streamer {
-  private wrapped_: Streamer | null = null;
+  private current: Streamer | null = null;
   private readonly breaker: breaker.Breaker;
   private readonly opener: StreamOpener;
   private readonly config: ParsedStreamerConfig;
@@ -252,13 +252,13 @@ export class HardenedStreamer implements Streamer {
   private async runStreamer(notifyReopen: boolean = true): Promise<void> {
     while (true)
       try {
-        if (this.wrapped_ != null) this.wrapped_.close();
-        this.wrapped_ = await this.opener(this.config);
+        if (this.current != null) this.current.close();
+        this.current = await this.opener(this.config);
         this.breaker.reset();
         if (notifyReopen) this.onReopen?.();
         return;
       } catch (e) {
-        this.wrapped_ = null;
+        this.current = null;
         if (!(await this.breaker.wait())) throw errors.fromUnknown(e);
         console.error("failed to open streamer", e);
         continue;
@@ -266,8 +266,8 @@ export class HardenedStreamer implements Streamer {
   }
 
   private get wrapped(): Streamer {
-    if (this.wrapped_ == null) throw new Error("stream closed");
-    return this.wrapped_;
+    if (this.current == null) throw new Error("stream closed");
+    return this.current;
   }
 
   async update(channels: channel.Params): Promise<void> {

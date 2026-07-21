@@ -50,49 +50,10 @@ export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
-export const STORE_KEY = "tasks";
-
 // Temporary hack that filters the set of commands that should change the
 // status of a task to loading.
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
-
-/** Registers the task table on the given cache. */
-const bindStore = (engine: cache.Cache, client: Client): void => {
-  const table = () => engine.table<Key, Omit<Task, "status">>(STORE_KEY);
-  const setListener: cache.ChannelListener<{}, typeof keyZ> = {
-    channel: SET_CHANNEL_NAME,
-    schema: keyZ,
-    onChange: async ({ changed: key }) =>
-      table().set(key, await client.retrieve({ key, includeStatus: true })),
-  };
-  const deleteListener: cache.ChannelListener<{}, typeof keyZ> = {
-    channel: DELETE_CHANNEL_NAME,
-    schema: keyZ,
-    onChange: ({ changed }) => table().delete(changed),
-  };
-  const commandListener: cache.ChannelListener<{}, typeof commandZ> = {
-    channel: COMMAND_CHANNEL_NAME,
-    schema: commandZ,
-    onChange: ({ changed }) => {
-      const statuses = engine.table<status.Key, status.Status>(status.STORE_KEY);
-      statuses.set(statusKey(changed.task), (prev) => {
-        if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
-        return status.create<StatusDetailsZodObject>({
-          key: statusKey(changed.task),
-          name: "Task Status",
-          variant: "loading",
-          message: `Running ${changed.type} command...`,
-          details: { task: changed.task, running: true, cmd: "", data: {} },
-        });
-      });
-    },
-  };
-  engine.registerTable<Key, Omit<Task, "status">>(STORE_KEY, {
-    equal: (a, b) => deep.equal((a as Task).payload, (b as Task).payload),
-    listeners: [setListener, deleteListener, commandListener],
-  });
-};
 
 export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
 
@@ -142,23 +103,25 @@ export class Task<S extends Schemas = Schemas> {
   status?: Status<S["statusData"]>;
 
   readonly schemas: S;
-  private readonly frameClient_?: framer.Client;
-  private readonly ontologyClient_?: ontology.Client;
-  private readonly rangeClient_?: ranger.Client;
+  private readonly clients?: {
+    frame: framer.Client;
+    ontology: ontology.Client;
+    range: ranger.Client;
+  };
 
   get frameClient(): framer.Client {
-    if (this.frameClient_ == null) throw new Error("Task not created");
-    return this.frameClient_;
+    if (this.clients == null) throw new Error("Task not created");
+    return this.clients.frame;
   }
 
   get ontologyClient(): ontology.Client {
-    if (this.ontologyClient_ == null) throw new Error("Task not created");
-    return this.ontologyClient_;
+    if (this.clients == null) throw new Error("Task not created");
+    return this.clients.ontology;
   }
 
   get rangeClient(): ranger.Client {
-    if (this.rangeClient_ == null) throw new Error("Task not created");
-    return this.rangeClient_;
+    if (this.clients == null) throw new Error("Task not created");
+    return this.clients.range;
   }
 
   constructor(
@@ -182,9 +145,12 @@ export class Task<S extends Schemas = Schemas> {
     this.internal = internal;
     this.snapshot = snapshot;
     this.status = status;
-    this.frameClient_ = frameClient;
-    this.ontologyClient_ = ontologyClient;
-    this.rangeClient_ = rangeClient;
+    if (frameClient != null && ontologyClient != null && rangeClient != null)
+      this.clients = {
+        frame: frameClient,
+        ontology: ontologyClient,
+        range: rangeClient,
+      };
   }
 
   get payload(): Payload<S> {
@@ -360,12 +326,15 @@ const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ task: payloadZ(schemas) });
 
 export class Client {
+  /** The task record table; injected into sibling clients at wiring. */
+  readonly store: cache.Table<Key, Omit<Task, "status">>;
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
   private readonly ontologyClient: ontology.Client;
   private readonly rangeClient: ranger.Client;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly statusStore: cache.Table<status.Key, status.Status>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<SingleRequest, Task, Key, Omit<Task, "status">>;
     request: cache.Answers<RetrieveRequest, Task[], Key, Omit<Task, "status">>;
   };
@@ -376,13 +345,15 @@ export class Client {
     ontologyClient: ontology.Client,
     rangeClient: ranger.Client,
     engine: cache.Cache,
+    statusStore: cache.Table<status.Key, status.Status>,
   ) {
     this.client = client;
     this.frameClient = frameClient;
     this.ontologyClient = ontologyClient;
     this.rangeClient = rangeClient;
-    bindStore(engine, this);
-    this.cache_ = engine;
+    this.statusStore = statusStore;
+    this.ontology = ontologyClient.stores;
+    this.store = this.createTable(engine, statusStore);
     const matchesSingle = (t: Omit<Task, "status">, query: SingleRequest): boolean => {
       if (primitive.isNonZero(query.keys)) return t.key === query.keys[0];
       if (primitive.isNonZero(query.names)) return t.name === query.names[0];
@@ -393,10 +364,10 @@ export class Client {
         );
       return false;
     };
-    this.answers_ = {
+    this.answers = {
       single: engine.answers({
         name: "task",
-        table: this.taskStore,
+        table: this.store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: ([record]) => this.compose(record),
         keyOf: (query) => (primitive.isNonZero(query.keys) ? query.keys[0] : null),
@@ -406,7 +377,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "tasks",
-        table: this.taskStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((t) => t.key),
         compose: (records) => records.map((t) => this.compose(t)),
         matches: (t, query) => requestFilter(query)(t),
@@ -414,6 +385,45 @@ export class Client {
         watch: [cache.watch(this.statusStore, (event) => affectedTaskKeys(event))],
       }),
     };
+  }
+
+  private createTable(
+    engine: cache.Cache,
+    statuses: cache.Table<status.Key, status.Status>,
+  ): cache.Table<Key, Omit<Task, "status">> {
+    const table = engine.createTable<Key, Omit<Task, "status">>({
+      name: "tasks",
+      equal: (a, b) => deep.equal((a as Task).payload, (b as Task).payload),
+    });
+    const setListener: cache.ChannelListener<typeof keyZ> = {
+      channel: SET_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: async (key) =>
+        table.set(key, await this.retrieve({ key, includeStatus: true })),
+    };
+    const deleteListener: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => table.delete(changed),
+    };
+    const commandListener: cache.ChannelListener<typeof commandZ> = {
+      channel: COMMAND_CHANNEL_NAME,
+      schema: commandZ,
+      onChange: (changed) => {
+        statuses.set(statusKey(changed.task), (prev) => {
+          if (prev == null || !LOADING_COMMANDS.includes(changed.type)) return prev;
+          return status.create<StatusDetailsZodObject>({
+            key: statusKey(changed.task),
+            name: "Task Status",
+            variant: "loading",
+            message: `Running ${changed.type} command...`,
+            details: { task: changed.task, running: true, cmd: "", data: {} },
+          });
+        });
+      },
+    };
+    engine.addListeners(table, setListener, deleteListener, commandListener);
+    return table;
   }
 
   async create(task: New): Promise<Task>;
@@ -443,8 +453,8 @@ export class Client {
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
-    rollback.add(this.taskStore.delete(keysArr));
+    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
+    rollback.add(this.store.delete(keysArr));
     rollback.add(this.statusStore.delete(keysArr.map((k) => statusKey(k))));
     await opts.onOptimistic?.();
     await rollback.guard(
@@ -456,18 +466,18 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.taskStore.delete(keysArr);
+    this.store.delete(keysArr);
     this.statusStore.delete(keysArr.map((k) => statusKey(k)));
   }
 
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
     const rollback = new cache.Rollback();
     rollback.add(
-      this.taskStore.set(key, (p) =>
+      this.store.set(key, (p) =>
         p == null ? undefined : this.sugar({ ...(p as Task).payload, name }),
       ),
     );
-    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       const t = await this.retrieve({ key });
@@ -496,10 +506,10 @@ export class Client {
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle)
-      return (await this.answers_.single.retrieve(
+      return (await this.answers.single.retrieve(
         normalizeSingle(params as RetrieveSingleParams),
       )) as Task<S>;
-    return (await this.answers_.request.retrieve(
+    return (await this.answers.request.retrieve(
       normalizeRequest(params),
     )) as unknown as Task<S>[];
   }
@@ -520,13 +530,13 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Task> | cache.ChangeHandler<Task[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if (singleRetrieveParamsZ.safeParse(params).success)
-      return answers.single.onChange(
+      return single.onChange(
         normalizeSingle(params as RetrieveSingleParams),
         handler as cache.ChangeHandler<Task>,
       );
-    return answers.request.onChange(
+    return request.onChange(
       normalizeRequest(params),
       handler as cache.ChangeHandler<Task[]>,
     );
@@ -541,10 +551,10 @@ export class Client {
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Task> | cache.Cached<Task[]> | undefined {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if (singleRetrieveParamsZ.safeParse(params).success)
-      return answers.single.getCached(normalizeSingle(params as RetrieveSingleParams));
-    return answers.request.getCached(normalizeRequest(params));
+      return single.getCached(normalizeSingle(params as RetrieveSingleParams));
+    return request.getCached(normalizeRequest(params));
   }
 
   async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
@@ -569,14 +579,6 @@ export class Client {
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
     if (this.ontologyClient == null) throw new Error("Task not created");
     return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
-  }
-
-  private get taskStore(): cache.Table<Key, Omit<Task, "status">> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get statusStore(): cache.Table<status.Key, status.Status> {
-    return this.cache_.table(status.STORE_KEY);
   }
 
   private async execRetrieve<S extends Schemas = Schemas>(
@@ -617,7 +619,7 @@ export class Client {
 
   /** Writes a fetched task and its included status. */
   private writeThrough(task: Task): void {
-    this.taskStore.set(task.key, task);
+    this.store.set(task.key, task);
     if (task.status != null) this.statusStore.set(task.status.key, task.status);
   }
 
@@ -631,7 +633,7 @@ export class Client {
     for (const key of keys) {
       // A cached task without a cached status is ambiguous: the task may have
       // no status or the status may not have synced. Only both count as a hit.
-      const cached = this.taskStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null && this.statusStore.has(statusKey(key)))
         results.push(this.compose(cached));
       else misses.push(key);
@@ -646,9 +648,9 @@ export class Client {
 
   private async fetchSingle(query: SingleRequest): Promise<Task> {
     let cached: Omit<Task, "status"> | undefined;
-    if (primitive.isNonZero(query.keys)) cached = this.taskStore.get(query.keys[0]);
+    if (primitive.isNonZero(query.keys)) cached = this.store.get(query.keys[0]);
     else if (primitive.isNonZero(query.names))
-      [cached] = this.taskStore.get((t) => t.name === query.names?.[0]);
+      [cached] = this.store.get((t) => t.name === query.names?.[0]);
     if (cached != null && this.statusStore.has(statusKey(cached.key)))
       return this.compose(cached);
     const tasks = await this.execRetrieve({ ...query, includeStatus: true });

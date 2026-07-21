@@ -578,15 +578,21 @@ describe("cached reads", () => {
 describe("store", () => {
   it("caches sugared sets and corpses deletes from live signals", async () => {
     await client.cache.ensureStreaming();
-    const store = client.cache.table<ranger.Key, ranger.Range>(ranger.STORE_KEY);
     const range = await createRange();
     await expect
-      .poll(() => store.get(range.key)?.name, { timeout: 5000 })
+      .poll(
+        () => {
+          const cached = client.ranges.getCached(range.key);
+          return cached?.variant === "changed" ? cached.data.name : undefined;
+        },
+        { timeout: 5000 },
+      )
       .toEqual(range.name);
     await client.ranges.delete(range.key);
     await expect
-      .poll(() => store.status(range.key), { timeout: 5000 })
-      .toBe("tombstoned");
-    expect(store.getTombstone(range.key)?.corpse.name).toEqual(range.name);
+      .poll(() => client.ranges.getCached(range.key)?.variant, { timeout: 5000 })
+      .toBe("deleted");
+    const cached = client.ranges.getCached(range.key);
+    if (cached?.variant === "deleted") expect(cached.corpse.name).toEqual(range.name);
   }, 20000);
 });

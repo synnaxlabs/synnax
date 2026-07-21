@@ -14,7 +14,6 @@ import { z } from "zod";
 import { cache } from "@/cache";
 import { ontology } from "@/ontology";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
-import { bindStore, STORE_KEY } from "@/view/store";
 import {
   type Key,
   keyZ,
@@ -23,6 +22,9 @@ import {
   type View,
   viewZ,
 } from "@/view/types.gen";
+
+export const SET_CHANNEL_NAME = "sy_view_set";
+export const DELETE_CHANNEL_NAME = "sy_view_delete";
 
 const createReqZ = z.object({ views: viewZ.array() });
 const createResZ = z.object({ views: viewZ.array() });
@@ -76,20 +78,25 @@ const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
 
 export class Client {
   private readonly client: UnaryClient;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, View>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<Key, View, Key, View>;
     request: cache.Answers<RetrieveRequest, View[], Key, View>;
   };
 
-  constructor(client: UnaryClient, engine: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    engine: cache.Cache,
+    ontologyStores: ontology.Stores,
+  ) {
     this.client = client;
-    bindStore(engine);
-    this.cache_ = engine;
-    this.answers_ = {
+    this.ontology = ontologyStores;
+    this.store = this.createTable(engine);
+    this.answers = {
       single: engine.answers({
         name: "view",
-        table: this.viewStore,
+        table: this.store,
         fetch: async (query) => [await this.fetchSingle(query)].map((v) => v.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -97,7 +104,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "views",
-        table: this.viewStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((v) => v.key),
         compose: (records) => records,
         matches: (view, query) => requestFilter(query)(view),
@@ -106,14 +113,30 @@ export class Client {
     };
   }
 
+  private createTable(engine: cache.Cache): cache.Table<Key, View> {
+    const table = engine.createTable<Key, View>({ name: "views" });
+    const set: cache.ChannelListener<typeof viewZ> = {
+      channel: SET_CHANNEL_NAME,
+      schema: viewZ,
+      onChange: (changed) => table.set(changed.key, changed),
+    };
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => table.delete(changed),
+    };
+    engine.addListeners(table, set, del);
+    return table;
+  }
+
   async retrieve(params: RetrieveSingleParams): Promise<View>;
   async retrieve(params: RetrieveMultipleParams): Promise<View[]>;
   async retrieve(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): Promise<View | View[]> {
     const isSingle = "key" in params;
-    if (isSingle) return await this.answers_.single.retrieve(params.key);
-    return await this.answers_.request.retrieve(retrieveRequestZ.parse(params));
+    if (isSingle) return await this.answers.single.retrieve(params.key);
+    return await this.answers.request.retrieve(retrieveRequestZ.parse(params));
   }
 
   /**
@@ -132,10 +155,10 @@ export class Client {
     params: RetrieveSingleParams | RetrieveMultipleParams,
     handler: cache.ChangeHandler<View> | cache.ChangeHandler<View[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if ("key" in params)
-      return answers.single.onChange(params.key, handler as cache.ChangeHandler<View>);
-    return answers.request.onChange(
+      return single.onChange(params.key, handler as cache.ChangeHandler<View>);
+    return request.onChange(
       retrieveRequestZ.parse(params),
       handler as cache.ChangeHandler<View[]>,
     );
@@ -150,9 +173,9 @@ export class Client {
   getCached(
     params: RetrieveSingleParams | RetrieveMultipleParams,
   ): cache.Cached<View> | cache.Cached<View[]> | undefined {
-    const answers = this.answers_;
-    if ("key" in params) return answers.single.getCached(params.key);
-    return answers.request.getCached(retrieveRequestZ.parse(params));
+    const { request, single } = this.answers;
+    if ("key" in params) return single.getCached(params.key);
+    return request.getCached(retrieveRequestZ.parse(params));
   }
 
   async create(view: New): Promise<View>;
@@ -165,16 +188,15 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.writes.setMany(res.views);
+    this.store.set(res.views);
     return isMany ? res.views : res.views[0];
   }
 
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
     const v = await this.retrieve({ key });
     const rollback = new cache.Rollback();
-    const writes = this.writes;
-    rollback.add(cache.partialUpdate(writes, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       await this.create({ ...v, name });
@@ -184,14 +206,10 @@ export class Client {
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    const writes = this.writes;
     const ids = ontologyID(keysArr);
-    rollback.add(ontology.deleteCachedRelationships(this.cache_, ids));
-    rollback.add(writes.delete(keysArr));
-    const resources = this.cache_.table<string, ontology.Resource>(
-      ontology.RESOURCES_STORE_KEY,
-    );
-    rollback.add(resources.delete(ontology.idToString(ids)));
+    rollback.add(ontology.deleteCachedRelationships(this.ontology, ids));
+    rollback.add(this.store.delete(keysArr));
+    rollback.add(this.ontology.resources.delete(ontology.idToString(ids)));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -202,27 +220,19 @@ export class Client {
           emptyResZ,
         ),
     );
-    this.writes.delete(keysArr);
-  }
-
-  private get writes(): cache.Table<Key, View> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get viewStore(): cache.Table<Key, View> {
-    return this.cache_.table(STORE_KEY);
+    this.store.delete(keysArr);
   }
 
   /** Subscribes to every view set delivered to the cache. */
   onSet(handler: (view: View) => void): destructor.Destructor {
-    return this.viewStore.subscribe((event) => {
+    return this.store.subscribe((event) => {
       if (event.variant === "set") handler(event.value);
     });
   }
 
   /** Subscribes to every view delete delivered to the cache. */
   onDelete(handler: (key: Key) => void): destructor.Destructor {
-    return this.viewStore.subscribe((event) => {
+    return this.store.subscribe((event) => {
       if (event.variant === "delete") handler(event.key);
     });
   }
@@ -247,31 +257,31 @@ export class Client {
     const results: View[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
-      const cached = this.viewStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(cached);
       else misses.push(key);
     }
     if (misses.length > 0) {
       const fetched = await this.execRetrieve({ keys: misses });
-      this.viewStore.setMany(fetched);
+      this.store.set(fetched);
       results.push(...fetched);
     }
     return cache.orderByKeys(keys, results, (v) => v.key);
   }
 
   private async fetchSingle(query: Key): Promise<View> {
-    const cached = this.viewStore.get(query);
+    const cached = this.store.get(query);
     if (cached != null) return cached;
     const views = await this.execRetrieve({ key: query });
     checkForMultipleOrNoResults("View", query, views, true);
-    this.viewStore.setMany(views);
+    this.store.set(views);
     return views[0];
   }
 
   private async fetchRequest(query: RetrieveRequest): Promise<View[]> {
     if (isKeysOnly(query)) return await this.fetchKeys(query.keys as Key[]);
     const views = await this.execRetrieve(query);
-    this.viewStore.setMany(views);
+    this.store.set(views);
     return views;
   }
 }

@@ -13,7 +13,6 @@ import { z } from "zod";
 
 import { cache } from "@/cache";
 import { ontology } from "@/ontology";
-import { bindStore, STORE_KEY } from "@/rack/store";
 import {
   type Key,
   keyZ,
@@ -25,9 +24,12 @@ import {
   type Status,
   statusZ,
 } from "@/rack/types.gen";
-import { status } from "@/status";
+import { type status } from "@/status";
 import { type task } from "@/task";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export const SET_CHANNEL_NAME = "sy_rack_set";
+export const DELETE_CHANNEL_NAME = "sy_rack_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
@@ -142,26 +144,35 @@ const affectedRackKeys = (
 export class Client {
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
-  private readonly cache_: cache.Cache;
-  private readonly answers_: {
+  private readonly store: cache.Table<Key, Omit<Payload, "status">>;
+  private readonly statusStore: cache.Table<status.Key, status.Status>;
+  private readonly ontology: ontology.Stores;
+  private readonly answers: {
     single: cache.Answers<SingleQuery, Rack, Key, Omit<Payload, "status">>;
     request: cache.Answers<RetrieveRequest, Rack[], Key, Omit<Payload, "status">>;
   };
 
-  constructor(client: UnaryClient, taskClient: task.Client, engine: cache.Cache) {
+  constructor(
+    client: UnaryClient,
+    taskClient: task.Client,
+    engine: cache.Cache,
+    statusStore: cache.Table<status.Key, status.Status>,
+    ontologyStores: ontology.Stores,
+  ) {
     this.client = client;
     this.tasks = taskClient;
-    bindStore(engine);
-    this.cache_ = engine;
+    this.statusStore = statusStore;
+    this.ontology = ontologyStores;
+    this.store = this.createTable(engine);
     const statusWatch = <Q extends { includeStatus?: boolean }>() =>
       cache.watch(this.statusStore, (event, query: Q) => {
         if (query.includeStatus !== true) return null;
         return affectedRackKeys(event);
       });
-    this.answers_ = {
+    this.answers = {
       single: engine.answers({
         name: "rack",
-        table: this.rackStore,
+        table: this.store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: ([record], query) =>
           this.compose(record, query.includeStatus === true),
@@ -173,7 +184,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "racks",
-        table: this.rackStore,
+        table: this.store,
         fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
         compose: (records, query) =>
           records.map((r) => this.compose(r, query.includeStatus === true)),
@@ -184,11 +195,27 @@ export class Client {
     };
   }
 
+  private createTable(engine: cache.Cache): cache.Table<Key, Omit<Payload, "status">> {
+    const table = engine.createTable<Key, Omit<Payload, "status">>({ name: "racks" });
+    const set: cache.ChannelListener<typeof payloadZ> = {
+      channel: SET_CHANNEL_NAME,
+      schema: payloadZ,
+      onChange: ({ status: _, ...rack }) => table.set(rack.key, rack),
+    };
+    const del: cache.ChannelListener<typeof keyZ> = {
+      channel: DELETE_CHANNEL_NAME,
+      schema: keyZ,
+      onChange: (changed) => table.delete(changed),
+    };
+    engine.addListeners(table, set, del);
+    return table;
+  }
+
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
-    rollback.add(ontology.deleteCachedResources(this.cache_, ontologyID(keysArr)));
-    rollback.add(this.rackStore.delete(keysArr));
+    rollback.add(ontology.deleteCachedResources(this.ontology, ontologyID(keysArr)));
+    rollback.add(this.store.delete(keysArr));
     await opts.onOptimistic?.();
     await rollback.guard(
       async () =>
@@ -199,13 +226,13 @@ export class Client {
           deleteResZ,
         ),
     );
-    this.rackStore.delete(keysArr);
+    this.store.delete(keysArr);
   }
 
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
     const rollback = new cache.Rollback();
-    rollback.add(cache.partialUpdate(this.rackStore, key, { name }));
-    rollback.add(ontology.renameCachedResource(this.cache_, ontologyID(key), name));
+    rollback.add(cache.partialUpdate(this.store, key, { name }));
+    rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
       const r = await this.retrieve({ key });
@@ -223,7 +250,7 @@ export class Client {
       createReqZ,
       createResZ,
     );
-    this.rackStore.setMany(res.racks.map(stripStatus));
+    this.store.set(res.racks.map(stripStatus));
     const sugared = this.sugar(res.racks);
     return isSingle ? sugared[0] : sugared;
   }
@@ -232,8 +259,8 @@ export class Client {
   async retrieve(params: RetrieveMultipleParams): Promise<Rack[]>;
   async retrieve(params: RetrieveParams): Promise<Rack | Rack[]> {
     if (isSingleParams(params))
-      return await this.answers_.single.retrieve(normalizeSingle(params));
-    return await this.answers_.request.retrieve(multiRetrieveParamsZ.parse(params));
+      return await this.answers.single.retrieve(normalizeSingle(params));
+    return await this.answers.request.retrieve(multiRetrieveParamsZ.parse(params));
   }
 
   /**
@@ -252,13 +279,13 @@ export class Client {
     params: RetrieveParams,
     handler: cache.ChangeHandler<Rack> | cache.ChangeHandler<Rack[]>,
   ): destructor.Destructor {
-    const answers = this.answers_;
+    const { request, single } = this.answers;
     if (isSingleParams(params))
-      return answers.single.onChange(
+      return single.onChange(
         normalizeSingle(params),
         handler as cache.ChangeHandler<Rack>,
       );
-    return answers.request.onChange(
+    return request.onChange(
       multiRetrieveParamsZ.parse(params),
       handler as cache.ChangeHandler<Rack[]>,
     );
@@ -273,10 +300,9 @@ export class Client {
   getCached(
     params: RetrieveParams,
   ): cache.Cached<Rack> | cache.Cached<Rack[]> | undefined {
-    const answers = this.answers_;
-    if (isSingleParams(params))
-      return answers.single.getCached(normalizeSingle(params));
-    return answers.request.getCached(multiRetrieveParamsZ.parse(params));
+    const { request, single } = this.answers;
+    if (isSingleParams(params)) return single.getCached(normalizeSingle(params));
+    return request.getCached(multiRetrieveParamsZ.parse(params));
   }
 
   sugar(payload: Payload): Rack;
@@ -290,14 +316,6 @@ export class Client {
           new Rack(key, name, this.tasks, status, integrations, taskCounter, embedded),
       );
     return isSingle ? sugared[0] : sugared;
-  }
-
-  private get rackStore(): cache.Table<Key, Omit<Payload, "status">> {
-    return this.cache_.table(STORE_KEY);
-  }
-
-  private get statusStore(): cache.Table<status.Key, status.Status> {
-    return this.cache_.table(status.STORE_KEY);
   }
 
   /** Rebuilds a cached rack, attaching its cached status when requested. */
@@ -329,7 +347,7 @@ export class Client {
 
   /** Writes fetched racks and their included statuses. */
   private writeThrough(racks: Payload[]): void {
-    this.rackStore.setMany(racks.map(stripStatus));
+    this.store.set(racks.map(stripStatus));
     racks.forEach(({ status: st }) => {
       if (st != null) this.statusStore.set(st.key, st);
     });
@@ -353,7 +371,7 @@ export class Client {
     const results: Rack[] = [];
     const misses: Key[] = [];
     for (const key of keys) {
-      const cached = this.rackStore.get(key);
+      const cached = this.store.get(key);
       if (cached != null) results.push(this.sugar(cached));
       else misses.push(key);
     }
@@ -369,7 +387,7 @@ export class Client {
     // Names are not unique, so only key queries can be served from the table.
     // A status-bearing hit needs both the record and its status cached.
     if ("key" in query && query.includeStatus !== true) {
-      const cached = this.rackStore.get(query.key);
+      const cached = this.store.get(query.key);
       if (cached != null) return this.sugar(cached);
     }
     const racks = await this.execRetrieve(query);
