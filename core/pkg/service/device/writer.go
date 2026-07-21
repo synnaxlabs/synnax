@@ -34,9 +34,9 @@ type Writer struct {
 	table  *gorp.Table[Key, Device]
 }
 
-func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
+func resolveStatus(d *Device, provided *Status) *Status {
 	if provided == nil {
-		return &status.Status[StatusDetails]{
+		return &Status{
 			Key:     OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
@@ -45,7 +45,7 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
 	}
-	stat := status.Status[StatusDetails](*provided)
+	stat := *provided
 	stat.Key = OntologyID(d.Key).String()
 	stat.Name = d.Name
 	stat.Details.Device = d.Key
@@ -57,12 +57,9 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 // out-of-band) without clobbering a live one. Devices are re-created on every scan
 // cycle, so on a no-op update the default "unknown" status must not overwrite a status
 // the driver has already reported; it is only written when no row exists.
-func (w Writer) healStatus(
-	ctx context.Context,
-	stat *status.Status[StatusDetails],
-) error {
-	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
-		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+func (w Writer) healStatus(ctx context.Context, stat *Status) error {
+	if exists, err := gorp.NewRetrieve[string, Status]().
+		Where(gorp.MatchKeys[string, Status](stat.Key)).
 		Exists(ctx, w.tx); err != nil || exists {
 		return err
 	}

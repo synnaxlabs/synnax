@@ -25,20 +25,16 @@ func migrateDevice(ctx context.Context, old v0.Device) (Device, error) {
 	return AutoMigrateDevice(ctx, old)
 }
 
-// codecMigrationKey names the codec migration all later device migrations
-// depend on.
-const codecMigrationKey = "msgpack_to_orc"
-
 // codecMigration re-encodes stored devices from msgpack to orc. It is pinned
 // to the v1 shapes so its output stays stable as Device evolves.
 var codecMigration = gorp.CodecMigration[Key, v0.Device](
-	codecMigrationKey, v0.NewMigration(v0.MigrationConfig{}).Key(),
+	"msgpack_to_orc", v0.NewMigration(v0.MigrationConfig{}).Key(),
 )
 
 // liftMigration lifts stored devices from v0 to v1, dropping the persisted status
 // and parent fields.
-var liftMigration = gorp.NewEntryMigration[Key, Key, v0.Device, Device](
-	"v54_drop_status_parent", migrateDevice, codecMigrationKey,
+var liftMigration = gorp.NewEntryMigration(
+	"v54_drop_status_parent", migrateDevice, codecMigration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

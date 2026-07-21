@@ -187,9 +187,9 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))
 	}
-	statuses := make([]status.Status[StatusDetails], len(devices))
+	statuses := make([]Status, len(devices))
 	for i, device := range devices {
-		statuses[i] = status.Status[StatusDetails]{
+		statuses[i] = Status{
 			Key:         OntologyID(device.Key).String(),
 			Name:        device.Name,
 			Time:        telem.Now(),

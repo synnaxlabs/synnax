@@ -198,13 +198,13 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
-	var stat status.Status[StatusDetails]
+func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {
+	var stat Status
 	if err := status.NewRetrieve[StatusDetails](s.Status).
 		Where(status.MatchKeys[StatusDetails](key.OntologyID().String())).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
-		return status.Status[StatusDetails]{}, err
+		return Status{}, err
 	}
 	return stat, nil
 }

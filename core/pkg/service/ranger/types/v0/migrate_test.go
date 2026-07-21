@@ -122,7 +122,7 @@ var _ = Describe("Migration", func() {
 		// is the union of r1 and r2.
 		var parentRange v0.Range
 		Expect(gorp.NewRetrieve[uuid.UUID, v0.Range]().
-			Where(gorp.Match[uuid.UUID, v0.Range](
+			Where(gorp.Match(
 				func(_ gorp.Context, r *v0.Range) (bool, error) {
 					return r.Name == "Subgroup", nil
 				},

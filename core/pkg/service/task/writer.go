@@ -31,9 +31,9 @@ type Writer struct {
 	table     *gorp.Table[Key, Task]
 }
 
-func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Status[StatusDetails] {
+func resolveStatus(t *Task, provided *Status) *Status {
 	if provided == nil {
-		return &status.Status[StatusDetails]{
+		return &Status{
 			Key:     OntologyID(t.Key).String(),
 			Time:    telem.Now(),
 			Name:    t.Name,
@@ -52,12 +52,9 @@ func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Stat
 // out-of-band) without clobbering a live one. Tasks are re-created on every scan cycle,
 // so on a no-op update the default "unknown" status must not overwrite a status the
 // driver has already reported; it is only written when no row exists.
-func (w Writer) healStatus(
-	ctx context.Context,
-	stat *status.Status[StatusDetails],
-) error {
-	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
-		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+func (w Writer) healStatus(ctx context.Context, stat *Status) error {
+	if exists, err := gorp.NewRetrieve[string, Status]().
+		Where(gorp.MatchKeys[string, Status](stat.Key)).
 		Exists(ctx, w.tx); err != nil || exists {
 		return err
 	}
@@ -74,8 +71,8 @@ func (w Writer) Create(ctx context.Context, t *Task) error {
 		}
 		t.Key = NewKey(t.Rack(), localKey)
 	}
-	providedStatus := (*status.Status[StatusDetails])(t.Status) // Preserve before clearing for gorp
-	t.Status = nil                                              // Status stored separately, not in gorp
+	providedStatus := t.Status // Preserve before clearing for gorp
+	t.Status = nil             // Status stored separately, not in gorp
 	if err := w.table.NewCreate().
 		MergeExisting(func(_ gorp.Context, creating, existing Task) (Task, error) {
 			if existing.Snapshot {

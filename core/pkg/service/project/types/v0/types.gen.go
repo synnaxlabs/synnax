@@ -34,6 +34,6 @@ type Workspace struct {
 	Layout msgpack.EncodedJSON `json:"layout" msgpack:"layout"`
 }
 
-func (e Workspace) GorpKey() Key { return e.Key }
+func (w Workspace) GorpKey() Key { return w.Key }
 
-func (e Workspace) SetOptions() []any { return nil }
+func (Workspace) SetOptions() []any { return nil }
