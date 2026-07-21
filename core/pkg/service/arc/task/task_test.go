@@ -622,9 +622,9 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](25)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				var stat status.Status[svcarc.StatusDetails]
+				var stat svcarc.Status
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == "ox_alarm", nil
 					})).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
@@ -668,10 +668,10 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 
-			byName := func(name string) status.Status[svcarc.StatusDetails] {
-				var stat status.Status[svcarc.StatusDetails]
+			byName := func(name string) svcarc.Status {
+				var stat svcarc.Status
 				Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == name, nil
 					})).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				return stat
@@ -679,9 +679,9 @@ var _ = Describe("Task", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *status.Status[svcarc.StatusDetails]) (bool, error) {
+					Where(status.Match(func(_ gorp.Context, _ status.Retrieve[svcarc.StatusDetails], s *svcarc.Status) (bool, error) {
 						return s.Name == base+"_d", nil
-					})).Entry(&status.Status[svcarc.StatusDetails]{}).Exec(ctx, nil)).To(Succeed())
+					})).Entry(&svcarc.Status{}).Exec(ctx, nil)).To(Succeed())
 			}).Should(Succeed())
 
 			Expect(byName(base + "_b").Variant).To(BeEquivalentTo("error"))
