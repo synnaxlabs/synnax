@@ -15,6 +15,7 @@ package pb
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -1452,11 +1453,8 @@ func (p *Plugin) generateGenericStructConversion(
 	// assigns directly. Backward inference needs a typed converter, so a nil
 	// converter keeps the explicit instantiation.
 	backwardTypeArgs := ""
-	for _, c := range backwardConverters {
-		if c == "nil" {
-			backwardTypeArgs = "[" + strings.Join(explicitTypeArgs, ", ") + "]"
-			break
-		}
+	if slices.Contains(backwardConverters, "nil") {
+		backwardTypeArgs = "[" + strings.Join(explicitTypeArgs, ", ") + "]"
 	}
 
 	deref := ""
