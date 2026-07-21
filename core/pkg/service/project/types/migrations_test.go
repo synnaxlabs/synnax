@@ -41,7 +41,7 @@ var _ = Describe("Workspace to project migration", func() {
 		),
 	}
 	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[types.Key, types.Project] {
-		return MustOpen(gorp.OpenTable[types.Key, types.Project](
+		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[types.Key, types.Project]{DB: db, Migrations: migrations},
 		))
 	}
@@ -49,7 +49,7 @@ var _ = Describe("Workspace to project migration", func() {
 		return ontology.Relationship{From: from, Type: ontology.RelationshipTypeParentOf, To: to}
 	}
 	hasRel := func(ctx context.Context, db *gorp.DB, r ontology.Relationship) error {
-		return MustOpen(gorp.OpenTable[string, ontology.Relationship](
+		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
 		)).NewRetrieve().Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
 			Entry(&ontology.Relationship{}).Exec(ctx, db)
@@ -60,7 +60,7 @@ var _ = Describe("Workspace to project migration", func() {
 
 		// Seed two legacy workspace records under the "Workspace" gorp prefix.
 		wsA, wsB := uuid.New(), uuid.New()
-		wsTable := MustOpen(gorp.OpenTable[projectv0.Key, projectv0.Workspace](
+		wsTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[projectv0.Key, projectv0.Workspace]{DB: db},
 		))
 		seedA := projectv0.Workspace{
@@ -74,7 +74,7 @@ var _ = Describe("Workspace to project migration", func() {
 
 		// Seed the root "Workspaces" group and the ontology nodes.
 		groupKey := uuid.New()
-		groupTable := MustOpen(gorp.OpenTable[group.Key, group.Group](
+		groupTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[group.Key, group.Group]{DB: db},
 		))
 		Expect(groupTable.NewCreate().Entry(&group.Group{Key: groupKey, Name: "Workspaces"}).
@@ -83,7 +83,7 @@ var _ = Describe("Workspace to project migration", func() {
 		wsAID := ontology.ID{Type: ontology.ResourceType("workspace"), Key: wsA.String()}
 		wsBID := ontology.ID{Type: ontology.ResourceType("workspace"), Key: wsB.String()}
 		lpID := ontology.ID{Type: ontology.ResourceTypeLineplot, Key: uuid.NewString()}
-		resTable := MustOpen(gorp.OpenTable[string, ontology.Resource](
+		resTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
 		))
 		for _, id := range []ontology.ID{wsAID, wsBID, lpID} {
@@ -92,7 +92,7 @@ var _ = Describe("Workspace to project migration", func() {
 
 		// Seed relationships: group -> each workspace, workspace -> line plot, and an
 		// unrelated group -> line plot that must be left untouched.
-		relTable := MustOpen(gorp.OpenTable[string, ontology.Relationship](
+		relTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
 		))
 		groupToWSA := rel(groupID, wsAID)
@@ -159,7 +159,7 @@ var _ = Describe("Remove author relationships migration", func() {
 		return ontology.Relationship{From: from, Type: ontology.RelationshipTypeParentOf, To: to}
 	}
 	hasRel := func(ctx context.Context, db *gorp.DB, r ontology.Relationship) error {
-		return MustOpen(gorp.OpenTable[string, ontology.Relationship](
+		return MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
 		)).NewRetrieve().Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
 			Entry(&ontology.Relationship{}).Exec(ctx, db)
@@ -167,7 +167,7 @@ var _ = Describe("Remove author relationships migration", func() {
 
 	It("Should delete user-to-project parent relationships and leave others intact", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		relTable := MustOpen(gorp.OpenTable[string, ontology.Relationship](
+		relTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Relationship]{DB: db},
 		))
 		projectID := ontology.ID{Type: ontology.ResourceTypeProject, Key: uuid.NewString()}
@@ -208,7 +208,7 @@ var _ = Describe("Remove author relationships migration", func() {
 var _ = Describe("Project layout staging migration", func() {
 	It("Should stage each non-empty layout under its key and skip empty ones", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		table := MustOpen(gorp.OpenTable[types.Key, types.Project](
+		table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[types.Key, types.Project]{DB: db},
 		))
 		withLayout := uuid.New()
