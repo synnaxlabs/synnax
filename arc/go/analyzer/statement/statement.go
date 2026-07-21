@@ -97,7 +97,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		return
 	}
 	if stateful {
-		if statefulRHSTracksChannel(ctx, expr) {
+		if rhsTracksChannel(ctx, expr) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 				"channels and channel-read expressions cannot be assigned to stateful variables"))
 			return
@@ -141,10 +141,10 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	}
 }
 
-// statefulRHSTracksChannel reports whether a `$=` initializer binds a channel or
-// reads one via a channel-read expression, both disallowed for stateful variables.
-func statefulRHSTracksChannel(
-	ctx context.Context[parser.IVariableDeclarationContext],
+// rhsTracksChannel reports whether expr binds a channel or reads one via a
+// channel-read expression: the reactive-RHS test.
+func rhsTracksChannel[T antlr.ParserRuleContext](
+	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) bool {
 	if expr == nil {
@@ -166,6 +166,23 @@ func statefulRHSTracksChannel(
 	flow.AnalyzeSingleExpression(childCtx)
 	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	return err == nil && len(synth.Channels.Read) > 0
+}
+
+// rhsReadsVariable reports whether expr references a variable or input symbol.
+func rhsReadsVariable[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) bool {
+	for _, name := range parser.CollectIdentifiers(expr) {
+		sym, err := ctx.Scope.Resolve(ctx, name)
+		if err != nil {
+			continue
+		}
+		if sym.IsValueVariable() || sym.Kind == symbol.KindInput {
+			return true
+		}
+	}
+	return false
 }
 
 // AnalyzeAssignment validates an `=` or compound assignment against the variable or
@@ -829,7 +846,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 }
 
 // analyzeExprReadReassignment re-points an expression-read variable at a new
-// derivation, validating the RHS produces the variable's value type.
+// derivation, requiring a channel- or variable-fed RHS of the variable's value type.
 func analyzeExprReadReassignment(
 	ctx context.Context[parser.IAssignmentContext],
 	sym *symbol.Symbol,
@@ -839,6 +856,12 @@ func analyzeExprReadReassignment(
 		return
 	}
 	expression.Analyze(context.Child(ctx, expr))
+	if !rhsTracksChannel(ctx, expr) && !rhsReadsVariable(ctx, expr) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"type mismatch: cannot reassign '%s' (%s) from a constant value",
+			sym.Name, sym.Type.Unwrap()))
+		return
+	}
 	exprType := atypes.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
 	if exprType.IsValid() && !types.StructuralMatch(sym.Type.Unwrap(), exprType) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,

@@ -16,6 +16,9 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// DispatcherSyntheticPrefix marks synthesized dispatchers; Body.Raw lists branch keys.
+const DispatcherSyntheticPrefix = "disp$"
+
 // Type returns the type signature of f.
 func (f Function) Type() types.Type {
 	return types.Function(types.FunctionProperties{

@@ -90,6 +90,10 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		stringOutputs[i] = out.Type.Kind == types.KindString
 	}
 
+	selIdx := -1
+	if idx, err := cfg.State.ResolveInput("$sel"); err == nil {
+		selIdx = idx
+	}
 	n := &nodeImpl{
 		State:         cfg.State,
 		ir:            cfg.Node,
@@ -102,6 +106,7 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		params:        params,
 		offsets:       make([]int, len(irFn.Outputs)),
 		isEntryNode:   isEntryNode,
+		selIdx:        selIdx,
 		nodeKeySetter: w.NodeKeySetter,
 		stringInputs:  stringInputs,
 		refInputs:     refInputs,

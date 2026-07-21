@@ -25,6 +25,10 @@ import (
 // AnalyzeSingleExpression converts an inline expression into a synthetic function
 // node. Format-string placeholders are analyzed here; IR shape is chosen downstream.
 func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
+	// Re-analyzing an already-registered expression would duplicate its synth.
+	if _, err := ctx.Scope.Root().GetChildByParserRule(ctx.AST); err == nil {
+		return
+	}
 	// enclosing is the lexical scope the expression appears in.
 	enclosing := ctx.Scope
 	exprType := atypes.InferFromExpression(ctx).Unwrap()

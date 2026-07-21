@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -372,6 +373,51 @@ var _ = Describe("Compiler", func() {
 			Expect(add).ToNot(BeNil())
 			results := MustSucceed(add.Call(ctx, 10, 32))
 			Expect(results).To(ConsistOf(uint64(42)))
+		})
+	})
+
+	Describe("Dispatcher Synthetics", func() {
+		It("Should evaluate only the branch selected by sel", func(ctx SpecContext) {
+			reads := 0
+			bindMockChannelModule(ctx, r, map[string]any{
+				"read_i64": func(_ context.Context, _ uint32) int64 {
+					reads++
+					return 40
+				},
+			})
+			resolver := []symbol.Symbol{{
+				Name: "count_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   901,
+			}}
+			prog := MustSucceed(text.Parse(text.Text{Raw: `
+			sequence main {
+				r := count_ch + 1
+				r = count_ch + 2
+			}`}))
+			inter, diag := text.Analyze(ctx, prog, NewRoot(nil, resolver...))
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			var disp ir.Function
+			for _, f := range inter.Functions {
+				if strings.HasPrefix(f.Key, ir.DispatcherSyntheticPrefix) {
+					disp = f
+				}
+			}
+			Expect(disp.Key).ToNot(BeEmpty(), "expected a dispatcher function")
+			Expect(disp.Inputs[0].Name).To(Equal("$sel"))
+			output := MustSucceed(compiler.Compile(ctx, inter))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			fn := mod.ExportedFunction(disp.Key)
+			Expect(fn).ToNot(BeNil())
+			args := make([]uint64, len(disp.Inputs))
+			Expect(MustSucceed(fn.Call(ctx, args...))).To(ConsistOf(uint64(41)))
+			Expect(reads).To(Equal(1), "only the selected branch may read its channel")
+			args[0] = 1
+			Expect(MustSucceed(fn.Call(ctx, args...))).To(ConsistOf(uint64(42)))
+			args[0] = 9
+			Expect(MustSucceed(fn.Call(ctx, args...))).To(ConsistOf(uint64(42)),
+				"an out-of-range sel takes the last branch")
 		})
 	})
 

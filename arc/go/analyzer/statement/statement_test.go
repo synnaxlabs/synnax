@@ -397,6 +397,38 @@ var _ = Describe("Statement", func() {
 			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
 		})
 
+		It("Should reject re-pointing a channel-read variable at a constant", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "x := sensor + 1")
+			ctx := assignIn(bCtx, root, stage, "x = 5")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("from a constant value"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
+		})
+
+		It("Should reject re-pointing a channel-read variable at a cast constant", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "x := sensor + 1")
+			ctx := assignIn(bCtx, root, stage, "x = f32(5)")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("from a constant value"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
+		})
+
+		It("Should accept re-pointing a channel-read variable at a variable expression", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "base := sensor + 1")
+			declareIn(bCtx, root, stage, "x := sensor + 2")
+			ctx := assignIn(bCtx, root, stage, "x = base + 1")
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeTrue())
+		})
+
 		It("Should reject reassigning a top-level variable", func(bCtx SpecContext) {
 			root := NewRoot(nil, channels...)
 			declareIn(bCtx, root, root, "gain := 2")

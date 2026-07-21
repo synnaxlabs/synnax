@@ -149,6 +149,33 @@ var _ = Describe("Sequence", func() {
 			out, _ = h.Flush()
 			Expect(lastF32(out, 102)).To(Equal(float32(13))) // rx_a: rx_src + 10
 		})
+
+		It("does not emit on a rebind until the next source value", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 100)
+			pushSrc(h, ctx, 2)
+			out, _ := h.Flush()
+			Expect(lastF32(out, 102)).To(Equal(float32(3))) // entry: rx_src + 1
+			trigger(h, ctx, 104)                            // entry => rx_b rebinds rx
+			out, _ = h.Flush()
+			Expect(out.Get(102).Series).To(BeEmpty(), "a rebind alone must not emit")
+			pushSrc(h, ctx, 5)
+			out, _ = h.Flush()
+			Expect(lastF32(out, 102)).To(Equal(float32(25))) // rx_b: rx_src + 20
+		})
+
+		It("does not re-emit an unchanged recompute", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 100)
+			pushSrc(h, ctx, 2)
+			out, _ := h.Flush()
+			Expect(lastF32(out, 102)).To(Equal(float32(3)))
+			pushSrc(h, ctx, 2)
+			out, _ = h.Flush()
+			Expect(out.Get(102).Series).To(BeEmpty(), "an equal recompute is not an event")
+		})
 	})
 
 	Describe("Channel alias re-expression", func() {

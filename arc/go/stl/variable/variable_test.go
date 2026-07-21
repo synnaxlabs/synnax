@@ -58,17 +58,13 @@ func registerState(ctx SpecContext) *node.ProgramState {
 	return node.New(analyzed)
 }
 
-// exprReadState builds a variable node "v" whose params are all edge-fed: two
-// derivation feeders d0 and d1 plus the sel switch input.
+// exprReadState builds a variable node "v" fed by a dispatcher stand-in "d" on
+// value, with sel fed from a register stand-in "selsrc".
 func exprReadState(ctx SpecContext) *node.ProgramState {
 	g := graph.Graph{
 		Functions: []graph.Function{
 			{
-				Key:     "d0",
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-			},
-			{
-				Key:     "d1",
+				Key:     "d",
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			},
 			// The real lowering feeds sel from the register, a variable node, so
@@ -80,28 +76,22 @@ func exprReadState(ctx SpecContext) *node.ProgramState {
 			{
 				Key: "variable",
 				Inputs: types.Params{
-					{Name: "f0", Type: types.I64()},
-					{Name: "f1", Type: types.I64()},
+					{Name: "value", Type: types.I64()},
 					{Name: "sel", Type: types.U32()},
 				},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			},
 		},
-		Nodes: []graph.Node{{Key: "d0"}, {Key: "d1"}, {Key: "selsrc"}, {Key: "v"}},
+		Nodes: []graph.Node{{Key: "d"}, {Key: "selsrc"}, {Key: "v"}},
 		Inputs: map[string]msgpack.EncodedJSON{
-			"d0":     {"type": "d0"},
-			"d1":     {"type": "d1"},
+			"d":      {"type": "d"},
 			"selsrc": {"type": "stateful_variable"},
 			"v":      {"type": "variable"},
 		},
 		Edges: graph.Edges{
 			{Edge: ir.Edge{
-				Source: ir.Handle{Node: "d0", Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: "v", Param: "f0"},
-			}},
-			{Edge: ir.Edge{
-				Source: ir.Handle{Node: "d1", Param: ir.DefaultOutputParam},
-				Target: ir.Handle{Node: "v", Param: "f1"},
+				Source: ir.Handle{Node: "d", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "v", Param: "value"},
 			}},
 			{Edge: ir.Edge{
 				Source: ir.Handle{Node: "selsrc", Param: ir.DefaultOutputParam},
@@ -422,109 +412,91 @@ var _ = Describe("Variable", func() {
 		var (
 			s      *node.ProgramState
 			v      *node.State
-			d0     *node.State
-			d1     *node.State
+			d      *node.State
 			selsrc *node.State
 			n      node.Node
 		)
 		BeforeEach(func(ctx SpecContext) {
 			s = exprReadState(ctx)
-			v, d0, d1, selsrc = s.Node("v"), s.Node("d0"), s.Node("d1"), s.Node("selsrc")
+			v, d, selsrc = s.Node("v"), s.Node("d"), s.Node("selsrc")
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "variable",
-					Inputs: types.Params{{Name: "f0", Type: types.I64()}},
+					Inputs: types.Params{{Name: "value", Type: types.I64()}},
 				},
 				State: v,
 			}
 			n = MustSucceed(factory.Create(ctx, cfg))
 		})
 
-		It("Should emit the active derivation's value", func(ctx SpecContext) {
-			emit(d0, int64(5), 10)
+		It("Should emit the dispatcher's value", func(ctx SpecContext) {
+			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(ConsistOf(0))
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](5))
 		})
 
 		It("Should coalesce an unchanged recompute", func(ctx SpecContext) {
-			emit(d0, int64(5), 10)
+			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
-			emit(d0, int64(5), 20)
+			emit(d, int64(5), 20)
 			n.Next(nodeCtx)
 			Expect(marked).To(HaveLen(1))
-			emit(d0, int64(6), 30)
+			emit(d, int64(6), 30)
 			n.Next(nodeCtx)
 			Expect(marked).To(HaveLen(2))
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
 		})
 
-		It("Should drain an inactive feeder without emitting", func(ctx SpecContext) {
-			emit(d1, int64(9), 10)
-			n.Next(nodeCtx)
-			Expect(marked).To(BeEmpty())
-			Expect(v.Output(0).Len()).To(BeZero())
-		})
-
-		It("Should swallow values pending at a re-point", func(ctx SpecContext) {
-			emit(d1, int64(9), 10)
-			emit(selsrc, uint32(1), 10)
-			n.Next(nodeCtx)
-			Expect(marked).To(BeEmpty())
-			emit(d1, int64(11), 20)
+		It("Should absorb the value arriving with a re-point", func(ctx SpecContext) {
+			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(ConsistOf(0))
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](11))
-		})
-
-		It("Should stop emitting a feeder de-activated by a re-point", func(ctx SpecContext) {
-			emit(selsrc, uint32(1), 10)
+			emit(selsrc, uint32(1), 20)
+			emit(d, int64(9), 20)
 			n.Next(nodeCtx)
-			emit(d0, int64(5), 20)
+			Expect(marked).To(HaveLen(1), "the re-point's own recompute must not fire")
+			emit(d, int64(11), 30)
 			n.Next(nodeCtx)
-			Expect(marked).To(BeEmpty())
-		})
-
-		It("Should re-activate a feeder when sel points back", func(ctx SpecContext) {
-			emit(selsrc, uint32(1), 10)
-			n.Next(nodeCtx)
-			emit(d1, int64(11), 20)
-			n.Next(nodeCtx)
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](11))
-			emit(selsrc, uint32(0), 30)
-			n.Next(nodeCtx)
-			emit(d0, int64(5), 40)
-			n.Next(nodeCtx)
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](5))
 			Expect(marked).To(HaveLen(2))
+			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](11))
 		})
 
-		It("Should drain silently when sel is out of range", func(ctx SpecContext) {
-			emit(selsrc, uint32(9), 10)
-			n.Next(nodeCtx)
-			emit(d0, int64(5), 20)
-			emit(d1, int64(6), 20)
+		It("Should fire the value after a value-less re-point", func(ctx SpecContext) {
+			emit(selsrc, uint32(1), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(BeEmpty())
-			Expect(v.Output(0).Len()).To(BeZero())
+			emit(d, int64(9), 20)
+			n.Next(nodeCtx)
+			Expect(marked).To(ConsistOf(0), "the dispatcher only emits data-driven values")
+			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](9))
 		})
 
-		It("Should not alias the derivation's output buffer", func(ctx SpecContext) {
-			emit(d0, int64(5), 10)
+		It("Should not alias the dispatcher's output buffer", func(ctx SpecContext) {
+			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
-			d0.Output(0).Data[0] = 9
+			d.Output(0).Data[0] = 9
 			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](5))
 		})
 
 		Describe("Reset", func() {
+			It("Should fire the first value after a Reset-absorbed seed sel", func(ctx SpecContext) {
+				emit(selsrc, uint32(0), 5)
+				n.Reset()
+				emit(d, int64(7), 10)
+				n.Next(nodeCtx)
+				Expect(marked).To(ConsistOf(0))
+				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+			})
+
 			It("Should coalesce values replayed by Reset", func(ctx SpecContext) {
-				emit(d0, int64(5), 10)
+				emit(d, int64(5), 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
 				n.Reset()
 				n.Next(nodeCtx)
 				Expect(marked).To(HaveLen(1))
-				emit(d0, int64(6), 20)
+				emit(d, int64(6), 20)
 				n.Next(nodeCtx)
 				Expect(marked).To(HaveLen(2))
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
@@ -532,9 +504,11 @@ var _ = Describe("Variable", func() {
 
 			It("Should keep sel consumed across Reset", func(ctx SpecContext) {
 				emit(selsrc, uint32(1), 10)
+				emit(d, int64(9), 10)
 				n.Next(nodeCtx)
+				Expect(marked).To(BeEmpty())
 				n.Reset()
-				emit(d1, int64(11), 20)
+				emit(d, int64(11), 20)
 				// A replayed sel would count as a re-point and swallow the 11.
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
@@ -546,33 +520,33 @@ var _ = Describe("Variable", func() {
 			g := graph.Graph{
 				Functions: []graph.Function{
 					{
-						Key:     "d0",
+						Key:     "d",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 					},
 					{
 						Key:     "variable",
-						Inputs:  types.Params{{Name: "f0", Type: types.I64()}},
+						Inputs:  types.Params{{Name: "value", Type: types.I64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 					},
 				},
-				Nodes: []graph.Node{{Key: "d0"}, {Key: "v"}},
+				Nodes: []graph.Node{{Key: "d"}, {Key: "v"}},
 				Inputs: map[string]msgpack.EncodedJSON{
-					"d0": {"type": "d0"},
-					"v":  {"type": "variable"},
+					"d": {"type": "d"},
+					"v": {"type": "variable"},
 				},
 				Edges: graph.Edges{{Edge: ir.Edge{
-					Source: ir.Handle{Node: "d0", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "v", Param: "f0"},
+					Source: ir.Handle{Node: "d", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "v", Param: "value"},
 				}}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			ps := node.New(analyzed)
-			vNode, feeder := ps.Node("v"), ps.Node("d0")
+			vNode, feeder := ps.Node("v"), ps.Node("d")
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "variable",
-					Inputs: types.Params{{Name: "f0", Type: types.I64()}},
+					Inputs: types.Params{{Name: "value", Type: types.I64()}},
 				},
 				State: vNode,
 			}

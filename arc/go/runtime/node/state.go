@@ -365,6 +365,22 @@ func (n *State) ConsumeInput(i int) (telem.Series, bool) {
 	return src.data, true
 }
 
+// InputFresh reports whether input i has unconsumed data, without consuming it.
+func (n *State) InputFresh(i int) bool {
+	if i < 0 || i >= len(n.ir.inputs) || n.isReference[i] {
+		return false
+	}
+	src := n.inputSources[i]
+	if src == nil || src.data.Len() == 0 {
+		return false
+	}
+	var ts telem.TimeStamp
+	if src.time.Len() > 0 {
+		ts = telem.ValueAt[telem.TimeStamp](src.time, -1)
+	}
+	return ts > n.accumulated[i].lastTimestamp || !n.accumulated[i].consumed
+}
+
 // InputCount returns the number of declared inputs.
 func (n *State) InputCount() int { return len(n.ir.inputs) }
 

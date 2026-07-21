@@ -51,6 +51,7 @@ type nodeImpl struct {
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
+	selIdx        int
 	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
@@ -87,6 +88,19 @@ func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error)
 
 func (n *nodeImpl) Init(node.Context) {}
 
+// dataFresh reports whether any input other than $sel has unconsumed data.
+func (n *nodeImpl) dataFresh() bool {
+	for i := range n.ir.Inputs {
+		if i == n.selIdx || n.ir.Inputs[i].Value != nil || n.refInputs[i] {
+			continue
+		}
+		if n.InputFresh(i) {
+			return true
+		}
+	}
+	return false
+}
+
 func (n *nodeImpl) Next(ctx node.Context) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -99,6 +113,12 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			return
 		}
 		n.initialized = true
+	}
+
+	// A $sel-only change re-points without emitting; the value fires on the next input.
+	if n.selIdx >= 0 && !n.dataFresh() {
+		n.RefreshInputs()
+		return
 	}
 
 	if !n.RefreshInputs() {
@@ -182,6 +202,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if longestInputIdx >= 0 {
 		longestInputTime = n.InputTime(longestInputIdx)
 	}
+	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
+	clockStamp := longestInputIdx < 0 || n.selIdx >= 0
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
@@ -214,10 +236,10 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			continue
 		}
 		var ts uint64
-		if longestInputIdx >= 0 {
-			ts = valueAt(longestInputTime, int(i))
-		} else {
+		if clockStamp {
 			ts = uint64(n.clock.Now())
+		} else {
+			ts = valueAt(longestInputTime, int(i))
 		}
 		for j, value := range res {
 			if value.Changed {

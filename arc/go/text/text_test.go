@@ -581,7 +581,7 @@ var _ = Describe("Text", func() {
 			Expect(fed).To(BeTrue(), "expected the reassignment to feed the variable node")
 		})
 
-		It("Should lower a re-expressed variable to a sel-switched demux", func(ctx SpecContext) {
+		It("Should fold a re-expressed variable's derivations into one dispatcher", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				r := count_ch + 1
@@ -591,7 +591,7 @@ var _ = Describe("Text", func() {
 			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			vars := variableNodes(inter)
-			// r's demux reader and its sel register.
+			// r's deref and its sel register.
 			Expect(vars).To(HaveLen(2))
 			var deref, bind ir.Node
 			for _, n := range vars {
@@ -601,18 +601,42 @@ var _ = Describe("Text", func() {
 					bind = n
 				}
 			}
-			Expect(deref.Key).ToNot(BeEmpty(), "expected a demux with a sel input")
+			Expect(deref.Inputs[0].Name).To(Equal("value"))
 			Expect(bind.Inputs[0].Value).To(Equal(uint32(0)),
 				"the sel register seeds the declared derivation's index")
+			var disp ir.Node
+			for _, n := range inter.Nodes {
+				if strings.HasPrefix(n.Type, ir.DispatcherSyntheticPrefix) {
+					disp = n
+				}
+			}
+			Expect(disp.Key).ToNot(BeEmpty(), "expected a dispatcher node")
+			fn := MustBeOk(inter.Functions.Find(disp.Type))
+			branches := strings.Split(fn.Body.Raw, ",")
+			Expect(branches).To(HaveLen(2), "the dispatcher must fold both derivations")
+			for _, key := range branches {
+				MustBeOk(inter.Functions.Find(key))
+			}
+			Expect(inter.Functions).To(HaveLen(3),
+				"two branch synths and the dispatcher, no duplicates")
+			Expect(hasEdge(inter, bind.Key, disp.Key)).To(BeTrue(),
+				"the sel register must drive the dispatcher")
+			Expect(hasEdge(inter, disp.Key, deref.Key)).To(BeTrue(),
+				"the dispatcher must feed the deref")
 			Expect(hasEdge(inter, bind.Key, deref.Key)).To(BeTrue(),
-				"the sel register must drive the demux")
+				"the sel register must mark the deref's re-points")
 			feeders := 0
+			trigFed := false
 			for _, e := range inter.Edges {
 				if e.Target.Node == deref.Key && e.Source.Node != bind.Key {
 					feeders++
 				}
+				if e.Target.Node == disp.Key && e.Target.Param == "$t0" {
+					trigFed = true
+				}
 			}
-			Expect(feeders).To(Equal(2), "both derivations must feed the demux")
+			Expect(feeders).To(Equal(1), "the dispatcher is the deref's only feeder")
+			Expect(trigFed).To(BeTrue(), "count_ch must trigger the dispatcher")
 		})
 
 		It("seeds the literal register and leaves the derivation reader edge-fed", func(ctx SpecContext) {

@@ -51,8 +51,8 @@ type Host struct{}
 // NewHost constructs a variable Host.
 func NewHost() *Host { return &Host{} }
 
-// Create dispatches on shape: a seeded f0 makes a register; an edge-fed f0 an
-// exprRead deref that demuxes derivations.
+// Create dispatches on shape: a seeded first input makes a register; an
+// edge-fed one an exprRead deref.
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
@@ -102,41 +102,38 @@ func (v *register) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// exprRead derefs its variable's register: sel carries the active derivation's
-// index, and only that feeder's values emit.
+// exprRead derefs its variable's dispatcher: values pending at a re-point
+// predate it and are absorbed, so only later inputs fire.
 type exprRead struct {
 	*node.State
 	clock  telem.MonoClock
 	selIdx int
-	active int
 }
 
 var _ node.Node = (*exprRead)(nil)
 
-// Next re-points on sel first: a re-point is not itself a value, and inactive
-// feeders drain silently. Values pending at a re-point predate it, so they
-// are absorbed without emitting; only values arriving afterward fire.
+// Reset absorbs pending inputs, seed sel included, so only post-entry values fire.
+func (v *exprRead) Reset() { v.AbsorbInputs() }
+
+// Next re-points on sel first: the dispatcher never emits on a sel-only change,
+// so a value paired with a fresh sel predates the re-point.
 func (v *exprRead) Next(ctx node.Context) {
 	repointed := false
-	if s, ok := v.ConsumeInput(v.selIdx); ok && s.Len() > 0 {
-		v.active = int(telem.ValueAt[uint32](s, -1))
-		repointed = true
+	if v.selIdx >= 0 {
+		if _, ok := v.ConsumeInput(v.selIdx); ok {
+			repointed = true
+		}
 	}
-	for i := range v.InputCount() {
-		if i == v.selIdx {
-			continue
-		}
-		data, ok := v.ConsumeInput(i)
-		if !ok || i != v.active || repointed {
-			continue
-		}
-		// A derivation only changes when its value does; recomputes are not events.
-		if data.DataType == v.Output(0).DataType &&
-			bytes.Equal(data.Data, v.Output(0).Data) {
-			continue
-		}
-		v.Output(0).CopyFrom(data)
-		telem.SetSeriesV(v.OutputTime(0), v.clock.Now())
-		ctx.MarkChanged(0)
+	data, ok := v.ConsumeInput(0)
+	if !ok || repointed {
+		return
 	}
+	// A derivation only changes when its value does; recomputes are not events.
+	if data.DataType == v.Output(0).DataType &&
+		bytes.Equal(data.Data, v.Output(0).Data) {
+		return
+	}
+	v.Output(0).CopyFrom(data)
+	telem.SetSeriesV(v.OutputTime(0), v.clock.Now())
+	ctx.MarkChanged(0)
 }
