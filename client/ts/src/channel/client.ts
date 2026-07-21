@@ -27,7 +27,7 @@ import {
 import { z } from "zod";
 
 import { cache } from "@/cache";
-import { type Params, statusKey } from "@/channel/payload";
+import { type Params, type PrimitiveParams, statusKey } from "@/channel/payload";
 import {
   analyzeParams,
   DebouncedBatchRetriever,
@@ -318,12 +318,43 @@ const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
   };
 };
 
+const createTable = (
+  engine: cache.Cache,
+  retriever: Retriever,
+  sugar: (payload: Payload) => Channel,
+): cache.Table<Key, Channel> => {
+  const table = engine.createTable<Key, Channel>({
+    name: "channels",
+    equal: (a, b) => deep.equal(a.payload, b.payload),
+    refetch: async (keys) =>
+      (await retriever.retrieve(keys)).map((p) => sugar(stripComposed(p))),
+  });
+  const set: cache.ChannelListener<typeof payloadZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: payloadZ,
+    onChange: (changed) => table.set(changed.key, sugar(stripComposed(changed))),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
 /**
  * The main client class for executing channel operations against a Synnax Core. This
  * class should not be instantiated directly, and instead should be used through the
  * `channels` property of an {@link Synnax} client.
  */
-export class Client {
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveRequest,
+  RetrieveSingleParams,
+  NormalizedRequest,
+  Channel
+> {
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
@@ -334,10 +365,6 @@ export class Client {
   private readonly statusStore: cache.Table<status.Key, status.Status>;
   private readonly aliasStore: cache.Table<string, ranger.alias.Alias>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<RetrieveSingleParams, Channel, Key, Channel>;
-    request: cache.Answers<NormalizedRequest, Channel[], Key, Channel>;
-  };
 
   constructor(
     frameClient: framer.Client,
@@ -351,29 +378,20 @@ export class Client {
     aliasStore: cache.Table<string, ranger.alias.Alias>,
     ontologyStores: ontology.Stores,
   ) {
-    this.frameClient = frameClient;
-    this.retriever = retriever;
-    this.client = client;
-    this.writer = writer;
-    this.statuses = statuses;
-    this.ranges = ranges;
-    this.statusStore = statusStore;
-    this.aliasStore = aliasStore;
-    this.ontology = ontologyStores;
-    this.store = this.createTable(engine);
-    this.answers = {
+    const store = createTable(engine, retriever, (payload) => this.sugar(payload));
+    super({
       single: engine.answers({
         name: "channel",
-        table: this.store,
+        table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: (records, query) => this.compose(records[0].payload, query.rangeKey),
         keyOf: (query) => query.key,
         single: true,
         watch: [
-          cache.watch(this.statusStore, (event, query: RetrieveSingleParams) =>
+          cache.watch(statusStore, (event, query: RetrieveSingleParams) =>
             event.key === statusKey(query.key) ? [query.key] : null,
           ),
-          cache.watch(this.aliasStore, (event, query: RetrieveSingleParams) => {
+          cache.watch(aliasStore, (event, query: RetrieveSingleParams) => {
             if (query.rangeKey == null) return null;
             const aliasKey = createKey({ range: query.rangeKey, channel: query.key });
             return event.key === aliasKey ? [query.key] : null;
@@ -382,7 +400,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "channels",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((ch) => ch.key),
         compose: (records, query) => {
           const { rangeKey } = query;
@@ -392,7 +410,7 @@ export class Client {
         matches: (ch, query) => requestFilter(query)(ch),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(this.aliasStore, (event, query: NormalizedRequest) => {
+          cache.watch(aliasStore, (event, query: NormalizedRequest) => {
             if (query.rangeKey == null) return null;
             if (event.variant === "set")
               return event.value.range === query.rangeKey
@@ -406,28 +424,20 @@ export class Client {
           await this.fetchKeys(keys);
         },
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, Channel> {
-    const table = engine.createTable<Key, Channel>({
-      name: "channels",
-      equal: (a, b) => deep.equal(a.payload, b.payload),
-      refetch: async (keys) =>
-        (await this.retriever.retrieve(keys)).map((p) => this.sugar(stripComposed(p))),
+      isSingle: (params) => "key" in params,
+      normalizeSingle,
+      normalizeRequest: (params) => retrieveRequestZ.parse(params),
     });
-    const set: cache.ChannelListener<typeof payloadZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: payloadZ,
-      onChange: (changed) => table.set(changed.key, this.sugar(stripComposed(changed))),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => table.delete(changed),
-    };
-    engine.addListeners(table, set, del);
-    return table;
+    this.frameClient = frameClient;
+    this.retriever = retriever;
+    this.client = client;
+    this.writer = writer;
+    this.statuses = statuses;
+    this.ranges = ranges;
+    this.statusStore = statusStore;
+    this.aliasStore = aliasStore;
+    this.ontology = ontologyStores;
+    this.store = store;
   }
 
   /**
@@ -547,7 +557,12 @@ export class Client {
    * @param options.notDataTypes - Limits the query to only channels without the specified
    *
    */
-  async retrieve(params: Params, options?: RetrieveOptions): Promise<Channel[]>;
+  async retrieve(
+    params: PrimitiveParams | Payload[],
+    options?: RetrieveOptions,
+  ): Promise<Channel[]>;
+
+  async retrieve(params: RetrieveSingleParams): Promise<Channel>;
 
   async retrieve(params: RetrieveRequest): Promise<Channel[]>;
 
@@ -559,11 +574,11 @@ export class Client {
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
   async retrieve(
-    params: Params | RetrieveRequest,
+    params: PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveRequest,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
     if (typeof params === "object" && !Array.isArray(params))
-      return await this.answers.request.retrieve(retrieveRequestZ.parse(params));
+      return await super.retrieve(params);
     const isSingle = !Array.isArray(params);
     const { variant, normalized: rawNormalized } = analyzeParams(params);
     const normalized =
@@ -573,42 +588,15 @@ export class Client {
       return [];
     }
     if (isSingle && variant === "keys" && onlyRangeKey(options))
-      return await this.answers.single.retrieve(
-        normalizeSingle({ key: normalized[0] as Key, rangeKey: options?.rangeKey }),
-      );
-    const res = await this.answers.request.retrieve(
+      return await super.retrieve({
+        key: normalized[0] as Key,
+        rangeKey: options?.rangeKey,
+      });
+    const res = await super.retrieve(
       retrieveRequestZ.parse({ [variant]: normalized, ...options }),
     );
     checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
     return isSingle ? res[0] : res;
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a channel; request queries deliver the matching channels.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<Channel>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveRequest,
-    handler: cache.ChangeHandler<Channel[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveSingleParams | RetrieveRequest,
-    handler: cache.ChangeHandler<Channel> | cache.ChangeHandler<Channel[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(
-        normalizeSingle(params),
-        handler as cache.ChangeHandler<Channel>,
-      );
-    return request.onChange(
-      retrieveRequestZ.parse(params),
-      handler as cache.ChangeHandler<Channel[]>,
-    );
   }
 
   /**
@@ -621,10 +609,10 @@ export class Client {
   getCached(
     params: RetrieveSingleParams | RetrieveRequest,
   ): cache.Cached<Channel> | cache.Cached<Channel[]> | undefined {
-    const { request, single } = this.answers;
-    if ("key" in params) return single.getCached(normalizeSingle(params));
-    const req = retrieveRequestZ.parse(params);
-    return request.getCached(req) ?? this.approximateCached(req);
+    if ("key" in params) return super.getCached(params);
+    return (
+      super.getCached(params) ?? this.approximateCached(retrieveRequestZ.parse(params))
+    );
   }
 
   /**

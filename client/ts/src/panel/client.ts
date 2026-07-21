@@ -63,26 +63,26 @@ const requestFilter = (req: RetrieveRequest): ((p: Panel) => boolean) => {
 const toRequest = (params: Key[] | RetrieveRequest): RetrieveRequest =>
   retrieveReqZ.parse(Array.isArray(params) ? { keys: params } : params);
 
-export class Client {
+export class Client extends cache.Reader<
+  Key,
+  Key[] | RetrieveRequest,
+  Key,
+  RetrieveRequest,
+  Panel
+> {
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, Panel>;
   private readonly dispatcher: dispatch.Controller<Key, Panel, Action>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<Key, Panel, Key, Panel>;
-    request: cache.Answers<RetrieveRequest, Panel[], Key, Panel>;
-  };
 
   constructor(
     client: UnaryClient,
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.ontology = ontologyStores;
-    this.store = engine.createTable<Key, Panel>({ name: "panels" });
-    this.dispatcher = new dispatch.Controller<Key, Panel, Action>({
-      store: this.store,
+    const store = engine.createTable<Key, Panel>({ name: "panels" });
+    const dispatcher = new dispatch.Controller<Key, Panel, Action>({
+      store,
       onError: engine.onError,
       reduce: reduceAll,
       kindOf,
@@ -90,17 +90,17 @@ export class Client {
     const del: cache.ChannelListener<typeof keyZ> = {
       channel: DELETE_CHANNEL_NAME,
       schema: keyZ,
-      onChange: (changed) => this.store.delete(changed),
+      onChange: (changed) => store.delete(changed),
     };
     engine.addListeners(
-      this.store,
+      store,
       del,
-      this.dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
+      dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
     );
-    this.answers = {
+    super({
       single: engine.answers({
         name: "panel",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -108,13 +108,20 @@ export class Client {
       }),
       request: engine.answers({
         name: "panels",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
         compose: (records) => records,
         matches: (panel, query) => requestFilter(query)(panel),
         serverFields: SERVER_FIELDS,
       }),
-    };
+      isSingle: (params) => typeof params === "string",
+      normalizeSingle: (key) => key,
+      normalizeRequest: toRequest,
+    });
+    this.client = client;
+    this.ontology = ontologyStores;
+    this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   async create(panel: New, opts?: cache.WriteOptions<Panel[]>): Promise<Panel>;
@@ -230,50 +237,6 @@ export class Client {
       dispatchReqZ,
       emptyResZ,
     );
-  }
-
-  async retrieve(key: Key): Promise<Panel>;
-  async retrieve(keys: Key[]): Promise<Panel[]>;
-  async retrieve(req: RetrieveRequest): Promise<Panel[]>;
-  async retrieve(keys: Key | Key[] | RetrieveRequest): Promise<Panel | Panel[]> {
-    const isSingle = typeof keys === "string";
-    if (isSingle) return await this.answers.single.retrieve(keys);
-    return await this.answers.request.retrieve(toRequest(keys));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a panel; every other shape delivers the matching panels.
-   */
-  onChange(key: Key, handler: cache.ChangeHandler<Panel>): destructor.Destructor;
-  onChange(keys: Key[], handler: cache.ChangeHandler<Panel[]>): destructor.Destructor;
-  onChange(
-    req: RetrieveRequest,
-    handler: cache.ChangeHandler<Panel[]>,
-  ): destructor.Destructor;
-  onChange(
-    keys: Key | Key[] | RetrieveRequest,
-    handler: cache.ChangeHandler<Panel> | cache.ChangeHandler<Panel[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if (typeof keys === "string")
-      return single.onChange(keys, handler as cache.ChangeHandler<Panel>);
-    return request.onChange(toRequest(keys), handler as cache.ChangeHandler<Panel[]>);
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(key: Key): cache.Cached<Panel> | undefined;
-  getCached(keys: Key[]): cache.Cached<Panel[]> | undefined;
-  getCached(req: RetrieveRequest): cache.Cached<Panel[]> | undefined;
-  getCached(
-    keys: Key | Key[] | RetrieveRequest,
-  ): cache.Cached<Panel> | cache.Cached<Panel[]> | undefined {
-    const { request, single } = this.answers;
-    if (typeof keys === "string") return single.getCached(keys);
-    return request.getCached(toRequest(keys));
   }
 
   async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;

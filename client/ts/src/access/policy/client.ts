@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -103,27 +103,43 @@ const requestFilter = (req: RetrieveRequest): ((p: Policy) => boolean) => {
   };
 };
 
-export class Client {
+const createTable = (engine: cache.Cache): cache.Table<Key, Policy> => {
+  const table = engine.createTable<Key, Policy>({ name: "policies" });
+  const set: cache.ChannelListener<typeof policyZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: policyZ,
+    onChange: (changed) => table.set(changed),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  Key,
+  RetrieveRequest,
+  Policy
+> {
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, Policy>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<Key, Policy, Key, Policy>;
-    request: cache.Answers<RetrieveRequest, Policy[], Key, Policy>;
-  };
 
   constructor(
     client: UnaryClient,
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.store = this.createTable(engine);
-    this.ontology = ontologyStores;
-    this.answers = {
+    const store = createTable(engine);
+    super({
       single: engine.answers({
         name: "policy",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -131,29 +147,19 @@ export class Client {
       }),
       request: engine.answers({
         name: "policies",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
         compose: (records) => records,
         matches: (policy, query) => requestFilter(query)(policy),
         serverFields: SERVER_FIELDS,
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, Policy> {
-    const table = engine.createTable<Key, Policy>({ name: "policies" });
-    const set: cache.ChannelListener<typeof policyZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: policyZ,
-      onChange: (changed) => table.set(changed.key, changed),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => table.delete(changed),
-    };
-    engine.addListeners(table, set, del);
-    return table;
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest,
+    });
+    this.client = client;
+    this.store = store;
+    this.ontology = ontologyStores;
   }
 
   async create(policy: New): Promise<Policy>;
@@ -168,54 +174,6 @@ export class Client {
     );
     this.store.set(res.policies);
     return isMany ? res.policies : res.policies[0];
-  }
-
-  async retrieve(params: RetrieveSingleParams): Promise<Policy>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Policy[]>;
-  async retrieve(params: RetrieveParams): Promise<Policy | Policy[]> {
-    const isSingle = "key" in params;
-    if (isSingle) return await this.answers.single.retrieve(params.key);
-    return await this.answers.request.retrieve(normalizeRequest(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a policy; every other shape delivers the matching
-   * policies.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<Policy>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveMultipleParams,
-    handler: cache.ChangeHandler<Policy[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveParams,
-    handler: cache.ChangeHandler<Policy> | cache.ChangeHandler<Policy[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(params.key, handler as cache.ChangeHandler<Policy>);
-    return request.onChange(
-      normalizeRequest(params),
-      handler as cache.ChangeHandler<Policy[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: RetrieveSingleParams): cache.Cached<Policy> | undefined;
-  getCached(params: RetrieveMultipleParams): cache.Cached<Policy[]> | undefined;
-  getCached(
-    params: RetrieveParams,
-  ): cache.Cached<Policy> | cache.Cached<Policy[]> | undefined {
-    const { request, single } = this.answers;
-    if ("key" in params) return single.getCached(params.key);
-    return request.getCached(normalizeRequest(params));
   }
 
   async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;

@@ -89,7 +89,39 @@ const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[
   req.limit == null &&
   req.offset == null;
 
-export class Client {
+const createTable = (
+  engine: cache.Cache,
+  relationships: cache.Table<string, ontology.Relationship>,
+  labels: cache.Table<label.Key, label.Label>,
+): cache.Table<Key, Status> => {
+  const table = engine.createTable<Key, Status>({ name: "statuses" });
+  const set: cache.ChannelListener<ReturnType<typeof statusZ>> = {
+    channel: SET_CHANNEL_NAME,
+    schema: statusZ(),
+    onChange: (changed) =>
+      table.set(changed.key, (p) => {
+        const next = { ...p, ...changed };
+        const id = ontologyID(changed.key);
+        next.labels = label.cachedLabelsOf(relationships, labels, id);
+        return next;
+      }),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  SingleRetrieveParams,
+  MultiRetrieveParams,
+  Key,
+  RetrieveRequest,
+  Status
+> {
   readonly type: string = "status";
   /** The status record table; injected into sibling clients at wiring. */
   readonly store: cache.Table<Key, Status>;
@@ -98,10 +130,6 @@ export class Client {
   private readonly engine: cache.Cache;
   private readonly labels: cache.Table<label.Key, label.Label>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<Key, Status, Key, Status>;
-    request: cache.Answers<RetrieveRequest, Status[], Key, Status>;
-  };
 
   constructor(
     client: UnaryClient,
@@ -110,22 +138,17 @@ export class Client {
     ontologyStores: ontology.Stores,
     labelClient?: label.Client,
   ) {
-    this.client = client;
-    this.labelClient = labelClient;
-    this.engine = engine;
-    this.labels = labels;
-    this.ontology = ontologyStores;
-    this.store = this.createTable(engine, ontologyStores.relationships, labels);
-    this.answers = {
+    const store = createTable(engine, ontologyStores.relationships, labels);
+    super({
       single: engine.answers({
         name: "status",
-        table: this.store,
+        table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: (records) => this.compose(records[0]),
         keyOf: (query) => query,
         single: true,
         watch: [
-          cache.watch(this.ontology.relationships, (event, query: Key) => {
+          cache.watch(ontologyStores.relationships, (event, query: Key) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -134,20 +157,20 @@ export class Client {
             if (event.variant === "set") this.ensureLabel(rel);
             return [query];
           }),
-          cache.watch(this.labels, (event, query: Key) =>
+          cache.watch(labels, (event, query: Key) =>
             this.isLabeledBy(query, event.key) ? [query] : null,
           ),
         ],
       }),
       request: engine.answers({
         name: "statuses",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
         compose: (records) => records.map((s) => this.compose(s)),
         matches: (status, query) => this.requestFilter(query)(status),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(this.ontology.relationships, (event, _: RetrieveRequest) => {
+          cache.watch(ontologyStores.relationships, (event, _: RetrieveRequest) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -160,7 +183,7 @@ export class Client {
             if (event.variant === "set") this.ensureLabel(rel);
             return [rel.from.key];
           }),
-          cache.watch(this.labels, (event, _: RetrieveRequest) =>
+          cache.watch(labels, (event, _: RetrieveRequest) =>
             this.statusesLabeledBy(event.key),
           ),
         ],
@@ -168,33 +191,16 @@ export class Client {
           await this.fetchKeys(keys);
         },
       }),
-    };
-  }
-
-  private createTable(
-    engine: cache.Cache,
-    relationships: cache.Table<string, ontology.Relationship>,
-    labels: cache.Table<label.Key, label.Label>,
-  ): cache.Table<Key, Status> {
-    const table = engine.createTable<Key, Status>({ name: "statuses" });
-    const set: cache.ChannelListener<ReturnType<typeof statusZ>> = {
-      channel: SET_CHANNEL_NAME,
-      schema: statusZ(),
-      onChange: (changed) =>
-        table.set(changed.key, (p) => {
-          const next = { ...p, ...changed };
-          const id = ontologyID(changed.key);
-          next.labels = label.cachedLabelsOf(relationships, labels, id);
-          return next;
-        }),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => table.delete(changed),
-    };
-    engine.addListeners(table, set, del);
-    return table;
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest,
+    });
+    this.client = client;
+    this.labelClient = labelClient;
+    this.engine = engine;
+    this.labels = labels;
+    this.ontology = ontologyStores;
+    this.store = store;
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
@@ -213,51 +219,10 @@ export class Client {
       checkForMultipleOrNoResults("Status", params, statuses, isSingle);
       return isSingle ? statuses[0] : statuses;
     }
-    if (isSingle)
-      return (await this.answers.single.retrieve(params.key)) as Status<DetailsSchema>;
-    return (await this.answers.request.retrieve(
-      normalizeRequest(params),
+    if (isSingle) return (await super.retrieve(params)) as Status<DetailsSchema>;
+    return (await super.retrieve(
+      params as MultiRetrieveParams,
     )) as Status<DetailsSchema>[];
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a status; every other shape delivers the matching
-   * statuses.
-   */
-  onChange(
-    params: SingleRetrieveParams,
-    handler: cache.ChangeHandler<Status>,
-  ): destructor.Destructor;
-  onChange(
-    params: MultiRetrieveParams,
-    handler: cache.ChangeHandler<Status[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveParams,
-    handler: cache.ChangeHandler<Status> | cache.ChangeHandler<Status[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(params.key, handler as cache.ChangeHandler<Status>);
-    return request.onChange(
-      normalizeRequest(params),
-      handler as cache.ChangeHandler<Status[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: SingleRetrieveParams): cache.Cached<Status> | undefined;
-  getCached(params: MultiRetrieveParams): cache.Cached<Status[]> | undefined;
-  getCached(
-    params: RetrieveParams,
-  ): cache.Cached<Status> | cache.Cached<Status[]> | undefined {
-    const { request, single } = this.answers;
-    if ("key" in params) return single.getCached(params.key);
-    return request.getCached(normalizeRequest(params));
   }
 
   async set<DetailsSchema extends z.ZodType>(
@@ -291,7 +256,7 @@ export class Client {
     const stat = await this.retrieve({ key });
     const renamed = { ...stat, name };
     const rollback = new cache.Rollback();
-    rollback.add(this.store.set(renamed.key, renamed));
+    rollback.add(this.store.set(renamed));
     rollback.add(ontology.renameCachedResource(this.ontology, ontologyID(key), name));
     await opts.onOptimistic?.();
     await rollback.guard(async () => {
@@ -346,7 +311,7 @@ export class Client {
 
   /** Writes a fetched status and its included label relationships. */
   private writeThrough(status: Status): void {
-    this.store.set(status.key, status);
+    this.store.set(status);
     if (status.labels == null) return;
     this.labels.set(status.labels);
     const id = ontologyID(status.key);

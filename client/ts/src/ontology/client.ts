@@ -158,28 +158,76 @@ type Routed =
   | { space: "children" | "parents"; query: DependentRequest }
   | { space: "request"; query: NormalizedRequest };
 
+const createTables = (
+  engine: cache.Cache,
+  refetch: (keys: string[]) => Promise<Resource[]>,
+): Stores => {
+  const relationships = engine.createTable<string, Relationship>({
+    name: "relationships",
+    equal: (a, b) =>
+      idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
+  });
+  const relationshipSet: cache.ChannelListener<typeof relationshipZ> = {
+    channel: RELATIONSHIP_SET_CHANNEL_NAME,
+    schema: relationshipZ,
+    onChange: (changed) => relationships.set(relationshipToString(changed), changed),
+  };
+  const relationshipDelete: cache.ChannelListener<typeof relationshipZ> = {
+    channel: RELATIONSHIP_DELETE_CHANNEL_NAME,
+    schema: relationshipZ,
+    onChange: (changed) => relationships.delete(relationshipToString(changed)),
+  };
+  engine.addListeners(relationships, relationshipSet, relationshipDelete);
+
+  const resources = engine.createTable<string, Resource>({
+    name: "resources",
+    equal: (a, b) => deep.equal(a, b),
+    // Reconciliation refetches must bypass the query cache.
+    refetch,
+  });
+  const resourceSet: cache.ChannelListener<typeof resourceZ> = {
+    channel: RESOURCE_SET_CHANNEL_NAME,
+    schema: resourceZ,
+    onChange: (changed) =>
+      resources.set(changed.key, (p) => (p == null ? changed : { ...p, ...changed })),
+  };
+  const resourceDelete: cache.ChannelListener<typeof idZ> = {
+    channel: RESOURCE_DELETE_CHANNEL_NAME,
+    schema: idZ,
+    // The store is keyed by the full "type:key" string, not the bare key.
+    onChange: (changed) => resources.delete(idToString(changed)),
+  };
+  engine.addListeners(resources, resourceSet, resourceDelete);
+  return { relationships, resources };
+};
+
 /** The main client class for executing queries against a Synnax cluster ontology */
-export class Client {
+export class Client extends cache.Reader<
+  ID,
+  ID[] | RetrieveRequest,
+  string,
+  NormalizedRequest,
+  Resource
+> {
   readonly type: string = "ontology";
   /** The ontology tables injected into sibling domain clients at wiring. */
   readonly stores: Stores;
   private readonly client: UnaryClient;
   private readonly writer: Writer;
   private readonly answers: {
-    single: cache.Answers<string, Resource, string, Resource>;
-    request: cache.Answers<NormalizedRequest, Resource[], string, Resource>;
     children: cache.Answers<DependentRequest, Resource[], string, Resource>;
     parents: cache.Answers<DependentRequest, Resource[], string, Resource>;
   };
 
   constructor(unary: UnaryClient, engine: cache.Cache) {
-    this.client = unary;
-    this.writer = new Writer(unary);
-    this.stores = this.createTables(engine);
-    this.answers = {
+    const stores = createTables(
+      engine,
+      async (keys) => await this.execRetrieve({ ids: parseIDs(keys) }),
+    );
+    super({
       single: engine.answers({
         name: "resource",
-        table: this.resources,
+        table: stores.resources,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -187,55 +235,24 @@ export class Client {
       }),
       request: engine.answers({
         name: "resources",
-        table: this.resources,
+        table: stores.resources,
         fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
         compose: (records) => records,
         matches: (resource, query) => requestFilter(query)(resource),
         serverFields: REQUEST_SERVER_FIELDS,
       }),
+      isSingle: (params) => !Array.isArray(params) && "key" in params,
+      normalizeSingle: (params) => idToString(params),
+      normalizeRequest: (params) =>
+        normalizeRequest(Array.isArray(params) ? { ids: params } : params),
+    });
+    this.client = unary;
+    this.writer = new Writer(unary);
+    this.stores = stores;
+    this.answers = {
       children: this.dependentAnswers(engine, "children", "to"),
       parents: this.dependentAnswers(engine, "parents", "from"),
     };
-  }
-
-  private createTables(engine: cache.Cache): Stores {
-    const relationships = engine.createTable<string, Relationship>({
-      name: "relationships",
-      equal: (a, b) =>
-        idsEqual(a.from, b.from) && idsEqual(a.to, b.to) && a.type === b.type,
-    });
-    const relationshipSet: cache.ChannelListener<typeof relationshipZ> = {
-      channel: RELATIONSHIP_SET_CHANNEL_NAME,
-      schema: relationshipZ,
-      onChange: (changed) => relationships.set(relationshipToString(changed), changed),
-    };
-    const relationshipDelete: cache.ChannelListener<typeof relationshipZ> = {
-      channel: RELATIONSHIP_DELETE_CHANNEL_NAME,
-      schema: relationshipZ,
-      onChange: (changed) => relationships.delete(relationshipToString(changed)),
-    };
-    engine.addListeners(relationships, relationshipSet, relationshipDelete);
-
-    const resources = engine.createTable<string, Resource>({
-      name: "resources",
-      equal: (a, b) => deep.equal(a, b),
-      // Reconciliation refetches must bypass the query cache.
-      refetch: async (keys) => await this.execRetrieve({ ids: parseIDs(keys) }),
-    });
-    const resourceSet: cache.ChannelListener<typeof resourceZ> = {
-      channel: RESOURCE_SET_CHANNEL_NAME,
-      schema: resourceZ,
-      onChange: (changed) =>
-        resources.set(changed.key, (p) => (p == null ? changed : { ...p, ...changed })),
-    };
-    const resourceDelete: cache.ChannelListener<typeof idZ> = {
-      channel: RESOURCE_DELETE_CHANNEL_NAME,
-      schema: idZ,
-      // The store is keyed by the full "type:key" string, not the bare key.
-      onChange: (changed) => resources.delete(idToString(changed)),
-    };
-    engine.addListeners(resources, resourceSet, resourceDelete);
-    return { relationships, resources };
   }
 
   /** Read surface of the relationship cache. */
@@ -281,7 +298,7 @@ export class Client {
       return await this.routeRetrieve(ids);
     const parsedIDs = parseIDs(ids);
     if (!Array.isArray(ids) && isSingleCacheable(options))
-      return await this.answers.single.retrieve(idToString(parsedIDs[0]));
+      return await super.retrieve(parsedIDs[0]);
     const resources = await this.routeRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;
     if (resources.length === 0)
@@ -338,14 +355,10 @@ export class Client {
     handler: cache.ChangeHandler<Resource> | cache.ChangeHandler<Resource[]>,
   ): destructor.Destructor {
     if (!Array.isArray(params) && "key" in params)
-      return this.answers.single.onChange(
-        idToString(params),
-        handler as cache.ChangeHandler<Resource>,
-      );
+      return super.onChange(params, handler as cache.ChangeHandler<Resource>);
     const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
     const h = handler as cache.ChangeHandler<Resource[]>;
-    if (routed.space === "request")
-      return this.answers.request.onChange(routed.query, h);
+    if (routed.space === "request") return super.onChange(params, h);
     return this.answers[routed.space].onChange(routed.query, h);
   }
 
@@ -358,10 +371,9 @@ export class Client {
   getCached(
     params: ID | ID[] | RetrieveRequest,
   ): cache.Cached<Resource> | cache.Cached<Resource[]> | undefined {
-    if (!Array.isArray(params) && "key" in params)
-      return this.answers.single.getCached(idToString(params));
+    if (!Array.isArray(params) && "key" in params) return super.getCached(params);
     const routed = this.routeRequest(Array.isArray(params) ? { ids: params } : params);
-    if (routed.space === "request") return this.answers.request.getCached(routed.query);
+    if (routed.space === "request") return super.getCached(params);
     return this.answers[routed.space].getCached(routed.query);
   }
 
@@ -463,8 +475,7 @@ export class Client {
 
   private async routeRetrieve(request: RetrieveRequest): Promise<Resource[]> {
     const routed = this.routeRequest(request);
-    if (routed.space === "request")
-      return await this.answers.request.retrieve(routed.query);
+    if (routed.space === "request") return await super.retrieve(request);
     return await this.answers[routed.space].retrieve(routed.query);
   }
 

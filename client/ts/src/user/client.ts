@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, record } from "@synnaxlabs/x";
+import { array, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
@@ -80,12 +80,10 @@ const isSingleParams = (params: RetrieveParams): params is SingleParams =>
 const singleIdentifier = (params: SingleParams): string =>
   "key" in params ? `key ${params.key}` : `username ${params.username}`;
 
-const normalizeRequest = (
-  params: UsernamesRetrieveRequest | RetrieveRequest,
-): RetrieveRequest =>
+const normalizeRequest = (params: RetrieveParams): RetrieveRequest =>
   "usernames" in params && !("keys" in params)
     ? { usernames: params.usernames }
-    : params;
+    : (params as RetrieveRequest);
 
 const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[] } =>
   primitive.isNonZero(req.keys) && req.usernames == null;
@@ -102,27 +100,27 @@ const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
   };
 };
 
-export class Client {
+export class Client extends cache.Reader<
+  SingleParams,
+  RetrieveParams,
+  SingleParams,
+  RetrieveRequest,
+  User
+> {
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, User>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<SingleParams, User, Key, User>;
-    request: cache.Answers<RetrieveRequest, User[], Key, User>;
-  };
 
   constructor(
     client: UnaryClient,
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.store = engine.createTable<Key, User>({ name: "users" });
-    this.ontology = ontologyStores;
-    this.answers = {
+    const store = engine.createTable<Key, User>({ name: "users" });
+    super({
       single: engine.answers({
         name: "user",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((u) => u.key),
         compose: (records) => records[0],
         keyOf: (query) => ("key" in query ? query.key : null),
@@ -132,12 +130,18 @@ export class Client {
       }),
       request: engine.answers({
         name: "users",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((u) => u.key),
         compose: (records) => records,
         matches: (u, query) => requestFilter(query)(u),
       }),
-    };
+      isSingle: isSingleParams,
+      normalizeSingle: (params) => params,
+      normalizeRequest,
+    });
+    this.client = client;
+    this.store = store;
+    this.ontology = ontologyStores;
   }
 
   async create(user: New): Promise<User>;
@@ -163,55 +167,6 @@ export class Client {
     );
     this.mergeThrough(key, { username: newUsername });
     ontology.renameCachedResource(this.ontology, ontologyID(key), newUsername);
-  }
-
-  async retrieve(params: KeyRetrieveRequest): Promise<User>;
-  async retrieve(params: UsernameRetrieveRequest): Promise<User>;
-  async retrieve(params: RetrieveParams): Promise<User[]>;
-  async retrieve(params: RetrieveParams): Promise<User | User[]> {
-    if (isSingleParams(params)) return await this.answers.single.retrieve(params);
-    return await this.answers.request.retrieve(normalizeRequest(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a user; every other shape delivers the matching users.
-   */
-  onChange(
-    params: SingleParams,
-    handler: cache.ChangeHandler<User>,
-  ): destructor.Destructor;
-  onChange(
-    params: UsernamesRetrieveRequest | RetrieveRequest,
-    handler: cache.ChangeHandler<User[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveParams,
-    handler: cache.ChangeHandler<User> | cache.ChangeHandler<User[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if (isSingleParams(params))
-      return single.onChange(params, handler as cache.ChangeHandler<User>);
-    return request.onChange(
-      normalizeRequest(params),
-      handler as cache.ChangeHandler<User[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: SingleParams): cache.Cached<User> | undefined;
-  getCached(
-    params: UsernamesRetrieveRequest | RetrieveRequest,
-  ): cache.Cached<User[]> | undefined;
-  getCached(
-    params: RetrieveParams,
-  ): cache.Cached<User> | cache.Cached<User[]> | undefined {
-    const { request, single } = this.answers;
-    if (isSingleParams(params)) return single.getCached(params);
-    return request.getCached(normalizeRequest(params));
   }
 
   async rename(key: Key, firstName?: string, lastName?: string): Promise<void> {

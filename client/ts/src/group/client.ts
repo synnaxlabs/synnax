@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import z from "zod";
 
 import { cache } from "@/cache";
@@ -56,15 +56,33 @@ const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
     to: { type: "group" },
   });
 
-export class Client {
+const createTable = (engine: cache.Cache): cache.Table<Key, Group> => {
+  const table = engine.createTable<Key, Group>({ name: "groups" });
+  const set: cache.ChannelListener<typeof groupZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: groupZ,
+    onChange: (changed) => table.set(changed),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveChildrenParams,
+  Key,
+  ChildrenRequest,
+  Group
+> {
   client: UnaryClient;
   private readonly ontologyClient?: ontology.Client;
   private readonly store: cache.Table<Key, Group>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<Key, Group, Key, Group>;
-    children: cache.Answers<ChildrenRequest, Group[], Key, Group>;
-  };
 
   constructor(
     client: UnaryClient,
@@ -72,28 +90,25 @@ export class Client {
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.ontologyClient = ontologyClient;
-    this.store = this.createTable(engine);
-    this.ontology = ontologyStores;
-    this.answers = {
+    const store = createTable(engine);
+    super({
       single: engine.answers({
         name: "group",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((g) => g.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
         single: true,
       }),
-      children: engine.answers({
+      request: engine.answers({
         name: "groups",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchChildren(query)).map((g) => g.key),
         compose: (records) => records,
         matches: (group, query) => this.isCachedChild(query.parent, group.key),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(this.ontology.relationships, (event, query: ChildrenRequest) => {
+          cache.watch(ontologyStores.relationships, (event, query: ChildrenRequest) => {
             const rel =
               event.variant === "set"
                 ? event.value
@@ -106,23 +121,14 @@ export class Client {
           await Promise.all(keys.map(async (key) => await this.fetchSingle(key)));
         },
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, Group> {
-    const table = engine.createTable<Key, Group>({ name: "groups" });
-    const set: cache.ChannelListener<typeof groupZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: groupZ,
-      onChange: (changed) => table.set(changed.key, changed),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => table.delete(changed),
-    };
-    engine.addListeners(table, set, del);
-    return table;
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest: (params) => retrieveChildrenParamsZ.parse(params),
+    });
+    this.client = client;
+    this.ontologyClient = ontologyClient;
+    this.store = store;
+    this.ontology = ontologyStores;
   }
 
   async create(params: CreateParams): Promise<Group> {
@@ -132,7 +138,7 @@ export class Client {
       createReqZ,
       resZ,
     );
-    this.store.set(res.group.key, res.group);
+    this.store.set(res.group);
     const rel: ontology.Relationship = {
       from: params.parent,
       type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
@@ -140,52 +146,6 @@ export class Client {
     };
     this.ontology.relationships.set(ontology.relationshipToString(rel), rel);
     return res.group;
-  }
-
-  async retrieve(params: RetrieveSingleParams): Promise<Group>;
-  async retrieve(params: RetrieveChildrenParams): Promise<Group[]>;
-  async retrieve(params: RetrieveParams): Promise<Group | Group[]> {
-    if ("key" in params) return await this.answers.single.retrieve(params.key);
-    return await this.answers.children.retrieve(retrieveChildrenParamsZ.parse(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a group; children queries deliver the matching groups.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<Group>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveChildrenParams,
-    handler: cache.ChangeHandler<Group[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveParams,
-    handler: cache.ChangeHandler<Group> | cache.ChangeHandler<Group[]>,
-  ): destructor.Destructor {
-    const { children, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(params.key, handler as cache.ChangeHandler<Group>);
-    return children.onChange(
-      retrieveChildrenParamsZ.parse(params),
-      handler as cache.ChangeHandler<Group[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: RetrieveSingleParams): cache.Cached<Group> | undefined;
-  getCached(params: RetrieveChildrenParams): cache.Cached<Group[]> | undefined;
-  getCached(
-    params: RetrieveParams,
-  ): cache.Cached<Group> | cache.Cached<Group[]> | undefined {
-    const { children, single } = this.answers;
-    if ("key" in params) return single.getCached(params.key);
-    return children.getCached(retrieveChildrenParamsZ.parse(params));
   }
 
   async rename(key: Key, name: string, opts: cache.WriteOptions = {}): Promise<void> {
@@ -252,7 +212,7 @@ export class Client {
     const cached = this.store.get(query);
     if (cached != null) return cached;
     const group = await this.execRetrieveSingle(query);
-    this.store.set(group.key, group);
+    this.store.set(group);
     return group;
   }
 

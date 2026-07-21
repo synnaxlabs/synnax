@@ -17,6 +17,7 @@ export {
   type WatchEntry,
 } from "@/cache/answers";
 export { Cache, type CacheParams } from "@/cache/cache";
+export { Reader, type ReaderParams, type Reads } from "@/cache/reader";
 export { Rollback } from "@/cache/rollback";
 export {
   type ObservableStream,

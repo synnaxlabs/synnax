@@ -12,6 +12,7 @@ import { type CrudeTimeSpan, type destructor, state } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
+import { type flux } from "@/flux/aether";
 import {
   errorResult,
   type InitialStatusDetailsContainer,
@@ -26,60 +27,6 @@ import {
 import { useDebouncedCallback } from "@/hooks";
 import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
-
-export interface Verbs {
-  present: string;
-  past: string;
-  participle: string;
-}
-
-export const RENAME_VERBS: Verbs = {
-  present: "rename",
-  past: "renamed",
-  participle: "renaming",
-};
-
-export const DELETE_VERBS: Verbs = {
-  present: "delete",
-  past: "deleted",
-  participle: "deleting",
-};
-
-export const UPDATE_VERBS: Verbs = {
-  present: "update",
-  past: "updated",
-  participle: "updating",
-};
-
-export const CREATE_VERBS: Verbs = {
-  present: "create",
-  past: "created",
-  participle: "creating",
-};
-
-export const SNAPSHOT_VERBS: Verbs = {
-  present: "snapshot",
-  past: "snapshotted",
-  participle: "snapshotting",
-};
-
-export const COPY_VERBS: Verbs = {
-  present: "copy",
-  past: "copied",
-  participle: "copying",
-};
-
-export const SET_VERBS: Verbs = {
-  present: "set",
-  past: "set",
-  participle: "setting",
-};
-
-export const SAVE_VERBS: Verbs = {
-  present: "save",
-  past: "saved",
-  participle: "saving",
-};
 
 export interface UpdateParams<
   Input extends cache.Data,
@@ -100,7 +47,7 @@ export type CreateUpdateParams<
   AllowDisconnected extends boolean = false,
 > = {
   name: string;
-  verbs: Verbs;
+  verbs: flux.Verbs;
   update: (
     params: UpdateParams<Input, Output, StatusDetails, AllowDisconnected>,
   ) => Promise<Output | false>;

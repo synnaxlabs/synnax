@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import z from "zod";
 
 import { cache } from "@/cache";
@@ -71,29 +71,51 @@ const isKeysOnly = (req: RetrieveRequest): req is RetrieveRequest & { keys: Key[
   req.limit == null &&
   req.offset == null;
 
-export class Client {
+const createTable = (
+  engine: cache.Cache,
+  refetch: (keys: Key[]) => Promise<Label[]>,
+): cache.Table<Key, Label> => {
+  const table = engine.createTable<Key, Label>({ name: "labels", refetch });
+  const set: cache.ChannelListener<typeof labelZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: labelZ,
+    onChange: table.set.bind(table),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: table.delete.bind(table),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  Key,
+  RetrieveRequest,
+  Label
+> {
   readonly type: string = "label";
   /** The label record table; injected into sibling clients at wiring. */
   readonly store: cache.Table<Key, Label>;
   private readonly client: UnaryClient;
   private readonly relationships: cache.Table<string, ontology.Relationship>;
-  private readonly answers: {
-    single: cache.Answers<Key, Label, Key, Label>;
-    request: cache.Answers<RetrieveRequest, Label[], Key, Label>;
-  };
 
   constructor(
     client: UnaryClient,
     engine: cache.Cache,
     relationships: cache.Table<string, ontology.Relationship>,
   ) {
-    this.client = client;
-    this.relationships = relationships;
-    this.store = this.createTable(engine);
-    this.answers = {
+    const store = createTable(
+      engine,
+      async (keys) => await this.execRetrieve({ keys }),
+    );
+    super({
       single: engine.answers({
         name: "label",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((l) => l.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -101,13 +123,13 @@ export class Client {
       }),
       request: engine.answers({
         name: "labels",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((l) => l.key),
         compose: (records) => records,
         matches: (label, query) => this.requestFilter(query)(label),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(this.relationships, (event, query: RetrieveRequest) => {
+          cache.watch(relationships, (event, query: RetrieveRequest) => {
             if (query.for == null) return null;
             const rel =
               event.variant === "set"
@@ -121,73 +143,13 @@ export class Client {
           await this.fetchKeys(keys);
         },
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, Label> {
-    const table = engine.createTable<Key, Label>({
-      name: "labels",
-      refetch: async (keys) => await this.execRetrieve({ keys }),
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest,
     });
-    const set: cache.ChannelListener<typeof labelZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: labelZ,
-      onChange: table.set.bind(table),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: table.delete.bind(table),
-    };
-    engine.addListeners(table, set, del);
-    return table;
-  }
-
-  async retrieve(params: RetrieveSingleParams): Promise<Label>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Label[]>;
-  async retrieve(params: RetrieveParams): Promise<Label | Label[]> {
-    const isSingle = "key" in params;
-    if (isSingle) return await this.answers.single.retrieve(params.key);
-    return await this.answers.request.retrieve(normalizeRequest(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a label; every other shape delivers the matching labels.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<Label>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveMultipleParams,
-    handler: cache.ChangeHandler<Label[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveParams,
-    handler: cache.ChangeHandler<Label> | cache.ChangeHandler<Label[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(params.key, handler as cache.ChangeHandler<Label>);
-    return request.onChange(
-      normalizeRequest(params),
-      handler as cache.ChangeHandler<Label[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: RetrieveSingleParams): cache.Cached<Label> | undefined;
-  getCached(params: RetrieveMultipleParams): cache.Cached<Label[]> | undefined;
-  getCached(
-    params: RetrieveParams,
-  ): cache.Cached<Label> | cache.Cached<Label[]> | undefined {
-    const { request, single } = this.answers;
-    if ("key" in params) return single.getCached(params.key);
-    return request.getCached(normalizeRequest(params));
+    this.client = client;
+    this.relationships = relationships;
+    this.store = store;
   }
 
   async label(id: ontology.ID, labels: Key[], opts: SetOptions = {}): Promise<void> {

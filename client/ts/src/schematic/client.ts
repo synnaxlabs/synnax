@@ -77,16 +77,18 @@ const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
   return (s) => keySet == null || keySet.has(s.key);
 };
 
-export class Client {
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  Key,
+  RetrieveRequest,
+  Schematic
+> {
   readonly symbols: symbol.Client;
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, Schematic>;
   private readonly ontology: ontology.Stores;
   private readonly dispatcher: dispatch.Controller<Key, Schematic, Action>;
-  private readonly answers: {
-    single: cache.Answers<Key, Schematic, Key, Schematic>;
-    request: cache.Answers<RetrieveRequest, Schematic[], Key, Schematic>;
-  };
 
   constructor(
     client: UnaryClient,
@@ -94,11 +96,9 @@ export class Client {
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.symbols = new symbol.Client(client, ontologyClient, engine, ontologyStores);
-    this.store = engine.createTable<Key, Schematic>({ name: "schematics" });
-    this.dispatcher = new dispatch.Controller<Key, Schematic, Action>({
-      store: this.store,
+    const store = engine.createTable<Key, Schematic>({ name: "schematics" });
+    const dispatcher = new dispatch.Controller<Key, Schematic, Action>({
+      store,
       onError: engine.onError,
       reduce: reduceAll,
       kindOf,
@@ -106,18 +106,17 @@ export class Client {
     const del: cache.ChannelListener<typeof keyZ> = {
       channel: DELETE_CHANNEL_NAME,
       schema: keyZ,
-      onChange: (changed) => this.store.delete(changed),
+      onChange: (changed) => store.delete(changed),
     };
     engine.addListeners(
-      this.store,
+      store,
       del,
-      this.dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
+      dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
     );
-    this.ontology = ontologyStores;
-    this.answers = {
+    super({
       single: engine.answers({
         name: "schematic",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((s) => s.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -125,12 +124,20 @@ export class Client {
       }),
       request: engine.answers({
         name: "schematics",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
         compose: (records) => records,
         matches: (schematic, query) => requestFilter(query)(schematic),
       }),
-    };
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest: (params) => retrieveReqZ.parse(params),
+    });
+    this.client = client;
+    this.symbols = new symbol.Client(client, ontologyClient, engine, ontologyStores);
+    this.store = store;
+    this.dispatcher = dispatcher;
+    this.ontology = ontologyStores;
   }
 
   async create(
@@ -251,56 +258,6 @@ export class Client {
     );
   }
 
-  async retrieve(params: RetrieveSingleParams): Promise<Schematic>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Schematic[]>;
-  async retrieve(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<Schematic | Schematic[]> {
-    const isSingle = "key" in params;
-    if (isSingle) return await this.answers.single.retrieve(params.key);
-    return await this.answers.request.retrieve(retrieveReqZ.parse(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a schematic; every other shape delivers the matching
-   * schematics.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<Schematic>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveMultipleParams,
-    handler: cache.ChangeHandler<Schematic[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-    handler: cache.ChangeHandler<Schematic> | cache.ChangeHandler<Schematic[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(params.key, handler as cache.ChangeHandler<Schematic>);
-    return request.onChange(
-      retrieveReqZ.parse(params),
-      handler as cache.ChangeHandler<Schematic[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: RetrieveSingleParams): cache.Cached<Schematic> | undefined;
-  getCached(params: RetrieveMultipleParams): cache.Cached<Schematic[]> | undefined;
-  getCached(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): cache.Cached<Schematic> | cache.Cached<Schematic[]> | undefined {
-    const { request, single } = this.answers;
-    if ("key" in params) return single.getCached(params.key);
-    return request.getCached(retrieveReqZ.parse(params));
-  }
-
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
     const rollback = new cache.Rollback();
@@ -322,7 +279,7 @@ export class Client {
 
   async copy(params: CopyParams): Promise<Schematic> {
     const res = await this.client.send("/schematic/copy", params, copyReqZ, copyResZ);
-    this.store.set(res.schematic.key, res.schematic);
+    this.store.set(res.schematic);
     return res.schematic;
   }
 

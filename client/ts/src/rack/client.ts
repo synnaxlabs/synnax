@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, TimeStamp } from "@synnaxlabs/x";
+import { array, primitive, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
@@ -141,16 +141,36 @@ const affectedRackKeys = (
   return parsed.success ? [parsed.data] : null;
 };
 
-export class Client {
+const createTable = (
+  engine: cache.Cache,
+): cache.Table<Key, Omit<Payload, "status">> => {
+  const table = engine.createTable<Key, Omit<Payload, "status">>({ name: "racks" });
+  const set: cache.ChannelListener<typeof payloadZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: payloadZ,
+    onChange: ({ status: _, ...rack }) => table.set(rack),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  SingleQuery,
+  RetrieveRequest,
+  Rack
+> {
   private readonly client: UnaryClient;
   private readonly tasks: task.Client;
   private readonly store: cache.Table<Key, Omit<Payload, "status">>;
   private readonly statusStore: cache.Table<status.Key, status.Status>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<SingleQuery, Rack, Key, Omit<Payload, "status">>;
-    request: cache.Answers<RetrieveRequest, Rack[], Key, Omit<Payload, "status">>;
-  };
 
   constructor(
     client: UnaryClient,
@@ -159,20 +179,16 @@ export class Client {
     statusStore: cache.Table<status.Key, status.Status>,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.tasks = taskClient;
-    this.statusStore = statusStore;
-    this.ontology = ontologyStores;
-    this.store = this.createTable(engine);
+    const store = createTable(engine);
     const statusWatch = <Q extends { includeStatus?: boolean }>() =>
-      cache.watch(this.statusStore, (event, query: Q) => {
+      cache.watch(statusStore, (event, query: Q) => {
         if (query.includeStatus !== true) return null;
         return affectedRackKeys(event);
       });
-    this.answers = {
+    super({
       single: engine.answers({
         name: "rack",
-        table: this.store,
+        table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: ([record], query) =>
           this.compose(record, query.includeStatus === true),
@@ -184,7 +200,7 @@ export class Client {
       }),
       request: engine.answers({
         name: "racks",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
         compose: (records, query) =>
           records.map((r) => this.compose(r, query.includeStatus === true)),
@@ -192,23 +208,15 @@ export class Client {
         serverFields: SERVER_FIELDS,
         watch: [statusWatch<RetrieveRequest>()],
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, Omit<Payload, "status">> {
-    const table = engine.createTable<Key, Omit<Payload, "status">>({ name: "racks" });
-    const set: cache.ChannelListener<typeof payloadZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: payloadZ,
-      onChange: ({ status: _, ...rack }) => table.set(rack.key, rack),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => table.delete(changed),
-    };
-    engine.addListeners(table, set, del);
-    return table;
+      isSingle: isSingleParams,
+      normalizeSingle,
+      normalizeRequest: (params) => multiRetrieveParamsZ.parse(params),
+    });
+    this.client = client;
+    this.tasks = taskClient;
+    this.statusStore = statusStore;
+    this.ontology = ontologyStores;
+    this.store = store;
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
@@ -255,56 +263,6 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async retrieve(params: RetrieveSingleParams): Promise<Rack>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Rack[]>;
-  async retrieve(params: RetrieveParams): Promise<Rack | Rack[]> {
-    if (isSingleParams(params))
-      return await this.answers.single.retrieve(normalizeSingle(params));
-    return await this.answers.request.retrieve(multiRetrieveParamsZ.parse(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a rack; every other shape delivers the matching racks.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<Rack>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveMultipleParams,
-    handler: cache.ChangeHandler<Rack[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveParams,
-    handler: cache.ChangeHandler<Rack> | cache.ChangeHandler<Rack[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if (isSingleParams(params))
-      return single.onChange(
-        normalizeSingle(params),
-        handler as cache.ChangeHandler<Rack>,
-      );
-    return request.onChange(
-      multiRetrieveParamsZ.parse(params),
-      handler as cache.ChangeHandler<Rack[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: RetrieveSingleParams): cache.Cached<Rack> | undefined;
-  getCached(params: RetrieveMultipleParams): cache.Cached<Rack[]> | undefined;
-  getCached(
-    params: RetrieveParams,
-  ): cache.Cached<Rack> | cache.Cached<Rack[]> | undefined {
-    const { request, single } = this.answers;
-    if (isSingleParams(params)) return single.getCached(normalizeSingle(params));
-    return request.getCached(multiRetrieveParamsZ.parse(params));
-  }
-
   sugar(payload: Payload): Rack;
   sugar(payloads: Payload[]): Rack[];
   sugar(payloads: Payload | Payload[]): Rack | Rack[] {
@@ -345,7 +303,7 @@ export class Client {
   private writeThrough(racks: Payload[]): void {
     this.store.set(racks.map(stripStatus));
     racks.forEach(({ status: st }) => {
-      if (st != null) this.statusStore.set(st.key, st);
+      if (st != null) this.statusStore.set(st);
     });
   }
 

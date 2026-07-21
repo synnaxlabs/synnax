@@ -148,7 +148,13 @@ const affectedTaskKeys = (
   return keys.length === 0 ? null : keys;
 };
 
-export class Client {
+export class Client extends cache.Reader<
+  SingleRetrieveParams,
+  RetrieveRequest,
+  SingleRetrieveParams,
+  RetrieveRequest,
+  Arc
+> {
   private readonly client: UnaryClient;
   private readonly streamClient: StreamClient;
   private readonly dispatcher: dispatch.Controller<Key, Arc, Action>;
@@ -158,11 +164,12 @@ export class Client {
   private readonly statusStore: cache.Table<status.Key, status.Status>;
   private readonly taskStore: cache.Table<task.Key, Omit<task.Task, "status">>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<SingleRetrieveParams, Arc, Key, Arc>;
-    request: cache.Answers<RetrieveRequest, Arc[], Key, Arc>;
-    task: cache.Answers<Key, task.Task | null, task.Key, Omit<task.Task, "status">>;
-  };
+  private readonly taskAnswers: cache.Answers<
+    Key,
+    task.Task | null,
+    task.Key,
+    Omit<task.Task, "status">
+  >;
 
   constructor(
     client: UnaryClient,
@@ -172,16 +179,9 @@ export class Client {
     engine: cache.Cache,
     statusStore: cache.Table<status.Key, status.Status>,
   ) {
-    this.client = client;
-    this.streamClient = streamClient;
-    this.ontologyClient = ontologyClient;
-    this.taskClient = taskClient;
-    this.statusStore = statusStore;
-    this.taskStore = taskClient.store;
-    this.ontology = ontologyClient.stores;
-    this.store = engine.createTable<Key, Arc>({ name: "arcs" });
-    this.dispatcher = new dispatch.Controller<Key, Arc, Action>({
-      store: this.store,
+    const store = engine.createTable<Key, Arc>({ name: "arcs" });
+    const dispatcher = new dispatch.Controller<Key, Arc, Action>({
+      store,
       onError: engine.onError,
       reduce: reduceAll,
       isUndoable,
@@ -190,17 +190,17 @@ export class Client {
     const del: cache.ChannelListener<typeof keyZ> = {
       channel: DELETE_CHANNEL_NAME,
       schema: keyZ,
-      onChange: (changed) => this.store.delete(changed),
+      onChange: (changed) => store.delete(changed),
     };
     engine.addListeners(
-      this.store,
+      store,
       del,
-      this.dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
+      dispatcher.listener(SET_CHANNEL_NAME, scopedActionZ),
     );
-    this.answers = {
+    super({
       single: engine.answers({
         name: "arc",
-        table: this.store,
+        table: store,
         fetch: async (query) => [(await this.fetchSingle(query)).key],
         compose: ([record]) => record,
         keyOf: (query) => ("key" in query ? query.key : null),
@@ -210,45 +210,57 @@ export class Client {
       }),
       request: engine.answers({
         name: "arcs",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((a) => a.key),
         compose: (records) => records,
         matches: (a, query) => requestFilter(query)(a),
         serverFields: SERVER_FIELDS,
       }),
-      task: engine.answers({
-        name: "arc task",
-        table: this.taskStore,
-        fetch: async (query) => {
-          const tsk = await this.fetchTask(query);
-          return tsk == null ? [] : [tsk.key];
-        },
-        compose: (records) =>
-          records.length === 0 ? null : this.composeTask(records[0]),
-        matches: (t, query) =>
-          this.ontology.relationships.has(
-            ontology.relationshipToString({
-              from: ontologyID(query),
-              type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
-              to: task.ontologyID(t.key),
-            }),
-          ),
-        watch: [
-          cache.watch(this.ontology.relationships, (event, query: Key) => {
-            const rel =
-              event.variant === "set"
-                ? event.value
-                : ontology.relationshipZ.parse(event.key);
-            if (!isTaskChild(rel, query)) return null;
-            return [rel.to.key];
+      isSingle: isSingleParams,
+      normalizeSingle: (params) => params,
+      normalizeRequest: (params) => retrieveReqZ.parse(params),
+    });
+    this.client = client;
+    this.streamClient = streamClient;
+    this.ontologyClient = ontologyClient;
+    this.taskClient = taskClient;
+    this.statusStore = statusStore;
+    this.taskStore = taskClient.store;
+    this.ontology = ontologyClient.stores;
+    this.store = store;
+    this.dispatcher = dispatcher;
+    this.taskAnswers = engine.answers({
+      name: "arc task",
+      table: this.taskStore,
+      fetch: async (query) => {
+        const tsk = await this.fetchTask(query);
+        return tsk == null ? [] : [tsk.key];
+      },
+      compose: (records) =>
+        records.length === 0 ? null : this.composeTask(records[0]),
+      matches: (t, query) =>
+        this.ontology.relationships.has(
+          ontology.relationshipToString({
+            from: ontologyID(query),
+            type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+            to: task.ontologyID(t.key),
           }),
-          cache.watch(this.statusStore, (event) => affectedTaskKeys(event)),
-        ],
-        hydrate: async (keys) => {
-          await this.taskClient.retrieve({ keys });
-        },
-      }),
-    };
+        ),
+      watch: [
+        cache.watch(this.ontology.relationships, (event, query: Key) => {
+          const rel =
+            event.variant === "set"
+              ? event.value
+              : ontology.relationshipZ.parse(event.key);
+          if (!isTaskChild(rel, query)) return null;
+          return [rel.to.key];
+        }),
+        cache.watch(this.statusStore, (event) => affectedTaskKeys(event)),
+      ],
+      hydrate: async (keys) => {
+        await this.taskClient.retrieve({ keys });
+      },
+    });
   }
 
   async create(arc: CreateParams, opts?: cache.WriteOptions<Arc[]>): Promise<Arc>;
@@ -320,53 +332,15 @@ export class Client {
   }
 
   private async retrieveTask(key: Key): Promise<task.Task | null> {
-    return await this.answers.task.retrieve(key);
+    return await this.taskAnswers.retrieve(key);
   }
 
   async retrieve(params: SingleRetrieveParams): Promise<Arc>;
   async retrieve(params: RetrieveParams): Promise<Arc[]>;
   async retrieve(params: RetrieveParams): Promise<Arc | Arc[]> {
-    if (isSingleParams(params)) return await this.answers.single.retrieve(params);
-    return await this.answers.request.retrieve(retrieveReqZ.parse(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver an arc; every other shape delivers the matching arcs.
-   */
-  onChange(
-    params: SingleRetrieveParams,
-    handler: cache.ChangeHandler<Arc>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveRequest,
-    handler: cache.ChangeHandler<Arc[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveParams,
-    handler: cache.ChangeHandler<Arc> | cache.ChangeHandler<Arc[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if (isSingleParams(params))
-      return single.onChange(params, handler as cache.ChangeHandler<Arc>);
-    return request.onChange(
-      retrieveReqZ.parse(params),
-      handler as cache.ChangeHandler<Arc[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: SingleRetrieveParams): cache.Cached<Arc> | undefined;
-  getCached(params: RetrieveRequest): cache.Cached<Arc[]> | undefined;
-  getCached(
-    params: RetrieveParams,
-  ): cache.Cached<Arc> | cache.Cached<Arc[]> | undefined {
-    const { request, single } = this.answers;
-    if (isSingleParams(params)) return single.getCached(params);
-    return request.getCached(retrieveReqZ.parse(params));
+    // The branches narrow params onto different base overloads.
+    if (isSingleParams(params)) return await super.retrieve(params);
+    return await super.retrieve(params);
   }
 
   /**
@@ -379,7 +353,7 @@ export class Client {
     task.Key,
     Omit<task.Task, "status">
   > {
-    return this.answers.task;
+    return this.taskAnswers;
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {
@@ -505,7 +479,7 @@ export class Client {
     }
     const prev = this.store.get(a.key);
     if (prev != null && deep.equal(prev, a)) return prev;
-    this.store.set(a.key, a);
+    this.store.set(a);
     return a;
   }
 

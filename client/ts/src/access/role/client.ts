@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -112,27 +112,43 @@ const assignmentRel = (role: Key, userKey: user.Key): ontology.Relationship => (
   to: user.ontologyID(userKey),
 });
 
-export class Client {
+const createTable = (engine: cache.Cache): cache.Table<Key, Role> => {
+  const table = engine.createTable<Key, Role>({ name: "roles" });
+  const set: cache.ChannelListener<typeof roleZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: roleZ,
+    onChange: table.set.bind(table),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: table.delete.bind(table),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  Key,
+  RetrieveRequest,
+  Role
+> {
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, Role>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<Key, Role, Key, Role>;
-    request: cache.Answers<RetrieveRequest, Role[], Key, Role>;
-  };
 
   constructor(
     client: UnaryClient,
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.store = this.createTable(engine);
-    this.ontology = ontologyStores;
-    this.answers = {
+    const store = createTable(engine);
+    super({
       single: engine.answers({
         name: "role",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((r) => r.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -140,29 +156,19 @@ export class Client {
       }),
       request: engine.answers({
         name: "roles",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((r) => r.key),
         compose: (records) => records,
         matches: (role, query) => requestFilter(query)(role),
         serverFields: SERVER_FIELDS,
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, Role> {
-    const table = engine.createTable<Key, Role>({ name: "roles" });
-    const set: cache.ChannelListener<typeof roleZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: roleZ,
-      onChange: table.set.bind(table),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: table.delete.bind(table),
-    };
-    engine.addListeners(table, set, del);
-    return table;
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest,
+    });
+    this.client = client;
+    this.store = store;
+    this.ontology = ontologyStores;
   }
 
   async create(role: New): Promise<Role>;
@@ -177,53 +183,6 @@ export class Client {
     );
     this.store.set(res.roles);
     return isMany ? res.roles : res.roles[0];
-  }
-
-  async retrieve(params: RetrieveSingleParams): Promise<Role>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Role[]>;
-  async retrieve(params: RetrieveParams): Promise<Role | Role[]> {
-    const isSingle = "key" in params;
-    if (isSingle) return await this.answers.single.retrieve(params.key);
-    return await this.answers.request.retrieve(normalizeRequest(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a role; every other shape delivers the matching roles.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<Role>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveMultipleParams,
-    handler: cache.ChangeHandler<Role[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveParams,
-    handler: cache.ChangeHandler<Role> | cache.ChangeHandler<Role[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(params.key, handler as cache.ChangeHandler<Role>);
-    return request.onChange(
-      normalizeRequest(params),
-      handler as cache.ChangeHandler<Role[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: RetrieveSingleParams): cache.Cached<Role> | undefined;
-  getCached(params: RetrieveMultipleParams): cache.Cached<Role[]> | undefined;
-  getCached(
-    params: RetrieveParams,
-  ): cache.Cached<Role> | cache.Cached<Role[]> | undefined {
-    const { request, single } = this.answers;
-    if ("key" in params) return single.getCached(params.key);
-    return request.getCached(normalizeRequest(params));
   }
 
   async delete(params: DeleteParams, opts: cache.WriteOptions = {}): Promise<void> {

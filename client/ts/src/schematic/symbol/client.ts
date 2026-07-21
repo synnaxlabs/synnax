@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive, record } from "@synnaxlabs/x";
+import { array, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
@@ -88,15 +88,33 @@ const matchChildRel = (rel: ontology.Relationship, parent: ontology.ID): boolean
     to: { type: "schematic_symbol" },
   });
 
-export class Client {
+const createTable = (engine: cache.Cache): cache.Table<Key, Symbol> => {
+  const table = engine.createTable<Key, Symbol>({ name: "schematicSymbols" });
+  const set: cache.ChannelListener<typeof symbolZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: symbolZ,
+    onChange: (changed) => table.set(changed),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  Key,
+  RetrieveRequest,
+  Symbol
+> {
   private readonly client: UnaryClient;
   private readonly ontologyClient: ontology.Client;
   private readonly store: cache.Table<Key, Symbol>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<Key, Symbol, Key, Symbol>;
-    request: cache.Answers<RetrieveRequest, Symbol[], Key, Symbol>;
-  };
 
   constructor(
     client: UnaryClient,
@@ -104,14 +122,11 @@ export class Client {
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.ontologyClient = ontologyClient;
-    this.store = this.createTable(engine);
-    this.ontology = ontologyStores;
-    this.answers = {
+    const store = createTable(engine);
+    super({
       single: engine.answers({
         name: "schematic symbol",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((s) => s.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -119,13 +134,13 @@ export class Client {
       }),
       request: engine.answers({
         name: "schematic symbols",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((s) => s.key),
         compose: (records) => records,
         matches: (symbol, query) => this.requestFilter(query)(symbol),
         serverFields: SERVER_FIELDS,
         watch: [
-          cache.watch(this.ontology.relationships, (event, query: RetrieveRequest) => {
+          cache.watch(ontologyStores.relationships, (event, query: RetrieveRequest) => {
             if (query.parent == null) return null;
             const rel =
               event.variant === "set"
@@ -139,23 +154,14 @@ export class Client {
           await this.fetchKeys(keys);
         },
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, Symbol> {
-    const table = engine.createTable<Key, Symbol>({ name: "schematicSymbols" });
-    const set: cache.ChannelListener<typeof symbolZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: symbolZ,
-      onChange: (changed) => table.set(changed.key, changed),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => table.delete(changed),
-    };
-    engine.addListeners(table, set, del);
-    return table;
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest: (params) => retrieveRequestZ.parse(params),
+    });
+    this.client = client;
+    this.ontologyClient = ontologyClient;
+    this.store = store;
+    this.ontology = ontologyStores;
   }
 
   async create(options: CreateParams): Promise<Symbol>;
@@ -190,53 +196,6 @@ export class Client {
       emptyResZ,
     );
     this.mergeThrough(key, { name });
-  }
-
-  async retrieve(params: RetrieveSingleParams): Promise<Symbol>;
-  async retrieve(params: RetrieveMultipleParams): Promise<Symbol[]>;
-  async retrieve(params: RetrieveParams): Promise<Symbol | Symbol[]> {
-    const isSingle = "key" in params;
-    if (isSingle) return await this.answers.single.retrieve(params.key);
-    return await this.answers.request.retrieve(retrieveRequestZ.parse(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a symbol; every other shape delivers the matching symbols.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<Symbol>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveMultipleParams,
-    handler: cache.ChangeHandler<Symbol[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-    handler: cache.ChangeHandler<Symbol> | cache.ChangeHandler<Symbol[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(params.key, handler as cache.ChangeHandler<Symbol>);
-    return request.onChange(
-      retrieveRequestZ.parse(params),
-      handler as cache.ChangeHandler<Symbol[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: RetrieveSingleParams): cache.Cached<Symbol> | undefined;
-  getCached(params: RetrieveMultipleParams): cache.Cached<Symbol[]> | undefined;
-  getCached(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): cache.Cached<Symbol> | cache.Cached<Symbol[]> | undefined {
-    const { request, single } = this.answers;
-    if ("key" in params) return single.getCached(params.key);
-    return request.getCached(retrieveRequestZ.parse(params));
   }
 
   async delete(keys: Key | Key[], opts: cache.WriteOptions = {}): Promise<void> {

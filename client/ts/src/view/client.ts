@@ -76,27 +76,43 @@ const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
   };
 };
 
-export class Client {
+const createTable = (engine: cache.Cache): cache.Table<Key, View> => {
+  const table = engine.createTable<Key, View>({ name: "views" });
+  const set: cache.ChannelListener<typeof viewZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: viewZ,
+    onChange: (changed) => table.set(changed),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  RetrieveSingleParams,
+  RetrieveMultipleParams,
+  Key,
+  RetrieveRequest,
+  View
+> {
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, View>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<Key, View, Key, View>;
-    request: cache.Answers<RetrieveRequest, View[], Key, View>;
-  };
 
   constructor(
     client: UnaryClient,
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.ontology = ontologyStores;
-    this.store = this.createTable(engine);
-    this.answers = {
+    const store = createTable(engine);
+    super({
       single: engine.answers({
         name: "view",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((v) => v.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -104,78 +120,19 @@ export class Client {
       }),
       request: engine.answers({
         name: "views",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((v) => v.key),
         compose: (records) => records,
         matches: (view, query) => requestFilter(query)(view),
         serverFields: SERVER_FIELDS,
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, View> {
-    const table = engine.createTable<Key, View>({ name: "views" });
-    const set: cache.ChannelListener<typeof viewZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: viewZ,
-      onChange: (changed) => table.set(changed.key, changed),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => table.delete(changed),
-    };
-    engine.addListeners(table, set, del);
-    return table;
-  }
-
-  async retrieve(params: RetrieveSingleParams): Promise<View>;
-  async retrieve(params: RetrieveMultipleParams): Promise<View[]>;
-  async retrieve(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): Promise<View | View[]> {
-    const isSingle = "key" in params;
-    if (isSingle) return await this.answers.single.retrieve(params.key);
-    return await this.answers.request.retrieve(retrieveRequestZ.parse(params));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a view; every other shape delivers the matching views.
-   */
-  onChange(
-    params: RetrieveSingleParams,
-    handler: cache.ChangeHandler<View>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveMultipleParams,
-    handler: cache.ChangeHandler<View[]>,
-  ): destructor.Destructor;
-  onChange(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-    handler: cache.ChangeHandler<View> | cache.ChangeHandler<View[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if ("key" in params)
-      return single.onChange(params.key, handler as cache.ChangeHandler<View>);
-    return request.onChange(
-      retrieveRequestZ.parse(params),
-      handler as cache.ChangeHandler<View[]>,
-    );
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(params: RetrieveSingleParams): cache.Cached<View> | undefined;
-  getCached(params: RetrieveMultipleParams): cache.Cached<View[]> | undefined;
-  getCached(
-    params: RetrieveSingleParams | RetrieveMultipleParams,
-  ): cache.Cached<View> | cache.Cached<View[]> | undefined {
-    const { request, single } = this.answers;
-    if ("key" in params) return single.getCached(params.key);
-    return request.getCached(retrieveRequestZ.parse(params));
+      isSingle: (params) => "key" in params,
+      normalizeSingle: ({ key }) => key,
+      normalizeRequest: (params) => retrieveRequestZ.parse(params),
+    });
+    this.client = client;
+    this.ontology = ontologyStores;
+    this.store = store;
   }
 
   async create(view: New): Promise<View>;

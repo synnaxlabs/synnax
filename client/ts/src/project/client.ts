@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, type destructor, primitive, record } from "@synnaxlabs/x";
+import { array, caseconv, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { cache } from "@/cache";
@@ -68,27 +68,43 @@ const requestFilter = (req: RetrieveRequest): ((p: Project) => boolean) => {
 const toRequest = (params: Key[] | RetrieveRequest): RetrieveRequest =>
   retrieveReqZ.parse(Array.isArray(params) ? { keys: params } : params);
 
-export class Client {
+const createTable = (engine: cache.Cache): cache.Table<Key, Project> => {
+  const table = engine.createTable<Key, Project>({ name: "projects" });
+  const set: cache.ChannelListener<typeof projectZ> = {
+    channel: SET_CHANNEL_NAME,
+    schema: projectZ,
+    onChange: (changed) => table.set(changed),
+  };
+  const del: cache.ChannelListener<typeof keyZ> = {
+    channel: DELETE_CHANNEL_NAME,
+    schema: keyZ,
+    onChange: (changed) => table.delete(changed),
+  };
+  engine.addListeners(table, set, del);
+  return table;
+};
+
+export class Client extends cache.Reader<
+  Key,
+  Key[] | RetrieveRequest,
+  Key,
+  RetrieveRequest,
+  Project
+> {
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, Project>;
   private readonly ontology: ontology.Stores;
-  private readonly answers: {
-    single: cache.Answers<Key, Project, Key, Project>;
-    request: cache.Answers<RetrieveRequest, Project[], Key, Project>;
-  };
 
   constructor(
     client: UnaryClient,
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    this.client = client;
-    this.ontology = ontologyStores;
-    this.store = this.createTable(engine);
-    this.answers = {
+    const store = createTable(engine);
+    super({
       single: engine.answers({
         name: "project",
-        table: this.store,
+        table: store,
         fetch: async (query) => [await this.fetchSingle(query)].map((p) => p.key),
         compose: (records) => records[0],
         keyOf: (query) => query,
@@ -96,29 +112,19 @@ export class Client {
       }),
       request: engine.answers({
         name: "projects",
-        table: this.store,
+        table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
         compose: (records) => records,
         matches: (project, query) => requestFilter(query)(project),
         serverFields: SERVER_FIELDS,
       }),
-    };
-  }
-
-  private createTable(engine: cache.Cache): cache.Table<Key, Project> {
-    const table = engine.createTable<Key, Project>({ name: "projects" });
-    const set: cache.ChannelListener<typeof projectZ> = {
-      channel: SET_CHANNEL_NAME,
-      schema: projectZ,
-      onChange: (changed) => table.set(changed.key, changed),
-    };
-    const del: cache.ChannelListener<typeof keyZ> = {
-      channel: DELETE_CHANNEL_NAME,
-      schema: keyZ,
-      onChange: (changed) => table.delete(changed),
-    };
-    engine.addListeners(table, set, del);
-    return table;
+      isSingle: (params) => typeof params === "string",
+      normalizeSingle: (key) => key,
+      normalizeRequest: toRequest,
+    });
+    this.client = client;
+    this.ontology = ontologyStores;
+    this.store = store;
   }
 
   async create(project: New): Promise<Project>;
@@ -159,51 +165,6 @@ export class Client {
         ),
     );
     this.mergeThrough(key, { layout });
-  }
-
-  async retrieve(key: Key): Promise<Project>;
-  async retrieve(keys: Key[]): Promise<Project[]>;
-  async retrieve(req: RetrieveRequest): Promise<Project[]>;
-  async retrieve(keys: Key | Key[] | RetrieveRequest): Promise<Project | Project[]> {
-    const isSingle = typeof keys === "string";
-    if (isSingle) return await this.answers.single.retrieve(keys);
-    return await this.answers.request.retrieve(toRequest(keys));
-  }
-
-  /**
-   * Subscribes to changes in the cached answer to the given query. Single
-   * queries deliver a project; every other shape delivers the matching
-   * projects.
-   */
-  onChange(key: Key, handler: cache.ChangeHandler<Project>): destructor.Destructor;
-  onChange(keys: Key[], handler: cache.ChangeHandler<Project[]>): destructor.Destructor;
-  onChange(
-    req: RetrieveRequest,
-    handler: cache.ChangeHandler<Project[]>,
-  ): destructor.Destructor;
-  onChange(
-    keys: Key | Key[] | RetrieveRequest,
-    handler: cache.ChangeHandler<Project> | cache.ChangeHandler<Project[]>,
-  ): destructor.Destructor {
-    const { request, single } = this.answers;
-    if (typeof keys === "string")
-      return single.onChange(keys, handler as cache.ChangeHandler<Project>);
-    return request.onChange(toRequest(keys), handler as cache.ChangeHandler<Project[]>);
-  }
-
-  /**
-   * Returns the cached answer to the given query without touching the
-   * network, or undefined when nothing is cached.
-   */
-  getCached(key: Key): cache.Cached<Project> | undefined;
-  getCached(keys: Key[]): cache.Cached<Project[]> | undefined;
-  getCached(req: RetrieveRequest): cache.Cached<Project[]> | undefined;
-  getCached(
-    keys: Key | Key[] | RetrieveRequest,
-  ): cache.Cached<Project> | cache.Cached<Project[]> | undefined {
-    const { request, single } = this.answers;
-    if (typeof keys === "string") return single.getCached(keys);
-    return request.getCached(toRequest(keys));
   }
 
   async delete(key: Key, opts?: cache.WriteOptions): Promise<void>;
