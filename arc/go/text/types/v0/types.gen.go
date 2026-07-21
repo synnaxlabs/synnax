@@ -11,9 +11,7 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/arc/parser"
-)
+import "github.com/synnaxlabs/arc/parser"
 
 // Text is text-based Arc source code with optional parsed AST for compilation.
 type Text struct {

@@ -26,9 +26,7 @@
 // 10-step pipeline that produces executable IR from a visual graph.
 package graph
 
-import (
-	"github.com/synnaxlabs/arc/ir"
-)
+import "github.com/synnaxlabs/arc/ir"
 
 // Type aliases for IR types to avoid circular dependencies while maintaining
 // clean API boundaries.
