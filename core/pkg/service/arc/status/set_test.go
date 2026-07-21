@@ -244,184 +244,186 @@ var _ = Describe("Module", func() {
 	})
 })
 
-var _ = Describe("setNode.Next", func() {
-	var (
-		mod node.Factory
-		rep *recordingReporter
-	)
-	BeforeEach(func(ctx SpecContext) {
-		rep = &recordingReporter{}
-		mod = newModule(ctx, rep)
-	})
+var _ = Describe("setNode", func() {
+	Describe("Next", func() {
+		var (
+			mod node.Factory
+			rep *recordingReporter
+		)
+		BeforeEach(func(ctx SpecContext) {
+			rep = &recordingReporter{}
+			mod = newModule(ctx, rep)
+		})
 
-	build := func(ctx context.Context, keyOrName, message, variant string) (node.Node, *node.State) {
-		state, irNode := buildState(ctx, "set", setInputs(keyOrName, message, variant))
-		s := state.Node(irNode.Key)
-		n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s}))
-		return n, s
-	}
-
-	nodeCtx := func(ctx context.Context) node.Context {
-		return node.Context{Context: ctx, MarkChanged: func(int) {}}
-	}
-
-	It("Should upsert a new UUID-keyed row by name when none exists", func(ctx SpecContext) {
-		name := "next_new_" + uuid.NewString()
-		n, state := build(ctx, name, "All good", "success")
-		n.Next(nodeCtx(ctx))
-
-		out := *state.Output(0)
-		keys := telem.UnmarshalSeries[string](out)
-		Expect(keys).To(HaveLen(1))
-		newKey := keys[0]
-		MustSucceed(uuid.Parse(newKey))
-		Expect(newKey).ToNot(Equal(name))
-
-		var s status.Status[any]
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-		Expect(s.Key).To(Equal(newKey))
-		Expect(s.Name).To(Equal(name))
-		Expect(s.Variant).To(Equal(status.VariantSuccess))
-		Expect(s.Message).To(Equal("All good"))
-		Expect(s.Time).ToNot(BeZero())
-
-		outTime := *state.OutputTime(0)
-		Expect(outTime.Len()).To(Equal(int64(1)))
-	})
-
-	It("Should report a truthy output on success so a sequence step advances", func(ctx SpecContext) {
-		name := "next_truthy_" + uuid.NewString()
-		ok, _ := build(ctx, name, "msg", "info")
-		ok.Next(nodeCtx(ctx))
-		Expect(ok.IsOutputTruthy(0)).To(BeTrue())
-
-		failed, _ := build(ctx, "", "msg", "info")
-		failed.Next(nodeCtx(ctx))
-		Expect(failed.IsOutputTruthy(0)).To(BeFalse())
-	})
-
-	It("Should update an existing row by name (single match)", func(ctx SpecContext) {
-		name := "next_single_" + uuid.NewString()
-		existingKey := uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
-			Key: existingKey, Name: name, Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
-		})).To(Succeed())
-
-		n, _ := build(ctx, name, "updated", "warning")
-		n.Next(nodeCtx(ctx))
-
-		var s status.Status[any]
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](existingKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-		Expect(s.Variant).To(Equal(status.VariantWarning))
-		Expect(s.Message).To(Equal("updated"))
-	})
-
-	It("Should update an existing row by UUID key", func(ctx SpecContext) {
-		key := uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
-			Key: key, Name: "by_uuid", Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
-		})).To(Succeed())
-
-		n, state := build(ctx, key, "via uuid", "error")
-		n.Next(nodeCtx(ctx))
-
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{key}))
-
-		var s status.Status[any]
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&s).Exec(ctx, nil)).To(Succeed())
-		Expect(s.Variant).To(Equal(status.VariantError))
-		Expect(s.Message).To(Equal("via uuid"))
-	})
-
-	It("Should produce non-decreasing timestamps on successive Next calls", func(ctx SpecContext) {
-		name := "next_time_" + uuid.NewString()
-		n, state := build(ctx, name, "msg", "info")
-		nctx := nodeCtx(ctx)
-		n.Next(nctx)
-		first := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
-		n.Next(nctx)
-		second := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
-		Expect(second).To(BeNumerically(">=", first))
-	})
-
-	It("Should warn and not write when the variant is unknown", func(ctx SpecContext) {
-		name := "next_iv_" + uuid.NewString()
-		n, state := build(ctx, name, "msg", "not_a_real_variant")
-		n.Next(nodeCtx(ctx))
-
-		calls := rep.get()
-		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(status.VariantWarning))
-		Expect(calls[0].message).To(HavePrefix("status.set:"))
-		Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
-
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
-			Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
-
-		// On invalid variant, Output(0) carries a single empty-string sample.
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
-	})
-
-	It("Should reject upper-cased variants as case-sensitive", func(ctx SpecContext) {
-		name := "next_iv_case_" + uuid.NewString()
-		n, _ := build(ctx, name, "msg", "SUCCESS")
-		n.Next(nodeCtx(ctx))
-		calls := rep.get()
-		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
-	})
-
-	It("Should warn on multi-match, update the first match, and report the resolved key", func(ctx SpecContext) {
-		name := "next_multi_" + uuid.NewString()
-		k1, k2 := uuid.NewString(), uuid.NewString()
-		Expect(writer.Set(ctx, &status.Status[any]{
-			Key: k1, Name: name, Variant: status.VariantInfo, Message: "first", Time: telem.Now(),
-		})).To(Succeed())
-		Expect(writer.Set(ctx, &status.Status[any]{
-			Key: k2, Name: name, Variant: status.VariantInfo, Message: "second", Time: telem.Now(),
-		})).To(Succeed())
-
-		n, state := build(ctx, name, "now updated", "warning")
-		n.Next(nodeCtx(ctx))
-
-		calls := rep.get()
-		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(status.VariantWarning))
-		// Exact format: `status.set: multiple statuses named "name"; updated first match (<uuid>)`.
-		re := regexp.MustCompile(`^status\.set: multiple statuses named "[^"]+"; updated first match \([0-9a-f-]+\)$`)
-		Expect(re.MatchString(calls[0].message)).To(BeTrue(), "got: %q", calls[0].message)
-
-		resolvedRows := telem.UnmarshalSeries[string](*state.Output(0))
-		Expect(resolvedRows).To(HaveLen(1))
-		Expect(resolvedRows[0]).To(SatisfyAny(Equal(k1), Equal(k2)))
-
-		// Only one row picked up the new variant.
-		var rows []status.Status[any]
-		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](k1, k2)).Entries(&rows).Exec(ctx, nil)).To(Succeed())
-		warning, info := 0, 0
-		for _, r := range rows {
-			switch r.Variant {
-			case status.VariantWarning:
-				warning++
-			case status.VariantInfo:
-				info++
-			}
+		build := func(ctx context.Context, keyOrName, message, variant string) (node.Node, *node.State) {
+			state, irNode := buildState(ctx, "set", setInputs(keyOrName, message, variant))
+			s := state.Node(irNode.Key)
+			n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s}))
+			return n, s
 		}
-		Expect(warning).To(Equal(1))
-		Expect(info).To(Equal(1))
-	})
 
-	It("Should warn with a 'status.set:' prefix when the service returns an error", func(ctx SpecContext) {
-		// Empty keyOrName trips the service-side required-input validation guard.
-		n, state := build(ctx, "", "msg", "info")
-		n.Next(nodeCtx(ctx))
+		nodeCtx := func(ctx context.Context) node.Context {
+			return node.Context{Context: ctx, MarkChanged: func(int) {}}
+		}
 
-		calls := rep.get()
-		Expect(calls).To(HaveLen(1))
-		Expect(calls[0].variant).To(Equal(status.VariantWarning))
-		Expect(calls[0].message).To(HavePrefix("status.set:"))
+		It("Should upsert a new UUID-keyed row by name when none exists", func(ctx SpecContext) {
+			name := "next_new_" + uuid.NewString()
+			n, state := build(ctx, name, "All good", "success")
+			n.Next(nodeCtx(ctx))
 
-		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+			out := *state.Output(0)
+			keys := telem.UnmarshalSeries[string](out)
+			Expect(keys).To(HaveLen(1))
+			newKey := keys[0]
+			MustSucceed(uuid.Parse(newKey))
+			Expect(newKey).ToNot(Equal(name))
+
+			var s status.Status[any]
+			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](newKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+			Expect(s.Key).To(Equal(newKey))
+			Expect(s.Name).To(Equal(name))
+			Expect(s.Variant).To(Equal(status.VariantSuccess))
+			Expect(s.Message).To(Equal("All good"))
+			Expect(s.Time).ToNot(BeZero())
+
+			outTime := *state.OutputTime(0)
+			Expect(outTime.Len()).To(Equal(int64(1)))
+		})
+
+		It("Should report a truthy output on success so a sequence step advances", func(ctx SpecContext) {
+			name := "next_truthy_" + uuid.NewString()
+			ok, _ := build(ctx, name, "msg", "info")
+			ok.Next(nodeCtx(ctx))
+			Expect(ok.IsOutputTruthy(0)).To(BeTrue())
+
+			failed, _ := build(ctx, "", "msg", "info")
+			failed.Next(nodeCtx(ctx))
+			Expect(failed.IsOutputTruthy(0)).To(BeFalse())
+		})
+
+		It("Should update an existing row by name (single match)", func(ctx SpecContext) {
+			name := "next_single_" + uuid.NewString()
+			existingKey := uuid.NewString()
+			Expect(writer.Set(ctx, &status.Status[any]{
+				Key: existingKey, Name: name, Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
+			})).To(Succeed())
+
+			n, _ := build(ctx, name, "updated", "warning")
+			n.Next(nodeCtx(ctx))
+
+			var s status.Status[any]
+			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](existingKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("updated"))
+		})
+
+		It("Should update an existing row by UUID key", func(ctx SpecContext) {
+			key := uuid.NewString()
+			Expect(writer.Set(ctx, &status.Status[any]{
+				Key: key, Name: "by_uuid", Variant: status.VariantInfo, Message: "orig", Time: telem.Now(),
+			})).To(Succeed())
+
+			n, state := build(ctx, key, "via uuid", "error")
+			n.Next(nodeCtx(ctx))
+
+			Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{key}))
+
+			var s status.Status[any]
+			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+			Expect(s.Variant).To(Equal(status.VariantError))
+			Expect(s.Message).To(Equal("via uuid"))
+		})
+
+		It("Should produce non-decreasing timestamps on successive Next calls", func(ctx SpecContext) {
+			name := "next_time_" + uuid.NewString()
+			n, state := build(ctx, name, "msg", "info")
+			nctx := nodeCtx(ctx)
+			n.Next(nctx)
+			first := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+			n.Next(nctx)
+			second := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+			Expect(second).To(BeNumerically(">=", first))
+		})
+
+		It("Should warn and not write when the variant is unknown", func(ctx SpecContext) {
+			name := "next_iv_" + uuid.NewString()
+			n, state := build(ctx, name, "msg", "not_a_real_variant")
+			n.Next(nodeCtx(ctx))
+
+			calls := rep.get()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].variant).To(Equal(status.VariantWarning))
+			Expect(calls[0].message).To(HavePrefix("status.set:"))
+			Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
+
+			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](name)).
+				Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+
+			// On invalid variant, Output(0) carries a single empty-string sample.
+			Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		})
+
+		It("Should reject upper-cased variants as case-sensitive", func(ctx SpecContext) {
+			name := "next_iv_case_" + uuid.NewString()
+			n, _ := build(ctx, name, "msg", "SUCCESS")
+			n.Next(nodeCtx(ctx))
+			calls := rep.get()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].message).To(ContainSubstring("invalid status variant"))
+		})
+
+		It("Should warn on multi-match, update the first match, and report the resolved key", func(ctx SpecContext) {
+			name := "next_multi_" + uuid.NewString()
+			k1, k2 := uuid.NewString(), uuid.NewString()
+			Expect(writer.Set(ctx, &status.Status[any]{
+				Key: k1, Name: name, Variant: status.VariantInfo, Message: "first", Time: telem.Now(),
+			})).To(Succeed())
+			Expect(writer.Set(ctx, &status.Status[any]{
+				Key: k2, Name: name, Variant: status.VariantInfo, Message: "second", Time: telem.Now(),
+			})).To(Succeed())
+
+			n, state := build(ctx, name, "now updated", "warning")
+			n.Next(nodeCtx(ctx))
+
+			calls := rep.get()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].variant).To(Equal(status.VariantWarning))
+			// Exact format: `status.set: multiple statuses named "name"; updated first match (<uuid>)`.
+			re := regexp.MustCompile(`^status\.set: multiple statuses named "[^"]+"; updated first match \([0-9a-f-]+\)$`)
+			Expect(re.MatchString(calls[0].message)).To(BeTrue(), "got: %q", calls[0].message)
+
+			resolvedRows := telem.UnmarshalSeries[string](*state.Output(0))
+			Expect(resolvedRows).To(HaveLen(1))
+			Expect(resolvedRows[0]).To(SatisfyAny(Equal(k1), Equal(k2)))
+
+			// Only one row picked up the new variant.
+			var rows []status.Status[any]
+			Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](k1, k2)).Entries(&rows).Exec(ctx, nil)).To(Succeed())
+			warning, info := 0, 0
+			for _, r := range rows {
+				switch r.Variant {
+				case status.VariantWarning:
+					warning++
+				case status.VariantInfo:
+					info++
+				}
+			}
+			Expect(warning).To(Equal(1))
+			Expect(info).To(Equal(1))
+		})
+
+		It("Should warn with a 'status.set:' prefix when the service returns an error", func(ctx SpecContext) {
+			// Empty keyOrName trips the service-side required-input validation guard.
+			n, state := build(ctx, "", "msg", "info")
+			n.Next(nodeCtx(ctx))
+
+			calls := rep.get()
+			Expect(calls).To(HaveLen(1))
+			Expect(calls[0].variant).To(Equal(status.VariantWarning))
+			Expect(calls[0].message).To(HavePrefix("status.set:"))
+
+			Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+		})
 	})
 })
 

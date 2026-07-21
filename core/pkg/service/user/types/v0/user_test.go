@@ -19,60 +19,60 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ = Describe("DecodeMsgpack", func() {
-	It("Should decode new lowercase msgpack fields", func() {
-		original := v0.User{
-			Key:       uuid.New(),
-			Username:  "alice",
-			FirstName: "Alice",
-			LastName:  "Smith",
-			RootUser:  true,
-		}
-		data := MustSucceed(msgpack.Marshal(original))
-		var decoded v0.User
-		Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-		Expect(decoded.Key).To(Equal(original.Key))
-		Expect(decoded.Username).To(Equal("alice"))
-		Expect(decoded.FirstName).To(Equal("Alice"))
-		Expect(decoded.LastName).To(Equal("Smith"))
-		Expect(decoded.RootUser).To(BeTrue())
-	})
-
-	It("Should decode legacy uppercase msgpack fields", func() {
-		key := uuid.New()
-		legacy := struct {
-			Key      uuid.UUID
-			Username string
-		}{
-			Key:      key,
-			Username: "bob",
-		}
-		data := MustSucceed(msgpack.Marshal(legacy))
-		var decoded v0.User
-		Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-		Expect(decoded.Key).To(Equal(key))
-		Expect(decoded.Username).To(Equal("bob"))
-	})
-
-	It("Should decode mixed legacy and new fields", func() {
-		key := uuid.New()
-		mixed := map[string]any{
-			"Key":        key,
-			"username":   "charlie",
-			"first_name": "Charlie",
-			"last_name":  "Brown",
-		}
-		data := MustSucceed(msgpack.Marshal(mixed))
-		var decoded v0.User
-		Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-		Expect(decoded.Key).To(Equal(key))
-		Expect(decoded.Username).To(Equal("charlie"))
-		Expect(decoded.FirstName).To(Equal("Charlie"))
-		Expect(decoded.LastName).To(Equal("Brown"))
-	})
-})
-
 var _ = Describe("User", func() {
+	Describe("DecodeMsgpack", func() {
+		It("Should decode new lowercase msgpack fields", func() {
+			original := v0.User{
+				Key:       uuid.New(),
+				Username:  "alice",
+				FirstName: "Alice",
+				LastName:  "Smith",
+				RootUser:  true,
+			}
+			data := MustSucceed(msgpack.Marshal(original))
+			var decoded v0.User
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Key).To(Equal(original.Key))
+			Expect(decoded.Username).To(Equal("alice"))
+			Expect(decoded.FirstName).To(Equal("Alice"))
+			Expect(decoded.LastName).To(Equal("Smith"))
+			Expect(decoded.RootUser).To(BeTrue())
+		})
+
+		It("Should decode legacy uppercase msgpack fields", func() {
+			key := uuid.New()
+			legacy := struct {
+				Key      uuid.UUID
+				Username string
+			}{
+				Key:      key,
+				Username: "bob",
+			}
+			data := MustSucceed(msgpack.Marshal(legacy))
+			var decoded v0.User
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Key).To(Equal(key))
+			Expect(decoded.Username).To(Equal("bob"))
+		})
+
+		It("Should decode mixed legacy and new fields", func() {
+			key := uuid.New()
+			mixed := map[string]any{
+				"Key":        key,
+				"username":   "charlie",
+				"first_name": "Charlie",
+				"last_name":  "Brown",
+			}
+			data := MustSucceed(msgpack.Marshal(mixed))
+			var decoded v0.User
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Key).To(Equal(key))
+			Expect(decoded.Username).To(Equal("charlie"))
+			Expect(decoded.FirstName).To(Equal("Charlie"))
+			Expect(decoded.LastName).To(Equal("Brown"))
+		})
+	})
+
 	Describe("GorpKey", func() {
 		It("Should return the user's key", func() {
 			k := uuid.New()
