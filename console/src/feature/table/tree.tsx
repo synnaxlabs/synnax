@@ -7,18 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type Synnax as Client, table } from "@synnaxlabs/client";
-import {
-  Access,
-  Icon,
-  Menu,
-  Mosaic,
-  Status,
-  Synnax,
-  Table as Base,
-} from "@synnaxlabs/pluto";
+import { ontology, table } from "@synnaxlabs/client";
+import { Access, Icon, Menu, Mosaic, Table as Base } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { useExport } from "@/feature/table/export";
 import { Cluster } from "@/platform/cluster";
@@ -91,35 +82,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const loadTable = async (
-  client: Client,
-  { key }: ontology.ID,
-  openTab: Panel.OpenTab,
-) => {
-  const t = await client.tables.retrieve({ key });
-  openTab({ variant: "resource", resource: table.ontologyID(t.key) });
-};
-
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.use();
-  const openTab = Panel.useOpenTab();
-  const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      loadTable(client, resource.id, openTab).catch((e: unknown) =>
-        handleError(e, `Failed to select ${resource.name}`),
-      );
-    },
-    [client, openTab, handleError],
-  );
-};
-
 const TreeItem = Tree.createItem({
   type: "table",
   icon: <Icon.Table />,
   hasChildren: false,
-  useOnSelect,
+  useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });
