@@ -10,7 +10,7 @@
 package v0
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 )
 

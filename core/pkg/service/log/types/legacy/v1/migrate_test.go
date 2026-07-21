@@ -12,7 +12,7 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/types/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/types/legacy/v1"
 	"github.com/synnaxlabs/x/notation"

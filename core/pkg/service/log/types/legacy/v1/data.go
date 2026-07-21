@@ -10,7 +10,7 @@
 package v1
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
