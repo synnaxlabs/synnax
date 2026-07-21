@@ -26,11 +26,16 @@ import (
 )
 
 // MigrationConfig contains the dependencies needed by the Phase 2 migration.
+// MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
-	User     *user.Service
+	// User retrieves the users whose legacy permission flags are converted.
+	User *user.Service
+	// Ontology holds the user-role relationships the migration creates.
 	Ontology *ontology.Ontology
-	Role     *role.Service
-	Roles    builtin.ProvisionResult
+	// Role resolves the built-in roles assigned to migrated users.
+	Role *role.Service
+	// Roles is the set of provisioned built-in roles to assign.
+	Roles builtin.ProvisionResult
 }
 
 // Migration (Phase 2) reads the persisted user-to-policy mapping from KV

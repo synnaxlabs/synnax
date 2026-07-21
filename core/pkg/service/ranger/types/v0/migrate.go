@@ -25,12 +25,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
+	// Ontology is the cluster ontology; migrated ranges are re-parented in it.
 	Ontology *ontology.Ontology
-	Group    *group.Service
+	// Group is the group service the legacy range groups are folded into.
+	Group *group.Service
 	alamos.Instrumentation
 }
 
+// NewMigration returns the v0 migration, which swaps invalid time ranges
+// and folds legacy range groups into the group service.
 func NewMigration(cfg MigrationConfig) migrate.Migration {
 	return gorp.NewMigration(
 		"range_groups_1",
