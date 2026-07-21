@@ -16,18 +16,10 @@ import {
   type SynnaxParams,
 } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import {
-  Access,
-  Flux,
-  type Panel as PlutoPanel,
-  type Pluto,
-  Status,
-  Synnax,
-} from "@synnaxlabs/pluto";
+import { Access, Status, Synnax } from "@synnaxlabs/pluto";
 import { type aether, eraser } from "@synnaxlabs/pluto/ether";
-import { deep, id, uuid } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import {
-  act,
   render,
   renderHook,
   type RenderHookOptions,
@@ -94,28 +86,6 @@ export const waitForFocusedTab = async (store: TestStore): Promise<string> =>
     if (focused == null) throw new Error("no tab focused");
     return focused;
   });
-
-/**
- * Seeds a single-leaf panel holding one resource tab for the given ontology ID into
- * the wrapper's flux store, so the panel scope hooks a mounted tab's content reads
- * (useSelectTabResource) resolve to it. Returns the keys to mount the content under.
- */
-export const createResourceTab = (
-  Wrapper: FC<PropsWithChildren>,
-  resource: ontology.ID,
-): { panelKey: string; tabKey: string } => {
-  const tabKey = uuid.create();
-  const doc = panel.panelZ.parse({
-    key: uuid.create(),
-    name: uniqueName("panel"),
-    root: { variant: "leaf", tabs: [{ variant: "resource", key: tabKey, resource }] },
-  });
-  const { result } = renderHook(() => Flux.useStore<PlutoPanel.FluxSubStore>(), {
-    wrapper: Wrapper,
-  });
-  act(() => void result.current.panels.set(doc));
-  return { panelKey: doc.key, tabKey };
-};
 
 /**
  * Polls until the active window's focused tab resolves to a tab in the selected
