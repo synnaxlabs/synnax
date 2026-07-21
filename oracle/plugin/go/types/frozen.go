@@ -253,7 +253,7 @@ func chainAliasMatches(owner, frozenSpec, candidateSpec, predDir string) bool {
 	dir := predDir
 	spec := frozenSpec
 	// Version chains are short; the bound only guards against cycles.
-	for hop := 0; hop < 32; hop++ {
+	for hop := range 32 {
 		m := chainAliasRe.FindStringSubmatch(spec)
 		if m == nil || m[1] != owner || m[3] != owner {
 			// The chain ended in a real definition: compare type specs. A

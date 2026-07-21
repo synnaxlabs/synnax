@@ -264,19 +264,17 @@ var _ = Describe("AliasSplit", func() {
 
 	analyzeTable := func(ctx context.Context, source string) *resolution.Table {
 		GinkgoHelper()
-		table, err := analyze(ctx, source, "test", testutil.NewMockFileLoader())
-		Expect(err).ToNot(HaveOccurred())
+		table := MustSucceed(analyze(ctx, source, "test", testutil.NewMockFileLoader()))
 		return table
 	}
 
 	It("Should use the latest snapshot declaring the predecessor version", func(ctx SpecContext) {
-		liveTable, err := analyze(ctx, `
+		liveTable := MustSucceed(analyze(ctx, `
 			@go output "out"
 			@go version 2
 			Stable struct { name string }
 			Grown  struct { value int32  extra string }
-		`, "test", loader)
-		Expect(err).ToNot(HaveOccurred())
+		`, "test", loader))
 		snapshots := map[int]string{
 			// v56 already declares the current version and cannot anchor.
 			56: `
@@ -311,12 +309,11 @@ var _ = Describe("AliasSplit", func() {
 	})
 
 	It("Should return nothing when no snapshot declares the predecessor", func(ctx SpecContext) {
-		liveTable, err := analyze(ctx, `
+		liveTable := MustSucceed(analyze(ctx, `
 			@go output "out"
 			@go version 2
 			Stable struct { name string }
-		`, "test", loader)
-		Expect(err).ToNot(HaveOccurred())
+		`, "test", loader))
 		split := MustSucceed(versioning.AliasSplit(
 			liveTable, 56,
 			func(int) (*resolution.Table, error) { return nil, nil },
@@ -325,12 +322,11 @@ var _ = Describe("AliasSplit", func() {
 	})
 
 	It("Should return nothing for paths at version zero", func(ctx SpecContext) {
-		liveTable, err := analyze(ctx, `
+		liveTable := MustSucceed(analyze(ctx, `
 			@go output "out"
 			@go version 0
 			Stable struct { name string }
-		`, "test", loader)
-		Expect(err).ToNot(HaveOccurred())
+		`, "test", loader))
 		split := MustSucceed(versioning.AliasSplit(
 			liveTable, 56,
 			func(version int) (*resolution.Table, error) {

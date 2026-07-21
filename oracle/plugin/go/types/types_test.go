@@ -2527,8 +2527,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 			}
 			return table, nil
 		}
-		resp, err := goPlugin.Generate(req)
-		Expect(err).ToNot(HaveOccurred())
+		resp := MustSucceed(goPlugin.Generate(req))
 		return resp
 	}
 
