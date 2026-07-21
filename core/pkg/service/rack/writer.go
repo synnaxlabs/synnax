@@ -39,9 +39,9 @@ type Writer struct {
 	table *gorp.Table[Key, Rack]
 }
 
-func resolveStatus(r *Rack) *status.Status[StatusDetails] {
+func resolveStatus(r *Rack) *Status {
 	if r.Status == nil {
-		return &status.Status[StatusDetails]{
+		return &Status{
 			Key:     r.Key.OntologyID().String(),
 			Name:    r.Name,
 			Time:    telem.Now(),
@@ -50,7 +50,7 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 			Details: StatusDetails{Rack: r.Key},
 		}
 	}
-	stat := status.Status[StatusDetails](*r.Status)
+	stat := *r.Status
 	stat.Key = r.Key.OntologyID().String()
 	stat.Details.Rack = r.Key
 	stat.Name = r.Name
@@ -63,10 +63,10 @@ func resolveStatus(r *Rack) *status.Status[StatusDetails] {
 // driver has already reported; it is only written when no row exists.
 func (w Writer) healStatus(
 	ctx context.Context,
-	stat *status.Status[StatusDetails],
+	stat *Status,
 ) error {
-	if exists, err := gorp.NewRetrieve[string, status.Status[StatusDetails]]().
-		Where(gorp.MatchKeys[string, status.Status[StatusDetails]](stat.Key)).
+	if exists, err := gorp.NewRetrieve[string, Status]().
+		Where(gorp.MatchKeys[string, Status](stat.Key)).
 		Exists(ctx, w.tx); err != nil || exists {
 		return err
 	}

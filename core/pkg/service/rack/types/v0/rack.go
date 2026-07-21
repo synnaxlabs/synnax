@@ -72,7 +72,7 @@ type Rack struct {
 	// Embedded is true when the rack runs the node's embedded driver.
 	Embedded bool `json:"embedded" msgpack:"embedded"`
 	// Status is the last known status of the rack, if any.
-	Status *status.Status[StatusDetails] `json:"status,omitempty" msgpack:"status,omitempty"`
+	Status *Status `json:"status,omitempty" msgpack:"status,omitempty"`
 	// Integrations are the driver integrations the rack supports.
 	Integrations []string `json:"integrations" msgpack:"integrations"`
 }
