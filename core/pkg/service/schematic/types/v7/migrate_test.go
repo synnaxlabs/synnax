@@ -57,9 +57,9 @@ func rawJSON(s string) json.RawMessage { return json.RawMessage(s) }
 func migrateSeed(ctx SpecContext, seed schematicv0.Schematic) schematicv1.Schematic {
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	MustSucceed(gorp.OpenTable(
-		ctx, gorp.TableConfig[uuid.UUID, schematicv0.Schematic]{DB: db},
+		ctx, gorp.TableConfig[schematicv0.Key, schematicv0.Schematic]{DB: db},
 	))
-	Expect(gorp.NewCreate[uuid.UUID, schematicv0.Schematic]().
+	Expect(gorp.NewCreate[schematicv0.Key, schematicv0.Schematic]().
 		Entry(&seed).Exec(ctx, db)).To(Succeed())
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,

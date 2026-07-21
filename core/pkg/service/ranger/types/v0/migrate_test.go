@@ -58,7 +58,7 @@ var _ = Describe("Migration", func() {
 		// This simulates the state of the DB before the range_groups migration
 		// was added.
 		bareTable := MustSucceed(gorp.OpenTable(
-			ctx, gorp.TableConfig[uuid.UUID, v0.Range]{DB: db},
+			ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db},
 		))
 
 		tx := db.OpenTx()
@@ -121,7 +121,7 @@ var _ = Describe("Migration", func() {
 		// There should be a new parent range named "Subgroup" whose time range
 		// is the union of r1 and r2.
 		var parentRange v0.Range
-		Expect(gorp.NewRetrieve[uuid.UUID, v0.Range]().
+		Expect(gorp.NewRetrieve[v0.Key, v0.Range]().
 			Where(gorp.Match(
 				func(_ gorp.Context, r *v0.Range) (bool, error) {
 					return r.Name == "Subgroup", nil

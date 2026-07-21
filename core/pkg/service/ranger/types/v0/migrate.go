@@ -52,7 +52,7 @@ func NewMigration(cfg MigrationConfig) migrate.Migration {
 			defer func() {
 				err = errors.Combine(err, iter.Close())
 			}()
-			rangeMap := make(map[uuid.UUID]Range)
+			rangeMap := make(map[Key]Range)
 			for iter.First(); iter.Valid(); iter.Next() {
 				rng := iter.Value(ctx)
 				if err = iter.Error(); err != nil {

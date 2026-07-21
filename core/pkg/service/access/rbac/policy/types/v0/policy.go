@@ -27,6 +27,8 @@ type Policy struct {
 
 var _ gorp.Entry[uuid.UUID] = Policy{}
 
+// GorpKey implements gorp.Entry.
 func (p Policy) GorpKey() uuid.UUID { return p.Key }
 
+// SetOptions implements gorp.Entry.
 func (Policy) SetOptions() []any { return nil }

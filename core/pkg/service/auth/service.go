@@ -27,8 +27,10 @@ type SecureCredentials struct {
 	Password []byte
 }
 
+// GorpKey implements gorp.Entry.
 func (s SecureCredentials) GorpKey() string { return s.Username }
 
+// SetOptions implements gorp.Entry.
 func (SecureCredentials) SetOptions() []any { return nil }
 
 // ServiceConfig is the configuration for opening a [Service].

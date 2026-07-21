@@ -63,3 +63,18 @@ var _ = Describe("Resource", func() {
 		})
 	})
 })
+
+var _ = Describe("Resource gorp entry", func() {
+	Describe("GorpKey", func() {
+		It("Should return the resource ID formatted as type:key", func() {
+			r := v0.Resource{ID: v0.ID{Type: "channel", Key: "qux"}}
+			Expect(r.GorpKey()).To(Equal("channel:qux"))
+		})
+	})
+
+	Describe("SetOptions", func() {
+		It("Should return no options", func() {
+			Expect(v0.Resource{}.SetOptions()).To(BeNil())
+		})
+	})
+})

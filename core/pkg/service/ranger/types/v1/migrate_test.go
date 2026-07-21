@@ -26,7 +26,7 @@ import (
 )
 
 var _ = Describe("v1 -> current Range migration", func() {
-	migrateColors := func(ctx SpecContext, seeds ...v0.Range) map[uuid.UUID]v1.Range {
+	migrateColors := func(ctx SpecContext, seeds ...v0.Range) map[v1.Key]v1.Range {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Range]{DB: db}))
 		for i := range seeds {
@@ -42,7 +42,7 @@ var _ = Describe("v1 -> current Range migration", func() {
 			Namespace:  "Range",
 			Migrations: append([]migrate.Migration{v0Applied}, v1.Migrations...),
 		})).To(Succeed())
-		out := make(map[uuid.UUID]v1.Range, len(seeds))
+		out := make(map[v1.Key]v1.Range, len(seeds))
 		for _, seed := range seeds {
 			var rng v1.Range
 			Expect(gorp.NewRetrieve[v1.Key, v1.Range]().
