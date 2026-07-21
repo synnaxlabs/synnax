@@ -11,6 +11,7 @@ package project
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/service/project/types"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -77,9 +78,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Project](ctx, gorp.TableConfig[Key, Project]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
 		DB:              cfg.DB,
-		Migrations:      migrations(cfg.Ontology),
+		Migrations:      types.Migrations(types.MigrationConfig{Ontology: cfg.Ontology}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

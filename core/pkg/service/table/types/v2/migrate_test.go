@@ -20,8 +20,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
-	"github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/table/types/v2"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/table/types/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/table/types/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -226,21 +226,18 @@ var _ = Describe("MigrateTable", func() {
 	// on-disk v0 → typed Table path is exercised end-to-end.
 	Describe("storage integration", func() {
 		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, table.Table] {
-			return MustOpen(gorp.OpenTable[uuid.UUID, table.Table](
+			return MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, table.Table]{
 					DB: db,
 					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v1.Table, table.Table](
-							"v55_lift_typed_table",
-							v2.MigrateTable,
-						),
+						gorp.NewEntryMigration("v55_lift_typed_table", v2.MigrateTable),
 					},
 				},
 			))
 		}
 
 		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v1.Table {
-			t := MustOpen(gorp.OpenTable[uuid.UUID, v1.Table](
+			t := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, v1.Table]{DB: db},
 			))
 			seed := v1.Table{Key: uuid.New(), Name: name, Data: jsonMap(body)}

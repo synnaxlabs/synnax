@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/rack/types/v2"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/gorp"
@@ -31,7 +31,7 @@ var _ = Describe("v1 -> current Rack migration", func() {
 	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v1.Key, v1.Rack](
+		v54Table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Rack]{DB: db},
 		))
 		seed := v1.Rack{
@@ -43,14 +43,11 @@ var _ = Describe("v1 -> current Rack migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[rack.Key, rack.Rack](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[v1.Key, rack.Key, v1.Rack, rack.Rack](
-						"v54_drop_status",
-						v2.MigrateRack,
-					),
+					gorp.NewEntryMigration("v54_drop_status", v2.MigrateRack),
 				},
 			},
 		))
@@ -69,7 +66,7 @@ var _ = Describe("v1 -> current Rack migration", func() {
 	It("drops Status and preserves core wire fields when v1 entries carry a populated Status", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v1.Key, v1.Rack](
+		v54Table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Rack]{DB: db},
 		))
 		key := v1.Key(0x0001_0002)
@@ -92,14 +89,11 @@ var _ = Describe("v1 -> current Rack migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[rack.Key, rack.Rack](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[rack.Key, rack.Rack]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[v1.Key, rack.Key, v1.Rack, rack.Rack](
-						"v54_drop_status",
-						v2.MigrateRack,
-					),
+					gorp.NewEntryMigration("v54_drop_status", v2.MigrateRack),
 				},
 			},
 		))

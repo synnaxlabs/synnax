@@ -13,18 +13,17 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
-	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	label "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/task/types/v2"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
-	telemv0 "github.com/synnaxlabs/x/telem/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,7 +31,7 @@ var _ = Describe("v1 -> current Task migration", func() {
 	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v1.Key, v1.Task](
+		v54Table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Task]{DB: db},
 		))
 		seed := v1.Task{
@@ -45,14 +44,11 @@ var _ = Describe("v1 -> current Task migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[task.Key, task.Task](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[task.Key, task.Task]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[v1.Key, task.Key, v1.Task, task.Task](
-						"v54_drop_status",
-						v2.MigrateTask,
-					),
+					gorp.NewEntryMigration("v54_drop_status", v2.MigrateTask),
 				},
 			},
 		))
@@ -72,7 +68,7 @@ var _ = Describe("v1 -> current Task migration", func() {
 	It("drops Status and preserves core wire fields when v1 entries carry a populated Status", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v1.Key, v1.Task](
+		v54Table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Task]{DB: db},
 		))
 		key := v1.Key(0x0000_0001_0000_00ab)
@@ -84,30 +80,27 @@ var _ = Describe("v1 -> current Task migration", func() {
 			Status: &v1.Status{
 				Key:         "task:" + uuid.NewString(),
 				Name:        "running",
-				Variant:     statusv1.VariantSuccess,
+				Variant:     status.VariantSuccess,
 				Message:     "task acquiring",
 				Description: "5 channels",
-				Time:        telemv0.TimeStamp(telem.Now()),
+				Time:        telem.TimeStamp(telem.Now()),
 				Details: v1.StatusDetails{
 					Task:    key,
 					Running: true,
 					Cmd:     "start",
 				},
-				Labels: []labelv0.Label{
+				Labels: []label.Label{
 					{Key: uuid.New(), Name: "active", Color: color.Color{G: 200, A: 1}},
 				},
 			},
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[task.Key, task.Task](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[task.Key, task.Task]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[v1.Key, task.Key, v1.Task, task.Task](
-						"v54_drop_status",
-						v2.MigrateTask,
-					),
+					gorp.NewEntryMigration("v54_drop_status", v2.MigrateTask),
 				},
 			},
 		))

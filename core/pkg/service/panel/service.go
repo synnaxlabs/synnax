@@ -13,6 +13,8 @@ import (
 	"context"
 	stdio "io"
 
+	"github.com/synnaxlabs/synnax/pkg/service/panel/types"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -75,9 +77,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg, state: actions.NewState[Key, Action]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[Key, Panel](ctx, gorp.TableConfig[Key, Panel]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Panel]{
 		DB:              cfg.DB,
-		Migrations:      migrations,
+		Migrations:      types.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -98,7 +100,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}); !ok(err, sig) {
 		return nil, err
 	}
-	deleteCfg := signals.GorpPublisherConfigUUID[Panel](s.table.Observe())
+	deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
 	deleteCfg.DisableSet = true
 	if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
 		return nil, err

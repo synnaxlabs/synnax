@@ -16,9 +16,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/device/types"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -28,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
@@ -117,20 +114,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
-	if s.table, err = gorp.OpenTable[Key, Device](ctx, gorp.TableConfig[Key, Device]{
-		DB: cfg.DB,
-		Migrations: []migrate.Migration{
-			v0Mig,
-			gorp.CodecMigration[Key, v1.Device]("msgpack_to_orc", v0Mig.Key()),
-			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[Key, Key, v1.Device, Device](
-					"v54_drop_status_parent",
-					v2.MigrateDevice,
-				),
-				"msgpack_to_orc",
-			),
-		},
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
+		DB:              cfg.DB,
+		Migrations:      types.Migrations(types.MigrationConfig{Status: cfg.Status}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

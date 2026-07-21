@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package panel_test
+package types_test
 
 import (
 	"context"
@@ -17,8 +17,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/panel/types"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	projecttypes "github.com/synnaxlabs/synnax/pkg/service/project/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -31,16 +32,16 @@ import (
 var _ = Describe("Project layout to panel migration", func() {
 	openPanelTable := func(
 		ctx context.Context, db *gorp.DB,
-	) *gorp.Table[panel.Key, panel.Panel] {
-		return MustOpen(gorp.OpenTable[panel.Key, panel.Panel](
-			ctx, gorp.TableConfig[panel.Key, panel.Panel]{
+	) *gorp.Table[types.Key, types.Panel] {
+		return MustOpen(gorp.OpenTable(
+			ctx, gorp.TableConfig[types.Key, types.Panel]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.CodecMigration[panel.Key, panel.Panel]("msgpack_to_orc"),
+					gorp.CodecMigration[types.Key, types.Panel]("msgpack_to_orc"),
 					migrate.WithAddedDeps(
 						gorp.NewMigration(
 							"v56_migrate_project_layouts_to_panels",
-							panel.MigrateProjectLayouts(),
+							types.MigrateProjectLayouts(),
 						),
 						"msgpack_to_orc",
 					),
@@ -55,10 +56,10 @@ var _ = Describe("Project layout to panel migration", func() {
 			return
 		}
 		blob := MustSucceed(json.Marshal(p.Layout))
-		Expect(db.Set(ctx, project.LegacyLayoutKVKey(p.Key), blob)).To(Succeed())
+		Expect(db.Set(ctx, projecttypes.LegacyLayoutKVKey(p.Key), blob)).To(Succeed())
 	}
 	seedResources := func(ctx context.Context, db *gorp.DB, ids ...ontology.ID) {
-		table := MustOpen(gorp.OpenTable[string, ontology.Resource](
+		table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, ontology.Resource]{DB: db},
 		))
 		for _, id := range ids {
@@ -66,44 +67,44 @@ var _ = Describe("Project layout to panel migration", func() {
 				Exec(ctx, db)).To(Succeed())
 		}
 	}
-	collectPanels := func(ctx context.Context, db *gorp.DB) []panel.Panel {
+	collectPanels := func(ctx context.Context, db *gorp.DB) []types.Panel {
 		seq, closer := MustSucceed2(
-			gorp.WrapReader[panel.Key, panel.Panel](db).OpenNexter(ctx),
+			gorp.WrapReader[types.Key, types.Panel](db).OpenNexter(ctx),
 		)
 		DeferClose(closer)
-		var out []panel.Panel
+		var out []types.Panel
 		for p := range seq {
 			out = append(out, p)
 		}
 		return out
 	}
-	findPanel := func(panels []panel.Panel, name string) panel.Panel {
+	findPanel := func(panels []types.Panel, name string) types.Panel {
 		for _, p := range panels {
 			if p.Name == name {
 				return p
 			}
 		}
 		Fail("no panel named " + name)
-		return panel.Panel{}
+		return types.Panel{}
 	}
 	// zeroTabKeys asserts every tab in the tree was assigned a fresh key and zeroes
 	// the keys so trees can be compared structurally.
-	var zeroTabKeys func(n *panel.Node)
-	zeroTabKeys = func(n *panel.Node) {
+	var zeroTabKeys func(n *types.Node)
+	zeroTabKeys = func(n *types.Node) {
 		if n == nil {
 			return
 		}
 		switch v := n.Variant.(type) {
-		case panel.NodeLeaf:
+		case types.NodeLeaf:
 			for i, t := range v.Tabs {
-				rt, ok := t.Variant.(panel.TabResource)
+				rt, ok := t.Variant.(types.TabResource)
 				Expect(ok).To(BeTrue())
 				Expect(rt.Key).ToNot(Equal(uuid.Nil))
 				rt.Key = uuid.Nil
-				v.Tabs[i] = panel.Tab{Variant: rt}
+				v.Tabs[i] = types.Tab{Variant: rt}
 			}
 			n.Variant = v
-		case panel.NodeSplit:
+		case types.NodeSplit:
 			zeroTabKeys(&v.First)
 			zeroTabKeys(&v.Last)
 			n.Variant = v
@@ -121,13 +122,13 @@ var _ = Describe("Project layout to panel migration", func() {
 			Where(gorp.MatchKeys[string, ontology.Relationship](r.GorpKey())).
 			Exists(ctx, db))
 	}
-	resourceTab := func(t ontology.ResourceType, key string) panel.Tab {
-		return panel.Tab{Variant: panel.TabResource{
+	resourceTab := func(t ontology.ResourceType, key string) types.Tab {
+		return types.Tab{Variant: types.TabResource{
 			Resource: ontology.ID{Type: t, Key: key},
 		}}
 	}
-	leaf := func(tabs ...panel.Tab) *panel.Node {
-		return &panel.Node{Variant: panel.NodeLeaf{Leaf: panel.Leaf{Tabs: tabs}}}
+	leaf := func(tabs ...types.Tab) *types.Node {
+		return &types.Node{Variant: types.NodeLeaf{Leaf: types.Leaf{Tabs: tabs}}}
 	}
 	mosaicTab := func(tabKey string) map[string]any {
 		return map[string]any{"tabKey": tabKey, "name": "Tab " + tabKey}
@@ -232,10 +233,10 @@ var _ = Describe("Project layout to panel migration", func() {
 
 		main := findPanel(panels, "Main")
 		zeroTabKeys(&main.Root)
-		Expect(main.Root).To(Equal(panel.Node{Variant: panel.NodeSplit{Split: panel.Split{
+		Expect(main.Root).To(Equal(types.Node{Variant: types.NodeSplit{Split: types.Split{
 			Direction: spatial.DirectionX,
 			Size:      0.25,
-			First: panel.Node{Variant: panel.NodeSplit{Split: panel.Split{
+			First: types.Node{Variant: types.NodeSplit{Split: types.Split{
 				Direction: spatial.DirectionY,
 				Size:      0.5,
 				First:     *leaf(resourceTab(ontology.ResourceTypeLineplot, lpKey)),
@@ -252,7 +253,7 @@ var _ = Describe("Project layout to panel migration", func() {
 
 		By("Defining an ontology resource and parent relationship for each panel")
 		for _, p := range panels {
-			panelID := panel.OntologyID(p.Key)
+			panelID := types.Panel{Key: p.Key}.OntologyID()
 			Expect(MustSucceed(gorp.NewRetrieve[string, ontology.Resource]().
 				Where(gorp.MatchKeys[string, ontology.Resource](panelID.String())).
 				Exists(ctx, db))).To(BeTrue())
@@ -261,7 +262,7 @@ var _ = Describe("Project layout to panel migration", func() {
 		}
 
 		By("Deleting the staging entry once it has been consumed")
-		Expect(db.Get(ctx, project.LegacyLayoutKVKey(projectKey))).Error().
+		Expect(db.Get(ctx, projecttypes.LegacyLayoutKVKey(projectKey))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 

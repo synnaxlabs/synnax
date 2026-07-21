@@ -69,7 +69,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[Key, Group](ctx, gorp.TableConfig[Key, Group]{
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Key, Group]{
 		DB:              cfg.DB,
 		Migrations:      types.Migrations,
 		Instrumentation: cfg.Instrumentation,

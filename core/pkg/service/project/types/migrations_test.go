@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package project_test
+package types_test
 
 import (
 	"context"
@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/types"
 	projectv0 "github.com/synnaxlabs/synnax/pkg/service/project/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
@@ -31,18 +31,18 @@ import (
 
 var _ = Describe("Workspace to project migration", func() {
 	migrations := []migrate.Migration{
-		gorp.CodecMigration[project.Key, projectv0.Workspace]("msgpack_to_orc"),
+		gorp.CodecMigration[types.Key, projectv0.Workspace]("msgpack_to_orc"),
 		migrate.WithAddedDeps(
 			gorp.NewMigration(
 				"v56_migrate_workspace_to_project",
-				project.MigrateWorkspaceToProject,
+				types.MigrateWorkspaceToProject,
 			),
 			"msgpack_to_orc",
 		),
 	}
-	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[project.Key, project.Project] {
-		return MustOpen(gorp.OpenTable[project.Key, project.Project](
-			ctx, gorp.TableConfig[project.Key, project.Project]{DB: db, Migrations: migrations},
+	openProjectTable := func(ctx context.Context, db *gorp.DB) *gorp.Table[types.Key, types.Project] {
+		return MustOpen(gorp.OpenTable[types.Key, types.Project](
+			ctx, gorp.TableConfig[types.Key, types.Project]{DB: db, Migrations: migrations},
 		))
 	}
 	rel := func(from, to ontology.ID) ontology.Relationship {
@@ -107,15 +107,15 @@ var _ = Describe("Workspace to project migration", func() {
 		projectTable := openProjectTable(ctx, db)
 
 		By("Lifting every workspace into a project with identical fields")
-		var pA project.Project
-		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[project.Key, project.Project](wsA)).
+		var pA types.Project
+		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[types.Key, types.Project](wsA)).
 			Entry(&pA).Exec(ctx, db)).To(Succeed())
-		Expect(pA).To(Equal(project.Project{
+		Expect(pA).To(Equal(types.Project{
 			Key:    wsA,
 			Name:   "Ops",
 			Layout: msgpack.EncodedJSON{"mosaic": "tree"},
 		}))
-		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[project.Key, project.Project](wsB)).
+		Expect(projectTable.NewRetrieve().Where(gorp.MatchKeys[types.Key, types.Project](wsB)).
 			Exists(ctx, db)).To(BeTrue())
 
 		By("Removing the legacy workspace records")
@@ -149,7 +149,7 @@ var _ = Describe("Workspace to project migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		// Opening the table runs the migration; it must succeed with nothing to lift.
 		Expect(openProjectTable(ctx, db).NewRetrieve().
-			Where(gorp.MatchKeys[project.Key, project.Project](uuid.New())).
+			Where(gorp.MatchKeys[types.Key, types.Project](uuid.New())).
 			Exists(ctx, db)).To(BeFalse())
 	})
 })
@@ -185,7 +185,7 @@ var _ = Describe("Remove author relationships migration", func() {
 
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		tx := db.OpenTx()
-		Expect(project.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
+		Expect(types.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
 		By("Deleting the author user-to-project relationship")
@@ -200,7 +200,7 @@ var _ = Describe("Remove author relationships migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		tx := db.OpenTx()
-		Expect(project.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
+		Expect(types.RemoveAuthorRelationships(ctx, tx, otg)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 	})
 })
@@ -208,33 +208,33 @@ var _ = Describe("Remove author relationships migration", func() {
 var _ = Describe("Project layout staging migration", func() {
 	It("Should stage each non-empty layout under its key and skip empty ones", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		table := MustOpen(gorp.OpenTable[project.Key, project.Project](
-			ctx, gorp.TableConfig[project.Key, project.Project]{DB: db},
+		table := MustOpen(gorp.OpenTable[types.Key, types.Project](
+			ctx, gorp.TableConfig[types.Key, types.Project]{DB: db},
 		))
 		withLayout := uuid.New()
 		layout := msgpack.EncodedJSON{"active": "plot-1", "pinned": true}
-		Expect(table.NewCreate().Entry(&project.Project{
+		Expect(table.NewCreate().Entry(&types.Project{
 			Key: withLayout, Name: "Ops", Layout: layout,
 		}).Exec(ctx, db)).To(Succeed())
 		empty := uuid.New()
-		Expect(table.NewCreate().Entry(&project.Project{
+		Expect(table.NewCreate().Entry(&types.Project{
 			Key: empty, Name: "Empty",
 		}).Exec(ctx, db)).To(Succeed())
 
 		tx := db.OpenTx()
-		Expect(project.MigrateLayoutsToStaging(ctx, tx, alamos.Instrumentation{})).
+		Expect(types.MigrateLayoutsToStaging(ctx, tx, alamos.Instrumentation{})).
 			To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 
 		By("Writing the layout blob under the project's staging key")
-		blob, closer := MustSucceed2(db.Get(ctx, project.LegacyLayoutKVKey(withLayout)))
+		blob, closer := MustSucceed2(db.Get(ctx, types.LegacyLayoutKVKey(withLayout)))
 		var got msgpack.EncodedJSON
 		Expect(json.Unmarshal(blob, &got)).To(Succeed())
 		Expect(closer.Close()).To(Succeed())
 		Expect(got).To(Equal(layout))
 
 		By("Leaving no staging entry for a project without a layout")
-		Expect(db.Get(ctx, project.LegacyLayoutKVKey(empty))).Error().
+		Expect(db.Get(ctx, types.LegacyLayoutKVKey(empty))).Error().
 			To(MatchError(query.ErrNotFound))
 	})
 })

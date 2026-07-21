@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package project
+package types
 
 import (
 	"context"
@@ -283,12 +283,19 @@ func RemoveAuthorRelationshipsMigration(otg *ontology.Ontology) migrate.Migratio
 	)
 }
 
-// migrations returns the ordered migration chain for stored projects.
-func migrations(otg *ontology.Ontology) []migrate.Migration {
+// MigrationConfig is the configuration for Migrations.
+type MigrationConfig struct {
+	// Ontology is the cluster ontology; the author-relationship cleanup runs
+	// against it.
+	Ontology *ontology.Ontology
+}
+
+// Migrations returns the ordered migration chain for stored projects.
+func Migrations(cfg MigrationConfig) []migrate.Migration {
 	return []migrate.Migration{
 		v1.CodecMigration,
 		WorkspaceToProjectMigration(),
 		LayoutsToStagingMigration(),
-		RemoveAuthorRelationshipsMigration(otg),
+		RemoveAuthorRelationshipsMigration(cfg.Ontology),
 	}
 }

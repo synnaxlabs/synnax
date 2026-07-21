@@ -14,8 +14,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
-	"github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/device/types/v2"
 	labelv0 "github.com/synnaxlabs/synnax/pkg/service/label/types/v0"
 	ontologyv0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
 	statusv1 "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
@@ -33,7 +33,7 @@ var _ = Describe("v1 -> current Device migration", func() {
 	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v1.Key, v1.Device](
+		v54Table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Device]{DB: db},
 		))
 		seed := v1.Device{
@@ -48,14 +48,11 @@ var _ = Describe("v1 -> current Device migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[device.Key, device.Device](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[device.Key, device.Device]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[device.Key, device.Key, v1.Device, device.Device](
-						"v54_drop_status_parent",
-						v2.MigrateDevice,
-					),
+					gorp.NewEntryMigration("v54_drop_status_parent", v2.MigrateDevice),
 				},
 			},
 		))
@@ -79,7 +76,7 @@ var _ = Describe("v1 -> current Device migration", func() {
 	It("drops Status and Parent and preserves core wire fields when v1 entries carry populated Status and Parent", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v1.Key, v1.Device](
+		v54Table := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v1.Key, v1.Device]{DB: db},
 		))
 		key := "DEV-SERIAL-002"
@@ -108,14 +105,11 @@ var _ = Describe("v1 -> current Device migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[device.Key, device.Device](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[device.Key, device.Device]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[device.Key, device.Key, v1.Device, device.Device](
-						"v54_drop_status_parent",
-						v2.MigrateDevice,
-					),
+					gorp.NewEntryMigration("v54_drop_status_parent", v2.MigrateDevice),
 				},
 			},
 		))

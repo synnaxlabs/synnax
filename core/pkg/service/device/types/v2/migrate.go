@@ -16,9 +16,27 @@ package v2
 import (
 	"context"
 
+	v0 "github.com/synnaxlabs/synnax/pkg/service/device/types/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/device/types/v1"
+	"github.com/synnaxlabs/x/gorp"
 )
 
 func MigrateDevice(ctx context.Context, old v1.Device) (Device, error) {
 	return AutoMigrateDevice(ctx, old)
 }
+
+// codecMigrationKey names the codec migration all later device migrations
+// depend on.
+const codecMigrationKey = "msgpack_to_orc"
+
+// CodecMigration re-encodes stored devices from msgpack to orc. It is pinned
+// to the v1 shapes so its output stays stable as Device evolves.
+var CodecMigration = gorp.CodecMigration[Key, v1.Device](
+	codecMigrationKey, v0.Migration(v0.MigrationConfig{}).Key(),
+)
+
+// Migration lifts stored devices from v1 to v2, dropping the persisted status
+// and parent fields.
+var Migration = gorp.NewEntryMigration[Key, Key, v1.Device, Device](
+	"v54_drop_status_parent", MigrateDevice, codecMigrationKey,
+)

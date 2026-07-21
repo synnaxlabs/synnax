@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package panel
+package types
 
 import (
 	"bytes"
@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/types/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
+	projecttypes "github.com/synnaxlabs/synnax/pkg/service/project/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
@@ -93,10 +93,10 @@ type stagedLayout struct {
 }
 
 // MigrateProjectLayouts returns a migration that converts the legacy layout blobs the
-// project migration stages under project.LegacyLayoutKVPrefix into panels, deleting
+// project migration stages under projecttypes.LegacyLayoutKVPrefix into panels, deleting
 // each staged entry as it is consumed, so this migration never reads the project
 // layout field directly. Every window mosaic that references at least one live
-// visualization document becomes a panel parented under the project. Tabs whose
+// visualization document becomes a panel parented under the projecttypes. Tabs whose
 // layout entry is missing, whose layout type has no backing document, or whose
 // document no longer exists are dropped; splits that lose a side collapse into the
 // surviving child. Blobs that cannot be parsed are skipped, since the Console wrote
@@ -126,7 +126,7 @@ func scanStagedLayouts(
 	tx gorp.Tx,
 	ins alamos.Instrumentation,
 ) (out []stagedLayout, err error) {
-	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(project.LegacyLayoutKVPrefix)))
+	iter, err := tx.OpenIterator(kv.IterPrefix([]byte(projecttypes.LegacyLayoutKVPrefix)))
 	if err != nil {
 		return nil, err
 	}
@@ -146,7 +146,7 @@ func scanStagedLayouts(
 			key: key,
 			projectID: ontology.ID{
 				Type: ontology.ResourceTypeProject,
-				Key:  strings.TrimPrefix(string(key), project.LegacyLayoutKVPrefix),
+				Key:  strings.TrimPrefix(string(key), projecttypes.LegacyLayoutKVPrefix),
 			},
 			slice: slice,
 		})
@@ -177,7 +177,7 @@ func createPanels(
 		if err := panelWriter.Set(ctx, pan); err != nil {
 			return err
 		}
-		panelID := OntologyID(pan.Key)
+		panelID := pan.OntologyID()
 		if err := resourceWriter.Set(ctx, ontology.Resource{ID: panelID}); err != nil {
 			return err
 		}
@@ -319,5 +319,5 @@ func ProjectLayoutsMigration() migrate.Migration {
 	)
 }
 
-// migrations is the ordered migration chain for stored panels.
-var migrations = []migrate.Migration{v0.CodecMigration, ProjectLayoutsMigration()}
+// Migrations is the ordered migration chain for stored panels.
+var Migrations = []migrate.Migration{v0.CodecMigration, ProjectLayoutsMigration()}

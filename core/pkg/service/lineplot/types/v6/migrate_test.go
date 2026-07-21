@@ -21,8 +21,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v6"
+	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v5"
+	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/types/v6"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -88,11 +88,11 @@ var _ = Describe("MigrateLinePlot", func() {
 	// on-disk v0 -> typed LinePlot path is exercised end-to-end.
 	Describe("storage integration", func() {
 		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, lineplot.LinePlot] {
-			return MustOpen(gorp.OpenTable[uuid.UUID, lineplot.LinePlot](
+			return MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, lineplot.LinePlot]{
 					DB: db,
 					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v5.LinePlot, lineplot.LinePlot](
+						gorp.NewEntryMigration(
 							"v55_lift_typed_lineplot",
 							v6.MigrateLinePlot,
 						),
@@ -102,7 +102,7 @@ var _ = Describe("MigrateLinePlot", func() {
 		}
 
 		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) v5.LinePlot {
-			t := MustOpen(gorp.OpenTable[uuid.UUID, v5.LinePlot](
+			t := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, v5.LinePlot]{DB: db},
 			))
 			seed := v5.LinePlot{Key: uuid.New(), Name: name, Data: jsonMap(body)}

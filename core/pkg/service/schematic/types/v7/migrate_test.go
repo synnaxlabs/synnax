@@ -140,11 +140,11 @@ var _ = Describe("MigrateSchematic", func() {
 	// on-disk v0 -> typed Schematic path is exercised end-to-end.
 	Describe("storage integration", func() {
 		openMigratedTable := func(ctx SpecContext, db *gorp.DB) *gorp.Table[uuid.UUID, schematic.Schematic] {
-			return MustOpen(gorp.OpenTable[uuid.UUID, schematic.Schematic](
+			return MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, schematic.Schematic]{
 					DB: db,
 					Migrations: []migrate.Migration{
-						gorp.NewEntryMigration[uuid.UUID, uuid.UUID, schematicv0.Schematic, schematic.Schematic](
+						gorp.NewEntryMigration(
 							"v55_lift_typed_schematic",
 							schematicv1.MigrateSchematic,
 						),
@@ -154,7 +154,7 @@ var _ = Describe("MigrateSchematic", func() {
 		}
 
 		seedV55 := func(ctx SpecContext, db *gorp.DB, name, body string) schematicv0.Schematic {
-			t := MustOpen(gorp.OpenTable[uuid.UUID, schematicv0.Schematic](
+			t := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[uuid.UUID, schematicv0.Schematic]{DB: db},
 			))
 			seed := schematicv0.Schematic{Key: uuid.New(), Name: name, Data: jsonMap(body)}
