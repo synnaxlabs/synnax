@@ -337,7 +337,7 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
-	Describe("Negative literal variable seeds", func() {
+	Describe("Negative literal variable initializers", func() {
 		chanFor := func(expected any) (types.Type, telem.DataType) {
 			switch expected.(type) {
 			case int8:
@@ -404,7 +404,7 @@ var _ = Describe("Sequence", func() {
 			Entry("f64", "f64", "-2.5", float64(-2.5)),
 		)
 
-		DescribeTable("Seeds the constant so a stage reading it never surfaces the zero value",
+		DescribeTable("Initializes the constant so a stage reading it never surfaces the zero value",
 			func(ctx SpecContext, lit string, want int64) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd": {types.U8(), 100},
@@ -428,7 +428,7 @@ var _ = Describe("Sequence", func() {
 				Expect(s).ToNot(BeEmpty(), "var channel not written")
 				for _, ser := range s {
 					for _, v := range telem.UnmarshalSeries[int64](ser) {
-						Expect(v).To(Equal(want), "seeded constant must not glitch through its zero value")
+						Expect(v).To(Equal(want), "initialized constant must not glitch through its zero value")
 					}
 				}
 			},
@@ -2861,7 +2861,7 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Stateful flow variables", func() {
-		It("Folds an unwritten stateful's seed into flow reads", func(ctx SpecContext) {
+		It("Folds an unwritten stateful's initial value into flow reads", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"out":       {types.U8(), 101},
@@ -2888,7 +2888,7 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 102)).To(Equal(uint8(10)))
 		})
 
-		It("Interpolates an unwritten stateful's seed", func(ctx SpecContext) {
+		It("Interpolates an unwritten stateful's initial value", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"out":       {types.String(), 101},
@@ -2948,8 +2948,8 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
-	Describe("Variable seeding on declaration", func() {
-		It("Seeds a variable declared in a sequence body", func(ctx SpecContext) {
+	Describe("Variable initialization on declaration", func() {
+		It("Initializes a variable declared in a sequence body", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"out":       {types.String(), 102},
@@ -2969,7 +2969,7 @@ var _ = Describe("Sequence", func() {
 			Expect(lastString(out, 102)).To(Equal("hello"))
 		})
 
-		It("Seeds a variable declared in a stage body", func(ctx SpecContext) {
+		It("Initializes a variable declared in a stage body", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"out":       {types.String(), 102},
@@ -2991,7 +2991,7 @@ var _ = Describe("Sequence", func() {
 			Expect(lastString(out, 102)).To(Equal("hello"))
 		})
 
-		It("Reflects a flow write to a seeded variable", func(ctx SpecContext) {
+		It("Reflects a flow write to an initialized variable", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"out":       {types.String(), 102},
@@ -3019,7 +3019,7 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence s {
-				    my_var := "seed"
+				    my_var := "initial"
 				    stage write {
 				        "updated" -> my_var
 				        my_var -> out
@@ -3233,7 +3233,7 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Variable reassignment", func() {
-		It("Reflects a reassignment to a seeded variable", func(ctx SpecContext) {
+		It("Reflects a reassignment to an initialized variable", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
 				"out":       {types.String(), 102},
@@ -3261,7 +3261,7 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence s {
-				    my_var := "seed"
+				    my_var := "initial"
 				    stage write {
 				        my_var = "updated"
 				        my_var -> out

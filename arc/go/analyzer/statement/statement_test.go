@@ -66,7 +66,7 @@ var _ = Describe("Statement", func() {
 				}),
 			)
 
-			DescribeTable("seeds a default value from a literal initializer",
+			DescribeTable("folds a default value from a literal initializer",
 				func(bCtx SpecContext, code string, expected any) {
 					stmt := MustSucceed(parser.ParseStatement(code))
 					ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
@@ -263,7 +263,7 @@ var _ = Describe("Statement", func() {
 					ContainSubstring("must be a literal value"))
 			})
 
-			It("accepts a negated-literal stateful seed", func(bCtx SpecContext) {
+			It("accepts a negated-literal stateful initializer", func(bCtx SpecContext) {
 				root := NewRoot(nil)
 				ctx := declareIn(bCtx, root, "total i64 $= -5")
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())

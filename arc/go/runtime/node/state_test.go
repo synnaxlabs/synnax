@@ -1578,7 +1578,7 @@ var _ = Describe("ProgramState", func() {
 				Functions: []graph.Function{{
 					Key: "generator",
 					Inputs: types.Params{
-						{Name: "seed", Type: types.I64(), Value: int64(42)},
+						{Name: "start", Type: types.I64(), Value: int64(42)},
 					},
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 				}},
@@ -1918,7 +1918,7 @@ var _ = Describe("ProgramState", func() {
 	})
 
 	Describe("InitInput", func() {
-		It("Should seed the input's source so the node fires", func(ctx SpecContext) {
+		It("Should populate the input's source so the node fires", func(ctx SpecContext) {
 			s := newLinkedState(ctx)
 			dst := s.Node("dst")
 			dst.InitInput(0, telem.NewSeriesV[int32](7), telem.NewSeriesSecondsTSV(5))

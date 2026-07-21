@@ -172,7 +172,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(byteCode).ToNot(BeEmpty())
 		})
 
-		It("Should fold a never-reassigned enclosing-scope variable to its seed", func(bCtx SpecContext) {
+		It("Should fold a never-reassigned enclosing-scope variable to its initial value", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
 				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
@@ -221,13 +221,13 @@ var _ = Describe("Identifier Compilation", func() {
 		})
 	})
 
-	Context("Seed Folding", func() {
-		DescribeTable("Should fold a never-reassigned enclosing-scope seed by type",
-			func(bCtx SpecContext, varType types.Type, seed any, expected []any) {
+	Context("Constant Folding", func() {
+		DescribeTable("Should fold a never-reassigned enclosing-scope initial value by type",
+			func(bCtx SpecContext, varType types.Type, value any, expected []any) {
 				ctx := NewContext(bCtx)
 				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
 					Name: "shared", Kind: symbol.KindVariable, Type: varType,
-					DefaultValue: seed,
+					DefaultValue: value,
 				}))
 				byteCode, exprType := compileWithCtx(ctx, "shared")
 				Expect(exprType).To(Equal(varType))
@@ -235,7 +235,7 @@ var _ = Describe("Identifier Compilation", func() {
 			},
 			Entry("i8", types.I8(), int8(5), []any{OpI32Const, int32(5)}),
 			Entry("i16", types.I16(), int16(-3), []any{OpI32Const, int32(-3)}),
-			Entry("i32 from a plain int seed", types.I32(), 7, []any{OpI32Const, int32(7)}),
+			Entry("i32 from a plain int", types.I32(), 7, []any{OpI32Const, int32(7)}),
 			Entry("u8", types.U8(), uint8(9), []any{OpI32Const, int32(9)}),
 			Entry("u16", types.U16(), uint16(10), []any{OpI32Const, int32(10)}),
 			Entry("u32", types.U32(), uint32(11), []any{OpI32Const, int32(11)}),
@@ -243,29 +243,29 @@ var _ = Describe("Identifier Compilation", func() {
 			Entry("u64", types.U64(), uint64(43), []any{OpI64Const, int64(43)}),
 			Entry("f32", types.F32(), float32(1.5), []any{OpF32Const, float32(1.5)}),
 			Entry("f64", types.F64(), 2.5, []any{OpF64Const, 2.5}),
-			Entry("f32 from an integer seed", types.F32(), int64(3), []any{OpF32Const, float32(3)}),
+			Entry("f32 from an integer", types.F32(), int64(3), []any{OpF32Const, float32(3)}),
 		)
 
-		DescribeTable("Should reject a seed whose value cannot fold",
-			func(bCtx SpecContext, varType types.Type, seed any, msg string) {
+		DescribeTable("Should reject an initial value that cannot fold",
+			func(bCtx SpecContext, varType types.Type, value any, msg string) {
 				ctx := NewContext(bCtx)
 				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
 					Name: "shared", Kind: symbol.KindVariable, Type: varType,
-					DefaultValue: seed,
+					DefaultValue: value,
 				}))
 				expr := MustSucceed(parser.ParseExpression("shared"))
 				Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
 					To(MatchError(ContainSubstring(msg)))
 			},
-			Entry("string type, non-string seed", types.String(), 5, "is not a string"),
-			Entry("i32 type, string seed", types.I32(), "x", "is not an integer"),
-			Entry("i64 type, string seed", types.I64(), "x", "is not an integer"),
-			Entry("f32 type, string seed", types.F32(), "x", "is not numeric"),
-			Entry("f64 type, string seed", types.F64(), "x", "is not numeric"),
-			Entry("unfoldable series type", types.Series(types.F64()), 5, "cannot fold seed"),
+			Entry("string type, non-string value", types.String(), 5, "cannot fold"),
+			Entry("i32 type, string value", types.I32(), "x", "cannot fold"),
+			Entry("i64 type, string value", types.I64(), "x", "cannot fold"),
+			Entry("f32 type, string value", types.F32(), "x", "cannot fold"),
+			Entry("f64 type, string value", types.F64(), "x", "cannot fold"),
+			Entry("unfoldable series type", types.Series(types.F64()), 5, "cannot fold"),
 		)
 
-		It("Should fold a never-reassigned string variable to its seed", func(bCtx SpecContext) {
+		It("Should fold a never-reassigned string variable to its initial value", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
 				Name: "greeting", Kind: symbol.KindVariable, Type: types.String(),
@@ -276,7 +276,7 @@ var _ = Describe("Identifier Compilation", func() {
 			Expect(byteCode).ToNot(BeEmpty())
 		})
 
-		It("Should fold a never-written flow-level stateful variable to its seed", func(bCtx SpecContext) {
+		It("Should fold a never-written flow-level stateful variable to its initial value", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
 				Name: "counter", Kind: symbol.KindStatefulVariable, Type: types.I32(),

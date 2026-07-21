@@ -35,8 +35,8 @@ func Stratify(
 	if prog == nil || prog.Root.IsZero() {
 		return diag
 	}
-	// A variable holds its value across passes, so its edges impose no
-	// ordering, mirroring channel state.
+	// Variables hold state like channels do: reads see the held value with no
+	// same-pass ordering, and write-read feedback must not stratify as a cycle.
 	vars := set.New[string]()
 	for _, n := range prog.Nodes {
 		if n.Type == "variable" || n.Type == "stateful_variable" {

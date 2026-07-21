@@ -46,10 +46,10 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 			emitChannelRead(ctx, scope.Type)
 			return scope.Type.Unwrap(), nil
 		}
-		// A flow-level variable has no local in this unit: fold its seed.
+		// A flow-level variable has no local in this unit: fold its initial value.
 		if scope.Kind == symbol.KindVariable && !sameFunction(ctx.Scope, scope) {
 			if !scope.Reassigned && scope.DefaultValue != nil {
-				return emitSeedConst(ctx, scope)
+				return castAndEmitConst(ctx, scope)
 			}
 			return types.Type{}, errors.Newf(
 				"cannot read reassigned variable '%s' inside an expression yet", name,
@@ -65,11 +65,11 @@ func compileIdentifier[ASTNode antlr.ParserRuleContext](
 		}
 		return scope.Type, nil
 	case symbol.KindStatefulVariable:
-		// Reassigned is only tracked at flow level; a never-written $= there
-		// is its seed. Func-local statefuls always load their cell.
+		// Reassigned is only tracked at flow level; a never-written $= there is
+		// its initial value. Func-local statefuls always load their cell.
 		if _, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction); errors.Is(fnErr, query.ErrNotFound) &&
 			!scope.Reassigned && scope.DefaultValue != nil {
-			return emitSeedConst(ctx, scope)
+			return castAndEmitConst(ctx, scope)
 		}
 		emitStatefulLoad(ctx, scope.ID, scope.Type)
 		return scope.Type, nil
@@ -101,54 +101,54 @@ func sameFunction(a, b *symbol.Symbol) bool {
 	return af == bf
 }
 
-// emitSeedConst compiles a read of a never-reassigned seeded variable as its
-// compile-time seed value.
-func emitSeedConst[ASTNode antlr.ParserRuleContext](
+// castAndEmitConst compiles a read of a never-reassigned variable by casting
+// its initial value to the variable's type and emitting it as a constant.
+func castAndEmitConst[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	sym *symbol.Symbol,
 ) (types.Type, error) {
-	t := sym.Type
-	v := sym.DefaultValue
+	t, v := sym.Type, sym.DefaultValue
+	var cast any
 	switch t.Kind {
 	case types.KindString:
-		s, ok := v.(string)
-		if !ok {
-			return types.Type{}, errors.Newf("seed for '%s' is not a string: %T", sym.Name, v)
+		if s, ok := v.(string); ok {
+			cast = s
 		}
-		emitLiteralSegment(ctx, s)
 	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16,
 		types.KindU32:
-		n, ok := seedInt(v)
-		if !ok {
-			return types.Type{}, errors.Newf("seed for '%s' is not an integer: %T", sym.Name, v)
+		if n, ok := asInt64(v); ok {
+			cast = int32(n)
 		}
-		ctx.Writer.WriteI32Const(int32(n))
-	case types.KindI64, types.KindU64:
-		n, ok := seedInt(v)
-		if !ok {
-			return types.Type{}, errors.Newf("seed for '%s' is not an integer: %T", sym.Name, v)
+	case types.KindI64:
+		if n, ok := asInt64(v); ok {
+			cast = n
 		}
-		ctx.Writer.WriteI64Const(n)
+	case types.KindU64:
+		if n, ok := asInt64(v); ok {
+			cast = uint64(n)
+		}
 	case types.KindF32:
-		f, ok := seedFloat(v)
-		if !ok {
-			return types.Type{}, errors.Newf("seed for '%s' is not numeric: %T", sym.Name, v)
+		if f, ok := asFloat64(v); ok {
+			cast = float32(f)
 		}
-		ctx.Writer.WriteF32Const(float32(f))
 	case types.KindF64:
-		f, ok := seedFloat(v)
-		if !ok {
-			return types.Type{}, errors.Newf("seed for '%s' is not numeric: %T", sym.Name, v)
+		if f, ok := asFloat64(v); ok {
+			cast = f
 		}
-		ctx.Writer.WriteF64Const(f)
-	default:
-		return types.Type{}, errors.Newf("cannot fold seed of type %s for '%s'", t, sym.Name)
+	}
+	if cast == nil {
+		return types.Type{}, errors.Newf(
+			"cannot fold a %s constant from %T for '%s'", t, v, sym.Name,
+		)
+	}
+	if err := emitLiteralValue(ctx, t, cast); err != nil {
+		return types.Type{}, err
 	}
 	return t, nil
 }
 
-// seedInt widens any integer seed value to int64.
-func seedInt(v any) (int64, bool) {
+// asInt64 widens any integer value to int64.
+func asInt64(v any) (int64, bool) {
 	switch n := v.(type) {
 	case int:
 		return int64(n), true
@@ -172,15 +172,15 @@ func seedInt(v any) (int64, bool) {
 	return 0, false
 }
 
-// seedFloat widens any numeric seed value to float64.
-func seedFloat(v any) (float64, bool) {
+// asFloat64 widens any numeric value to float64.
+func asFloat64(v any) (float64, bool) {
 	switch n := v.(type) {
 	case float32:
 		return float64(n), true
 	case float64:
 		return n, true
 	}
-	if n, ok := seedInt(v); ok {
+	if n, ok := asInt64(v); ok {
 		return float64(n), true
 	}
 	return 0, false

@@ -51,8 +51,8 @@ type Host struct{}
 // NewHost constructs a variable Host.
 func NewHost() *Host { return &Host{} }
 
-// Create dispatches on shape: a seeded first input makes a register; an
-// edge-fed one an exprRead deref.
+// Create dispatches on shape: a value-carrying first input makes a register;
+// an edge-fed one an exprRead deref.
 func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
@@ -71,7 +71,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 }
 
 // register holds what its variable is mapped to: a value, a channel key, or a
-// derivation index. Writes are last-wins; the unedged f0 carries the seed.
+// derivation index. Writes are last-wins; the unedged f0 holds the initial value.
 type register struct {
 	*node.State
 	clock    telem.MonoClock
@@ -80,8 +80,8 @@ type register struct {
 
 var _ node.Node = (*register)(nil)
 
-// Reset re-seeds a `:=` variable on scope entry. A `$=` variable persists.
-// The seed is emitted immediately, superseding any pending feeder value.
+// Reset restores a `:=` variable's initial value on scope entry. A `$=`
+// persists. The value is emitted immediately, superseding any pending feeder.
 func (v *register) Reset() {
 	if v.stateful {
 		return
@@ -112,7 +112,7 @@ type exprRead struct {
 
 var _ node.Node = (*exprRead)(nil)
 
-// Reset absorbs pending inputs, seed sel included, so only post-entry values fire.
+// Reset absorbs pending inputs, initial sel included, so only post-entry values fire.
 func (v *exprRead) Reset() { v.AbsorbInputs() }
 
 // Next re-points on sel first: the dispatcher never emits on a sel-only change,

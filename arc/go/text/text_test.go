@@ -226,7 +226,7 @@ var _ = Describe("Text", func() {
 					constKey = n.Key
 				}
 			}
-			Expect(constKey).ToNot(BeEmpty(), "expected a constant node seeded with 5")
+			Expect(constKey).ToNot(BeEmpty(), "expected a constant node initialized with 5")
 			Expect(hasEdge(inter, constKey, writeKey)).To(BeTrue())
 		})
 
@@ -457,7 +457,7 @@ var _ = Describe("Text", func() {
 					stage s2 {
 					}
 				}`),
-			Entry("value variable seeded then reassigned to a literal", `
+			Entry("value variable initialized then reassigned to a literal", `
 				sequence main {
 					level i64 := 5
 					stage s1 {
@@ -521,7 +521,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
-		DescribeTable("Should seed a variable node with its literal value",
+		DescribeTable("Should initialize a variable node with its literal value",
 			func(ctx SpecContext, decl string, expected any) {
 				// A never-reassigned variable lowers to no node; reassign with
 				// the same literal so the register exists.
@@ -571,7 +571,7 @@ var _ = Describe("Text", func() {
 					msg = &n
 				}
 			}
-			Expect(msg).ToNot(BeNil(), "expected msg's register seeded with its literal")
+			Expect(msg).ToNot(BeNil(), "expected msg's register initialized with its literal")
 			fed := false
 			for _, e := range inter.Edges {
 				if e.Target.Node == msg.Key {
@@ -603,7 +603,7 @@ var _ = Describe("Text", func() {
 			}
 			Expect(deref.Inputs[0].Name).To(Equal("value"))
 			Expect(bind.Inputs[0].Value).To(Equal(uint32(0)),
-				"the sel register seeds the declared derivation's index")
+				"the sel register holds the declared derivation's index")
 			var disp ir.Node
 			for _, n := range inter.Nodes {
 				if strings.HasPrefix(n.Type, ir.DispatcherSyntheticPrefix) {
@@ -639,7 +639,7 @@ var _ = Describe("Text", func() {
 			Expect(trigFed).To(BeTrue(), "count_ch must trigger the dispatcher")
 		})
 
-		It("seeds the literal register and leaves the derivation reader edge-fed", func(ctx SpecContext) {
+		It("initializes the literal register and leaves the derivation reader edge-fed", func(ctx SpecContext) {
 			source := `
 			sequence main {
 				k := 5
@@ -654,70 +654,17 @@ var _ = Describe("Text", func() {
 			// a reassignment to lower to a register at all.
 			vars := variableNodes(inter)
 			Expect(vars).To(HaveLen(3))
-			literalSeeds, unseeded := 0, 0
+			literalValues, valueless := 0, 0
 			for _, n := range vars {
 				switch n.Inputs[0].Value {
 				case int64(5):
-					literalSeeds++
+					literalValues++
 				case nil:
-					unseeded++
+					valueless++
 				}
 			}
-			Expect(literalSeeds).To(Equal(1), "only k's register carries a literal seed")
-			Expect(unseeded).To(Equal(1), "r's derivation reader is edge-fed, not seeded")
-		})
-
-		It("DUMP", func(ctx SpecContext) {
-			source := `
-			sequence s {
-				r := count_ch + 1
-				r = count_ch + 2
-				r -> out_ch
-			}`
-			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			var dumpScope func(s *ir.Scope, indent string)
-			dumpScope = func(s *ir.Scope, indent string) {
-				GinkgoWriter.Printf("%sSCOPE key=%s mode=%v live=%v\n", indent, s.Key, s.Mode, s.Liveness)
-				if s.Activation != nil {
-					GinkgoWriter.Printf("%s  activation=%s.%s\n", indent, s.Activation.Node, s.Activation.Param)
-				}
-				for i, st := range s.Strata {
-					GinkgoWriter.Printf("%s  stratum %d:\n", indent, i)
-					for _, m := range st {
-						if m.NodeKey != nil {
-							GinkgoWriter.Printf("%s    node %s\n", indent, *m.NodeKey)
-						} else if m.Scope != nil {
-							dumpScope(m.Scope, indent+"    ")
-						}
-					}
-				}
-				for si, m := range s.Steps {
-					GinkgoWriter.Printf("%s  step %d:\n", indent, si)
-					if m.NodeKey != nil {
-						GinkgoWriter.Printf("%s    node %s\n", indent, *m.NodeKey)
-					} else if m.Scope != nil {
-						dumpScope(m.Scope, indent+"    ")
-					}
-				}
-				for _, t := range s.Transitions {
-					tk := "<exit>"
-					if t.TargetKey != nil {
-						tk = *t.TargetKey
-					}
-					GinkgoWriter.Printf("%s  transition on=%s.%s -> %s\n", indent, t.On.Node, t.On.Param, tk)
-				}
-			}
-			dumpScope(&inter.Root, "")
-			GinkgoWriter.Printf("EDGES:\n")
-			for _, e := range inter.Edges {
-				GinkgoWriter.Printf("  %s.%s -> %s.%s\n", e.Source.Node, e.Source.Param, e.Target.Node, e.Target.Param)
-			}
-			GinkgoWriter.Printf("NODES:\n")
-			for _, n := range inter.Nodes {
-				GinkgoWriter.Printf("  %s type=%s read=%v write=%v\n", n.Key, n.Type, n.Channels.Read, n.Channels.Write)
-			}
+			Expect(literalValues).To(Equal(1), "only k's register carries a literal value")
+			Expect(valueless).To(Equal(1), "r's derivation reader is edge-fed, carrying no value")
 		})
 
 		It("Should register both channels as rebind candidates on the alias read", func(ctx SpecContext) {
@@ -742,14 +689,14 @@ var _ = Describe("Text", func() {
 				"the alias read must register the declared channel")
 			Expect(readNode.Channels.Read).To(HaveKey(uint32(902)),
 				"the rebound channel must be a read candidate too")
-			seeded := false
+			bound := false
 			for _, n := range variableNodes(inter) {
 				if n.Inputs[0].Value == uint32(901) {
-					seeded = true
+					bound = true
 				}
 			}
-			Expect(seeded).To(BeTrue(),
-				"the bind register seeds the declared channel key")
+			Expect(bound).To(BeTrue(),
+				"the bind register holds the declared channel key")
 		})
 
 		It("Should reject rebinding an alias to a nonexistent channel", func(ctx SpecContext) {

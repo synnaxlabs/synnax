@@ -125,7 +125,8 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		return
 	}
 
-	// A channel-reference param carries its bound key, resolved fresh each pass.
+	// A KindChan param holds the key of the channel the body targets. The key
+	// is edge-fed and can rebind at runtime, so re-read the latest each pass.
 	for i := range n.ir.Inputs {
 		if !n.refInputs[i] || n.ir.Inputs[i].Value != nil {
 			continue

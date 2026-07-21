@@ -14,7 +14,7 @@ import "context"
 // Resolver provides on-demand lookups for symbols that live outside the
 // in-memory symbol tree. Implementations are consulted by Symbol.Resolve
 // and Symbol.Search when a key cannot be found among Children. The
-// canonical production use is cluster channels: name and ID both stable,
+// canonical production use is Core channels: name and ID both stable,
 // but the set changes at runtime. Symbols whose identity is fixed at
 // compile time are passed to CreateRoot as ambient globals instead of
 // behind a Resolver.
@@ -29,8 +29,8 @@ type Resolver interface {
 	Search(ctx context.Context, term string) ([]*Symbol, error)
 }
 
-// scopeResolver adapts a *Symbol to the Resolver interface, delegating
-// lookups to that scope's lexical resolution.
+// scopeResolver adapts a *Symbol to Resolver: Symbol.Resolve takes variadic
+// ResolveOptions, so it cannot satisfy the interface's exact signature.
 type scopeResolver struct{ scope *Symbol }
 
 func (r scopeResolver) Resolve(ctx context.Context, name string) (*Symbol, error) {

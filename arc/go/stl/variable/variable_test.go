@@ -25,7 +25,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// registerState builds a variable node "v" with a seeded value param and a
+// registerState builds a variable node "v" with a value-carrying param and a
 // feeder node "f" edged into its second param.
 func registerState(ctx SpecContext) *node.ProgramState {
 	g := graph.Graph{
@@ -161,7 +161,7 @@ var _ = Describe("Variable", func() {
 			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should create a node for a seeded variable", func(ctx SpecContext) {
+		It("Should create a node for a value-initialized variable", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "variable",
@@ -172,7 +172,7 @@ var _ = Describe("Variable", func() {
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
 
-		It("Should create a node for a seeded stateful_variable", func(ctx SpecContext) {
+		It("Should create a node for a value-initialized stateful_variable", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "stateful_variable",
@@ -232,7 +232,7 @@ var _ = Describe("Variable", func() {
 			v, f = s.Node("v"), s.Node("f")
 		})
 
-		It("Should emit its pending seed on first Next", func(ctx SpecContext) {
+		It("Should emit its pending initial value on first Next", func(ctx SpecContext) {
 			n := mk(ctx, "variable")
 			n.Next(nodeCtx)
 			Expect(marked).To(ConsistOf(0))
@@ -274,14 +274,14 @@ var _ = Describe("Variable", func() {
 		})
 
 		Context("with a := variable", func() {
-			It("Should seed the output on Reset", func(ctx SpecContext) {
+			It("Should restore the initial value on Reset", func(ctx SpecContext) {
 				n := mk(ctx, "variable")
 				n.Reset()
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
 				Expect(v.OutputTime(0).Len()).To(Equal(int64(1)))
 			})
 
-			It("Should not double-emit the seed on Next after Reset", func(ctx SpecContext) {
+			It("Should not double-emit the initial value on Next after Reset", func(ctx SpecContext) {
 				n := mk(ctx, "variable")
 				n.Reset()
 				n.Next(nodeCtx)
@@ -297,7 +297,7 @@ var _ = Describe("Variable", func() {
 				Expect(marked).To(BeEmpty())
 			})
 
-			It("Should re-seed on scope re-entry", func(ctx SpecContext) {
+			It("Should restore the initial value on scope re-entry", func(ctx SpecContext) {
 				n := mk(ctx, "variable")
 				n.Reset()
 				emit(f, int64(7), 10)
@@ -307,7 +307,7 @@ var _ = Describe("Variable", func() {
 				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
 			})
 
-			It("Should not alias the seed on Reset", func(ctx SpecContext) {
+			It("Should not alias the initial value on Reset", func(ctx SpecContext) {
 				n := mk(ctx, "variable")
 				n.Reset()
 				v.Output(0).Data[0] = 9
@@ -317,7 +317,7 @@ var _ = Describe("Variable", func() {
 		})
 
 		Context("with a $= variable", func() {
-			It("Should emit its seed on first Next", func(ctx SpecContext) {
+			It("Should emit its initial value on first Next", func(ctx SpecContext) {
 				n := mk(ctx, "stateful_variable")
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
@@ -385,7 +385,7 @@ var _ = Describe("Variable", func() {
 				sv, sf = ss.Node("v"), ss.Node("f")
 			})
 
-			It("Should seed and emit string values", func(ctx SpecContext) {
+			It("Should initialize and emit string values", func(ctx SpecContext) {
 				cfg := node.Config{
 					Node: ir.Node{
 						Type: "variable",
@@ -480,7 +480,7 @@ var _ = Describe("Variable", func() {
 		})
 
 		Describe("Reset", func() {
-			It("Should fire the first value after a Reset-absorbed seed sel", func(ctx SpecContext) {
+			It("Should fire the first value after a Reset-absorbed initial sel", func(ctx SpecContext) {
 				emit(selsrc, uint32(0), 5)
 				n.Reset()
 				emit(d, int64(7), 10)

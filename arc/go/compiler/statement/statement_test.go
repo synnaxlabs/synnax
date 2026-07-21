@@ -229,7 +229,7 @@ var _ = Describe("Statement Compiler", func() {
 				x i64 := count + 1
 			}`))
 			// A func-local stateful always loads its cell; without a function
-			// ancestor the read would fold to the seed instead.
+			// ancestor the read would fold to the initial value instead.
 			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
 				Name: "f", Kind: symbol.KindFunction,
 				Type: types.Function(types.FunctionProperties{}),
@@ -264,7 +264,7 @@ var _ = Describe("Statement Compiler", func() {
 				c i64 := a + b
 			}`))
 			// A func-local stateful always loads its cell; without a function
-			// ancestor the reads would fold to the seeds instead.
+			// ancestor the reads would fold to the initial values instead.
 			fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
 				Name: "f", Kind: symbol.KindFunction,
 				Type: types.Function(types.FunctionProperties{}),

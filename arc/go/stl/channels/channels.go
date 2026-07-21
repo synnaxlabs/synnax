@@ -121,12 +121,12 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if !isSource && !isSink {
 		return nil, query.ErrNotFound
 	}
-	targetIdx := -1
+	channelIdx := -1
 	if idx, terr := cfg.State.ResolveInput("channel"); terr == nil {
-		targetIdx = idx
+		channelIdx = idx
 	}
 	schema := valueFedSchema
-	if cfg.State.RefSourced(targetIdx) {
+	if cfg.State.RefSourced(channelIdx) {
 		schema = edgeFedSchema
 	}
 	var inputs nodeInputs
@@ -135,11 +135,11 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	if isSource {
 		return &source{
-			State:     cfg.State,
-			key:       inputs.Channel,
-			currKey:   inputs.Channel,
-			targetIdx: targetIdx,
-			state:     h.state,
+			State:      cfg.State,
+			key:        inputs.Channel,
+			currKey:    inputs.Channel,
+			channelIdx: channelIdx,
+			state:      h.state,
 		}, nil
 	}
 	inputIdx, err := cfg.State.ResolveInput(ir.DefaultInputParam)
@@ -147,11 +147,11 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		return nil, err
 	}
 	return &sink{
-		State:     cfg.State,
-		state:     h.state,
-		key:       inputs.Channel,
-		inputIdx:  inputIdx,
-		targetIdx: targetIdx,
+		State:      cfg.State,
+		state:      h.state,
+		key:        inputs.Channel,
+		inputIdx:   inputIdx,
+		channelIdx: channelIdx,
 	}, nil
 }
 
@@ -171,8 +171,8 @@ type nodeInputs struct {
 
 // boundKey returns the channel a node currently targets: the binding edge's
 // latest key when present, otherwise the configured key.
-func boundKey(s *node.State, targetIdx int, configured uint32) uint32 {
-	if t := s.RefInput(targetIdx); t.Len() > 0 {
+func boundKey(s *node.State, channelIdx int, configured uint32) uint32 {
+	if t := s.RefInput(channelIdx); t.Len() > 0 {
 		return telem.ValueAt[uint32](t, -1)
 	}
 	return configured
@@ -180,10 +180,11 @@ func boundKey(s *node.State, targetIdx int, configured uint32) uint32 {
 
 type source struct {
 	*node.State
-	state         *ProgramState
-	key           uint32
-	currKey       uint32
-	targetIdx     int
+	state   *ProgramState
+	key     uint32
+	currKey uint32
+	// channelIdx is the channel ref input's index; -1 when not alias-bound.
+	channelIdx    int
 	highWaterMark telem.Alignment
 	clock         telem.MonoClock
 }
@@ -214,7 +215,7 @@ func (s *source) raiseWaterMark() {
 // data that arrives after activation rather than stale pre-existing data.
 func (s *source) Reset() {
 	s.State.Reset()
-	if key := boundKey(s.State, s.targetIdx, s.key); key != s.currKey {
+	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
 		s.rebindTo(key)
 		return
 	}
@@ -222,7 +223,7 @@ func (s *source) Reset() {
 }
 
 func (s *source) Next(ctx node.Context) {
-	if key := boundKey(s.State, s.targetIdx, s.key); key != s.currKey {
+	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
 		s.rebindTo(key)
 		return
 	}
@@ -264,10 +265,11 @@ func (s *source) Next(ctx node.Context) {
 
 type sink struct {
 	*node.State
-	state     *ProgramState
-	key       uint32
-	inputIdx  int
-	targetIdx int
+	state    *ProgramState
+	key      uint32
+	inputIdx int
+	// channelIdx is the channel ref input's index; -1 when not alias-bound.
+	channelIdx int
 }
 
 func (s *sink) Next(ctx node.Context) {
@@ -279,7 +281,7 @@ func (s *sink) Next(ctx node.Context) {
 	if data.Len() == 0 {
 		return
 	}
-	s.state.writeChannel(boundKey(s.State, s.targetIdx, s.key), data, time)
+	s.state.writeChannel(boundKey(s.State, s.channelIdx, s.key), data, time)
 	lastTS := telem.ValueAt[telem.TimeStamp](time, -1)
 	out := s.Output(0)
 	out.Resize(1)

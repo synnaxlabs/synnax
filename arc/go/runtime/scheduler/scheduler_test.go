@@ -1703,9 +1703,9 @@ var _ = Describe("Scheduler", func() {
 					ctx.MarkChanged(0)
 				}
 			}
-			seed := mock("seed")
-			seed.OnNext = func(ctx node.Context) {
-				if seed.NextCalled == 1 {
+			src := mock("src")
+			src.OnNext = func(ctx node.Context) {
+				if src.NextCalled == 1 {
 					ctx.MarkChanged(0)
 				}
 			}
@@ -1728,14 +1728,14 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{
 					irNode("trigger", "output"),
-					irNode("seed", "output"),
+					irNode("src", "output"),
 					irNode("V"),
 					irNode("A", "output"),
 				},
-				[]ir.Edge{continuousEdge("seed", "output", "V", "in")},
+				[]ir.Edge{continuousEdge("src", "output", "V", "in")},
 				rootScope(
 					ir.NodeMember("trigger"),
-					ir.NodeMember("seed"),
+					ir.NodeMember("src"),
 					ir.ScopeMember(main),
 				),
 			)

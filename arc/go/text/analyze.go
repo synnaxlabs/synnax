@@ -509,15 +509,15 @@ func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 // buildIndirectRegister builds the register naming sym's active source: the
 // bound channel key for an alias, the active derivation index otherwise.
 func buildIndirectRegister(sym *symbol.Symbol, kg *keyGenerator) *ir.Node {
-	seed, outType := any(uint32(0)), types.U32()
+	value, outType := any(uint32(0)), types.U32()
 	if sym.SourceID != nil {
-		seed, outType = channelKey(sym), sym.Type
+		value, outType = channelKey(sym), sym.Type
 	}
 	return &ir.Node{
 		Key:      kg.generate("bind", sym.Name),
 		Type:     "variable",
 		Channels: types.NewChannels(),
-		Inputs:   types.Params{{Name: "f0", Type: types.U32(), Value: seed}},
+		Inputs:   types.Params{{Name: "f0", Type: types.U32(), Value: value}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outType}},
 	}
 }
@@ -565,8 +565,8 @@ func memberNodeKeys(members ir.Members) set.Set[string] {
 	return owned
 }
 
-// buildVariableNode builds sym's variable node. An unedged first param seeds
-// it; value-variable assignments append edge-fed feeder params.
+// buildVariableNode builds sym's variable node. An unedged first param holds
+// its initial value; value-variable assignments append edge-fed feeder params.
 func buildVariableNode(sym *symbol.Symbol, kg *keyGenerator, param string) *ir.Node {
 	nodeType := "variable"
 	if sym.Kind == symbol.KindStatefulVariable {
@@ -1763,8 +1763,8 @@ func extractInputValues(
 			return channelKey, true
 		}
 
-		// A top-level literal variable cannot be reassigned, so its seed is
-		// compile-time-stable and inlines like a literal.
+		// A top-level literal variable cannot be reassigned, so its initial
+		// value is compile-time-stable and inlines like a literal.
 		if primary := parser.GetPrimaryExpression(expr); primary != nil {
 			if id := primary.IDENTIFIER(); id != nil {
 				if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil &&

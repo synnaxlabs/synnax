@@ -191,7 +191,7 @@ type Symbol struct {
 	// AST is the parser node for source location information. Built-in symbols
 	// from a resolver or pre-populated module members have AST == nil.
 	AST antlr.ParserRuleContext
-	// DefaultValue holds the symbol's default or seed value, or nil if it has none:
+	// DefaultValue holds the symbol's default value, or nil if it has none:
 	// an optional parameter's default, or a literal variable's initial value.
 	DefaultValue any
 	// Name is the symbol's identifier. Container symbols of anonymous kinds
