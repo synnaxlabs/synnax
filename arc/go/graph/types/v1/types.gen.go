@@ -12,13 +12,12 @@
 package v1
 
 import (
-	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	v0 "github.com/synnaxlabs/arc/graph/types/v0"
+	ir "github.com/synnaxlabs/arc/ir/types/v1"
 )
 
 // Nodes is a collection of visual nodes in an Arc graph.
-type Nodes []Node
+type Nodes = v0.Nodes
 
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
@@ -26,30 +25,16 @@ type Graph struct {
 	// Viewport is the current camera state for the graph view.
 	Viewport Viewport `json:"viewport" msgpack:"viewport"`
 	// Functions contains function definitions available in this graph.
-	Functions irv1.Functions `json:"functions" msgpack:"functions"`
+	Functions ir.Functions `json:"functions" msgpack:"functions"`
 	// Edges contains dataflow connections between node parameters.
-	Edges irv1.Edges `json:"edges" msgpack:"edges"`
+	Edges ir.Edges `json:"edges" msgpack:"edges"`
 	// Nodes contains visual nodes with canvas positions.
 	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 }
 
 // Viewport is the camera state for viewing the Arc graph editor canvas.
-type Viewport struct {
-	// Position is the camera pan offset (x, y).
-	Position spatialv0.XY `json:"position" msgpack:"position"`
-	// Zoom is the zoom level where 1.0 equals 100%.
-	Zoom float64 `json:"zoom" msgpack:"zoom"`
-}
+type Viewport = v0.Viewport
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
 // with position data.
-type Node struct {
-	// Key is the unique identifier for this node instance.
-	Key string `json:"key" msgpack:"key"`
-	// Type is the function type being instantiated.
-	Type string `json:"type" msgpack:"type"`
-	// Config contains configuration parameter values as a JSON object.
-	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
-	// Position is the canvas position (x, y) for visual layout.
-	Position spatialv0.XY `json:"position" msgpack:"position"`
-}
+type Node = v0.Node

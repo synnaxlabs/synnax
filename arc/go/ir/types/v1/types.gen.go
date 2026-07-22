@@ -13,19 +13,19 @@ package v1
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	v0 "github.com/synnaxlabs/arc/ir/types/v0"
 	"github.com/synnaxlabs/arc/symbol"
 	types "github.com/synnaxlabs/arc/types/types/v0"
-	typesv0 "github.com/synnaxlabs/arc/types/types/v0"
 )
 
 // Functions is a collection of function definitions in an Arc module.
-type Functions []Function
+type Functions = v0.Functions
 
 // Edges is a collection of dataflow edges in an Arc graph.
 type Edges []Edge
 
 // Nodes is a collection of node instantiations in an Arc module.
-type Nodes []Node
+type Nodes = v0.Nodes
 
 // Members is an ordered collection of Scope members, one per position.
 type Members = []Member
@@ -65,27 +65,10 @@ const (
 
 // Function is a function template definition with typed parameters, serving as a
 // blueprint for node instantiation.
-type Function struct {
-	// Key is the function identifier (template name).
-	Key string `json:"key" msgpack:"key"`
-	// Body is raw source code for user-defined functions.
-	Body Body `json:"body" msgpack:"body"`
-	// Config contains configuration parameter definitions.
-	Config typesv0.Params `json:"config" msgpack:"config"`
-	// Inputs contains input parameter definitions.
-	Inputs typesv0.Params `json:"inputs" msgpack:"inputs"`
-	// Outputs contains output parameter definitions.
-	Outputs typesv0.Params `json:"outputs" msgpack:"outputs"`
-	// Channels contains channel read/write declarations.
-	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
-}
+type Function = v0.Function
 
 // Body is raw function body source code with optional parsed AST.
-type Body struct {
-	// Raw is the raw source code text.
-	Raw string                  `json:"raw" msgpack:"raw"`
-	AST antlr.ParserRuleContext `json:"-"`
-}
+type Body = v0.Body
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
 type Edge struct {
@@ -99,12 +82,7 @@ type Edge struct {
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
-type Handle struct {
-	// Node is the node identifier.
-	Node string `json:"node" msgpack:"node"`
-	// Param is the parameter name (input or output).
-	Param string `json:"param" msgpack:"param"`
-}
+type Handle = v0.Handle
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.
@@ -126,28 +104,10 @@ type IR struct {
 
 // Node is a concrete instantiation of a function with typed parameters and
 // configuration values.
-type Node struct {
-	// Key is the unique identifier for this node instance.
-	Key string `json:"key" msgpack:"key"`
-	// Type is the function type being instantiated.
-	Type string `json:"type" msgpack:"type"`
-	// Config contains configuration parameter values.
-	Config typesv0.Params `json:"config" msgpack:"config"`
-	// Inputs contains input parameter type signatures.
-	Inputs typesv0.Params `json:"inputs" msgpack:"inputs"`
-	// Outputs contains output parameter type signatures.
-	Outputs typesv0.Params `json:"outputs" msgpack:"outputs"`
-	// Channels contains channel read/write mappings.
-	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
-}
+type Node = v0.Node
 
 // Authorities holds the static authority declarations from an Arc program.
-type Authorities struct {
-	// Default is the default authority for all write channels not explicitly listed.
-	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
-	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels" msgpack:"channels"`
-}
+type Authorities = v0.Authorities
 
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members

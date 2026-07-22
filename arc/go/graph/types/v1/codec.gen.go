@@ -12,9 +12,7 @@
 package v1
 
 import (
-	"encoding/json"
-
-	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
+	ir "github.com/synnaxlabs/arc/ir/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -67,7 +65,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Functions = make([]irv1.Function, n)
+			g.Functions = make([]ir.Function, n)
 			for i := range g.Functions {
 				if err = g.Functions[i].DecodeOrc(r); err != nil {
 					return err
@@ -85,7 +83,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Edges = make([]irv1.Edge, n)
+			g.Edges = make([]ir.Edge, n)
 			for i := range g.Edges {
 				if err = g.Edges[i].DecodeOrc(r); err != nil {
 					return err
@@ -110,64 +108,6 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-	}
-	return nil
-}
-
-func (vv Viewport) EncodeOrc(w *orc.Writer) error {
-	if err := vv.Position.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Float64(float64(vv.Zoom))
-	return nil
-}
-
-func (vv *Viewport) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if err = vv.Position.DecodeOrc(r); err != nil {
-		return err
-	}
-	if vv.Zoom, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (nv Node) EncodeOrc(w *orc.Writer) error {
-	w.String(nv.Key)
-	w.String(nv.Type)
-	{
-		b, err := json.Marshal(nv.Config)
-		if err != nil {
-			return err
-		}
-		w.WriteWithLen(b)
-	}
-	if err := nv.Position.EncodeOrc(w); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (nv *Node) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if nv.Key, err = r.String(); err != nil {
-		return err
-	}
-	if nv.Type, err = r.String(); err != nil {
-		return err
-	}
-	{
-		b, err := r.ReadWithLen()
-		if err != nil {
-			return err
-		}
-		if err = json.Unmarshal(b, &nv.Config); err != nil {
-			return err
-		}
-	}
-	if err = nv.Position.DecodeOrc(r); err != nil {
-		return err
 	}
 	return nil
 }

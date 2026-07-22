@@ -16,21 +16,9 @@ import (
 
 	v0 "github.com/synnaxlabs/arc/graph/types/v0"
 	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
-	viewport, err := autoMigrateViewport(ctx, old.Viewport)
-	if err != nil {
-		return Graph{}, err
-	}
-	functions := make(irv1.Functions, len(old.Functions))
-	for i, v := range old.Functions {
-		var err error
-		if functions[i], err = irv1.MigrateFunction(ctx, v); err != nil {
-			return Graph{}, err
-		}
-	}
 	edges := make(irv1.Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
@@ -38,33 +26,10 @@ func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
 			return Graph{}, err
 		}
 	}
-	nodes := make(Nodes, len(old.Nodes))
-	for i, v := range old.Nodes {
-		var err error
-		if nodes[i], err = autoMigrateNode(ctx, v); err != nil {
-			return Graph{}, err
-		}
-	}
 	return Graph{
-		Viewport:  viewport,
-		Functions: functions,
+		Viewport:  old.Viewport,
+		Functions: old.Functions,
 		Edges:     edges,
-		Nodes:     nodes,
-	}, nil
-}
-
-func autoMigrateViewport(_ context.Context, old v0.Viewport) (Viewport, error) {
-	return Viewport{
-		Position: spatialv0.XY(old.Position),
-		Zoom:     old.Zoom,
-	}, nil
-}
-
-func autoMigrateNode(_ context.Context, old v0.Node) (Node, error) {
-	return Node{
-		Key:      old.Key,
-		Type:     old.Type,
-		Config:   old.Config,
-		Position: spatialv0.XY(old.Position),
+		Nodes:     old.Nodes,
 	}, nil
 }

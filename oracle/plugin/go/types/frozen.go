@@ -144,17 +144,48 @@ func declOwnerNames(d orderedDecl) []string {
 	return nil
 }
 
+// normalizeQualifiers rewrites every package qualifier in the file to its
+// full import path, so printed declarations compare by what a selector
+// denotes rather than how the import happens to be aliased. Two files
+// importing different versions of a resource under the same alias ("ir")
+// would otherwise print byte-identical declarations for different types.
+func normalizeQualifiers(file *ast.File) {
+	paths := make(map[string]string, len(file.Imports))
+	for _, imp := range file.Imports {
+		path := strings.Trim(imp.Path.Value, `"`)
+		name := filepath.Base(path)
+		if imp.Name != nil {
+			name = imp.Name.Name
+		}
+		paths[name] = path
+	}
+	ast.Inspect(file, func(n ast.Node) bool {
+		sel, ok := n.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		if id, ok := sel.X.(*ast.Ident); ok {
+			if p, ok := paths[id.Name]; ok {
+				id.Name = "«" + p + "»"
+			}
+		}
+		return true
+	})
+}
+
 // groupDecls parses a Go file with comments stripped and groups its
 // declarations by owner: the declared type for type specs, the first spec's
 // type for const blocks, and the receiver's base type for methods. It returns
 // each owner's printed declarations in order, the identifiers they reference,
-// and each owner's printed type spec alone.
+// and each owner's printed type spec alone. Package qualifiers print as full
+// import paths (see normalizeQualifiers).
 func groupDecls(src []byte) (map[string][]string, map[string][]string, map[string]string, error) {
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "", src, parser.SkipObjectResolution)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+	normalizeQualifiers(file)
 	grouped := make(map[string][]ast.Decl)
 	typeSpecs := make(map[string]string)
 	addDecl := func(owner string, decl ast.Decl) {
@@ -241,9 +272,10 @@ func receiverBase(expr ast.Expr) string {
 	return ""
 }
 
-// chainAliasRe matches a predecessor-chain alias type spec: "type X = vN.X",
-// optionally generic.
-var chainAliasRe = regexp.MustCompile(`^type (\w+)(?:\[[^\]]*\])? = (v\d+)\.(\w+)`)
+// chainAliasRe matches a predecessor-chain alias type spec after qualifier
+// normalization: "type X = «…/vN».X", optionally generic. Only aliases into
+// sibling version directories hop; any other target compares as a spec.
+var chainAliasRe = regexp.MustCompile(`^type (\w+)(?:\[[^\]]*\])? = «[^»]*/(v\d+)»\.(\w+)`)
 
 // chainAliasMatches reports whether the frozen type spec is an alias into a
 // sibling version package whose definition of owner has the same type spec as
