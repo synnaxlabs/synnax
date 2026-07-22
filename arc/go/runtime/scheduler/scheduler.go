@@ -122,7 +122,7 @@ type Scheduler struct {
 	// nil drops them.
 	errorHandler ErrorHandler
 	// changedFlags[i] is set when node i has a pending upstream change
-	// for the current cycle. Cleared at end of cycle.
+	// for the current cycle. Consumed on run or at end of cycle.
 	changedFlags []uint8
 	// selfChangedFlags[i] is set by node i via MarkSelfChanged to request
 	// replay on the next cycle. Cleared when the replay runs or when the
@@ -248,7 +248,7 @@ func (s *Scheduler) walkSequential(ss *scope) {
 
 // executeMember walks a nested-scope member or runs a leaf-node member.
 // A leaf runs when stratumIdx==0, when changedFlags is set, or when the
-// node was self-changed on a prior cycle.
+// node was self-changed on a prior cycle. Running consumes the flag.
 func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 	if m.scope != nil {
 		s.walk(m.scope)
@@ -264,6 +264,7 @@ func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 		s.selfChangedFlags[idx] = 0
 	}
 	if stratumIdx == 0 || s.changedFlags[idx] != 0 || wasSelfChanged {
+		s.changedFlags[idx] = 0
 		s.currNode = m.node
 		s.currNode.Next(s.nodeCtx)
 	}

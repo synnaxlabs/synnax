@@ -1552,11 +1552,12 @@ var _ = Describe("Scheduler", func() {
 			// pass within the same cycle.
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(mocks["A"].NextCalled).To(Equal(2))
-			Expect(mocks["B"].NextCalled).To(Equal(2))
+			// B's pass-1 run consumed its flag; no fresh mark, no re-run.
+			Expect(mocks["B"].NextCalled).To(Equal(1))
 			// The re-pass does not leak into the next cycle.
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(mocks["A"].NextCalled).To(Equal(3))
-			Expect(mocks["B"].NextCalled).To(Equal(2))
+			Expect(mocks["B"].NextCalled).To(Equal(1))
 		})
 
 		It("Should not re-pass when a conditional backward edge stays falsy", func(ctx SpecContext) {
@@ -1669,6 +1670,236 @@ var _ = Describe("Scheduler", func() {
 			}))
 			Expect(firstNode.NextCalled).To(Equal(1))
 			Expect(secondNode.NextCalled).To(Equal(1))
+		})
+	})
+
+	// A node's pending-change flag is consumed when it runs; settle passes
+	// must not re-dispatch side-effecting nodes without a fresh mark.
+	Describe("Change-flag consumption", func() {
+		// markOnce configures m to announce output 0 only on its first run.
+		markOnce := func(m *MockNode) {
+			m.OnNext = func(ctx node.Context) {
+				if m.NextCalled == 1 {
+					ctx.MarkChanged(0)
+				}
+			}
+		}
+
+		It("Should dispatch a marked node once despite an unrelated re-pass", func(ctx SpecContext) {
+			trigger := mock("trigger")
+			worker := mock("worker")
+			nodeA := mock("A")
+			nodeB := mock("B")
+			markOnce(trigger)
+			markOnce(nodeA)
+			markOnce(nodeB)
+			prog := programOf(
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("worker"),
+					irNode("A", "output"),
+					irNode("B", "output"),
+				},
+				[]ir.Edge{
+					continuousEdge("trigger", "output", "worker", "in"),
+					continuousEdge("A", "output", "B", "in"),
+					continuousEdge("B", "output", "A", "in"),
+				},
+				rootWithStrata(
+					stratum(ir.NodeMember("trigger"), ir.NodeMember("A")),
+					stratum(ir.NodeMember("worker"), ir.NodeMember("B")),
+				),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			// A's re-run proves a second pass happened.
+			Expect(nodeA.NextCalled).To(Equal(2))
+			Expect(worker.NextCalled).To(Equal(1))
+		})
+
+		It("Should dispatch chain nodes once per mark across settle passes", func(ctx SpecContext) {
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+			markOnce(nodeA)
+			markOnce(nodeB)
+			markOnce(nodeC)
+			prog := programOf(
+				[]ir.Node{
+					irNode("A", "output"),
+					irNode("B", "output"),
+					irNode("C", "output"),
+				},
+				[]ir.Edge{
+					continuousEdge("A", "output", "B", "in"),
+					continuousEdge("B", "output", "C", "in"),
+					continuousEdge("C", "output", "A", "in"),
+				},
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("B")),
+					stratum(ir.NodeMember("C")),
+				),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(2))
+			Expect(nodeB.NextCalled).To(Equal(1))
+			Expect(nodeC.NextCalled).To(Equal(1))
+		})
+
+		It("Should fire a stage's one-shot-triggered node once per activation", func(ctx SpecContext) {
+			mock("trigger", true)
+			entry := mock("entry")
+			creator := mock("creator")
+			nodeA := mock("A")
+			nodeB := mock("B")
+			markOnce(entry)
+			markOnce(nodeA)
+			markOnce(nodeB)
+			stage := parallelScope("stage",
+				stratum(ir.NodeMember("entry")),
+				stratum(ir.NodeMember("creator")),
+			)
+			main := sequentialScope("main", []ir.Member{{Scope: &stage}})
+			triggerH := ir.Handle{Node: "trigger", Param: "output"}
+			main.Activation = &triggerH
+			prog := programOf(
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("entry", "output"),
+					irNode("creator"),
+					irNode("A", "output"),
+					irNode("B", "output"),
+				},
+				[]ir.Edge{
+					continuousEdge("entry", "output", "creator", "in"),
+					continuousEdge("A", "output", "B", "in"),
+					continuousEdge("B", "output", "A", "in"),
+				},
+				rootWithStrata(
+					stratum(ir.NodeMember("trigger"), ir.NodeMember("A")),
+					stratum(ir.NodeMember("B"), ir.ScopeMember(main)),
+				),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			// The entry re-runs each pass but marks once; the creator must
+			// dispatch exactly once, like a range create in a stage.
+			Expect(entry.NextCalled).To(Equal(2))
+			Expect(creator.NextCalled).To(Equal(1))
+		})
+
+		It("Should re-dispatch a node marked again after it already ran", func(ctx SpecContext) {
+			nodeA := mock("A")
+			nodeB := mock("B")
+			nodeC := mock("C")
+			markOnce(nodeA)
+			markOnce(nodeC)
+			prog := programOf(
+				[]ir.Node{
+					irNode("A", "output"),
+					irNode("B"),
+					irNode("C", "output"),
+				},
+				[]ir.Edge{
+					continuousEdge("A", "output", "B", "in"),
+					continuousEdge("A", "output", "C", "in"),
+					continuousEdge("C", "output", "B", "in"),
+				},
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("B")),
+					stratum(ir.NodeMember("C")),
+				),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			// C's write marked B after B ran; the fresh mark re-dispatches it.
+			Expect(nodeB.NextCalled).To(Equal(2))
+			Expect(nodeC.NextCalled).To(Equal(1))
+		})
+
+		It("Should never dispatch an unmarked node across settle passes", func(ctx SpecContext) {
+			mock("quiet")
+			silent := mock("silent")
+			nodeA := mock("A")
+			nodeB := mock("B")
+			markOnce(nodeA)
+			markOnce(nodeB)
+			prog := programOf(
+				[]ir.Node{
+					irNode("quiet", "output"),
+					irNode("silent"),
+					irNode("A", "output"),
+					irNode("B", "output"),
+				},
+				[]ir.Edge{
+					continuousEdge("quiet", "output", "silent", "in"),
+					continuousEdge("A", "output", "B", "in"),
+					continuousEdge("B", "output", "A", "in"),
+				},
+				rootWithStrata(
+					stratum(ir.NodeMember("quiet"), ir.NodeMember("A")),
+					stratum(ir.NodeMember("silent"), ir.NodeMember("B")),
+				),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(nodeA.NextCalled).To(Equal(2))
+			Expect(silent.NextCalled).To(BeZero())
+		})
+
+		It("Should preserve a mark a node sets on itself while it runs", func(ctx SpecContext) {
+			starter := mock("starter")
+			looper := mock("looper")
+			nodeA := mock("A")
+			nodeB := mock("B")
+			markOnce(starter)
+			markOnce(looper)
+			markOnce(nodeA)
+			markOnce(nodeB)
+			prog := programOf(
+				[]ir.Node{
+					irNode("starter", "output"),
+					irNode("looper", "output"),
+					irNode("A", "output"),
+					irNode("B", "output"),
+				},
+				[]ir.Edge{
+					continuousEdge("starter", "output", "looper", "in"),
+					continuousEdge("looper", "output", "looper", "in"),
+					continuousEdge("A", "output", "B", "in"),
+					continuousEdge("B", "output", "A", "in"),
+				},
+				rootWithStrata(
+					stratum(ir.NodeMember("starter"), ir.NodeMember("A")),
+					stratum(ir.NodeMember("looper"), ir.NodeMember("B")),
+				),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			// The self-mark lands after consumption, so the re-pass delivers it.
+			Expect(looper.NextCalled).To(Equal(2))
+		})
+
+		It("Should dispatch again on a fresh mark in the next cycle", func(ctx SpecContext) {
+			nodeA := mock("A")
+			worker := mock("worker")
+			nodeA.OnNext = markOnNext(0)
+			prog := programOf(
+				[]ir.Node{irNode("A", "output"), irNode("worker")},
+				[]ir.Edge{continuousEdge("A", "output", "worker", "in")},
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("worker")),
+				),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(worker.NextCalled).To(Equal(1))
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(worker.NextCalled).To(Equal(2))
 		})
 	})
 

@@ -52,6 +52,19 @@ var _ = Describe("Sequence", func() {
 		return vals[len(vals)-1]
 	}
 
+	// countOf returns how many samples on a channel equal want.
+	countOf := func(fr telem.Frame[uint32], key uint32, want string) int {
+		n := 0
+		for _, s := range fr.Get(key).Series {
+			for _, v := range telem.UnmarshalSeries[string](s) {
+				if v == want {
+					n++
+				}
+			}
+		}
+		return n
+	}
+
 	// trigger ingests a u8=1 onto the given channel and ticks the scheduler
 	// long enough for the on-channel-read → entry → step cascade to settle.
 	trigger := func(h *runtimeHarness, ctx SpecContext, key uint32) {
@@ -4363,6 +4376,44 @@ var _ = Describe("Sequence", func() {
 			}
 			out, _ := h.Flush()
 			Expect(lastU8(out, 102)).To(Equal(uint8(6)))
+		})
+	})
+
+	// A one-shot entry drives a func whose output rebinds a variable;
+	// the loopback must not re-fire the chain.
+	Describe("Variable capture dispatch", func() {
+		src := `
+    func stamp{tag str} (n u8) str {
+        return tag
+    }
+    sequence main {
+        fp str := ""
+        stage s1 {
+            1 -> stamp{tag="parent"} -> fp
+            fp -> fp_out
+        }
+    }
+    start_cmd => main`
+
+		It("executes a one-shot capture chain exactly once", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 400},
+				"fp_out":    {types.String(), 401},
+			})
+			h := newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: 400, DataType: telem.Uint8T},
+				channels.Digest{Key: 401, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 400)
+			out, _ := h.Flush()
+			Expect(countOf(out, 401, "parent")).To(Equal(1))
+			// Settle passes and later cycles must not re-run the capture.
+			for range 10 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 401, "parent")).To(BeZero())
 		})
 	})
 })
