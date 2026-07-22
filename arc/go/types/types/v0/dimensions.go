@@ -15,14 +15,10 @@ import (
 )
 
 // Equal checks if two dimensions are identical.
-func (d Dimensions) Equal(other Dimensions) bool {
-	return d == other
-}
+func (d Dimensions) Equal(other Dimensions) bool { return d == other }
 
 // IsZero returns true if the dimensions represent a dimensionless quantity.
-func (d Dimensions) IsZero() bool {
-	return d == Dimensions{}
-}
+func (d Dimensions) IsZero() bool { return d == Dimensions{} }
 
 // String returns a human-readable representation of the dimensions.
 // For example: "length^1 time^-1" for velocity.
