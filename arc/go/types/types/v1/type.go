@@ -14,10 +14,11 @@ import (
 	"math"
 )
 
-// IntegerMaxValue returns the maximum value representable by this integer type.
-// Panics if the type is not an integer type.
-// Note: For U64, returns math.MaxInt64 for comparison safety since MaxUint64
-// cannot be represented in int64.
+// IntegerMaxValue returns the maximum value representable by this integer type. Panics
+// if the type is not an integer type.
+//
+// Note: For U64, returns math.MaxInt64 for comparison safety since MaxUint64 cannot be
+// represented in int64.
 func (t Type) IntegerMaxValue() int64 {
 	if !t.IsInteger() {
 		panic(fmt.Sprintf("[type.IntegerMaxValue] attempted to call on non-integer %s", t))
@@ -44,9 +45,8 @@ func (t Type) IntegerMaxValue() int64 {
 	}
 }
 
-// IntegerMinValue returns the minimum value representable by this integer type.
-// Panics if the type is not an integer type.
-// Returns 0 for unsigned integer types.
+// IntegerMinValue returns the minimum value representable by this integer type. Panics
+// if the type is not an integer type. Returns 0 for unsigned integer types.
 func (t Type) IntegerMinValue() int64 {
 	if !t.IsInteger() {
 		panic(fmt.Sprintf("[types.IntegerMinValue] attempted to call on non-integer %s", t))
@@ -179,9 +179,8 @@ func (t Type) IsSignedInteger() bool {
 	}
 }
 
-func (t Type) IsSigned() bool {
-	return t.IsSignedInteger() || t.IsFloat()
-}
+// IsSigned returns true if the type is a signed type (integer or float).
+func (t Type) IsSigned() bool { return t.IsSignedInteger() || t.IsFloat() }
 
 // IsUnsignedInteger returns true if the type is an unsigned integer type.
 func (t Type) IsUnsignedInteger() bool {
@@ -204,9 +203,7 @@ func (t Type) IsFloat() bool {
 }
 
 // IsBool returns true if the type is a boolean type (u8).
-func (t Type) IsBool() bool {
-	return t.Unwrap().Kind == KindU8
-}
+func (t Type) IsBool() bool { return t.Unwrap().Kind == KindU8 }
 
 // Unwrap returns the value type of chan/series types, or the type itself otherwise.
 func (t Type) Unwrap() Type {
@@ -216,9 +213,8 @@ func (t Type) Unwrap() Type {
 	return t
 }
 
-// UnwrapChan returns the effective value type when a type is used as a value.
-// Channels are implicitly read: chan<T> -> T
-// Series stay as series: series<T> -> series<T>
+// UnwrapChan returns the effective value type when a type is used as a value. Channels
+// are implicitly read: chan<T> -> T Series stay as series: series<T> -> series<T>
 func (t Type) UnwrapChan() Type {
 	if t.Kind == KindChan && t.Elem != nil {
 		return *t.Elem

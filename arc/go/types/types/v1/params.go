@@ -26,56 +26,41 @@ func (p Params) MarshalJSON() ([]byte, error) {
 	return json.Marshal(params(p))
 }
 
-// Get retrieves a parameter by name. Returns the parameter and true if found,
-// otherwise returns a zero Param and false.
+// Get retrieves a parameter by name. Returns the parameter and true if found, otherwise
+// returns a zero Param and false.
 func (p Params) Get(name string) (Param, bool) {
-	return lo.Find(p, func(item Param) bool {
-		return item.Name == name
-	})
+	return lo.Find(p, func(param Param) bool { return param.Name == name })
 }
 
 // GetIndex returns the index of a parameter by name. Returns -1 if not found.
 func (p Params) GetIndex(name string) int {
-	_, i, ok := lo.FindIndexOf(p, func(item Param) bool {
-		return item.Name == name
+	_, i, _ := lo.FindIndexOf(p, func(param Param) bool {
+		return param.Name == name
 	})
-	if !ok {
-		return -1
-	}
 	return i
 }
 
 // Has returns true if a parameter with the given name exists.
-func (p Params) Has(name string) bool {
-	_, ok := p.Get(name)
-	return ok
-}
+func (p Params) Has(name string) bool { _, ok := p.Get(name); return ok }
 
-// Positional returns the params bindable by position: all params except the
-// trigger, which the upstream feeds rather than the call site.
+// Positional returns the params bindable by position: all params except the trigger,
+// which the upstream feeds rather than the call site.
 func (p Params) Positional(trigger string) Params {
 	if trigger == "" {
 		return p
 	}
-	positional := make(Params, 0, len(p))
-	for _, param := range p {
-		if param.Name == trigger {
-			continue
-		}
-		positional = append(positional, param)
-	}
-	return positional
+	return lo.Filter(p, func(param Param, _ int) bool { return param.Name != trigger })
 }
 
 // ValueMap returns a map of parameter names to their values.
 func (p Params) ValueMap() map[string]any {
-	return lo.SliceToMap(p, func(item Param) (string, any) {
-		return item.Name, item.Value
+	return lo.SliceToMap(p, func(param Param) (string, any) {
+		return param.Name, param.Value
 	})
 }
 
-// RequiredCount returns the number of required (non-optional) parameters.
-// A parameter is optional if its Value field is non-nil (has a default).
+// RequiredCount returns the number of required (non-optional) parameters. A parameter
+// is optional if its Value field is non-nil (has a default).
 func (p Params) RequiredCount() int {
 	count := 0
 	for _, param := range p {

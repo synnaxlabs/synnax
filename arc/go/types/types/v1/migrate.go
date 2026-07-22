@@ -26,8 +26,8 @@ func MigrateFunctionProperties(ctx context.Context, old v0.FunctionProperties) (
 	return migrated, nil
 }
 
-// MigrateParam lifts a v0 parameter into the current shape; ir's generated
-// migrations consume it cross-package.
+// MigrateParam lifts a v0 parameter into the current shape; ir's generated migrations
+// consume it cross-package.
 func MigrateParam(ctx context.Context, old v0.Param) (Param, error) {
 	return autoMigrateParam(ctx, old)
 }
