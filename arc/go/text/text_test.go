@@ -723,6 +723,58 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
+		It("Should register declared and rebound channels for a rebound alias chan input", func(ctx SpecContext) {
+			source := `
+			func reader{channel chan i64} () i64 {
+				return channel
+			}
+			sequence main {
+				a := count_ch
+				stage s1 {
+					reader{channel=a} -> out_ch
+				}
+				stage s2 {
+					a = sink_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			n := findNodeByType(inter.Nodes, "reader")
+			Expect(n.Channels.Read).To(HaveKey(uint32(901)),
+				"declared binding must stay a read candidate")
+			Expect(n.Channels.Read).To(HaveKey(uint32(904)),
+				"rebound binding must be a read candidate")
+		})
+
+		It("Should register declared and rebound channels for a rebound alias chan write input", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "cmd_ch", Kind: symbol.KindChannel, Type: types.WriteChan(types.I64()), ID: 905},
+				{Name: "cmd2_ch", Kind: symbol.KindChannel, Type: types.WriteChan(types.I64()), ID: 906},
+			}, varResolver...)
+			source := `
+			func writer{channel chan i64} (value i64) {
+				channel = value
+			}
+			sequence main {
+				w := cmd_ch
+				stage s1 {
+					count_ch -> writer{channel=w}
+				}
+				stage s2 {
+					w = cmd2_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			n := findNodeByType(inter.Nodes, "writer")
+			Expect(n.Channels.Write).To(HaveKey(uint32(905)),
+				"declared binding must stay a write candidate")
+			Expect(n.Channels.Write).To(HaveKey(uint32(906)),
+				"rebound binding must be a write candidate")
+		})
+
 		It("Should reject a literal variable as a channel input value", func(ctx SpecContext) {
 			source := `
 			func reader{channel chan i64} () i64 {

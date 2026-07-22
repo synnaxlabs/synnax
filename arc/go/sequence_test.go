@@ -4664,6 +4664,53 @@ var _ = Describe("Sequence", func() {
     start_cmd => main`)
 		})
 
+		It("writes through the declared binding, then the rebound one", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 330},
+				"data_ch":   {types.F32(), 331},
+				"sink_a":    {types.F32(), 332},
+				"sink_b":    {types.F32(), 333},
+				"hop_ch":    {types.U8(), 334},
+			})
+			h := newRuntimeHarness(ctx, `
+    func writer{channel chan f32} (value f32) {
+        channel = value
+    }
+    sequence main {
+        w := sink_a
+        stage s1 {
+            data_ch -> writer{channel=w}
+            hop_ch >= 1 => s2
+        }
+        stage s2 {
+            w = sink_b
+            data_ch -> writer{channel=w}
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 330, DataType: telem.Uint8T},
+				channels.Digest{Key: 331, DataType: telem.Float32T},
+				channels.Digest{Key: 332, DataType: telem.Float32T},
+				channels.Digest{Key: 333, DataType: telem.Float32T},
+				channels.Digest{Key: 334, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 330)
+			h.Ingest(331, telem.NewSeriesV[float32](1.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(lastF32(out, 332)).To(Equal(float32(1.5)))
+			trigger(h, ctx, 334)
+			h.Ingest(331, telem.NewSeriesV[float32](2.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(lastF32(out, 333)).To(Equal(float32(2.5)))
+		})
+
 		It("reads through the rebound channel, not the declared one", func(ctx SpecContext) {
 			h := newH(ctx, `
     func reader{channel chan f32} (n u8) f32 {

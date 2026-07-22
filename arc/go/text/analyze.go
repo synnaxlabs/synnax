@@ -1780,6 +1780,9 @@ func extractInputValues(
 					Target: ir.Handle{Node: node.Key, Param: paramName},
 					Kind:   ir.EdgeKindContinuous,
 				})
+				symbol.ResolveInputChannel(
+					&node.Channels, fnSym, paramName, channelKey(sym), sym.Name,
+				)
 				for key, name := range sym.Channels.Read {
 					symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, key, name)
 				}
