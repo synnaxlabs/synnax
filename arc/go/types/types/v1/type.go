@@ -10,83 +10,9 @@
 package v1
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
-
-	"github.com/samber/lo"
 )
-
-var _ json.Marshaler = (Params)(nil)
-
-// MarshalJSON implements the json.Marshal interface.
-func (p Params) MarshalJSON() ([]byte, error) {
-	if p == nil {
-		return json.Marshal([]Param{})
-	}
-	type params []Param
-	return json.Marshal(params(p))
-}
-
-// Get retrieves a parameter by name. Returns the parameter and true if found,
-// otherwise returns a zero Param and false.
-func (p Params) Get(name string) (Param, bool) {
-	return lo.Find(p, func(item Param) bool {
-		return item.Name == name
-	})
-}
-
-// GetIndex returns the index of a parameter by name. Returns -1 if not found.
-func (p Params) GetIndex(name string) int {
-	_, i, ok := lo.FindIndexOf(p, func(item Param) bool {
-		return item.Name == name
-	})
-	if !ok {
-		return -1
-	}
-	return i
-}
-
-// Has returns true if a parameter with the given name exists.
-func (p Params) Has(name string) bool {
-	_, ok := p.Get(name)
-	return ok
-}
-
-// Positional returns the params bindable by position: all params except the
-// trigger, which the upstream feeds rather than the call site.
-func (p Params) Positional(trigger string) Params {
-	if trigger == "" {
-		return p
-	}
-	positional := make(Params, 0, len(p))
-	for _, param := range p {
-		if param.Name == trigger {
-			continue
-		}
-		positional = append(positional, param)
-	}
-	return positional
-}
-
-// ValueMap returns a map of parameter names to their values.
-func (p Params) ValueMap() map[string]any {
-	return lo.SliceToMap(p, func(item Param) (string, any) {
-		return item.Name, item.Value
-	})
-}
-
-// RequiredCount returns the number of required (non-optional) parameters.
-// A parameter is optional if its Value field is non-nil (has a default).
-func (p Params) RequiredCount() int {
-	count := 0
-	for _, param := range p {
-		if param.Value == nil {
-			count++
-		}
-	}
-	return count
-}
 
 // IntegerMaxValue returns the maximum value representable by this integer type.
 // Panics if the type is not an integer type.
@@ -204,30 +130,6 @@ func (t Type) String() string {
 		return base + " " + t.Unit.Name
 	}
 	return base
-}
-
-// DebugString returns a detailed string representation of the type for debugging.
-// Unlike String(), this includes type variable names for better debugging visibility.
-func (t Type) DebugString() string {
-	switch t.Kind {
-	case KindChan:
-		if t.Elem != nil {
-			return "chan " + t.Elem.DebugString()
-		}
-		return "chan <invalid>"
-	case KindSeries:
-		if t.Elem != nil {
-			return "series " + t.Elem.DebugString()
-		}
-		return "series <invalid>"
-	case KindVariable:
-		if t.Constraint != nil {
-			return t.Name + ":" + t.Constraint.DebugString()
-		}
-		return t.Name
-	default:
-		return t.String()
-	}
 }
 
 // IsNumeric returns true if the type is a numeric type (integer or float).
