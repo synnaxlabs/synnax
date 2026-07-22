@@ -580,29 +580,29 @@ var _ = Describe("Task", Ordered, func() {
 				Inputs: alarmConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "ge", Param: ir.LHSInputParam},
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "ge", Param: ir.LHSInputParam},
 					}},
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "constant", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "ge", Param: ir.RHSInputParam},
+						Source: ir.Handle{Node: "constant", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "ge", Param: ir.RHSInputParam},
 					}},
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "ge", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "stable_for", Param: ir.DefaultInputParam},
+						Source: ir.Handle{Node: "ge", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "stable_for", Param: ir.DefaultInputParam},
 					}},
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "select", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					}},
 					// status_success/error fire on select outputs (edges below).
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "select", Param: "false"},
-						Target: graph.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{Node: "select", Param: "false"},
+						Target: ir.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
 					}},
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "select", Param: "true"},
-						Target: graph.Handle{Node: "status_error", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{Node: "select", Param: "true"},
+						Target: ir.Handle{Node: "status_error", Param: ir.DefaultOutputParam},
 					}},
 				},
 			}
@@ -717,8 +717,8 @@ var _ = Describe("Task", Ordered, func() {
 				Inputs: reportConfigs,
 				Edges: graph.Edges{
 					{Edge: ir.Edge{
-						Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam},
-						Target: graph.Handle{Node: "status_set", Param: ir.DefaultOutputParam},
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "status_set", Param: ir.DefaultOutputParam},
 					}},
 				},
 			}

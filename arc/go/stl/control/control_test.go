@@ -33,7 +33,7 @@ var _ = Describe("Control", func() {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
 				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
-				Functions: []graph.Function{{Key: "set_authority"}},
+				Functions: []ir.Function{{Key: "set_authority"}},
 			}
 			inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
@@ -53,7 +53,7 @@ var _ = Describe("Control", func() {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
 				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
-				Functions: []graph.Function{{Key: "set_authority"}},
+				Functions: []ir.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
@@ -169,7 +169,7 @@ var _ = Describe("Control", func() {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
 				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
-				Functions: []graph.Function{{Key: "set_authority"}},
+				Functions: []ir.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
@@ -268,7 +268,7 @@ var _ = Describe("Control", func() {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
 				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
-				Functions: []graph.Function{{Key: "set_authority"}},
+				Functions: []ir.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())
@@ -329,7 +329,7 @@ var _ = Describe("Control", func() {
 			g := graph.Graph{
 				Nodes:     []graph.Node{{Key: "set_auth"}},
 				Inputs:    map[string]msgpack.EncodedJSON{"set_auth": {"type": "set_authority"}},
-				Functions: []graph.Function{{Key: "set_authority"}},
+				Functions: []ir.Function{{Key: "set_authority"}},
 			}
 			analyzed, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
 			Expect(diagnostics.Ok()).To(BeTrue())

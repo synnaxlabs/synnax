@@ -25,12 +25,3 @@
 // The core compilation process is performed by Analyze(), which implements a
 // 10-step pipeline that produces executable IR from a visual graph.
 package graph
-
-import "github.com/synnaxlabs/arc/ir"
-
-// Type aliases for IR types to avoid circular dependencies while maintaining
-// clean API boundaries.
-type (
-	Function = ir.Function
-	Handle   = ir.Handle
-)

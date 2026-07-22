@@ -46,7 +46,7 @@ var _ = Describe("Constant", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"const": {"type": "constant"},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "constant",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.I64()},
@@ -126,7 +126,7 @@ var _ = Describe("Constant", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"const": {"type": "constant"},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "constant",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.I64()},
@@ -236,7 +236,7 @@ var _ = Describe("Constant", func() {
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "constant",
 						Outputs: types.Params{

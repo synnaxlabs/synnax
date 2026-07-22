@@ -157,7 +157,7 @@ var _ = Describe("Channel", func() {
 						Target: ir.Handle{Node: "writer", Param: ir.DefaultInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{Key: "on"},
 					{Key: "producer", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}}},
 					{
@@ -270,7 +270,7 @@ var _ = Describe("Channel", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"source": {"type": "on"},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "on",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.F32()},
@@ -519,7 +519,7 @@ var _ = Describe("Channel", func() {
 					Inputs: map[string]msgpack.EncodedJSON{
 						"misaligned": {"type": "on"},
 					},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key:     "on",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 					}},
@@ -576,7 +576,7 @@ var _ = Describe("Channel", func() {
 					"s4": {"type": "on"}, "s5": {"type": "on"},
 					"s6": {"type": "on"}, "s7": {"type": "on"},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key:     "on",
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
 				}},
@@ -987,7 +987,7 @@ var _ = Describe("Channel", func() {
 						Target: ir.Handle{Node: "sink", Param: ir.DefaultInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key:     "producer",
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
@@ -1124,7 +1124,7 @@ var _ = Describe("Channel", func() {
 							Target: ir.Handle{Node: "write", Param: ir.DefaultInputParam},
 						}},
 					},
-					Functions: []graph.Function{
+					Functions: []ir.Function{
 						{
 							Key:     "on",
 							Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
@@ -1192,7 +1192,7 @@ var _ = Describe("Channel", func() {
 						{Edge: ir.Edge{Source: ir.Handle{Node: "read2", Param: ir.DefaultOutputParam},
 							Target: ir.Handle{Node: "write2", Param: ir.DefaultInputParam}}},
 					},
-					Functions: []graph.Function{
+					Functions: []ir.Function{
 						{Key: "on", Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.F32()}}},
 						{Key: "on2", Outputs: types.Params{

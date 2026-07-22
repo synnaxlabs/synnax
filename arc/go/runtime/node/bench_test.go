@@ -33,7 +33,7 @@ func BenchmarkRefreshInputsSingleInput(b *testing.B) {
 			"source": {"type": "source"},
 			"target": {"type": "target"},
 		},
-		Functions: []graph.Function{
+		Functions: []ir.Function{
 			{
 				Key: "source",
 				Outputs: types.Params{

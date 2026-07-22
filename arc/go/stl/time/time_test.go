@@ -48,7 +48,7 @@ var _ = Describe("Time", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"interval_1": {"type": "interval", "period": int64(telem.Second)},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -334,7 +334,7 @@ var _ = Describe("Time", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"wait_1": {"type": "wait", "duration": int64(telem.Second)},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "wait",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -877,7 +877,7 @@ var _ = Describe("Time", func() {
 					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
 					"interval_2": {"type": "interval", "period": int64(150 * telem.Millisecond)},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -987,7 +987,7 @@ var _ = Describe("Time", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"interval_1": {"type": "interval", "period": int64(100 * telem.Millisecond)},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key: "interval",
 					Outputs: types.Params{
 						{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -1179,7 +1179,7 @@ var _ = Describe("Time", func() {
 					Inputs: map[string]msgpack.EncodedJSON{
 						"wait_1": {"type": "wait", "duration": int64(100 * telem.Millisecond)},
 					},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "wait",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -1250,7 +1250,7 @@ var _ = Describe("Time", func() {
 					Inputs: map[string]msgpack.EncodedJSON{
 						"interval_1": {"type": "interval", "period": int64(telem.Second)},
 					},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "interval",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -1336,7 +1336,7 @@ var _ = Describe("Time", func() {
 					Inputs: map[string]msgpack.EncodedJSON{
 						"wait_1": {"type": "wait", "duration": int64(telem.Second)},
 					},
-					Functions: []graph.Function{{
+					Functions: []ir.Function{{
 						Key: "wait",
 						Outputs: types.Params{
 							{Name: ir.DefaultOutputParam, Type: types.U8()},
@@ -1477,7 +1477,7 @@ var _ = Describe("Time", func() {
 				Inputs: map[string]msgpack.EncodedJSON{
 					"now_1": {"type": "now"},
 				},
-				Functions: []graph.Function{{
+				Functions: []ir.Function{{
 					Key:     "now",
 					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 				}},

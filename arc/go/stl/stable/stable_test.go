@@ -63,7 +63,7 @@ var _ = Describe("StableFor", func() {
 					Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
 				}},
 			},
-			Functions: []graph.Function{
+			Functions: []ir.Function{
 				{
 					Key: "source",
 					Outputs: types.Params{
@@ -414,7 +414,7 @@ var _ = Describe("StableFor", func() {
 						Target: ir.Handle{Node: "stable", Param: ir.DefaultInputParam},
 					}},
 				},
-				Functions: []graph.Function{
+				Functions: []ir.Function{
 					{
 						Key: "source",
 						Outputs: types.Params{
