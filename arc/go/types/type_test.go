@@ -137,23 +137,6 @@ var _ = Describe("Types", func() {
 		})
 	})
 
-	Describe("UnitsAssignable", func() {
-		ns := &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
-		psi := &types.Unit{Name: "psi", Scale: 1}
-		bar := &types.Unit{Name: "bar", Scale: 1}
-
-		DescribeTable("unit compatibility",
-			func(a, b *types.Unit, want bool) {
-				Expect(types.UnitsAssignable(a, b)).To(Equal(want))
-			},
-			Entry("nil + nil", (*types.Unit)(nil), (*types.Unit)(nil), true),
-			Entry("nil + ns (wildcard)", (*types.Unit)(nil), ns, true),
-			Entry("ns + nil (wildcard)", ns, (*types.Unit)(nil), true),
-			Entry("ns + ns (match)", ns, ns, true),
-			Entry("psi + bar (mismatch)", psi, bar, false),
-		)
-	})
-
 	Describe("Function constructor", func() {
 		It("Should create function with nil inputs/outputs", func() {
 			var props types.FunctionProperties
@@ -273,48 +256,5 @@ var _ = Describe("Types", func() {
 			Entry("series to channel", types.Series(types.I32()), types.Chan(types.I32())),
 			Entry("channel to series", types.Chan(types.I32()), types.Series(types.I32())),
 		)
-	})
-
-	Describe("ReadChan", func() {
-		It("Should return the inner type for read channels", func() {
-			readChan := types.ReadChan(types.I32())
-			Expect(readChan.Unwrap()).To(Equal(types.I32()))
-		})
-
-		It("Should return true on IsRead", func() {
-			readonlyChan := types.ReadChan(types.I32())
-			Expect(readonlyChan.ChanDirection.IsRead()).To(BeTrue())
-		})
-
-		It("Should return false on IsWrite", func() {
-			readonlyChan := types.ReadChan(types.I32())
-			Expect(readonlyChan.ChanDirection.IsWrite()).To(BeFalse())
-		})
-
-		It("Should return true on IsSet", func() {
-			readonlyChan := types.ReadChan(types.I32())
-			Expect(readonlyChan.ChanDirection.IsSet()).To(BeTrue())
-		})
-	})
-	Describe("WriteChan", func() {
-		It("Should return the inner type for write channels", func() {
-			writeChan := types.WriteChan(types.I32())
-			Expect(writeChan.Unwrap()).To(Equal(types.I32()))
-		})
-
-		It("Should return false on IsRead", func() {
-			writeChan := types.WriteChan(types.I32())
-			Expect(writeChan.ChanDirection.IsRead()).To(BeFalse())
-		})
-
-		It("Should return true on IsWrite", func() {
-			writeChan := types.WriteChan(types.I32())
-			Expect(writeChan.ChanDirection.IsWrite()).To(BeTrue())
-		})
-
-		It("Should return true on IsSet", func() {
-			writeChan := types.WriteChan(types.I32())
-			Expect(writeChan.ChanDirection.IsSet()).To(BeTrue())
-		})
 	})
 })

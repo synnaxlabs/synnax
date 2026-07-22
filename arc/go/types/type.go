@@ -128,21 +128,6 @@ func TimeSpan() Type {
 	}
 }
 
-// Chan returns a channel type wrapping the given value type.
-func Chan(valueType Type) Type {
-	return Type{Kind: KindChan, Elem: &valueType}
-}
-
-// ReadChan returns a channel type annotated for read access.
-func ReadChan(valueType Type) Type {
-	return Type{Kind: KindChan, Elem: &valueType, ChanDirection: ChanDirectionRead}
-}
-
-// WriteChan returns a channel type annotated for write access.
-func WriteChan(valueType Type) Type {
-	return Type{Kind: KindChan, Elem: &valueType, ChanDirection: ChanDirectionWrite}
-}
-
 // Series returns a series/array type wrapping the given value type.
 func Series(valueType Type) Type { return Type{Kind: KindSeries, Elem: &valueType} }
 
@@ -220,18 +205,6 @@ func Equal(t Type, v Type) bool {
 		return false
 	}
 	return t.Unit.Equal(*v.Unit)
-}
-
-// UnitsAssignable reports whether a value with unit a may be assigned to a
-// target with unit b. A nil unit on either side is treated as a wildcard,
-// matching the WASM and Cesium representation where i64 and i64 ns share the
-// same wire type (timestamp <-> int64). Two non-nil units must match exactly,
-// so f32 psi vs f32 bar still fails.
-func UnitsAssignable(a, b *Unit) bool {
-	if a == nil || b == nil {
-		return true
-	}
-	return a.Equal(*b)
 }
 
 func paramsEqual(a, b Params) bool {
@@ -328,9 +301,4 @@ func ToTelem(t Type) telem.DataType {
 	default:
 		return telem.UnknownT
 	}
-}
-
-// NewChannels creates a new Channels with empty read and write sets.
-func NewChannels() Channels {
-	return Channels{Read: make(map[uint32]string), Write: make(map[uint32]string)}
 }

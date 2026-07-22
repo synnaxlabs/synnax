@@ -527,6 +527,16 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}
+		// Dep-style packages scaffold a MigrateX wrapper for every changed
+		// struct; route local references through it so hand-written fixups in
+		// the wrapper apply to nested occurrences too.
+		if c.skipEntries {
+			if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == schemadiff.TypeChanged {
+				if _, isStruct := typ.Form.(resolution.StructForm); isStruct {
+					return "Migrate" + goName
+				}
+			}
+		}
 		return "autoMigrate" + goName
 	}
 	// External packages expose only MigrateX (the developer template); the

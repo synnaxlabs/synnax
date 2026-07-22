@@ -17,17 +17,6 @@ import (
 	v0 "github.com/synnaxlabs/arc/types/types/v0"
 )
 
-func autoMigrateParams(ctx context.Context, old v0.Params) (Params, error) {
-	result := make(Params, len(old))
-	for i, v := range old {
-		var err error
-		if result[i], err = autoMigrateParam(ctx, v); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 func autoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
 	typeVal, err := autoMigrateType(ctx, old.Type)
 	if err != nil {
@@ -41,7 +30,7 @@ func autoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
 }
 
 func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
-	functionProperties, err := autoMigrateFunctionProperties(ctx, old.FunctionProperties)
+	functionProperties, err := MigrateFunctionProperties(ctx, old.FunctionProperties)
 	if err != nil {
 		return Type{}, err
 	}
@@ -76,14 +65,14 @@ func autoMigrateFunctionProperties(ctx context.Context, old v0.FunctionPropertie
 	inputs := make(Params, len(old.Inputs))
 	for i, v := range old.Inputs {
 		var err error
-		if inputs[i], err = autoMigrateParam(ctx, v); err != nil {
+		if inputs[i], err = MigrateParam(ctx, v); err != nil {
 			return FunctionProperties{}, err
 		}
 	}
 	outputs := make(Params, len(old.Outputs))
 	for i, v := range old.Outputs {
 		var err error
-		if outputs[i], err = autoMigrateParam(ctx, v); err != nil {
+		if outputs[i], err = MigrateParam(ctx, v); err != nil {
 			return FunctionProperties{}, err
 		}
 	}

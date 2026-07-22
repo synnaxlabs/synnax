@@ -18,17 +18,6 @@ import (
 	types "github.com/synnaxlabs/arc/types/types/v1"
 )
 
-func autoMigrateFunctions(ctx context.Context, old v1.Functions) (Functions, error) {
-	result := make(Functions, len(old))
-	for i, v := range old {
-		var err error
-		if result[i], err = autoMigrateFunction(ctx, v); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 func autoMigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
 	inputs := make(types.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
@@ -49,7 +38,7 @@ func autoMigrateFunction(ctx context.Context, old v1.Function) (Function, error)
 		Body:     old.Body,
 		Inputs:   inputs,
 		Outputs:  outputs,
-		Channels: types.Channels(old.Channels),
+		Channels: old.Channels,
 	}, nil
 }
 
@@ -57,14 +46,14 @@ func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 	functions := make(Functions, len(old.Functions))
 	for i, v := range old.Functions {
 		var err error
-		if functions[i], err = autoMigrateFunction(ctx, v); err != nil {
+		if functions[i], err = MigrateFunction(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
 	nodes := make(Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
-		if nodes[i], err = autoMigrateNode(ctx, v); err != nil {
+		if nodes[i], err = MigrateNode(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
@@ -88,17 +77,6 @@ func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 	}, nil
 }
 
-func autoMigrateNodes(ctx context.Context, old v1.Nodes) (Nodes, error) {
-	result := make(Nodes, len(old))
-	for i, v := range old {
-		var err error
-		if result[i], err = autoMigrateNode(ctx, v); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 func autoMigrateNode(ctx context.Context, old v1.Node) (Node, error) {
 	inputs := make(types.Params, len(old.Inputs))
 	for i, v := range old.Inputs {
@@ -119,7 +97,7 @@ func autoMigrateNode(ctx context.Context, old v1.Node) (Node, error) {
 		Type:     old.Type,
 		Inputs:   inputs,
 		Outputs:  outputs,
-		Channels: types.Channels(old.Channels),
+		Channels: old.Channels,
 	}, nil
 }
 

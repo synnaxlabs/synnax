@@ -17,15 +17,6 @@ import (
 	v0 "github.com/synnaxlabs/arc/ir/types/v0"
 )
 
-func MigrateFunction(ctx context.Context, old v0.Function) (Function, error) {
-	migrated, err := autoMigrateFunction(ctx, old)
-	if err != nil {
-		return Function{}, err
-	}
-	// New/changed fields - set non-zero defaults if needed:
-	return migrated, nil
-}
-
 func MigrateEdge(ctx context.Context, old v0.Edge) (Edge, error) {
 	migrated, err := autoMigrateEdge(ctx, old)
 	if err != nil {
@@ -42,23 +33,5 @@ func MigrateIR(ctx context.Context, old v0.IR) (IR, error) {
 	}
 	// New/changed fields - set non-zero defaults if needed:
 	// migrated.Root is zero-valued
-	return migrated, nil
-}
-
-func MigrateNode(ctx context.Context, old v0.Node) (Node, error) {
-	migrated, err := autoMigrateNode(ctx, old)
-	if err != nil {
-		return Node{}, err
-	}
-	// New/changed fields - set non-zero defaults if needed:
-	return migrated, nil
-}
-
-func MigrateAuthorities(ctx context.Context, old v0.Authorities) (Authorities, error) {
-	migrated, err := autoMigrateAuthorities(ctx, old)
-	if err != nil {
-		return Authorities{}, err
-	}
-	// New/changed fields - set non-zero defaults if needed:
 	return migrated, nil
 }
