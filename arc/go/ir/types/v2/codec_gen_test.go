@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/ir/types/v2"
-	typesv1 "github.com/synnaxlabs/arc/types/types/v1"
+	types "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -37,119 +37,119 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v2.Function{
 				Key:  "test_1",
 				Body: v2.Body{Raw: "test_3"},
-				Inputs: []typesv1.Param{
+				Inputs: []types.Param{
 					{
 						Name: "test_5",
-						Type: typesv1.Type{
-							FunctionProperties: typesv1.FunctionProperties{
-								Inputs: []typesv1.Param{
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs: []types.Param{
 									{
 										Name:  "test_8",
-										Type:  typesv1.Type{},
+										Type:  types.Type{},
 										Value: map[string]interface{}{"key_10": "value_10"},
 									},
 								},
-								Outputs: []typesv1.Param{
+								Outputs: []types.Param{
 									{
 										Name:  "test_12",
-										Type:  typesv1.Type{},
+										Type:  types.Type{},
 										Value: map[string]interface{}{"key_14": "value_14"},
 									},
 								},
 							},
-							Kind: typesv1.Kind(0),
+							Kind: types.Kind(0),
 							Name: "test_16",
-							Elem: new(typesv1.Type{
-								FunctionProperties: typesv1.FunctionProperties{
-									Inputs:  []typesv1.Param{{}},
-									Outputs: []typesv1.Param{{}},
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
 								},
-								Kind:          typesv1.Kind(0),
+								Kind:          types.Kind(0),
 								Name:          "test_21",
-								Elem:          new(typesv1.Type{}),
-								Unit:          new(typesv1.Unit{}),
-								Constraint:    new(typesv1.Type{}),
-								ChanDirection: typesv1.ChanDirection(0),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
 							}),
-							Unit: new(typesv1.Unit{
-								Dimensions: typesv1.Dimensions{},
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
 								Scale:      28.5,
 								Name:       "test_29",
 							}),
-							Constraint: new(typesv1.Type{
-								FunctionProperties: typesv1.FunctionProperties{
-									Inputs:  []typesv1.Param{{}},
-									Outputs: []typesv1.Param{{}},
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
 								},
-								Kind:          typesv1.Kind(0),
+								Kind:          types.Kind(0),
 								Name:          "test_34",
-								Elem:          new(typesv1.Type{}),
-								Unit:          new(typesv1.Unit{}),
-								Constraint:    new(typesv1.Type{}),
-								ChanDirection: typesv1.ChanDirection(0),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
 							}),
-							ChanDirection: typesv1.ChanDirection(0),
+							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_40": "value_40"},
 					},
 				},
-				Outputs: []typesv1.Param{
+				Outputs: []types.Param{
 					{
 						Name: "test_42",
-						Type: typesv1.Type{
-							FunctionProperties: typesv1.FunctionProperties{
-								Inputs: []typesv1.Param{
+						Type: types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs: []types.Param{
 									{
 										Name:  "test_45",
-										Type:  typesv1.Type{},
+										Type:  types.Type{},
 										Value: map[string]interface{}{"key_47": "value_47"},
 									},
 								},
-								Outputs: []typesv1.Param{
+								Outputs: []types.Param{
 									{
 										Name:  "test_49",
-										Type:  typesv1.Type{},
+										Type:  types.Type{},
 										Value: map[string]interface{}{"key_51": "value_51"},
 									},
 								},
 							},
-							Kind: typesv1.Kind(0),
+							Kind: types.Kind(0),
 							Name: "test_53",
-							Elem: new(typesv1.Type{
-								FunctionProperties: typesv1.FunctionProperties{
-									Inputs:  []typesv1.Param{{}},
-									Outputs: []typesv1.Param{{}},
+							Elem: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
 								},
-								Kind:          typesv1.Kind(0),
+								Kind:          types.Kind(0),
 								Name:          "test_58",
-								Elem:          new(typesv1.Type{}),
-								Unit:          new(typesv1.Unit{}),
-								Constraint:    new(typesv1.Type{}),
-								ChanDirection: typesv1.ChanDirection(0),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
 							}),
-							Unit: new(typesv1.Unit{
-								Dimensions: typesv1.Dimensions{},
+							Unit: new(types.Unit{
+								Dimensions: types.Dimensions{},
 								Scale:      65.5,
 								Name:       "test_66",
 							}),
-							Constraint: new(typesv1.Type{
-								FunctionProperties: typesv1.FunctionProperties{
-									Inputs:  []typesv1.Param{{}},
-									Outputs: []typesv1.Param{{}},
+							Constraint: new(types.Type{
+								FunctionProperties: types.FunctionProperties{
+									Inputs:  []types.Param{{}},
+									Outputs: []types.Param{{}},
 								},
-								Kind:          typesv1.Kind(0),
+								Kind:          types.Kind(0),
 								Name:          "test_71",
-								Elem:          new(typesv1.Type{}),
-								Unit:          new(typesv1.Unit{}),
-								Constraint:    new(typesv1.Type{}),
-								ChanDirection: typesv1.ChanDirection(0),
+								Elem:          new(types.Type{}),
+								Unit:          new(types.Unit{}),
+								Constraint:    new(types.Type{}),
+								ChanDirection: types.ChanDirection(0),
 							}),
-							ChanDirection: typesv1.ChanDirection(0),
+							ChanDirection: types.ChanDirection(0),
 						},
 						Value: map[string]interface{}{"key_77": "value_77"},
 					},
 				},
-				Channels: typesv1.Channels{
+				Channels: types.Channels{
 					Read:  map[uint32]string{80: "test_79"},
 					Write: map[uint32]string{81: "test_80"},
 				},
@@ -159,14 +159,14 @@ var _ = Describe("Codec", func() {
 				Body:     v2.Body{Raw: ""},
 				Inputs:   nil,
 				Outputs:  nil,
-				Channels: typesv1.Channels{Read: nil, Write: nil},
+				Channels: types.Channels{Read: nil, Write: nil},
 			}),
 			Entry("empty collections", v2.Function{
 				Key:      "test_1",
 				Body:     v2.Body{Raw: "test_3"},
-				Inputs:   []typesv1.Param{},
-				Outputs:  []typesv1.Param{},
-				Channels: typesv1.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
+				Inputs:   []types.Param{},
+				Outputs:  []types.Param{},
+				Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 			}),
 		)
 	})
@@ -176,119 +176,119 @@ func BenchmarkEncodeDecodeFunction(b *testing.B) {
 	seed := v2.Function{
 		Key:  "test_1",
 		Body: v2.Body{Raw: "test_3"},
-		Inputs: []typesv1.Param{
+		Inputs: []types.Param{
 			{
 				Name: "test_5",
-				Type: typesv1.Type{
-					FunctionProperties: typesv1.FunctionProperties{
-						Inputs: []typesv1.Param{
+				Type: types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs: []types.Param{
 							{
 								Name:  "test_8",
-								Type:  typesv1.Type{},
+								Type:  types.Type{},
 								Value: map[string]interface{}{"key_10": "value_10"},
 							},
 						},
-						Outputs: []typesv1.Param{
+						Outputs: []types.Param{
 							{
 								Name:  "test_12",
-								Type:  typesv1.Type{},
+								Type:  types.Type{},
 								Value: map[string]interface{}{"key_14": "value_14"},
 							},
 						},
 					},
-					Kind: typesv1.Kind(0),
+					Kind: types.Kind(0),
 					Name: "test_16",
-					Elem: new(typesv1.Type{
-						FunctionProperties: typesv1.FunctionProperties{
-							Inputs:  []typesv1.Param{{}},
-							Outputs: []typesv1.Param{{}},
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
 						},
-						Kind:          typesv1.Kind(0),
+						Kind:          types.Kind(0),
 						Name:          "test_21",
-						Elem:          new(typesv1.Type{}),
-						Unit:          new(typesv1.Unit{}),
-						Constraint:    new(typesv1.Type{}),
-						ChanDirection: typesv1.ChanDirection(0),
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
 					}),
-					Unit: new(typesv1.Unit{
-						Dimensions: typesv1.Dimensions{},
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
 						Scale:      28.5,
 						Name:       "test_29",
 					}),
-					Constraint: new(typesv1.Type{
-						FunctionProperties: typesv1.FunctionProperties{
-							Inputs:  []typesv1.Param{{}},
-							Outputs: []typesv1.Param{{}},
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
 						},
-						Kind:          typesv1.Kind(0),
+						Kind:          types.Kind(0),
 						Name:          "test_34",
-						Elem:          new(typesv1.Type{}),
-						Unit:          new(typesv1.Unit{}),
-						Constraint:    new(typesv1.Type{}),
-						ChanDirection: typesv1.ChanDirection(0),
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
 					}),
-					ChanDirection: typesv1.ChanDirection(0),
+					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_40": "value_40"},
 			},
 		},
-		Outputs: []typesv1.Param{
+		Outputs: []types.Param{
 			{
 				Name: "test_42",
-				Type: typesv1.Type{
-					FunctionProperties: typesv1.FunctionProperties{
-						Inputs: []typesv1.Param{
+				Type: types.Type{
+					FunctionProperties: types.FunctionProperties{
+						Inputs: []types.Param{
 							{
 								Name:  "test_45",
-								Type:  typesv1.Type{},
+								Type:  types.Type{},
 								Value: map[string]interface{}{"key_47": "value_47"},
 							},
 						},
-						Outputs: []typesv1.Param{
+						Outputs: []types.Param{
 							{
 								Name:  "test_49",
-								Type:  typesv1.Type{},
+								Type:  types.Type{},
 								Value: map[string]interface{}{"key_51": "value_51"},
 							},
 						},
 					},
-					Kind: typesv1.Kind(0),
+					Kind: types.Kind(0),
 					Name: "test_53",
-					Elem: new(typesv1.Type{
-						FunctionProperties: typesv1.FunctionProperties{
-							Inputs:  []typesv1.Param{{}},
-							Outputs: []typesv1.Param{{}},
+					Elem: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
 						},
-						Kind:          typesv1.Kind(0),
+						Kind:          types.Kind(0),
 						Name:          "test_58",
-						Elem:          new(typesv1.Type{}),
-						Unit:          new(typesv1.Unit{}),
-						Constraint:    new(typesv1.Type{}),
-						ChanDirection: typesv1.ChanDirection(0),
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
 					}),
-					Unit: new(typesv1.Unit{
-						Dimensions: typesv1.Dimensions{},
+					Unit: new(types.Unit{
+						Dimensions: types.Dimensions{},
 						Scale:      65.5,
 						Name:       "test_66",
 					}),
-					Constraint: new(typesv1.Type{
-						FunctionProperties: typesv1.FunctionProperties{
-							Inputs:  []typesv1.Param{{}},
-							Outputs: []typesv1.Param{{}},
+					Constraint: new(types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs:  []types.Param{{}},
+							Outputs: []types.Param{{}},
 						},
-						Kind:          typesv1.Kind(0),
+						Kind:          types.Kind(0),
 						Name:          "test_71",
-						Elem:          new(typesv1.Type{}),
-						Unit:          new(typesv1.Unit{}),
-						Constraint:    new(typesv1.Type{}),
-						ChanDirection: typesv1.ChanDirection(0),
+						Elem:          new(types.Type{}),
+						Unit:          new(types.Unit{}),
+						Constraint:    new(types.Type{}),
+						ChanDirection: types.ChanDirection(0),
 					}),
-					ChanDirection: typesv1.ChanDirection(0),
+					ChanDirection: types.ChanDirection(0),
 				},
 				Value: map[string]interface{}{"key_77": "value_77"},
 			},
 		},
-		Channels: typesv1.Channels{
+		Channels: types.Channels{
 			Read:  map[uint32]string{80: "test_79"},
 			Write: map[uint32]string{81: "test_80"},
 		},
@@ -313,119 +313,119 @@ func FuzzDecodeFunction(f *testing.F) {
 		seed := v2.Function{
 			Key:  "test_1",
 			Body: v2.Body{Raw: "test_3"},
-			Inputs: []typesv1.Param{
+			Inputs: []types.Param{
 				{
 					Name: "test_5",
-					Type: typesv1.Type{
-						FunctionProperties: typesv1.FunctionProperties{
-							Inputs: []typesv1.Param{
+					Type: types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs: []types.Param{
 								{
 									Name:  "test_8",
-									Type:  typesv1.Type{},
+									Type:  types.Type{},
 									Value: map[string]interface{}{"key_10": "value_10"},
 								},
 							},
-							Outputs: []typesv1.Param{
+							Outputs: []types.Param{
 								{
 									Name:  "test_12",
-									Type:  typesv1.Type{},
+									Type:  types.Type{},
 									Value: map[string]interface{}{"key_14": "value_14"},
 								},
 							},
 						},
-						Kind: typesv1.Kind(0),
+						Kind: types.Kind(0),
 						Name: "test_16",
-						Elem: new(typesv1.Type{
-							FunctionProperties: typesv1.FunctionProperties{
-								Inputs:  []typesv1.Param{{}},
-								Outputs: []typesv1.Param{{}},
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
 							},
-							Kind:          typesv1.Kind(0),
+							Kind:          types.Kind(0),
 							Name:          "test_21",
-							Elem:          new(typesv1.Type{}),
-							Unit:          new(typesv1.Unit{}),
-							Constraint:    new(typesv1.Type{}),
-							ChanDirection: typesv1.ChanDirection(0),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
 						}),
-						Unit: new(typesv1.Unit{
-							Dimensions: typesv1.Dimensions{},
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
 							Scale:      28.5,
 							Name:       "test_29",
 						}),
-						Constraint: new(typesv1.Type{
-							FunctionProperties: typesv1.FunctionProperties{
-								Inputs:  []typesv1.Param{{}},
-								Outputs: []typesv1.Param{{}},
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
 							},
-							Kind:          typesv1.Kind(0),
+							Kind:          types.Kind(0),
 							Name:          "test_34",
-							Elem:          new(typesv1.Type{}),
-							Unit:          new(typesv1.Unit{}),
-							Constraint:    new(typesv1.Type{}),
-							ChanDirection: typesv1.ChanDirection(0),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
 						}),
-						ChanDirection: typesv1.ChanDirection(0),
+						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_40": "value_40"},
 				},
 			},
-			Outputs: []typesv1.Param{
+			Outputs: []types.Param{
 				{
 					Name: "test_42",
-					Type: typesv1.Type{
-						FunctionProperties: typesv1.FunctionProperties{
-							Inputs: []typesv1.Param{
+					Type: types.Type{
+						FunctionProperties: types.FunctionProperties{
+							Inputs: []types.Param{
 								{
 									Name:  "test_45",
-									Type:  typesv1.Type{},
+									Type:  types.Type{},
 									Value: map[string]interface{}{"key_47": "value_47"},
 								},
 							},
-							Outputs: []typesv1.Param{
+							Outputs: []types.Param{
 								{
 									Name:  "test_49",
-									Type:  typesv1.Type{},
+									Type:  types.Type{},
 									Value: map[string]interface{}{"key_51": "value_51"},
 								},
 							},
 						},
-						Kind: typesv1.Kind(0),
+						Kind: types.Kind(0),
 						Name: "test_53",
-						Elem: new(typesv1.Type{
-							FunctionProperties: typesv1.FunctionProperties{
-								Inputs:  []typesv1.Param{{}},
-								Outputs: []typesv1.Param{{}},
+						Elem: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
 							},
-							Kind:          typesv1.Kind(0),
+							Kind:          types.Kind(0),
 							Name:          "test_58",
-							Elem:          new(typesv1.Type{}),
-							Unit:          new(typesv1.Unit{}),
-							Constraint:    new(typesv1.Type{}),
-							ChanDirection: typesv1.ChanDirection(0),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
 						}),
-						Unit: new(typesv1.Unit{
-							Dimensions: typesv1.Dimensions{},
+						Unit: new(types.Unit{
+							Dimensions: types.Dimensions{},
 							Scale:      65.5,
 							Name:       "test_66",
 						}),
-						Constraint: new(typesv1.Type{
-							FunctionProperties: typesv1.FunctionProperties{
-								Inputs:  []typesv1.Param{{}},
-								Outputs: []typesv1.Param{{}},
+						Constraint: new(types.Type{
+							FunctionProperties: types.FunctionProperties{
+								Inputs:  []types.Param{{}},
+								Outputs: []types.Param{{}},
 							},
-							Kind:          typesv1.Kind(0),
+							Kind:          types.Kind(0),
 							Name:          "test_71",
-							Elem:          new(typesv1.Type{}),
-							Unit:          new(typesv1.Unit{}),
-							Constraint:    new(typesv1.Type{}),
-							ChanDirection: typesv1.ChanDirection(0),
+							Elem:          new(types.Type{}),
+							Unit:          new(types.Unit{}),
+							Constraint:    new(types.Type{}),
+							ChanDirection: types.ChanDirection(0),
 						}),
-						ChanDirection: typesv1.ChanDirection(0),
+						ChanDirection: types.ChanDirection(0),
 					},
 					Value: map[string]interface{}{"key_77": "value_77"},
 				},
 			},
-			Channels: typesv1.Channels{
+			Channels: types.Channels{
 				Read:  map[uint32]string{80: "test_79"},
 				Write: map[uint32]string{81: "test_80"},
 			},
@@ -442,7 +442,7 @@ func FuzzDecodeFunction(f *testing.F) {
 			Body:     v2.Body{Raw: ""},
 			Inputs:   nil,
 			Outputs:  nil,
-			Channels: typesv1.Channels{Read: nil, Write: nil},
+			Channels: types.Channels{Read: nil, Write: nil},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -454,9 +454,9 @@ func FuzzDecodeFunction(f *testing.F) {
 		seed := v2.Function{
 			Key:      "test_1",
 			Body:     v2.Body{Raw: "test_3"},
-			Inputs:   []typesv1.Param{},
-			Outputs:  []typesv1.Param{},
-			Channels: typesv1.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
+			Inputs:   []types.Param{},
+			Outputs:  []types.Param{},
+			Channels: types.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

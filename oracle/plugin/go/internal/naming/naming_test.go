@@ -101,7 +101,7 @@ var _ = Describe("DerivePackageAlias", func() {
 	})
 
 	It("should keep the versioned form for a resource named types", func() {
-		Expect(naming.DerivePackageAlias("arc/go/types/types/v1", "v2")).To(Equal("typesv1"))
+		Expect(naming.DerivePackageAlias("arc/go/types/types/v1", "v2")).To(Equal("types"))
 	})
 })
 

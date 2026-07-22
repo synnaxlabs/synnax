@@ -12,7 +12,7 @@
 package v2
 
 import (
-	typesv1 "github.com/synnaxlabs/arc/types/types/v1"
+	types "github.com/synnaxlabs/arc/types/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -65,7 +65,7 @@ func (f *Function) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			f.Inputs = make([]typesv1.Param, n)
+			f.Inputs = make([]types.Param, n)
 			for i := range f.Inputs {
 				if err = f.Inputs[i].DecodeOrc(r); err != nil {
 					return err
@@ -83,7 +83,7 @@ func (f *Function) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			f.Outputs = make([]typesv1.Param, n)
+			f.Outputs = make([]types.Param, n)
 			for i := range f.Outputs {
 				if err = f.Outputs[i].DecodeOrc(r); err != nil {
 					return err

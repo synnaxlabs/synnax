@@ -13,19 +13,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/vmihailenco/msgpack/v5"
 )
-
-// Find searches for a node by key. Returns the node and true if found,
-// or zero value and false otherwise.
-func (n Nodes) Find(key string) (Node, bool) {
-	return lo.Find(n, func(n Node) bool { return n.Key == key })
-}
-
-// Get returns the node with the given key. Panics if not found.
-func (n Nodes) Get(key string) Node { return lo.Must(n.Find(key)) }
 
 // IsEntryNode reports whether n is an entry node: it has no incoming edges and
 // reads no channels. Entry nodes fire once per activation.
@@ -34,9 +24,7 @@ func (n Node) IsEntryNode(edges Edges) bool {
 }
 
 // String returns the string representation of the node.
-func (n Node) String() string {
-	return n.stringWithPrefix("")
-}
+func (n Node) String() string { return n.stringWithPrefix("") }
 
 // stringWithPrefix returns the string representation with tree formatting.
 func (n Node) stringWithPrefix(prefix string) string {
@@ -73,8 +61,8 @@ func (n Node) stringWithPrefix(prefix string) string {
 	return b.String()
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go
+// field names and new lowercase msgpack tag names for backward compatibility.
 func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Node
 	raw, err := dec.DecodeRaw()

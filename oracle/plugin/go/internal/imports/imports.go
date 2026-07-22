@@ -90,11 +90,16 @@ func (m *Manager) StdImports() []string {
 }
 
 // NonStdImports returns every non-standard-library import — plain external
-// paths and aliased internal ones alike — sorted by path.
+// paths and aliased internal ones alike — sorted by path. An external import
+// whose package name is claimed by an internal alias is dropped: the internal
+// package shadows it, and selectors resolve through the alias instead.
 func (m *Manager) NonStdImports() []InternalImportData {
 	result := make([]InternalImportData, 0, len(m.external)+len(m.internal))
 	for imp := range m.external {
-		if !stdlib(imp) {
+		if stdlib(imp) {
+			continue
+		}
+		if shadow := m.internal[filepath.Base(imp)]; shadow == nil || shadow.Path == imp {
 			result = append(result, InternalImportData{Path: imp})
 		}
 	}

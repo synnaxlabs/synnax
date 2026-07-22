@@ -130,11 +130,6 @@ func DerivePackageAlias(outputPath, currentPackage string) string {
 	parent := filepath.Base(filepath.Dir(outputPath))
 	if parent == "types" || parent == "migrations" || parent == "legacy" {
 		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
-		// A resource itself named "types" (nested types/types) collides with root
-		// imports of that resource, so it keeps the versioned form.
-		if grandparent == "types" {
-			return DeriveVersionedAlias(outputPath, currentPackage)
-		}
 		return keywords.Escape(grandparent)
 	}
 	if base == currentPackage {

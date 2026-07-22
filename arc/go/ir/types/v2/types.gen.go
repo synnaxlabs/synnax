@@ -15,8 +15,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	v1 "github.com/synnaxlabs/arc/ir/types/v1"
 	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
-	typesv1 "github.com/synnaxlabs/arc/types/types/v1"
+	types "github.com/synnaxlabs/arc/types/types/v1"
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -83,11 +82,11 @@ type Function struct {
 	// Body is raw source code for user-defined functions.
 	Body Body `json:"body" msgpack:"body"`
 	// Inputs contains input parameter definitions.
-	Inputs typesv1.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter definitions.
-	Outputs typesv1.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write declarations.
-	Channels typesv1.Channels `json:"channels" msgpack:"channels"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 // Functions is a collection of function definitions in an Arc module.
@@ -100,11 +99,11 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Inputs contains input parameter type signatures.
-	Inputs typesv1.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
+	Inputs types.Params `json:"inputs,omitzero" msgpack:"inputs,omitzero"`
 	// Outputs contains output parameter type signatures.
-	Outputs typesv1.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
+	Outputs types.Params `json:"outputs,omitzero" msgpack:"outputs,omitzero"`
 	// Channels contains channel read/write mappings.
-	Channels typesv1.Channels `json:"channels" msgpack:"channels"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 // Nodes is a collection of node instantiations in an Arc module.

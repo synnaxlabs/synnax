@@ -26,9 +26,7 @@ func (i *IR) IsZero() bool {
 }
 
 // String returns the string representation of the IR.
-func (i *IR) String() string {
-	return i.stringWithPrefix("")
-}
+func (i *IR) String() string { return i.stringWithPrefix("") }
 
 // stringWithPrefix returns the string representation with tree formatting.
 func (i *IR) stringWithPrefix(prefix string) string {
