@@ -9,7 +9,11 @@
 
 package v0
 
-import "maps"
+import (
+	"maps"
+
+	"github.com/vmihailenco/msgpack/v5"
+)
 
 // Copy returns a deep copy of the Channels.
 func (c Channels) Copy() Channels {
@@ -20,4 +24,29 @@ func (c Channels) Copy() Channels {
 		c.Write = make(map[uint32]string)
 	}
 	return Channels{Read: maps.Clone(c.Read), Write: maps.Clone(c.Write)}
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
+// Go field names and new lowercase msgpack tag names for backward compatibility.
+func (c *Channels) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias Channels
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if err = msgpack.Unmarshal(raw, (*alias)(c)); err != nil {
+		return err
+	}
+	if c.Read == nil && c.Write == nil {
+		var legacy struct {
+			Read  map[uint32]string
+			Write map[uint32]string
+		}
+		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
+			return err
+		}
+		c.Read = legacy.Read
+		c.Write = legacy.Write
+	}
+	return nil
 }

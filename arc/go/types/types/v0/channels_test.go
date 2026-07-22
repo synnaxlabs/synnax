@@ -13,6 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/arc/types/types/v0"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Channels", func() {
@@ -34,6 +36,34 @@ var _ = Describe("Channels", func() {
 			Expect(copied.Read).To(BeEmpty())
 			Expect(copied.Write).ToNot(BeNil())
 			Expect(copied.Write).To(BeEmpty())
+		})
+	})
+
+	Describe("DecodeMsgpack", func() {
+		It("Should decode new lowercase msgpack fields", func() {
+			original := v0.Channels{
+				Read:  map[uint32]string{1: "sensor"},
+				Write: map[uint32]string{2: "actuator"},
+			}
+			data := MustSucceed(msgpack.Marshal(original))
+			var decoded v0.Channels
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Read).To(Equal(map[uint32]string{1: "sensor"}))
+			Expect(decoded.Write).To(Equal(map[uint32]string{2: "actuator"}))
+		})
+		It("Should decode legacy uppercase Go field names", func() {
+			legacy := struct {
+				Read  map[uint32]string
+				Write map[uint32]string
+			}{
+				Read:  map[uint32]string{3: "temp"},
+				Write: map[uint32]string{4: "valve"},
+			}
+			data := MustSucceed(msgpack.Marshal(legacy))
+			var decoded v0.Channels
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Read).To(Equal(map[uint32]string{3: "temp"}))
+			Expect(decoded.Write).To(Equal(map[uint32]string{4: "valve"}))
 		})
 	})
 })
