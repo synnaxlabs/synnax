@@ -19,7 +19,10 @@ import (
 
 // MigrateFunctionProperties lifts v0 function properties into the current shape,
 // dropping the removed config params.
-func MigrateFunctionProperties(ctx context.Context, old v0.FunctionProperties) (FunctionProperties, error) {
+func MigrateFunctionProperties(
+	ctx context.Context,
+	old v0.FunctionProperties,
+) (FunctionProperties, error) {
 	return autoMigrateFunctionProperties(ctx, old)
 }
 

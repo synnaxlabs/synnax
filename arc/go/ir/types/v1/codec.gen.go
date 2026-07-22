@@ -11,9 +11,7 @@
 
 package v1
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 func (e Edge) EncodeOrc(w *orc.Writer) error {
 	if err := e.Source.EncodeOrc(w); err != nil {
@@ -142,6 +140,54 @@ func (ir *IR) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = ir.Root.DecodeOrc(r); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (mv Member) EncodeOrc(w *orc.Writer) error {
+	if mv.NodeKey != nil {
+		w.Bool(true)
+		w.String((*mv.NodeKey))
+	} else {
+		w.Bool(false)
+	}
+	if mv.Scope != nil {
+		w.Bool(true)
+		if err := (*mv.Scope).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (mv *Member) DecodeOrc(r *orc.Reader) error {
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			mv.NodeKey = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Scope
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			mv.Scope = &hv
+		}
 	}
 	return nil
 }
@@ -293,54 +339,6 @@ func (s *Scope) DecodeOrc(r *orc.Reader) error {
 					return err
 				}
 			}
-		}
-	}
-	return nil
-}
-
-func (mv Member) EncodeOrc(w *orc.Writer) error {
-	if mv.NodeKey != nil {
-		w.Bool(true)
-		w.String((*mv.NodeKey))
-	} else {
-		w.Bool(false)
-	}
-	if mv.Scope != nil {
-		w.Bool(true)
-		if err := (*mv.Scope).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-func (mv *Member) DecodeOrc(r *orc.Reader) error {
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv string
-			if hv, err = r.String(); err != nil {
-				return err
-			}
-			mv.NodeKey = &hv
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv Scope
-			if err = hv.DecodeOrc(r); err != nil {
-				return err
-			}
-			mv.Scope = &hv
 		}
 	}
 	return nil

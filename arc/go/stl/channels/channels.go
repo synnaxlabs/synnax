@@ -234,7 +234,7 @@ func (s *sink) Next(ctx node.Context) {
 	out.TimeRange = data.TimeRange
 	outTime := s.OutputTime(0)
 	outTime.Resize(1)
-	telem.SetValueAt[telem.TimeStamp](*outTime, 0, lastTS)
+	telem.SetValueAt(*outTime, 0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange
 	ctx.MarkChanged(0)
@@ -341,7 +341,7 @@ func bindStr(builder wazero.HostModuleBuilder, cs *ProgramState, ss *strings.Pro
 			if !ok {
 				return
 			}
-			cs.writeValue(chID, telem.NewSeriesV[string](str))
+			cs.writeValue(chID, telem.NewSeriesV(str))
 		}).Export("write_str")
 	return builder
 }
