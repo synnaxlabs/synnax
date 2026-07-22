@@ -14,51 +14,6 @@ import (
 	"strings"
 )
 
-// Mul adds dimension exponents (for multiplication of quantities).
-// For example, length * time^-1 = velocity.
-func (d Dimensions) Mul(other Dimensions) Dimensions {
-	return Dimensions{
-		Length:      d.Length + other.Length,
-		Mass:        d.Mass + other.Mass,
-		Time:        d.Time + other.Time,
-		Current:     d.Current + other.Current,
-		Temperature: d.Temperature + other.Temperature,
-		Angle:       d.Angle + other.Angle,
-		Count:       d.Count + other.Count,
-		Data:        d.Data + other.Data,
-	}
-}
-
-// Div subtracts dimension exponents (for division of quantities).
-// For example, length / time = velocity.
-func (d Dimensions) Div(other Dimensions) Dimensions {
-	return Dimensions{
-		Length:      d.Length - other.Length,
-		Mass:        d.Mass - other.Mass,
-		Time:        d.Time - other.Time,
-		Current:     d.Current - other.Current,
-		Temperature: d.Temperature - other.Temperature,
-		Angle:       d.Angle - other.Angle,
-		Count:       d.Count - other.Count,
-		Data:        d.Data - other.Data,
-	}
-}
-
-// Scale multiplies all dimension exponents by n (for power operations).
-// For example, length.Scale(2) = length^2 (area).
-func (d Dimensions) Scale(n int8) Dimensions {
-	return Dimensions{
-		Length:      d.Length * n,
-		Mass:        d.Mass * n,
-		Time:        d.Time * n,
-		Current:     d.Current * n,
-		Temperature: d.Temperature * n,
-		Angle:       d.Angle * n,
-		Count:       d.Count * n,
-		Data:        d.Data * n,
-	}
-}
-
 // Equal checks if two dimensions are identical.
 func (d Dimensions) Equal(other Dimensions) bool {
 	return d == other
@@ -110,11 +65,4 @@ func (d Dimensions) String() string {
 		result.WriteString(p)
 	}
 	return result.String()
-}
-
-// Equal checks if two units are identical.
-func (u Unit) Equal(other Unit) bool {
-	return u.Dimensions.Equal(other.Dimensions) &&
-		u.Scale == other.Scale &&
-		u.Name == other.Name
 }
