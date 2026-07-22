@@ -21,7 +21,8 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-func migrateTask(ctx context.Context, old v0.Task) (Task, error) {
+// MigrateTask lifts a v0 task into the current shape, dropping the persisted status.
+func MigrateTask(ctx context.Context, old v0.Task) (Task, error) {
 	return autoMigrateTask(ctx, old)
 }
 
@@ -33,7 +34,7 @@ var codecMigration = gorp.CodecMigration[v0.Key, v0.Task](
 
 // liftMigration lifts stored tasks from v0 to v1, dropping the persisted status field.
 var liftMigration = gorp.NewEntryMigration(
-	"v54_drop_status", migrateTask, codecMigration.Key(),
+	"v54_drop_status", MigrateTask, codecMigration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

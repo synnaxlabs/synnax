@@ -13,10 +13,23 @@ import (
 	"context"
 
 	v1 "github.com/synnaxlabs/arc/graph/types/v1"
+	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
 )
 
 // MigrateGraph lifts a v1 graph into the current shape; arc's generated
 // migrations consume it cross-package.
 func MigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
 	return autoMigrateGraph(ctx, old)
+}
+
+// MigrateEdge lifts a v1 IR edge into the current keyed graph edge, assigning a
+// fresh key.
+func MigrateEdge(ctx context.Context, old irv1.Edge) (Edge, error) {
+	return autoMigrateEdge(ctx, old)
+}
+
+// MigrateNode lifts a v1 node into the current shape, dropping the config and type
+// fields that moved to Graph.Inputs.
+func MigrateNode(ctx context.Context, old v1.Node) (Node, error) {
+	return autoMigrateNode(ctx, old)
 }

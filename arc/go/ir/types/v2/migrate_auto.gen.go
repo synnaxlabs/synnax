@@ -60,11 +60,11 @@ func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 	edges := make(Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
-		if edges[i], err = autoMigrateEdge(ctx, v); err != nil {
+		if edges[i], err = MigrateEdge(ctx, v); err != nil {
 			return IR{}, err
 		}
 	}
-	root, err := autoMigrateScope(ctx, old.Root)
+	root, err := MigrateScope(ctx, old.Root)
 	if err != nil {
 		return IR{}, err
 	}
@@ -125,14 +125,14 @@ func autoMigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
 	steps := make(Members, len(old.Steps))
 	for i, v := range old.Steps {
 		var err error
-		if steps[i], err = autoMigrateMember(ctx, v); err != nil {
+		if steps[i], err = MigrateMember(ctx, v); err != nil {
 			return Scope{}, err
 		}
 	}
 	transitions := make([]Transition, len(old.Transitions))
 	for i, v := range old.Transitions {
 		var err error
-		if transitions[i], err = autoMigrateTransition(ctx, v); err != nil {
+		if transitions[i], err = MigrateTransition(ctx, v); err != nil {
 			return Scope{}, err
 		}
 	}
@@ -151,7 +151,7 @@ func autoMigrateMembers(ctx context.Context, old v1.Members) (Members, error) {
 	result := make(Members, len(old))
 	for i, v := range old {
 		var err error
-		if result[i], err = autoMigrateMember(ctx, v); err != nil {
+		if result[i], err = MigrateMember(ctx, v); err != nil {
 			return nil, err
 		}
 	}
@@ -161,7 +161,7 @@ func autoMigrateMembers(ctx context.Context, old v1.Members) (Members, error) {
 func autoMigrateMember(ctx context.Context, old v1.Member) (Member, error) {
 	var scope *Scope
 	if old.Scope != nil {
-		v, err := autoMigrateScope(ctx, *old.Scope)
+		v, err := MigrateScope(ctx, *old.Scope)
 		if err != nil {
 			return Member{}, err
 		}

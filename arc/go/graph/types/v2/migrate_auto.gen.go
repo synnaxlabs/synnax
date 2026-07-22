@@ -34,14 +34,14 @@ func autoMigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
 	edges := make(Edges, len(old.Edges))
 	for i, v := range old.Edges {
 		var err error
-		if edges[i], err = autoMigrateEdge(ctx, v); err != nil {
+		if edges[i], err = MigrateEdge(ctx, v); err != nil {
 			return Graph{}, err
 		}
 	}
 	nodes := make(Nodes, len(old.Nodes))
 	for i, v := range old.Nodes {
 		var err error
-		if nodes[i], err = autoMigrateNode(ctx, v); err != nil {
+		if nodes[i], err = MigrateNode(ctx, v); err != nil {
 			return Graph{}, err
 		}
 	}

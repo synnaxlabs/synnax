@@ -342,6 +342,30 @@ func (g *generation) scaffoldIncoming(
 		}
 		buf.Write(tc)
 	}
+	// Changed non-entry structs get wrappers too: the auto-copies reference
+	// MigrateX for every nested changed struct.
+	for _, name := range names {
+		newType, ok := newByName[name]
+		if !ok || isMigrateEntry(newType) {
+			continue
+		}
+		td, ok := diff[roots[name].QualifiedName]
+		if !ok || td.Kind != schemadiff.TypeChanged {
+			continue
+		}
+		sf, isStruct := newType.Form.(resolution.StructForm)
+		if !isStruct {
+			continue
+		}
+		tc, err := renderTransformTemplate(
+			newDir, naming.GetGoName(newType), b.NewVersion, oldAlias, oldImport,
+			sf.TypeParams, buf.Len() > 0,
+		)
+		if err != nil {
+			return errors.Wrap(err, "failed to generate transform template")
+		}
+		buf.Write(tc)
+	}
 	if buf.Len() > 0 {
 		g.resp.Files = append(g.resp.Files, plugin.File{Path: templateFile, Content: buf.Bytes()})
 	}

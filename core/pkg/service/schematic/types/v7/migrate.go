@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/x/spatial"
 )
 
-// migrateSchematic transforms the previous schematic snapshot (v0) into the current
+// MigrateSchematic transforms the previous schematic snapshot (v0) into the current
 // strongly-typed Schematic. autoMigrateSchematic handles the trivially-copyable
 // gorp-entry fields (Key, Name, Snapshot); the body fields are sourced from the
 // per-schematic blob the console used to persist alongside those gorp fields, after
@@ -38,7 +38,7 @@ import (
 // matches the EdgeProps / NodeProps schema declared in schematic.oracle. v0 is the last
 // snapshot in which Schematic.Data is untyped; future migrations transform one typed
 // snapshot into another and never need this blob handling.
-func migrateSchematic(
+func MigrateSchematic(
 	ctx context.Context,
 	old v6.Schematic,
 ) (Schematic, error) {
@@ -274,7 +274,7 @@ var codecMigration = gorp.CodecMigration[Key, v6.Schematic]("msgpack_to_orc")
 // liftMigration lifts stored schematics from the v6 blob layout to the typed v7
 // shape.
 var liftMigration = gorp.NewEntryMigration(
-	"v55_lift_typed_schematic", migrateSchematic, codecMigration.Key(),
+	"v55_lift_typed_schematic", MigrateSchematic, codecMigration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

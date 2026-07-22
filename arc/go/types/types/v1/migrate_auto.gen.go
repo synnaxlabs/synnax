@@ -18,7 +18,7 @@ import (
 )
 
 func autoMigrateParam(ctx context.Context, old v0.Param) (Param, error) {
-	typeVal, err := autoMigrateType(ctx, old.Type)
+	typeVal, err := MigrateType(ctx, old.Type)
 	if err != nil {
 		return Param{}, err
 	}
@@ -36,7 +36,7 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}
 	var elem *Type
 	if old.Elem != nil {
-		v, err := autoMigrateType(ctx, *old.Elem)
+		v, err := MigrateType(ctx, *old.Elem)
 		if err != nil {
 			return Type{}, err
 		}
@@ -44,7 +44,7 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}
 	var constraint *Type
 	if old.Constraint != nil {
-		v, err := autoMigrateType(ctx, *old.Constraint)
+		v, err := MigrateType(ctx, *old.Constraint)
 		if err != nil {
 			return Type{}, err
 		}
