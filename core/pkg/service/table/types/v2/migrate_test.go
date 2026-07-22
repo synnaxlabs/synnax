@@ -103,6 +103,14 @@ var _ = Describe("MigrateTable", func() {
 			Entry("v0 empty", "v0_empty.json"),
 			Entry("v0 mixed variants", "v0_mixed_variants.json"),
 		)
+
+		It("Should produce the canonical output when called directly", func(ctx SpecContext) {
+			blob := loadFixture("v0_mixed_variants.json")
+			out := MustSucceed(v2.MigrateTable(ctx, v1.Table{
+				Key: fixedKey, Name: "v0_mixed_variants.json", Data: blob,
+			}))
+			assertMigrated("v0_mixed_variants.json", out)
+		})
 	})
 
 	Describe("v0 reshape semantics", func() {

@@ -51,6 +51,31 @@ var _ = Describe("MigrateDevice", func() {
 		return got
 	}
 
+	It("Should lift a v0 device directly, dropping the status and parent", func(ctx SpecContext) {
+		migrated := MustSucceed(v1.MigrateDevice(ctx, v0.Device{
+			Key:        "DEV-DIRECT-001",
+			Rack:       42,
+			Location:   "Lab Bench 3",
+			Make:       "LabJack",
+			Model:      "T7",
+			Name:       "Direct",
+			Configured: true,
+			Properties: msgpack.EncodedJSON{"serial": "T7-001"},
+			Status:     &v0.Status{Name: "connected", Variant: "success"},
+			Parent:     &ontology.ID{Type: "device", Key: "DEV-PARENT"},
+		}))
+		Expect(migrated.Key).To(Equal(v1.Key("DEV-DIRECT-001")))
+		Expect(migrated.Rack).To(BeEquivalentTo(42))
+		Expect(migrated.Location).To(Equal("Lab Bench 3"))
+		Expect(migrated.Make).To(Equal("LabJack"))
+		Expect(migrated.Model).To(Equal("T7"))
+		Expect(migrated.Name).To(Equal("Direct"))
+		Expect(migrated.Configured).To(BeTrue())
+		Expect(migrated.Properties).To(Equal(msgpack.EncodedJSON{"serial": "T7-001"}))
+		Expect(migrated.Status).To(BeNil())
+		Expect(migrated.Parent).To(BeNil())
+	})
+
 	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		seed := v0.Device{
 			Key:        "DEV-SERIAL-001",

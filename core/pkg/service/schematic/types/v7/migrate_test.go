@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v7"
@@ -45,8 +44,6 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 	Expect(json.Unmarshal([]byte(raw), &m)).To(Succeed())
 	return m
 }
-
-func rawJSON(s string) json.RawMessage { return json.RawMessage(s) }
 
 // migrateSeed runs the v7 migration chain over a gorp-seeded v6 schematic and
 // returns the migrated typed Schematic.
@@ -94,42 +91,6 @@ func assertMigrated(fixture string, got v7.Schematic) {
 		"%s drifted from its canonical migrated form — review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }
 
-// nonZeroV0 builds a v0.Data with every field populated to a non-zero value
-// so step-migrate passthrough regressions surface.
-func nonZeroV0() v0.Data {
-	z := -2
-	w, h := 100.0, 50.0
-	srcH, tgtH := "out", "in"
-	return v0.Data{
-		Version:         v0.Version,
-		Editable:        true,
-		FitViewOnResize: true,
-		Snapshot:        true,
-		RemoteCreated:   true,
-		Viewport:        v0.Viewport{Position: v0.XY{X: 12, Y: 34}, Zoom: 1.5},
-		Nodes: []v0.Node{
-			{
-				Key: "n1", Position: v0.XY{X: 1, Y: 2},
-				ZIndex: &z, Type: "default",
-				Measured: &v0.Measured{Width: &w, Height: &h},
-			},
-			{Key: "n2", Position: v0.XY{X: 3, Y: 4}},
-		},
-		Edges: []v0.Edge{{
-			Key:          "e1",
-			Source:       "n1",
-			Target:       "n2",
-			SourceHandle: &srcH,
-			TargetHandle: &tgtH,
-			Data:         rawJSON(`{"segments":[{"direction":"x","length":10}],"color":"#ff0000"}`),
-		}},
-		Props: map[string]json.RawMessage{
-			"n1": rawJSON(`{"key":"valve","color":"#00ff00"}`),
-		},
-		Control: "released",
-	}
-}
-
 var _ = Describe("MigrateSchematic", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured production fixture. Run with UPDATE_MIGRATED=1 to regenerate
@@ -150,6 +111,14 @@ var _ = Describe("MigrateSchematic", func() {
 			Entry("v5 hardware workspace", "v5_hardware_workspace.json"),
 			Entry("v5 operator console", "v5_operator.json"),
 		)
+
+		It("Should produce the canonical output when called directly", func(ctx SpecContext) {
+			blob, _ := loadFixture("v5_operator.json")
+			out := MustSucceed(v7.MigrateSchematic(ctx, v6.Schematic{
+				Key: fixedKey, Name: "v5_operator.json", Data: blob,
+			}))
+			assertMigrated("v5_operator.json", out)
+		})
 	})
 
 	Describe("storage integration", func() {

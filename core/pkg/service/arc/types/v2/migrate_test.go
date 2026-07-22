@@ -31,6 +31,20 @@ import (
 )
 
 var _ = Describe("MigrateArc", func() {
+	It("Should lift a v1 arc directly, seeding the document from the raw text", func(ctx SpecContext) {
+		key := uuid.New()
+		migrated := MustSucceed(v2.MigrateArc(ctx, v1.Arc{
+			Key:  key,
+			Name: "direct",
+			Mode: v1.ModeText,
+			Text: text.Text{Raw: "x := 1"},
+		}))
+		Expect(migrated.Key).To(Equal(key))
+		Expect(migrated.Name).To(Equal("direct"))
+		Expect(migrated.Text.Materialize().Raw).To(Equal("x := 1"))
+		Expect(migrated.Text.Raw).To(BeEmpty())
+	})
+
 	Describe("v1 -> current", func() {
 		It("Should seed the document from the previously persisted raw text", func(ctx SpecContext) {
 			got := migrateFromV0(ctx, v0.Arc{

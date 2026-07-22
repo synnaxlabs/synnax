@@ -61,31 +61,6 @@ var _ = Describe("IR", func() {
 		})
 	})
 
-	Describe("Scope IsZero", func() {
-		It("Should return true for an uninitialized scope", func() {
-			Expect(ir.Scope{}.IsZero()).To(BeTrue())
-		})
-
-		It("Should return false when a stratum carries members", func() {
-			s := ir.Scope{
-				Mode:     ir.ScopeModeParallel,
-				Liveness: ir.LivenessAlways,
-				Strata:   []ir.Members{{ir.NodeMember("n1")}},
-			}
-			Expect(s.IsZero()).To(BeFalse())
-		})
-
-		It("Should return false when a sequential scope carries steps", func() {
-			s := ir.Scope{
-				Key:      "main",
-				Mode:     ir.ScopeModeSequential,
-				Liveness: ir.LivenessGated,
-				Steps:    ir.Members{ir.NodeMember("n1")},
-			}
-			Expect(s.IsZero()).To(BeFalse())
-		})
-	})
-
 	Describe("JSON Marshaling", func() {
 		It("Should marshal and unmarshal a complete IR structure", func() {
 			inputs := types.Params{

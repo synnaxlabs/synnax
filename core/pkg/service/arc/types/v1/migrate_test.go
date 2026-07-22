@@ -18,6 +18,9 @@ import (
 	text "github.com/synnaxlabs/arc/text/types/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v1"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -49,5 +52,74 @@ var _ = Describe("MigrateArc", func() {
 		}))
 		Expect(migrated.Status).To(BeNil())
 		Expect(migrated.Program).To(BeNil())
+	})
+})
+
+var _ = Describe("Migrations", func() {
+	migrateSeed := func(ctx SpecContext, seed v0.Arc) v1.Arc {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
+		Expect(gorp.NewCreate[v0.Key, v0.Arc]().
+			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Arc",
+			Migrations: v1.Migrations,
+		})).To(Succeed())
+		var got v1.Arc
+		Expect(gorp.NewRetrieve[v1.Key, v1.Arc]().
+			Where(gorp.MatchKeys[v1.Key, v1.Arc](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		return got
+	}
+
+	It("Should rename deprecated set_status nodes to status.set", func(ctx SpecContext) {
+		got := migrateSeed(ctx, v0.Arc{
+			Key:  uuid.New(),
+			Name: "Legacy Status Graph",
+			Mode: v0.ModeGraph,
+			Graph: graph.Graph{
+				Nodes: graph.Nodes{
+					{
+						Key:  "alarm",
+						Type: "set_status",
+						Config: msgpack.EncodedJSON{
+							"statusKey":   "ox_alarm",
+							"variant":     "error",
+							"message":     "Overpressure",
+							"description": "dropped on migrate",
+						},
+					},
+					{Key: "scale", Type: "scale", Config: msgpack.EncodedJSON{"factor": "2"}},
+				},
+			},
+		})
+		Expect(got.Graph.Nodes).To(HaveLen(2))
+		alarm := got.Graph.Nodes[0]
+		Expect(alarm.Type).To(Equal("status.set"))
+		Expect(alarm.Config).To(Equal(msgpack.EncodedJSON{
+			"key_or_name": "ox_alarm",
+			"variant":     "error",
+			"message":     "Overpressure",
+		}))
+		scale := got.Graph.Nodes[1]
+		Expect(scale.Type).To(Equal("scale"))
+		Expect(scale.Config).To(Equal(msgpack.EncodedJSON{"factor": "2"}))
+	})
+
+	It("Should default missing set_status config parameters", func(ctx SpecContext) {
+		got := migrateSeed(ctx, v0.Arc{
+			Key:   uuid.New(),
+			Name:  "Bare Status Node",
+			Mode:  v0.ModeGraph,
+			Graph: graph.Graph{Nodes: graph.Nodes{{Key: "alarm", Type: "set_status"}}},
+		})
+		Expect(got.Graph.Nodes).To(HaveLen(1))
+		Expect(got.Graph.Nodes[0].Type).To(Equal("status.set"))
+		Expect(got.Graph.Nodes[0].Config).To(Equal(msgpack.EncodedJSON{
+			"key_or_name": "",
+			"variant":     "success",
+			"message":     "",
+		}))
 	})
 })

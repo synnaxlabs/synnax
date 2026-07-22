@@ -49,6 +49,23 @@ var _ = Describe("MigrateRack", func() {
 		return got
 	}
 
+	It("Should lift a v0 rack directly, dropping the status", func(ctx SpecContext) {
+		migrated := MustSucceed(v1.MigrateRack(ctx, v0.Rack{
+			Key:          v0.Key(0x0001_0009),
+			Name:         "Direct",
+			TaskCounter:  3,
+			Embedded:     true,
+			Integrations: []string{"ni"},
+			Status:       &v0.Status{Name: "healthy", Variant: "success"},
+		}))
+		Expect(migrated.Key).To(Equal(v1.Key(0x0001_0009)))
+		Expect(migrated.Name).To(Equal("Direct"))
+		Expect(migrated.TaskCounter).To(Equal(uint32(3)))
+		Expect(migrated.Embedded).To(BeTrue())
+		Expect(migrated.Integrations).To(Equal([]string{"ni"}))
+		Expect(migrated.Status).To(BeNil())
+	})
+
 	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		seed := v0.Rack{
 			Key:          v0.Key(0x0001_0001),

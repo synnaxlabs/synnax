@@ -50,6 +50,25 @@ var _ = Describe("MigrateTask", func() {
 		return got
 	}
 
+	It("Should lift a v0 task directly, dropping the status", func(ctx SpecContext) {
+		migrated := MustSucceed(v1.MigrateTask(ctx, v0.Task{
+			Key:      v0.Key(0x0000_0001_0000_0007),
+			Name:     "Direct",
+			Type:     "modbus_read",
+			Config:   msgpack.EncodedJSON{"poll_rate": float64(50)},
+			Internal: true,
+			Snapshot: true,
+			Status:   &v0.Status{Name: "running", Variant: "success"},
+		}))
+		Expect(migrated.Key).To(Equal(v1.Key(0x0000_0001_0000_0007)))
+		Expect(migrated.Name).To(Equal("Direct"))
+		Expect(migrated.Type).To(Equal("modbus_read"))
+		Expect(migrated.Config).To(Equal(msgpack.EncodedJSON{"poll_rate": float64(50)}))
+		Expect(migrated.Internal).To(BeTrue())
+		Expect(migrated.Snapshot).To(BeTrue())
+		Expect(migrated.Status).To(BeNil())
+	})
+
 	It("rewrites v1-encoded entries through the new codec", func(ctx SpecContext) {
 		seed := v0.Task{
 			Key:      v0.Key(0x0000_0001_0000_0042),
