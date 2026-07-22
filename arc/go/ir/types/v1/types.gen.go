@@ -124,12 +124,12 @@ type Scope struct {
 	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
 	// Strata contains stratified execution layers for parallel scopes. Empty for sequential
 	// scopes. Stratum N depends only on strata 0 to N-1.
-	Strata []Members `json:"strata" msgpack:"strata"`
+	Strata []Members `json:"strata,omitzero" msgpack:"strata,omitzero"`
 	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-	Steps Members `json:"steps" msgpack:"steps"`
+	Steps Members `json:"steps,omitzero" msgpack:"steps,omitzero"`
 	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
 	// scopes.
-	Transitions []Transition `json:"transitions" msgpack:"transitions"`
+	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of

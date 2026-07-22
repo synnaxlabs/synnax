@@ -36,42 +36,6 @@ var _ = Describe("MigrateNode", func() {
 	})
 })
 
-var _ = Describe("MigrateScope", func() {
-	It("Should carry a Scope's mode, steps, and transitions", func(ctx SpecContext) {
-		nodeKey := "n1"
-		targetKey := "s2"
-		migrated := MustSucceed(v2.MigrateScope(ctx, v1.Scope{
-			Key:      "root",
-			Mode:     v1.ScopeModeSequential,
-			Liveness: v1.LivenessGated,
-			Steps:    v1.Members{{NodeKey: &nodeKey}},
-			Transitions: []v1.Transition{{
-				On:        v1.Handle{Node: "n1", Param: "done"},
-				TargetKey: &targetKey,
-			}},
-		}))
-		Expect(migrated.Key).To(Equal("root"))
-		Expect(migrated.Mode).To(Equal(v2.ScopeModeSequential))
-		Expect(migrated.Liveness).To(Equal(v2.LivenessGated))
-		Expect(migrated.Steps).To(HaveLen(1))
-		Expect(*migrated.Steps[0].NodeKey).To(Equal("n1"))
-		Expect(migrated.Transitions).To(HaveLen(1))
-		Expect(*migrated.Transitions[0].TargetKey).To(Equal("s2"))
-	})
-})
-
-var _ = Describe("MigrateMember", func() {
-	It("Should carry a Member's node key and nested scope", func(ctx SpecContext) {
-		nodeKey := "n1"
-		migrated := MustSucceed(v2.MigrateMember(ctx, v1.Member{
-			Scope: &v1.Scope{Key: "nested", Steps: v1.Members{{NodeKey: &nodeKey}}},
-		}))
-		Expect(migrated.NodeKey).To(BeNil())
-		Expect(migrated.Scope.Key).To(Equal("nested"))
-		Expect(migrated.Scope.Steps).To(HaveLen(1))
-	})
-})
-
 var _ = Describe("MigrateIR", func() {
 	It("Should carry an IR's functions, nodes, edges, and root", func(ctx SpecContext) {
 		migrated := MustSucceed(v2.MigrateIR(ctx, v1.IR{

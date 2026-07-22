@@ -57,16 +57,12 @@ func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 			return IR{}, err
 		}
 	}
-	root, err := MigrateScope(ctx, old.Root)
-	if err != nil {
-		return IR{}, err
-	}
 	return IR{
 		Functions:   functions,
 		Nodes:       nodes,
 		Edges:       old.Edges,
 		Authorities: old.Authorities,
-		Root:        root,
+		Root:        old.Root,
 	}, nil
 }
 
@@ -91,57 +87,5 @@ func autoMigrateNode(ctx context.Context, old v1.Node) (Node, error) {
 		Inputs:   inputs,
 		Outputs:  outputs,
 		Channels: old.Channels,
-	}, nil
-}
-
-func autoMigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
-	strata := make([]Members, len(old.Strata))
-	for i, v := range old.Strata {
-		var err error
-		if strata[i], err = autoMigrateMembers(ctx, v); err != nil {
-			return Scope{}, err
-		}
-	}
-	steps := make(Members, len(old.Steps))
-	for i, v := range old.Steps {
-		var err error
-		if steps[i], err = MigrateMember(ctx, v); err != nil {
-			return Scope{}, err
-		}
-	}
-	return Scope{
-		Key:         old.Key,
-		Mode:        ScopeMode(old.Mode),
-		Liveness:    Liveness(old.Liveness),
-		Activation:  old.Activation,
-		Strata:      strata,
-		Steps:       steps,
-		Transitions: old.Transitions,
-	}, nil
-}
-
-func autoMigrateMembers(ctx context.Context, old v1.Members) (Members, error) {
-	result := make(Members, len(old))
-	for i, v := range old {
-		var err error
-		if result[i], err = MigrateMember(ctx, v); err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-func autoMigrateMember(ctx context.Context, old v1.Member) (Member, error) {
-	var scope *Scope
-	if old.Scope != nil {
-		v, err := MigrateScope(ctx, *old.Scope)
-		if err != nil {
-			return Member{}, err
-		}
-		scope = &v
-	}
-	return Member{
-		NodeKey: old.NodeKey,
-		Scope:   scope,
 	}, nil
 }

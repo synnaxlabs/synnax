@@ -62,39 +62,15 @@ type Transition = v1.Transition
 // Member is a tagged union representing a single child of a Scope. Exactly one of
 // nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
 // transitions) is derived from the set variant via Member.key().
-type Member struct {
-	// NodeKey is the key of the referenced node in IR.nodes. Null when this member is a
-	// nested scope.
-	NodeKey *string `json:"node_key,omitempty" msgpack:"node_key,omitempty"`
-	// Scope is set when this member is a nested scope.
-	Scope *Scope `json:"scope,omitempty" msgpack:"scope,omitempty"`
-}
+type Member = v1.Member
 
 // Members is an ordered collection of Scope members, one per position.
-type Members = []Member
+type Members = v1.Members
 
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members
 // into strata; sequential scopes run one step at a time and advance via transitions.
-type Scope struct {
-	// Key is the scope identifier.
-	Key string `json:"key" msgpack:"key"`
-	// Mode defines whether this scope runs steps in parallel or sequentially.
-	Mode ScopeMode `json:"mode" msgpack:"mode"`
-	// Liveness defines whether this scope is continuously active or must be activated.
-	Liveness Liveness `json:"liveness" msgpack:"liveness"`
-	// Activation is the handle whose truthy value activates a gated scope. Unset for
-	// always-live scopes.
-	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
-	// Strata contains stratified execution layers for parallel scopes. Empty for
-	// sequential scopes. Stratum N depends only on strata 0 to N-1.
-	Strata []Members `json:"strata,omitzero" msgpack:"strata,omitzero"`
-	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
-	Steps Members `json:"steps,omitzero" msgpack:"steps,omitzero"`
-	// Transitions contains state-transition rules for sequential scopes. Empty for
-	// parallel scopes.
-	Transitions []Transition `json:"transitions,omitzero" msgpack:"transitions,omitzero"`
-}
+type Scope = v1.Scope
 
 // Body is raw function body source code with optional parsed AST.
 type Body = v1.Body

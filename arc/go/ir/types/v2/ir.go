@@ -25,17 +25,6 @@ func (i *IR) IsZero() bool {
 		i.TypeMap == nil
 }
 
-// IsZero reports whether the scope carries no execution content.
-func (s Scope) IsZero() bool {
-	return s.Key == "" &&
-		s.Mode == ScopeModeUnspecified &&
-		s.Liveness == LivenessUnspecified &&
-		s.Activation == nil &&
-		len(s.Strata) == 0 &&
-		len(s.Steps) == 0 &&
-		len(s.Transitions) == 0
-}
-
 // String returns the string representation of the IR.
 func (i *IR) String() string {
 	return i.stringWithPrefix("")
@@ -117,79 +106,5 @@ func (i *IR) writeRoot(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(treePrefix(last))
 	b.WriteString("Root\n")
 	childPrefix := prefix + treeIndent(last)
-	b.WriteString(i.Root.stringWithPrefix(childPrefix))
-}
-
-// String returns the tree representation of a Scope.
-func (s Scope) String() string { return s.stringWithPrefix("") }
-
-func (s Scope) stringWithPrefix(prefix string) string {
-	var b strings.Builder
-	lo.Must(fmt.Fprintf(&b, "%s [%s, %s]\n", scopeLabel(s), s.Mode, s.Liveness))
-	if s.Mode == ScopeModeParallel {
-		for i, stratum := range s.Strata {
-			isLast := i == len(s.Strata)-1 && len(s.Transitions) == 0
-			b.WriteString(prefix)
-			b.WriteString(treePrefix(isLast))
-			lo.Must(fmt.Fprintf(&b, "stratum %d\n", i))
-			childPrefix := prefix + treeIndent(isLast)
-			for j, m := range stratum {
-				isLastMember := j == len(stratum)-1
-				b.WriteString(childPrefix)
-				b.WriteString(treePrefix(isLastMember))
-				b.WriteString(m.stringWithPrefix(childPrefix + treeIndent(isLastMember)))
-			}
-		}
-	} else {
-		for i, m := range s.Steps {
-			isLast := i == len(s.Steps)-1 && len(s.Transitions) == 0
-			b.WriteString(prefix)
-			b.WriteString(treePrefix(isLast))
-			b.WriteString(m.stringWithPrefix(prefix + treeIndent(isLast)))
-		}
-	}
-	for i, t := range s.Transitions {
-		isLast := i == len(s.Transitions)-1
-		b.WriteString(prefix)
-		b.WriteString(treePrefix(isLast))
-		b.WriteString(t.String())
-		b.WriteByte('\n')
-	}
-	return b.String()
-}
-
-func scopeLabel(s Scope) string {
-	if s.Key == "" {
-		return "(scope)"
-	}
-	return s.Key
-}
-
-// Key returns the member's lookup key — the string transitions target via
-// `=> name`. Derived from the set variant: the referenced node's key for
-// leaf members, the nested scope's key for scope members. Returns the empty
-// string for an unset member.
-func (m Member) Key() string {
-	switch {
-	case m.NodeKey != nil:
-		return *m.NodeKey
-	case m.Scope != nil:
-		return m.Scope.Key
-	default:
-		return ""
-	}
-}
-
-// String returns the tree representation of a Member.
-func (m Member) String() string { return m.stringWithPrefix("") }
-
-func (m Member) stringWithPrefix(prefix string) string {
-	switch {
-	case m.NodeKey != nil:
-		return fmt.Sprintf("%s\n", *m.NodeKey)
-	case m.Scope != nil:
-		return m.Scope.stringWithPrefix(prefix)
-	default:
-		return "(empty member)\n"
-	}
+	b.WriteString(i.Root.StringWithPrefix(childPrefix))
 }
