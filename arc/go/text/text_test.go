@@ -345,6 +345,435 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
 		})
 
+		It("Should stamp a var ref input for a reassigned variable", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "out_str", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 908},
+			}, varResolver...)
+			source := `
+			func stamp{tag str} (n u8) str {
+				return tag
+			}
+			sequence main {
+				fp str := "init"
+				stage s1 {
+					1 -> stamp{tag="seed"} -> fp
+					flag_ch -> stamp{tag=fp} -> out_str
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(1))
+			var ref types.Param
+			refNode := ""
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("tag"); ok && p.Type.Kind == types.KindVarRef {
+					ref = p
+					refNode = n.Key
+				}
+			}
+			Expect(refNode).ToNot(BeEmpty(), "expected a var-ref tag input")
+			Expect(ref.Type.Name).To(Equal(vars[0].Key))
+			Expect(ref.Type.Elem.Kind).To(Equal(types.KindString))
+			Expect(ref.Value).To(Equal("init"))
+			for _, e := range inter.Edges {
+				Expect(e.Target.Node == refNode && e.Target.Param == "tag").To(
+					BeFalse(), "a var-bound input must not be edge-fed")
+			}
+		})
+
+		It("Should accept a reassigned variable as a native's input value", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "span_ch", Kind: symbol.KindChannel, Type: types.Chan(types.TimeSpan()), ID: 909},
+				{Name: "done_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 910},
+			}, varResolver...)
+			source := `
+			sequence main {
+				d := 1ns
+				stage s1 {
+					span_ch -> d
+					flag_ch -> wait{duration=d} -> done_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(1))
+			found := false
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("duration"); ok && p.Type.Kind == types.KindVarRef {
+					Expect(p.Type.Name).To(Equal(vars[0].Key))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "expected a var-ref duration input")
+		})
+
+		It("Should inline a never-reassigned nested variable input value", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "out_str", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 908},
+			}, varResolver...)
+			source := `
+			func stamp{tag str} (n u8) str {
+				return tag
+			}
+			sequence main {
+				k str := "abc"
+				stage s1 {
+					flag_ch -> stamp{tag=k} -> out_str
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(variableNodes(inter)).To(BeEmpty())
+			found := false
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("tag"); ok && p.Value == "abc" {
+					Expect(p.Type.Kind).To(Equal(types.KindString))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "expected the initial inlined as a literal")
+		})
+
+		It("Should stamp a var ref input for a stateful variable", func(ctx SpecContext) {
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				acc i64 $= 5
+				stage s1 {
+					count_ch -> acc
+					flag_ch -> my_func{tag=acc} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(1))
+			Expect(vars[0].Type).To(Equal("stateful_variable"))
+			found := false
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("tag"); ok && p.Type.Kind == types.KindVarRef {
+					Expect(p.Type.Name).To(Equal(vars[0].Key))
+					Expect(p.Type.Elem.Kind).To(Equal(types.KindI64))
+					Expect(p.Value).To(BeEquivalentTo(5))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "expected a var-ref tag input")
+		})
+
+		It("Should accept a stateful variable as a native's input value", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "span_ch", Kind: symbol.KindChannel, Type: types.Chan(types.TimeSpan()), ID: 909},
+				{Name: "done_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 910},
+			}, varResolver...)
+			source := `
+			sequence main {
+				d $= 1ns
+				stage s1 {
+					span_ch -> d
+					flag_ch -> wait{duration=d} -> done_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(1))
+			Expect(vars[0].Type).To(Equal("stateful_variable"))
+			found := false
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("duration"); ok && p.Type.Kind == types.KindVarRef {
+					Expect(p.Type.Name).To(Equal(vars[0].Key))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "expected a var-ref duration input")
+		})
+
+		It("Should inline a never-written stateful variable input value", func(ctx SpecContext) {
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				acc i64 $= 7
+				stage s1 {
+					flag_ch -> my_func{tag=acc} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(variableNodes(inter)).To(BeEmpty())
+			found := false
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("tag"); ok && p.Value != nil {
+					Expect(p.Value).To(BeEquivalentTo(7))
+					Expect(p.Type.Kind).To(Equal(types.KindI64))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "expected the initial inlined as a literal")
+		})
+
+		It("Should reject a reactive variable as an input value", func(ctx SpecContext) {
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				r := count_ch + 1
+				stage s1 {
+					flag_ch -> my_func{tag=r} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+		})
+
+		It("Should reject a reactive variable as a channel input value", func(ctx SpecContext) {
+			source := `
+			func reader{channel chan i64} () i64 {
+				return channel
+			}
+			sequence main {
+				r := count_ch + 1
+				stage s1 {
+					reader{channel=r} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a channel"))
+		})
+
+		It("Should reject a reactive variable as a native's input value", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "span_ch", Kind: symbol.KindChannel, Type: types.Chan(types.TimeSpan()), ID: 909},
+				{Name: "done_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 910},
+			}, varResolver...)
+			source := `
+			sequence main {
+				r := span_ch + 1ns
+				stage s1 {
+					flag_ch -> wait{duration=r} -> done_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+		})
+
+		It("Should reject a reassigned reactive variable as an input value", func(ctx SpecContext) {
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				r := count_ch + 1
+				stage s1 {
+					r = count_ch * 2
+					flag_ch -> my_func{tag=r} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+		})
+
+		It("Should reject a reassigned reactive variable as a channel input value", func(ctx SpecContext) {
+			source := `
+			func reader{channel chan i64} () i64 {
+				return channel
+			}
+			sequence main {
+				r := count_ch + 1
+				stage s1 {
+					r = count_ch * 2
+					reader{channel=r} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a channel"))
+		})
+
+		It("Should reject a reactive variable inside an input expression", func(ctx SpecContext) {
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				r := count_ch + 1
+				stage s1 {
+					flag_ch -> my_func{tag=r + 1} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+		})
+
+		It("Should reject a write-channel alias as an input value", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "cmd_ch", Kind: symbol.KindChannel, Type: types.WriteChan(types.I64()), ID: 905},
+			}, varResolver...)
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				w := cmd_ch
+				stage s1 {
+					flag_ch -> my_func{tag=w} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+		})
+
+		It("Should resolve a channel alias to its source channel as a channel input value", func(ctx SpecContext) {
+			source := `
+			func reader{channel chan i64} () i64 {
+				return channel
+			}
+			sequence main {
+				a := count_ch
+				stage s1 {
+					reader{channel=a} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			found := false
+			for _, n := range inter.Nodes {
+				for _, p := range n.Inputs {
+					Expect(p.Type.Kind).ToNot(Equal(types.KindVarRef),
+						"an alias must not stamp a var ref")
+				}
+				for _, name := range n.Channels.Read {
+					if name == "a" {
+						found = true
+					}
+				}
+			}
+			Expect(found).To(BeTrue(), "expected the alias registered as a read channel")
+		})
+
+		It("Should resolve a write-channel alias as a channel input value", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "cmd_ch", Kind: symbol.KindChannel, Type: types.WriteChan(types.I64()), ID: 905},
+			}, varResolver...)
+			source := `
+			func writer{channel chan i64} (value i64) {
+				channel = value
+			}
+			sequence main {
+				w := cmd_ch
+				stage s1 {
+					count_ch -> writer{channel=w}
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			found := false
+			for _, n := range inter.Nodes {
+				for _, name := range n.Channels.Write {
+					if name == "w" {
+						found = true
+					}
+				}
+			}
+			Expect(found).To(BeTrue(), "expected the alias registered as a write channel")
+		})
+
+		It("Should accept a rebound channel alias as a channel input value", func(ctx SpecContext) {
+			source := `
+			func reader{channel chan i64} () i64 {
+				return channel
+			}
+			sequence main {
+				a := count_ch
+				stage s1 {
+					a = sink_ch
+					reader{channel=a} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should reject a literal variable as a channel input value", func(ctx SpecContext) {
+			source := `
+			func reader{channel chan i64} () i64 {
+				return channel
+			}
+			sequence main {
+				d := 5
+				stage s1 {
+					reader{channel=d} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
+		})
+
+		It("Should reject a stateful variable as a channel input value", func(ctx SpecContext) {
+			source := `
+			func reader{channel chan i64} () i64 {
+				return channel
+			}
+			sequence main {
+				d i64 $= 5
+				stage s1 {
+					reader{channel=d} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("type mismatch"))
+		})
+
+		It("Should reject a channel alias as an input value", func(ctx SpecContext) {
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				p := count_ch
+				stage s1 {
+					flag_ch -> my_func{tag=p} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+		})
+
 		DescribeTable("Should lower reactive re-expression and alias rebind",
 			func(ctx SpecContext, source string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
@@ -3302,7 +3731,7 @@ time.wait{duration=500ms} -> output`
 				// Regression guard for the activation path. When the target
 				// is not in any enclosing frame's memberKeys but is a root-
 				// level scope, the resolver must register an activation
-				// (not a transition) and the stamping loop must set
+				// (not a transition) and the my_funcng loop must set
 				// Activation on that scope.
 				resolver := []symbol.Symbol{
 					{Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20007},

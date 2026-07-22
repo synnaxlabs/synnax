@@ -1927,6 +1927,74 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
+	Describe("StringInput", func() {
+		// build wires consumer c with a var-bound "tag" (variable node v) and a
+		// literal "plain".
+		build := func() *node.ProgramState {
+			v := ir.Node{Key: "v", Type: "variable", Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.String()},
+			}}
+			c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+				{Name: "tag", Type: types.VarRef(types.String(), "v"), Value: "init"},
+				{Name: "plain", Type: types.String(), Value: "cfg"},
+			}}
+			return node.New(ir.IR{Nodes: ir.Nodes{v, c}})
+		}
+
+		It("Should return the referenced variable's latest value", func() {
+			s := build()
+			*s.Node("v").Output(0) = telem.NewSeriesV("first", "live")
+			Expect(s.Node("c").StringInput("tag")).To(Equal("live"))
+		})
+
+		It("Should read the declared initial before any write", func() {
+			Expect(build().Node("c").StringInput("tag")).To(Equal("init"))
+		})
+
+		It("Should return a literal param's configured value", func() {
+			Expect(build().Node("c").StringInput("plain")).To(Equal("cfg"))
+		})
+
+		It("Should return empty for an unknown input", func() {
+			Expect(build().Node("c").StringInput("nope")).To(BeEmpty())
+		})
+	})
+
+	Describe("NumericInput", func() {
+		// build wires consumer c with a var-bound "gain" (variable node v) and a
+		// literal "offset".
+		build := func() *node.ProgramState {
+			v := ir.Node{Key: "v", Type: "variable", Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.U8()},
+			}}
+			c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+				{Name: "gain", Type: types.VarRef(types.U8(), "v"), Value: uint8(5)},
+				{Name: "offset", Type: types.U8(), Value: uint8(9)},
+			}}
+			return node.New(ir.IR{Nodes: ir.Nodes{v, c}})
+		}
+
+		It("Should return the referenced variable's latest value", func() {
+			s := build()
+			*s.Node("v").Output(0) = telem.NewSeriesV[uint8](3, 7)
+			Expect(node.NumericInput[uint8](s.Node("c"), "gain")).To(Equal(uint8(7)))
+		})
+
+		It("Should read the declared initial before any write", func() {
+			Expect(node.NumericInput[uint8](build().Node("c"), "gain")).
+				To(Equal(uint8(5)))
+		})
+
+		It("Should return a literal param's configured value", func() {
+			Expect(node.NumericInput[uint8](build().Node("c"), "offset")).
+				To(Equal(uint8(9)))
+		})
+
+		It("Should return zero for an unknown input", func() {
+			Expect(node.NumericInput[uint8](build().Node("c"), "nope")).To(BeZero())
+		})
+	})
+
 })
 
 // newLinkedState builds src (i32 output) -> dst (i32 input) and returns the state.

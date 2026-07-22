@@ -353,7 +353,7 @@ func analyzeFlowNode(
 		return analyzeIdentifierByRole(acontext.Child(ctx, id), kg, shell, isSink)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
-		r, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg)
+		r, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg, shell)
 		return flowNodeResult{node: r}, ok
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
@@ -1074,6 +1074,7 @@ func analyzeNextToken(
 func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) (nodeResult, bool) {
 	head, tail := parser.FunctionNameParts(ctx.AST)
 	name := head
@@ -1115,7 +1116,9 @@ func analyzeFunctionNode(
 		Outputs:  slices.Clone(freshType.Outputs),
 	}
 	var ok bool
-	n.Inputs, ok = extractInputValues(acontext.Child(ctx, ctx.AST.InputValues()), n.Inputs, n, sym)
+	n.Inputs, ok = extractInputValues(
+		acontext.Child(ctx, ctx.AST.InputValues()), n.Inputs, n, sym, shell,
+	)
 	if !ok {
 		return nodeResult{}, false
 	}
@@ -1737,6 +1740,7 @@ func extractInputValues(
 	input types.Params,
 	node ir.Node,
 	fnSym *symbol.Symbol,
+	shell *shellBuilder,
 ) (types.Params, bool) {
 	if ctx.AST == nil {
 		return input, true
@@ -1746,31 +1750,62 @@ func extractInputValues(
 		expr parser.IExpressionContext,
 		paramType types.Type,
 		paramName string,
-	) (any, bool) {
+	) (any, types.Type, bool) {
 		if paramType.Kind == types.KindChan {
 			channelName := parser.GetExpressionText(expr)
 			sym, err := ctx.Scope.Resolve(ctx, channelName)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-				return nil, false
+				return nil, paramType, false
+			}
+			if isExprReadVar(sym) {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					expr,
+					"input value for '%s' must be a channel",
+					paramName,
+				))
+				return nil, paramType, false
 			}
 			if err := paramType.ChanDirection.CheckCompatibility(sym.Type.ChanDirection); err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-				return nil, false
+				return nil, paramType, false
 			}
-			channelKey := uint32(sym.ID)
-			symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, channelKey, sym.Name)
-			return channelKey, true
+			// Top-level channel aliases cannot be rebound, so they collapse into
+			// their declared channel; so does any alias with no rebind sites in
+			// the source. Any other alias reads its register's live key instead.
+			if e := shell.varNodes[sym]; e.register != nil && sym.IsValueVariable() &&
+				sym.Type.Kind == types.KindChan {
+				shell.edges = append(shell.edges, ir.Edge{
+					Source: ir.Handle{Node: e.register.Key, Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: node.Key, Param: paramName},
+					Kind:   ir.EdgeKindContinuous,
+				})
+				for key, name := range sym.Channels.Read {
+					symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, key, name)
+				}
+				for key, name := range sym.Channels.Write {
+					symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, key, name)
+				}
+				return nil, paramType, true
+			}
+			key := channelKey(sym)
+			symbol.ResolveInputChannel(&node.Channels, fnSym, paramName, key, sym.Name)
+			return key, paramType, true
 		}
 
-		// A top-level literal variable cannot be reassigned, so its initial
-		// value is compile-time-stable and inlines like a literal.
+		// Top-level literal variables cannot be reassigned, so they inline; so
+		// does any literal variable with no write sites in the source. Any
+		// other literal variable stamps a var ref to its node instead.
 		if primary := parser.GetPrimaryExpression(expr); primary != nil {
 			if id := primary.IDENTIFIER(); id != nil {
 				if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil &&
-					sym.IsLiteral() && !sym.Reassigned &&
-					sym.DefaultValue != nil && sym.Parent == sym.Root() {
-					return sym.DefaultValue, true
+					sym.IsLiteral() {
+					if rn := shell.varNodes[sym].readNode(sym); rn != nil {
+						return sym.DefaultValue, types.VarRef(sym.Type, rn.Key), true
+					}
+					if !sym.Reassigned && sym.DefaultValue != nil {
+						return sym.DefaultValue, paramType, true
+					}
 				}
 			}
 		}
@@ -1781,15 +1816,15 @@ func extractInputValues(
 				"input value for '%s' must be a literal",
 				paramName,
 			))
-			return nil, false
+			return nil, paramType, false
 		}
 
 		parsedValue, err := literal.ParseConst(expr, paramType)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
-			return nil, false
+			return nil, paramType, false
 		}
-		return parsedValue.Value, true
+		return parsedValue.Value, paramType, true
 	}
 
 	if named := ctx.AST.NamedInputValues(); named != nil {
@@ -1797,11 +1832,12 @@ func extractInputValues(
 			key := cv.IDENTIFIER().GetText()
 			idx := input.GetIndex(key)
 			if expr := cv.Expression(); expr != nil {
-				value, ok := parseInputExpr(expr, input[idx].Type, key)
+				value, typ, ok := parseInputExpr(expr, input[idx].Type, key)
 				if !ok {
 					return nil, false
 				}
 				input[idx].Value = value
+				input[idx].Type = typ
 			}
 		}
 	} else if anon := ctx.AST.AnonymousInputValues(); anon != nil {
@@ -1814,11 +1850,14 @@ func extractInputValues(
 			if pos >= len(exprs) {
 				break
 			}
-			value, ok := parseInputExpr(exprs[pos], input[i].Type, fmt.Sprintf("position %d", pos))
+			value, typ, ok := parseInputExpr(
+				exprs[pos], input[i].Type, fmt.Sprintf("position %d", pos),
+			)
 			if !ok {
 				return nil, false
 			}
 			input[i].Value = value
+			input[i].Type = typ
 			pos++
 		}
 	}
@@ -2338,7 +2377,7 @@ func analyzeSingleInvocation(
 	shell *shellBuilder,
 ) (ir.Node, bool) {
 	if fn := ctx.AST.Function(); fn != nil {
-		result, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg)
+		result, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg, shell)
 		if !ok {
 			return ir.Node{}, false
 		}

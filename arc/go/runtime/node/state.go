@@ -78,6 +78,18 @@ func (s *ProgramState) Node(key string) *State {
 			}
 			continue
 		}
+		// A var input names its variable's node in Type.Name. It binds that
+		// node's output slot directly: no edge, never gates or wakes.
+		if p.Type.Kind == types.KindVarRef {
+			isReference[i] = true
+			src := ir.Handle{Node: p.Type.Name, Param: ir.DefaultOutputParam}
+			inputs[i] = ir.Edge{
+				Source: src,
+				Target: ir.Handle{Node: key, Param: p.Name},
+			}
+			inputSources[i] = s.outputs[src]
+			continue
+		}
 		edge, found := s.ir.Edges.FindByTarget(
 			ir.Handle{Node: key, Param: p.Name},
 		)
@@ -171,6 +183,7 @@ func (s *ProgramState) Node(key string) *State {
 	nd.ir.inputs = inputs
 	nd.rearm = rearm
 	nd.inputIndex = inputIndex
+	nd.params = n.Inputs
 	nd.ir.outputs = lo.Map(n.Outputs, func(item types.Param, _ int) ir.Handle {
 		return ir.Handle{Node: key, Param: item.Name}
 	})
@@ -214,6 +227,8 @@ type State struct {
 	}
 	// inputIndex maps an input's parameter name to its position.
 	inputIndex map[string]int
+	// params holds the node's input params with their configured values.
+	params types.Params
 	// isReference marks inputs that are channel references rather than value
 	// streams. Reference inputs carry no data series and never gate execution.
 	isReference []bool
@@ -308,6 +323,40 @@ func (n *State) RefInput(paramIndex int) telem.Series {
 		}
 	}
 	return telem.Series{}
+}
+
+// StringInput returns the named input's current value: the referenced
+// variable's value when var-bound (its declared initial until first written),
+// else the configured value.
+func (n *State) StringInput(name string) string {
+	i, err := n.ResolveInput(name)
+	if err != nil {
+		return ""
+	}
+	if s := n.RefInput(i); s.Len() > 0 {
+		return string(s.At(-1))
+	}
+	if v, ok := n.params[i].Value.(string); ok {
+		return v
+	}
+	return ""
+}
+
+// NumericInput returns the named input's current value: the referenced
+// variable's value when var-bound (its declared initial until first written),
+// else the configured value.
+func NumericInput[T telem.NumericSample](n *State, name string) T {
+	i, err := n.ResolveInput(name)
+	if err != nil {
+		return 0
+	}
+	if s := n.RefInput(i); s.Len() > 0 {
+		return telem.ValueAt[T](s, -1)
+	}
+	if v := n.params[i].Value; v != nil {
+		return telem.CastNumeric[T](v)
+	}
+	return 0
 }
 
 // AbsorbInputs marks every data input consumed at its current source timestamp,

@@ -44,7 +44,12 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	// Each input fills one WASM param slot. Edge-fed inputs (nil Value) are streamed
 	// per sample in Next; literal inputs get their constant value set once here.
 	params := make([]uint64, len(irFn.Inputs))
+	varInputs := make([]bool, len(cfg.Node.Inputs))
 	for i, param := range cfg.Node.Inputs {
+		if param.Type.Kind == types.KindVarRef {
+			varInputs[i] = true
+			continue
+		}
 		if param.Value == nil {
 			continue
 		}
@@ -110,6 +115,7 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		nodeKeySetter: w.NodeKeySetter,
 		stringInputs:  stringInputs,
 		chanInputs:    chanInputs,
+		varInputs:     varInputs,
 		stringOutputs: stringOutputs,
 		strings:       w.Strings,
 	}

@@ -141,30 +141,16 @@ func (m *module) ModuleName() string { return moduleName }
 func (m *module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
-		var sc setConfig
-		if err := setConfigSchema.Parse(cfg.Node.Inputs.ValueMap(), &sc); err != nil {
-			return nil, errors.Wrap(err, "status.set config")
+		if err := setSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
+			return nil, errors.Wrap(err, "status.set inputs")
 		}
-		return &setNode{
-			State:     cfg.State,
-			stat:      m.stat,
-			report:    m.report,
-			keyOrName: sc.KeyOrName,
-			message:   sc.Message,
-			variant:   sc.Variant,
-		}, nil
+		return &setNode{State: cfg.State, stat: m.stat, report: m.report}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
 }
 
-type setConfig struct {
-	KeyOrName string `json:"key_or_name"`
-	Message   string `json:"message"`
-	Variant   string `json:"variant"`
-}
-
-var setConfigSchema = zyn.Object(map[string]zyn.Schema{
+var setSchema = zyn.Object(map[string]zyn.Schema{
 	"key_or_name": zyn.String(),
 	"message":     zyn.String(),
 	"variant":     zyn.String(),
@@ -172,15 +158,14 @@ var setConfigSchema = zyn.Object(map[string]zyn.Schema{
 
 type setNode struct {
 	*node.State
-	stat      *status.Service
-	report    taskreporter.Reporter
-	keyOrName string
-	message   string
-	variant   string
+	stat   *status.Service
+	report taskreporter.Reporter
 }
 
 func (s *setNode) Next(ctx node.Context) {
-	key := dispatchSet(ctx, s.stat, s.report, s.keyOrName, s.message, s.variant)
+	key := dispatchSet(ctx, s.stat, s.report,
+		s.StringInput("key_or_name"), s.StringInput("message"),
+		s.StringInput("variant"))
 	*s.Output(0) = telem.NewSeriesV[string](key)
 	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)

@@ -97,11 +97,11 @@ sequence flow_capture_seq {
     }
     sequence wrap_up {
         1 -> ranges.end{key=fp_key}
+
+        // End signal
+        time.wait{100ms} -> 1 -> ranges_done
     }
 }
-
-// ────────────────────────── End Signal ───────────────────────────
-time.wait{100ms} -> 1 -> ranges_done
 """
 
 

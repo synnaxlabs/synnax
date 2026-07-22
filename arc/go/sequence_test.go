@@ -4379,6 +4379,316 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	// A func brace input bound to a variable reads the variable's value at
+	// each fire; the node fires only on its own trigger.
+	Describe("Variable brace inputs", func() {
+		src := `
+    func echo{tag str} (n u8) str {
+        return tag
+    }
+    sequence main {
+        v str := "initial"
+        stage s1 {
+            tag_ch -> v
+            go_ch -> echo{tag=v} -> echo_out
+        }
+    }
+    start_cmd => main`
+		newH := func(ctx SpecContext) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 300},
+				"tag_ch":    {types.String(), 301},
+				"go_ch":     {types.U8(), 302},
+				"echo_out":  {types.String(), 303},
+			})
+			return newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: 300, DataType: telem.Uint8T},
+				channels.Digest{Key: 301, DataType: telem.StringT},
+				channels.Digest{Key: 302, DataType: telem.Uint8T},
+				channels.Digest{Key: 303, DataType: telem.StringT},
+			)
+		}
+		pushTag := func(h *runtimeHarness, ctx SpecContext, v string) {
+			h.Ingest(301, telem.NewSeriesV[string](v))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+
+		It("passes the variable's latest value at each fire", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			pushTag(h, ctx, "alpha")
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(lastString(out, 303)).To(Equal("alpha"))
+			pushTag(h, ctx, "beta")
+			trigger(h, ctx, 302)
+			out, _ = h.Flush()
+			Expect(lastString(out, 303)).To(Equal("beta"))
+		})
+
+		It("uses the declared initial before any write", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(lastString(out, 303)).To(Equal("initial"))
+		})
+
+		It("fires the consumer exactly once per trigger", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 300)
+			pushTag(h, ctx, "alpha")
+			trigger(h, ctx, 302)
+			out, _ := h.Flush()
+			Expect(countOf(out, 303, "alpha")).To(Equal(1))
+			// Idle cycles must not re-fire the echo.
+			for range 10 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 303, "alpha")).To(BeZero())
+			// A fresh trigger still fires, exactly once.
+			trigger(h, ctx, 302)
+			out, _ = h.Flush()
+			Expect(countOf(out, 303, "alpha")).To(Equal(1))
+		})
+	})
+
+	Describe("Stateful variable brace inputs", func() {
+		src := `
+    func echo{tag str} (n u8) str {
+        return tag
+    }
+    sequence main {
+        stage s1 {
+            acc str $= "initial"
+            tag_ch -> acc
+            go_ch -> echo{tag=acc} -> echo_out
+            hop_ch >= 1 => s2
+        }
+        stage s2 {
+            back_ch >= 1 => s1
+        }
+    }
+    start_cmd => main`
+		newH := func(ctx SpecContext) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 310},
+				"tag_ch":    {types.String(), 311},
+				"go_ch":     {types.U8(), 312},
+				"echo_out":  {types.String(), 313},
+				"hop_ch":    {types.U8(), 314},
+				"back_ch":   {types.U8(), 315},
+			})
+			return newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: 310, DataType: telem.Uint8T},
+				channels.Digest{Key: 311, DataType: telem.StringT},
+				channels.Digest{Key: 312, DataType: telem.Uint8T},
+				channels.Digest{Key: 313, DataType: telem.StringT},
+				channels.Digest{Key: 314, DataType: telem.Uint8T},
+				channels.Digest{Key: 315, DataType: telem.Uint8T},
+			)
+		}
+		pushTag := func(h *runtimeHarness, ctx SpecContext, v string) {
+			h.Ingest(311, telem.NewSeriesV[string](v))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+
+		It("passes the stateful variable's latest value at each fire", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 310)
+			pushTag(h, ctx, "alpha")
+			trigger(h, ctx, 312)
+			out, _ := h.Flush()
+			Expect(lastString(out, 313)).To(Equal("alpha"))
+			pushTag(h, ctx, "beta")
+			trigger(h, ctx, 312)
+			out, _ = h.Flush()
+			Expect(lastString(out, 313)).To(Equal("beta"))
+		})
+
+		It("uses the declared initial before any write", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 310)
+			trigger(h, ctx, 312)
+			out, _ := h.Flush()
+			Expect(lastString(out, 313)).To(Equal("initial"))
+		})
+
+		It("fires the consumer exactly once per trigger", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 310)
+			pushTag(h, ctx, "alpha")
+			trigger(h, ctx, 312)
+			out, _ := h.Flush()
+			Expect(countOf(out, 313, "alpha")).To(Equal(1))
+			for range 10 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 313, "alpha")).To(BeZero())
+			trigger(h, ctx, 312)
+			out, _ = h.Flush()
+			Expect(countOf(out, 313, "alpha")).To(Equal(1))
+		})
+
+		It("retains the written value across a stage re-entry", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, 310)
+			pushTag(h, ctx, "alpha")
+			trigger(h, ctx, 312)
+			out, _ := h.Flush()
+			Expect(lastString(out, 313)).To(Equal("alpha"))
+			// Hop s1 -> s2 -> s1; a := variable would reset to "initial" here.
+			trigger(h, ctx, 314)
+			trigger(h, ctx, 315)
+			trigger(h, ctx, 312)
+			out, _ = h.Flush()
+			Expect(lastString(out, 313)).To(Equal("alpha"))
+		})
+	})
+
+	Describe("Channel brace inputs", func() {
+		newH := func(ctx SpecContext, src string) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd":  {types.U8(), 320},
+				"data_ch":    {types.F32(), 321},
+				"reader_out": {types.F32(), 322},
+				"go_ch":      {types.U8(), 323},
+				"sink_ch":    {types.F32(), 324},
+				"data2_ch":   {types.F32(), 325},
+			})
+			return newRuntimeHarness(ctx, src, resolver,
+				channels.Digest{Key: 320, DataType: telem.Uint8T},
+				channels.Digest{Key: 321, DataType: telem.Float32T},
+				channels.Digest{Key: 322, DataType: telem.Float32T},
+				channels.Digest{Key: 323, DataType: telem.Uint8T},
+				channels.Digest{Key: 324, DataType: telem.Float32T},
+				channels.Digest{Key: 325, DataType: telem.Float32T},
+			)
+		}
+		pushData := func(h *runtimeHarness, ctx SpecContext, v float32) {
+			h.Ingest(321, telem.NewSeriesV[float32](v))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+		}
+		run := func(ctx SpecContext, src string) {
+			h := newH(ctx, src)
+			defer h.Close(ctx)
+			trigger(h, ctx, 320)
+			pushData(h, ctx, 1.5)
+			trigger(h, ctx, 323)
+			out, _ := h.Flush()
+			Expect(lastF32(out, 322)).To(Equal(float32(1.5)))
+			pushData(h, ctx, 2.5)
+			trigger(h, ctx, 323)
+			out, _ = h.Flush()
+			Expect(lastF32(out, 322)).To(Equal(float32(2.5)))
+		}
+
+		It("reads the latest channel data at each fire", func(ctx SpecContext) {
+			run(ctx, `
+    func reader{channel chan f32} (n u8) f32 {
+        return channel
+    }
+    sequence main {
+        stage s1 {
+            go_ch -> reader{channel=data_ch} -> reader_out
+        }
+    }
+    start_cmd => main`)
+		})
+
+		It("reads the latest data through a channel alias", func(ctx SpecContext) {
+			run(ctx, `
+    func reader{channel chan f32} (n u8) f32 {
+        return channel
+    }
+    sequence main {
+        a := data_ch
+        stage s1 {
+            go_ch -> reader{channel=a} -> reader_out
+        }
+    }
+    start_cmd => main`)
+		})
+
+		runWrite := func(ctx SpecContext, src string) {
+			h := newH(ctx, src)
+			defer h.Close(ctx)
+			trigger(h, ctx, 320)
+			pushData(h, ctx, 1.5)
+			out, _ := h.Flush()
+			Expect(lastF32(out, 324)).To(Equal(float32(1.5)))
+			pushData(h, ctx, 2.5)
+			out, _ = h.Flush()
+			Expect(lastF32(out, 324)).To(Equal(float32(2.5)))
+		}
+
+		It("writes each value to the channel", func(ctx SpecContext) {
+			runWrite(ctx, `
+    func writer{channel chan f32} (value f32) {
+        channel = value
+    }
+    sequence main {
+        stage s1 {
+            data_ch -> writer{channel=sink_ch}
+        }
+    }
+    start_cmd => main`)
+		})
+
+		It("writes each value through a channel alias", func(ctx SpecContext) {
+			runWrite(ctx, `
+    func writer{channel chan f32} (value f32) {
+        channel = value
+    }
+    sequence main {
+        w := sink_ch
+        stage s1 {
+            data_ch -> writer{channel=w}
+        }
+    }
+    start_cmd => main`)
+		})
+
+		It("reads through the rebound channel, not the declared one", func(ctx SpecContext) {
+			h := newH(ctx, `
+    func reader{channel chan f32} (n u8) f32 {
+        return channel
+    }
+    sequence main {
+        a := data_ch
+        stage s1 {
+            a = data2_ch
+            go_ch -> reader{channel=a} -> reader_out
+        }
+    }
+    start_cmd => main`)
+			defer h.Close(ctx)
+			trigger(h, ctx, 320)
+			h.Ingest(325, telem.NewSeriesV[float32](7.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			trigger(h, ctx, 323)
+			out, _ := h.Flush()
+			Expect(lastF32(out, 322)).To(Equal(float32(7.5)))
+		})
+	})
+
 	// A one-shot entry drives a func whose output rebinds a variable;
 	// the loopback must not re-fire the chain.
 	Describe("Variable capture dispatch", func() {

@@ -258,27 +258,27 @@ func Arrange[T NumericSample](start T, count int, spacing T) Series {
 func NewSeriesFromAny(value any, dt DataType) Series {
 	switch dt {
 	case Uint8T:
-		return NewSeriesV(castNumeric[uint8](value))
+		return NewSeriesV(CastNumeric[uint8](value))
 	case Uint16T:
-		return NewSeriesV(castNumeric[uint16](value))
+		return NewSeriesV(CastNumeric[uint16](value))
 	case Uint32T:
-		return NewSeriesV(castNumeric[uint32](value))
+		return NewSeriesV(CastNumeric[uint32](value))
 	case Uint64T:
-		return NewSeriesV(castNumeric[uint64](value))
+		return NewSeriesV(CastNumeric[uint64](value))
 	case Int8T:
-		return NewSeriesV(castNumeric[int8](value))
+		return NewSeriesV(CastNumeric[int8](value))
 	case Int16T:
-		return NewSeriesV(castNumeric[int16](value))
+		return NewSeriesV(CastNumeric[int16](value))
 	case Int32T:
-		return NewSeriesV(castNumeric[int32](value))
+		return NewSeriesV(CastNumeric[int32](value))
 	case Int64T:
-		return NewSeriesV(castNumeric[int64](value))
+		return NewSeriesV(CastNumeric[int64](value))
 	case Float32T:
-		return NewSeriesV(castNumeric[float32](value))
+		return NewSeriesV(CastNumeric[float32](value))
 	case Float64T:
-		return NewSeriesV(castNumeric[float64](value))
+		return NewSeriesV(CastNumeric[float64](value))
 	case TimeStampT:
-		return NewSeriesV(castNumeric[TimeStamp](value))
+		return NewSeriesV(CastNumeric[TimeStamp](value))
 	case UUIDT:
 		return NewSeriesV(castToUUID(value))
 	case StringT:
@@ -292,7 +292,10 @@ func NewSeriesFromAny(value any, dt DataType) Series {
 	}
 }
 
-func castNumeric[T NumericSample](value any) T {
+// CastNumeric converts any numeric value (including TimeStamp and TimeSpan) to
+// the sample type T with Go conversion semantics: values may truncate or wrap.
+// Panics if value is not numeric.
+func CastNumeric[T NumericSample](value any) T {
 	switch v := value.(type) {
 	case uint:
 		return T(v)

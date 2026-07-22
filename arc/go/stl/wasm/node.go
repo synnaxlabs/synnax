@@ -56,6 +56,7 @@ type nodeImpl struct {
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
 	chanInputs    []bool
+	varInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
 }
@@ -91,7 +92,8 @@ func (n *nodeImpl) Init(node.Context) {}
 // dataFresh reports whether any input other than $sel has unconsumed data.
 func (n *nodeImpl) dataFresh() bool {
 	for i := range n.ir.Inputs {
-		if i == n.selIdx || n.ir.Inputs[i].Value != nil || n.chanInputs[i] {
+		if i == n.selIdx || n.ir.Inputs[i].Value != nil || n.chanInputs[i] ||
+			n.varInputs[i] {
 			continue
 		}
 		if n.InputFresh(i) {
@@ -138,10 +140,26 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		n.params[i] = uint64(telem.ValueAt[uint32](t, -1))
 	}
 
+	// A var input references a variable's node; re-read the latest each pass.
+	for i := range n.ir.Inputs {
+		if !n.varInputs[i] {
+			continue
+		}
+		t := n.RefInput(i)
+		if t.Len() == 0 {
+			return
+		}
+		if n.stringInputs[i] {
+			n.params[i] = uint64(n.strings.Create(string(t.At(-1))))
+		} else {
+			n.params[i] = valueAt(t, int(t.Len()-1))
+		}
+	}
+
 	maxLength := int64(0)
 	longestInputIdx := -1
 	for i := range n.ir.Inputs {
-		if n.ir.Inputs[i].Value != nil || n.chanInputs[i] {
+		if n.ir.Inputs[i].Value != nil || n.chanInputs[i] || n.varInputs[i] {
 			continue
 		}
 		dataLen := n.Input(i).Len()
@@ -181,7 +199,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	var alignmentSum telem.Alignment
 	var timeRange telem.TimeRange
 	for i := range n.ir.Inputs {
-		if n.ir.Inputs[i].Value != nil || n.chanInputs[i] {
+		if n.ir.Inputs[i].Value != nil || n.chanInputs[i] || n.varInputs[i] {
 			continue
 		}
 		input := n.Input(i)
@@ -210,7 +228,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
-			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] {
+			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] || n.varInputs[j] {
 				continue
 			}
 			inputLen := n.Input(j).Len()
