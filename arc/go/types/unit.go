@@ -9,11 +9,10 @@
 
 package types
 
-// UnitsAssignable reports whether a value with unit a may be assigned to a
-// target with unit b. A nil unit on either side is treated as a wildcard,
-// matching the WASM and Cesium representation where i64 and i64 ns share the
-// same wire type (timestamp <-> int64). Two non-nil units must match exactly,
-// so f32 psi vs f32 bar still fails.
+// UnitsAssignable reports whether a value with unit a may be assigned to a target with
+// unit b. A nil unit on either side is treated as a wildcard, matching the WASM and
+// Cesium representation where i64 and i64 ns share the same wire type (timestamp <->
+// int64). Two non-nil units must match exactly, so f32 psi vs f32 bar still fails.
 func UnitsAssignable(a, b *Unit) bool {
 	if a == nil || b == nil {
 		return true
