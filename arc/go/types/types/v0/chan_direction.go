@@ -20,9 +20,8 @@ func (d ChanDirection) IsWrite() bool { return d&ChanDirectionWrite != 0 }
 // IsSet returns true if any direction has been specified.
 func (d ChanDirection) IsSet() bool { return d != ChanDirectionNone }
 
-// CheckCompatibility returns an error if actual is incompatible with the
-// required direction d. Returns nil when compatible or when either side
-// has no direction set.
+// CheckCompatibility returns an error if actual is incompatible with the required
+// direction d. Returns nil when compatible or when either side has no direction set.
 func (d ChanDirection) CheckCompatibility(actual ChanDirection) error {
 	if !d.IsSet() || !actual.IsSet() {
 		return nil
