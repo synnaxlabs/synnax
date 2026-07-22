@@ -12,12 +12,10 @@ package v0
 import "github.com/vmihailenco/msgpack/v5"
 
 // String returns the string representation of the handle as "node.param".
-func (h Handle) String() string {
-	return h.Node + "." + h.Param
-}
+func (h Handle) String() string { return h.Node + "." + h.Param }
 
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go
+// field names and new lowercase msgpack tag names for backward compatibility.
 func (h *Handle) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Handle
 	raw, err := dec.DecodeRaw()

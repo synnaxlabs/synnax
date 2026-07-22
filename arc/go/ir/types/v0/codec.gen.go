@@ -12,7 +12,7 @@
 package v0
 
 import (
-	typesv0 "github.com/synnaxlabs/arc/types/types/v0"
+	types "github.com/synnaxlabs/arc/types/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -78,7 +78,7 @@ func (f *Function) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			f.Config = make([]typesv0.Param, n)
+			f.Config = make([]types.Param, n)
 			for j := range f.Config {
 				if err = f.Config[j].DecodeOrc(r); err != nil {
 					return err
@@ -96,7 +96,7 @@ func (f *Function) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			f.Inputs = make([]typesv0.Param, n)
+			f.Inputs = make([]types.Param, n)
 			for j := range f.Inputs {
 				if err = f.Inputs[j].DecodeOrc(r); err != nil {
 					return err
@@ -114,7 +114,7 @@ func (f *Function) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			f.Outputs = make([]typesv0.Param, n)
+			f.Outputs = make([]types.Param, n)
 			for j := range f.Outputs {
 				if err = f.Outputs[j].DecodeOrc(r); err != nil {
 					return err
@@ -415,7 +415,7 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			nv.Config = make([]typesv0.Param, n)
+			nv.Config = make([]types.Param, n)
 			for j := range nv.Config {
 				if err = nv.Config[j].DecodeOrc(r); err != nil {
 					return err
@@ -433,7 +433,7 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			nv.Inputs = make([]typesv0.Param, n)
+			nv.Inputs = make([]types.Param, n)
 			for j := range nv.Inputs {
 				if err = nv.Inputs[j].DecodeOrc(r); err != nil {
 					return err
@@ -451,7 +451,7 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			nv.Outputs = make([]typesv0.Param, n)
+			nv.Outputs = make([]types.Param, n)
 			for j := range nv.Outputs {
 				if err = nv.Outputs[j].DecodeOrc(r); err != nil {
 					return err
