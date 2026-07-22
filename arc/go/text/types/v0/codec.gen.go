@@ -11,9 +11,7 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/x/encoding/orc"
-)
+import "github.com/synnaxlabs/x/encoding/orc"
 
 func (t Text) EncodeOrc(w *orc.Writer) error {
 	w.String(t.Raw)

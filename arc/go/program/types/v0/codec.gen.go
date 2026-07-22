@@ -12,7 +12,7 @@
 package v0
 
 import (
-	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
+	ir "github.com/synnaxlabs/arc/ir/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -103,7 +103,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Functions = make([]irv0.Function, n)
+			p.Functions = make([]ir.Function, n)
 			for j := range p.Functions {
 				if err = p.Functions[j].DecodeOrc(r); err != nil {
 					return err
@@ -121,7 +121,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Nodes = make([]irv0.Node, n)
+			p.Nodes = make([]ir.Node, n)
 			for j := range p.Nodes {
 				if err = p.Nodes[j].DecodeOrc(r); err != nil {
 					return err
@@ -139,7 +139,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Edges = make([]irv0.Edge, n)
+			p.Edges = make([]ir.Edge, n)
 			for j := range p.Edges {
 				if err = p.Edges[j].DecodeOrc(r); err != nil {
 					return err
@@ -182,7 +182,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Sequences = make([]irv0.Sequence, n)
+			p.Sequences = make([]ir.Sequence, n)
 			for j := range p.Sequences {
 				if err = p.Sequences[j].DecodeOrc(r); err != nil {
 					return err

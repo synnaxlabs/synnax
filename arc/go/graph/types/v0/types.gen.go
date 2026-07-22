@@ -12,9 +12,9 @@
 package v0
 
 import (
-	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
+	ir "github.com/synnaxlabs/arc/ir/types/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	spatialv0 "github.com/synnaxlabs/x/spatial/types/v0"
+	spatial "github.com/synnaxlabs/x/spatial/types/v0"
 )
 
 // Nodes is a collection of visual nodes in an Arc graph.
@@ -26,9 +26,9 @@ type Graph struct {
 	// Viewport is the current camera state for the graph view.
 	Viewport Viewport `json:"viewport" msgpack:"viewport"`
 	// Functions contains function definitions available in this graph.
-	Functions irv0.Functions `json:"functions" msgpack:"functions"`
+	Functions ir.Functions `json:"functions" msgpack:"functions"`
 	// Edges contains dataflow connections between node parameters.
-	Edges irv0.Edges `json:"edges" msgpack:"edges"`
+	Edges ir.Edges `json:"edges" msgpack:"edges"`
 	// Nodes contains visual nodes with canvas positions.
 	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 }
@@ -36,7 +36,7 @@ type Graph struct {
 // Viewport is the camera state for viewing the Arc graph editor canvas.
 type Viewport struct {
 	// Position is the camera pan offset (x, y).
-	Position spatialv0.XY `json:"position" msgpack:"position"`
+	Position spatial.XY `json:"position" msgpack:"position"`
 	// Zoom is the zoom level where 1.0 equals 100%.
 	Zoom float64 `json:"zoom" msgpack:"zoom"`
 }
@@ -51,5 +51,5 @@ type Node struct {
 	// Config contains configuration parameter values as a JSON object.
 	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 	// Position is the canvas position (x, y) for visual layout.
-	Position spatialv0.XY `json:"position" msgpack:"position"`
+	Position spatial.XY `json:"position" msgpack:"position"`
 }

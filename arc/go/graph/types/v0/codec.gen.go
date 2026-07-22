@@ -14,7 +14,7 @@ package v0
 import (
 	"encoding/json"
 
-	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
+	ir "github.com/synnaxlabs/arc/ir/types/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -67,7 +67,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Functions = make([]irv0.Function, n)
+			g.Functions = make([]ir.Function, n)
 			for i := range g.Functions {
 				if err = g.Functions[i].DecodeOrc(r); err != nil {
 					return err
@@ -85,7 +85,7 @@ func (g *Graph) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			g.Edges = make([]irv0.Edge, n)
+			g.Edges = make([]ir.Edge, n)
 			for i := range g.Edges {
 				if err = g.Edges[i].DecodeOrc(r); err != nil {
 					return err

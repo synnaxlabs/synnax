@@ -12,13 +12,13 @@
 package v0
 
 import (
-	compilerv0 "github.com/synnaxlabs/arc/compiler/types/v0"
-	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
+	compiler "github.com/synnaxlabs/arc/compiler/types/v0"
+	ir "github.com/synnaxlabs/arc/ir/types/v0"
 )
 
 // Program is a compiled Arc program combining the intermediate representation with
 // WebAssembly bytecode, ready for execution.
 type Program struct {
-	irv0.IR
-	compilerv0.Output
+	ir.IR
+	compiler.Output
 }
