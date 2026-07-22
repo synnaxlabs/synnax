@@ -11,10 +11,9 @@ package v1
 
 import "fmt"
 
-// Key returns the member's lookup key — the string transitions target via
-// `=> name`. Derived from the set variant: the referenced node's key for
-// leaf members, the nested scope's key for scope members. Returns the empty
-// string for an unset member.
+// Key returns the member's lookup key — the string transitions target via `=> name`.
+// Derived from the set variant: the referenced node's key for leaf members, the nested
+// scope's key for scope members. Returns the empty string for an unset member.
 func (m Member) Key() string {
 	switch {
 	case m.NodeKey != nil:

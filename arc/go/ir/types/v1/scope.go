@@ -30,8 +30,8 @@ func (s Scope) IsZero() bool {
 // String returns the tree representation of a Scope.
 func (s Scope) String() string { return s.StringWithPrefix("") }
 
-// StringWithPrefix returns the tree representation with each line indented by
-// prefix. Exported so parent printers in successor versions can nest it.
+// StringWithPrefix returns the tree representation with each line indented by prefix.
+// Exported so parent printers in successor versions can nest it.
 func (s Scope) StringWithPrefix(prefix string) string {
 	var b strings.Builder
 	lo.Must(fmt.Fprintf(&b, "%s [%s, %s]\n", scopeLabel(s), s.Mode, s.Liveness))
