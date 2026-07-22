@@ -15,7 +15,6 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/symbol"
 	types "github.com/synnaxlabs/arc/types/types/v0"
-	typesv0 "github.com/synnaxlabs/arc/types/types/v0"
 )
 
 // Functions is a collection of function definitions in an Arc module.
@@ -60,13 +59,13 @@ type Function struct {
 	// Body is raw source code for user-defined functions.
 	Body Body `json:"body" msgpack:"body"`
 	// Config contains configuration parameter definitions.
-	Config typesv0.Params `json:"config" msgpack:"config"`
+	Config types.Params `json:"config" msgpack:"config"`
 	// Inputs contains input parameter definitions.
-	Inputs typesv0.Params `json:"inputs" msgpack:"inputs"`
+	Inputs types.Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter definitions.
-	Outputs typesv0.Params `json:"outputs" msgpack:"outputs"`
+	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write declarations.
-	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 // Body is raw function body source code with optional parsed AST.
@@ -122,13 +121,13 @@ type Node struct {
 	// Type is the function type being instantiated.
 	Type string `json:"type" msgpack:"type"`
 	// Config contains configuration parameter values.
-	Config typesv0.Params `json:"config" msgpack:"config"`
+	Config types.Params `json:"config" msgpack:"config"`
 	// Inputs contains input parameter type signatures.
-	Inputs typesv0.Params `json:"inputs" msgpack:"inputs"`
+	Inputs types.Params `json:"inputs" msgpack:"inputs"`
 	// Outputs contains output parameter type signatures.
-	Outputs typesv0.Params `json:"outputs" msgpack:"outputs"`
+	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write mappings.
-	Channels typesv0.Channels `json:"channels" msgpack:"channels"`
+	Channels types.Channels `json:"channels" msgpack:"channels"`
 }
 
 // Sequence is a state machine defining ordered stages of execution, where entry point
@@ -156,5 +155,5 @@ type Authorities struct {
 	// Default is the default authority for all write channels not explicitly listed.
 	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
 	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels" msgpack:"channels"`
+	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
 }

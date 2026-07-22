@@ -57,13 +57,6 @@ func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 			return IR{}, err
 		}
 	}
-	edges := make(Edges, len(old.Edges))
-	for i, v := range old.Edges {
-		var err error
-		if edges[i], err = MigrateEdge(ctx, v); err != nil {
-			return IR{}, err
-		}
-	}
 	root, err := MigrateScope(ctx, old.Root)
 	if err != nil {
 		return IR{}, err
@@ -71,8 +64,8 @@ func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 	return IR{
 		Functions:   functions,
 		Nodes:       nodes,
-		Edges:       edges,
-		Authorities: Authorities(old.Authorities),
+		Edges:       old.Edges,
+		Authorities: old.Authorities,
 		Root:        root,
 	}, nil
 }
@@ -101,20 +94,7 @@ func autoMigrateNode(ctx context.Context, old v1.Node) (Node, error) {
 	}, nil
 }
 
-func autoMigrateEdge(_ context.Context, old v1.Edge) (Edge, error) {
-	return Edge{
-		Source: Handle(old.Source),
-		Target: Handle(old.Target),
-		Kind:   EdgeKind(old.Kind),
-	}, nil
-}
-
 func autoMigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
-	var activation *Handle
-	if old.Activation != nil {
-		v := Handle(*old.Activation)
-		activation = &v
-	}
 	strata := make([]Members, len(old.Strata))
 	for i, v := range old.Strata {
 		var err error
@@ -129,21 +109,14 @@ func autoMigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
 			return Scope{}, err
 		}
 	}
-	transitions := make([]Transition, len(old.Transitions))
-	for i, v := range old.Transitions {
-		var err error
-		if transitions[i], err = MigrateTransition(ctx, v); err != nil {
-			return Scope{}, err
-		}
-	}
 	return Scope{
 		Key:         old.Key,
 		Mode:        ScopeMode(old.Mode),
 		Liveness:    Liveness(old.Liveness),
-		Activation:  activation,
+		Activation:  old.Activation,
 		Strata:      strata,
 		Steps:       steps,
-		Transitions: transitions,
+		Transitions: old.Transitions,
 	}, nil
 }
 
@@ -170,12 +143,5 @@ func autoMigrateMember(ctx context.Context, old v1.Member) (Member, error) {
 	return Member{
 		NodeKey: old.NodeKey,
 		Scope:   scope,
-	}, nil
-}
-
-func autoMigrateTransition(_ context.Context, old v1.Transition) (Transition, error) {
-	return Transition{
-		On:        Handle(old.On),
-		TargetKey: old.TargetKey,
 	}, nil
 }

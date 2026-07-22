@@ -16,58 +16,6 @@ import (
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
 // Go field names and new lowercase msgpack tag names for backward compatibility.
-func (h *Handle) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias Handle
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(h)); err != nil {
-		return err
-	}
-	if len(h.Node) == 0 {
-		var legacy struct {
-			Node  string
-			Param string
-		}
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		h.Node = legacy.Node
-		h.Param = legacy.Param
-	}
-	return nil
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
-func (e *Edge) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias Edge
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(e)); err != nil {
-		return err
-	}
-	if len(e.Source.Node) == 0 {
-		var legacy struct {
-			Source Handle
-			Target Handle
-			Kind   EdgeKind
-		}
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		e.Source = legacy.Source
-		e.Target = legacy.Target
-		e.Kind = legacy.Kind
-	}
-	return nil
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
 func (f *Function) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Function
 	raw, err := dec.DecodeRaw()

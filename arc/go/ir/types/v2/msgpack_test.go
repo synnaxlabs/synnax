@@ -19,58 +19,6 @@ import (
 )
 
 var _ = Describe("DecodeMsgpack", func() {
-	Describe("Handle", func() {
-		It("Should decode new lowercase msgpack fields", func() {
-			original := v2.Handle{Node: "node1", Param: "input"}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v2.Handle
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Node  string
-				Param string
-			}{Node: "node1", Param: "input"}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v2.Handle
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Node).To(Equal("node1"))
-			Expect(decoded.Param).To(Equal("input"))
-		})
-	})
-
-	Describe("Edge", func() {
-		It("Should decode new lowercase msgpack fields", func() {
-			original := v2.Edge{
-				Source: v2.Handle{Node: "a", Param: "out"},
-				Target: v2.Handle{Node: "b", Param: "in"},
-				Kind:   v2.EdgeKindContinuous,
-			}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded v2.Edge
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(original))
-		})
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Source v2.Handle
-				Target v2.Handle
-				Kind   v2.EdgeKind
-			}{
-				Source: v2.Handle{Node: "a", Param: "out"},
-				Target: v2.Handle{Node: "b", Param: "in"},
-				Kind:   v2.EdgeKindConditional,
-			}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded v2.Edge
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Source.Node).To(Equal("a"))
-			Expect(decoded.Target.Node).To(Equal("b"))
-			Expect(decoded.Kind).To(Equal(v2.EdgeKindConditional))
-		})
-	})
-
 	Describe("Function", func() {
 		It("Should decode legacy uppercase Go field names", func() {
 			legacy := struct {

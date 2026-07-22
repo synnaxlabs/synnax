@@ -25,10 +25,7 @@ import (
 type Key = v0.Key
 
 // StatusDetails contains rack-specific status details.
-type StatusDetails struct {
-	// Rack is the key of the rack this status pertains to.
-	Rack Key `json:"rack" msgpack:"rack"`
-}
+type StatusDetails = v0.StatusDetails
 
 // Status is rack-specific status information including operational state.
 type Status = status.Status[StatusDetails]

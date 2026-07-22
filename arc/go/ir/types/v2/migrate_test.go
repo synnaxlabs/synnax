@@ -31,16 +31,6 @@ var _ = Describe("Migrate", func() {
 		Expect(migrated.Key).To(Equal("n1"))
 		Expect(migrated.Type).To(Equal("add"))
 	})
-	It("Should carry an Edge's endpoints and kind", func(ctx SpecContext) {
-		migrated := MustSucceed(v2.MigrateEdge(ctx, v1.Edge{
-			Source: v1.Handle{Node: "a", Param: "out"},
-			Target: v1.Handle{Node: "b", Param: "in"},
-			Kind:   v1.EdgeKindContinuous,
-		}))
-		Expect(migrated.Source).To(Equal(v2.Handle{Node: "a", Param: "out"}))
-		Expect(migrated.Target).To(Equal(v2.Handle{Node: "b", Param: "in"}))
-		Expect(migrated.Kind).To(Equal(v2.EdgeKindContinuous))
-	})
 	It("Should carry a Scope's mode, steps, and transitions", func(ctx SpecContext) {
 		nodeKey := "n1"
 		targetKey := "s2"
@@ -70,15 +60,6 @@ var _ = Describe("Migrate", func() {
 		Expect(migrated.NodeKey).To(BeNil())
 		Expect(migrated.Scope.Key).To(Equal("nested"))
 		Expect(migrated.Scope.Steps).To(HaveLen(1))
-	})
-	It("Should carry a Transition's trigger and target", func(ctx SpecContext) {
-		targetKey := "s2"
-		migrated := MustSucceed(v2.MigrateTransition(ctx, v1.Transition{
-			On:        v1.Handle{Node: "n1", Param: "done"},
-			TargetKey: &targetKey,
-		}))
-		Expect(migrated.On).To(Equal(v2.Handle{Node: "n1", Param: "done"}))
-		Expect(*migrated.TargetKey).To(Equal("s2"))
 	})
 	It("Should carry an IR's functions, nodes, edges, and root", func(ctx SpecContext) {
 		migrated := MustSucceed(v2.MigrateIR(ctx, v1.IR{

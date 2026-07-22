@@ -21,12 +21,7 @@ import (
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
-type Handle struct {
-	// Node is the node identifier.
-	Node string `json:"node" msgpack:"node"`
-	// Param is the parameter name (input or output).
-	Param string `json:"param" msgpack:"param"`
-}
+type Handle = v1.Handle
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind = v1.EdgeKind
@@ -38,17 +33,10 @@ const (
 )
 
 // Edge is a dataflow connection between node parameters in the Arc graph.
-type Edge struct {
-	// Source is the source node parameter producing data.
-	Source Handle `json:"source" msgpack:"source"`
-	// Target is the target node parameter consuming data.
-	Target Handle `json:"target" msgpack:"target"`
-	// Kind defines execution semantics for this connection.
-	Kind EdgeKind `json:"kind" msgpack:"kind"`
-}
+type Edge = v1.Edge
 
 // Edges is a collection of dataflow edges in an Arc graph.
-type Edges []Edge
+type Edges = v1.Edges
 
 // ScopeMode defines the concurrency model of a Scope.
 type ScopeMode = v1.ScopeMode
@@ -69,13 +57,7 @@ const (
 )
 
 // Transition is a declarative state-transition rule on a sequential Scope.
-type Transition struct {
-	// On is the dataflow handle whose truthy value fires this transition.
-	On Handle `json:"on" msgpack:"on"`
-	// TargetKey is the sibling step key to activate. Null when the transition exits the
-	// scope, yielding to the parent.
-	TargetKey *string `json:"target_key,omitempty" msgpack:"target_key,omitempty"`
-}
+type Transition = v1.Transition
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
 // nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
@@ -153,12 +135,7 @@ type Node struct {
 type Nodes []Node
 
 // Authorities holds the static authority declarations from an Arc program.
-type Authorities struct {
-	// Default is the default authority for all write channels not explicitly listed.
-	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
-	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels,omitzero" msgpack:"channels,omitzero"`
-}
+type Authorities = v1.Authorities
 
 // IR is the intermediate representation of an Arc program as a dataflow graph with
 // stratified execution, bridging semantic analysis and WebAssembly compilation.

@@ -61,14 +61,7 @@ func autoMigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
 }
 
 func autoMigrateEdge(_ context.Context, old irv1.Edge) (Edge, error) {
-	return Edge{
-		Edge: ir.Edge{
-			Source: ir.Handle(old.Source),
-			Target: ir.Handle(old.Target),
-			Kind:   ir.EdgeKind(old.Kind),
-		},
-		Key: uuid.NewString(),
-	}, nil
+	return Edge{Edge: old, Key: uuid.NewString()}, nil
 }
 
 func autoMigrateNode(_ context.Context, old v1.Node) (Node, error) {

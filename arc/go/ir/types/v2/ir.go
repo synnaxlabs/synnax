@@ -193,12 +193,3 @@ func (m Member) stringWithPrefix(prefix string) string {
 		return "(empty member)\n"
 	}
 }
-
-// String returns a concise description of the transition.
-func (t Transition) String() string {
-	target := "=> exit"
-	if t.TargetKey != nil {
-		target = "=> " + *t.TargetKey
-	}
-	return fmt.Sprintf("on %s/%s %s", t.On.Node, t.On.Param, target)
-}

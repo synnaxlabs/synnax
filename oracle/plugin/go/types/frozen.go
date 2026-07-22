@@ -225,19 +225,27 @@ func groupDecls(src []byte) (map[string][]string, map[string][]string, map[strin
 	refs := make(map[string][]string, len(grouped))
 	for owner, decls := range grouped {
 		seen := make(set.Set[string])
+		// Field and parameter names are not type references; a field named
+		// like a local type must not chain the two declarations together.
+		var collect func(n ast.Node) bool
+		collect = func(n ast.Node) bool {
+			if f, ok := n.(*ast.Field); ok {
+				ast.Inspect(f.Type, collect)
+				return false
+			}
+			if id, ok := n.(*ast.Ident); ok && !seen.Contains(id.Name) {
+				seen.Add(id.Name)
+				refs[owner] = append(refs[owner], id.Name)
+			}
+			return true
+		}
 		for _, decl := range decls {
 			var buf bytes.Buffer
 			if err := printer.Fprint(&buf, fset, decl); err != nil {
 				return nil, nil, nil, err
 			}
 			contents[owner] = append(contents[owner], buf.String())
-			ast.Inspect(decl, func(n ast.Node) bool {
-				if id, ok := n.(*ast.Ident); ok && !seen.Contains(id.Name) {
-					seen.Add(id.Name)
-					refs[owner] = append(refs[owner], id.Name)
-				}
-				return true
-			})
+			ast.Inspect(decl, collect)
 		}
 	}
 	return contents, refs, typeSpecs, nil

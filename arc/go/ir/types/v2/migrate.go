@@ -41,11 +41,6 @@ func MigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 	return autoMigrateIR(ctx, old)
 }
 
-// MigrateEdge lifts a v1 edge into the current shape.
-func MigrateEdge(ctx context.Context, old v1.Edge) (Edge, error) {
-	return autoMigrateEdge(ctx, old)
-}
-
 // MigrateScope lifts a v1 scope into the current shape.
 func MigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
 	return autoMigrateScope(ctx, old)
@@ -54,9 +49,4 @@ func MigrateScope(ctx context.Context, old v1.Scope) (Scope, error) {
 // MigrateMember lifts a v1 scope member into the current shape.
 func MigrateMember(ctx context.Context, old v1.Member) (Member, error) {
 	return autoMigrateMember(ctx, old)
-}
-
-// MigrateTransition lifts a v1 transition into the current shape.
-func MigrateTransition(ctx context.Context, old v1.Transition) (Transition, error) {
-	return autoMigrateTransition(ctx, old)
 }
