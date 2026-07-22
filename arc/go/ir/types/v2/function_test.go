@@ -15,6 +15,7 @@ import (
 	v2 "github.com/synnaxlabs/arc/ir/types/v2"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Functions", func() {
@@ -76,7 +77,7 @@ var _ = Describe("Functions", func() {
 				{Name: "x", Type: types.I64()},
 				{Name: "y", Type: types.I64()},
 			}
-			outputs := types.Params{{Name: v2.DefaultOutputParam, Type: types.I64()}}
+			outputs := types.Params{{Name: "output", Type: types.I64()}}
 
 			fn := v2.Function{
 				Key:     "test",
@@ -88,6 +89,38 @@ var _ = Describe("Functions", func() {
 			Expect(t.Kind).To(Equal(types.KindFunction))
 			Expect(t.Inputs).To(HaveLen(2))
 			Expect(t.Outputs).To(HaveLen(1))
+		})
+	})
+})
+
+var _ = Describe("Function", func() {
+	Describe("DecodeMsgpack", func() {
+		It("Should decode legacy uppercase Go field names", func() {
+			legacy := struct {
+				Key      string
+				Body     v2.Body
+				Config   types.Params
+				Inputs   types.Params
+				Outputs  types.Params
+				Channels types.Channels
+			}{
+				Key:  "fn1",
+				Body: v2.Body{Raw: "return 1"},
+				Inputs: types.Params{
+					{Name: "x", Type: types.Type{Kind: types.KindF64}},
+				},
+				Channels: types.Channels{
+					Read:  map[uint32]string{1: "sensor"},
+					Write: map[uint32]string{2: "output"},
+				},
+			}
+			data := MustSucceed(msgpack.Marshal(legacy))
+			var decoded v2.Function
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Key).To(Equal("fn1"))
+			Expect(decoded.Body.Raw).To(Equal("return 1"))
+			Expect(decoded.Inputs).To(HaveLen(1))
+			Expect(decoded.Channels.Read).To(HaveLen(1))
 		})
 	})
 })

@@ -14,6 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	v2 "github.com/synnaxlabs/arc/ir/types/v2"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Nodes", func() {
@@ -78,7 +80,7 @@ var _ = Describe("IsEntryNode", func() {
 		return types.Channels{Read: map[uint32]string{key: "ch"}}
 	}
 	edgeInto := func(nodeKey string) v2.Edge {
-		return v2.Edge{Target: v2.Handle{Node: nodeKey, Param: v2.DefaultInputParam}}
+		return v2.Edge{Target: v2.Handle{Node: nodeKey, Param: "input"}}
 	}
 	DescribeTable(
 		"Classification",
@@ -96,4 +98,30 @@ var _ = Describe("IsEntryNode", func() {
 		Entry("an edge that targets a different node",
 			v2.Node{Key: "n"}, v2.Edges{edgeInto("other")}, true),
 	)
+})
+
+var _ = Describe("Node", func() {
+	Describe("DecodeMsgpack", func() {
+		It("Should decode legacy uppercase Go field names", func() {
+			legacy := struct {
+				Key      string
+				Type     string
+				Inputs   types.Params
+				Outputs  types.Params
+				Channels types.Channels
+			}{
+				Key:  "node1",
+				Type: "fn1",
+				Inputs: types.Params{
+					{Name: "rate", Type: types.Type{Kind: types.KindF32}},
+				},
+			}
+			data := MustSucceed(msgpack.Marshal(legacy))
+			var decoded v2.Node
+			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
+			Expect(decoded.Key).To(Equal("node1"))
+			Expect(decoded.Type).To(Equal("fn1"))
+			Expect(decoded.Inputs).To(HaveLen(1))
+		})
+	})
 })

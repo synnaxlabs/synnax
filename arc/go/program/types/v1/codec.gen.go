@@ -12,7 +12,7 @@
 package v1
 
 import (
-	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
+	ir "github.com/synnaxlabs/arc/ir/types/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -77,7 +77,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Functions = make([]irv1.Function, n)
+			p.Functions = make([]ir.Function, n)
 			for i := range p.Functions {
 				if err = p.Functions[i].DecodeOrc(r); err != nil {
 					return err
@@ -95,7 +95,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Nodes = make([]irv1.Node, n)
+			p.Nodes = make([]ir.Node, n)
 			for i := range p.Nodes {
 				if err = p.Nodes[i].DecodeOrc(r); err != nil {
 					return err
@@ -113,7 +113,7 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			p.Edges = make([]irv1.Edge, n)
+			p.Edges = make([]ir.Edge, n)
 			for i := range p.Edges {
 				if err = p.Edges[i].DecodeOrc(r); err != nil {
 					return err

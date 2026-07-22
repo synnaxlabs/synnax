@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2_test
+package ir_test
 
 import (
 	"os"
@@ -15,7 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v2 "github.com/synnaxlabs/arc/ir/types/v2"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -25,7 +25,7 @@ import (
 // edge.go. The two are hand-maintained in separate languages; commit d7a8a9b666
 // fixed a regression where they drifted ("lhs_input" vs "a") and binary math ops
 // failed to load on the driver's C++ runtime.
-const cppIRHeaderPath = "../../../../cpp/ir/ir.h"
+const cppIRHeaderPath = "../../cpp/ir/ir.h"
 
 var cppStringConstRe = regexp.MustCompile(`inline const std::string (\w+)\s*=\s*"([^"]*)";`)
 
@@ -53,10 +53,10 @@ var _ = Describe("Cross-runtime IR contract", Ordered, func() {
 		func(cppName, goValue string) {
 			Expect(cppConstants).To(HaveKeyWithValue(cppName, goValue))
 		},
-		Entry("default output param", "default_output_param", v2.DefaultOutputParam),
-		Entry("default input param", "default_input_param", v2.DefaultInputParam),
-		Entry("lhs input param", "lhs_input_param", v2.LHSInputParam),
-		Entry("rhs input param", "rhs_input_param", v2.RHSInputParam),
+		Entry("default output param", "default_output_param", ir.DefaultOutputParam),
+		Entry("default input param", "default_input_param", ir.DefaultInputParam),
+		Entry("lhs input param", "lhs_input_param", ir.LHSInputParam),
+		Entry("rhs input param", "rhs_input_param", ir.RHSInputParam),
 	)
 
 	// Guard against drift-by-addition: a new constant added to the C++ header

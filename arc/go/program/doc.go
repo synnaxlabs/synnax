@@ -11,8 +11,8 @@
 //
 // A Program combines an intermediate representation (IR) with compiled WebAssembly
 // bytecode, representing a complete executable Arc program. Programs are the final
-// output of the Arc compilation pipeline and can be serialized for storage or
-// executed by a WebAssembly runtime.
+// output of the Arc compilation pipeline and can be serialized for storage or executed
+// by a WebAssembly runtime.
 //
 // # Compilation Pipeline
 //
@@ -26,6 +26,7 @@
 //
 //	import (
 //	    "context"
+//
 //	    "github.com/synnaxlabs/arc/text"
 //	)
 //
