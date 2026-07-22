@@ -22,6 +22,7 @@ export const useCreate = ({ project }: UseCreateProps = {}): ((
   params?: Partial<lineplot.New>,
 ) => void) => {
   const getActiveProject = Session.Project.useGetSelected();
+  const getSelectedRange = Session.Range.useGetSelectedKey();
   const openTab = Panel.useOpenTab();
   const { update } = LinePlot.useCreate({
     afterOptimistic: ({ data: { key } }) =>
@@ -30,10 +31,11 @@ export const useCreate = ({ project }: UseCreateProps = {}): ((
   return useCallback(
     (params = {}) =>
       update({
-        name: "New Line Plot",
+        name: "Line Plot",
+        ranges: { x1: [getSelectedRange() ?? Session.Range.RECENT_KEY] },
         ...params,
         project: project ?? getActiveProject(),
       }),
-    [update, project],
+    [update, project, getActiveProject, getSelectedRange],
   );
 };

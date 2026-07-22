@@ -65,6 +65,16 @@ export const createStaticTabName = ({
 /** tabNameID returns the DOM id of a tab's editable name, the target of Text.edit. */
 export const tabNameID = (tabKey: string): string => `tab-name-${tabKey}`;
 
+/**
+ * editTabName starts an in-place edit of the tab's name. Tabs with static names carry no
+ * id, so editing one is a no-op.
+ */
+export const editTabName = (tabKey: string): void => {
+  const id = tabNameID(tabKey);
+  if (document.getElementById(id) == null) return;
+  Text.edit(id);
+};
+
 export interface EditableTabNameService {
   useEnsureRetrieved: (args: { key: string }) => void;
   useSelectName: (args: { key: string }) => string;

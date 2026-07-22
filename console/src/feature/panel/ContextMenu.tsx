@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, Menu, Panel, Text, type Triggers } from "@synnaxlabs/pluto";
+import { Icon, Menu, Panel, type Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/platform/context-menu";
-import { tabNameID } from "@/platform/panel/tab";
+import { editTabName } from "@/platform/panel/tab";
 import { Session } from "@/session";
 
 const FOCUS_TRIGGER: Triggers.Trigger = ["Control", "L"];
@@ -24,7 +24,7 @@ const RenameItem = (): ReactElement | null => {
   if (!isResource) return null;
   return (
     <CMenu.RenameItem
-      onClick={() => Text.edit(tabNameID(tabKey))}
+      onClick={() => editTabName(tabKey)}
       trigger={RENAME_TRIGGER}
       triggerIndicator
     />

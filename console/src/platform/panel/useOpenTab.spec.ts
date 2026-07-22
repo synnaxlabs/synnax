@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel } from "@synnaxlabs/client";
+import { panel, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
@@ -108,6 +108,31 @@ describe("Panel.useOpenTab", () => {
       });
       const selectedDoc = await client.panels.retrieve(selected.key);
       expect(panel.findTab(selectedDoc.root, newTabKey)).toBeUndefined();
+    });
+
+    it("focuses the existing tab when the resource already backs one", async () => {
+      const seedTabKey = uuid.create();
+      const resource = ranger.ontologyID(uuid.create());
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [{ variant: "resource", key: seedTabKey, resource }],
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current({ variant: "resource", key: uuid.create(), resource });
+      });
+      await waitFor(() =>
+        expect(
+          Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
+        ).toBe(seedTabKey),
+      );
+      const doc = await client.panels.retrieve(existing.key);
+      expect(leafTabs(doc.root)).toHaveLength(1);
     });
 
     it("replaces the surrounding tab in place when the params omit a key", async () => {

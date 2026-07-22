@@ -101,7 +101,12 @@ const Content = (): ReactElement => {
               </>
             )}
           </Nav.Bar>
-          <Content />
+          {/* The dialog force-sizes every direct child to fill it, which would stretch
+           * anything the tab renders alongside its main content. The wrapper absorbs
+           * that and gives absolutely positioned content the tab as its origin. */}
+          <Flex.Box grow empty className={CSS.BE("panel", "tab-content")}>
+            <Content />
+          </Flex.Box>
         </Dialog.Dialog>
       </Dialog.Frame>
     </Errors.SuspenseBoundary>
@@ -123,6 +128,7 @@ const Internal = ({ onCreateTab }: MosaicProps): ReactElement => {
   const handleSelect = Session.Panel.useSelectTab();
   return (
     <Panel.Mosaic
+      className={CSS.B("mosaic")}
       selected={selected}
       onSelect={handleSelect}
       onCreateTab={onCreateTab}
