@@ -7,20 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v2
+package types
 
-// Parameter naming conventions for IR nodes and functions.
+import v1 "github.com/synnaxlabs/arc/types/types/v1"
+
+// Parameter naming conventions for function and stage params.
 const (
 	// DefaultOutputParam is the parameter name for single-output functions and stages.
 	// Use this for unary operations like neg, sqrt, etc.
-	DefaultOutputParam = "output"
+	DefaultOutputParam = v1.DefaultOutputParam
 	// DefaultInputParam is the parameter name for single-input functions and stages.
 	// Use this for unary operations that take one input.
-	DefaultInputParam = "input"
+	DefaultInputParam = v1.DefaultInputParam
 	// LHSInputParam is the left-hand side parameter name for binary operators.
 	// Use this as the first operand name in operations like add, multiply, etc.
-	LHSInputParam = "a"
+	LHSInputParam = v1.LHSInputParam
 	// RHSInputParam is the right-hand side parameter name for binary operators.
 	// Use this as the second operand name in operations like add, multiply, etc.
-	RHSInputParam = "b"
+	RHSInputParam = v1.RHSInputParam
 )

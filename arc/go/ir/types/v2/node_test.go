@@ -78,7 +78,7 @@ var _ = Describe("IsEntryNode", func() {
 		return types.Channels{Read: map[uint32]string{key: "ch"}}
 	}
 	edgeInto := func(nodeKey string) v2.Edge {
-		return v2.Edge{Target: v2.Handle{Node: nodeKey, Param: v2.DefaultInputParam}}
+		return v2.Edge{Target: v2.Handle{Node: nodeKey, Param: types.DefaultInputParam}}
 	}
 	DescribeTable(
 		"Classification",

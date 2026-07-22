@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ir
+package types
 
-import "github.com/synnaxlabs/arc/types"
+import "github.com/synnaxlabs/arc/types/types"
 
-// Parameter naming conventions for IR nodes and functions.
+// Parameter naming conventions for function and stage params.
 const (
 	// DefaultOutputParam is the parameter name for single-output functions and stages.
 	// Use this for unary operations like neg, sqrt, etc.

@@ -12,6 +12,7 @@ package v1
 import (
 	"fmt"
 	"math"
+	"strings"
 )
 
 // IntegerMaxValue returns the maximum value representable by this integer type. Panics
@@ -249,4 +250,47 @@ func (t Type) Density() int {
 	default:
 		panic("Density: type is not a fixed-size primitive: " + t.String())
 	}
+}
+
+// FormatSignature returns a human-readable function signature in Arc syntax:
+// "name(param type, param type) returnType". For non-function types it returns
+// just the name.
+func (t Type) FormatSignature(name string) string {
+	if t.Kind != KindFunction {
+		return name
+	}
+	var sb strings.Builder
+	sb.WriteString(name)
+	sb.WriteString("(")
+	for i, p := range t.Inputs {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(p.Name)
+		sb.WriteString(" ")
+		sb.WriteString(p.Type.String())
+	}
+	sb.WriteString(")")
+	if len(t.Outputs) > 0 {
+		sb.WriteString(" ")
+		if len(t.Outputs) == 1 && t.Outputs[0].Name == DefaultOutputParam {
+			sb.WriteString(t.Outputs[0].Type.String())
+		} else if len(t.Outputs) == 1 {
+			sb.WriteString(t.Outputs[0].Name)
+			sb.WriteString(" ")
+			sb.WriteString(t.Outputs[0].Type.String())
+		} else {
+			sb.WriteString("(")
+			for i, p := range t.Outputs {
+				if i > 0 {
+					sb.WriteString(", ")
+				}
+				sb.WriteString(p.Name)
+				sb.WriteString(" ")
+				sb.WriteString(p.Type.String())
+			}
+			sb.WriteString(")")
+		}
+	}
+	return sb.String()
 }
