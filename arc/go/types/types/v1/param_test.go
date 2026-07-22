@@ -17,8 +17,8 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ = Describe("DecodeMsgpack", func() {
-	Describe("Param", func() {
+var _ = Describe("Param", func() {
+	Describe("DecodeMsgpack", func() {
 		It("Should decode new lowercase msgpack fields", func() {
 			original := types.Param{
 				Name: "rate",

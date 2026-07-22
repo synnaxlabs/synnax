@@ -53,14 +53,6 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 		}
 		elem = &v
 	}
-	var unit *Unit
-	if old.Unit != nil {
-		v, err := autoMigrateUnit(ctx, *old.Unit)
-		if err != nil {
-			return Type{}, err
-		}
-		unit = &v
-	}
 	var constraint *Type
 	if old.Constraint != nil {
 		v, err := autoMigrateType(ctx, *old.Constraint)
@@ -74,7 +66,7 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 		Kind:               old.Kind,
 		Name:               old.Name,
 		Elem:               elem,
-		Unit:               unit,
+		Unit:               old.Unit,
 		Constraint:         constraint,
 		ChanDirection:      old.ChanDirection,
 	}, nil
@@ -98,13 +90,5 @@ func autoMigrateFunctionProperties(ctx context.Context, old v0.FunctionPropertie
 	return FunctionProperties{
 		Inputs:  inputs,
 		Outputs: outputs,
-	}, nil
-}
-
-func autoMigrateUnit(_ context.Context, old v0.Unit) (Unit, error) {
-	return Unit{
-		Dimensions: Dimensions(old.Dimensions),
-		Scale:      old.Scale,
-		Name:       old.Name,
 	}, nil
 }
