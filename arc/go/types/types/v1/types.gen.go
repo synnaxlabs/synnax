@@ -92,12 +92,7 @@ type Params []Param
 
 // Channels contains channel declarations for reading from and writing to Synnax
 // channels.
-type Channels struct {
-	// Read contains readable channel indices mapped to parameter names.
-	Read map[uint32]string `json:"read,omitzero" msgpack:"read,omitzero"`
-	// Write contains writable channel indices mapped to parameter names.
-	Write map[uint32]string `json:"write,omitzero" msgpack:"write,omitzero"`
-}
+type Channels = v0.Channels
 
 // Dimensions contains physical dimension exponents for dimensional analysis (SI base
 // quantities).

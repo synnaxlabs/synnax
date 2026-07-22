@@ -12,7 +12,6 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
-	"maps"
 	"math"
 
 	"github.com/samber/lo"
@@ -352,15 +351,4 @@ func (t Type) Density() int {
 	default:
 		panic("Density: type is not a fixed-size primitive: " + t.String())
 	}
-}
-
-// Copy returns a deep copy of the Channels.
-func (c Channels) Copy() Channels {
-	if c.Read == nil {
-		c.Read = make(map[uint32]string)
-	}
-	if c.Write == nil {
-		c.Write = make(map[uint32]string)
-	}
-	return Channels{Read: maps.Clone(c.Read), Write: maps.Clone(c.Write)}
 }

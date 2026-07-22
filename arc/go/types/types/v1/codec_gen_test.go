@@ -22,25 +22,6 @@ import (
 )
 
 var _ = Describe("Codec", func() {
-	Describe("Channels", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.Channels) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.Channels
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v1.Channels{
-				Read:  map[uint32]string{2: "test_1"},
-				Write: map[uint32]string{3: "test_2"},
-			}),
-			Entry("zero values", v1.Channels{Read: nil, Write: nil}),
-			Entry("empty collections", v1.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
-		)
-	})
 	Describe("FunctionProperties", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.FunctionProperties) {
@@ -1004,26 +985,6 @@ var _ = Describe("Codec", func() {
 	})
 })
 
-func BenchmarkEncodeDecodeChannels(b *testing.B) {
-	seed := v1.Channels{
-		Read:  map[uint32]string{2: "test_1"},
-		Write: map[uint32]string{3: "test_2"},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v1.Channels
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeFunctionProperties(b *testing.B) {
 	seed := v1.FunctionProperties{
 		Inputs: []v1.Param{
@@ -1792,63 +1753,6 @@ func BenchmarkEncodeDecodeType(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
-}
-
-func FuzzDecodeChannels(f *testing.F) {
-	{
-		seed := v1.Channels{
-			Read:  map[uint32]string{2: "test_1"},
-			Write: map[uint32]string{3: "test_2"},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.Channels{Read: nil, Write: nil}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.Channels
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v1.Channels
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if w1.Len() != w2.Len() {
-			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
-		}
-		if !reflect.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
-		}
-	})
 }
 
 func FuzzDecodeFunctionProperties(f *testing.F) {

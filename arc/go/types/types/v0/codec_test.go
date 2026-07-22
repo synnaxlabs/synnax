@@ -36,4 +36,24 @@ var _ = Describe("Codec", func() {
 		}),
 		Entry("zero value", v0.Type{}),
 	)
+
+	Describe("Channels", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v0.Channels) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v0.Channels
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v0.Channels{
+				Read:  map[uint32]string{2: "test_1"},
+				Write: map[uint32]string{3: "test_2"},
+			}),
+			Entry("zero values", v0.Channels{Read: nil, Write: nil}),
+			Entry("empty collections", v0.Channels{Read: map[uint32]string{}, Write: map[uint32]string{}}),
+		)
+	})
 })

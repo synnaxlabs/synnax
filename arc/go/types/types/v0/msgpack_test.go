@@ -7,44 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1_test
+package v0_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/types"
+	v0 "github.com/synnaxlabs/arc/types/types/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("DecodeMsgpack", func() {
-	Describe("Param", func() {
+	Describe("Channels", func() {
 		It("Should decode new lowercase msgpack fields", func() {
-			original := types.Param{
-				Name: "rate",
-				Type: types.Type{Kind: types.KindF64},
+			original := v0.Channels{
+				Read:  map[uint32]string{1: "sensor"},
+				Write: map[uint32]string{2: "actuator"},
 			}
 			data := MustSucceed(msgpack.Marshal(original))
-			var decoded types.Param
+			var decoded v0.Channels
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Name).To(Equal("rate"))
-			Expect(decoded.Type.Kind).To(Equal(types.KindF64))
+			Expect(decoded.Read).To(Equal(map[uint32]string{1: "sensor"}))
+			Expect(decoded.Write).To(Equal(map[uint32]string{2: "actuator"}))
 		})
 		It("Should decode legacy uppercase Go field names", func() {
 			legacy := struct {
-				Name  string
-				Type  types.Type
-				Value any
+				Read  map[uint32]string
+				Write map[uint32]string
 			}{
-				Name:  "rate",
-				Type:  types.Type{Kind: types.KindF32},
-				Value: "100",
+				Read:  map[uint32]string{3: "temp"},
+				Write: map[uint32]string{4: "valve"},
 			}
 			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded types.Param
+			var decoded v0.Channels
 			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Name).To(Equal("rate"))
-			Expect(decoded.Type.Kind).To(Equal(types.KindF32))
+			Expect(decoded.Read).To(Equal(map[uint32]string{3: "temp"}))
+			Expect(decoded.Write).To(Equal(map[uint32]string{4: "valve"}))
 		})
 	})
 })

@@ -7,33 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package v1
+package v0
 
 import "github.com/vmihailenco/msgpack/v5"
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
 // Go field names and new lowercase msgpack tag names for backward compatibility.
-func (p *Param) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias Param
+func (c *Channels) DecodeMsgpack(dec *msgpack.Decoder) error {
+	type alias Channels
 	raw, err := dec.DecodeRaw()
 	if err != nil {
 		return err
 	}
-	if err = msgpack.Unmarshal(raw, (*alias)(p)); err != nil {
+	if err = msgpack.Unmarshal(raw, (*alias)(c)); err != nil {
 		return err
 	}
-	if len(p.Name) == 0 {
+	if c.Read == nil && c.Write == nil {
 		var legacy struct {
-			Name  string
-			Type  Type
-			Value any
+			Read  map[uint32]string
+			Write map[uint32]string
 		}
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
 			return err
 		}
-		p.Name = legacy.Name
-		p.Type = legacy.Type
-		p.Value = legacy.Value
+		c.Read = legacy.Read
+		c.Write = legacy.Write
 	}
 	return nil
 }

@@ -130,7 +130,7 @@ type Dimensions struct {
 // channels.
 type Channels struct {
 	// Read contains readable channel indices mapped to parameter names.
-	Read map[uint32]string `json:"read" msgpack:"read"`
+	Read map[uint32]string `json:"read,omitzero" msgpack:"read,omitzero"`
 	// Write contains writable channel indices mapped to parameter names.
-	Write map[uint32]string `json:"write" msgpack:"write"`
+	Write map[uint32]string `json:"write,omitzero" msgpack:"write,omitzero"`
 }
