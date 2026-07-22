@@ -76,7 +76,7 @@ var _ = Describe("Functions", func() {
 				{Name: "x", Type: types.I64()},
 				{Name: "y", Type: types.I64()},
 			}
-			outputs := types.Params{{Name: types.DefaultOutputParam, Type: types.I64()}}
+			outputs := types.Params{{Name: v2.DefaultOutputParam, Type: types.I64()}}
 
 			fn := v2.Function{
 				Key:     "test",

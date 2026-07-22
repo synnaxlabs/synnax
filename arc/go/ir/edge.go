@@ -9,7 +9,7 @@
 
 package ir
 
-import "github.com/synnaxlabs/arc/types"
+import "github.com/synnaxlabs/arc/ir/types"
 
 // Parameter naming conventions for IR nodes and functions.
 const (

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -34,7 +35,7 @@ func AnalyzeCall[T antlr.ParserRuleContext](
 	trigger string,
 	externallySatisfied ...string,
 ) {
-	signature := fnType.FormatSignature(fnName)
+	signature := ir.FormatFunctionSignature(fnName, fnType)
 	supplied := set.New[string]()
 	for _, arg := range args {
 		param, ok := matchParam(ctx, fnName, fnType, arg, signature, trigger)

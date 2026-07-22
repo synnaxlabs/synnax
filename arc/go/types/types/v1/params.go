@@ -15,22 +15,6 @@ import (
 	"github.com/samber/lo"
 )
 
-// Parameter naming conventions for function and stage params.
-const (
-	// DefaultOutputParam is the parameter name for single-output functions and stages.
-	// Use this for unary operations like neg, sqrt, etc.
-	DefaultOutputParam = "output"
-	// DefaultInputParam is the parameter name for single-input functions and stages.
-	// Use this for unary operations that take one input.
-	DefaultInputParam = "input"
-	// LHSInputParam is the left-hand side parameter name for binary operators.
-	// Use this as the first operand name in operations like add, multiply, etc.
-	LHSInputParam = "a"
-	// RHSInputParam is the right-hand side parameter name for binary operators.
-	// Use this as the second operand name in operations like add, multiply, etc.
-	RHSInputParam = "b"
-)
-
 var _ json.Marshaler = (Params)(nil)
 
 // MarshalJSON implements the json.Marshal interface.

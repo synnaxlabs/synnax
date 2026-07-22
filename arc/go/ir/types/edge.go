@@ -9,20 +9,20 @@
 
 package types
 
-import v1 "github.com/synnaxlabs/arc/types/types/v1"
+import v2 "github.com/synnaxlabs/arc/ir/types/v2"
 
-// Parameter naming conventions for function and stage params.
+// Parameter naming conventions for IR nodes and functions.
 const (
 	// DefaultOutputParam is the parameter name for single-output functions and stages.
 	// Use this for unary operations like neg, sqrt, etc.
-	DefaultOutputParam = v1.DefaultOutputParam
+	DefaultOutputParam = v2.DefaultOutputParam
 	// DefaultInputParam is the parameter name for single-input functions and stages.
 	// Use this for unary operations that take one input.
-	DefaultInputParam = v1.DefaultInputParam
+	DefaultInputParam = v2.DefaultInputParam
 	// LHSInputParam is the left-hand side parameter name for binary operators.
 	// Use this as the first operand name in operations like add, multiply, etc.
-	LHSInputParam = v1.LHSInputParam
+	LHSInputParam = v2.LHSInputParam
 	// RHSInputParam is the right-hand side parameter name for binary operators.
 	// Use this as the second operand name in operations like add, multiply, etc.
-	RHSInputParam = v1.RHSInputParam
+	RHSInputParam = v2.RHSInputParam
 )

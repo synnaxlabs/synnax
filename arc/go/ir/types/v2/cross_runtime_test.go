@@ -15,7 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/types"
+	v2 "github.com/synnaxlabs/arc/ir/types/v2"
 	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -53,10 +53,10 @@ var _ = Describe("Cross-runtime IR contract", Ordered, func() {
 		func(cppName, goValue string) {
 			Expect(cppConstants).To(HaveKeyWithValue(cppName, goValue))
 		},
-		Entry("default output param", "default_output_param", types.DefaultOutputParam),
-		Entry("default input param", "default_input_param", types.DefaultInputParam),
-		Entry("lhs input param", "lhs_input_param", types.LHSInputParam),
-		Entry("rhs input param", "rhs_input_param", types.RHSInputParam),
+		Entry("default output param", "default_output_param", v2.DefaultOutputParam),
+		Entry("default input param", "default_input_param", v2.DefaultInputParam),
+		Entry("lhs input param", "lhs_input_param", v2.LHSInputParam),
+		Entry("rhs input param", "rhs_input_param", v2.RHSInputParam),
 	)
 
 	// Guard against drift-by-addition: a new constant added to the C++ header
