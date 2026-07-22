@@ -81,7 +81,7 @@ func assertMigrated(fixture string, got v6.LinePlot) {
 		"%s drifted from its canonical migrated form, review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }
 
-var _ = Describe("v5 -> current LinePlot migration", func() {
+var _ = Describe("MigrateLinePlot", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured fixture. Run with UPDATE_MIGRATED=1 to regenerate the
 	// .migrated.json files after intentional migration changes.

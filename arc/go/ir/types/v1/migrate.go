@@ -17,15 +17,12 @@ import (
 	v0 "github.com/synnaxlabs/arc/ir/types/v0"
 )
 
+// MigrateEdge lifts a v0 edge into the current shape.
 func MigrateEdge(ctx context.Context, old v0.Edge) (Edge, error) {
-	migrated, err := autoMigrateEdge(ctx, old)
-	if err != nil {
-		return Edge{}, err
-	}
-	// New/changed fields - set non-zero defaults if needed:
-	return migrated, nil
+	return autoMigrateEdge(ctx, old)
 }
 
+// MigrateIR lifts a v0 IR into the current shape.
 func MigrateIR(ctx context.Context, old v0.IR) (IR, error) {
 	migrated, err := autoMigrateIR(ctx, old)
 	if err != nil {

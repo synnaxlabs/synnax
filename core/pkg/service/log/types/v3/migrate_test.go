@@ -255,42 +255,42 @@ var _ = Describe("MigrateLog", func() {
 			Entry("unsupported version stamp", "../testdata/import_bad_version.json", "Bad Version"),
 		)
 	})
-})
 
-var _ = Describe("v2 -> current Log migration", func() {
-	It("Should re-encode and lift stored logs through the chain", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		seed := v2.Log{
-			Key:  uuid.New(),
-			Name: "chain-log",
-			Data: map[string]any{
-				"version": "1.0.0",
-				"channels": []any{
-					map[string]any{"channel": 42, "color": "#ff0000"},
+	Describe("storage integration", func() {
+		It("Should re-encode and lift stored logs through the chain", func(ctx SpecContext) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			seed := v2.Log{
+				Key:  uuid.New(),
+				Name: "chain-log",
+				Data: map[string]any{
+					"version": "1.0.0",
+					"channels": []any{
+						map[string]any{"channel": 42, "color": "#ff0000"},
+					},
+					"showChannelNames":     false,
+					"showReceiptTimestamp": true,
 				},
-				"showChannelNames":     false,
-				"showReceiptTimestamp": true,
-			},
-		}
-		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Log]{DB: db}))
-		Expect(gorp.NewCreate[v2.Key, v2.Log]().Entry(&seed).Exec(ctx, db)).To(Succeed())
+			}
+			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v2.Key, v2.Log]{DB: db}))
+			Expect(gorp.NewCreate[v2.Key, v2.Log]().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Log",
-			Migrations: v3.Migrations,
-		})).To(Succeed())
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         db,
+				Namespace:  "Log",
+				Migrations: v3.Migrations,
+			})).To(Succeed())
 
-		var got v3.Log
-		Expect(gorp.NewRetrieve[v3.Key, v3.Log]().
-			Where(gorp.MatchKeys[v3.Key, v3.Log](seed.Key)).
-			Entry(&got).Exec(ctx, db)).To(Succeed())
-		Expect(got.Key).To(Equal(seed.Key))
-		Expect(got.Name).To(Equal("chain-log"))
-		Expect(got.Channels).To(HaveLen(1))
-		Expect(got.Channels[0].Channel).To(BeEquivalentTo(42))
-		Expect(got.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
-		Expect(got.HideChannelNames).To(BeTrue())
-		Expect(got.HideReceiptTimestamp).To(BeFalse())
+			var got v3.Log
+			Expect(gorp.NewRetrieve[v3.Key, v3.Log]().
+				Where(gorp.MatchKeys[v3.Key, v3.Log](seed.Key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			Expect(got.Key).To(Equal(seed.Key))
+			Expect(got.Name).To(Equal("chain-log"))
+			Expect(got.Channels).To(HaveLen(1))
+			Expect(got.Channels[0].Channel).To(BeEquivalentTo(42))
+			Expect(got.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+			Expect(got.HideChannelNames).To(BeTrue())
+			Expect(got.HideReceiptTimestamp).To(BeFalse())
+		})
 	})
 })

@@ -57,7 +57,7 @@ func nonZeroV3() v3.Data {
 	}
 }
 
-var _ = Describe("v4.Migrate (v3 -> v4)", func() {
+var _ = Describe("Migrate", func() {
 	It("Should rewrite the version string and pass every other field through", func() {
 		in := nonZeroV3()
 		out := v4.Migrate(in)

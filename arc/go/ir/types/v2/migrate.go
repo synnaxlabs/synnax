@@ -17,6 +17,7 @@ import (
 	v1 "github.com/synnaxlabs/arc/ir/types/v1"
 )
 
+// MigrateFunction lifts a v1 function into the current shape.
 func MigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
 	migrated, err := autoMigrateFunction(ctx, old)
 	if err != nil {
@@ -26,6 +27,7 @@ func MigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
 	return migrated, nil
 }
 
+// MigrateNode lifts a v1 node into the current shape.
 func MigrateNode(ctx context.Context, old v1.Node) (Node, error) {
 	migrated, err := autoMigrateNode(ctx, old)
 	if err != nil {

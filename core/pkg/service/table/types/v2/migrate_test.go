@@ -86,7 +86,7 @@ func assertMigrated(fixture string, got v2.Table) {
 		"%s drifted from its canonical migrated form — review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }
 
-var _ = Describe("v1 -> current Table migration", func() {
+var _ = Describe("MigrateTable", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured fixture. Run with UPDATE_MIGRATED=1 to regenerate the
 	// .migrated.json files after intentional migration changes.

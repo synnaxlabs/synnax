@@ -55,7 +55,7 @@ func nonZeroV1() v1.Data {
 	}
 }
 
-var _ = Describe("v2.Migrate (v1 -> v2)", func() {
+var _ = Describe("Migrate", func() {
 	It("Should set x-axis Type to 'time'", func() {
 		out := v2.Migrate(nonZeroV1())
 		Expect(out.Version).To(Equal(v2.Version))

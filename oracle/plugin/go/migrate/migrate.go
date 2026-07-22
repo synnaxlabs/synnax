@@ -428,6 +428,7 @@ import (
 	{{.VersionDir}} "{{.MigrationsImport}}"
 )
 {{end}}
+// Migrate{{.GoName}} lifts a {{.VersionDir}} {{.GoName}} into the current shape.
 func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}{{.TypeParamsRef}}) ({{.GoName}}{{.TypeParamsRef}}, error) {
 	return autoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
 }
@@ -474,6 +475,7 @@ import (
 {{- end}}
 )
 {{range .Functions}}
+// Migrate{{.GoName}} lifts a {{.OldTypeName}} into the current shape.
 func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
 	migrated, err := autoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
 	if err != nil {

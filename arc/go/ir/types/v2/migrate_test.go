@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Migrate", func() {
+var _ = Describe("MigrateFunction", func() {
 	It("Should carry a Function's fields to the next version", func(ctx SpecContext) {
 		migrated := MustSucceed(v2.MigrateFunction(ctx, v1.Function{
 			Key:  "scale",
@@ -26,11 +26,17 @@ var _ = Describe("Migrate", func() {
 		Expect(migrated.Key).To(Equal("scale"))
 		Expect(migrated.Body.Raw).To(Equal("x * 2"))
 	})
+})
+
+var _ = Describe("MigrateNode", func() {
 	It("Should carry a Node's key and type", func(ctx SpecContext) {
 		migrated := MustSucceed(v2.MigrateNode(ctx, v1.Node{Key: "n1", Type: "add"}))
 		Expect(migrated.Key).To(Equal("n1"))
 		Expect(migrated.Type).To(Equal("add"))
 	})
+})
+
+var _ = Describe("MigrateScope", func() {
 	It("Should carry a Scope's mode, steps, and transitions", func(ctx SpecContext) {
 		nodeKey := "n1"
 		targetKey := "s2"
@@ -52,6 +58,9 @@ var _ = Describe("Migrate", func() {
 		Expect(migrated.Transitions).To(HaveLen(1))
 		Expect(*migrated.Transitions[0].TargetKey).To(Equal("s2"))
 	})
+})
+
+var _ = Describe("MigrateMember", func() {
 	It("Should carry a Member's node key and nested scope", func(ctx SpecContext) {
 		nodeKey := "n1"
 		migrated := MustSucceed(v2.MigrateMember(ctx, v1.Member{
@@ -61,6 +70,9 @@ var _ = Describe("Migrate", func() {
 		Expect(migrated.Scope.Key).To(Equal("nested"))
 		Expect(migrated.Scope.Steps).To(HaveLen(1))
 	})
+})
+
+var _ = Describe("MigrateIR", func() {
 	It("Should carry an IR's functions, nodes, edges, and root", func(ctx SpecContext) {
 		migrated := MustSucceed(v2.MigrateIR(ctx, v1.IR{
 			Functions: v1.Functions{{Key: "f"}},

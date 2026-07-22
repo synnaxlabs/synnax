@@ -17,7 +17,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Migrate", func() {
+var _ = Describe("MigrateEdge", func() {
 	It("Should carry an Edge's endpoints and kind", func(ctx SpecContext) {
 		migrated := MustSucceed(v1.MigrateEdge(ctx, v0.Edge{
 			Source: v0.Handle{Node: "a", Param: "out"},
@@ -28,6 +28,9 @@ var _ = Describe("Migrate", func() {
 		Expect(migrated.Target).To(Equal(v1.Handle{Node: "b", Param: "in"}))
 		Expect(migrated.Kind).To(Equal(v1.EdgeKindContinuous))
 	})
+})
+
+var _ = Describe("MigrateIR", func() {
 	It("Should carry an IR's functions, nodes, and edges", func(ctx SpecContext) {
 		migrated := MustSucceed(v1.MigrateIR(ctx, v0.IR{
 			Functions: v0.Functions{{Key: "f"}},

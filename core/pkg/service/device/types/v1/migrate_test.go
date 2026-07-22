@@ -29,7 +29,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("v1 -> current Device migration", func() {
+var _ = Describe("MigrateDevice", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Device) v1.Device {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: db}))

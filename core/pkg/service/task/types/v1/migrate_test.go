@@ -28,7 +28,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("v1 -> current Task migration", func() {
+var _ = Describe("MigrateTask", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Task) v1.Task {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Task]{DB: db}))

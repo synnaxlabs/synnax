@@ -55,7 +55,7 @@ func nonZeroV0() v0.Data {
 	}
 }
 
-var _ = Describe("v1.Migrate (v0 -> v1)", func() {
+var _ = Describe("Migrate", func() {
 	It("Should attach the default legend (visible, sticky 50/50 px)", func() {
 		out := v1.Migrate(nonZeroV0())
 		Expect(out.Version).To(Equal(v1.Version))

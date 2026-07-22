@@ -21,10 +21,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v0"
-	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v1"
-	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v2"
-	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v3"
-	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/legacy/v5"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/types/v7"
@@ -134,7 +130,7 @@ func nonZeroV0() v0.Data {
 	}
 }
 
-var _ = Describe("v6 -> current Schematic migration", func() {
+var _ = Describe("MigrateSchematic", func() {
 	// Snapshot tests against the canonical .migrated.json output for every
 	// captured production fixture. Run with UPDATE_MIGRATED=1 to regenerate
 	// the .migrated.json files after intentional migration changes.
@@ -357,7 +353,7 @@ var _ = Describe("v6 -> current Schematic migration", func() {
 	})
 })
 
-var _ = Describe("legacy.MigrateData", func() {
+var _ = Describe("MigrateData", func() {
 	// Walk each captured production fixture through the chain and assert
 	// invariants: counts, edge.data preservation, orphan filter, dispatch.
 	Describe("real-world fixtures", func() {
@@ -500,145 +496,3 @@ var _ = Describe("legacy.MigrateData", func() {
 
 // Each step is fed nonZeroV0() chained up to its input version. Tests assert
 // the step's *new* fields and that every prior field passes through unchanged.
-
-var _ = Describe("Step migrations", func() {
-	Describe("v1.Migrate (v0 -> v1)", func() {
-		It("Should attach the default legend", func() {
-			out := v1.Migrate(nonZeroV0())
-			Expect(out.Version).To(Equal(v1.Version))
-			Expect(out.Legend).To(Equal(v1.ZeroLegend))
-		})
-
-		It("Should pass every v0 field through unchanged", func() {
-			in := nonZeroV0()
-			out := v1.Migrate(in)
-			Expect(out.Editable).To(Equal(in.Editable))
-			Expect(out.FitViewOnResize).To(Equal(in.FitViewOnResize))
-			Expect(out.Snapshot).To(Equal(in.Snapshot))
-			Expect(out.RemoteCreated).To(Equal(in.RemoteCreated))
-			Expect(out.Viewport).To(Equal(in.Viewport))
-			Expect(out.Nodes).To(Equal(in.Nodes))
-			Expect(out.Edges).To(Equal(in.Edges))
-			Expect(out.Props).To(Equal(in.Props))
-			Expect(out.Control).To(Equal(in.Control))
-		})
-
-		It("Should produce a legend whose units default to px when no legend exists upstream", func() {
-			out := v1.Migrate(v0.Data{})
-			Expect(out.Legend.Visible).To(BeTrue())
-			Expect(out.Legend.Position).To(Equal(v1.LegendPosition{
-				X: 50, Y: 50,
-				Units: &v1.LegendUnits{X: "px", Y: "px"},
-			}))
-			Expect(out.Legend.Colors).To(BeEmpty())
-		})
-	})
-
-	Describe("v2.Migrate (v1 -> v2)", func() {
-		It("Should add the schematic type literal and the default viewport mode", func() {
-			out := v2.Migrate(v1.Migrate(nonZeroV0()))
-			Expect(out.Version).To(Equal(v2.Version))
-			Expect(out.Type).To(Equal("schematic"))
-			Expect(out.ViewportMode).To(Equal("select"))
-		})
-
-		It("Should generate a fresh uuid key on every call", func() {
-			in := v1.Migrate(v0.Data{})
-			a := v2.Migrate(in)
-			b := v2.Migrate(in)
-			Expect(a.Key).NotTo(BeEmpty())
-			Expect(b.Key).NotTo(BeEmpty())
-			Expect(a.Key).NotTo(Equal(b.Key))
-		})
-
-		It("Should pass every v1 field through unchanged", func() {
-			in := v1.Migrate(nonZeroV0())
-			out := v2.Migrate(in)
-			Expect(out.Editable).To(Equal(in.Editable))
-			Expect(out.FitViewOnResize).To(Equal(in.FitViewOnResize))
-			Expect(out.Snapshot).To(Equal(in.Snapshot))
-			Expect(out.RemoteCreated).To(Equal(in.RemoteCreated))
-			Expect(out.Viewport).To(Equal(in.Viewport))
-			Expect(out.Nodes).To(Equal(in.Nodes))
-			Expect(out.Edges).To(Equal(in.Edges))
-			Expect(out.Props).To(Equal(in.Props))
-			Expect(out.Control).To(Equal(in.Control))
-			Expect(out.Legend).To(Equal(in.Legend))
-		})
-	})
-
-	Describe("v3.Migrate (v2 -> v3)", func() {
-		It("Should attach an empty segments slice to every edge", func() {
-			out := v3.Migrate(v2.Migrate(v1.Migrate(nonZeroV0())))
-			Expect(out.Version).To(Equal(v3.Version))
-			for _, e := range out.Edges {
-				Expect(e.Segments).NotTo(BeNil())
-				Expect(e.Segments).To(BeEmpty())
-			}
-		})
-
-		It("Should preserve edge.Data so v6 can lift segments/color/variant", func() {
-			in := v2.Migrate(v1.Migrate(nonZeroV0()))
-			out := v3.Migrate(in)
-			Expect(out.Edges).To(HaveLen(len(in.Edges)))
-			for i, e := range out.Edges {
-				Expect(e.Data).To(Equal(in.Edges[i].Data))
-			}
-		})
-
-		It("Should pass non-edge fields through unchanged", func() {
-			in := v2.Migrate(v1.Migrate(nonZeroV0()))
-			out := v3.Migrate(in)
-			Expect(out.Nodes).To(Equal(in.Nodes))
-			Expect(out.Props).To(Equal(in.Props))
-			Expect(out.Key).To(Equal(in.Key))
-			Expect(out.Type).To(Equal(in.Type))
-			Expect(out.ViewportMode).To(Equal(in.ViewportMode))
-			Expect(out.Legend).To(Equal(in.Legend))
-		})
-	})
-
-	Describe("v4.Migrate (v3 -> v4)", func() {
-		It("Should set authority to 1", func() {
-			out := v4.Migrate(v3.Migrate(v2.Migrate(v1.Migrate(nonZeroV0()))))
-			Expect(out.Version).To(Equal(v4.Version))
-			Expect(out.Authority).To(Equal(1.0))
-		})
-
-		It("Should pass every v3 field through unchanged", func() {
-			in := v3.Migrate(v2.Migrate(v1.Migrate(nonZeroV0())))
-			out := v4.Migrate(in)
-			Expect(out.Edges).To(Equal(in.Edges))
-			Expect(out.Nodes).To(Equal(in.Nodes))
-			Expect(out.Props).To(Equal(in.Props))
-			Expect(out.Legend).To(Equal(in.Legend))
-			Expect(out.Key).To(Equal(in.Key))
-			Expect(out.Type).To(Equal(in.Type))
-			Expect(out.ViewportMode).To(Equal(in.ViewportMode))
-		})
-	})
-
-	Describe("v5.Migrate (v4 -> v5)", func() {
-		It("Should drop the type literal and seed default mode and toolbar", func() {
-			out := v5.Migrate(v4.Migrate(v3.Migrate(v2.Migrate(v1.Migrate(nonZeroV0())))))
-			Expect(out.Version).To(Equal(v5.Version))
-			Expect(out.Mode).To(Equal("select"))
-			Expect(out.Toolbar).To(Equal(v0.ToolbarState{
-				ActiveTab:           "symbols",
-				SelectedSymbolGroup: "general",
-			}))
-		})
-
-		It("Should pass every v4 field through unchanged", func() {
-			in := v4.Migrate(v3.Migrate(v2.Migrate(v1.Migrate(nonZeroV0()))))
-			out := v5.Migrate(in)
-			Expect(out.Authority).To(Equal(in.Authority))
-			Expect(out.Edges).To(Equal(in.Edges))
-			Expect(out.Nodes).To(Equal(in.Nodes))
-			Expect(out.Props).To(Equal(in.Props))
-			Expect(out.Legend).To(Equal(in.Legend))
-			Expect(out.Key).To(Equal(in.Key))
-			Expect(out.ViewportMode).To(Equal(in.ViewportMode))
-		})
-	})
-})

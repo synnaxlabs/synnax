@@ -27,7 +27,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("v1 -> current Rack migration", func() {
+var _ = Describe("MigrateRack", func() {
 	migrateSeed := func(ctx SpecContext, seed v0.Rack) v1.Rack {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Rack]{DB: db}))
