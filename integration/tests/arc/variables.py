@@ -265,6 +265,47 @@ sequence reassign_main {
         rs -> rs_out
     }
 }
+
+// ──────────────────── value variables as brace inputs ────────────────────
+vars_start => input_value_main
+
+func suffix{tag str} (s str) str {
+    return s + ":" + tag
+}
+sequence input_value_main {
+    label str := "first"
+    input_value_src -> suffix{tag=label} -> input_value_out
+    label = "second"
+    input_value_src -> suffix{tag=label} -> input_value_out
+}
+
+// ──────────────────── channel aliases as brace inputs ────────────────────
+vars_start => input_alias_main
+
+func chan_reader{channel chan str} (n u8) str {
+    return channel
+}
+
+func chan_writer{channel chan str} (value str) str {
+    channel = value
+    return value
+}
+
+sequence input_alias_main {
+    rd_alias := alias_src_a
+    wr_alias := alias_dst_a
+
+    rd_alias -> alias_probe
+    alias_fire -> chan_reader{channel=rd_alias} -> alias_out
+    alias_write_src -> chan_writer{channel=wr_alias}
+
+    rd_alias = alias_src_b
+    wr_alias = alias_dst_b
+
+    rd_alias -> alias_probe
+    alias_fire -> chan_reader{channel=rd_alias} -> alias_out
+    alias_write_src -> chan_writer{channel=wr_alias}
+}
 """
 
 VAR_OUTPUTS = [
@@ -307,7 +348,21 @@ REEXPR_OUTPUTS = [
     "wa_c",
     "wa_d",
 ]
-OUTPUTS = VAR_OUTPUTS + INHERIT_OUTPUTS + SCOPE_OUTPUTS + RESET_OUTPUTS + REEXPR_OUTPUTS
+INPUT_OUTPUTS = [
+    "input_value_out",
+    "alias_probe",
+    "alias_out",
+    "alias_dst_a",
+    "alias_dst_b",
+]
+OUTPUTS = (
+    VAR_OUTPUTS
+    + INHERIT_OUTPUTS
+    + SCOPE_OUTPUTS
+    + RESET_OUTPUTS
+    + REEXPR_OUTPUTS
+    + INPUT_OUTPUTS
+)
 
 F64_CHANNELS = [
     "channel_read_write_f64_a",
@@ -366,6 +421,15 @@ STR_CHANNELS = [
     "ra_out",
     "rc_out",
     "rs_out",
+    "input_value_src",
+    "input_value_out",
+    "alias_src_a",
+    "alias_src_b",
+    "alias_probe",
+    "alias_out",
+    "alias_write_src",
+    "alias_dst_a",
+    "alias_dst_b",
 ]
 U8_CHANNELS = [
     "inherit_to_run_cmd",
@@ -375,6 +439,7 @@ U8_CHANNELS = [
     "c_to_a",
     "a_to_d",
     "d_to_e",
+    "alias_fire",
 ]
 
 CHANNELS: list[tuple[str, sy.DataType]] = (
@@ -391,7 +456,8 @@ class Variables(ArcCase):
 
     Literal, ChannelReadWrite, and ChannelRead variables across the f64/u32/i64/str data
     types, each read to its own channel, plus reassignment (literal overwrite,
-    channel read/write rebind, channel-read re-express), and inheritance into inline bodies.
+    channel read/write rebind, channel-read re-express), inheritance into inline bodies,
+    and variables as brace inputs (value and chan params, reassignment tracked).
     """
 
     arc_source = ARC_VARIABLES_SOURCE
@@ -413,6 +479,8 @@ class Variables(ArcCase):
         self._verify_kind_inheritance()
         self._verify_scope_reset_matrix()
         self._verify_reexpr()
+        self._verify_value_inputs()
+        self._verify_alias_inputs()
 
     def _verify_literal(self) -> None:
         self.log("=== Literal ===")
@@ -559,3 +627,28 @@ class Variables(ArcCase):
         self.wait_for_eq("wa_d", "e")
         self.wait_for_eq("wa_c", "a")
         self.wait_for_eq("wa_init", "entry")
+
+    def _verify_value_inputs(self) -> None:
+        self.log("=== value variables as brace inputs ===")
+        self.writer.write("input_value_src", "a")
+        self.wait_for_eq("input_value_out", "a:first")
+
+        self.writer.write("input_value_src", "b")
+        self.wait_for_eq("input_value_out", "b:second")
+
+    def _verify_alias_inputs(self) -> None:
+        self.log("=== channel aliases as brace inputs ===")
+        self.writer.write("alias_src_a", "s1")
+        self.wait_for_eq("alias_probe", "s1")
+        self.writer.write("alias_fire", 1)
+        self.wait_for_eq("alias_out", "s1")
+        self.writer.write("alias_write_src", "w1")
+        self.wait_for_eq("alias_dst_a", "w1")
+
+        self.writer.write("alias_src_b", "s2")
+        self.wait_for_eq("alias_probe", "s2")
+        self.writer.write("alias_fire", 1)
+        self.wait_for_eq("alias_out", "s2")
+        self.writer.write("alias_write_src", "w2")
+        self.wait_for_eq("alias_dst_b", "w2")
+        self.wait_for_eq("alias_dst_a", "w1")

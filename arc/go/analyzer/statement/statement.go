@@ -252,14 +252,21 @@ func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
 	return primary != nil && primary.Literal() != nil
 }
 
-// constDefaultValue folds a literal initializer into its value, returning nil when
-// expr is absent or not a compile-time constant.
+// constDefaultValue folds a literal or cast-of-literal initializer into its value,
+// returning nil when expr is absent or not a compile-time constant.
 func constDefaultValue(expr parser.IExpressionContext, varType types.Type) any {
 	if expr == nil {
 		return nil
 	}
 	if parsed, err := literal.ParseConst(expr, varType); err == nil {
 		return parsed.Value
+	}
+	if p := parser.GetPrimaryExpression(expr); p != nil {
+		if cast := p.TypeCast(); cast != nil && cast.Expression() != nil {
+			if parsed, err := literal.ParseConst(cast.Expression(), varType); err == nil {
+				return parsed.Value
+			}
+		}
 	}
 	return nil
 }

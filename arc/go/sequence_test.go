@@ -4736,6 +4736,127 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	Describe("Timer brace inputs", func() {
+		It("adopts the reassigned interval period at the next fire", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 340},
+				"tick_ch":   {types.U8(), 341},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        rate := i64 ns(100ms)
+        stage s1 {
+            interval{rate} -> tick_ch
+            wait{1s} -> sequence {
+                rate = i64 ns(2s)
+            }
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 340, DataType: telem.Uint8T},
+				channels.Digest{Key: 341, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			// Stage entry: the interval fires immediately.
+			trigger(h, ctx, 340)
+			out, _ := h.Flush()
+			Expect(out.Get(341).Series).ToNot(BeEmpty())
+			// 100ms cadence while the declared period holds.
+			advance(h, ctx, 141*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(341).Series).ToNot(BeEmpty())
+			advance(h, ctx, 171*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(341).Series).To(BeEmpty(),
+				"30ms after the last fire must not tick at a 100ms period")
+			// The 1s wait fires and reassigns rate to 2s; the interval also
+			// ticks here, which the flush drains.
+			advance(h, ctx, 1101*telem.Millisecond)
+			_, _ = h.Flush()
+			advance(h, ctx, 1400*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(341).Series).To(BeEmpty(),
+				"the interval must adopt the reassigned 2s period")
+			advance(h, ctx, 3*telem.Second)
+			out, _ = h.Flush()
+			Expect(out.Get(341).Series).To(BeEmpty())
+			// 2s after the last fire: ticks again.
+			advance(h, ctx, 3200*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(341).Series).ToNot(BeEmpty())
+		})
+
+		It("fires the wait earlier when its duration is shortened mid-wait", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 342},
+				"done_ch":   {types.U8(), 343},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        hold := i64 ns(5s)
+        stage s1 {
+            wait{300ms} -> sequence {
+                hold = i64 ns(1s)
+            }
+            wait{duration=hold} -> done_ch
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 342, DataType: telem.Uint8T},
+				channels.Digest{Key: 343, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 342)
+			// The 300ms wait fires and shortens hold to 1s.
+			advance(h, ctx, 400*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(343).Series).To(BeEmpty())
+			advance(h, ctx, 700*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(343).Series).To(BeEmpty())
+			// 1s after entry: fires under the shortened duration, not at 5s.
+			advance(h, ctx, 1100*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 343)).To(Equal(uint8(1)))
+		})
+
+		It("holds the wait longer when its duration is lengthened mid-wait", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 344},
+				"done_ch":   {types.U8(), 345},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        hold := i64 ns(500ms)
+        stage s1 {
+            wait{200ms} -> sequence {
+                hold = i64 ns(3s)
+            }
+            wait{duration=hold} -> done_ch
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 344, DataType: telem.Uint8T},
+				channels.Digest{Key: 345, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 344)
+			// The 200ms wait fires and lengthens hold to 3s.
+			advance(h, ctx, 260*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(345).Series).To(BeEmpty())
+			// 600ms after entry: the declared 500ms has passed, but the live
+			// duration is now 3s.
+			advance(h, ctx, 600*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(345).Series).To(BeEmpty(),
+				"the wait must adopt the lengthened duration")
+			advance(h, ctx, 3100*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 345)).To(Equal(uint8(1)))
+		})
+	})
+
 	// A one-shot entry drives a func whose output rebinds a variable;
 	// the loopback must not re-fire the chain.
 	Describe("Variable capture dispatch", func() {

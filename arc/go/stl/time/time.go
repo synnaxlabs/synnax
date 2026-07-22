@@ -154,7 +154,6 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		h.updateBaseInterval(period)
 		return &Interval{
 			State:     cfg.State,
-			period:    period,
 			lastFired: -period,
 		}, nil
 
@@ -170,7 +169,6 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		h.updateBaseInterval(duration)
 		return &Wait{
 			State:     cfg.State,
-			duration:  duration,
 			startTime: -1,
 			fired:     false,
 		}, nil
@@ -225,29 +223,35 @@ func parseTime(v any, name string) (telem.TimeSpan, error) {
 	return span, nil
 }
 
+// liveSpan returns the named input's current span: the referenced variable's
+// latest value when var-bound, else the value stamped at compile time.
+func liveSpan(s *node.State, name string) telem.TimeSpan {
+	return telem.TimeSpan(node.NumericInput[int64](s, name))
+}
+
 // Interval is a node that fires repeatedly at a specified period.
 type Interval struct {
 	*node.State
-	period    telem.TimeSpan
 	lastFired telem.TimeSpan
 }
 
 func (i *Interval) Init(_ node.Context) {}
 
 func (i *Interval) Next(ctx node.Context) {
+	period := liveSpan(i.State, periodInputParam)
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
-		ctx.SetDeadline(i.lastFired + i.period)
+		ctx.SetDeadline(i.lastFired + period)
 		return
 	}
-	if ctx.Elapsed-i.lastFired < i.period-ctx.Tolerance {
+	if ctx.Elapsed-i.lastFired < period-ctx.Tolerance {
 		ctx.MarkSelfChanged()
-		ctx.SetDeadline(i.lastFired + i.period)
+		ctx.SetDeadline(i.lastFired + period)
 		return
 	}
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
-	ctx.SetDeadline(i.lastFired + i.period)
+	ctx.SetDeadline(i.lastFired + period)
 	ctx.MarkChanged(0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
@@ -260,13 +264,12 @@ func (i *Interval) Next(ctx node.Context) {
 // Reset resets the interval so it fires immediately on the next timer tick.
 func (i *Interval) Reset() {
 	i.State.Reset()
-	i.lastFired = -i.period
+	i.lastFired = -liveSpan(i.State, periodInputParam)
 }
 
 // Wait is a one-shot timer that fires once after a specified duration.
 type Wait struct {
 	*node.State
-	duration  telem.TimeSpan
 	startTime telem.TimeSpan
 	fired     bool
 }
@@ -280,12 +283,13 @@ func (w *Wait) Next(ctx node.Context) {
 	if w.startTime < 0 {
 		w.startTime = ctx.Elapsed
 	}
-	ctx.SetDeadline(w.startTime + w.duration)
+	duration := liveSpan(w.State, durationInputParam)
+	ctx.SetDeadline(w.startTime + duration)
 	if ctx.Reason != node.ReasonTimerTick {
 		ctx.MarkSelfChanged()
 		return
 	}
-	if ctx.Elapsed-w.startTime < w.duration-ctx.Tolerance {
+	if ctx.Elapsed-w.startTime < duration-ctx.Tolerance {
 		ctx.MarkSelfChanged()
 		return
 	}

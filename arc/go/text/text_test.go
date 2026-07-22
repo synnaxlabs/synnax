@@ -524,6 +524,104 @@ var _ = Describe("Text", func() {
 			Expect(found).To(BeTrue(), "expected the initial inlined as a literal")
 		})
 
+		It("Should inline a folded cast-of-literal initializer", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "done_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 910},
+			}, varResolver...)
+			source := `
+			sequence main {
+				d := i64 ns(1s)
+				stage s1 {
+					flag_ch -> wait{duration=d} -> done_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(variableNodes(inter)).To(BeEmpty())
+			found := false
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("duration"); ok && p.Value != nil {
+					Expect(p.Value).To(BeEquivalentTo(telem.Second))
+					Expect(p.Type.Kind).ToNot(Equal(types.KindVarRef))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "expected the folded initial inlined")
+		})
+
+		It("Should stamp the folded cast initializer on a var ref", func(ctx SpecContext) {
+			resolver := append([]symbol.Symbol{
+				{Name: "span_ch", Kind: symbol.KindChannel, Type: types.Chan(types.TimeSpan()), ID: 909},
+				{Name: "done_ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 910},
+			}, varResolver...)
+			source := `
+			sequence main {
+				d := i64 ns(1s)
+				stage s1 {
+					span_ch -> d
+					flag_ch -> wait{duration=d} -> done_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			vars := variableNodes(inter)
+			Expect(vars).To(HaveLen(1))
+			found := false
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("duration"); ok && p.Type.Kind == types.KindVarRef {
+					Expect(p.Type.Name).To(Equal(vars[0].Key))
+					Expect(p.Value).To(BeEquivalentTo(telem.Second))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "expected a var-ref duration input")
+		})
+
+		It("Should inline a folded plain-cast initializer", func(ctx SpecContext) {
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				k := i64(5)
+				stage s1 {
+					flag_ch -> my_func{tag=k} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(variableNodes(inter)).To(BeEmpty())
+			found := false
+			for _, n := range inter.Nodes {
+				if p, ok := n.Inputs.Get("tag"); ok && p.Value != nil {
+					Expect(p.Value).To(BeEquivalentTo(5))
+					found = true
+				}
+			}
+			Expect(found).To(BeTrue(), "expected the folded initial inlined")
+		})
+
+		It("Should not fold a cast of a non-literal initializer", func(ctx SpecContext) {
+			source := `
+			func my_func{tag i64} (n u8) i64 {
+				return tag
+			}
+			sequence main {
+				a := 1
+				k := i64(a)
+				stage s1 {
+					flag_ch -> my_func{tag=k} -> out_ch
+				}
+			}`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, NewRoot(nil, varResolver...))
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+		})
+
 		It("Should reject a reactive variable as an input value", func(ctx SpecContext) {
 			source := `
 			func my_func{tag i64} (n u8) i64 {

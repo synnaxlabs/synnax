@@ -1631,4 +1631,159 @@ var _ = Describe("Time", func() {
 			Expect(output.Len()).To(Equal(int64(1)))
 		})
 	})
+	Describe("Variable inputs", func() {
+		var factory *time.Host
+		BeforeEach(func(ctx SpecContext) {
+			factory = MustSucceed(time.NewHost(ctx, nil))
+		})
+
+		// varConfig builds a config whose span input is var-bound: Value holds
+		// the declared initial and set writes the variable's live slot.
+		varConfig := func(
+			nodeType, param string, initial telem.TimeSpan,
+		) (node.Config, func(telem.TimeSpan)) {
+			v := ir.Node{
+				Key:  "v",
+				Type: "variable",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.I64()},
+				},
+			}
+			n := ir.Node{
+				Key:  "n",
+				Type: nodeType,
+				Inputs: types.Params{
+					{Name: param, Type: types.VarRef(types.I64(), "v"), Value: initial},
+				},
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.U8()},
+				},
+			}
+			state := node.New(ir.IR{Nodes: ir.Nodes{v, n}})
+			set := func(span telem.TimeSpan) {
+				*state.Node("v").Output(0) = telem.NewSeriesV(int64(span))
+			}
+			return node.Config{Node: n, State: state.Node("n")}, set
+		}
+
+		type tickResult struct {
+			fired    bool
+			deadline telem.TimeSpan
+		}
+		tick := func(
+			ctx context.Context,
+			n node.Node,
+			elapsed telem.TimeSpan,
+			reason node.RunReason,
+		) tickResult {
+			var r tickResult
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         elapsed,
+				Reason:          reason,
+				MarkChanged:     func(int) { r.fired = true },
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(d telem.TimeSpan) { r.deadline = d },
+			})
+			return r
+		}
+
+		Describe("Interval", func() {
+			It("Should honor the declared initial before any write", func(ctx SpecContext) {
+				cfg, _ := varConfig("interval", "period", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				Expect(tick(ctx, n, 500*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeFalse())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should adopt a shortened period at the next evaluation", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				set(100 * telem.Millisecond)
+				Expect(tick(ctx, n, 100*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeTrue())
+			})
+			It("Should adopt a lengthened period without firing early", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				set(telem.Second)
+				Expect(tick(ctx, n, 100*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeFalse())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should report the deadline from the live period", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).deadline).To(Equal(telem.Second))
+				set(2 * telem.Second)
+				r := tick(ctx, n, 500*telem.Millisecond, node.ReasonChannelInput)
+				Expect(r.fired).To(BeFalse())
+				Expect(r.deadline).To(Equal(2 * telem.Second))
+			})
+			It("Should fire immediately after Reset using the live period", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+				set(5 * telem.Second)
+				n.Reset()
+				Expect(tick(ctx, n, 1500*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeTrue())
+			})
+			It("Should seed the timing base from the declared value only", func(ctx SpecContext) {
+				cfg, set := varConfig("interval", "period", 100*telem.Millisecond)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
+				set(telem.Millisecond)
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeTrue())
+				Expect(factory.BaseInterval).To(Equal(100 * telem.Millisecond))
+			})
+		})
+
+		Describe("Wait", func() {
+			It("Should honor the declared initial before any write", func(ctx SpecContext) {
+				cfg, _ := varConfig("wait", "duration", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+				Expect(tick(ctx, n, 500*telem.Millisecond, node.ReasonTimerTick).fired).
+					To(BeFalse())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should fire earlier when the duration is shortened mid-wait", func(ctx SpecContext) {
+				cfg, set := varConfig("wait", "duration", 10*telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+				set(telem.Second)
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should fire later when the duration is lengthened mid-wait", func(ctx SpecContext) {
+				cfg, set := varConfig("wait", "duration", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+				set(5 * telem.Second)
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeFalse())
+				Expect(tick(ctx, n, 5*telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+			})
+			It("Should report the deadline from the live duration", func(ctx SpecContext) {
+				cfg, set := varConfig("wait", "duration", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).deadline).To(Equal(telem.Second))
+				set(3 * telem.Second)
+				r := tick(ctx, n, 500*telem.Millisecond, node.ReasonChannelInput)
+				Expect(r.fired).To(BeFalse())
+				Expect(r.deadline).To(Equal(3 * telem.Second))
+			})
+			It("Should stay one-shot after a shortening write", func(ctx SpecContext) {
+				cfg, set := varConfig("wait", "duration", telem.Second)
+				n := MustSucceed(factory.Create(ctx, cfg))
+				Expect(tick(ctx, n, 0, node.ReasonTimerTick).fired).To(BeFalse())
+				Expect(tick(ctx, n, telem.Second, node.ReasonTimerTick).fired).To(BeTrue())
+				set(100 * telem.Millisecond)
+				Expect(tick(ctx, n, 2*telem.Second, node.ReasonTimerTick).fired).To(BeFalse())
+			})
+		})
+	})
 })
