@@ -67,6 +67,7 @@ State struct<R> {
         capturing who controls what and with how much authority.
     """
     @ts concrete_types
+    @pb omit
 }
 
 Transfer struct<R extends comparable> {
@@ -90,6 +91,7 @@ Transfer struct<R extends comparable> {
     and From.Subject != To.Subject, a transfer occurred.
     """
     @ts hand
+    @pb omit
 }
 
 Update struct<R extends comparable> {
@@ -99,4 +101,5 @@ Update struct<R extends comparable> {
 
     @doc value "represents a batch of control transfers that occurred atomically."
     @ts hand
+    @pb omit
 }
