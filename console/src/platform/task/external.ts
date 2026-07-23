@@ -28,6 +28,7 @@ export * from "@/platform/task/types";
 export * from "@/platform/task/useCreate";
 export * from "@/platform/task/useDrifted";
 export * from "@/platform/task/useKey";
+export * from "@/platform/task/useOpenTab";
 export * from "@/platform/task/useStatus";
 export * from "@/platform/task/useTare";
 export * from "@/platform/task/UtilityButtons";

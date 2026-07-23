@@ -46,6 +46,7 @@ stubGeometry();
 interface RenderOverviewResult {
   onSnapshotClick: ReturnType<typeof vi.fn>;
   onSnapshotDelete: ReturnType<typeof vi.fn>;
+  setTabResource: (rangeKey: string) => void;
 }
 
 const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> => {
@@ -91,7 +92,18 @@ const renderOverview = async (rangeKey: string): Promise<RenderOverviewResult> =
     </PlutoPanel.Scope.Provider>,
     { wrapper },
   );
-  return { onSnapshotClick, onSnapshotDelete };
+  const setTabResource = (nextKey: string) =>
+    act(() => {
+      result.current.panels.set(
+        panel.reduceAll(doc, [
+          panel.setTabResource({
+            key: tabKey,
+            resource: rangerClient.ontologyID(nextKey),
+          }),
+        ]).next,
+      );
+    });
+  return { onSnapshotClick, onSnapshotDelete, setTabResource };
 };
 
 const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => {
@@ -134,6 +146,16 @@ describe("range/overview/Overview", () => {
     const rng = await createTestRange(client);
     const child = await createChildRange(rng);
     await renderOverview(rng.key);
+    expect(await screen.findByText(child.name)).toBeTruthy();
+  });
+
+  it("lists the new range's children after the tab swaps resource", async () => {
+    const parent = await createTestRange(client);
+    const child = await createChildRange(parent);
+    const { setTabResource } = await renderOverview(child.key);
+    expect(await screen.findByDisplayValue(child.name)).toBeTruthy();
+    setTabResource(parent.key);
+    expect(await screen.findByDisplayValue(parent.name)).toBeTruthy();
     expect(await screen.findByText(child.name)).toBeTruthy();
   });
 

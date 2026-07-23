@@ -17,7 +17,7 @@ import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
 import { getIcon } from "@/feature/task/types";
-import { type Panel } from "@/platform/panel";
+import { Panel } from "@/platform/panel";
 import { type Task } from "@/platform/task";
 
 export const FORMS: Task.Forms = {
@@ -48,6 +48,7 @@ const Content: Panel.Content = () => {
 };
 
 const Name: Panel.TabName = () => {
+  const tabKey = PPanel.useTabKey();
   const { key } = PPanel.useSelectTabResource();
   const { data } = Base.useRetrieve({ key });
   const { update: rename } = Base.useRename();
@@ -55,6 +56,7 @@ const Name: Panel.TabName = () => {
     <>
       {getIcon(data?.type ?? "")}
       <Text.Editable
+        id={Panel.tabNameID(tabKey)}
         value={data?.name ?? ""}
         onChange={(name) => rename({ key, name })}
       />

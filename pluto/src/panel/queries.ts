@@ -9,8 +9,9 @@
 
 import {
   NotFoundError,
-  type ontology,
+  ontology,
   panel,
+  project,
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { array, compare, deep, type optional, type record } from "@synnaxlabs/x";
@@ -96,6 +97,69 @@ export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
       store.panels.onSet(onChange, key),
     ],
   });
+
+export type RetrieveByProjectQuery = { project: project.Key };
+
+const isPanelChildOf = (
+  relationship: ontology.Relationship,
+  projectKey: project.Key,
+): boolean =>
+  ontology.matchRelationship(relationship, {
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    from: project.ontologyID(projectKey),
+  }) && relationship.to.type === panel.TYPE_ONTOLOGY_ID.type;
+
+const replaceOrAppend = (panels: panel.Panel[], next: panel.Panel): panel.Panel[] => {
+  const i = panels.findIndex(({ key }) => key === next.key);
+  if (i === -1) return [...panels, next];
+  const out = [...panels];
+  out[i] = next;
+  return out;
+};
+
+// A panel's parent lives in the ontology graph and is absent from the panel record, so
+// membership is resolved through the project's children.
+export const { useRetrieve: useRetrieveByProject } = Flux.createRetrieve<
+  RetrieveByProjectQuery,
+  panel.Panel[],
+  FluxSubStore
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { project: projectKey }, store }) => {
+    const children = await client.ontology.retrieveChildren(
+      project.ontologyID(projectKey),
+    );
+    const keys = children
+      .filter(({ id }) => id.type === panel.TYPE_ONTOLOGY_ID.type)
+      .map(({ id }) => id.key);
+    if (keys.length === 0) return [];
+    const panels = await client.panels.retrieve(keys);
+    panels.forEach((p) => store.panels.set(p.key, p));
+    return panels;
+  },
+  mountListeners: ({ store, client, query: { project: projectKey }, onChange }) => [
+    store.relationships.onSet(async (relationship) => {
+      if (!isPanelChildOf(relationship, projectKey)) return;
+      const p = await client.panels.retrieve(relationship.to.key);
+      onChange((prev) => replaceOrAppend(prev ?? [], p));
+    }),
+    store.relationships.onDelete((changed) => {
+      const relationship = ontology.relationshipZ.parse(changed);
+      if (!isPanelChildOf(relationship, projectKey)) return;
+      onChange((prev) => prev?.filter(({ key }) => key !== relationship.to.key));
+    }),
+    // Only updates panels already in the project; a panel absent here belongs to
+    // another project and must not be pulled in.
+    store.panels.onSet((p) =>
+      onChange((prev) =>
+        prev?.some(({ key }) => key === p.key) ? replaceOrAppend(prev, p) : prev,
+      ),
+    ),
+    store.panels.onDelete((key) =>
+      onChange((prev) => prev?.filter((p) => p.key !== key)),
+    ),
+  ],
+});
 
 export interface SelectKeyParams {
   key: panel.Key;

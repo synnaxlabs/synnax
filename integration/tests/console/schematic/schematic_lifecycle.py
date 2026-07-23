@@ -487,7 +487,7 @@ class SchematicLifecycle(ConsoleCase):
         )
         self.log("Off-page navigation cycle verified")
 
-        # Cleanup
+        # Each off-page hop opens a new tab, so the cycle leaves one tab per schematic.
         for name in names:
             self.console.layout.close_tab(name)
 

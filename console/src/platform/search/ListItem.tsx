@@ -12,6 +12,7 @@ import { type Icon, List, Text } from "@synnaxlabs/pluto";
 import { type FC, useCallback } from "react";
 
 import { Palette } from "@/platform/palette";
+import { Panel } from "@/platform/panel";
 
 interface BaseListItemProps extends Omit<Palette.ListItemProps, "onSelect"> {
   icon: Icon.ReactElement;
@@ -41,12 +42,12 @@ export interface ListItem extends FC<ListItemProps> {}
 export interface ListItems extends Partial<Record<ontology.ResourceType, ListItem>> {}
 
 export interface CreateListItemParams extends Pick<BaseListItemProps, "icon"> {
-  useOnSelect: () => (item: ontology.Resource) => void;
+  useOnSelect?: () => (item: ontology.Resource) => void;
 }
 
 export const createListItem = ({
   icon,
-  useOnSelect,
+  useOnSelect = Panel.useOpenResource,
 }: CreateListItemParams): ListItem => {
   const Item = (props: ListItemProps) => (
     <BaseListItem icon={icon} onSelect={useOnSelect()} {...props} />

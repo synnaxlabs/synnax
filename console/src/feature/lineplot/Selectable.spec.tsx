@@ -32,6 +32,6 @@ describe("lineplot/Selectable", () => {
     if (tab.variant !== "resource") throw new Error("expected a resource tab");
     expect(tab.resource.type).toBe(lineplot.TYPE_ONTOLOGY_ID.type);
     const created = await client.lineplots.retrieve({ key: tab.resource.key });
-    expect(created.name).toBe("New Line Plot");
+    expect(created.name).toBe("Line Plot");
   });
 });

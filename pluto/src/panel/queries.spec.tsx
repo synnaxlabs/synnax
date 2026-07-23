@@ -266,6 +266,106 @@ describe("Panel queries", () => {
     });
   });
 
+  describe("useRetrieveByProject", () => {
+    const newProject = async (): Promise<project.Key> =>
+      (
+        await client.projects.create({
+          name: `by-project-${uuid.create()}`,
+          layout: {},
+        })
+      ).key;
+
+    const retrieveByProject = async (key: project.Key) => {
+      const rendered = renderHook(() => Panel.useRetrieveByProject({ project: key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(rendered.result.current.variant).toEqual("success"));
+      return rendered;
+    };
+
+    it("should return only the panels parented to the project", async () => {
+      const projectKey = await newProject();
+      const parent = project.ontologyID(projectKey);
+      const mine = await client.panels.create({ name: "mine", parent });
+      const theirs = await client.panels.create({
+        name: "theirs",
+        parent: project.ontologyID(await newProject()),
+      });
+      const draft = await client.panels.create({ name: "draft" });
+
+      const { result } = await retrieveByProject(projectKey);
+      const keys = result.current.data?.map(({ key }) => key);
+      expect(keys).toEqual([mine.key]);
+      expect(keys).not.toContain(theirs.key);
+      expect(keys).not.toContain(draft.key);
+    });
+
+    it("should return an empty list for a project with no panels", async () => {
+      const { result } = await retrieveByProject(await newProject());
+      expect(result.current.data).toEqual([]);
+    });
+
+    it("should add a panel parented to the project after the initial retrieve", async () => {
+      const projectKey = await newProject();
+      const { result } = await retrieveByProject(projectKey);
+      expect(result.current.data).toEqual([]);
+
+      const added = await client.panels.create({
+        name: "added",
+        parent: project.ontologyID(projectKey),
+      });
+      await waitFor(() =>
+        expect(result.current.data?.map(({ key }) => key)).toContain(added.key),
+      );
+    });
+
+    it("should ignore a panel created outside the project", async () => {
+      const projectKey = await newProject();
+      const { result } = await retrieveByProject(projectKey);
+
+      const outside = await client.panels.create({ name: "outside" });
+      await act(async () => {
+        await client.panels.rename(outside.key, "outside-renamed");
+      });
+      expect(result.current.data?.map(({ key }) => key)).not.toContain(outside.key);
+    });
+
+    it("should reflect a rename of a panel in the project", async () => {
+      const projectKey = await newProject();
+      const target = await client.panels.create({
+        name: "before-rename",
+        parent: project.ontologyID(projectKey),
+      });
+      const { result } = await retrieveByProject(projectKey);
+
+      await act(async () => {
+        await client.panels.rename(target.key, "after-rename");
+      });
+      await waitFor(() =>
+        expect(
+          result.current.data?.find(({ key }) => key === target.key)?.name,
+        ).toEqual("after-rename"),
+      );
+    });
+
+    it("should drop a deleted panel from the project", async () => {
+      const projectKey = await newProject();
+      const target = await client.panels.create({
+        name: "to-delete",
+        parent: project.ontologyID(projectKey),
+      });
+      const { result } = await retrieveByProject(projectKey);
+      expect(result.current.data?.map(({ key }) => key)).toEqual([target.key]);
+
+      await act(async () => {
+        await client.panels.delete(target.key);
+      });
+      await waitFor(() =>
+        expect(result.current.data?.map(({ key }) => key)).not.toContain(target.key),
+      );
+    });
+  });
+
   describe("useRename", () => {
     it("should rename an existing panel", async () => {
       const target = await client.panels.create({ name: "before-rename" });

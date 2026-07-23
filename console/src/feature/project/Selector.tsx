@@ -43,6 +43,13 @@ const listItem = Component.renderProp(
   },
 );
 
+// getItem is a snapshot read, so the trigger would keep a stale name after a rename.
+// useItem subscribes to the list instead.
+const ActiveName = ({ itemKey }: { itemKey: project.Key }): string | null => {
+  const proj = List.useItem<project.Key, project.Project>(itemKey);
+  return proj?.name ?? null;
+};
+
 export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
   const dispatch = Session.useDispatch();
@@ -50,7 +57,6 @@ export const Selector = (): ReactElement | null => {
   const openCreate = PlatformProject.useCreateModal();
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Project.useList();
-  const active = getItem(activeKey);
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
     (key: project.Key | null) => {
@@ -82,7 +88,7 @@ export const Selector = (): ReactElement | null => {
           weight={400}
         >
           <Icon.Project key="project" />
-          {active?.name}
+          <ActiveName itemKey={activeKey} />
         </Dialog.Trigger>
         <Dialog.Dialog
           className={CSS.B("project-selector-dialog")}

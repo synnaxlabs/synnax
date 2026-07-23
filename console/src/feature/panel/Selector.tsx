@@ -7,32 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel } from "@synnaxlabs/client";
+import { panel, project } from "@synnaxlabs/client";
 import {
   Access,
   Button,
   CSS as PCSS,
   type Flux,
   Icon,
-  type List,
   Menu,
   Panel,
   Tabs,
   Text,
 } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
 interface ContextMenuProps extends Menu.ContextMenuMenuProps {
-  getItem: List.GetItem<panel.Key, panel.Panel>;
+  panels: panel.Panel[];
 }
 
-const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement | null => {
+const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null => {
   const ids = panel.ontologyID(keys);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
@@ -42,11 +42,11 @@ const ContextMenu = ({ keys, getItem }: ContextMenuProps): ReactElement | null =
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
         const panelKeys = array.toArray(data);
         if (panelKeys.length === 0) return false;
-        const panels = getItem(panelKeys);
-        if (!(await confirm(panels))) return false;
+        const selected = panels.filter(({ key }) => panelKeys.includes(key));
+        if (!(await confirm(selected))) return false;
         return data;
       },
-      [getItem, confirm],
+      [panels, confirm],
     ),
   });
   if (keys.length === 0) return null;
@@ -96,8 +96,10 @@ const Tab = ({ tabKey }: TabProps): ReactElement => {
 export const Selector = (): ReactElement | null => {
   const dispatch = useDispatch();
   const selected = Session.Panel.useSelectSelected();
-  const { data, retrieve, getItem } = Panel.useList();
-  useEffect(() => retrieve({}), [retrieve]);
+  const projectKey = Session.Project.useSelectSelected();
+  const { data } = Panel.useRetrieveByProject({ project: projectKey });
+  const panels = useMemo(() => data ?? [], [data]);
+  const keys = useMemo(() => panels.map(({ key }) => key), [panels]);
 
   const handleSelect = useCallback(
     (key: string) => dispatch(Session.Panel.select({ key })),
@@ -105,25 +107,38 @@ export const Selector = (): ReactElement | null => {
   );
 
   const { update: create } = Panel.useCreate();
-  const handleCreate = useCallback(() => create({ name: "New Panel" }), [create]);
+  const handleCreate = useCallback(
+    () => create({ name: "New Panel", parent: project.ontologyID(projectKey) }),
+    [create, projectKey],
+  );
 
+  // The session's selection outlives the project it was made in, so a panel outside the
+  // active project must never stay selected.
   useEffect(() => {
-    if (data.length === 0) return;
-    if (selected != null && data.includes(selected)) return;
-    dispatch(Session.Panel.select({ key: data[0] }));
-  }, [selected, data, dispatch]);
+    if (selected != null && keys.includes(selected)) return;
+    if (keys.length === 0) {
+      if (selected != null) dispatch(Session.Panel.clearSelected({}));
+      return;
+    }
+    dispatch(Session.Panel.select({ key: keys[0] }));
+  }, [selected, keys, dispatch]);
 
   const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} getItem={getItem} />,
-    [getItem],
+    (props) => <ContextMenu {...props} panels={panels} />,
+    [panels],
   );
   const menuProps = Menu.useContextMenu();
 
   return (
     <Menu.ContextMenu menu={contextMenu} {...menuProps}>
       <Tabs.Frame value={selected ?? ""} onChange={handleSelect}>
-        <Tabs.Selector size="medium" variant="pill" onContextMenu={menuProps.open}>
-          {data.map((key) => (
+        <Tabs.Selector
+          className={CSS.B("panel-selector")}
+          size="medium"
+          variant="pill"
+          onContextMenu={menuProps.open}
+        >
+          {keys.map((key) => (
             <Tab key={key} tabKey={key} />
           ))}
           <Button.Button variant="text" sharp onClick={handleCreate}>
