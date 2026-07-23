@@ -13,7 +13,6 @@ import "schemas/x/crdt"
 import "schemas/arc/graph"
 import "schemas/arc/text"
 import "schemas/arc/ir"
-import "schemas/arc/compiler"
 import "schemas/arc/program"
 
 @ts output  "client/ts/src/arc"

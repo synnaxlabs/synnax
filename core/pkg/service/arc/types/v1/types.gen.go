@@ -14,10 +14,10 @@ package v1
 import (
 	"github.com/google/uuid"
 	graph "github.com/synnaxlabs/arc/graph/types/v1"
-	program "github.com/synnaxlabs/arc/program/types/v1"
+	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/types/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/types/v0"
-	status "github.com/synnaxlabs/synnax/pkg/service/status/types/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 )
 
 // Key is a unique identifier for an Arc module.
@@ -55,10 +55,7 @@ type Arc struct {
 }
 
 // StatusDetails contains Arc-specific status details for execution state.
-type StatusDetails struct {
-	// Running indicates whether the Arc module is currently executing.
-	Running bool `json:"running" msgpack:"running"`
-}
+type StatusDetails = v0.StatusDetails
 
 func (a Arc) GorpKey() Key { return a.Key }
 

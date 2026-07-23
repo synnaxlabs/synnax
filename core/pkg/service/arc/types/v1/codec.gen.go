@@ -49,16 +49,3 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
-
-func (sd StatusDetails) EncodeOrc(w *orc.Writer) error {
-	w.Bool(sd.Running)
-	return nil
-}
-
-func (sd *StatusDetails) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if sd.Running, err = r.Bool(); err != nil {
-		return err
-	}
-	return nil
-}

@@ -11,8 +11,12 @@
 
 package compiler
 
-import "github.com/synnaxlabs/arc/compiler/types"
-
 // Output is compiled output from the Arc compiler including WebAssembly bytecode and
 // memory layout.
-type Output = types.Output
+type Output struct {
+	// WASM is compiled WebAssembly bytecode for sandboxed execution.
+	WASM []byte `json:"wasm" msgpack:"wasm"`
+	// OutputMemoryBases contains memory base addresses for multi-output functions,
+	// mapping function keys to their base addresses.
+	OutputMemoryBases map[string]uint32 `json:"output_memory_bases,omitzero" msgpack:"output_memory_bases,omitzero"`
+}
