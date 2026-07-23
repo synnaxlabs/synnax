@@ -33,17 +33,17 @@ or generator logic and schemas disagree.
 - **Never version derived artifacts** (compiled output like arc `Program`). On mismatch
   they are recomputed from their versioned sources, not migrated.
 - `@go version` is type-granular: declare it struct-level on persisted types
-  (channel-style). Unversioned siblings are transient — they generate real
-  declarations at the package root (`transient.gen.go`) instead of riding the
-  types/vN layout, and their shape changes never force a version bump.
+  (channel-style). Unversioned siblings are transient — they generate real declarations
+  at the package root (`transient.gen.go`) instead of riding the types/vN layout, and
+  their shape changes never force a version bump.
 - Two classes must stay versioned despite being unpersisted: types referenced by a
-  versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave
-  the package without an import cycle; the persistence gate exempts these), and types
-  whose hand-written Go methods entangle with versioned siblings (telem's
+  versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave the
+  package without an import cycle; the persistence gate exempts these), and types whose
+  hand-written Go methods entangle with versioned siblings (telem's
   Size/Rate/Alignment).
-- `oracle check` runs a non-blocking persistence gate warning on versioned types
-  outside the persisted closure and on persisted types missing @go version at a
-  versioned path. Use `--verbose` to see warnings on passing gates.
+- `oracle check` runs a non-blocking persistence gate warning on versioned types outside
+  the persisted closure and on persisted types missing @go version at a versioned path.
+  Use `--verbose` to see warnings on passing gates.
 - Migrate wrapper visibility follows consumption (see `plugin/go/migrate`): exported
   when another versioned schema embeds the type; unexported when only the package's own
   gorp wiring or auto-copies call it.

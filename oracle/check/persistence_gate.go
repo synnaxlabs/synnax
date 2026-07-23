@@ -20,6 +20,7 @@ import (
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // PersistenceGate warns when a type declares @go version but is not reachable
@@ -50,17 +51,17 @@ func (g PersistenceGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateR
 		severity = SeverityError
 	}
 	closure := gotypes.PersistedClosure(p.Resolutions)
-	versionedPaths := make(map[string]bool)
+	versionedPaths := make(set.Set[string])
 	for _, t := range p.Resolutions.Types {
 		if domain.HasExprFromType(t, "go", "version") {
-			versionedPaths[output.GetPath(t, "go")] = true
+			versionedPaths.Add(output.GetPath(t, "go"))
 		}
 	}
 	// A type referenced by a versioned sibling at its own path — through any
 	// field, omitted or not — must ride the version layout regardless of
 	// persistence: its Go declaration cannot leave the package without an
 	// import cycle. Such types are exempt from the never-persisted warning.
-	siblingRef := make(map[string]bool)
+	siblingRef := make(set.Set[string])
 	for _, t := range p.Resolutions.Types {
 		if !domain.HasExprFromType(t, "go", "version") {
 			continue
@@ -68,7 +69,7 @@ func (g PersistenceGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateR
 		path := output.GetPath(t, "go")
 		gotypes.WalkTypeRefs(t, p.Resolutions, func(target resolution.Type) {
 			if output.GetPath(target, "go") == path {
-				siblingRef[target.QualifiedName] = true
+				siblingRef.Add(target.QualifiedName)
 			}
 		})
 	}
@@ -80,7 +81,7 @@ func (g PersistenceGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateR
 		persisted := closure.Contains(t.QualifiedName)
 		var f Finding
 		switch {
-		case versioned && !persisted && siblingRef[t.QualifiedName]:
+		case versioned && !persisted && siblingRef.Contains(t.QualifiedName):
 			continue
 		case versioned && !persisted:
 			f = Finding{
@@ -89,7 +90,7 @@ func (g PersistenceGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateR
 				Message:  t.QualifiedName + " declares @go version but is never persisted",
 				FixHint:  "declare @go version struct-level on persisted types only",
 			}
-		case !versioned && persisted && versionedPaths[output.GetPath(t, "go")]:
+		case !versioned && persisted && versionedPaths.Contains(output.GetPath(t, "go")):
 			f = Finding{
 				Path:     schemaPathFor(p, t.Namespace),
 				Severity: severity,

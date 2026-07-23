@@ -49,7 +49,10 @@ export const createPanelWrapper = async ({
   panelKey,
   tabKey,
   project,
-}: PanelWrapperParams): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
+}: PanelWrapperParams): Promise<{
+  wrapper: FC<PropsWithChildren>;
+  store: TestStore;
+}> => {
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     store,
