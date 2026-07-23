@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, table } from "@synnaxlabs/client";
+import { type panel, type project, table } from "@synnaxlabs/client";
 import { Table } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -18,9 +18,10 @@ import { Session } from "@/session";
 
 export interface UseCreateProps {
   project?: project.Key;
+  tabKey?: panel.TabKey;
 }
 
-export const useCreate = ({ project }: UseCreateProps = {}): ((
+export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   params?: Partial<table.New>,
 ) => void) => {
   const getActiveProject = Session.Project.useGetSelected();
@@ -32,7 +33,7 @@ export const useCreate = ({ project }: UseCreateProps = {}): ((
       project ??= getActiveProject();
       maybeChangeProject(project);
       dispatch(Session.Table.create({ key, editable: true }));
-      openTab({ variant: "resource", resource: table.ontologyID(key) });
+      openTab({ variant: "resource", resource: table.ontologyID(key), key: tabKey });
     },
   });
   return useCallback(

@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Range } from "@/feature/range";
 import { Session } from "@/session";
-import { renderLinkHook } from "@/testutil";
+import { renderLinkHook, selectTestProject } from "@/testutil";
 
 const client = createTestClient();
 
@@ -24,6 +24,7 @@ describe("Range.useLink", () => {
       timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
     });
     const { handler, store } = await renderLinkHook(Range.useLink);
+    await selectTestProject(store, client);
     await handler({ client, key: range.key });
     const state = store.getState();
     expect(Session.Range.selectSelectedKey(state)).toBe(range.key);

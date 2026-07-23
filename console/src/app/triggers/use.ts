@@ -9,11 +9,12 @@
 
 import { panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Panel, Text, TimeSpan, Triggers } from "@synnaxlabs/pluto";
+import { Panel, TimeSpan, Triggers } from "@synnaxlabs/pluto";
 import { useCallback, useRef } from "react";
 
 import { Selector } from "@/app/selector";
 import { useSelectorVisible } from "@/app/vis/Selector";
+import { Panel as PlatformPanel } from "@/platform/panel";
 import { Session } from "@/session";
 import { Modals } from "@/session/modals";
 
@@ -107,7 +108,7 @@ export const use = (): void => {
         if (stage !== "start") return;
         const focused = getFocusedTab();
         if (focused == null) return;
-        Text.edit(`pluto-tab-${focused}`);
+        PlatformPanel.editTabName(focused);
       },
       [getFocusedTab],
     ),

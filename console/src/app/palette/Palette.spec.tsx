@@ -16,13 +16,19 @@ import { Docs } from "@/feature/docs";
 import { Export } from "@/platform/export";
 import { Import } from "@/platform/import";
 import { Modals } from "@/platform/modals";
-import { createConsoleWrapper, resolveFocusedTab, stubGeometry } from "@/testutil";
+import {
+  createConsoleWrapper,
+  resolveFocusedTab,
+  selectTestProject,
+  stubGeometry,
+} from "@/testutil";
 
 stubGeometry();
 
 const renderAppPalette = async () => {
   const client = createTestClient();
   const { wrapper, store } = await createConsoleWrapper({ client });
+  await selectTestProject(store, client);
   render(
     <Import.FileIngestersProvider fileIngesters={{}}>
       <Export.ExtractorsProvider extractors={{}}>

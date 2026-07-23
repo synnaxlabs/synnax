@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { panel } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { Panel as Pluto } from "@synnaxlabs/pluto";
+import { Flux, Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
@@ -407,6 +408,30 @@ describe("panel selectors", () => {
       });
       expect(result.current.scoped).toBe(true);
       expect(result.current.foreign).toBe(false);
+    });
+
+    // Regression: the check read the stored selection, so a leaf whose tab was never
+    // explicitly selected rendered nothing.
+    it("should show a leaf's first tab when the stored selection names another panel's tab", async () => {
+      const { Wrapper, store } = await setup();
+      const { result } = renderHook(
+        () => ({
+          fluxStore: Flux.useStore<Pluto.FluxSubStore>(),
+          visible: Panel.useSelectIsTabVisible(PANEL, TAB),
+        }),
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        result.current.fluxStore.panels.set(
+          panel.panelZ.parse({
+            key: PANEL,
+            name: "panel",
+            root: { variant: "leaf", tabs: [{ variant: "view", key: TAB, type: "t" }] },
+          }),
+        );
+        selectTab(store, PANEL, OTHER_TAB);
+      });
+      expect(result.current.visible).toBe(true);
     });
   });
 

@@ -119,6 +119,10 @@ class ConsoleCase(TestCase):
         self.console.access.bootstrap_project = project_name
         self.console.project.select_bootstrap(self._project.name)
 
+        # Panels belong to the project, so a fresh project has none and the mosaic
+        # does not render until one exists.
+        self.console.layout.create_panel()
+
         # Prevent state pollution
         self.console.close_all_tabs()
         self.console.notifications.close_connection()
