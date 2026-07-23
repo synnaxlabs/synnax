@@ -255,6 +255,16 @@ var _ = Describe("Channel", func() {
 				}
 				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
 			})
+			It("Should return error for a sink with neither a channel key nor a binding edge", func(ctx SpecContext) {
+				cfg := rnode.Config{
+					Node: ir.Node{
+						Type:   "write",
+						Inputs: types.Params{},
+					},
+					State: rtState.Node("test"),
+				}
+				Expect(factory.Create(ctx, cfg)).Error().To(BeAValidationPathError())
+			})
 		})
 	})
 
@@ -1260,6 +1270,89 @@ var _ = Describe("Channel", func() {
 				MustSucceed(channels.NewHost(ctx, nil, nil, nil))
 			}).ToNot(Panic())
 		})
+	})
+})
+
+var _ = Describe("Source Rebind", func() {
+	var (
+		channelState *channels.ProgramState
+		progState    *rnode.ProgramState
+		source       rnode.Node
+	)
+	BeforeEach(func(ctx SpecContext) {
+		prog := ir.IR{
+			Nodes: ir.Nodes{
+				{
+					Key:     "bind",
+					Type:    "variable",
+					Inputs:  types.Params{{Name: "f0", Type: types.U32(), Value: uint32(10)}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Chan(types.F32())}},
+				},
+				{
+					Key:  "source",
+					Type: "on",
+					Inputs: types.Params{
+						{Name: "channel", Type: types.Chan(types.F32()), Value: uint32(10)},
+					},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+				},
+			},
+			Edges: ir.Edges{{
+				Source: ir.Handle{Node: "bind", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "source", Param: "channel"},
+			}},
+		}
+		channelState = channels.NewProgramState([]channels.Digest{
+			{Key: 10, DataType: telem.Float32T},
+			{Key: 20, DataType: telem.Float32T},
+		})
+		progState = rnode.New(prog)
+		factory := MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
+		source = MustSucceed(factory.Create(ctx, rnode.Config{
+			Node: prog.Nodes[1], State: progState.Node("source"),
+		}))
+	})
+
+	ingest := func(key, offset uint32, v float32) {
+		d := telem.NewSeriesV[float32](v)
+		d.Alignment = telem.NewAlignment(1, offset)
+		channelState.Ingest(telem.UnaryFrame[uint32](key, d))
+	}
+
+	It("Should re-point at the key on the binding edge and skip buffered data", func(ctx SpecContext) {
+		ingest(10, 0, 1.5)
+		changed := false
+		source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }})
+		Expect(changed).To(BeTrue())
+
+		*progState.Node("bind").Output(0) = telem.NewSeriesV[uint32](20)
+		channelState.ClearReads()
+		ingest(20, 0, 9.9)
+		changed = false
+		source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }})
+		Expect(changed).To(BeFalse(), "data buffered before the rebind must not fire")
+
+		channelState.ClearReads()
+		ingest(20, 1, 7.7)
+		changed = false
+		source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }})
+		Expect(changed).To(BeTrue())
+		out := *progState.Node("source").Output(0)
+		Expect(telem.ValueAt[float32](out, -1)).To(Equal(float32(7.7)))
+	})
+
+	It("Should rebind on Reset and absorb data buffered on the new channel", func(ctx SpecContext) {
+		*progState.Node("bind").Output(0) = telem.NewSeriesV[uint32](20)
+		ingest(20, 0, 9.9)
+		source.Reset()
+		changed := false
+		source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }})
+		Expect(changed).To(BeFalse(), "pre-rebind data must be absorbed by Reset")
+
+		channelState.ClearReads()
+		ingest(20, 1, 7.7)
+		source.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }})
+		Expect(changed).To(BeTrue())
 	})
 })
 

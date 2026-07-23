@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc, NotFoundError, type Synnax, type task } from "@synnaxlabs/client";
-import { compare, primitive, type record, xy } from "@synnaxlabs/x";
+import { compare, type optional, primitive, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -206,7 +206,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   },
 });
 
-export const formSchema = arc.arcZ
+export type FormValues = optional.Optional<arc.Arc, "key">;
+
+export const formSchema: z.ZodType<FormValues> = arc.arcZ
   .partial({ key: true, name: true })
   .extend({ name: z.string() });
 

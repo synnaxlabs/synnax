@@ -161,6 +161,140 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI32GtS,
 			))
 		})
+
+		It("Should compile a reactive variable as a channel read", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I32()),
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "r")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).ToNot(BeEmpty())
+		})
+
+		It("Should fold a never-reassigned enclosing-scope variable to its initial value", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+				DefaultValue: int32(7),
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "shared")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(7)))
+		})
+
+		It("Should reject a variable whose initializer did not fold", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+			}))
+			expr := MustSucceed(parser.ParseExpression("shared"))
+			Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+				To(MatchError(ContainSubstring("not a compile-time constant")))
+		})
+
+		It("Should read a channel read/write alias from another unit by its source key", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			src := 77
+			aliasType := types.Chan(types.I32())
+			aliasType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "cpu", Kind: symbol.KindVariable, Type: aliasType, SourceID: &src,
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "cpu")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(77), OpCall, 0))
+		})
+
+		It("Should keep an inherited channel alias as a channel under a channel hint", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			src := 88
+			aliasType := types.Chan(types.I32())
+			aliasType.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "cpu", Kind: symbol.KindVariable, Type: aliasType, SourceID: &src,
+			}))
+			byteCode, exprType := compileWithCtx(ctx.WithHint(types.Chan(types.I32())), "cpu")
+			Expect(exprType.Kind).To(Equal(types.KindChan))
+			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(88)))
+		})
+	})
+
+	Context("Constant Folding", func() {
+		DescribeTable("Should fold a never-reassigned enclosing-scope initial value by type",
+			func(bCtx SpecContext, varType types.Type, value any, expected []any) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name: "shared", Kind: symbol.KindVariable, Type: varType,
+					DefaultValue: value,
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "shared")
+				Expect(exprType).To(Equal(varType))
+				Expect(byteCode).To(MatchOpcodes(expected...))
+			},
+			Entry("i8", types.I8(), int8(5), []any{OpI32Const, int32(5)}),
+			Entry("i16", types.I16(), int16(-3), []any{OpI32Const, int32(-3)}),
+			Entry("i32 from a plain int", types.I32(), 7, []any{OpI32Const, int32(7)}),
+			Entry("u8", types.U8(), uint8(9), []any{OpI32Const, int32(9)}),
+			Entry("u16", types.U16(), uint16(10), []any{OpI32Const, int32(10)}),
+			Entry("u32", types.U32(), uint32(11), []any{OpI32Const, int32(11)}),
+			Entry("i64", types.I64(), int64(42), []any{OpI64Const, int64(42)}),
+			Entry("u64", types.U64(), uint64(43), []any{OpI64Const, int64(43)}),
+			Entry("f32", types.F32(), float32(1.5), []any{OpF32Const, float32(1.5)}),
+			Entry("f64", types.F64(), 2.5, []any{OpF64Const, 2.5}),
+			Entry("f32 from an integer", types.F32(), int64(3), []any{OpF32Const, float32(3)}),
+		)
+
+		DescribeTable("Should reject an initial value that cannot fold",
+			func(bCtx SpecContext, varType types.Type, value any, msg string) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name: "shared", Kind: symbol.KindVariable, Type: varType,
+					DefaultValue: value,
+				}))
+				expr := MustSucceed(parser.ParseExpression("shared"))
+				Expect(expression.Compile(ccontext.Child(ctx, expr))).Error().
+					To(MatchError(ContainSubstring(msg)))
+			},
+			Entry("string type, non-string value", types.String(), 5, "cannot fold"),
+			Entry("i32 type, string value", types.I32(), "x", "cannot fold"),
+			Entry("i64 type, string value", types.I64(), "x", "cannot fold"),
+			Entry("f32 type, string value", types.F32(), "x", "cannot fold"),
+			Entry("f64 type, string value", types.F64(), "x", "cannot fold"),
+			Entry("unfoldable series type", types.Series(types.F64()), 5, "cannot fold"),
+		)
+
+		It("Should fold a never-reassigned string variable to its initial value", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "greeting", Kind: symbol.KindVariable, Type: types.String(),
+				DefaultValue: "hi",
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "greeting")
+			Expect(exprType).To(Equal(types.String()))
+			Expect(byteCode).ToNot(BeEmpty())
+		})
+
+		It("Should fold a never-written flow-level stateful variable to its initial value", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "counter", Kind: symbol.KindStatefulVariable, Type: types.I32(),
+				DefaultValue: int32(3),
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "counter")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(3)))
+		})
+
+		It("Should read an inherited channel-read variable by its own key", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			sc := MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+				Name: "r", Kind: symbol.KindVariable, Type: types.ReadChan(types.I32()),
+			}))
+			byteCode, exprType := compileWithCtx(ctx, "r")
+			Expect(exprType).To(Equal(types.I32()))
+			Expect(byteCode).To(MatchOpcodes(OpI32Const, int32(sc.ID), OpCall, uint32(0)))
+		})
 	})
 
 	Context("Function Parameters", func() {
@@ -191,127 +325,6 @@ var _ = Describe("Identifier Compilation", func() {
 				OpLocalGet, 0,
 				OpCall, uint32(0),
 			))
-		})
-	})
-
-	Context("Global Constants", func() {
-		It("Should compile i32 global constant", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:         "MAX",
-				Kind:         symbol.KindGlobalConstant,
-				Type:         types.I32(),
-				DefaultValue: int32(100),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "MAX")
-			Expect(bytecode).To(MatchOpcodes(OpI32Const, int32(100)))
-			Expect(exprType).To(Equal(types.I32()))
-		})
-
-		It("Should compile i64 global constant", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:         "LIMIT",
-				Kind:         symbol.KindGlobalConstant,
-				Type:         types.I64(),
-				DefaultValue: int64(999999),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "LIMIT")
-			Expect(bytecode).To(MatchOpcodes(OpI64Const, int64(999999)))
-			Expect(exprType).To(Equal(types.I64()))
-		})
-
-		It("Should compile f32 global constant", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:         "RATE",
-				Kind:         symbol.KindGlobalConstant,
-				Type:         types.F32(),
-				DefaultValue: float32(3.14),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "RATE")
-			Expect(bytecode).To(MatchOpcodes(OpF32Const, float32(3.14)))
-			Expect(exprType).To(Equal(types.F32()))
-		})
-
-		It("Should compile f64 global constant", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:         "PI",
-				Kind:         symbol.KindGlobalConstant,
-				Type:         types.F64(),
-				DefaultValue: float64(3.14159265359),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "PI")
-			Expect(bytecode).To(MatchOpcodes(OpF64Const, float64(3.14159265359)))
-			Expect(exprType).To(Equal(types.F64()))
-		})
-
-		It("Should compile global constant in binary expression", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:         "OFFSET",
-				Kind:         symbol.KindGlobalConstant,
-				Type:         types.I64(),
-				DefaultValue: int64(10),
-			}))
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "x",
-				Kind: symbol.KindVariable,
-				Type: types.I64(),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "x + OFFSET")
-			Expect(bytecode).To(MatchOpcodes(
-				OpLocalGet, 0,
-				OpI64Const, int64(10),
-				OpI64Add,
-			))
-			Expect(exprType).To(Equal(types.I64()))
-		})
-
-		It("Should compile multiple global constants in expression", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:         "A",
-				Kind:         symbol.KindGlobalConstant,
-				Type:         types.I64(),
-				DefaultValue: int64(5),
-			}))
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:         "B",
-				Kind:         symbol.KindGlobalConstant,
-				Type:         types.I64(),
-				DefaultValue: int64(3),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "A * B")
-			Expect(bytecode).To(MatchOpcodes(
-				OpI64Const, int64(5),
-				OpI64Const, int64(3),
-				OpI64Mul,
-			))
-			Expect(exprType).To(Equal(types.I64()))
-		})
-
-		It("Should compile global constant in comparison", func(bCtx SpecContext) {
-			ctx := NewContext(bCtx)
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name:         "THRESHOLD",
-				Kind:         symbol.KindGlobalConstant,
-				Type:         types.I64(),
-				DefaultValue: int64(100),
-			}))
-			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
-				Name: "value",
-				Kind: symbol.KindVariable,
-				Type: types.I64(),
-			}))
-			bytecode, exprType := compileWithCtx(ctx, "value > THRESHOLD")
-			Expect(bytecode).To(MatchOpcodes(
-				OpLocalGet, 0,
-				OpI64Const, int64(100),
-				OpI64GtS,
-			))
-			Expect(exprType).To(Equal(types.U8()))
 		})
 	})
 

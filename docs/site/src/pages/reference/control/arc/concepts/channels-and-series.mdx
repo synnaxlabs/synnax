@@ -4,8 +4,8 @@ title: "Channels and Series"
 description:
   "How Arc connects to Synnax telemetry through channels and handles array data with
   series"
-prev: "Reactive Execution"
-prevURL: "/reference/control/arc/concepts/reactive-execution"
+prev: "Sequences and Stages"
+prevURL: "/reference/control/arc/concepts/sequences-and-stages"
 next: "Stateful Variables"
 nextURL: "/reference/control/arc/concepts/stateful-variables"
 ---
@@ -60,6 +60,10 @@ sensor -> filter{threshold=50.0} -> controller{} -> actuator
 
 When new data arrives on `sensor`, the entire pipeline executes. The runtime tracks
 which data has been processed using watermarks, so only new data triggers execution.
+
+You can also bind a channel, or an expression over channels, to a name. The resulting
+[variable](/reference/control/arc/reference/variables) tracks the channel and updates as
+new data arrives.
 
 ### Imperative Context
 

@@ -32,6 +32,12 @@
     .pluto-text {
         margin: 0;
     }
+
+    /* Arc context tabs render the icon to the right of the label. */
+    .pluto-icon--arc-flow,
+    .pluto-icon--arc-func {
+        order: 1;
+    }
 }
 
 @media (max-width: 800px) {

@@ -174,7 +174,9 @@ func (s *System) applySubstitutions(t types.Type, visited set.Set[string]) types
 	if t.Kind == types.KindChan || t.Kind == types.KindSeries {
 		freshValue := s.applySubstitutions(t.Unwrap(), visited)
 		if t.Kind == types.KindChan {
-			return types.Chan(freshValue)
+			fresh := types.Chan(freshValue)
+			fresh.ChanDirection = t.ChanDirection
+			return fresh
 		}
 		return types.Series(freshValue)
 	}
