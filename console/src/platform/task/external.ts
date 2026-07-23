@@ -10,7 +10,6 @@
 export * from "@/platform/task/ChannelList";
 export * from "@/platform/task/ChannelName";
 export * from "@/platform/task/controls";
-export * from "@/platform/task/createCommand";
 export * from "@/platform/task/createIngester";
 export * from "@/platform/task/CreateMenuItem";
 export * from "@/platform/task/DriftBadge";
@@ -28,7 +27,6 @@ export * from "@/platform/task/types";
 export * from "@/platform/task/useCreate";
 export * from "@/platform/task/useDrifted";
 export * from "@/platform/task/useKey";
-export * from "@/platform/task/useOpenTab";
 export * from "@/platform/task/useStatus";
 export * from "@/platform/task/useTare";
 export * from "@/platform/task/UtilityButtons";
