@@ -670,8 +670,11 @@ export const useList = Flux.createList<
       return true;
     });
   },
-  retrieve: async ({ client, query }) =>
-    await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query, store }) => {
+    const ranges = await client.ranges.retrieve({ ...BASE_QUERY, ...query });
+    store.ranges.set(ranges);
+    return ranges;
+  },
   retrieveByKey: async ({ key, ...rest }) =>
     await retrieveSingle({ ...rest, query: { key } }),
   mountListeners: ({

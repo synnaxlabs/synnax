@@ -42,13 +42,17 @@ type RenamePayload struct {
 // at that location and the tab is inserted into the new empty leaf; a center location
 // places the tab directly in the resolved leaf, equivalent to absent. Inserting a
 // resource tab whose resource already backs a tab in the panel is a no-op: a resource
-// may back at most one tab per panel, and callers select the existing tab instead.
+// may back at most one tab per panel, and callers select the existing tab instead. When
+// singleton is set and the tab is a view, the insert is a no-op if a view of the same
+// type already backs a tab in the panel: a singleton view backs at most one tab per
+// panel, and callers select the existing tab instead.
 type InsertTabPayload struct {
 	Tab        Tab               `json:"tab" msgpack:"tab"`
 	TargetLeaf *int32            `json:"target_leaf,omitempty" msgpack:"target_leaf,omitempty"`
 	TargetTab  *TabKey           `json:"target_tab,omitempty" msgpack:"target_tab,omitempty"`
 	Index      *int32            `json:"index,omitempty" msgpack:"index,omitempty"`
 	Location   *spatial.Location `json:"location,omitempty" msgpack:"location,omitempty"`
+	Singleton  *bool             `json:"singleton,omitempty" msgpack:"singleton,omitempty"`
 }
 
 // RemoveTabPayload removes the tab with the given key. If the containing leaf becomes

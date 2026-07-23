@@ -15,7 +15,7 @@ import { Panel } from "@/platform/panel";
 export const useOpenTab = (): (() => void) => {
   const openTab = Panel.useOpenTab();
   return useCallback(
-    () => openTab({ variant: "view", type: TAB_TYPE, args: {} }),
+    () => openTab({ variant: "view", type: TAB_TYPE, args: {} }, { singleton: true }),
     [openTab],
   );
 };
