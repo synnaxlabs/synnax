@@ -18,9 +18,9 @@ import (
 
 // IsZero reports whether the Program is empty (uninitialized or contains no content).
 //
-// A Program is considered zero if it has no compiled WASM bytecode and the embedded
-// IR is also zero. This is useful for validating that compilation succeeded and
-// produced a valid program.
+// A Program is considered zero if it has no compiled WASM bytecode and the embedded IR
+// is also zero. This is useful for validating that compilation succeeded and produced a
+// valid program.
 //
 // Example:
 //
@@ -31,14 +31,13 @@ import (
 //	if prog.IsZero() {
 //	    return errors.New("compilation produced empty program")
 //	}
-func (m Program) IsZero() bool { return len(m.WASM) == 0 && m.IR.IsZero() }
+func (p Program) IsZero() bool { return len(p.WASM) == 0 && p.IR.IsZero() }
 
-// String returns a human-readable string representation of the program.
-// The output includes a summary of the WASM bytecode (size and SHA256 hash)
-// and the full IR tree structure with functions, nodes, edges, and the
-// Layer-2 execution shell rooted at IR.Root.
-// treePrefix returns the branch prefix for a tree line: "└── " when last is true,
-// "├── " otherwise.
+// String returns a human-readable string representation of the program. The output
+// includes a summary of the WASM bytecode (size and SHA256 hash) and the full IR tree
+// structure with functions, nodes, edges, and the Layer-2 execution shell rooted at
+// IR.Root. treePrefix returns the branch prefix for a tree line: "└── " when last is
+// true, "├── " otherwise.
 func treePrefix(last bool) string {
 	if last {
 		return "└── "
@@ -46,32 +45,31 @@ func treePrefix(last bool) string {
 	return "├── "
 }
 
-func (m Program) String() string {
+func (p Program) String() string {
 	var b strings.Builder
 	b.WriteString("Arc Program\n")
 
-	hasContent := len(m.Functions) > 0 || len(m.Nodes) > 0 ||
-		len(m.Edges) > 0 || !m.Root.IsZero()
+	hasContent := len(p.Functions) > 0 || len(p.Nodes) > 0 ||
+		len(p.Edges) > 0 || !p.Root.IsZero()
 
 	// WASM summary
 	b.WriteString(treePrefix(!hasContent))
-	b.WriteString(m.wasmSummary())
+	b.WriteString(p.wasmSummary())
 	b.WriteString("\n")
 
 	// Delegate to IR for remaining content
 	if hasContent {
-		b.WriteString(m.IR.String())
+		b.WriteString(p.IR.String())
 	}
 
 	return b.String()
 }
 
-// wasmSummary returns a summary of the WASM bytecode.
-func (m Program) wasmSummary() string {
-	if len(m.WASM) == 0 {
+func (p Program) wasmSummary() string {
+	if len(p.WASM) == 0 {
 		return "WASM: (none)"
 	}
-	hash := sha256.Sum256(m.WASM)
+	hash := sha256.Sum256(p.WASM)
 	shortHash := hex.EncodeToString(hash[:])[:8]
-	return fmt.Sprintf("WASM: %d bytes (sha256: %s...)", len(m.WASM), shortHash)
+	return fmt.Sprintf("WASM: %d bytes (sha256: %s...)", len(p.WASM), shortHash)
 }

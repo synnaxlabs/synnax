@@ -19,22 +19,12 @@ import (
 
 // MigrateFunction lifts a v1 function into the current shape.
 func MigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
-	migrated, err := autoMigrateFunction(ctx, old)
-	if err != nil {
-		return Function{}, err
-	}
-	// New/changed fields - set non-zero defaults if needed:
-	return migrated, nil
+	return autoMigrateFunction(ctx, old)
 }
 
 // MigrateNode lifts a v1 node into the current shape.
 func MigrateNode(ctx context.Context, old v1.Node) (Node, error) {
-	migrated, err := autoMigrateNode(ctx, old)
-	if err != nil {
-		return Node{}, err
-	}
-	// New/changed fields - set non-zero defaults if needed:
-	return migrated, nil
+	return autoMigrateNode(ctx, old)
 }
 
 // MigrateIR lifts a v1 IR into the current shape; program's generated
