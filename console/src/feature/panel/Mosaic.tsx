@@ -157,6 +157,7 @@ export interface MosaicProps {
 
 export const Mosaic = ({ onCreateTab }: MosaicProps): ReactElement => {
   const selected = Session.Panel.useSelectSelected();
+  Panel.useCloseDeletedResourceTabs();
   if (selected == null) return <EmptyContent />;
   return (
     <Panel.Suspended panelKey={selected}>
