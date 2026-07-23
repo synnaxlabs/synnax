@@ -44,6 +44,43 @@ var _ = Describe("Node", func() {
 		)
 	})
 
+	Describe("String", func() {
+		DescribeTable(
+			"Rendering",
+			func(node v2.Node, expected string) {
+				Expect(node.String()).To(Equal(expected))
+			},
+			Entry("no inputs, outputs, or channels",
+				v2.Node{Key: "n1", Type: "add"},
+				"n1 (type: add)\n└── channels: (none)\n"),
+			Entry("inputs without outputs",
+				v2.Node{
+					Key:    "n1",
+					Type:   "add",
+					Inputs: types.Params{{Name: "x", Type: types.I64()}},
+				},
+				"n1 (type: add)\n├── channels: (none)\n└── inputs: x (i64)\n"),
+			Entry("inputs, outputs, and channels",
+				v2.Node{
+					Key:  "n1",
+					Type: "add",
+					Inputs: types.Params{
+						{Name: "x", Type: types.I64()},
+						{Name: "y", Type: types.I64()},
+					},
+					Outputs: types.Params{{Name: "output", Type: types.I64()}},
+					Channels: types.Channels{
+						Read:  map[uint32]string{1: "sensor"},
+						Write: map[uint32]string{2: "valve"},
+					},
+				},
+				"n1 (type: add)\n"+
+					"├── channels: read [1: sensor], write [2: valve]\n"+
+					"├── inputs: x (i64), y (i64)\n"+
+					"└── outputs: output (i64)\n"),
+		)
+	})
+
 	Describe("DecodeMsgpack", func() {
 		It("Should decode legacy uppercase Go field names", func() {
 			legacy := struct {

@@ -12,7 +12,6 @@ package v2
 import (
 	"strings"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -23,17 +22,6 @@ func (f Function) Type() types.Type {
 		Inputs:  f.Inputs,
 		Outputs: f.Outputs,
 	})
-}
-
-// Get returns the function with the given key. Panics if not found.
-func (f Functions) Get(key string) Function {
-	return lo.Must(f.Find(key))
-}
-
-// Find searches for a function by key. Returns the function and true if found,
-// or zero value and false otherwise.
-func (f Functions) Find(key string) (Function, bool) {
-	return lo.Find(f, func(fn Function) bool { return fn.Key == key })
 }
 
 // String returns the string representation of the function.
