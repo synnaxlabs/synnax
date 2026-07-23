@@ -3750,3 +3750,68 @@ input_ch -> count_local{} -> sink_ch
 		})
 	})
 })
+
+// Graph mode has no flow-level variable declarations; function bodies are its
+// only variable surface and must match text-mode function semantics.
+var _ = Describe("Graph function variable parity", func() {
+	It("Should compute a local with a const-expression initializer", func(ctx SpecContext) {
+		g := singleFunctionGraph("calc", types.I64(), `{
+			x := 1 + 2
+			return x * 10
+		}`)
+		h := newHarness(ctx, g, nil)
+		defer h.Close(ctx)
+		h.Execute(ctx, "calc")
+		Expect(telem.UnmarshalSeries[int64](h.Output("calc", 0))[0]).To(Equal(int64(30)))
+	})
+
+	It("Should re-initialize a := local on every activation", func(ctx SpecContext) {
+		g := singleFunctionGraph("fresh", types.I64(), `{
+			count i64 := 0
+			count = count + 1
+			return count
+		}`)
+		h := newHarness(ctx, g, nil)
+		defer h.Close(ctx)
+		n := h.CreateNode(ctx, "fresh")
+		for range 3 {
+			h.NextChanged(ctx, n, "fresh")
+			Expect(telem.UnmarshalSeries[int64](h.Output("fresh", 0))[0]).To(Equal(int64(1)))
+			n.Reset()
+		}
+	})
+
+	It("Should return a string local", func(ctx SpecContext) {
+		g := singleFunctionGraph("greet", types.String(), `{
+			msg := "hello"
+			return msg
+		}`)
+		h := newHarness(ctx, g, nil)
+		defer h.Close(ctx)
+		h.Execute(ctx, "greet")
+		Expect(telem.UnmarshalSeries[string](h.Output("greet", 0))[0]).To(Equal("hello"))
+	})
+
+	It("Should accumulate a stateful local from a := local", func(ctx SpecContext) {
+		g := singleFunctionGraph("acc", types.I64(), `{
+			x := 1 + 2
+			y i64 $= 0
+			y = y + x
+			return y
+		}`)
+		h := newHarness(ctx, g, nil)
+		defer h.Close(ctx)
+		n := h.CreateNode(ctx, "acc")
+		h.NextChanged(ctx, n, "acc")
+		Expect(telem.UnmarshalSeries[int64](h.Output("acc", 0))[0]).To(Equal(int64(3)))
+		n.Reset()
+		h.NextChanged(ctx, n, "acc")
+		Expect(telem.UnmarshalSeries[int64](h.Output("acc", 0))[0]).To(Equal(int64(6)))
+	})
+
+	It("Should reject a body reading an undeclared name", func(ctx SpecContext) {
+		g := singleFunctionGraph("bad", types.I64(), `{ return k }`)
+		Expect(arc.CompileGraph(ctx, g, NewRoot(nil))).Error().
+			To(MatchError(ContainSubstring("undefined")))
+	})
+})
