@@ -28,16 +28,16 @@ or generator logic and schemas disagree.
 ## Versioning Rules
 
 - **Version a schema (`@go version`) iff its data is gorp-persisted** — directly, via
-  ImEx, or by being embedded in a versioned schema. Nothing else needs migrations:
-  wire peers are never version-skewed, and there are no unvalidated caches.
-- **Never version derived artifacts** (compiled output like arc `Program`). On
-  mismatch they are recomputed from their versioned sources, not migrated.
-- `@go version` is file-granular. When persisted and derived types share a file,
-  split the derived types into their own unversioned schema file rather than
-  versioning them along for the ride.
-- Migrate wrapper visibility follows consumption (see `plugin/go/migrate`):
-  exported when another versioned schema embeds the type; unexported when only the
-  package's own gorp wiring or auto-copies call it.
+  ImEx, or by being embedded in a versioned schema. Nothing else needs migrations: wire
+  peers are never version-skewed, and there are no unvalidated caches.
+- **Never version derived artifacts** (compiled output like arc `Program`). On mismatch
+  they are recomputed from their versioned sources, not migrated.
+- `@go version` is file-granular. When persisted and derived types share a file, split
+  the derived types into their own unversioned schema file rather than versioning them
+  along for the ride.
+- Migrate wrapper visibility follows consumption (see `plugin/go/migrate`): exported
+  when another versioned schema embeds the type; unexported when only the package's own
+  gorp wiring or auto-copies call it.
 
 ## Rules
 
