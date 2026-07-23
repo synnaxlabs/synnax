@@ -10,10 +10,39 @@
 package v0
 
 import (
+	"fmt"
 	"maps"
+	"sort"
+	"strings"
 
 	"github.com/vmihailenco/msgpack/v5"
 )
+
+// String returns the channels as "read [id: name, ...], write [id: name, ...]", with
+// each list sorted for deterministic output. Returns "(none)" when empty.
+func (c Channels) String() string {
+	if len(c.Read) == 0 && len(c.Write) == 0 {
+		return "(none)"
+	}
+	var parts []string
+	if len(c.Read) > 0 {
+		readParts := make([]string, 0, len(c.Read))
+		for id, name := range c.Read {
+			readParts = append(readParts, fmt.Sprintf("%d: %s", id, name))
+		}
+		sort.Strings(readParts)
+		parts = append(parts, "read ["+strings.Join(readParts, ", ")+"]")
+	}
+	if len(c.Write) > 0 {
+		writeParts := make([]string, 0, len(c.Write))
+		for id, name := range c.Write {
+			writeParts = append(writeParts, fmt.Sprintf("%d: %s", id, name))
+		}
+		sort.Strings(writeParts)
+		parts = append(parts, "write ["+strings.Join(writeParts, ", ")+"]")
+	}
+	return strings.Join(parts, ", ")
+}
 
 // Copy returns a deep copy of the Channels.
 func (c Channels) Copy() Channels {

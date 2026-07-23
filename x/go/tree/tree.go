@@ -10,8 +10,8 @@
 // Package tree provides box-drawing glyphs for rendering trees as text.
 package tree
 
-// Prefix returns the branch glyph for a tree item: "└── " when last is true,
-// "├── " otherwise.
+// Prefix returns the branch glyph for a tree item: "└── " when last is true, "├── "
+// otherwise.
 func Prefix(last bool) string {
 	if last {
 		return "└── "

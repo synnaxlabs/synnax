@@ -11,6 +11,8 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/samber/lo"
 )
@@ -57,6 +59,23 @@ func (p Params) ValueMap() map[string]any {
 	return lo.SliceToMap(p, func(param Param) (string, any) {
 		return param.Name, param.Value
 	})
+}
+
+// String returns the params as "name (type), name (type), ...", appending "= value" for
+// params with values. Returns "(none)" when empty.
+func (p Params) String() string {
+	if len(p) == 0 {
+		return "(none)"
+	}
+	parts := make([]string, len(p))
+	for i, param := range p {
+		if param.Value != nil {
+			parts[i] = fmt.Sprintf("%s (%s) = %v", param.Name, param.Type, param.Value)
+		} else {
+			parts[i] = fmt.Sprintf("%s (%s)", param.Name, param.Type)
+		}
+	}
+	return strings.Join(parts, ", ")
 }
 
 // RequiredCount returns the number of required (non-optional) parameters. A parameter

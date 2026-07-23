@@ -66,4 +66,25 @@ var _ = Describe("Channels", func() {
 			Expect(decoded.Write).To(Equal(map[uint32]string{4: "valve"}))
 		})
 	})
+	Describe("String", func() {
+		DescribeTable(
+			"Rendering",
+			func(channels v0.Channels, expected string) {
+				Expect(channels.String()).To(Equal(expected))
+			},
+			Entry("empty channels", v0.Channels{}, "(none)"),
+			Entry("reads only",
+				v0.Channels{Read: map[uint32]string{1: "sensor", 2: "temp"}},
+				"read [1: sensor, 2: temp]"),
+			Entry("writes only",
+				v0.Channels{Write: map[uint32]string{3: "valve"}},
+				"write [3: valve]"),
+			Entry("reads and writes",
+				v0.Channels{
+					Read:  map[uint32]string{1: "sensor"},
+					Write: map[uint32]string{2: "valve"},
+				},
+				"read [1: sensor], write [2: valve]"),
+		)
+	})
 })

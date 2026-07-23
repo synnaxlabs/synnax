@@ -178,4 +178,28 @@ var _ = Describe("Params", func() {
 			Expect(single.RequiredCount()).To(Equal(0))
 		})
 	})
+	Describe("String", func() {
+		DescribeTable(
+			"Rendering",
+			func(params types.Params, expected string) {
+				Expect(params.String()).To(Equal(expected))
+			},
+			Entry("empty params", types.Params{}, "(none)"),
+			Entry("params without values",
+				types.Params{
+					{Name: "x", Type: types.I64()},
+					{Name: "y", Type: types.F64()},
+				},
+				"x (i64), y (f64)"),
+			Entry("a param with a value",
+				types.Params{{Name: "x", Type: types.I32(), Value: 42}},
+				"x (i32) = 42"),
+			Entry("mixed valued and unvalued params",
+				types.Params{
+					{Name: "x", Type: types.I32(), Value: 42},
+					{Name: "y", Type: types.F64()},
+				},
+				"x (i32) = 42, y (f64)"),
+		)
+	})
 })
