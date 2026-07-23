@@ -14,7 +14,7 @@ import { type ReactNode } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Tree } from "@/platform/tree";
-import { createConsoleWrapper, type TestStore } from "@/testutil";
+import { createConsoleWrapper, selectTestProject, type TestStore } from "@/testutil";
 
 export interface RenderOntologyTreeOptions {
   client: Synnax;
@@ -33,7 +33,8 @@ export interface OntologyTreeHandle extends RenderResult {
  * Renders the real Tree.Tree against the live cluster inside the full console
  * provider stack, with a mounted modal stack so context-menu flows can open prompts.
  * The Triggers provider is included so held-modifier interactions (control-click
- * multi-select) behave as they do in the app.
+ * multi-select) behave as they do in the app. An active project is established so
+ * onSelect handlers that place a tab have a project to create panels under.
  */
 export const renderOntologyTree = async ({
   client,
@@ -42,6 +43,7 @@ export const renderOntologyTree = async ({
   extra,
 }: RenderOntologyTreeOptions): Promise<OntologyTreeHandle> => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  await selectTestProject(store, client);
   const rendered = render(
     <Triggers.Provider>
       <Haul.Provider>
