@@ -106,9 +106,9 @@ var _ = Describe("MigrateTable", func() {
 
 		It("Should produce the canonical output when called directly", func(ctx SpecContext) {
 			blob := loadFixture("v0_mixed_variants.json")
-			out := MustSucceed(v2.MigrateTable(ctx, v1.Table{
+			out := migrateSeed(ctx, v1.Table{
 				Key: fixedKey, Name: "v0_mixed_variants.json", Data: blob,
-			}))
+			})
 			assertMigrated("v0_mixed_variants.json", out)
 		})
 	})

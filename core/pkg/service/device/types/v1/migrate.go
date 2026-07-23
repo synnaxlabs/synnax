@@ -21,9 +21,9 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrateDevice lifts a v0 device into the current shape, dropping the persisted
+// migrateDevice lifts a v0 device into the current shape, dropping the persisted
 // status and parent.
-func MigrateDevice(ctx context.Context, old v0.Device) (Device, error) {
+func migrateDevice(ctx context.Context, old v0.Device) (Device, error) {
 	return autoMigrateDevice(ctx, old)
 }
 
@@ -36,7 +36,7 @@ var codecMigration = gorp.CodecMigration[Key, v0.Device](
 // liftMigration lifts stored devices from v0 to v1, dropping the persisted status
 // and parent fields.
 var liftMigration = gorp.NewEntryMigration(
-	"v54_drop_status_parent", MigrateDevice, codecMigration.Key(),
+	"v54_drop_status_parent", migrateDevice, codecMigration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

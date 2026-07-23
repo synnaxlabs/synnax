@@ -10,9 +10,12 @@
 package v2_test
 
 import (
+	"context"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	graph "github.com/synnaxlabs/arc/graph/types/v0"
 	ir "github.com/synnaxlabs/arc/ir/types/v0"
 	text "github.com/synnaxlabs/arc/text/types/v0"
@@ -31,14 +34,14 @@ import (
 )
 
 var _ = Describe("MigrateArc", func() {
-	It("Should lift a v1 arc directly, seeding the document from the raw text", func(ctx SpecContext) {
+	It("Should lift a v1 arc, seeding the document from the raw text", func(ctx SpecContext) {
 		key := uuid.New()
-		migrated := MustSucceed(v2.MigrateArc(ctx, v1.Arc{
+		migrated := migrateFromV1(ctx, v1.Arc{
 			Key:  key,
 			Name: "direct",
 			Mode: v1.ModeText,
 			Text: text.Text{Raw: "x := 1"},
-		}))
+		})
 		Expect(migrated.Key).To(Equal(key))
 		Expect(migrated.Name).To(Equal("direct"))
 		Expect(migrated.Text.Materialize().Raw).To(Equal("x := 1"))
@@ -204,6 +207,32 @@ var _ = Describe("MigrateArc", func() {
 		})
 	})
 })
+
+// migrateFromV1 runs the v2 migration over a gorp-seeded v1 arc and returns the
+// migrated current Arc. The v1 chain is marked applied with no-op migrations so
+// the v2 migration's dependency resolves.
+func migrateFromV1(ctx SpecContext, seed v1.Arc) v2.Arc {
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v1.Key, v1.Arc]{DB: db}))
+	Expect(gorp.NewCreate[v1.Key, v1.Arc]().Entry(&seed).Exec(ctx, db)).To(Succeed())
+	applied := make([]migrate.Migration, 0, len(v1.Migrations)+1)
+	for _, m := range v1.Migrations {
+		applied = append(applied, gorp.NewMigration(
+			m.Key(),
+			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
+		))
+	}
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  "Arc",
+		Migrations: append(applied, v2.Migration),
+	})).To(Succeed())
+	var got v2.Arc
+	Expect(gorp.NewRetrieve[v2.Key, v2.Arc]().
+		Where(gorp.MatchKeys[v2.Key, v2.Arc](seed.Key)).
+		Entry(&got).Exec(ctx, db)).To(Succeed())
+	return got
+}
 
 // migrateFromV0 runs the full arc migration chain over a gorp-seeded v0 arc and
 // returns the migrated current Arc.

@@ -50,7 +50,7 @@ func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 		return IR{}, err
 	}
 	nodes, err := lo.MapErr(old.Nodes, func(v v1.Node, _ int) (Node, error) {
-		return MigrateNode(ctx, v)
+		return migrateNode(ctx, v)
 	})
 	if err != nil {
 		return IR{}, err

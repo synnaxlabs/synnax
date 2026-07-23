@@ -102,9 +102,9 @@ var _ = Describe("MigrateLinePlot", func() {
 
 		It("Should produce the canonical output when called directly", func(ctx SpecContext) {
 			blob := loadFixture("v4_full.json")
-			out := MustSucceed(v6.MigrateLinePlot(ctx, v5.LinePlot{
+			out := migrateSeed(ctx, v5.LinePlot{
 				Key: fixedKey, Name: "v4_full.json", Data: blob,
-			}))
+			})
 			assertMigrated("v4_full.json", out)
 		})
 	})

@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// MigrateArc lifts a v1 arc into the current shape.
-func MigrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
+// migrateArc lifts a v1 arc into the current shape.
+func migrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 	migrated, err := autoMigrateArc(ctx, old)
 	if err != nil {
 		return Arc{}, err
@@ -37,5 +37,5 @@ func MigrateArc(ctx context.Context, old v1.Arc) (Arc, error) {
 // Migration lifts stored arcs from v1 to v2, converting deploy state to the
 // live representation.
 var Migration = gorp.NewEntryMigration(
-	"v56_to_live", MigrateArc, "v55_rename_set_status",
+	"v56_to_live", migrateArc, "v55_rename_set_status",
 )

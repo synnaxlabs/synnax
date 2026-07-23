@@ -52,7 +52,7 @@ var _ = Describe("MigrateDevice", func() {
 	}
 
 	It("Should lift a v0 device directly, dropping the status and parent", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateDevice(ctx, v0.Device{
+		migrated := migrateSeed(ctx, v0.Device{
 			Key:        "DEV-DIRECT-001",
 			Rack:       42,
 			Location:   "Lab Bench 3",
@@ -63,7 +63,7 @@ var _ = Describe("MigrateDevice", func() {
 			Properties: msgpack.EncodedJSON{"serial": "T7-001"},
 			Status:     &v0.Status{Name: "connected", Variant: "success"},
 			Parent:     &ontology.ID{Type: "device", Key: "DEV-PARENT"},
-		}))
+		})
 		Expect(migrated.Key).To(Equal(v1.Key("DEV-DIRECT-001")))
 		Expect(migrated.Rack).To(BeEquivalentTo(42))
 		Expect(migrated.Location).To(Equal("Lab Bench 3"))

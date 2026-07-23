@@ -24,10 +24,29 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// migrateSeed runs the v1 migration chain over a gorp-seeded v0 arc and returns
+// the migrated v1 Arc.
+func migrateSeed(ctx SpecContext, seed v0.Arc) v1.Arc {
+	db := DeferClose(gorp.Wrap(memkv.New()))
+	MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
+	Expect(gorp.NewCreate[v0.Key, v0.Arc]().
+		Entry(&seed).Exec(ctx, db)).To(Succeed())
+	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+		DB:         db,
+		Namespace:  "Arc",
+		Migrations: v1.Migrations,
+	})).To(Succeed())
+	var got v1.Arc
+	Expect(gorp.NewRetrieve[v1.Key, v1.Arc]().
+		Where(gorp.MatchKeys[v1.Key, v1.Arc](seed.Key)).
+		Entry(&got).Exec(ctx, db)).To(Succeed())
+	return got
+}
+
 var _ = Describe("MigrateArc", func() {
 	It("Should carry the arc's key, name, mode, graph, and text", func(ctx SpecContext) {
 		key := uuid.New()
-		migrated := MustSucceed(v1.MigrateArc(ctx, v0.Arc{
+		migrated := migrateSeed(ctx, v0.Arc{
 			Key:  key,
 			Name: "my-arc",
 			Mode: v0.ModeText,
@@ -35,7 +54,7 @@ var _ = Describe("MigrateArc", func() {
 			Graph: graph.Graph{
 				Functions: ir.Functions{{Key: "scale", Body: ir.Body{Raw: "x * 2"}}},
 			},
-		}))
+		})
 		Expect(migrated.Key).To(Equal(key))
 		Expect(migrated.Name).To(Equal("my-arc"))
 		Expect(migrated.Mode).To(Equal(v1.ModeText))
@@ -45,34 +64,17 @@ var _ = Describe("MigrateArc", func() {
 	})
 
 	It("Should drop the persisted program and status", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateArc(ctx, v0.Arc{
+		migrated := migrateSeed(ctx, v0.Arc{
 			Key:    uuid.New(),
 			Name:   "loaded",
 			Status: &v0.Status{Name: "running", Variant: "success"},
-		}))
+		})
 		Expect(migrated.Status).To(BeNil())
 		Expect(migrated.Program).To(BeNil())
 	})
 })
 
 var _ = Describe("Migrations", func() {
-	migrateSeed := func(ctx SpecContext, seed v0.Arc) v1.Arc {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Arc]{DB: db}))
-		Expect(gorp.NewCreate[v0.Key, v0.Arc]().
-			Entry(&seed).Exec(ctx, db)).To(Succeed())
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  "Arc",
-			Migrations: v1.Migrations,
-		})).To(Succeed())
-		var got v1.Arc
-		Expect(gorp.NewRetrieve[v1.Key, v1.Arc]().
-			Where(gorp.MatchKeys[v1.Key, v1.Arc](seed.Key)).
-			Entry(&got).Exec(ctx, db)).To(Succeed())
-		return got
-	}
-
 	It("Should rename deprecated set_status nodes to status.set", func(ctx SpecContext) {
 		got := migrateSeed(ctx, v0.Arc{
 			Key:  uuid.New(),

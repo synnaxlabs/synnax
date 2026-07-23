@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrateRack lifts a v0 rack into the current shape, dropping the persisted status.
-func MigrateRack(ctx context.Context, old v0.Rack) (Rack, error) {
+// migrateRack lifts a v0 rack into the current shape, dropping the persisted status.
+func migrateRack(ctx context.Context, old v0.Rack) (Rack, error) {
 	return autoMigrateRack(ctx, old)
 }
 
@@ -35,7 +35,7 @@ var codecMigration = gorp.CodecMigration[v0.Key, v0.Rack](
 // liftMigration lifts stored racks from v0 to v1, dropping the persisted status
 // field.
 var liftMigration = gorp.NewEntryMigration(
-	"v54_drop_status", MigrateRack, codecMigration.Key(),
+	"v54_drop_status", migrateRack, codecMigration.Key(),
 )
 
 // Migrations is the ordered set of migrations introduced at this version.

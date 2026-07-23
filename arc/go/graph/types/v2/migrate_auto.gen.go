@@ -31,13 +31,13 @@ func autoMigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
 		return Graph{}, err
 	}
 	edges, err := lo.MapErr(old.Edges, func(v irv1.Edge, _ int) (Edge, error) {
-		return MigrateEdge(ctx, v)
+		return migrateEdge(ctx, v)
 	})
 	if err != nil {
 		return Graph{}, err
 	}
 	nodes, err := lo.MapErr(old.Nodes, func(v v1.Node, _ int) (Node, error) {
-		return MigrateNode(ctx, v)
+		return migrateNode(ctx, v)
 	})
 	if err != nil {
 		return Graph{}, err

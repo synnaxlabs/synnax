@@ -51,7 +51,7 @@ var _ = Describe("MigrateTask", func() {
 	}
 
 	It("Should lift a v0 task directly, dropping the status", func(ctx SpecContext) {
-		migrated := MustSucceed(v1.MigrateTask(ctx, v0.Task{
+		migrated := migrateSeed(ctx, v0.Task{
 			Key:      v0.Key(0x0000_0001_0000_0007),
 			Name:     "Direct",
 			Type:     "modbus_read",
@@ -59,7 +59,7 @@ var _ = Describe("MigrateTask", func() {
 			Internal: true,
 			Snapshot: true,
 			Status:   &v0.Status{Name: "running", Variant: "success"},
-		}))
+		})
 		Expect(migrated.Key).To(Equal(v1.Key(0x0000_0001_0000_0007)))
 		Expect(migrated.Name).To(Equal("Direct"))
 		Expect(migrated.Type).To(Equal("modbus_read"))

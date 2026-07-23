@@ -40,29 +40,28 @@ var _ = Describe("MigrateGraph", func() {
 		Expect(migrated.Inputs["n1"]).To(HaveKeyWithValue("type", "add"))
 		Expect(migrated.Inputs["n1"]).To(HaveKeyWithValue("rate", "10"))
 	})
-})
 
-var _ = Describe("MigrateEdge", func() {
-	It("Should carry the endpoints and assign a fresh key", func(ctx SpecContext) {
-		migrated := MustSucceed(v2.MigrateEdge(ctx, irv1.Edge{
-			Source: irv1.Handle{Node: "a", Param: "out"},
-			Target: irv1.Handle{Node: "b", Param: "in"},
-			Kind:   irv1.EdgeKindContinuous,
+	It("Should carry edge endpoints and assign fresh edge keys", func(ctx SpecContext) {
+		migrated := MustSucceed(v2.MigrateGraph(ctx, v1.Graph{
+			Edges: irv1.Edges{{
+				Source: irv1.Handle{Node: "a", Param: "out"},
+				Target: irv1.Handle{Node: "b", Param: "in"},
+				Kind:   irv1.EdgeKindContinuous,
+			}},
 		}))
-		Expect(migrated.Source).To(Equal(ir.Handle{Node: "a", Param: "out"}))
-		Expect(migrated.Target).To(Equal(ir.Handle{Node: "b", Param: "in"}))
-		Expect(migrated.Kind).To(Equal(ir.EdgeKindContinuous))
-		Expect(migrated.Key).ToNot(BeEmpty())
+		edge := migrated.Edges[0]
+		Expect(edge.Source).To(Equal(ir.Handle{Node: "a", Param: "out"}))
+		Expect(edge.Target).To(Equal(ir.Handle{Node: "b", Param: "in"}))
+		Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
+		Expect(edge.Key).ToNot(BeEmpty())
 	})
-})
 
-var _ = Describe("MigrateNode", func() {
-	It("Should carry the key and position", func(ctx SpecContext) {
-		migrated := MustSucceed(v2.MigrateNode(ctx, v1.Node{
-			Key:      "n1",
-			Position: spatial.XY{X: 1, Y: 2},
+	It("Should carry node keys and positions", func(ctx SpecContext) {
+		migrated := MustSucceed(v2.MigrateGraph(ctx, v1.Graph{
+			Nodes: v1.Nodes{{Key: "n1", Position: spatial.XY{X: 1, Y: 2}}},
 		}))
-		Expect(migrated.Key).To(Equal("n1"))
-		Expect(migrated.Position).To(Equal(spatial.XY{X: 1, Y: 2}))
+		node := migrated.Nodes[0]
+		Expect(node.Key).To(Equal("n1"))
+		Expect(node.Position).To(Equal(spatial.XY{X: 1, Y: 2}))
 	})
 })

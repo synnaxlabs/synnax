@@ -114,9 +114,9 @@ var _ = Describe("MigrateSchematic", func() {
 
 		It("Should produce the canonical output when called directly", func(ctx SpecContext) {
 			blob, _ := loadFixture("v5_operator.json")
-			out := MustSucceed(v7.MigrateSchematic(ctx, v6.Schematic{
+			out := migrateSeed(ctx, v6.Schematic{
 				Key: fixedKey, Name: "v5_operator.json", Data: blob,
-			}))
+			})
 			assertMigrated("v5_operator.json", out)
 		})
 	})

@@ -18,9 +18,9 @@ import (
 	"github.com/synnaxlabs/x/migrate"
 )
 
-// MigrateArc lifts a v0 arc into the current shape, dropping the persisted program
+// migrateArc lifts a v0 arc into the current shape, dropping the persisted program
 // status.
-func MigrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
+func migrateArc(ctx context.Context, old v0.Arc) (Arc, error) {
 	return autoMigrateArc(ctx, old)
 }
 
@@ -57,7 +57,7 @@ var codecMigration = gorp.CodecMigration[Key, v0.Arc]("msgpack_to_orc")
 // dropProgramStatusMigration lifts stored arcs from v0 to v1, dropping the persisted
 // program status.
 var dropProgramStatusMigration = gorp.NewEntryMigration(
-	"v54_drop_program_status", MigrateArc, codecMigration.Key(),
+	"v54_drop_program_status", migrateArc, codecMigration.Key(),
 )
 
 // renameSetStatusMigration renames legacy set_status graph nodes onto the current node
