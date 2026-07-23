@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -107,6 +108,7 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		channelMod,
 		selector.NewHost(),
 		constant.NewHost(),
+		variable.NewHost(),
 		stlop.NewHost(),
 		stable.NewHost(),
 		mathMod,

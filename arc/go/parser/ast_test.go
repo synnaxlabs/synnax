@@ -10,6 +10,7 @@
 package parser_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
@@ -244,6 +245,142 @@ var _ = Describe("AST Utilities", func() {
 			Expect(entries).To(HaveLen(2))
 			Expect(entries[0].Path).To(Equal("time"))
 			Expect(entries[1].Path).To(Equal("math"))
+		})
+	})
+
+	Describe("CollectIdentifiers", func() {
+		DescribeTable("collects primary-expression identifiers",
+			func(code string, expected []string) {
+				Expect(parser.CollectIdentifiers(parseExpr(code))).To(Equal(expected))
+			},
+			Entry("single identifier", "x", []string{"x"}),
+			Entry("deduplicates repeats", "x + x", []string{"x"}),
+			Entry("source order", "b + a + c", []string{"b", "a", "c"}),
+			Entry("nested and indexed", "a * (b + c[i]) - d",
+				[]string{"a", "b", "c", "i", "d"}),
+			Entry("function call name and args", "foo(a, b)",
+				[]string{"foo", "a", "b"}),
+			Entry("literal only", "42", nil),
+			Entry("format string braces are token text, not identifiers",
+				`f"hi {x}"`, nil),
+			Entry("qualified names are excluded", "math.avg + x", []string{"x"}),
+		)
+	})
+
+	Describe("StringTerminal", func() {
+		It("Should return the terminal for a string literal", func() {
+			lit := parser.GetLiteral(parseExpr(`"hello"`))
+			Expect(parser.StringTerminal(lit)).ToNot(BeNil())
+		})
+
+		It("Should return the terminal for a multi-line string literal", func() {
+			lit := parser.GetLiteral(parseExpr("`a\nb`"))
+			Expect(parser.StringTerminal(lit)).ToNot(BeNil())
+		})
+
+		It("Should return nil for a numeric literal", func() {
+			lit := parser.GetLiteral(parseExpr("42"))
+			Expect(parser.StringTerminal(lit)).To(BeNil())
+		})
+	})
+
+	Describe("QualifiedNameParts and QualifiedName", func() {
+		qualified := func(code string) parser.IQualifiedIdentifierContext {
+			primary := parser.GetPrimaryExpression(parseExpr(code))
+			Expect(primary).ToNot(BeNil())
+			qid := primary.QualifiedIdentifier()
+			Expect(qid).ToNot(BeNil())
+			return qid
+		}
+
+		It("Should split a qualified identifier into head and tail", func() {
+			head, tail := parser.QualifiedNameParts(qualified("math.avg"))
+			Expect(head).To(Equal("math"))
+			Expect(tail).To(Equal("avg"))
+		})
+
+		It("Should read the authority keyword as a head", func() {
+			head, tail := parser.QualifiedNameParts(qualified("authority.absolute"))
+			Expect(head).To(Equal("authority"))
+			Expect(tail).To(Equal("absolute"))
+		})
+
+		It("Should join head and tail with a dot", func() {
+			Expect(parser.QualifiedName(qualified("math.avg"))).To(Equal("math.avg"))
+		})
+	})
+
+	Describe("FunctionNameParts and FunctionName", func() {
+		var findFunction func(t antlr.Tree) parser.IFunctionContext
+		findFunction = func(t antlr.Tree) parser.IFunctionContext {
+			if fn, ok := t.(parser.IFunctionContext); ok {
+				return fn
+			}
+			for i := 0; i < t.GetChildCount(); i++ {
+				if found := findFunction(t.GetChild(i)); found != nil {
+					return found
+				}
+			}
+			return nil
+		}
+		// Flow statements are allowed at top level and in stage/sequence
+		// bodies, but not in func bodies, which is the rule ParseStatement
+		// parses. Parse a whole program instead.
+		functionOf := func(code string) parser.IFunctionContext {
+			prog := MustSucceed(parser.Parse(code))
+			fn := findFunction(prog)
+			Expect(fn).ToNot(BeNil())
+			return fn
+		}
+
+		It("Should return the bare name with an empty tail", func() {
+			head, tail := parser.FunctionNameParts(functionOf("x -> calc{}"))
+			Expect(head).To(Equal("calc"))
+			Expect(tail).To(Equal(""))
+		})
+
+		It("Should split a qualified function name", func() {
+			head, tail := parser.FunctionNameParts(functionOf("x -> math.avg{}"))
+			Expect(head).To(Equal("math"))
+			Expect(tail).To(Equal("avg"))
+		})
+
+		It("Should join names only when a tail is present", func() {
+			Expect(parser.FunctionName(functionOf("x -> calc{}"))).To(Equal("calc"))
+			Expect(parser.FunctionName(functionOf("x -> math.avg{}"))).
+				To(Equal("math.avg"))
+		})
+	})
+
+	Describe("PrimaryNameParts and PrimaryName", func() {
+		primaryOf := func(code string) parser.IPrimaryExpressionContext {
+			primary := parser.GetPrimaryExpression(parseExpr(code))
+			Expect(primary).ToNot(BeNil())
+			return primary
+		}
+
+		It("Should return the bare name with an empty tail", func() {
+			head, tail := parser.PrimaryNameParts(primaryOf("x"))
+			Expect(head).To(Equal("x"))
+			Expect(tail).To(Equal(""))
+		})
+
+		It("Should split a qualified identifier", func() {
+			head, tail := parser.PrimaryNameParts(primaryOf("math.avg"))
+			Expect(head).To(Equal("math"))
+			Expect(tail).To(Equal("avg"))
+		})
+
+		It("Should return empty parts for a non-identifier primary", func() {
+			head, tail := parser.PrimaryNameParts(primaryOf("42"))
+			Expect(head).To(Equal(""))
+			Expect(tail).To(Equal(""))
+		})
+
+		It("Should join or blank the name to match the parts", func() {
+			Expect(parser.PrimaryName(primaryOf("x"))).To(Equal("x"))
+			Expect(parser.PrimaryName(primaryOf("math.avg"))).To(Equal("math.avg"))
+			Expect(parser.PrimaryName(primaryOf("42"))).To(Equal(""))
 		})
 	})
 })

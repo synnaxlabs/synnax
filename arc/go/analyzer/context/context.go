@@ -118,6 +118,20 @@ func (c Context[AST]) WithScope(scope *symbol.Symbol) Context[AST] {
 	return c
 }
 
+// IdentifierAST is a declaration with an optional IDENTIFIER (nil when anonymous).
+type IdentifierAST interface {
+	antlr.ParserRuleContext
+	IDENTIFIER() antlr.TerminalNode
+}
+
+// ResolveOwnScope returns the scope owned by the given declaration.
+func ResolveOwnScope[T IdentifierAST](ctx Context[T]) (*symbol.Symbol, error) {
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		return ctx.Scope.Resolve(ctx, id.GetText())
+	}
+	return ctx.Scope.GetChildByParserRule(ctx.AST)
+}
+
 // WithTypeHint returns a new context with an updated type hint. The original context
 // is not mutated. All other fields (including shared state pointers) are preserved.
 //

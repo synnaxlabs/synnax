@@ -102,6 +102,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 			compiled = append(compiled, cf)
 			continue
 		}
+		if strings.HasPrefix(i.Key, ir.DispatcherSyntheticPrefix) {
+			cf, err := compileDispatcherSynthetic(compCtx, i, program.Functions)
+			if err != nil {
+				return Output{}, err
+			}
+			compiled = append(compiled, cf)
+			continue
+		}
 		params := i.Inputs
 		var returnType types.Type
 		defaultOutput, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)
@@ -211,8 +219,9 @@ func compileExpression(ctx ccontext.Context[parser.IExpressionContext]) error {
 	return err
 }
 
-// compileFmtStrSynthetic emits a zero-param WASM body returning the
-// formatted string handle for an analyzer-synthesized backtick Function.
+// compileFmtStrSynthetic emits a WASM body returning the formatted string
+// handle for an analyzer-synthesized Function. Lifted variable reads arrive
+// as params.
 func compileFmtStrSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
@@ -221,8 +230,17 @@ func compileFmtStrSynthetic(
 	if err != nil {
 		return compiledFunction{}, err
 	}
-	ctx := rootCtx.WithNewWriter()
+	scope, err := rootCtx.Scope.Resolve(rootCtx, fn.Key, symbol.IncludeInternal)
+	if err != nil {
+		return compiledFunction{}, err
+	}
+	ctx := rootCtx.WithScope(scope).WithNewWriter()
+	params := make([]wasm.ValueType, 0, len(fn.Inputs))
+	for _, p := range fn.Inputs {
+		params = append(params, wasm.ConvertType(p.Type))
+	}
 	funcT := wasm.FunctionType{
+		Params:  params,
 		Results: []wasm.ValueType{wasm.ConvertType(types.String())},
 	}
 	typeIdx := ctx.Module.AddType(funcT)
@@ -234,6 +252,92 @@ func compileFmtStrSynthetic(
 		typeIdx:   typeIdx,
 		writer:    ctx.Writer,
 	}, nil
+}
+
+// compileDispatcherSynthetic emits a $sel-keyed if/else chain that calls exactly
+// one branch function per evaluation. Trigger params are gating-only, unused.
+func compileDispatcherSynthetic(
+	rootCtx ccontext.Context[antlr.ParserRuleContext],
+	fn ir.Function,
+	functions ir.Functions,
+) (compiledFunction, error) {
+	ctx := rootCtx.WithNewWriter()
+	params := make([]wasm.ValueType, 0, len(fn.Inputs))
+	slots := make(map[string]int, len(fn.Inputs))
+	for i, p := range fn.Inputs {
+		params = append(params, wasm.ConvertType(p.Type))
+		slots[p.Name] = i
+	}
+	out, ok := fn.Outputs.Get(ir.DefaultOutputParam)
+	if !ok {
+		return compiledFunction{}, errors.Newf("dispatcher %s has no output", fn.Key)
+	}
+	selSlot, ok := slots["$sel"]
+	if !ok {
+		return compiledFunction{}, errors.Newf("dispatcher %s has no $sel input", fn.Key)
+	}
+	funcT := wasm.FunctionType{
+		Params:  params,
+		Results: []wasm.ValueType{wasm.ConvertType(out.Type)},
+	}
+	typeIdx := ctx.Module.AddType(funcT)
+	blockT := blockTypeFor(wasm.ConvertType(out.Type))
+	keys := strings.Split(fn.Body.Raw, ",")
+	for bi, key := range keys {
+		bfn, found := functions.Find(key)
+		if !found {
+			return compiledFunction{}, errors.Newf(
+				"dispatcher %s references unknown branch %q", fn.Key, key,
+			)
+		}
+		last := bi == len(keys)-1
+		if !last {
+			ctx.Writer.WriteLocalGet(selSlot)
+			ctx.Writer.WriteI32Const(int32(bi))
+			ctx.Writer.WriteBinaryOp(wasm.OpI32Eq)
+			ctx.Writer.WriteIf(blockT)
+		}
+		for _, p := range bfn.Inputs {
+			slot, ok := slots[p.Name]
+			if !ok {
+				return compiledFunction{}, errors.Newf(
+					"dispatcher %s missing input %q for branch %q", fn.Key, p.Name, key,
+				)
+			}
+			ctx.Writer.WriteLocalGet(slot)
+		}
+		ctx.Resolver.EmitLocalCall(ctx.Writer, ctx.WriterID, key, types.Type{})
+		if bout, ok := bfn.Outputs.Get(ir.DefaultOutputParam); ok {
+			if err := expression.EmitCast(ctx, bout.Type, out.Type); err != nil {
+				return compiledFunction{}, err
+			}
+		}
+		if !last {
+			ctx.Writer.WriteElse()
+		}
+	}
+	for range len(keys) - 1 {
+		ctx.Writer.WriteEnd()
+	}
+	return compiledFunction{
+		scopeName: fn.Key,
+		typeIdx:   typeIdx,
+		writer:    ctx.Writer,
+	}, nil
+}
+
+// blockTypeFor returns the value-producing block type for vt.
+func blockTypeFor(vt wasm.ValueType) wasm.BlockType {
+	switch vt {
+	case wasm.I64:
+		return wasm.BlockTypeI64
+	case wasm.F32:
+		return wasm.BlockTypeF32
+	case wasm.F64:
+		return wasm.BlockTypeF64
+	default:
+		return wasm.BlockTypeI32
+	}
 }
 
 func collectLocals(scope *symbol.Symbol) []wasm.ValueType {

@@ -97,8 +97,16 @@ func ParseNumeric(
 	numLit parser.INumericLiteralContext,
 	targetType types.Type,
 ) (ParsedValue, error) {
-	negate := numLit.MINUS() != nil
+	return ParseNumericSigned(numLit, numLit.MINUS() != nil, targetType)
+}
 
+// ParseNumericSigned parses numLit's magnitude and applies negate before the range check
+// and unit scaling, so type minimums like -128 for i8 fit and negated units keep sign.
+func ParseNumericSigned(
+	numLit parser.INumericLiteralContext,
+	negate bool,
+	targetType types.Type,
+) (ParsedValue, error) {
 	if intLit := numLit.INTEGER_LITERAL(); intLit != nil {
 		intValue, err := strconv.ParseInt(intLit.GetText(), 10, 64)
 		if err != nil {
@@ -441,24 +449,23 @@ func IsExactInteger(value float64) bool {
 	return math.Abs(value-rounded)/math.Abs(rounded) < 1e-9
 }
 
-// Negate negates a parsed literal value. Supports the numeric types produced by Parse.
-func Negate(v any) any {
-	switch val := v.(type) {
-	case int8:
-		return -val
-	case int16:
-		return -val
-	case int32:
-		return -val
-	case int64:
-		return -val
-	case float32:
-		return -val
-	case float64:
-		return -val
-	case telem.TimeSpan:
-		return -val
-	default:
-		return v
+// ParseConst parses a bare or single-negated literal against targetType, applying the
+// sign before the range check so type minimums like -128 for i8 fit. Errors on anything else.
+func ParseConst(expr parser.IExpressionContext, targetType types.Type) (ParsedValue, error) {
+	if expr == nil {
+		return ParsedValue{}, errors.New("expression is not a constant")
 	}
+	if primary := parser.GetPrimaryExpression(expr); primary != nil {
+		if lit := primary.Literal(); lit != nil {
+			return Parse(lit, targetType)
+		}
+	}
+	if parser.IsNegatedLiteral(expr) {
+		if lit := parser.GetLiteral(expr); lit != nil {
+			if numLit := lit.NumericLiteral(); numLit != nil {
+				return ParseNumericSigned(numLit, true, targetType)
+			}
+		}
+	}
+	return ParsedValue{}, errors.New("expression is not a compile-time constant")
 }

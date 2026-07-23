@@ -178,8 +178,9 @@ export const scopeZ: z.ZodType<Scope> = z.object({
    */
   activation: handleZ.optional(),
   /**
-   * strata contains stratified execution layers for parallel scopes. Empty for
-   * sequential scopes. Stratum N depends only on strata 0 to N-1.
+   * strata contains stratified execution layers for parallel scopes. On sequential
+   * scopes, strata hold variable nodes that run every pass alongside the active step.
+   * Stratum N depends only on strata 0 to N-1.
    */
   get strata() {
     return membersZ.array().default(() => []);
