@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
+import { label, type ontology, panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
@@ -29,6 +29,12 @@ const newTab = (): panel.Tab => ({
 
 const asView = (tab?: panel.Tab | null): panel.TabView | undefined =>
   tab?.variant === "view" ? tab : undefined;
+
+const newResourceTab = (resource: ontology.ID): panel.TabResource => ({
+  variant: "resource",
+  key: uuid.create(),
+  resource,
+});
 
 describe("Panel queries", () => {
   let controller: AbortController;
@@ -1511,6 +1517,78 @@ describe("Panel queries", () => {
       await client.panels.delete(target.key);
 
       await waitFor(() => expect(result.current.data).not.toContain(target.key));
+    });
+  });
+
+  describe("useCloseDeletedResourceTabs", () => {
+    const createLabel = async (): Promise<ontology.ID> => {
+      const created = await client.labels.create({
+        name: `label-${uuid.create()}`,
+        color: "#000000",
+      });
+      return label.ontologyID(created.key);
+    };
+
+    const insert = async (
+      dispatch: ReturnType<typeof Panel.useDispatch>,
+      key: panel.Key,
+      ...tabs: panel.Tab[]
+    ) =>
+      await act(async () => {
+        await dispatch.dispatchAsync({
+          key,
+          actions: tabs.map((tab) =>
+            panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
+          ),
+        });
+      });
+
+    it("closes a resource tab when its resource is deleted", async () => {
+      const created = await createPanel();
+      const resource = await createLabel();
+      const tab = newResourceTab(resource);
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: Panel.useRetrieve({ key: created.key }),
+        dispatch: Panel.useDispatch(),
+      }));
+      await insert(result.current.dispatch, created.key, tab);
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
+      );
+
+      renderHook(() => Panel.useCloseDeletedResourceTabs(), { wrapper });
+      await act(async () => {
+        await client.labels.delete(resource.key);
+      });
+
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([]),
+      );
+    });
+
+    it("leaves tabs backing other resources open", async () => {
+      const created = await createPanel();
+      const [doomed, survivor] = [await createLabel(), await createLabel()];
+      const [doomedTab, survivorTab] = [
+        newResourceTab(doomed),
+        newResourceTab(survivor),
+      ];
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: Panel.useRetrieve({ key: created.key }),
+        dispatch: Panel.useDispatch(),
+      }));
+      await insert(result.current.dispatch, created.key, doomedTab, survivorTab);
+
+      renderHook(() => Panel.useCloseDeletedResourceTabs(), { wrapper });
+      await act(async () => {
+        await client.labels.delete(doomed.key);
+      });
+
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
+          survivorTab.key,
+        ]),
+      );
     });
   });
 });
