@@ -252,56 +252,21 @@ describe("Panel.Mosaic", () => {
   };
 
   describe("selection", () => {
-    it("should select a leaf's first tab when no selection is provided", async () => {
-      const a = resourceTab();
-      const b = resourceTab();
-      const p = await createPanel(a, b);
-      const utils = await renderMosaic({ panelKey: p.key });
-      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
-      expect(utils.queryByText(contentText(b))).toBeNull();
-      expect(isTabSelected(utils, a.key)).toBe(true);
-      expect(isTabSelected(utils, b.key)).toBe(false);
-    });
-
-    it("should select the most recent tab in selected", async () => {
+    it("should select the tab named in selected", async () => {
       const a = resourceTab();
       const b = resourceTab();
       const p = await createPanel(a, b);
       const utils = await renderMosaic({
         panelKey: p.key,
-        selected: [b.key, a.key],
+        selected: [b.key],
       });
       await waitFor(() => expect(utils.getByText(contentText(b))).toBeTruthy());
       expect(utils.queryByText(contentText(a))).toBeNull();
       expect(isTabSelected(utils, b.key)).toBe(true);
-    });
-
-    it("should keep only the most recent selected tab per leaf", async () => {
-      const a = resourceTab();
-      const b = resourceTab();
-      const p = await createPanel(a, b);
-      const utils = await renderMosaic({
-        panelKey: p.key,
-        selected: [b.key, a.key],
-      });
-      await waitFor(() => expect(utils.getByText(contentText(b))).toBeTruthy());
-      expect(isTabSelected(utils, b.key)).toBe(true);
       expect(isTabSelected(utils, a.key)).toBe(false);
     });
 
-    it("should drop selected keys that are no longer in the tree", async () => {
-      const a = resourceTab();
-      const removed = resourceTab();
-      const p = await createPanel(a);
-      const utils = await renderMosaic({
-        panelKey: p.key,
-        selected: [removed.key],
-      });
-      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
-      expect(isTabSelected(utils, a.key)).toBe(true);
-    });
-
-    it("should select the most recent of each leaf's own tabs", async () => {
+    it("should select each leaf's own selected tab", async () => {
       const a1 = resourceTab();
       const a2 = resourceTab();
       const b1 = resourceTab();
@@ -312,8 +277,8 @@ describe("Panel.Mosaic", () => {
         panelKey: p.key,
         selected: [a2.key, b2.key],
       });
-      // Both leaves show their own most recent tab, so both are attached to
-      // the document.
+      // Both leaves show their own selected tab, so both are attached to the
+      // document.
       await waitFor(() => expect(utils.getByText(contentText(b2))).toBeTruthy());
       expect(utils.getByText(contentText(a2))).toBeTruthy();
       expect(utils.queryByText(contentText(a1))).toBeNull();
@@ -322,7 +287,29 @@ describe("Panel.Mosaic", () => {
       expect(isTabSelected(utils, b2.key)).toBe(true);
     });
 
-    it("should fall back to a leaf's first tab when none of its tabs is selected", async () => {
+    // A selection that disagrees with the tree happens only transiently, before the
+    // owning window's reconcile lands. The leaf must still render content.
+    it("should render a leaf's first tab when no selection is provided", async () => {
+      const a = resourceTab();
+      const b = resourceTab();
+      const p = await createPanel(a, b);
+      const utils = await renderMosaic({ panelKey: p.key });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+      expect(utils.queryByText(contentText(b))).toBeNull();
+    });
+
+    it("should render a leaf's first tab when selected names a vanished tab", async () => {
+      const a = resourceTab();
+      const removed = resourceTab();
+      const p = await createPanel(a);
+      const utils = await renderMosaic({
+        panelKey: p.key,
+        selected: [removed.key],
+      });
+      await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
+    });
+
+    it("should render a leaf's first tab when none of its tabs is selected", async () => {
       const a1 = resourceTab();
       const a2 = resourceTab();
       const b1 = resourceTab();
@@ -335,7 +322,6 @@ describe("Panel.Mosaic", () => {
       });
       await waitFor(() => expect(utils.getByText(contentText(b1))).toBeTruthy());
       expect(isTabSelected(utils, a2.key)).toBe(true);
-      expect(isTabSelected(utils, b1.key)).toBe(true);
       expect(isTabSelected(utils, b2.key)).toBe(false);
     });
   });
@@ -358,13 +344,15 @@ describe("Panel.Mosaic", () => {
       expect(isTabFocused(utils, a1.key)).toBe(false);
     });
 
-    it("should give focus to a leaf's fallback tab when it heads the selection", async () => {
+    // Focus comes only from the supplied selection head: a leaf's fallback tab
+    // renders content but must not be colored focused.
+    it("should not focus a leaf's fallback tab", async () => {
       const a = resourceTab();
       const b = resourceTab();
       const p = await createPanel(a, b);
       const utils = await renderMosaic({ panelKey: p.key });
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
-      expect(isTabFocused(utils, a.key)).toBe(true);
+      expect(isTabFocused(utils, a.key)).toBe(false);
     });
   });
 
@@ -475,7 +463,7 @@ describe("Panel.Mosaic", () => {
         fireEvent.click(closeButtons[0]);
       });
 
-      // Closing the selected tab promotes its sibling to the leaf's selection.
+      // Closing the rendered tab falls the leaf back to its remaining sibling.
       await waitFor(() => expect(utils.queryByText(contentText(a))).toBeNull());
       await waitFor(() => expect(utils.getByText(contentText(b))).toBeTruthy());
       await waitFor(async () => {

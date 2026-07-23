@@ -107,10 +107,8 @@ describe("panel selectors", () => {
 
   // setup mounts the reactive hooks in the production-shaped console stack: the full
   // session store wired through drift's middleware, nested inside the pluto flux
-  // provider the hooks resolve their selection against. No panel is cached in flux, so
-  // useSelectSelection returns the stored selection unresolved - the wiring under test
-  // is the scope, window-default, and overlaid/focused/visible resolution the console
-  // selectors layer on top.
+  // provider. The wiring under test is the scope, window-default, and
+  // overlaid/focused/visible resolution the console selectors layer on top.
   const setup = async ({ scope, tabScope, client = null }: SetupOptions = {}) => {
     const { wrapper: Console, store } = await createConsoleWrapper({ client });
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
@@ -412,13 +410,20 @@ describe("panel selectors", () => {
       expect(result.current.foreign).toBe(false);
     });
 
-    // Regression: the check read the stored selection, so a leaf whose tab was never
-    // explicitly selected rendered nothing.
-    it("should show a leaf's first tab when the stored selection names another panel's tab", async () => {
+    // Regression: a leaf whose stored selection named a vanished tab rendered
+    // nothing. The reconcile synchronizer repairs the selection to the live tree.
+    it("should show a leaf's tab when the stored selection names a vanished tab", async () => {
       const client = createTestClient();
       const { Wrapper, store } = await setup({ client });
-      const { result } = renderHook(() => Panel.useSelectIsTabVisible(PANEL, TAB), {
-        wrapper: Wrapper,
+      const { result } = renderHook(
+        () => {
+          Panel.WINDOW_SYNCHRONIZERS.useReconcileTabSelections();
+          return Panel.useSelectIsTabVisible(PANEL, TAB);
+        },
+        { wrapper: Wrapper },
+      );
+      act(() => {
+        selectTab(store, PANEL, OTHER_TAB);
       });
       await act(async () => {
         await client.panels.create(
@@ -428,7 +433,6 @@ describe("panel selectors", () => {
             root: { variant: "leaf", tabs: [{ variant: "view", key: TAB, type: "t" }] },
           }),
         );
-        selectTab(store, PANEL, OTHER_TAB);
       });
       expect(result.current).toBe(true);
     });

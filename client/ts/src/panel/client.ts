@@ -311,6 +311,13 @@ export class Client extends query.Retriever<
     });
   }
 
+  /** Subscribes to every panel set delivered to the cache. */
+  onSet(handler: (panel: Panel) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "set") handler(event.value);
+    });
+  }
+
   private async execRetrieve(req: RetrieveRequest): Promise<Panel[]> {
     const res = await this.client.send(
       "/panel/retrieve",

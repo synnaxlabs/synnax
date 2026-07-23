@@ -25,7 +25,6 @@ import {
   useSelectLeafNode,
   useSelectNodeVariant,
   useSelectRoot,
-  useSelectSelection,
   useSelectSplitNode,
   useSelectTabKeys,
   useSingleDispatch,
@@ -283,8 +282,6 @@ export const Mosaic = ({
     [dispatch, onSelect, resolveDroppedTab],
   );
 
-  const selection = useSelectSelection({ selected });
-
   const menuProps = Menu.useContextMenu();
   const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
     (props) => {
@@ -311,7 +308,7 @@ export const Mosaic = ({
   return (
     <Portal.Context>
       <PortaledContents>{children}</PortaledContents>
-      <Select.Context value={selection} onSelect={onSelect}>
+      <Select.Context value={selected} onSelect={onSelect}>
         <Menu.ContextMenu menu={renderMenu} {...menuProps}>
           <Base.Frame
             onDrop={handleDrop}

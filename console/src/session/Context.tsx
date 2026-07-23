@@ -56,3 +56,16 @@ const SYNCHRONIZERS: Synchronizer.Synchronizers = {
 export const useSynchronizers = (): void => {
   Object.values(SYNCHRONIZERS).forEach((useSynchronizer) => useSynchronizer());
 };
+
+const WINDOW_SYNCHRONIZERS: Synchronizer.Synchronizers = {
+  ...Panel.WINDOW_SYNCHRONIZERS,
+};
+
+/**
+ * Mounts every window-scoped synchronizer hook. Must be called below the Pluto
+ * providers, in every window: each window converges its own state off its own
+ * cache feed.
+ */
+export const useWindowSynchronizers = (): void => {
+  Object.values(WINDOW_SYNCHRONIZERS).forEach((useSynchronizer) => useSynchronizer());
+};
