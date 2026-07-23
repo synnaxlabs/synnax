@@ -182,43 +182,22 @@ func NewModule(ctx context.Context, cfg ModuleConfig) (node.Factory, error) {
 func (m *module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case createMemberName:
-		var in createInputs
-		if err := createInputsSchema.Parse(
-			cfg.Node.Inputs.ValueMap(), &in,
-		); err != nil {
+		if err := createSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
 			return nil, errors.Wrap(err, "ranges.create inputs")
 		}
-		return &createNode{
-			State:  cfg.State,
-			rng:    m.rng,
-			report: m.report,
-			name:   in.Name,
-			parent: in.Parent,
-			color:  in.Color,
-		}, nil
+		return &createNode{State: cfg.State, rng: m.rng, report: m.report}, nil
+
 	case endMemberName:
-		var in endInputs
-		if err := endInputsSchema.Parse(cfg.Node.Inputs.ValueMap(), &in); err != nil {
+		if err := endSchema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
 			return nil, errors.Wrap(err, "ranges.end inputs")
 		}
-		return &endNode{
-			State:  cfg.State,
-			rng:    m.rng,
-			report: m.report,
-			key:    in.Key,
-		}, nil
+		return &endNode{State: cfg.State, rng: m.rng, report: m.report}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
 }
 
-type createInputs struct {
-	Name   string `json:"name"`
-	Parent string `json:"parent"`
-	Color  string `json:"color"`
-}
-
-var createInputsSchema = zyn.Object(map[string]zyn.Schema{
+var createSchema = zyn.Object(map[string]zyn.Schema{
 	"name":   zyn.String(),
 	"parent": zyn.String(),
 	"color":  zyn.String(),
@@ -228,13 +207,11 @@ type createNode struct {
 	*node.State
 	rng    *ranger.Service
 	report taskreporter.Reporter
-	name   string
-	parent string
-	color  string
 }
 
 func (n *createNode) Next(ctx node.Context) {
-	key := dispatchCreate(ctx, n.rng, n.report, n.name, n.parent, n.color)
+	key := dispatchCreate(ctx, n.rng, n.report,
+		n.StringInput("name"), n.StringInput("parent"), n.StringInput("color"))
 	*n.Output(0) = telem.NewSeriesV(key)
 	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
 	ctx.MarkChanged(0)
@@ -280,12 +257,7 @@ func dispatchCreate(
 	return r.Key.String()
 }
 
-// endInputs is the parsed brace-input set for a ranges.end node.
-type endInputs struct {
-	Key string `json:"key"`
-}
-
-var endInputsSchema = zyn.Object(map[string]zyn.Schema{
+var endSchema = zyn.Object(map[string]zyn.Schema{
 	"key": zyn.String(),
 })
 
@@ -293,11 +265,10 @@ type endNode struct {
 	*node.State
 	rng    *ranger.Service
 	report taskreporter.Reporter
-	key    string
 }
 
 func (n *endNode) Next(ctx node.Context) {
-	key := dispatchEnd(ctx, n.rng, n.report, n.key)
+	key := dispatchEnd(ctx, n.rng, n.report, n.StringInput("key"))
 	*n.Output(0) = telem.NewSeriesV(key)
 	*n.OutputTime(0) = telem.NewSeriesV(telem.Now())
 	ctx.MarkChanged(0)

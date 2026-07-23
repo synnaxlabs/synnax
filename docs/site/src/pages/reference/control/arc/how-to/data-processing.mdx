@@ -9,6 +9,7 @@ nextURL: "/reference/control/arc/how-to/alarms"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
+import { Arc } from "@/components";
 import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
@@ -112,7 +113,28 @@ You can combine channels:
 ## Stateful Variables
 
 Some calculations need to remember values across executions. Use `$=` to declare a
-stateful variable:
+stateful variable.
+
+<Arc.Tabs client:load>
+
+<Fragment slot="flow">
+
+```arc
+sequence monitor {
+    stage s1 {
+        count $= 0
+        count + 1 -> count
+        time.wait{5s} => s2
+    }
+    stage s2 {
+        restart => s1
+    }
+}
+```
+
+</Fragment>
+
+<Fragment slot="function">
 
 ```arc
 func counter() i64 {
@@ -120,24 +142,16 @@ func counter() i64 {
     count = count + 1
     return count
 }
+
+trigger -> counter{} -> count_ch
 ```
 
-The first time this runs, `count` is 0. After incrementing, it's 1. The next execution
-starts with `count` at 1, increments to 2, and so on. The `$=` operator sets the initial
-value only on the first execution. After that, the variable retains its value.
+</Fragment>
 
-Compare with `:=`, which resets every execution:
+</Arc.Tabs>
 
-```arc
-func broken_counter() i64 {
-    count := 0 // resets to 0 every time
-    count = count + 1
-    return count // always returns 1
-}
-```
-
-For a deeper explanation, see
-[Stateful Variables](/reference/control/arc/concepts/stateful-variables).
+The [Stateful Variables](/reference/control/arc/concepts/stateful-variables) concept
+page explains persistence in more depth.
 
 <Divider.Divider x />
 

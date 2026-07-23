@@ -16,9 +16,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"sort"
 
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -261,4 +269,113 @@ func writeULEB128(buf *bytes.Buffer, v uint32) {
 			break
 		}
 	}
+}
+
+// VarInput is a variable input: declare it, pass it to NodeSpec.Config, then
+// write it through Set at any point.
+type VarInput[T telem.Sample] struct {
+	initial T
+	written *T
+	// Set writes the variable's current value.
+	Set func(T)
+}
+
+// NewVarInput returns a VarInput holding initial as its declared value.
+func NewVarInput[T telem.Sample](initial T) *VarInput[T] {
+	return &VarInput[T]{initial: initial, Set: func(T) {
+		panic("variable input was not passed to NodeSpec.Config")
+	}}
+}
+
+// VarOf returns a VarInput whose value arrives via a write the
+// moment it is bound, not via its declared initial (the type's zero value).
+func VarOf[T telem.Sample](value T) *VarInput[T] {
+	v := NewVarInput[T](*new(T))
+	v.written = &value
+	return v
+}
+
+// varBinding is the type-erased view InputsConfig uses to wire a VarInput.
+type varBinding interface {
+	initialValue() any
+	elemType() types.Type
+	bind(s *node.ProgramState, nodeKey string)
+}
+
+func (v *VarInput[T]) initialValue() any { return v.initial }
+
+func (v *VarInput[T]) elemType() types.Type {
+	return types.FromTelem(telem.InferDataType[T]())
+}
+
+func (v *VarInput[T]) bind(s *node.ProgramState, nodeKey string) {
+	v.Set = func(val T) { *s.Node(nodeKey).Output(0) = telem.NewSeriesV(val) }
+	if v.written != nil {
+		v.Set(*v.written)
+	}
+}
+
+// NodeSpec declares a native's shape for building test configs: its type,
+// outputs, and input params (names and types; values come from Config).
+type NodeSpec struct {
+	Type    string
+	Outputs types.Params
+	Inputs  types.Params
+}
+
+// Config zips the declared inputs with values, each given as a const or a
+// *VarInput read live by the node. The State is built from the same IR the
+// config carries.
+func (s NodeSpec) Config(values ...any) node.Config {
+	if len(values) != len(s.Inputs) {
+		panic("NodeSpec.Config: one value per declared input required")
+	}
+	nodes := ir.Nodes{}
+	params := make(types.Params, 0, len(s.Inputs))
+	binds := make([]func(*node.ProgramState), 0, len(s.Inputs))
+	for i, in := range s.Inputs {
+		vb, ok := values[i].(varBinding)
+		if !ok {
+			params = append(params, types.Param{
+				Name: in.Name, Type: in.Type, Value: values[i],
+			})
+			continue
+		}
+		key := "v_" + in.Name
+		elem := vb.elemType()
+		nodes = append(nodes, ir.Node{Key: key, Type: "variable",
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: elem}}})
+		params = append(params, types.Param{
+			Name: in.Name, Type: types.VarRef(elem, key), Value: vb.initialValue(),
+		})
+		binds = append(binds, func(state *node.ProgramState) { vb.bind(state, key) })
+	}
+	irNode := ir.Node{Key: "n", Type: s.Type, Inputs: params, Outputs: s.Outputs}
+	state := node.New(ir.IR{Nodes: append(nodes, irNode)})
+	for _, bind := range binds {
+		bind(state)
+	}
+	return node.Config{Node: irNode, State: state.Node("n")}
+}
+
+// GraphConfig compiles a one-node graph program of nodeType against root with
+// the given input values and wires the config to the analyzed node.
+func GraphConfig(
+	ctx context.Context,
+	root *symbol.Symbol,
+	nodeType string,
+	values msgpack.EncodedJSON,
+) node.Config {
+	inputs := msgpack.EncodedJSON{"type": nodeType}
+	maps.Copy(inputs, values)
+	g := graph.Graph{
+		Nodes:  []graph.Node{{Key: "n"}},
+		Inputs: map[string]msgpack.EncodedJSON{"n": inputs},
+	}
+	analyzed, diagnostics := graph.Analyze(ctx, g, root)
+	if !diagnostics.Ok() {
+		panic("graph analysis failed: " + diagnostics.String())
+	}
+	state := node.New(analyzed)
+	return node.Config{Node: analyzed.Nodes.Get("n"), State: state.Node("n")}
 }

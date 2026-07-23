@@ -114,8 +114,9 @@ type Scope struct {
 	// Activation is the handle whose truthy value activates a gated scope. Unset for
 	// always-live scopes.
 	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
-	// Strata contains stratified execution layers for parallel scopes. Empty for sequential
-	// scopes. Stratum N depends only on strata 0 to N-1.
+	// Strata contains stratified execution layers for parallel scopes. On sequential
+	// scopes, strata hold variable nodes that run every pass alongside the active step.
+	// Stratum N depends only on strata 0 to N-1.
 	Strata []Members `json:"strata,omitzero" msgpack:"strata,omitzero"`
 	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
 	Steps Members `json:"steps,omitzero" msgpack:"steps,omitzero"`

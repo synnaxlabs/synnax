@@ -58,6 +58,7 @@ enum class Kind : std::uint8_t {
     Function = 21,
     Sequence = 22,
     Stage = 23,
+    VarRef = 24,
 };
 
 enum class ChanDirection : std::uint8_t {

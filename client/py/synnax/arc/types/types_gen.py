@@ -40,6 +40,7 @@ class Kind(IntEnum):
     function = 21
     sequence = 22
     stage = 23
+    var_ref = 24
 
 
 class ChanDirection(IntEnum):

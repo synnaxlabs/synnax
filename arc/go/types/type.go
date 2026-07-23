@@ -262,6 +262,11 @@ func (t Type) String() string {
 			return "series " + t.Elem.String()
 		}
 		return "series <invalid>"
+	case KindVarRef:
+		if t.Elem != nil {
+			return "var " + t.Elem.String()
+		}
+		return "var <invalid>"
 	case KindVariable:
 		if t.Constraint != nil {
 			return t.Constraint.String()
@@ -389,6 +394,12 @@ func WriteChan(valueType Type) Type {
 
 // Series returns a series/array type wrapping the given value type.
 func Series(valueType Type) Type { return Type{Kind: KindSeries, Elem: &valueType} }
+
+// VarRef returns a variable-reference type. Name holds the key of the
+// variable's node; the variable's values have valueType.
+func VarRef(valueType Type, nodeKey string) Type {
+	return Type{Kind: KindVarRef, Elem: &valueType, Name: nodeKey}
+}
 
 // Variable returns a generic type parameter with optional constraint.
 func Variable(name string, constraint *Type) Type {
@@ -527,7 +538,7 @@ func Equal(t Type, v Type) bool {
 	if t.Kind != v.Kind {
 		return false
 	}
-	if t.Kind == KindChan || t.Kind == KindSeries {
+	if t.Kind == KindChan || t.Kind == KindSeries || t.Kind == KindVarRef {
 		if t.Elem == nil && v.Elem == nil {
 			return true
 		}

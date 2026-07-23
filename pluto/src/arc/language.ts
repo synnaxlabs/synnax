@@ -42,8 +42,8 @@ const TOKEN_CONFIG = {
     ],
   },
   statefulVariable: {
-    dark: "#E5A84B",
-    light: "#B45000",
+    dark: "#dadada",
+    light: "#292929",
     scopes: ["keyword.operator.assignment.stateful.arc"],
   },
   edgeConditional: {
@@ -115,6 +115,11 @@ const TOKEN_CONFIG = {
     dark: "#dadada",
     light: "#292929",
     scopes: ["variable.other.arc"],
+  },
+  channelVariable: {
+    dark: "#61AFEF",
+    light: "#0070C1",
+    scopes: [],
   },
   block: {
     dark: "#dadada",
