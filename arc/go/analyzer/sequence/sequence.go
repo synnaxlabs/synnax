@@ -51,7 +51,8 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 		analyzeChannelReadWriteRebind(ctx, assign, sym)
 	case sym.IsValueVariable():
 		statement.AnalyzeAssignment(context.Child(ctx, assign))
-		if expr := assign.Expression(); expr != nil {
+		if expr := assign.Expression(); expr != nil &&
+			statement.CastConstValue(expr, sym.Type) == nil {
 			flow.AnalyzeSingleExpression(context.Child(ctx, expr))
 		}
 	default:

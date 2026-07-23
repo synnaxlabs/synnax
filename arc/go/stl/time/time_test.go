@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -23,6 +24,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -1786,4 +1788,189 @@ var _ = Describe("Time", func() {
 			})
 		})
 	})
+})
+
+var _ = Describe("TimingBase GCD matrix", func() {
+	// compileBase compiles source and creates every timer node through a fresh
+	// time Host, returning the resulting BaseInterval.
+	compileBase := func(ctx context.Context, source string) telem.TimeSpan {
+		root := NewRoot(nil,
+			symbol.Symbol{Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 501},
+			symbol.Symbol{Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 502},
+		)
+		prog := MustSucceed(arc.CompileText(ctx, arc.Text{Raw: "import time\n" + source}, root))
+		factory := MustSucceed(time.NewHost(ctx, nil))
+		s := node.New(prog.IR)
+		f := node.CompoundFactory{factory}
+		for _, n := range prog.Nodes {
+			if _, err := f.Create(ctx, node.Config{
+				Node: n, Program: prog, State: s.Node(n.Key),
+			}); err != nil && !errors.Is(err, query.ErrNotFound) {
+				Fail("create " + n.Key + ": " + err.Error())
+			}
+		}
+		return factory.BaseInterval
+	}
+
+	DescribeTable("computes the GCD over declared and literal-reassigned spans",
+		func(ctx SpecContext, source string, expected telem.TimeSpan) {
+			Expect(compileBase(ctx, source)).To(Equal(expected))
+		},
+		Entry("two literal intervals", `
+time.interval{period=100ms} -> a
+time.interval{period=60ms} -> b
+`, 20*telem.Millisecond),
+		Entry("two intervals fed by vars, never reassigned", `
+sequence main {
+    p := i64 ns(100ms)
+    q := i64 ns(60ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.interval{period=q} -> b
+    }
+}
+`, 20*telem.Millisecond),
+		Entry("two intervals fed by vars, each reassigned with a literal", `
+sequence main {
+    p := i64 ns(100ms)
+    q := i64 ns(60ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.interval{period=q} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(10ms)
+        q = i64 ns(45ms)
+    }
+}
+`, 5*telem.Millisecond),
+		Entry("two intervals fed by vars, expression reassignments excluded", `
+sequence main {
+    p := i64 ns(100ms)
+    q := i64 ns(60ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.interval{period=q} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(2 * 25ms)
+        q = i64 ns(3 * 20ms)
+    }
+}
+`, 20*telem.Millisecond),
+		Entry("two literal waits", `
+time.wait{duration=75ms} -> a
+time.wait{duration=50ms} -> b
+`, 25*telem.Millisecond),
+		Entry("two waits fed by vars, each reassigned with a literal", `
+sequence main {
+    d := i64 ns(80ms)
+    e := i64 ns(50ms)
+    stage run {
+        time.wait{duration=d} -> a
+        time.wait{duration=e} -> b
+        1 => faster
+    }
+    stage faster {
+        d = i64 ns(30ms)
+        e = i64 ns(35ms)
+    }
+}
+`, 5*telem.Millisecond),
+		Entry("interval + wait fed by vars, never reassigned", `
+sequence main {
+    p := i64 ns(100ms)
+    d := i64 ns(75ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.wait{duration=d} -> b
+    }
+}
+`, 25*telem.Millisecond),
+		Entry("interval + wait fed by vars, each reassigned with a literal", `
+sequence main {
+    p := i64 ns(100ms)
+    d := i64 ns(80ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.wait{duration=d} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(60ms)
+        d = i64 ns(30ms)
+    }
+}
+`, 10*telem.Millisecond),
+		Entry("interval + wait fed by vars, expression reassignments excluded", `
+sequence main {
+    p := i64 ns(100ms)
+    d := i64 ns(75ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.wait{duration=d} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(2 * 25ms)
+        d = i64 ns(3 * 15ms)
+    }
+}
+`, 25*telem.Millisecond),
+		Entry("literal interval + reassigned var wait", `
+sequence main {
+    d := i64 ns(60ms)
+    stage run {
+        time.interval{period=100ms} -> a
+        time.wait{duration=d} -> b
+        1 => faster
+    }
+    stage faster {
+        d = i64 ns(45ms)
+    }
+}
+`, 5*telem.Millisecond),
+		Entry("var interval, two reassignment sites", `
+sequence main {
+    p := i64 ns(100ms)
+    stage run {
+        time.interval{period=p} -> a
+        1 => mid
+    }
+    stage mid {
+        p = i64 ns(50ms)
+        1 => fast
+    }
+    stage fast {
+        p = i64 ns(30ms)
+    }
+}
+`, 10*telem.Millisecond),
+		Entry("same var feeding both timer kinds", `
+sequence main {
+    p := i64 ns(40ms)
+    stage run {
+        time.interval{period=p} -> a
+        time.wait{duration=p} -> b
+        1 => faster
+    }
+    stage faster {
+        p = i64 ns(30ms)
+    }
+}
+`, 10*telem.Millisecond),
+		Entry("reassignment in an unreached stage still counts", `
+sequence main {
+    p := i64 ns(100ms)
+    stage run {
+        time.interval{period=p} -> a
+    }
+    stage never {
+        p = i64 ns(30ms)
+    }
+}
+`, 10*telem.Millisecond),
+	)
 })

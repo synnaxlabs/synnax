@@ -130,6 +130,9 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		}
 		return
 	}
+	if CastConstValue(expr, sym.Type) != nil {
+		return
+	}
 	// A complex initializer that reads channels is reactive: retype it as a
 	// read-only channel. AnalyzeSingleExpression also registers the reactive flow.
 	if local != nil {
@@ -261,9 +264,19 @@ func constDefaultValue(expr parser.IExpressionContext, varType types.Type) any {
 	if parsed, err := literal.ParseConst(expr, varType); err == nil {
 		return parsed.Value
 	}
+	return CastConstValue(expr, varType)
+}
+
+// CastConstValue folds a cast-of-literal expression to its value for t,
+// returning nil when expr is not that shape. Foldable casts lower as
+// constants, so they must not register synthetic expression functions.
+func CastConstValue(expr parser.IExpressionContext, t types.Type) any {
+	if expr == nil {
+		return nil
+	}
 	if p := parser.GetPrimaryExpression(expr); p != nil {
 		if cast := p.TypeCast(); cast != nil && cast.Expression() != nil {
-			if parsed, err := literal.ParseConst(cast.Expression(), varType); err == nil {
+			if parsed, err := literal.ParseConst(cast.Expression(), t); err == nil {
 				return parsed.Value
 			}
 		}

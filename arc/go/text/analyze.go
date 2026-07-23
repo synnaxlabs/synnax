@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
@@ -755,6 +756,15 @@ func lowerAssignment(
 		}
 		return lowerExprReadReassign(ctx, sym, e, expr, kg, shell)
 	}
+	if v := statement.CastConstValue(expr, sym.Type); v != nil {
+		n := newConstNode(kg.generate("const", sym.Name), sym.Type, sym.Type, v)
+		ref := varFeederRef(e.register)
+		return []ir.Node{n}, []ir.Edge{{
+			Source: ir.Handle{Node: n.Key, Param: ir.DefaultOutputParam},
+			Target: ref.input,
+			Kind:   ir.EdgeKindContinuous,
+		}}, true
+	}
 	res, ok := analyzeExpression(acontext.Child(ctx, expr), kg, shell, false)
 	if !ok {
 		return nil, nil, false
@@ -774,13 +784,7 @@ func lowerRebind(
 	source uint32,
 	kg *keyGenerator,
 ) ([]ir.Node, []ir.Edge, bool) {
-	n := ir.Node{
-		Key:      kg.generate("const", ""),
-		Type:     "constant",
-		Channels: types.NewChannels(),
-		Inputs:   types.Params{{Name: "value", Type: types.U32(), Value: source}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: types.U32()}},
-	}
+	n := newConstNode(kg.generate("const", ""), types.U32(), types.U32(), source)
 	ref := varFeederRef(register)
 	return []ir.Node{n}, []ir.Edge{{
 		Source: ir.Handle{Node: n.Key, Param: ir.DefaultOutputParam},
@@ -934,31 +938,34 @@ func retargetEdges[T antlr.ParserRuleContext](
 	shell.edges = kept
 }
 
+// newConstNode builds a constant node emitting v, with the given input and
+// output types.
+func newConstNode(key string, inType, outType types.Type, v any) ir.Node {
+	return ir.Node{
+		Key:      key,
+		Type:     "constant",
+		Channels: types.NewChannels(),
+		Inputs:   types.Params{{Name: "value", Type: inType, Value: v}},
+		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outType}},
+	}
+}
+
 // buildVarReadNode lowers a triggered mid-chain variable read: a constant
 // whose value input references the register, emitting the live value on fire.
 func buildVarReadNode(sym *symbol.Symbol, vn *ir.Node, kg *keyGenerator) nodeResult {
-	n := ir.Node{
-		Key:      kg.generate("read", sym.Name),
-		Type:     "constant",
-		Channels: types.NewChannels(),
-		Inputs: types.Params{{
-			Name:  "value",
-			Type:  types.VarRef(sym.Type, vn.Key),
-			Value: sym.DefaultValue,
-		}},
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
-	}
+	n := newConstNode(
+		kg.generate("read", sym.Name),
+		types.VarRef(sym.Type, vn.Key),
+		sym.Type,
+		sym.DefaultValue,
+	)
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam)
 }
 
 func buildVarConstNode(sym *symbol.Symbol, kg *keyGenerator) nodeResult {
-	n := ir.Node{
-		Key:      kg.generate("const", sym.Name),
-		Type:     "constant",
-		Channels: types.NewChannels(),
-		Inputs:   types.Params{{Name: "value", Type: sym.Type, Value: sym.DefaultValue}},
-		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: sym.Type}},
-	}
+	n := newConstNode(
+		kg.generate("const", sym.Name), sym.Type, sym.Type, sym.DefaultValue,
+	)
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam)
 }
 
@@ -1237,14 +1244,9 @@ func analyzeExpression(
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return nodeResult{}, false
 		}
-		key := kg.generate("const", "")
-		n := ir.Node{
-			Key:      key,
-			Type:     "constant",
-			Channels: types.NewChannels(),
-			Inputs:   types.Params{{Name: "value", Type: outputType, Value: parsedValue.Value}},
-			Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-		}
+		n := newConstNode(
+			kg.generate("const", ""), outputType, outputType, parsedValue.Value,
+		)
 		return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 	}
 

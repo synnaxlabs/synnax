@@ -111,11 +111,10 @@ func NewSymbols() []*symbol.Symbol {
 
 // Host is the runtime host-side support for the time module: it registers
 // the `now` WASM host function and acts as the node factory for interval
-// and wait. BaseInterval is the GCD of timer periods, used by the
-// scheduler; it lives on the Host because it is host-runtime state, not
-// program state.
+// and wait.
 type Host struct {
-	// BaseInterval is the GCD of all timer periods, used for scheduler timing.
+	// BaseInterval is the GCD of known timer periods, declared and literal
+	// reassignments. Its only use is deriving the timing tolerance.
 	BaseInterval telem.TimeSpan
 	// clock provides monotonically increasing timestamps, avoiding
 	// duplicate values on platforms with coarse clock resolution.
@@ -152,6 +151,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			return nil, err
 		}
 		h.updateBaseInterval(period)
+		h.foldReassignedSpans(cfg, periodParam)
 		return &Interval{
 			State:     cfg.State,
 			lastFired: -period,
@@ -167,6 +167,7 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			return nil, err
 		}
 		h.updateBaseInterval(duration)
+		h.foldReassignedSpans(cfg, durationParam)
 		return &Wait{
 			State:     cfg.State,
 			startTime: -1,
@@ -191,6 +192,30 @@ func CalculateTolerance(baseInterval telem.TimeSpan) telem.TimeSpan {
 		return MinTolerance
 	}
 	return halfInterval
+}
+
+// foldReassignedSpans folds the literal reassignment values of a var-bound
+// timer param into BaseInterval, so tolerance tracks the fastest known period.
+func (h *Host) foldReassignedSpans(cfg node.Config, p types.Param) {
+	if p.Type.Kind != types.KindVarRef {
+		return
+	}
+	for _, e := range cfg.Program.Edges {
+		if e.Target.Node != p.Type.Name {
+			continue
+		}
+		src, ok := cfg.Program.Nodes.Find(e.Source.Node)
+		if !ok || src.Type != "constant" {
+			continue
+		}
+		v, ok := src.Inputs.Get("value")
+		if !ok || v.Value == nil {
+			continue
+		}
+		if span, err := parseTime(v.Value, v.Name); err == nil {
+			h.updateBaseInterval(span)
+		}
+	}
 }
 
 func (h *Host) updateBaseInterval(span telem.TimeSpan) {
