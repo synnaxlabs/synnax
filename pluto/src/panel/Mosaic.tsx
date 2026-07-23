@@ -96,7 +96,12 @@ const Leaf = memo(
   ({ nodeKey, onAdd, onContextMenu, ...rest }: NodeProps): ReactElement => {
     const { tabs } = useSelectLeafNode({ nodeKey });
     const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
+    const { onSelect } = Select.useContext();
     const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
+    const handleSelectContent = useCallback(
+      () => onSelect(selected),
+      [onSelect, selected],
+    );
     const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
     return (
       <Base.Leaf nodeKey={nodeKey} grow>
@@ -112,7 +117,11 @@ const Leaf = memo(
           </Tabs.Selector>
           <Tabs.Content grow>
             {selected != null && (
-              <Portal.Out itemKey={selected} style={PORTAL_OUT_STYLE} />
+              <Portal.Out
+                itemKey={selected}
+                onClickCapture={handleSelectContent}
+                style={PORTAL_OUT_STYLE}
+              />
             )}
             <Base.Shield />
           </Tabs.Content>
@@ -191,11 +200,9 @@ const EMPTY_SELECTED: string[] = [];
 const PortalIn = memo(
   ({
     itemKey,
-    onSelect,
     children,
-  }: Pick<Portal.InProps, "itemKey"> &
-    Pick<MosaicProps, "children" | "onSelect">): ReactElement => (
-    <Portal.In itemKey={itemKey} onClick={onSelect}>
+  }: Pick<Portal.InProps, "itemKey"> & Pick<MosaicProps, "children">): ReactElement => (
+    <Portal.In itemKey={itemKey}>
       <Errors.Boundary>
         <TabScope.Provider value={itemKey}>{children({})}</TabScope.Provider>
       </Errors.Boundary>
@@ -209,15 +216,12 @@ PortalIn.displayName = "Panel.Mosaic.PortalIn";
 // the same element, preserving DOM state and expensive resources like WebGL
 // contexts.
 const PortaledContents = memo(
-  ({
-    onSelect,
-    children,
-  }: Pick<MosaicProps, "onSelect" | "children">): ReactElement => {
+  ({ children }: Pick<MosaicProps, "children">): ReactElement => {
     const keys = useSelectTabKeys();
     return (
       <>
         {keys.map((key) => (
-          <PortalIn key={key} itemKey={key} onSelect={onSelect}>
+          <PortalIn key={key} itemKey={key}>
             {children}
           </PortalIn>
         ))}
@@ -317,7 +321,7 @@ export const Mosaic = ({
 
   return (
     <Portal.Context>
-      <PortaledContents onSelect={onSelect}>{children}</PortaledContents>
+      <PortaledContents>{children}</PortaledContents>
       <Select.Context value={selection} onSelect={onSelect}>
         <Menu.ContextMenu menu={renderMenu} {...menuProps}>
           <Base.Frame

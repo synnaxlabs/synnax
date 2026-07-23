@@ -110,6 +110,37 @@ describe("tree", () => {
     });
   });
 
+  describe("findTabByType", () => {
+    const withView: panel.Node = {
+      variant: "split",
+      direction: "x",
+      size: 0.5,
+      first: leaf("a"),
+      last: {
+        variant: "leaf",
+        tabs: [{ variant: "view", key: "e", type: "range_explorer", args: {} }],
+      },
+    };
+
+    it("should find the view tab of the given type anywhere in the tree", () => {
+      expect(panel.findTabByType(withView, "range_explorer")?.key).toEqual("e");
+    });
+
+    it("should return null when no view of that type is present", () => {
+      expect(panel.findTabByType(withView, "docs")).toBeUndefined();
+    });
+
+    it("should ignore resource tabs", () => {
+      const withResource: panel.Node = {
+        variant: "leaf",
+        tabs: [
+          { variant: "resource", key: "r", resource: { type: "lineplot", key: "1" } },
+        ],
+      };
+      expect(panel.findTabByType(withResource, "lineplot")).toBeUndefined();
+    });
+  });
+
   describe("firstTab", () => {
     it("should return the first tab in traversal order", () => {
       expect(panel.firstTab(TREE)?.key).toEqual("a");

@@ -186,6 +186,83 @@ describe("Panel.useOpenTab", () => {
       const doc = await client.panels.retrieve(existing.key);
       expect(leafTabs(doc.root)).toHaveLength(1);
     });
+
+    it("focuses the existing view when a singleton view of the same type is reopened", async () => {
+      const seedTabKey = uuid.create();
+      const existing = await createServerPanel(
+        client,
+        viewLeaf(seedTabKey, "range_explorer"),
+      );
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current(
+          { variant: "view", type: "range_explorer", args: {} },
+          { singleton: true },
+        );
+      });
+      await waitFor(() =>
+        expect(
+          Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
+        ).toBe(seedTabKey),
+      );
+      const doc = await client.panels.retrieve(existing.key);
+      expect(leafTabs(doc.root)).toHaveLength(1);
+    });
+
+    it("focuses a new keyless resource tab opened beside the current tab", async () => {
+      const curTabKey = uuid.create();
+      const existing = await createServerPanel(client, viewLeaf(curTabKey, "current"));
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey: curTabKey,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      const resource = ranger.ontologyID(uuid.create());
+      await act(async () => {
+        result.current({ variant: "resource", resource });
+      });
+      await waitFor(async () => {
+        const doc = await client.panels.retrieve(existing.key);
+        expect(leafTabs(doc.root)).toHaveLength(2);
+      });
+      const doc = await client.panels.retrieve(existing.key);
+      const resourceTab = leafTabs(doc.root).find((t) => t.variant === "resource");
+      if (resourceTab == null) throw new Error("resource tab missing");
+      await waitFor(() =>
+        expect(
+          Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
+        ).toBe(resourceTab.key),
+      );
+    });
+
+    it("opens a second view of the same type when singleton is not set", async () => {
+      const seedTabKey = uuid.create();
+      const existing = await createServerPanel(
+        client,
+        viewLeaf(seedTabKey, "range_explorer"),
+      );
+      const { wrapper } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey: seedTabKey,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current({ variant: "view", type: "range_explorer", args: {} });
+      });
+      await waitFor(async () => {
+        const doc = await client.panels.retrieve(existing.key);
+        expect(leafTabs(doc.root)).toHaveLength(2);
+      });
+    });
   });
 
   describe("creating a new panel", () => {

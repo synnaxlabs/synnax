@@ -25,5 +25,6 @@ export const TABS: Panel.Tabs = { [TAB_TYPE]: TAB };
 
 export const useOpenTab = (): (() => void) => {
   const openTab = Panel.useOpenTab();
-  return () => openTab({ variant: "view", type: TAB_TYPE, args: {} });
+  return () =>
+    openTab({ variant: "view", type: TAB_TYPE, args: {} }, { singleton: true });
 };

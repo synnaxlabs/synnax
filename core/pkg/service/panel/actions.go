@@ -27,6 +27,8 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 // key is absent is inserted at the resolved destination. Inserting a resource
 // tab whose resource already backs a different tab is a no-op: a resource may
 // back at most one tab per panel, and callers select the existing tab instead.
+// With Singleton set, inserting a view is likewise a no-op when a view of the
+// same type already backs a tab in the panel.
 //
 // The destination is resolved in priority order: the leaf holding TargetTab when
 // set, otherwise the TargetLeaf path key, otherwise the first leaf in traversal
@@ -44,6 +46,12 @@ func (p RenamePayload) Handle(state Panel) (Panel, error) {
 func (p InsertTabPayload) Handle(state Panel) (Panel, error) {
 	if r, ok := p.Tab.Variant.(TabResource); ok {
 		if existing, found := findTabByResource(state.Root, r.Resource); found &&
+			existing.Key() != p.Tab.Key() {
+			return state, nil
+		}
+	}
+	if v, ok := p.Tab.Variant.(TabView); ok && p.Singleton != nil && *p.Singleton {
+		if existing, found := findTabByType(state.Root, v.Type); found &&
 			existing.Key() != p.Tab.Key() {
 			return state, nil
 		}
