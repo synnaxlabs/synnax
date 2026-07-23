@@ -10,8 +10,6 @@
 @ts output  "x/ts/src/text"
 @go output  "x/go/text"
 @go version 0
-@py output  "x/py/x/text"
-@cpp output "x/cpp/text"
 @pb
 
 Level enum {
@@ -29,6 +27,4 @@ Level enum {
         small. Order is descending: h1 is the largest, small is the
         smallest.
     """
-    @py omit
-    @cpp omit
 }

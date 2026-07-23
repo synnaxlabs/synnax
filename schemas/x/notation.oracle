@@ -10,9 +10,6 @@
 @ts output  "x/ts/src/notation"
 @go output  "x/go/notation"
 @go version 0
-@py output  "x/py/x/notation"
-@cpp output "x/cpp/notation"
-@pb
 
 Notation enum {
     standard    = "standard"
@@ -20,6 +17,4 @@ Notation enum {
     engineering = "engineering"
 
     @doc value "is the numeric notation used to render samples."
-    @py omit
-    @cpp omit
 }
