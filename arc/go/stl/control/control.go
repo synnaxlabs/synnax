@@ -90,19 +90,10 @@ func (h *Host) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	var inputs nodeInputs
-	if err := schema.Parse(cfg.Node.Inputs.ValueMap(), &inputs); err != nil {
+	if err := schema.Validate(cfg.Node.Inputs.ValueMap()); err != nil {
 		return nil, errors.Wrap(err, "control.set_authority inputs")
 	}
-	var channelKey *uint32
-	if inputs.Channel != 0 {
-		channelKey = &inputs.Channel
-	}
-	return &setAuthority{
-		auth:       h.auth,
-		authority:  inputs.Value,
-		channelKey: channelKey,
-	}, nil
+	return &setAuthority{State: cfg.State, auth: h.auth}, nil
 }
 
 var schema = zyn.Object(map[string]zyn.Schema{
@@ -110,19 +101,17 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"channel": zyn.Number().Uint32(),
 })
 
-type nodeInputs struct {
-	Value   uint8  `json:"value"`
-	Channel uint32 `json:"channel"`
-}
-
 type setAuthority struct {
+	*node.State
 	auth        *ProgramState
-	authority   uint8
-	channelKey  *uint32
 	initialized bool
 }
 
-func (s *setAuthority) Reset()                  { s.initialized = false }
+func (s *setAuthority) Reset() {
+	s.State.Reset()
+	s.initialized = false
+}
+
 func (s *setAuthority) IsOutputTruthy(int) bool { return false }
 
 func (s *setAuthority) Next(node.Context) {
@@ -130,5 +119,9 @@ func (s *setAuthority) Next(node.Context) {
 		return
 	}
 	s.initialized = true
-	s.auth.Set(s.channelKey, s.authority)
+	var channelKey *uint32
+	if key := node.NumericInput[uint32](s.State, "channel"); key != 0 {
+		channelKey = &key
+	}
+	s.auth.Set(channelKey, node.NumericInput[uint8](s.State, "value"))
 }

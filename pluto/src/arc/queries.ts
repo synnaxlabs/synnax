@@ -15,7 +15,16 @@ import {
   status,
   task,
 } from "@synnaxlabs/client";
-import { compare, errors, id, primitive, type record, uuid, xy } from "@synnaxlabs/x";
+import {
+  compare,
+  errors,
+  id,
+  type optional,
+  primitive,
+  type record,
+  uuid,
+  xy,
+} from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -287,7 +296,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<
   },
 });
 
-export const formSchema = arc.arcZ
+export type FormValues = optional.Optional<arc.Arc, "key">;
+
+export const formSchema: z.ZodType<FormValues> = arc.arcZ
   .partial({ key: true, name: true })
   .extend({ name: z.string() });
 

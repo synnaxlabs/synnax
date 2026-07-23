@@ -92,6 +92,19 @@ var _ = Describe("Object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
 			Expect(schema.Validate("not an object")).To(HaveOccurred())
 		})
+		It("Should error when a required field is missing", func() {
+			schema := zyn.Object(map[string]zyn.Schema{
+				"Name": zyn.String(),
+				"Role": zyn.String(),
+			})
+			Expect(schema.Validate(map[string]any{"Name": "John"})).To(
+				MatchError(ContainSubstring("role: required")))
+		})
+		It("Should error when a field has an incompatible type", func() {
+			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
+			Expect(schema.Validate(map[string]any{"Name": map[string]any{}})).To(
+				MatchError(ContainSubstring("name")))
+		})
 	})
 	Describe("Invalid Inputs", func() {
 		Specify("non-map data", func() {
