@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, type label } from "@synnaxlabs/client";
+import { type label, type query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
@@ -101,7 +101,7 @@ describe("retrieve", () => {
           name: "Test Label",
           color: color.construct("#000000"),
         });
-        let handler: cache.ChangeHandler<label.Label> | null = null;
+        let handler: query.ChangeHandler<label.Label> | null = null;
         const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
           name: "Resource",
           retrieve: async ({ client, query: { key } }) =>
@@ -140,7 +140,7 @@ describe("retrieve", () => {
           name: "Corpse Label",
           color: color.construct("#000000"),
         });
-        let handler: cache.ChangeHandler<label.Label> | null = null;
+        let handler: query.ChangeHandler<label.Label> | null = null;
         const { useRetrieve } = Flux.createRetrieve<{ key: label.Key }, label.Label>({
           name: "Resource",
           retrieve: async ({ client, query: { key } }) =>
@@ -353,7 +353,7 @@ describe("useRetrieveSuspended", () => {
 
   it("resolves synchronously without suspending when the cache hits", async () => {
     const retrieve = vi.fn(async () => 99);
-    const cached: cache.Cached<number> = { variant: "changed", data: 42 };
+    const cached: query.Cached<number> = { variant: "changed", data: 42 };
     const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
@@ -413,7 +413,7 @@ describe("useRetrieveSuspended", () => {
 
   it("falls through to the async retrieve when the cache misses", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
-    let cached: cache.Cached<number> | undefined;
+    let cached: query.Cached<number> | undefined;
     const retrieve = vi.fn(
       () =>
         new Promise<number>((resolve) => {
@@ -457,8 +457,8 @@ describe("useRetrieveSuspended", () => {
   });
 
   it("refetches when the subscription reports an invalidated answer", async () => {
-    let capturedHandler: cache.ChangeHandler<number> | null = null;
-    let cached: cache.Cached<number> | undefined;
+    let capturedHandler: query.ChangeHandler<number> | null = null;
+    let cached: query.Cached<number> | undefined;
     const retrieve = vi.fn(async () => {
       const value = retrieve.mock.calls.length;
       cached = { variant: "changed", data: value };

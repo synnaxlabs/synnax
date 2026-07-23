@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, type ranger, type Synnax as Client } from "@synnaxlabs/client";
+import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type record, testutil, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -539,7 +539,7 @@ describe("list", () => {
     });
   });
 
-  const changed = <E,>(data: E[]): cache.Cached<E[]> => ({ variant: "changed", data });
+  const changed = <E,>(data: E[]): query.Cached<E[]> => ({ variant: "changed", data });
 
   describe("getCached", () => {
     it("should use cached data as initial state when available", () => {
@@ -1276,18 +1276,18 @@ describe("list", () => {
       answers: Record<string, Doc[]>;
       push: (clientKey: string, docs: Doc[]) => void;
       pushItem: (clientKey: string, doc: Doc) => void;
-      subscribe: (clientKey: string, handler: cache.ChangeHandler<Doc[]>) => () => void;
+      subscribe: (clientKey: string, handler: query.ChangeHandler<Doc[]>) => () => void;
       subscribeItem: (
         clientKey: string,
         key: string,
-        handler: cache.ChangeHandler<Doc>,
+        handler: query.ChangeHandler<Doc>,
       ) => () => void;
     }
 
     const createFakeDomain = (): FakeDomain => {
       const answers: Record<string, Doc[]> = { a: [], b: [] };
-      const subs = new Map<string, Set<cache.ChangeHandler<Doc[]>>>();
-      const itemSubs = new Map<string, Set<cache.ChangeHandler<Doc>>>();
+      const subs = new Map<string, Set<query.ChangeHandler<Doc[]>>>();
+      const itemSubs = new Map<string, Set<query.ChangeHandler<Doc>>>();
       return {
         answers,
         push: (clientKey, docs) => {

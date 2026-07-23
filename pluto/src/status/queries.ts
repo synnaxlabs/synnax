@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type cache,
   label,
   type ontology,
+  type query,
   status,
   TimeStamp,
 } from "@synnaxlabs/client";
@@ -75,10 +75,10 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
     retrieve: async ({ client, query }) =>
       await client.statuses.retrieve({ ...BASE_QUERY, ...query, detailsSchema }),
     subscribe: ({ client, query }, handler) =>
-      client.statuses.onChange(query, handler as cache.ChangeHandler<status.Status>),
+      client.statuses.onChange(query, handler as query.ChangeHandler<status.Status>),
     getCached: ({ client, query }) =>
       client.statuses.getCached(query) as
-        cache.Cached<status.Status<DetailsSchema>> | undefined,
+        query.Cached<status.Status<DetailsSchema>> | undefined,
   });
 
 export type RetrieveMultipleQuery = {

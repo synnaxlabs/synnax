@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, device, ontology } from "@synnaxlabs/client";
+import { device, ontology, type query } from "@synnaxlabs/client";
 import { primitive, type record, uuid } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
@@ -47,11 +47,11 @@ export const createRetrieve = <
     subscribe: ({ client, query }, handler) =>
       client.devices.onChange(
         { ...BASE_QUERY, ...query },
-        handler as unknown as cache.ChangeHandler<device.Device>,
+        handler as unknown as query.ChangeHandler<device.Device>,
       ),
     getCached: ({ client, query }) =>
       client.devices.getCached({ ...BASE_QUERY, ...query }) as
-        cache.Cached<device.Device<Properties, Make, Model>> | undefined,
+        query.Cached<device.Device<Properties, Make, Model>> | undefined,
   });
 
 export const {

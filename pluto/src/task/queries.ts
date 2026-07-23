@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, type ontology, type rack, task } from "@synnaxlabs/client";
+import { type ontology, type query, type rack, task } from "@synnaxlabs/client";
 import { array, type optional } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
@@ -31,9 +31,9 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
     retrieve: async ({ client, query }) =>
       await client.tasks.retrieve({ ...BASE_QUERY, ...query, schemas }),
     subscribe: ({ client, query }, handler) =>
-      client.tasks.onChange(query, handler as cache.ChangeHandler<task.Task>),
+      client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>),
     getCached: ({ client, query }) =>
-      client.tasks.getCached(query) as cache.Cached<task.Task<S>> | undefined,
+      client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined,
   });
 
 export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =

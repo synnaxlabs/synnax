@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type cache, type status, type Synnax as Client } from "@synnaxlabs/client";
+import { type query, type status, type Synnax as Client } from "@synnaxlabs/client";
 import { type CrudeTimeSpan, type destructor, state } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
@@ -29,8 +29,8 @@ import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface UpdateParams<
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 > {
   data: Input;
@@ -40,8 +40,8 @@ export interface UpdateParams<
 }
 
 export type CreateUpdateParams<
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 > = {
   name: string;
@@ -51,14 +51,14 @@ export type CreateUpdateParams<
   ) => Promise<Output | false>;
 } & InitialStatusDetailsContainer<StatusDetails>;
 
-export interface UseObservableUpdateReturn<Input extends cache.Data> {
-  update: (data: Input, opts?: cache.FetchOptions) => void;
-  updateAsync: (data: Input, opts?: cache.FetchOptions) => Promise<boolean>;
+export interface UseObservableUpdateReturn<Input extends query.Data> {
+  update: (data: Input, opts?: query.FetchOptions) => void;
+  updateAsync: (data: Input, opts?: query.FetchOptions) => Promise<boolean>;
 }
 
 export interface UseObservableUpdateParams<
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 > {
   debounce?: CrudeTimeSpan;
@@ -71,45 +71,45 @@ export interface UseObservableUpdateParams<
   afterFailure?: (params: AfterFailureParams<Input>) => Promise<void> | void;
 }
 
-export interface BeforeUpdateParams<Data extends cache.Data> {
+export interface BeforeUpdateParams<Data extends query.Data> {
   /** Side-effect undos run in reverse order when the update fails. */
   rollbacks: destructor.Destructor[];
   client: Client;
   data: Data;
 }
 
-export interface AfterOptimisticParams<Output extends cache.Data> {
+export interface AfterOptimisticParams<Output extends query.Data> {
   /** Side-effect undos run in reverse order when the update fails. */
   rollbacks: destructor.Destructor[];
   client: Client;
   data: Output;
 }
 
-export interface AfterSuccessParams<Output extends cache.Data> {
+export interface AfterSuccessParams<Output extends query.Data> {
   client: Client;
   data: Output;
 }
 
-export interface AfterFailureParams<Data extends cache.Data> {
+export interface AfterFailureParams<Data extends query.Data> {
   client: Client;
   status: status.Status<typeof status.exceptionDetailsSchema, z.ZodLiteral<"error">>;
   data: Data;
 }
 
 export interface UseDirectUpdateParams<
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 > extends Omit<UseObservableUpdateParams<Input, Output, StatusDetails>, "onChange"> {}
 
 export type UseDirectUpdateReturn<
-  Input extends cache.Data,
+  Input extends query.Data,
   StatusDetails extends z.ZodType = z.ZodNever,
 > = Result<Input | undefined, StatusDetails> & UseObservableUpdateReturn<Input>;
 
 export interface UseObservableUpdate<
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 > {
   (
@@ -118,8 +118,8 @@ export interface UseObservableUpdate<
 }
 
 export interface UseUpdate<
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 > {
   (
@@ -128,8 +128,8 @@ export interface UseUpdate<
 }
 
 export interface CreateUpdateReturn<
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 > {
   useObservableUpdate: UseObservableUpdate<Input, Output, StatusDetails>;
@@ -137,8 +137,8 @@ export interface CreateUpdateReturn<
 }
 
 const useObservable = <
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 >(
   params: UseObservableUpdateParams<Input, Output, StatusDetails> &
@@ -158,7 +158,7 @@ const useObservable = <
   const client = Synnax.use();
   const addStatus = useAdder();
   const runUpdate = useCallback(
-    async (data: Input, opts: cache.FetchOptions = {}): Promise<boolean> => {
+    async (data: Input, opts: query.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
 
       const rollbacks: destructor.Destructor[] = [];
@@ -255,7 +255,7 @@ const useObservable = <
     ],
   );
   const handleUpdate = useDebouncedCallback(
-    (data: Input, opts?: cache.FetchOptions) => {
+    (data: Input, opts?: query.FetchOptions) => {
       void runUpdate(data, opts);
     },
     debounce,
@@ -265,8 +265,8 @@ const useObservable = <
 };
 
 const useDirect = <
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 >(
   params: UseDirectUpdateParams<Input, Output, StatusDetails> &
@@ -292,8 +292,8 @@ const useDirect = <
 };
 
 export const createUpdate = <
-  Input extends cache.Data,
-  Output extends cache.Data = Input,
+  Input extends query.Data,
+  Output extends query.Data = Input,
   StatusDetails extends z.ZodType = z.ZodNever,
 >(
   createParams: CreateUpdateParams<Input, Output, StatusDetails>,

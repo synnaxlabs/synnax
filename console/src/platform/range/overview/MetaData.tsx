@@ -9,7 +9,7 @@
 
 import "@/platform/range/overview/MetaData.css";
 
-import { type cache, type ranger } from "@synnaxlabs/client";
+import { type query, type ranger } from "@synnaxlabs/client";
 import {
   Button,
   CSS as PCSS,
@@ -95,7 +95,7 @@ const MetaDataListItem = ({
     afterSave: useCallback(
       ({
         reset,
-      }: Flux.AfterSaveParams<cache.Query, typeof Ranger.kvPairFormSchema>) => {
+      }: Flux.AfterSaveParams<query.Query, typeof Ranger.kvPairFormSchema>) => {
         onClose?.();
         if (isCreate) reset({ key: "", value: "", range: rangeKey });
       },

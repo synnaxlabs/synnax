@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { actions, cache, schematic } from "@synnaxlabs/client";
+import { actions, query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { array, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -32,14 +32,14 @@ type Handle = ReturnType<
 
 interface Harness {
   domain: Domain;
-  docs: cache.Table<schematic.Key, schematic.Schematic>;
+  docs: query.Table<schematic.Key, schematic.Schematic>;
   controller: actions.Controller<schematic.Key, schematic.Schematic, schematic.Action>;
 }
 
 // Binds the production dispatch controller to a controllable network send,
 // exposed through the same Domain surface client.schematics implements.
 const createHarness = (send: SendFn): Harness => {
-  const docs = new cache.Table<schematic.Key, schematic.Schematic>(onError);
+  const docs = new query.Table<schematic.Key, schematic.Schematic>(onError);
   const controller = new actions.Controller<
     schematic.Key,
     schematic.Schematic,

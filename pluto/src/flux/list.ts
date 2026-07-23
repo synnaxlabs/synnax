@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { cache } from "@synnaxlabs/client";
+import { query } from "@synnaxlabs/client";
 import {
   compare,
   type CrudeTimeSpan,
@@ -40,12 +40,12 @@ export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {
   (keys: K[]): E[];
 }
 
-export interface AsyncListOptions extends cache.FetchOptions {
+export interface AsyncListOptions extends query.FetchOptions {
   mode?: "append" | "replace";
 }
 
 export type UseListReturn<
-  Query extends cache.Query,
+  Query extends query.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
@@ -63,7 +63,7 @@ export type UseListReturn<
 };
 
 export interface RetrieveByKeyParams<
-  Query extends cache.Query,
+  Query extends query.Query,
   K extends record.Key,
 > extends Omit<RetrieveParams<Query>, "query"> {
   query: Partial<Query>;
@@ -71,7 +71,7 @@ export interface RetrieveByKeyParams<
 }
 
 export interface CreateListParams<
-  Query extends cache.Query,
+  Query extends query.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > extends CreateRetrieveParams<Query, E[]> {
@@ -83,12 +83,12 @@ export interface CreateListParams<
    */
   subscribeByKey?: (
     params: RetrieveByKeyParams<Query, K>,
-    handler: cache.ChangeHandler<E>,
+    handler: query.ChangeHandler<E>,
   ) => destructor.Destructor;
 }
 
 export interface UseListParams<
-  Query extends cache.Query,
+  Query extends query.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -100,7 +100,7 @@ export interface UseListParams<
 }
 
 export interface UseList<
-  Query extends cache.Query,
+  Query extends query.Query,
   K extends record.Key,
   E extends record.Keyed<K>,
 > {
@@ -118,7 +118,7 @@ interface Page<K extends record.Key> {
 }
 
 export const createList =
-  <Query extends cache.Query, Key extends record.Key, Data extends record.Keyed<Key>>({
+  <Query extends query.Query, Key extends record.Key, Data extends record.Keyed<Key>>({
     name,
     retrieve,
     retrieveByKey,
@@ -230,7 +230,7 @@ export const createList =
     useEffect(() => clearPages, [clearPages]);
 
     const handleItemChange = useCallback(
-      (key: Key, cached: cache.Cached<Data> | undefined) => {
+      (key: Key, cached: query.Cached<Data> | undefined) => {
         if (cached == null) return;
         if (cached.variant === "changed")
           dataRef.current.set(key, filterRef.current(cached.data) ? cached.data : null);
@@ -266,8 +266,8 @@ export const createList =
     useEffect(() => clearItemSubs, [clearItemSubs]);
 
     const openPage = useCallback(
-      (query: Query, keys: Key[]): void => {
-        const hash = cache.hashQuery(query);
+      (q: Query, keys: Key[]): void => {
+        const hash = query.hashQuery(q);
         const existing = pagesRef.current.find((p) => p.hash === hash);
         if (existing != null) {
           existing.keys = keys;
@@ -278,9 +278,9 @@ export const createList =
           page.unsubscribe = subscribeToQuery(
             {
               client,
-              query,
+              query: q,
             },
-            (cached: cache.Cached<Data[]> | undefined) => {
+            (cached: query.Cached<Data[]> | undefined) => {
               if (cached?.variant !== "changed") return;
               applyPageAnswer(page, cached.data);
             },
@@ -364,7 +364,7 @@ export const createList =
     }, [client]);
 
     const retrieveSingle = useCallback(
-      (key: Key, options: cache.FetchOptions = {}) => {
+      (key: Key, options: query.FetchOptions = {}) => {
         const { signal } = options;
         void (async () => {
           try {
@@ -436,7 +436,7 @@ export const createList =
 export interface UseListItemParams<
   K extends record.Key,
   E extends record.Keyed<K>,
-> extends Pick<UseListReturn<cache.Query, K, E>, "subscribe" | "getItem"> {
+> extends Pick<UseListReturn<query.Query, K, E>, "subscribe" | "getItem"> {
   key: K;
 }
 

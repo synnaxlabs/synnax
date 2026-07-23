@@ -49,7 +49,7 @@ export { node } from "@/node";
 export { ontology } from "@/ontology";
 export { panel } from "@/panel";
 export { project } from "@/project";
-export { query as cache } from "@/query";
+export { query } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
 export { schematic } from "@/schematic";
