@@ -13,7 +13,6 @@ import { migrate, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Import } from "@/platform/import";
-import { Table } from "@/platform/table";
 
 const STATE_MIGRATION_NAME = "table.state";
 
@@ -45,7 +44,7 @@ interface V0State extends z.infer<typeof v0StateZ> {}
 const V1_VERSION = "1.0.0";
 
 // pendingUploadZ is the table payload needed to upload a legacy v0 table. name
-// is omitted because the live name lives in Layout.
+// is omitted because the live name is sourced separately, not from the payload.
 const pendingUploadZ = table.tableZ.omit({ name: true });
 interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
@@ -149,21 +148,14 @@ export const parseImport = (
 
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, projectKey },
+  { name, openTab, store, client, projectKey },
 ) => {
   if (!Access.updateGranted({ id: table.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import tables");
   if (client == null) throw new DisconnectedError();
-  const newPayload = parseImport(data, layout?.name);
+  const newPayload = parseImport(data, name);
   const created = await client.tables.create(projectKey, newPayload);
   store.tables.set(created.key, created);
-  placeLayout(
-    Table.create({
-      ...layout,
-      key: created.key,
-      name: created.name,
-      type: Table.LAYOUT_TYPE,
-    }),
-  );
+  openTab({ variant: "resource", resource: table.ontologyID(created.key) });
   return table.ontologyID(created.key);
 };

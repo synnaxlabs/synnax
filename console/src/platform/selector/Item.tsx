@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Button, type Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
-import { type Selectable } from "@/platform/selector/Selector";
-import { type Session } from "@/session";
+import {
+  type OnSelectArgs,
+  type Selectable,
+  type SelectableProps,
+} from "@/platform/selector/Selector";
 
 export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   title: string;
@@ -25,29 +27,28 @@ export const Item = ({ title, icon, ...rest }: ItemProps) => (
   </Button.Button>
 );
 
-export interface SimpleItemProps {
+export interface CreateSelectableConfig {
+  type: string;
   title: string;
   icon: Icon.ReactElement;
-  layout: Session.Layout.BaseState;
+  useOnSelect: (args?: OnSelectArgs) => () => void;
   useVisible?: () => boolean;
 }
 
-export const createSimpleItem = ({
+export const createSelectable = ({
   title,
   icon,
-  layout,
+  type,
+  useOnSelect,
   useVisible,
-}: SimpleItemProps): Selectable => {
-  const C: Selectable = ({ layoutKey, onPlace }) => {
+}: CreateSelectableConfig): Selectable => {
+  const C: Selectable = ({ tabKey }: SelectableProps) => {
     const visible = useVisible?.() ?? true;
+    const onSelect = useOnSelect({ tabKey });
     if (!visible) return null;
-    const handleClick = useCallback(
-      () => onPlace({ ...layout, key: layoutKey }),
-      [onPlace, layoutKey],
-    );
-    return <Item title={title} icon={icon} onClick={handleClick} />;
+    return <Item title={title} icon={icon} onClick={() => onSelect()} />;
   };
-  C.type = layout.type;
+  C.type = type;
   C.useVisible = useVisible;
   return C;
 };

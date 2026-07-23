@@ -22,7 +22,7 @@ import {
   awaitTaskKey,
   clickConfigure,
   findDialogTriggerByText,
-  renderTaskFormLayout,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { getIconButton, stubGeometry, uniqueName } from "@/testutil";
 
@@ -31,7 +31,7 @@ const client = createTestClient();
 stubGeometry();
 
 const renderWrite = async (args = {}) =>
-  await renderTaskFormLayout(LabJack.Task.Write, LabJack.Task.WRITE_TYPE, {
+  await renderTaskFormTab(LabJack.Task.Write, LabJack.Task.WRITE_TYPE, {
     client,
     args,
   });
@@ -97,14 +97,14 @@ describe("LabJack Write", () => {
   describe("configure against a live cluster", () => {
     it("should create command and state channels, update the device, and save the task", async () => {
       const dev = await createLabJackDevice(client);
-      const { store, layoutKey } = await renderWrite({
+      const rendered = await renderWrite({
         config: createConfig(dev.key, [
           createDOChannel("DIO4"),
           createAOChannel("DAC0"),
         ]),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: LabJack.Task.WRITE_SCHEMAS,
@@ -152,7 +152,7 @@ describe("LabJack Write", () => {
       const dev = await createLabJackDevice(client);
       const cmdName = uniqueName("lj_cmd");
       const stateName = uniqueName("lj_state");
-      const { store, layoutKey } = await renderWrite({
+      const rendered = await renderWrite({
         config: createConfig(dev.key, [
           createDOChannel("DIO4", {
             cmdChannelName: cmdName,
@@ -161,7 +161,7 @@ describe("LabJack Write", () => {
         ]),
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: LabJack.Task.WRITE_SCHEMAS,
@@ -180,7 +180,7 @@ describe("LabJack Write", () => {
       const config = createConfig(dev.key, [createDOChannel("DIO4")]);
       const first = await renderWrite({ config });
       await clickConfigure();
-      const firstKey = await awaitTaskKey(first.store, first.layoutKey);
+      const firstKey = await awaitTaskKey(first);
       const firstTask = await client.tasks.retrieve({
         key: firstKey,
         schemas: LabJack.Task.WRITE_SCHEMAS,
@@ -189,7 +189,7 @@ describe("LabJack Write", () => {
 
       const second = await renderWrite({ config });
       await clickConfigure();
-      const secondKey = await awaitTaskKey(second.store, second.layoutKey);
+      const secondKey = await awaitTaskKey(second);
       const secondTask = await client.tasks.retrieve({
         key: secondKey,
         schemas: LabJack.Task.WRITE_SCHEMAS,

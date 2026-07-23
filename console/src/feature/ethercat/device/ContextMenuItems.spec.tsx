@@ -24,7 +24,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, uniqueName, waitForPlacedLayout } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -45,6 +45,11 @@ const SlaveLoader = ({ deviceKey }: SlaveLoaderProps): ReactElement | null => {
  */
 const renderContextMenu = async (devices: EtherCAT.Device.SlaveDevice[]) => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const proj = await client.projects.create({
+    name: uniqueName("proj"),
+    layout: {},
+  });
+  store.dispatch(Session.Project.select(proj.key));
   const keys = devices.map((d) => d.key);
   const loaders = keys.map((k) => <SlaveLoader key={k} deviceKey={k} />);
   const result = render(<div>{loaders}</div>, { wrapper });
@@ -100,18 +105,26 @@ describe("EtherCAT device ContextMenuItems", () => {
     expect(screen.getByText("Disable")).toBeTruthy();
   });
 
-  it("should place the vendor task layouts carrying the device key", async () => {
+  it("should open the vendor task views carrying the device key", async () => {
     const slave = await createSlave(true);
     const { store } = await renderContextMenu([slave]);
     fireEvent.click(await screen.findByText("Create read task"));
-    const readKey = await waitForPlacedLayout(store, EtherCAT.Task.READ_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), readKey)).toEqual({
-      deviceKey: slave.key,
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: EtherCAT.Task.READ_TYPE,
+      args: { deviceKey: slave.key },
     });
     fireEvent.click(screen.getByText("Create write task"));
-    const writeKey = await waitForPlacedLayout(store, EtherCAT.Task.WRITE_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), writeKey)).toEqual({
-      deviceKey: slave.key,
+    expect(
+      await resolveFocusedTab(
+        store,
+        client,
+        (t) => t.variant === "view" && t.type === EtherCAT.Task.WRITE_TYPE,
+      ),
+    ).toMatchObject({
+      variant: "view",
+      type: EtherCAT.Task.WRITE_TYPE,
+      args: { deviceKey: slave.key },
     });
   });
 

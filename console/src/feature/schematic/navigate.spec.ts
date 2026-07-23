@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
+import { panel, schematic } from "@synnaxlabs/client";
 import { Flux, type Pluto, Schematic as PSchematic, Status } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
@@ -18,9 +18,15 @@ import {
   client,
   createPreloadedState,
   createSchematic,
+  testProjectKey,
 } from "@/feature/schematic/testutil";
 import { Session } from "@/session";
-import { renderHookWithConsole, uniqueName } from "@/testutil";
+import {
+  renderHookWithConsole,
+  resolveFocusedTab,
+  type TestStore,
+  uniqueName,
+} from "@/testutil";
 
 interface RenderNavigateArgs {
   configs?: Record<string, Record<string, unknown>>;
@@ -43,6 +49,7 @@ const renderNavigateHook = async ({
     }),
     { client, preloadedState: createPreloadedState(source.key, { editable }) },
   );
+  hook.store.dispatch(Session.Project.select(await testProjectKey()));
   await act(async () => {
     await PSchematic.retrieveSingle({
       store: hook.result.current.fluxStore,
@@ -63,15 +70,25 @@ const offPageConfig = (
   ...overrides,
 });
 
-const expectPlacedLayout = async (
-  store: { getState: () => Session.State },
+const expectNavigatedTo = async (
+  store: TestStore,
   target: schematic.Schematic,
-) => {
-  await waitFor(() => {
-    const layout = Session.Layout.select(store.getState(), target.key);
-    if (layout == null) throw new Error("layout not placed");
-    expect(layout.name).toBe(target.name);
-  });
+): Promise<void> => {
+  const tab = await resolveFocusedTab(
+    store,
+    client,
+    (t) => t.variant === "resource" && t.resource.key === target.key,
+  );
+  if (tab.variant !== "resource")
+    throw new Error("focused tab is not a schematic resource");
+  expect(tab.resource.key).toBe(target.key);
+};
+
+const expectNotOpened = async (store: TestStore, key: string): Promise<void> => {
+  const panelKey = Session.Panel.selectSelected(store.getState());
+  if (panelKey == null) return;
+  const doc = await client.panels.retrieve(panelKey);
+  expect(panel.findTabByResource(doc.root, schematic.ontologyID(key))).toBeUndefined();
 };
 
 describe("Schematic.useHandleNodeClickAction", () => {
@@ -81,7 +98,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
       configs: { n1: offPageConfig(target.key) },
     });
     act(() => result.current.handler("n1", true));
-    await expectPlacedLayout(store, target);
+    await expectNavigatedTo(store, target);
   });
 
   it("ignores single clicks when double-click navigation is the default", async () => {
@@ -95,8 +112,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
     });
     act(() => result.current.handler("n1", false));
     act(() => result.current.handler("ctl", true));
-    await expectPlacedLayout(store, control);
-    expect(Session.Layout.select(store.getState(), target.key)).toBeUndefined();
+    await expectNavigatedTo(store, control);
+    await expectNotOpened(store, target.key);
   });
 
   it("navigates on single click when dblClickNav is disabled", async () => {
@@ -105,7 +122,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
       configs: { n1: offPageConfig(target.key, { dblClickNav: false }) },
     });
     act(() => result.current.handler("n1", false));
-    await expectPlacedLayout(store, target);
+    await expectNavigatedTo(store, target);
   });
 
   it("does not navigate while the schematic is editable", async () => {
@@ -125,8 +142,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
       );
     });
     act(() => result.current.handler("ctl", true));
-    await expectPlacedLayout(store, control);
-    expect(Session.Layout.select(store.getState(), target.key)).toBeUndefined();
+    await expectNavigatedTo(store, control);
+    await expectNotOpened(store, target.key);
   });
 
   it("ignores nodes that are not off-page references", async () => {
@@ -140,8 +157,8 @@ describe("Schematic.useHandleNodeClickAction", () => {
     });
     act(() => result.current.handler("n1", true));
     act(() => result.current.handler("ctl", true));
-    await expectPlacedLayout(store, control);
-    expect(Session.Layout.select(store.getState(), target.key)).toBeUndefined();
+    await expectNavigatedTo(store, control);
+    await expectNotOpened(store, target.key);
   });
 
   it("ignores references with an empty page", async () => {
@@ -151,7 +168,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
     });
     act(() => result.current.handler("n1", true));
     act(() => result.current.handler("ctl", true));
-    await expectPlacedLayout(store, control);
+    await expectNavigatedTo(store, control);
     expect(
       result.current.notifications.statuses.filter((st) => st.variant === "error"),
     ).toHaveLength(0);

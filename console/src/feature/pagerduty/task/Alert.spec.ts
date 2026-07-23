@@ -17,14 +17,13 @@ import { type Task } from "@/platform/task";
 import {
   awaitTaskKey,
   clickConfigure,
-  renderTaskFormLayout,
+  renderTaskFormTab,
 } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const renderAlert = async (
-  options: { client?: Synnax | null; args?: Task.FormLayoutArgs } = {},
-) =>
-  await renderTaskFormLayout(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
+  options: { client?: Synnax | null; args?: Task.FormViewArgs } = {},
+) => await renderTaskFormTab(PagerDuty.Task.Alert, PagerDuty.Task.ALERT_TYPE, options);
 
 const ROUTING_KEY_PLACEHOLDER = "R022XIJR9M266DX570EVE6EXP1AFBN6D";
 
@@ -82,14 +81,14 @@ describe("PagerDuty Alert form", () => {
     expect(screen.getByText("No alert selected.")).toBeTruthy();
   });
 
-  it("should seed the form from a valid config passed through layout args", async () => {
+  it("should seed the form from a valid config passed through view args", async () => {
     const config = createAlertConfig();
     await renderAlert({ args: { config } });
     await screen.findByDisplayValue("R".repeat(32));
     await screen.findByText("New alert");
   });
 
-  it("should fall back to the zero config when the layout args config is invalid", async () => {
+  it("should fall back to the zero config when the view args config is invalid", async () => {
     const config = createAlertConfig({ routingKey: "too_short" });
     await renderAlert({ args: { config } });
     const input = await screen.findByPlaceholderText<HTMLInputElement>(
@@ -102,15 +101,15 @@ describe("PagerDuty Alert form", () => {
   describe("onConfigure against a live cluster", () => {
     const client = createTestClient();
 
-    it("should create the alert task on the rack from the layout args", async () => {
+    it("should create the alert task on the rack from the view args", async () => {
       const rack = await client.racks.create({ name: uniqueName("rack") });
       const config = createAlertConfig();
-      const { store, layoutKey } = await renderAlert({
+      const rendered = await renderAlert({
         client,
         args: { rackKey: rack.key, config },
       });
       await clickConfigure();
-      const taskKey = await awaitTaskKey(store, layoutKey);
+      const taskKey = await awaitTaskKey(rendered);
       const created = await client.tasks.retrieve({
         key: taskKey,
         schemas: PagerDuty.Task.ALERT_SCHEMAS,

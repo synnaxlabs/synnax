@@ -11,7 +11,7 @@ import { type ontology, type Synnax } from "@synnaxlabs/client";
 import { type Status, type Tree } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { type Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { type Session } from "@/session";
 
 export interface GetResource {
@@ -34,8 +34,7 @@ export interface TreeState {
 export interface BaseProps {
   client: Synnax;
   store: Session.Store;
-  placeLayout: Layout.Placer;
-  removeLayout: Layout.Remover;
+  openTab: Panel.OpenTab;
   addStatus: Status.Adder;
   handleError: Status.ErrorHandler;
 }

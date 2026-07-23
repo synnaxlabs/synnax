@@ -28,6 +28,9 @@
 
     .console-arc-editor__controls {
         position: absolute;
+        max-height: min-content;
+        max-width: calc(100% - 4rem);
+        flex-shrink: 0;
         bottom: 2rem;
         left: 2rem;
         right: 2rem;

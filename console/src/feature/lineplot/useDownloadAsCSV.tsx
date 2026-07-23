@@ -57,7 +57,7 @@ export const useDownloadPlotAsCSV = (key: string): (() => void) => {
   const downloadAsCSV = useDownloadAsCSV();
   const derived = LinePlot.useSelectLines({ key });
   const ranges = LinePlot.useSelectRanges({ key });
-  const { name } = Session.Layout.useSelectRequired(key);
+  const name = LinePlot.useSelectName({ key });
   const rangeKeys = unique.unique([...ranges.x1, ...ranges.x2]);
   const resolved = Session.Range.useSelectMultiple(rangeKeys);
   return useCallback(() => {

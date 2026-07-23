@@ -45,6 +45,13 @@ const listItem = Component.renderProp(
 
 const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
 
+// getItem is a snapshot read, so the trigger would keep a stale name after a rename.
+// useItem subscribes to the list instead.
+const ActiveName = ({ itemKey }: { itemKey: project.Key }): string | null => {
+  const proj = List.useItem<project.Key, project.Project>(itemKey);
+  return proj?.name ?? null;
+};
+
 export const Selector = (): ReactElement | null => {
   const client = Synnax.use();
   const dispatch = Session.useDispatch();
@@ -52,7 +59,6 @@ export const Selector = (): ReactElement | null => {
   const openCreate = PlatformProject.useCreateModal();
   const [dialogVisible, setDialogVisible] = useState(false);
   const { data, retrieve, getItem, subscribe } = Project.useList();
-  const active = getItem(activeKey);
   const [search, setSearch] = useState("");
   const handleChange = useCallback(
     (key: project.Key | null) => {
@@ -60,9 +66,6 @@ export const Selector = (): ReactElement | null => {
       const proj = getItem(key);
       if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(Session.Project.select(proj.key));
-      dispatch(
-        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(proj.layout) }),
-      );
       setDialogVisible(false);
     },
     [dispatch, getItem],
@@ -87,7 +90,7 @@ export const Selector = (): ReactElement | null => {
           weight={400}
         >
           <Icon.Project key="project" />
-          {active?.name}
+          <ActiveName itemKey={activeKey} />
         </Dialog.Trigger>
         <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
           <Flex.Box pack rounded>

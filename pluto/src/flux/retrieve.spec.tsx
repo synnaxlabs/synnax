@@ -309,6 +309,75 @@ describe("useRetrieveSuspended", () => {
     expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
   });
 
+  it("resolves synchronously without suspending when retrieveCached hits", async () => {
+    const retrieve = vi.fn(async () => 99);
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve,
+      retrieveCached: () => 42,
+    });
+
+    const Display = (): ReactElement => {
+      const value = useRetrieveSuspended({ key: "cached-hit" });
+      return <div data-testid="value">{value}</div>;
+    };
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={<div>loading-cached</div>}>
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+
+    expect(utils.queryByText("loading-cached")).toBeNull();
+    expect(utils.queryByTestId("value")?.textContent).toBe("42");
+    expect(retrieve).not.toHaveBeenCalled();
+  });
+
+  it("falls through to the async retrieve when retrieveCached misses", async () => {
+    let resolveRetrieve: (value: number) => void = () => {};
+    const retrieve = vi.fn(
+      () =>
+        new Promise<number>((resolve) => {
+          resolveRetrieve = resolve;
+        }),
+    );
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve,
+      retrieveCached: () => undefined,
+    });
+
+    const Display = (): ReactElement => {
+      const value = useRetrieveSuspended({ key: "cached-miss" });
+      return <div data-testid="value">{value}</div>;
+    };
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={<div>loading-miss</div>}>
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+
+    expect(utils.queryByText("loading-miss")).toBeTruthy();
+    expect(retrieve).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveRetrieve(7);
+    });
+
+    expect(utils.queryByTestId("value")?.textContent).toBe("7");
+  });
+
   it("invalidates the cache entry when a listener pushes undefined", async () => {
     let capturedOnChange: ((v: number | undefined) => void) | null = null;
     const retrieve = vi
@@ -348,5 +417,36 @@ describe("useRetrieveSuspended", () => {
 
     await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("2"));
     expect(retrieve).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("useEnsureRetrieved", () => {
+  it("does not suspend when retrieveCached hits", async () => {
+    const retrieve = vi.fn(async () => 5);
+    const { useEnsureRetrieved } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve,
+      retrieveCached: () => 5,
+    });
+
+    const Display = (): ReactElement => {
+      useEnsureRetrieved({ key: "ensure-cached" });
+      return <div data-testid="ready">ready</div>;
+    };
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={<div>loading-ensure</div>}>
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+
+    expect(utils.queryByText("loading-ensure")).toBeNull();
+    expect(utils.queryByTestId("ready")).toBeTruthy();
+    expect(retrieve).not.toHaveBeenCalled();
   });
 });

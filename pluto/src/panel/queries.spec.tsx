@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel, project } from "@synnaxlabs/client";
+import { label, type ontology, panel, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
@@ -29,6 +29,12 @@ const newTab = (): panel.Tab => ({
 
 const asView = (tab?: panel.Tab | null): panel.TabView | undefined =>
   tab?.variant === "view" ? tab : undefined;
+
+const newResourceTab = (resource: ontology.ID): panel.TabResource => ({
+  variant: "resource",
+  key: uuid.create(),
+  resource,
+});
 
 describe("Panel queries", () => {
   let controller: AbortController;
@@ -146,6 +152,45 @@ describe("Panel queries", () => {
       });
       expect(result.current.variant).toEqual("leaf");
     });
+
+    it("does not suspend when the panel is already in the store", async () => {
+      const created = await createPanel();
+      const Wrapper = wrapper;
+      const Bootstrap = (): ReactElement => {
+        Panel.useEnsureRetrieved({ key: created.key });
+        return <div data-testid="loaded" />;
+      };
+      // Warm the store through the production retrieve path.
+      let warm!: ReturnType<typeof render>;
+      await act(async () => {
+        warm = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={null}>
+              <Bootstrap />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      await within(warm.container).findByTestId("loaded");
+
+      // With the store warm, the fast-path resolves without suspending.
+      const Probe = (): ReactElement => {
+        Panel.useEnsureRetrieved({ key: created.key });
+        return <div data-testid="ready" />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={<div data-testid="fallback" />}>
+              <Probe />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("ready")).toBeTruthy();
+    });
   });
 
   describe("useCreate", () => {
@@ -224,6 +269,106 @@ describe("Panel queries", () => {
       const item = result.current.getItem(target.key);
       expect(item?.key).toEqual(target.key);
       expect(item?.name).toEqual("get-item-target");
+    });
+  });
+
+  describe("useRetrieveByProject", () => {
+    const newProject = async (): Promise<project.Key> =>
+      (
+        await client.projects.create({
+          name: `by-project-${uuid.create()}`,
+          layout: {},
+        })
+      ).key;
+
+    const retrieveByProject = async (key: project.Key) => {
+      const rendered = renderHook(() => Panel.useRetrieveByProject({ project: key }), {
+        wrapper,
+      });
+      await waitFor(() => expect(rendered.result.current.variant).toEqual("success"));
+      return rendered;
+    };
+
+    it("should return only the panels parented to the project", async () => {
+      const projectKey = await newProject();
+      const parent = project.ontologyID(projectKey);
+      const mine = await client.panels.create({ name: "mine", parent });
+      const theirs = await client.panels.create({
+        name: "theirs",
+        parent: project.ontologyID(await newProject()),
+      });
+      const draft = await client.panels.create({ name: "draft" });
+
+      const { result } = await retrieveByProject(projectKey);
+      const keys = result.current.data?.map(({ key }) => key);
+      expect(keys).toEqual([mine.key]);
+      expect(keys).not.toContain(theirs.key);
+      expect(keys).not.toContain(draft.key);
+    });
+
+    it("should return an empty list for a project with no panels", async () => {
+      const { result } = await retrieveByProject(await newProject());
+      expect(result.current.data).toEqual([]);
+    });
+
+    it("should add a panel parented to the project after the initial retrieve", async () => {
+      const projectKey = await newProject();
+      const { result } = await retrieveByProject(projectKey);
+      expect(result.current.data).toEqual([]);
+
+      const added = await client.panels.create({
+        name: "added",
+        parent: project.ontologyID(projectKey),
+      });
+      await waitFor(() =>
+        expect(result.current.data?.map(({ key }) => key)).toContain(added.key),
+      );
+    });
+
+    it("should ignore a panel created outside the project", async () => {
+      const projectKey = await newProject();
+      const { result } = await retrieveByProject(projectKey);
+
+      const outside = await client.panels.create({ name: "outside" });
+      await act(async () => {
+        await client.panels.rename(outside.key, "outside-renamed");
+      });
+      expect(result.current.data?.map(({ key }) => key)).not.toContain(outside.key);
+    });
+
+    it("should reflect a rename of a panel in the project", async () => {
+      const projectKey = await newProject();
+      const target = await client.panels.create({
+        name: "before-rename",
+        parent: project.ontologyID(projectKey),
+      });
+      const { result } = await retrieveByProject(projectKey);
+
+      await act(async () => {
+        await client.panels.rename(target.key, "after-rename");
+      });
+      await waitFor(() =>
+        expect(
+          result.current.data?.find(({ key }) => key === target.key)?.name,
+        ).toEqual("after-rename"),
+      );
+    });
+
+    it("should drop a deleted panel from the project", async () => {
+      const projectKey = await newProject();
+      const target = await client.panels.create({
+        name: "to-delete",
+        parent: project.ontologyID(projectKey),
+      });
+      const { result } = await retrieveByProject(projectKey);
+      expect(result.current.data?.map(({ key }) => key)).toEqual([target.key]);
+
+      await act(async () => {
+        await client.panels.delete(target.key);
+      });
+      await waitFor(() =>
+        expect(result.current.data?.map(({ key }) => key)).not.toContain(target.key),
+      );
     });
   });
 
@@ -1372,6 +1517,78 @@ describe("Panel queries", () => {
       await client.panels.delete(target.key);
 
       await waitFor(() => expect(result.current.data).not.toContain(target.key));
+    });
+  });
+
+  describe("useCloseDeletedResourceTabs", () => {
+    const createLabel = async (): Promise<ontology.ID> => {
+      const created = await client.labels.create({
+        name: `label-${uuid.create()}`,
+        color: "#000000",
+      });
+      return label.ontologyID(created.key);
+    };
+
+    const insert = async (
+      dispatch: ReturnType<typeof Panel.useDispatch>,
+      key: panel.Key,
+      ...tabs: panel.Tab[]
+    ) =>
+      await act(async () => {
+        await dispatch.dispatchAsync({
+          key,
+          actions: tabs.map((tab) =>
+            panel.insertTab({ tab, targetLeaf: panel.ROOT_NODE_KEY }),
+          ),
+        });
+      });
+
+    it("closes a resource tab when its resource is deleted", async () => {
+      const created = await createPanel();
+      const resource = await createLabel();
+      const tab = newResourceTab(resource);
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: Panel.useRetrieve({ key: created.key }),
+        dispatch: Panel.useDispatch(),
+      }));
+      await insert(result.current.dispatch, created.key, tab);
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
+      );
+
+      renderHook(() => Panel.useCloseDeletedResourceTabs(), { wrapper });
+      await act(async () => {
+        await client.labels.delete(resource.key);
+      });
+
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([]),
+      );
+    });
+
+    it("leaves tabs backing other resources open", async () => {
+      const created = await createPanel();
+      const [doomed, survivor] = [await createLabel(), await createLabel()];
+      const [doomedTab, survivorTab] = [
+        newResourceTab(doomed),
+        newResourceTab(survivor),
+      ];
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: Panel.useRetrieve({ key: created.key }),
+        dispatch: Panel.useDispatch(),
+      }));
+      await insert(result.current.dispatch, created.key, doomedTab, survivorTab);
+
+      renderHook(() => Panel.useCloseDeletedResourceTabs(), { wrapper });
+      await act(async () => {
+        await client.labels.delete(doomed.key);
+      });
+
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
+          survivorTab.key,
+        ]),
+      );
     });
   });
 });

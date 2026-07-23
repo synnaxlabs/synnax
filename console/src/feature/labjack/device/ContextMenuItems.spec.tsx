@@ -22,12 +22,17 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, waitForPlacedLayout } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
 const renderItems = async () => {
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const proj = await client.projects.create({
+    name: uniqueName("proj"),
+    layout: {},
+  });
+  store.dispatch(Session.Project.select(proj.key));
   const resource = createDeviceResource({
     key: id.create(),
     name: "lj-dev",
@@ -48,21 +53,23 @@ const renderItems = async () => {
 };
 
 describe("LabJack device ContextMenuItems", () => {
-  it("should place the read task layout bound to the device", async () => {
+  it("should open the read task view bound to the device", async () => {
     const { store, key } = await renderItems();
     fireEvent.click(await screen.findByText("Create read task"));
-    const layoutKey = await waitForPlacedLayout(store, LabJack.Task.READ_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), layoutKey)).toEqual({
-      deviceKey: key,
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: LabJack.Task.READ_TYPE,
+      args: { deviceKey: key },
     });
   });
 
-  it("should place the write task layout bound to the device", async () => {
+  it("should open the write task view bound to the device", async () => {
     const { store, key } = await renderItems();
     fireEvent.click(await screen.findByText("Create write task"));
-    const layoutKey = await waitForPlacedLayout(store, LabJack.Task.WRITE_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), layoutKey)).toEqual({
-      deviceKey: key,
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: LabJack.Task.WRITE_TYPE,
+      args: { deviceKey: key },
     });
   });
 });

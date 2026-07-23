@@ -67,11 +67,8 @@ class OpenClose(ConsoleCase):
         for _, page_name in all_pages:
             console.project.close_page(page_name)
 
-        # Should see "New Component" if all pages closed successfully
-        pass_condition = self.page.get_by_text("New Component").count() > 0
-        assert pass_condition, (
-            "Some pages were not closed - 'New Component' screen not visible"
-        )
+        remaining = console.layout.tab_names()
+        assert not remaining, f"Some pages were not closed: {remaining}"
 
         console.project.delete_pages(self._page_names)
         self._pages_deleted = True

@@ -18,6 +18,7 @@ import {
   Form,
   Icon,
   Input,
+  Panel as PPanel,
   Select,
   Table,
   Text,
@@ -31,6 +32,7 @@ import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Export } from "@/platform/export";
+import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -88,15 +90,14 @@ const Internal = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Table.Suspended tableKey={layoutKey}>
-    <Internal />
-  </Table.Suspended>
-);
+export const Toolbar: Panel.Toolbar = () => {
+  const { key } = PPanel.useSelectTabResource();
+  return (
+    <Table.Suspended tableKey={key}>
+      <Internal />
+    </Table.Suspended>
+  );
+};
 
 // buildVariantSwapActions returns one setCell action per cell whose variant
 // differs from the target. Compatible fields survive the swap.

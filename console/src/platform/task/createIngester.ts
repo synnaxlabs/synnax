@@ -12,13 +12,12 @@ import { Access } from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
 import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/task/Form";
 
 export const createIngester =
-  (configSchema: z.ZodType, zeroLayout: Layout): Import.FileIngester =>
-  (data: unknown, { layout, placeLayout, store, client }) => {
+  (configSchema: z.ZodType, type: string): Import.FileIngester =>
+  (data: unknown, { openTab, store, client }) => {
     const config = configSchema.parse(data);
     if (!Access.createGranted({ id: task.TYPE_ONTOLOGY_ID, store, client }))
       throw new Error("You do not have permission to import tasks");
-    placeLayout({ ...zeroLayout, ...layout, key: layout.key, args: { config } });
+    openTab({ variant: "view", type, args: { config } });
   };

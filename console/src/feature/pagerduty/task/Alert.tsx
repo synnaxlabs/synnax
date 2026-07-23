@@ -40,17 +40,11 @@ import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ALERT_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const AlertSelectable = Selector.createSelectable({
   type: ALERT_TYPE,
-  name: ZERO_ALERT_PAYLOAD.name,
-  icon: "Logo.PagerDuty",
-};
-
-export const AlertSelectable = Selector.createSimpleItem({
   title: "PagerDuty Alert",
   icon: <Icon.Logo.PagerDuty />,
-  layout: ALERT_LAYOUT,
+  useOnSelect: Task.createOpenTab(ALERT_TYPE),
 });
 
 const Properties = () => (
@@ -292,7 +286,7 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider direction="y" />
       <Flex.Box y grow empty>
-        <Task.Layouts.DetailsHeader
+        <Task.Views.DetailsHeader
           path={selected.length > 0 ? `config.alerts.${selected[0]}` : ""}
           disabled={selected.length === 0}
         />

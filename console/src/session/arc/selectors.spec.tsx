@@ -35,68 +35,6 @@ const customState = Arc.stateZ.parse({
   toolbar: { selectedTab: "properties" },
 });
 
-const storeState: Arc.StoreState = {
-  [Arc.SLICE_NAME]: { version: 0, arcs: { [KEY]: customState } },
-};
-
-const params = { state: storeState, key: KEY };
-
-describe("arc selectors", () => {
-  describe("selectSliceState", () => {
-    it("should return the slice state", () => {
-      expect(Arc.selectSliceState(storeState)).toBe(storeState[Arc.SLICE_NAME]);
-    });
-  });
-
-  describe("selectState", () => {
-    it("should return the state for the given key", () => {
-      expect(Arc.selectState(params)).toEqual(customState);
-    });
-
-    it("should fall back to ZERO_STATE for an unknown key", () => {
-      expect(Arc.selectState({ state: storeState, key: "absent" })).toEqual(
-        Arc.ZERO_STATE,
-      );
-    });
-  });
-
-  describe("selectGraph", () => {
-    it("should return the graph state", () => {
-      expect(Arc.selectGraph(params)).toEqual(customState.graph);
-    });
-  });
-
-  describe("selectSelected", () => {
-    it("should return the selected elements", () => {
-      expect(Arc.selectSelected(params)).toEqual(["a", "b"]);
-    });
-  });
-
-  describe("selectEditable", () => {
-    it("should return the editable flag", () => {
-      expect(Arc.selectEditable(params)).toBe(false);
-    });
-  });
-
-  describe("selectViewport", () => {
-    it("should return the viewport", () => {
-      expect(Arc.selectViewport(params)).toEqual(customState.graph.viewport);
-    });
-  });
-
-  describe("selectViewportMode", () => {
-    it("should return the viewport mode", () => {
-      expect(Arc.selectViewportMode(params)).toBe("pan");
-    });
-  });
-
-  describe("selectToolbar", () => {
-    it("should return the toolbar state", () => {
-      expect(Arc.selectToolbar(params)).toEqual(customState.toolbar);
-    });
-  });
-});
-
 const storeWith = (slice: Arc.SliceState) =>
   configureStore({
     reducer: { [Arc.SLICE_NAME]: Arc.reducer },
@@ -116,59 +54,62 @@ const wrapperFor = (
   return Wrapper;
 };
 
-describe("arc selector hooks", () => {
-  const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ version: 0, arcs: { [KEY]: customState } });
+const createCustomStore = () => storeWith({ version: 0, arcs: { [KEY]: customState } });
 
+describe("arc selector hooks", () => {
   it("should resolve the key from the surrounding scope", () => {
     const { result } = renderHook(() => Arc.useSelect(), {
-      wrapper: wrapperFor(store(), KEY),
+      wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toEqual(customState);
   });
 
   it("should let an explicit key override the scope", () => {
     const { result } = renderHook(() => Arc.useSelect({ key: "absent" }), {
-      wrapper: wrapperFor(store(), KEY),
+      wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toEqual(Arc.ZERO_STATE);
   });
 
   it("should return the selected elements", () => {
     const { result } = renderHook(() => Arc.useSelectSelected(), {
-      wrapper: wrapperFor(store(), KEY),
+      wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toEqual(["a", "b"]);
   });
 
   it("should return the viewport", () => {
     const { result } = renderHook(() => Arc.useSelectViewport(), {
-      wrapper: wrapperFor(store(), KEY),
+      wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toEqual(customState.graph.viewport);
   });
 
   it("should return the viewport mode", () => {
     const { result } = renderHook(() => Arc.useSelectViewportMode(), {
-      wrapper: wrapperFor(store(), KEY),
+      wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toBe("pan");
   });
 
   it("should return the toolbar state", () => {
     const { result } = renderHook(() => Arc.useSelectToolbar(), {
-      wrapper: wrapperFor(store(), KEY),
+      wrapper: wrapperFor(createCustomStore(), KEY),
     });
     expect(result.current).toEqual(customState.toolbar);
+  });
+
+  it("should return the fit-view-on-resize flag", () => {
+    const { result } = renderHook(() => Arc.useSelectFitViewOnResize(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe(true);
   });
 });
 
 describe("arc selector stability under dispatch", () => {
-  const store = (): ReturnType<typeof storeWith> =>
-    storeWith({ version: 0, arcs: { [KEY]: customState } });
-
   it("should keep a stable reference when an unrelated field changes", () => {
-    const s = store();
+    const s = createCustomStore();
     const { result } = renderHook(() => Arc.useSelectToolbar(), {
       wrapper: wrapperFor(s, KEY),
     });
@@ -180,7 +121,7 @@ describe("arc selector stability under dispatch", () => {
   });
 
   it("should return a new reference when the tracked field changes", () => {
-    const s = store();
+    const s = createCustomStore();
     const { result } = renderHook(() => Arc.useSelectToolbar(), {
       wrapper: wrapperFor(s, KEY),
     });
@@ -193,13 +134,13 @@ describe("arc selector stability under dispatch", () => {
   });
 
   it("should ignore changes to other arcs", () => {
-    const s = store();
+    const s = createCustomStore();
     const { result } = renderHook(() => Arc.useSelectToolbar(), {
       wrapper: wrapperFor(s, KEY),
     });
     const first = result.current;
     act(() => {
-      s.dispatch(Arc.internalCreate({ key: "arc-2" }));
+      s.dispatch(Arc.create({ key: "arc-2" }));
       s.dispatch(Arc.selectToolbarTab({ key: "arc-2", tab: "stages" }));
     });
     expect(result.current).toBe(first);
@@ -220,6 +161,51 @@ describe("arc selector stability under dispatch", () => {
     expect(result.current.selectedTab).toBe("properties");
     rerender({ key: "arc-2" });
     expect(result.current.selectedTab).toBe("stages");
+  });
+});
+
+describe("arc getters", () => {
+  it("should read an arc's toolbar tab on demand across dispatches", () => {
+    const store = storeWith(Arc.ZERO_SLICE_STATE);
+    const { result } = renderHook(() => Arc.useGetToolbar(), {
+      wrapper: wrapperFor(store, KEY),
+    });
+    const get = result.current;
+    expect(get().selectedTab).toBe(Arc.ZERO_STATE.toolbar.selectedTab);
+    act(() => {
+      store.dispatch(Arc.create({ key: KEY }));
+      store.dispatch(Arc.selectToolbarTab({ key: KEY, tab: "properties" }));
+    });
+    expect(get().selectedTab).toBe("properties");
+  });
+
+  it("should reflect viewport mode changes without re-rendering the hook", () => {
+    const store = createCustomStore();
+    const { result } = renderHook(() => Arc.useGetViewportMode(), {
+      wrapper: wrapperFor(store, KEY),
+    });
+    const get = result.current;
+    expect(get()).toBe("pan");
+    act(() => {
+      store.dispatch(Arc.setViewportMode({ key: KEY, mode: "select" }));
+    });
+    expect(get()).toBe("select");
+  });
+
+  it("should resolve the key from scope and allow an explicit override", () => {
+    const { result } = renderHook(() => Arc.useGetToolbar(), {
+      wrapper: wrapperFor(createCustomStore(), "absent"),
+    });
+    expect(result.current().selectedTab).toBe(Arc.ZERO_STATE.toolbar.selectedTab);
+    expect(result.current({ key: KEY }).selectedTab).toBe("properties");
+  });
+
+  it("should read the editable flag on demand", () => {
+    const { result } = renderHook(() => Arc.useGetEditable(), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current()).toBe(false);
+    expect(result.current({ key: "absent" })).toBe(Arc.ZERO_STATE.graph.editable);
   });
 });
 

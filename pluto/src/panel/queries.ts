@@ -9,8 +9,9 @@
 
 import {
   NotFoundError,
-  type ontology,
+  ontology,
   panel,
+  project,
   UnexpectedError,
 } from "@synnaxlabs/client";
 import { array, compare, deep, type optional, type record } from "@synnaxlabs/x";
@@ -91,10 +92,74 @@ export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
   Flux.createRetrieve<RetrieveQuery, panel.Panel, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query: { key } }) => store.panels.get(key),
     mountListeners: ({ store, query: { key }, onChange }) => [
       store.panels.onSet(onChange, key),
     ],
   });
+
+export type RetrieveByProjectQuery = { project: project.Key };
+
+const isPanelChildOf = (
+  relationship: ontology.Relationship,
+  projectKey: project.Key,
+): boolean =>
+  ontology.matchRelationship(relationship, {
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    from: project.ontologyID(projectKey),
+  }) && relationship.to.type === panel.TYPE_ONTOLOGY_ID.type;
+
+const replaceOrAppend = (panels: panel.Panel[], next: panel.Panel): panel.Panel[] => {
+  const i = panels.findIndex(({ key }) => key === next.key);
+  if (i === -1) return [...panels, next];
+  const out = [...panels];
+  out[i] = next;
+  return out;
+};
+
+// A panel's parent lives in the ontology graph and is absent from the panel record, so
+// membership is resolved through the project's children.
+export const { useRetrieve: useRetrieveByProject } = Flux.createRetrieve<
+  RetrieveByProjectQuery,
+  panel.Panel[],
+  FluxSubStore
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { project: projectKey }, store }) => {
+    const children = await client.ontology.retrieveChildren(
+      project.ontologyID(projectKey),
+    );
+    const keys = children
+      .filter(({ id }) => id.type === panel.TYPE_ONTOLOGY_ID.type)
+      .map(({ id }) => id.key);
+    if (keys.length === 0) return [];
+    const panels = await client.panels.retrieve(keys);
+    panels.forEach((p) => store.panels.set(p.key, p));
+    return panels;
+  },
+  mountListeners: ({ store, client, query: { project: projectKey }, onChange }) => [
+    store.relationships.onSet(async (relationship) => {
+      if (!isPanelChildOf(relationship, projectKey)) return;
+      const p = await client.panels.retrieve(relationship.to.key);
+      onChange((prev) => replaceOrAppend(prev ?? [], p));
+    }),
+    store.relationships.onDelete((changed) => {
+      const relationship = ontology.relationshipZ.parse(changed);
+      if (!isPanelChildOf(relationship, projectKey)) return;
+      onChange((prev) => prev?.filter(({ key }) => key !== relationship.to.key));
+    }),
+    // Only updates panels already in the project; a panel absent here belongs to
+    // another project and must not be pulled in.
+    store.panels.onSet((p) =>
+      onChange((prev) =>
+        prev?.some(({ key }) => key === p.key) ? replaceOrAppend(prev, p) : prev,
+      ),
+    ),
+    store.panels.onDelete((key) =>
+      onChange((prev) => prev?.filter((p) => p.key !== key)),
+    ),
+  ],
+});
 
 export interface SelectKeyArgs {
   key: panel.Key;
@@ -159,7 +224,11 @@ const bindTabSelector = <Args extends SelectTabContentArgs, Selected>([
     const get = useGet();
     return useCallback(
       (args?: optional.Optional<Args, "key" | "tabKey">) =>
-        get({ key, tabKey, ...args } as Args),
+        get({
+          ...args,
+          key: Scope.require(args?.key ?? key),
+          tabKey: TabScope.require(args?.tabKey ?? tabKey),
+        } as Args),
       [get, key, tabKey],
     );
   };
@@ -543,6 +612,27 @@ export const {
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
 export const useUndo = Scope.bindHook(useUndoBase);
 export const useRedo = Scope.bindHook(useRedoBase);
+
+// useCloseDeletedResourceTabs removes any resource-backed tab whose resource has
+// been deleted, across every cached panel. A resource left as a tombstone would
+// render "Not found" indefinitely, so its tab is closed with the resource.
+// removeTab on an absent tab is a no-op, so redundant firings across windows are
+// harmless.
+export const useCloseDeletedResourceTabs = (): void => {
+  const store = Flux.useStore<FluxSubStore>();
+  const { dispatch } = useDispatch();
+  Ontology.useResourceDeleteSynchronizer(
+    useCallback(
+      (id) =>
+        store.panels.list().forEach((p) => {
+          const tab = panel.findTabByResource(p.root, id);
+          if (tab != null)
+            dispatch({ key: p.key, actions: panel.removeTab({ key: tab.key }) });
+        }),
+      [store, dispatch],
+    ),
+  );
+};
 
 // useSetCurrentTabResource swaps the current tab's content to the given resource,
 // clearing any view. The selector flow uses this to fill the tab in place once the

@@ -13,13 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
-import { Session } from "@/session";
 import { Status } from "@/session/status";
-
-const stateWith = (...favorites: string[]): Session.State => ({
-  ...Session.ZERO_STATE,
-  [Status.SLICE_NAME]: { version: 0, favorites },
-});
 
 const storeWith = (...actions: Status.Action[]) => {
   const store = configureStore({ reducer: { [Status.SLICE_NAME]: Status.reducer } });
@@ -35,30 +29,6 @@ const wrapperFor = (store: ReturnType<typeof storeWith>) => {
 };
 
 describe("status selectors", () => {
-  describe("selectFavorites", () => {
-    it("should return the favorites array", () => {
-      expect(Status.selectFavorites(stateWith("a", "b"))).toEqual(["a", "b"]);
-    });
-  });
-
-  describe("selectFavoriteSet", () => {
-    it("should return the favorites as a set", () => {
-      const set = Status.selectFavoriteSet(stateWith("a", "b"));
-      expect(set).toBeInstanceOf(Set);
-      expect([...set]).toEqual(["a", "b"]);
-    });
-  });
-
-  describe("selectIsFavorite", () => {
-    it("should return true when the key is a favorite", () => {
-      expect(Status.selectIsFavorite(stateWith("a"), "a")).toBe(true);
-    });
-
-    it("should return false when the key is not a favorite", () => {
-      expect(Status.selectIsFavorite(stateWith("a"), "b")).toBe(false);
-    });
-  });
-
   describe("useSelectFavorites", () => {
     it("should track additions to the favorites list", () => {
       const store = storeWith(Status.addFavorites("a"));
@@ -79,6 +49,7 @@ describe("status selectors", () => {
       const { result } = renderHook(() => Status.useSelectFavoriteSet(), {
         wrapper: wrapperFor(store),
       });
+      expect(result.current).toBeInstanceOf(Set);
       expect([...result.current]).toEqual(["a", "b"]);
     });
   });

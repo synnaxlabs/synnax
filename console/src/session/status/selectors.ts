@@ -13,7 +13,7 @@ import { Select } from "@/session/select";
 import { SLICE_NAME, type SliceState } from "@/session/status/slice";
 import { type State } from "@/session/store";
 
-export const selectSliceState = (state: State): SliceState => state[SLICE_NAME];
+const selectSliceState = (state: State): SliceState => state[SLICE_NAME];
 
 export const selectFavorites = (state: State): status.Key[] =>
   selectSliceState(state).favorites;
@@ -21,7 +21,7 @@ export const selectFavorites = (state: State): status.Key[] =>
 export const useSelectFavorites = (): status.Key[] =>
   Select.useMemo((state: State) => selectFavorites(state), []);
 
-export const selectFavoriteSet = (state: State): Set<status.Key> =>
+const selectFavoriteSet = (state: State): Set<status.Key> =>
   new Set(selectFavorites(state));
 
 export const useSelectFavoriteSet = (): Set<status.Key> =>

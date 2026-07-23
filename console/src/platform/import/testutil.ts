@@ -11,21 +11,21 @@ import { vi } from "vitest";
 
 import { type dataTransferItem } from "@/platform/import/dataTransferItem";
 import { type FileIngesterContext } from "@/platform/import/ingester";
-import { type Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { Session } from "@/session";
 import { createTestFluxStore, createTestStore } from "@/testutil";
 
 export type DataTransferItemContext = Parameters<typeof dataTransferItem>[1];
 
 /**
- * Builds a real FileIngesterContext: a live flux store, a spy placer injected via DI,
- * and a null client. Merge overrides over it for spec-specific fields.
+ * Builds a real FileIngesterContext: a live flux store, a spy tab opener injected via
+ * DI, and a null client. Merge overrides over it for spec-specific fields.
  */
 export const createFileIngesterContext = (
   overrides: Partial<FileIngesterContext> = {},
 ): FileIngesterContext => ({
-  layout: { name: "test" },
-  placeLayout: vi.fn<Layout.Placer>(),
+  name: "test",
+  openTab: vi.fn<Panel.OpenTab>(),
   store: createTestFluxStore(),
   client: null,
   projectKey: "project-1",
@@ -43,8 +43,7 @@ export const createDataTransferItemContext = async (
   client: null,
   fileIngesters: {},
   ingestDirectory: vi.fn(),
-  layout: {},
-  placeLayout: vi.fn<Layout.Placer>(),
+  openTab: vi.fn<Panel.OpenTab>(),
   store: await createTestStore({
     preloadedState: {
       [Session.Project.SLICE_NAME]: {

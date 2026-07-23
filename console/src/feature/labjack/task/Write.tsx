@@ -31,17 +31,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.LabJack",
-};
-
-export const WriteSelectable = Selector.createSimpleItem({
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  layout: WRITE_LAYOUT,
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (
@@ -175,7 +169,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
     [device],
   );
   return (
-    <Task.Layouts.List<OutputChannel>
+    <Task.Views.List<OutputChannel>
       createChannel={createChannel}
       listItem={listItem}
       contextMenuItems={Task.writeChannelContextMenuItems}

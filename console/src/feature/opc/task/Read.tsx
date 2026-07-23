@@ -27,17 +27,11 @@ import {
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const ReadSelectable = Selector.createSelectable({
   type: READ_TYPE,
-  name: ZERO_READ_PAYLOAD.name,
-  icon: "Logo.OPC",
-};
-
-export const ReadSelectable = Selector.createSimpleItem({
   title: "OPC UA Read Task",
   icon: <Icon.Logo.OPC />,
-  layout: READ_LAYOUT,
+  useOnSelect: Task.createOpenTab(READ_TYPE),
 });
 
 const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>

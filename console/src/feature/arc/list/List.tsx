@@ -65,7 +65,12 @@ export const List = ({
         onFetchMore={fetchMore}
       >
         {enableSearch && (
-          <Flex.Box x bordered style={{ padding: "2rem" }} background={1}>
+          <Flex.Box
+            x
+            bordered
+            style={{ padding: "2rem", height: "fit-content" }}
+            background={1}
+          >
             <Input.Text
               size="large"
               level="h4"

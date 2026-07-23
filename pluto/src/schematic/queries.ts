@@ -17,7 +17,6 @@ import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
@@ -59,30 +58,10 @@ export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved }
   Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query: { key } }) => store.schematics.get(key),
     mountListeners: ({ store, query: { key }, onChange }) =>
       store.schematics.onSet(onChange, key),
   });
-
-export interface useRetrieveObservableNameParams extends Omit<
-  Flux.UseRetrieveObservableParams<RetrieveQuery, schematic.Schematic>,
-  "onChange"
-> {
-  onChange: (name: string) => void;
-}
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: useRetrieveObservableNameParams): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback(
-      (result) => result.variant === "success" && onChangeRef.current(result.data.name),
-      [],
-    ),
-  });
-};
 
 export interface SelectKeyArgs {
   key: schematic.Key;

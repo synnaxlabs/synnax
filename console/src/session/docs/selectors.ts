@@ -15,7 +15,7 @@ import {
 } from "@/session/docs/slice";
 import { Select } from "@/session/select";
 
-export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export const selectLocation = (state: StoreState): Location =>
   selectSliceState(state).location;

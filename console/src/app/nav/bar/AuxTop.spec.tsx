@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -23,32 +22,6 @@ import { renderBar, withActiveProject } from "@/app/nav/bar/testutil";
 import { Session } from "@/session";
 import { type TestStore } from "@/testutil";
 
-const TAB = "plot-1";
-
-const withActiveTab = (name: string) =>
-  withActiveProject({
-    [Session.Layout.SLICE_NAME]: {
-      ...Session.Layout.ZERO_SLICE_STATE,
-      layouts: {
-        ...Session.Layout.ZERO_SLICE_STATE.layouts,
-        [TAB]: {
-          key: TAB,
-          name,
-          windowKey: MAIN_WINDOW,
-          type: "lineplot",
-          location: "mosaic",
-        },
-      },
-      mosaics: {
-        ...Session.Layout.ZERO_SLICE_STATE.mosaics,
-        [MAIN_WINDOW]: {
-          ...Session.Layout.ZERO_SLICE_STATE.mosaics[MAIN_WINDOW],
-          activeTab: TAB,
-        },
-      },
-    },
-  });
-
 const bottom = (store: TestStore) =>
   Session.Nav.selectWindowState(store.getState()).bottom;
 
@@ -56,12 +29,7 @@ describe("app/nav/bar/AuxTop", () => {
   describe("title", () => {
     it("should render the active project name", async () => {
       await renderBar(<Bar.AuxTop />, withActiveProject());
-      expect(await screen.findByText(/- Ops/, {})).toBeDefined();
-    });
-
-    it("should render the active mosaic tab name alongside the project", async () => {
-      await renderBar(<Bar.AuxTop />, withActiveTab("My Plot"));
-      expect(await screen.findByText(/My Plot - Ops/, {})).toBeDefined();
+      expect(await screen.findByText("Ops", {})).toBeDefined();
     });
   });
 

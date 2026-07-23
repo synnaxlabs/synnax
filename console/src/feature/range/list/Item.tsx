@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { ranger } from "@synnaxlabs/client";
 import {
   Flex,
   Form,
@@ -23,7 +23,7 @@ import { type NumericTimeRange } from "@synnaxlabs/x";
 import { memo, useMemo } from "react";
 
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 
 export interface ItemProps extends List.ItemProps<ranger.Key> {
@@ -41,8 +41,8 @@ const Base = ({
   ...props
 }: ItemProps) => {
   const { itemKey } = props;
-  const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
-  const placeLayout = Layout.usePlacer();
+  const { onSelect, selected, hovered } = Select.useItemState(itemKey);
+  const openTab = Panel.useOpenTab();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const initialValues = useMemo(() => {
     if (item == null) return undefined;
@@ -64,7 +64,7 @@ const Base = ({
   const { name, parent, labels, timeRange } = item;
 
   const handleSelect = () =>
-    placeLayout({ ...Range.OVERVIEW_LAYOUT, name, key: itemKey });
+    openTab({ variant: "resource", resource: ranger.ontologyID(itemKey) });
 
   return (
     <List.Item
@@ -73,7 +73,7 @@ const Base = ({
       justify="between"
       selected={selected}
       rounded={!selected}
-      {...selectProps}
+      hovered={hovered}
       {...props}
     >
       <Form.Form<typeof Ranger.formSchema> {...form}>

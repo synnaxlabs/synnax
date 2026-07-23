@@ -90,7 +90,7 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-export const { create: internalCreate, setSelectedToolbarTab, remove } = actions;
+export const { create, setSelectedToolbarTab, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 

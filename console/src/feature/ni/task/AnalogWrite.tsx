@@ -33,17 +33,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const ANALOG_WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const AnalogWriteSelectable = Selector.createSelectable({
   type: ANALOG_WRITE_TYPE,
-  name: ZERO_ANALOG_WRITE_PAYLOAD.name,
-  icon: "Logo.NI",
-};
-
-export const AnalogWriteSelectable = Selector.createSimpleItem({
   title: "NI Analog Write Task",
   icon: <Icon.Logo.NI />,
-  layout: ANALOG_WRITE_LAYOUT,
+  useOnSelect: Task.createOpenTab(ANALOG_WRITE_TYPE),
 });
 
 const Properties = () => (
@@ -65,7 +59,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
   return (
-    <Task.Layouts.ListAndDetailsChannelItem
+    <Task.Views.ListAndDetailsChannelItem
       {...props}
       port={port}
       hasTareButton={false}
@@ -79,7 +73,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   );
 };
 
-const ChannelDetails = ({ path }: Task.Layouts.DetailsProps) => {
+const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const type = PForm.useFieldValue<AOChannelType>(`${path}.type`);
   return (
     <>
@@ -93,7 +87,7 @@ const channelDetails = Component.renderProp(ChannelDetails);
 const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<Task.FormProps<AnalogWriteSchemas>> = () => (
-  <Task.Layouts.ListAndDetails
+  <Task.Views.ListAndDetails
     listItem={channelListItem}
     details={channelDetails}
     createChannel={createAOChannel}

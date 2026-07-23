@@ -14,8 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { OPC } from "@/feature/opc";
 import { createOPCDevice } from "@/feature/opc/testutil";
-import { awaitTaskKey, renderTaskFormLayout } from "@/platform/task/testutil";
-import { Session } from "@/session";
+import { awaitTaskKey, renderTaskFormTab } from "@/platform/task/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,
@@ -56,19 +55,15 @@ describe("OPC.Write", () => {
     const dev = await createOPCDevice(client);
     const chA = createOutputChannel();
     const chB = createOutputChannel();
-    const { store, layoutKey } = await renderTaskFormLayout(
-      OPC.Task.Write,
-      OPC.Task.WRITE_TYPE,
-      {
-        client,
-        args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [chA, chB]) },
-      },
-    );
+    const rendered = await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
+      client,
+      args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [chA, chB]) },
+    });
     await screen.findByText(new RegExp(chA.nodeName));
     await screen.findByText(new RegExp(chB.nodeName));
 
     fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
-    const taskKey = await awaitTaskKey(store, layoutKey);
+    const taskKey = await awaitTaskKey(rendered);
 
     const tsk = await client.tasks.retrieve({ key: taskKey });
     expect(task.rackKey(tsk.key)).toBe(dev.rack);
@@ -95,47 +90,42 @@ describe("OPC.Write", () => {
   it("should reuse existing command channels when reconfiguring", async () => {
     const dev = await createOPCDevice(client);
     const ch = createOutputChannel();
-    const first = await renderTaskFormLayout(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
+    const first = await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [ch]) },
     });
     await screen.findByText(new RegExp(ch.nodeName));
     fireEvent.click(await screen.findByRole("button", { name: /Configure/ }));
-    const taskKey = await awaitTaskKey(first.store, first.layoutKey);
+    const taskKey = await awaitTaskKey(first);
     const afterFirst = await client.devices.retrieve({
       key: dev.key,
       schemas: OPC.Device.SCHEMAS,
     });
     first.unmount();
 
-    const second = await renderTaskFormLayout(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
+    await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key, taskKey },
     });
     await screen.findByText(new RegExp(ch.nodeName));
     fireEvent.click(screen.getByRole("button", { name: /Configure/ }));
-    await waitFor(() =>
-      expect(
-        Session.Layout.select(second.store.getState(), second.layoutKey)
-          ?.unsavedChanges,
-      ).toBe(false),
-    );
-
-    const afterSecond = await client.devices.retrieve({
-      key: dev.key,
-      schemas: OPC.Device.SCHEMAS,
+    await waitFor(async () => {
+      const afterSecond = await client.devices.retrieve({
+        key: dev.key,
+        schemas: OPC.Device.SCHEMAS,
+      });
+      expect(afterSecond.properties.write.channels).toEqual(
+        afterFirst.properties.write.channels,
+      );
+      const matches = await client.channels.retrieve([`${ch.nodeName}_cmd`]);
+      expect(matches).toHaveLength(1);
     });
-    expect(afterSecond.properties.write.channels).toEqual(
-      afterFirst.properties.write.channels,
-    );
-    const matches = await client.channels.retrieve([`${ch.nodeName}_cmd`]);
-    expect(matches).toHaveLength(1);
   });
 
   it("should rename and remove a channel through the context menu", async () => {
     const dev = await createOPCDevice(client);
     const ch = createOutputChannel();
-    await renderTaskFormLayout(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
+    await renderTaskFormTab(OPC.Task.Write, OPC.Task.WRITE_TYPE, {
       client,
       args: { deviceKey: dev.key, config: createWriteConfig(dev.key, [ch]) },
     });

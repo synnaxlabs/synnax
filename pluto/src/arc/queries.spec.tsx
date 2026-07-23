@@ -773,6 +773,30 @@ describe("Arc queries", () => {
       expect(result.current.data?.key).toBe(testArc.key);
       expect(result.current.data?.name).toBe(testArc.name);
     });
+
+    it("does not suspend when the arc is already in the store", async () => {
+      const a = await createTestArc();
+      await loadArc(a.key);
+
+      const Wrapper = wrapper;
+      // With the store warm, the fast-path resolves without suspending.
+      const Probe = (): ReactElement => {
+        Arc.useEnsureRetrieved({ key: a.key });
+        return <div data-testid="ready" />;
+      };
+      let utils!: ReturnType<typeof render>;
+      await act(async () => {
+        utils = render(
+          <Wrapper>
+            <Errors.SuspenseBoundary loading={<div data-testid="fallback" />}>
+              <Probe />
+            </Errors.SuspenseBoundary>
+          </Wrapper>,
+        );
+      });
+      expect(utils.queryByTestId("fallback")).toBeNull();
+      expect(utils.queryByTestId("ready")).toBeTruthy();
+    });
   });
 
   describe("useRename", () => {
@@ -1549,33 +1573,6 @@ describe("Arc queries", () => {
         });
       });
       await waitFor(() => expect(seen).toContain("obs_renamed"));
-    });
-  });
-
-  describe("useRetrieveObservableName", () => {
-    it("fires the callback with the initial name and with each rename", async () => {
-      const isolated = await createTestArc({ name: `obs_name_${id.create()}` });
-      const seen: string[] = [];
-      const { result } = renderHook(
-        () => ({
-          obs: Arc.useRetrieveObservableName({
-            onChange: (name) => seen.push(name),
-          }),
-          rename: Arc.useRename(),
-        }),
-        { wrapper },
-      );
-      await act(async () => {
-        await result.current.obs.retrieveAsync({ key: isolated.key });
-      });
-      await waitFor(() => expect(seen).toContain(isolated.name));
-      await act(async () => {
-        await result.current.rename.updateAsync({
-          key: isolated.key,
-          name: "obs_name_renamed",
-        });
-      });
-      await waitFor(() => expect(seen).toContain("obs_name_renamed"));
     });
   });
 });

@@ -27,17 +27,11 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.OPC",
-};
-
-export const WriteSelectable = Selector.createSimpleItem({
   title: "OPC UA Write Task",
   icon: <Icon.Logo.OPC />,
-  layout: WRITE_LAYOUT,
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (

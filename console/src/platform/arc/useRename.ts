@@ -12,18 +12,15 @@ import { Arc, type Flux, type List } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
-import { Session } from "@/session";
 
 export const useRename = (
   getItem: List.GetItem<arc.Key, arc.Arc>,
 ): { update: (params: Arc.RenameParams) => void } => {
-  const dispatch = Session.useDispatch();
   const confirm = Modals.useConfirm();
   const { update } = Arc.useRename({
     beforeUpdate: useCallback(
       async ({
         data,
-        rollbacks,
         store,
         client,
       }: Flux.BeforeUpdateParams<Arc.RenameParams, false, Arc.FluxSubStore>) => {
@@ -35,7 +32,6 @@ export const useRename = (
         });
         const a = getItem(key);
         if (a == null) throw new UnexpectedError(`Arc with key ${key} not found`);
-        const oldName = a.name;
         if (tsk?.status?.details.running === true) {
           const confirmed = await confirm({
             message: `Are you sure you want to rename ${a.name} to ${name}?`,
@@ -45,11 +41,9 @@ export const useRename = (
           });
           if (!confirmed) return false;
         }
-        dispatch(Session.Layout.rename({ key, name }));
-        rollbacks.push(() => dispatch(Session.Layout.rename({ key, name: oldName })));
         return data;
       },
-      [dispatch, getItem, confirm],
+      [getItem, confirm],
     ),
   });
   return { update };

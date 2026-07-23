@@ -10,17 +10,23 @@
 import "@/feature/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { Access, Button, Icon, Table as Base } from "@synnaxlabs/pluto";
+import {
+  Access,
+  Button,
+  Icon,
+  Panel as PPanel,
+  Table as Base,
+} from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
-import { Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
 
-const Internal: Layout.Renderer = ({ visible }) => {
+const Internal: Panel.Content = () => {
   const key = Base.useKey();
   const editable = Session.Table.useSelectEditable();
   const hideIndicators = Session.Table.useSelectHideIndicators();
@@ -28,6 +34,7 @@ const Internal: Layout.Renderer = ({ visible }) => {
   const hasUpdatePermission = Access.useUpdateGranted(table.ontologyID(key));
   const canEdit = hasUpdatePermission && editable;
   const dispatch = Session.useDispatch();
+  const visible = Session.Panel.useSelectIsTabVisible();
 
   const handleSelectionChange = useCallback(
     (cells: string[]) =>
@@ -121,12 +128,11 @@ const TableControls = (): ReactElement | null => {
   );
 };
 
-export const Table: Layout.Renderer = (props) => (
-  <Base.Suspended tableKey={props.layoutKey}>
-    <Internal {...props} />
-  </Base.Suspended>
-);
-Table.useName = Layout.createUseFluxName(
-  Base.useRename,
-  Base.useRetrieveObservableName,
-);
+export const Table: Panel.Content = () => {
+  const { key } = PPanel.useSelectTabResource();
+  return (
+    <Base.Suspended tableKey={key}>
+      <Internal />
+    </Base.Suspended>
+  );
+};

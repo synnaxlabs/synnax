@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, ranger, schematic, type Synnax as Client } from "@synnaxlabs/client";
+import { ontology, ranger, schematic } from "@synnaxlabs/client";
 import {
   Access,
   type Flux,
@@ -17,7 +17,6 @@ import {
   Mosaic,
   Schematic as Base,
   Status,
-  Synnax,
   Text,
 } from "@synnaxlabs/pluto";
 import { array, strings } from "@synnaxlabs/x";
@@ -29,10 +28,9 @@ import { Cluster } from "@/platform/cluster";
 import { ContextMenu } from "@/platform/context-menu";
 import { Export } from "@/platform/export";
 import { Group } from "@/platform/group";
-import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
-import { Schematic } from "@/platform/schematic";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
@@ -40,8 +38,7 @@ const useDelete = Tree.createUseDelete({
   type: "Schematic",
   query: Base.useDelete,
   convertKey: String,
-  beforeUpdate: async ({ data, removeLayout, store }) => {
-    removeLayout(...data);
+  beforeUpdate: async ({ data, store }) => {
     store.dispatch(Session.Schematic.remove({ keys: array.toArray(data) }));
     return data;
   },
@@ -115,12 +112,6 @@ const useRename = Tree.createUseRename({
   query: Base.useRename,
   ontologyID: schematic.ontologyID,
   convertKey: String,
-  beforeUpdate: async ({ data, rollbacks, store, oldName }) => {
-    const { key, name } = data;
-    store.dispatch(Session.Layout.rename({ key, name }));
-    rollbacks.push(() => store.dispatch(Session.Layout.rename({ key, name: oldName })));
-    return { ...data, name };
-  },
 });
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
@@ -177,35 +168,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
-const loadSchematic = async (
-  client: Client,
-  { key }: ontology.ID,
-  placeLayout: Layout.Placer,
-) => {
-  const schematic = await client.schematics.retrieve({ key });
-  placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
-};
-
-const useOnSelect = (): ((resource: ontology.Resource) => void) => {
-  const client = Synnax.use();
-  const placeLayout = Layout.usePlacer();
-  const handleError = Status.useErrorHandler();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      loadSchematic(client, resource.id, placeLayout).catch((e: unknown) =>
-        handleError(e, `Failed to select ${resource.name}`),
-      );
-    },
-    [client, placeLayout, handleError],
-  );
-};
-
 const TreeItem = Tree.createItem({
   type: "schematic",
   icon: <Icon.Schematic />,
   hasChildren: false,
-  useOnSelect,
+  useOnSelect: Panel.useOpenResource,
   haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   ContextMenu: TreeContextMenu,
 });

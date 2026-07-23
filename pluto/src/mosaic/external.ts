@@ -19,7 +19,6 @@ export * from "@/mosaic/haul";
 export { Leaf, type LeafProps } from "@/mosaic/Leaf";
 export { Shield } from "@/mosaic/Shield";
 export { Split, type SplitProps } from "@/mosaic/Split";
-export * from "@/mosaic/tree";
 export { useDragTab, type UseDragTabReturn } from "@/mosaic/useDragTab";
 export {
   useSelectorDropProps,
