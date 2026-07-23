@@ -12,7 +12,6 @@ import "schemas/x/spatial"
 @ts output  "client/ts/src/schematic"
 @go output  "core/pkg/service/schematic"
 @go version 7
-@pb
 
 Key = uuid {
     @doc value "is a unique identifier for a schematic, represented as a UUID."

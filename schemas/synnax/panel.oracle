@@ -13,7 +13,6 @@ import "schemas/x/spatial"
 @ts output  "client/ts/src/panel"
 @go output  "core/pkg/service/panel"
 @go version 0
-@pb
 
 TabKey = uuid
 

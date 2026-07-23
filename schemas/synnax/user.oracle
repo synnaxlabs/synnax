@@ -49,7 +49,6 @@ User struct {
     @retrieve
     @go marshal
     @go migrate
-    @pb
 }
 
 New struct extends User {

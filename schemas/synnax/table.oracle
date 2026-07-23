@@ -9,7 +9,6 @@
 
 @ts output "client/ts/src/table"
 @go output "core/pkg/service/table"
-@pb
 
 Key = uuid {
     @go version 2

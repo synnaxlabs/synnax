@@ -13,7 +13,6 @@ import "schemas/synnax/ranger"
 @go output  "core/pkg/service/ranger/alias"
 @go version 0
 @ts output  "client/ts/src/range/alias"
-@pb
 
 Alias struct {
     range   ranger.Key  {

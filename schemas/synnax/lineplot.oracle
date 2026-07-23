@@ -15,7 +15,6 @@ import "schemas/x/text"
 @ts output  "client/ts/src/lineplot"
 @go output  "core/pkg/service/lineplot"
 @go version 6
-@pb
 
 Key = uuid {
     @doc value "is a unique identifier for a line plot, represented as a UUID."

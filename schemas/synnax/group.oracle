@@ -11,7 +11,6 @@
 @go output  "core/pkg/service/group"
 @go version 0
 @py output  "client/py/synnax/group"
-@pb
 
 Key = uuid {
     @doc value "is a unique identifier for a group, represented as a UUID."
