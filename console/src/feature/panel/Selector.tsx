@@ -45,7 +45,7 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
         if (panelKeys.length === 0) return false;
         const selected = panels.filter(({ key }) => panelKeys.includes(key));
         if (!(await confirm(selected))) return false;
-        dispatch(Session.Panel.purge(panelKeys));
+        dispatch(Session.Panel.remove(panelKeys));
         return data;
       },
       [panels, confirm, dispatch],

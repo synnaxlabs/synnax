@@ -14,12 +14,17 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { useCallback, useEffect } from "react";
 import { useDispatch, useSelector, useStore } from "react-redux";
 
-import { purge, reconcileSelection } from "@/session/panel/slice";
-// Type-only: a value import of the store would cycle through its domain barrels.
-import type { Action, State } from "@/session/store";
+import {
+  type Action,
+  reconcileSelection,
+  remove,
+  type StoreState,
+} from "@/session/panel/slice";
 import { Synchronizer } from "@/session/synchronizer";
 
-const selectKeys = (state: State): string[] => {
+interface RequiredStoreState extends StoreState, Drift.StoreState {}
+
+const selectKeys = (state: StoreState): string[] => {
   const keys = new Set<string>();
   Object.values(state.panels.windows).forEach((win) => {
     if (win.selected != null) keys.add(win.selected);
@@ -34,11 +39,13 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers = {
     retrieveExisting: async (client, keys) =>
       (await client.panels.retrieve({ keys })).map(({ key }) => key),
     selectKeys,
-    remove: purge,
+    remove,
   }),
 };
 
-const selectActiveWindowSelected = (state: State): panel.Key | undefined => {
+const selectActiveWindowSelected = (
+  state: RequiredStoreState,
+): panel.Key | undefined => {
   const windowKey = Drift.selectWindowKey(state);
   if (windowKey == null) return undefined;
   return state.panels.windows[windowKey]?.selected;
@@ -49,7 +56,7 @@ const selectActiveWindowSelected = (state: State): panel.Key | undefined => {
 // update in the same tick; cross-window echoes of the action are no-ops.
 const useReconcileTabSelections = (): void => {
   const dispatch = useDispatch<Dispatch<Action>>();
-  const store = useStore<State>();
+  const store = useStore<RequiredStoreState>();
   const client = Synnax.use();
   const reconcile = useCallback(
     (pan: panel.Panel) => {

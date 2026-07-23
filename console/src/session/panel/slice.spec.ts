@@ -291,7 +291,7 @@ describe("Panel Slice", () => {
           otherTabKeys: [OTHER_TAB],
         }),
         Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
-        Panel.remove({ key: PANEL }),
+        Panel.remove(PANEL),
       );
       expect(Panel.selectSelectedTabs(state, PANEL)).toEqual([]);
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
@@ -301,7 +301,7 @@ describe("Panel Slice", () => {
       const state = run(
         Panel.select({ key: PANEL }),
         Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
-        Panel.remove({ key: PANEL }),
+        Panel.remove(PANEL),
       );
       expect(Panel.selectSelected(state)).toBeUndefined();
     });
@@ -317,7 +317,7 @@ describe("Panel Slice", () => {
           tabKey: OTHER_TAB,
           otherTabKeys: [OTHER_TAB],
         }),
-        Panel.remove({ key: PANEL }),
+        Panel.remove(PANEL),
       );
       expect(Panel.selectSelected(state)).toBeUndefined();
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
@@ -333,13 +333,11 @@ describe("Panel Slice", () => {
           tabKey: OTHER_TAB,
           otherTabKeys: [OTHER_TAB],
         }),
-        Panel.remove({ key: OTHER_PANEL }),
+        Panel.remove(OTHER_PANEL),
       );
       expect(Panel.selectSelected(state)).toEqual(PANEL);
     });
-  });
 
-  describe("purge", () => {
     it("should drop the panel's state and selection in every window", () => {
       const state = run(
         Panel.select({ key: PANEL }),
@@ -350,7 +348,7 @@ describe("Panel Slice", () => {
           tabKey: TAB,
           otherTabKeys: [TAB],
         }),
-        Panel.purge(PANEL),
+        Panel.remove(PANEL),
       );
       expect(Panel.selectSelected(state)).toBeUndefined();
       Object.values(state[Panel.SLICE_NAME].windows).forEach((win) => {
@@ -372,7 +370,7 @@ describe("Panel Slice", () => {
           tabKey: TAB,
           otherTabKeys: [TAB],
         }),
-        Panel.purge([PANEL]),
+        Panel.remove([PANEL]),
       );
       expect(Panel.selectSelected(state)).toEqual(OTHER_PANEL);
       expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);

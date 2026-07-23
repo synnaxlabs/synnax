@@ -57,7 +57,7 @@ export interface TabAndPanelKeyPayload extends PanelKeyPayload {
   tabKey: string;
 }
 
-export type PurgePayload = panel.Key | panel.Key[];
+export type RemovePayload = panel.Key | panel.Key[];
 
 interface SelectTabPayload extends TabAndPanelKeyPayload {
   otherTabKeys: panel.TabKey[];
@@ -103,10 +103,6 @@ const { actions, reducer } = createSlice({
     clearSelected: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.selected = undefined;
     }),
-    remove: withWindowKey<PanelKeyPayload, SliceState>((win, { payload: { key } }) => {
-      delete win.panels[key];
-      if (win.selected === key) win.selected = undefined;
-    }),
     selectTab: withSelectedState<SelectTabPayload>(
       (pan, { payload: { tabKey, otherTabKeys } }) => {
         pan.selectedTabs = [
@@ -150,13 +146,11 @@ const { actions, reducer } = createSlice({
     stopOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.isOverlaid = false;
     }),
-    // purge drops all state for panels deleted from the cluster, across every
-    // window. remove is the per-window close; purge is the repair path.
-    purge: (state, { payload: keys }: PayloadAction<PurgePayload>) => {
-      const purged = array.toArray(keys);
+    remove: (state, { payload: keys }: PayloadAction<RemovePayload>) => {
+      const removed = array.toArray(keys);
       Object.values(state.windows).forEach((win) => {
-        purged.forEach((key) => delete win.panels[key]);
-        if (win.selected != null && purged.includes(win.selected))
+        removed.forEach((key) => delete win.panels[key]);
+        if (win.selected != null && removed.includes(win.selected))
           win.selected = undefined;
       });
     },
@@ -172,14 +166,12 @@ const {
   startOverlaying,
   stopOverlaying,
   reconcileSelection,
-  purge,
   reset,
 } = actions;
 
 export {
   clearSelected,
   internalSelectTab,
-  purge,
   reconcileSelection,
   reducer,
   remove,
@@ -196,7 +188,6 @@ export const MIDDLEWARE = [
   Window.createInjectKeyMiddleware([
     select,
     clearSelected,
-    remove,
     internalSelectTab,
     startOverlaying,
     stopOverlaying,
