@@ -128,7 +128,7 @@ func DerivePackageName(outputPath string) string { return filepath.Base(outputPa
 func DerivePackageAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
 	parent := filepath.Base(filepath.Dir(outputPath))
-	if parent == "types" || parent == "migrations" || parent == "legacy" {
+	if parent == "types" || parent == "versions" || parent == "migrations" || parent == "legacy" {
 		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
 		return keywords.Escape(grandparent)
 	}
@@ -144,7 +144,7 @@ func DerivePackageAlias(outputPath, currentPackage string) string {
 func DeriveVersionedAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
 	parent := filepath.Base(filepath.Dir(outputPath))
-	if parent == "types" || parent == "migrations" || parent == "legacy" {
+	if parent == "types" || parent == "versions" || parent == "migrations" || parent == "legacy" {
 		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
 		return grandparent + base
 	}

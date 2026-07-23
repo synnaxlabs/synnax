@@ -1158,13 +1158,13 @@ var _ = Describe("Version-Laid-Out Packages", func() {
 			}
 		`
 		resp := MustGenerate(ctx, source, "test", loader, marshalPlugin)
-		ExpectContent(resp, "out/types/v3/codec.gen.go").
+		ExpectContent(resp, "out/versions/v3/codec.gen.go").
 			ToBeValidGoSource().
 			ToContain(
 				"package v3",
 				"func (e Entry) EncodeOrc(w *orc.Writer",
 			)
-		ExpectContent(resp, "out/types/v3/codec_gen_test.go").
+		ExpectContent(resp, "out/versions/v3/codec_gen_test.go").
 			ToBeValidGoSource().
 			ToContain("package v3_test")
 	})
@@ -1447,7 +1447,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 			return table, nil
 		}
 		resp := MustSucceed(marshal.New(marshal.DefaultOptions()).Generate(req))
-		ExpectContent(resp, "out/types/v1/codec.gen.go").
+		ExpectContent(resp, "out/versions/v1/codec.gen.go").
 			ToContain("func (e Entry) EncodeOrc").
 			ToNotContain("func (i Inner) EncodeOrc")
 	})

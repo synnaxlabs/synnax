@@ -37,7 +37,7 @@ func wireRoundTrip(env imex.Envelope) imex.Envelope {
 	return out
 }
 
-// loadEnvelope reads a wire-format envelope fixture from types/testdata and
+// loadEnvelope reads a wire-format envelope fixture from versions/testdata and
 // unmarshals it into an imex.Envelope, binding the codec that Decode needs. The
 // fixtures cover both legacy camelCase Console exports (v0, v1) and the current
 // Core-typed snake_case shape (v2) that Import dispatches on by version.
@@ -90,9 +90,9 @@ var _ = Describe("ImEx", func() {
 
 	Describe("Import", func() {
 		const (
-			v0Fixture = "types/testdata/import_v0.json"
-			v1Fixture = "types/testdata/import_v1.json"
-			v2Fixture = "types/testdata/import_v2.json"
+			v0Fixture = "versions/testdata/import_v0.json"
+			v1Fixture = "versions/testdata/import_v1.json"
+			v2Fixture = "versions/testdata/import_v2.json"
 		)
 
 		importAndRetrieve := func(ctx SpecContext, path string) (ontology.ID, log.Log) {
@@ -197,7 +197,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should reject an envelope newer than the supported version", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("types/testdata/import_bad_version.json"),
+				loadEnvelope("versions/testdata/import_bad_version.json"),
 				imex.ImportOptions{},
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("log version 99")),
@@ -207,7 +207,7 @@ var _ = Describe("ImEx", func() {
 
 		It("Should return an error when a current-version body cannot be decoded", func(ctx SpecContext) {
 			Expect(imexSvc.Import(ctx, db,
-				loadEnvelope("types/testdata/import_bad_v2.json"),
+				loadEnvelope("versions/testdata/import_bad_v2.json"),
 				imex.ImportOptions{},
 			)).Error().To(MatchError(ContainSubstring("decode")))
 		})

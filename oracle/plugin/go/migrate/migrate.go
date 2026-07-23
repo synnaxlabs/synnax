@@ -9,7 +9,7 @@
 
 // Package migrate provides an Oracle plugin that generates migration files.
 // Every version of a resource — current included — lives in its own
-// types/vN/ sub-package, numbered by the per-resource @go version. A bump
+// versions/vN/ sub-package, numbered by the per-resource @go version. A bump
 // scaffolds the incoming version (auto-copy, developer transform template);
 // the outgoing package freezes by no longer being a generation target.
 package migrate

@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
-	policyv0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/types/v0"
+	policyv0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/group"

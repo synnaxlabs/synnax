@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	v0 "github.com/synnaxlabs/x/color/types/v0"
+	v0 "github.com/synnaxlabs/x/color/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"

@@ -25,14 +25,14 @@ import (
 )
 
 // aliasFileGenerator emits a re-export surface for a version-laid-out
-// package: a type alias for every type generated into the current types/vN
+// package: a type alias for every type generated into the current versions/vN
 // sub-package, plus const re-declarations for enum members and union
 // discriminator values. Methods travel with the aliased types, so the alias
 // package presents the full generated API. The types/ selector imports the
 // current version package and the root imports the selector, so a version
 // bump touches only the selector and the root never changes.
 type aliasFileGenerator struct {
-	// pathMap maps each version-laid-out root path to its current types/vN
+	// pathMap maps each version-laid-out root path to its current versions/vN
 	// sub-path.
 	pathMap map[string]string
 	// pkg overrides the emitted package name; empty derives it from the
@@ -96,7 +96,7 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 	}
 
 	emitPkg := pkg
-	importPath := ctx.OutputPath + "/types"
+	importPath := ctx.OutputPath + "/versions"
 	if g.pkg != "" {
 		emitPkg = g.pkg
 		importPath = versionedPath

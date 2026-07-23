@@ -16,7 +16,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/device/types"
+	"github.com/synnaxlabs/synnax/pkg/service/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -122,8 +122,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
 		DB: cfg.DB,
-		Migrations: types.NewMigrations(
-			types.MigrationsConfig{Status: cfg.Status},
+		Migrations: versions.NewMigrations(
+			versions.MigrationsConfig{Status: cfg.Status},
 		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

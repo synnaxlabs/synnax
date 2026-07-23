@@ -11,7 +11,7 @@ package telem
 
 import (
 	"github.com/google/uuid"
-	v0 "github.com/synnaxlabs/x/telem/types/v0"
+	v0 "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 const (

@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
-	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/types/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"

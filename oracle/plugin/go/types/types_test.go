@@ -1887,7 +1887,7 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("version-laid-out packages", func() {
-			It("Should emit a types/ selector alias file", func(ctx SpecContext) {
+			It("Should emit a versions/ selector alias file", func(ctx SpecContext) {
 				source := `
 					@go output "out"
 					Entry struct {
@@ -1898,11 +1898,11 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
-				ExpectContent(resp, "out/types/types.gen.go").
+				ExpectContent(resp, "out/versions/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"package types",
-						`import "github.com/synnaxlabs/synnax/out/types/v3"`,
+						"package versions",
+						`import "github.com/synnaxlabs/synnax/out/versions/v3"`,
 						"type Entry = v3.Entry",
 					)
 			})
@@ -1920,7 +1920,7 @@ var _ = Describe("Go Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
 				Expect(resp.Files).To(HaveLen(3))
-				ExpectContent(resp, "out/types/v3/types.gen.go").
+				ExpectContent(resp, "out/versions/v3/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
 						"package v3",
@@ -1930,8 +1930,8 @@ var _ = Describe("Go Types Plugin", func() {
 					ToBeValidGoSource().
 					ToContain(
 						"package out",
-						`import "github.com/synnaxlabs/synnax/out/types"`,
-						"type Entry = types.Entry",
+						`import "github.com/synnaxlabs/synnax/out/versions"`,
+						"type Entry = versions.Entry",
 					)
 			})
 
@@ -1953,7 +1953,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "entry", loader, goPlugin)
-				ExpectContent(resp, "out/types/v1/types.gen.go").
+				ExpectContent(resp, "out/versions/v1/types.gen.go").
 					ToBeValidGoSource().
 					ToContain("// ColorRed is the color of fire.")
 				ExpectContent(resp, "out/types.gen.go").
@@ -1982,9 +1982,9 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Color = types.Color",
-						"ColorRed Color = types.ColorRed",
-						"ColorBlue Color = types.ColorBlue",
+						"type Color = versions.Color",
+						"ColorRed Color = versions.ColorRed",
+						"ColorBlue Color = versions.ColorBlue",
 					)
 			})
 
@@ -2012,9 +2012,9 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "rack", loader, goPlugin)
-				ExpectContent(resp, "core/rack/types/v2/types.gen.go").
+				ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 					ToBeValidGoSource().
-					ToContain(`status "github.com/synnaxlabs/synnax/core/status/types/v1"`).
+					ToContain(`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`).
 					ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
 			})
 
@@ -2048,7 +2048,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "rack", loader, goPlugin)
-				ExpectContent(resp, "core/rack/types/v2/types.gen.go").
+				ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
 						// The omitted field and the alias it references are
@@ -2057,7 +2057,7 @@ var _ = Describe("Go Types Plugin", func() {
 						"type Alias = status.Status",
 						"Status *Alias",
 					).
-					ToNotContain("core/status/types/v1")
+					ToNotContain("core/status/versions/v1")
 			})
 
 			It("Should re-declare type params on generic aliases", func(ctx SpecContext) {
@@ -2080,8 +2080,8 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Status[D any] = types.Status[D]",
-						"type Entry = types.Entry",
+						"type Status[D any] = versions.Status[D]",
+						"type Entry = versions.Entry",
 					)
 			})
 
@@ -2110,11 +2110,11 @@ var _ = Describe("Go Types Plugin", func() {
 				ExpectContent(resp, "out/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
-						"type Scale = types.Scale",
-						"type ScaleVariant = types.ScaleVariant",
-						"type ScaleType = types.ScaleType",
-						"type ScaleLinear = types.ScaleLinear",
-						"ScaleTypeLinear ScaleType = types.ScaleTypeLinear",
+						"type Scale = versions.Scale",
+						"type ScaleVariant = versions.ScaleVariant",
+						"type ScaleType = versions.ScaleType",
+						"type ScaleLinear = versions.ScaleLinear",
+						"ScaleTypeLinear ScaleType = versions.ScaleTypeLinear",
 					)
 			})
 
@@ -2142,11 +2142,11 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "a", loader, goPlugin)
-				ExpectContent(resp, "a/types/v2/types.gen.go").
+				ExpectContent(resp, "a/versions/v2/types.gen.go").
 					ToBeValidGoSource().
-					ToContain(`"github.com/synnaxlabs/synnax/b/types/v5"`).
+					ToContain(`"github.com/synnaxlabs/synnax/b/versions/v5"`).
 					ToNotContain(`"github.com/synnaxlabs/synnax/b"`)
-				ExpectContent(resp, "b/types/v5/types.gen.go").
+				ExpectContent(resp, "b/versions/v5/types.gen.go").
 					ToContain("package v5", "type Item struct {")
 			})
 
@@ -2171,7 +2171,7 @@ var _ = Describe("Go Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "a", loader, goPlugin)
-				ExpectContent(resp, "a/types/v2/types.gen.go").
+				ExpectContent(resp, "a/versions/v2/types.gen.go").
 					ToBeValidGoSource().
 					ToContain(
 						`"github.com/synnaxlabs/synnax/c"`,
@@ -2652,11 +2652,11 @@ var _ = Describe("Predecessor Aliasing", func() {
 			    leaf Leaf
 			}
 		`)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToBeValidGoSource().
 			ToContain(
 				"package v1",
-				`"github.com/synnaxlabs/synnax/out/types/v0"`,
+				`"github.com/synnaxlabs/synnax/out/versions/v0"`,
 				"type Stable = v0.Stable",
 				"type Leaf struct",
 				"Extra string",
@@ -2686,7 +2686,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 			    leaf Leaf
 			}
 		`)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Holder struct").
 			ToNotContain("type Holder = v0.Holder")
 	})
@@ -2713,7 +2713,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 			    leaf Leaf
 			}
 		`)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain(
 				"type Mode = v0.Mode",
 				"ModeActive Mode = v0.ModeActive",
@@ -2748,7 +2748,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 			    label string
 			}
 		`)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Fresh struct").
 			ToNotContain("type Fresh = v0.Fresh")
 	})
@@ -2764,7 +2764,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 			    name string
 			}
 		`)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Stable struct").
 			ToNotContain("v0.Stable")
 	})
@@ -2778,7 +2778,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 			}
 		`, "test", loader)
 		resp := MustSucceed(goPlugin.Generate(req))
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Stable struct").
 			ToNotContain("v0.Stable")
 	})
@@ -2805,7 +2805,7 @@ var _ = Describe("Predecessor Aliasing", func() {
 			    value int32  extra string
 			}
 		`)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToBeValidGoSource().
 			ToContain("type Box[Details any] = v0.Box[Details]")
 	})
@@ -2833,8 +2833,8 @@ var _ = Describe("Predecessor Aliasing", func() {
 			}
 		`)
 		ExpectContent(resp, "out/types.gen.go").
-			ToContain("type Stable = types.Stable", "type Leaf = types.Leaf")
-		ExpectContent(resp, "out/types/types.gen.go").
+			ToContain("type Stable = versions.Stable", "type Leaf = versions.Leaf")
+		ExpectContent(resp, "out/versions/types.gen.go").
 			ToContain("type Stable = v1.Stable", "type Leaf = v1.Leaf")
 	})
 })
@@ -2907,9 +2907,9 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 	`
 
 	It("Should alias types whose declarations match the frozen predecessor", func(ctx SpecContext) {
-		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
+		freeze(ctx, oldSource, "out/versions/v0/types.gen.go")
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToBeValidGoSource().
 			ToContain(
 				"type Stable = v0.Stable",
@@ -2921,16 +2921,16 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 	})
 
 	It("Should re-define types referencing a re-defined local type", func(ctx SpecContext) {
-		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
+		freeze(ctx, oldSource, "out/versions/v0/types.gen.go")
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Holder struct").
 			ToNotContain("type Holder = v0.Holder")
 	})
 
 	It("Should re-define types whose frozen bytes drifted from current output", func(ctx SpecContext) {
-		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
-		abs := filepath.Join(tmpDir, "out/types/v0/types.gen.go")
+		freeze(ctx, oldSource, "out/versions/v0/types.gen.go")
+		abs := filepath.Join(tmpDir, "out/versions/v0/types.gen.go")
 		drifted := strings.Replace(
 			string(MustSucceed(os.ReadFile(abs))),
 			"Name string `json:\"name\" msgpack:\"name\"`",
@@ -2939,7 +2939,7 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 		)
 		Expect(os.WriteFile(abs, []byte(drifted), 0644)).To(Succeed())
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Stable struct", "type Mode = v0.Mode").
 			ToNotContain("type Stable = v0.Stable")
 	})
@@ -2948,19 +2948,19 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 		// Methods live with the definer and travel through the alias; frozen
 		// extras never block aliasing (a genuine duplicate is a compile
 		// error).
-		freeze(ctx, oldSource, "out/types/v0/types.gen.go")
-		abs := filepath.Join(tmpDir, "out/types/v0/types.gen.go")
+		freeze(ctx, oldSource, "out/versions/v0/types.gen.go")
+		abs := filepath.Join(tmpDir, "out/versions/v0/types.gen.go")
 		appended := string(MustSucceed(os.ReadFile(abs))) +
 			"\nfunc (s Stable) GorpKey() string { return s.Name }\n"
 		Expect(os.WriteFile(abs, []byte(appended), 0644)).To(Succeed())
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Stable = v0.Stable").
 			ToNotContain("type Stable struct")
 	})
 
 	It("Should alias against a fully hand-written predecessor package", func(ctx SpecContext) {
-		v0Dir := filepath.Join(tmpDir, "out/types/v0")
+		v0Dir := filepath.Join(tmpDir, "out/versions/v0")
 		Expect(os.MkdirAll(v0Dir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(v0Dir, "out.go"), []byte(
 			"package v0\n\ntype Key uint64\n\n"+
@@ -2977,7 +2977,7 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 				name string
 			}
 		`, "test", loader, goPlugin)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Key = v0.Key", "type Entry struct").
 			ToNotContain("type Key uint64")
 	})
@@ -2994,7 +2994,7 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 			    @go version 0
 			    value int32
 			}
-		`, "out/types/v0/types.gen.go")
+		`, "out/versions/v0/types.gen.go")
 		resp := MustGenerate(ctx, `
 			@go output "out"
 			Stable struct {
@@ -3007,22 +3007,22 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 			    value int32  extra string
 			}
 		`, "test", loader, goPlugin)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Stable = v0.Stable")
 	})
 
 	It("Should alias through a frozen predecessor-chain alias", func(ctx SpecContext) {
 		// v0 defines Key by hand; frozen v1 aliases it; the candidate v2 must
 		// alias v1 rather than re-defining Key.
-		v0Dir := filepath.Join(tmpDir, "out/types/v0")
+		v0Dir := filepath.Join(tmpDir, "out/versions/v0")
 		Expect(os.MkdirAll(v0Dir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(v0Dir, "out.go"), []byte(
 			"package v0\n\ntype Key uint64\n",
 		), 0644)).To(Succeed())
-		v1Dir := filepath.Join(tmpDir, "out/types/v1")
+		v1Dir := filepath.Join(tmpDir, "out/versions/v1")
 		Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(v1Dir, "types.gen.go"), []byte(
-			"package v1\n\nimport v0 \"github.com/synnaxlabs/synnax/out/types/v0\"\n\n"+
+			"package v1\n\nimport v0 \"github.com/synnaxlabs/synnax/out/versions/v0\"\n\n"+
 				"type Key = v0.Key\n\ntype Entry struct {\n"+
 				"\tKey Key `json:\"key\" msgpack:\"key\"`\n"+
 				"\tName string `json:\"name\" msgpack:\"name\"`\n}\n",
@@ -3039,14 +3039,14 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 				note string
 			}
 		`, "test", loader, goPlugin)
-		ExpectContent(resp, "out/types/v2/types.gen.go").
+		ExpectContent(resp, "out/versions/v2/types.gen.go").
 			ToContain("type Key = v1.Key", "type Entry struct").
 			ToNotContain("type Key uint64")
 	})
 
 	It("Should define everything when no frozen predecessor exists", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, newSource, "test", loader, goPlugin)
-		ExpectContent(resp, "out/types/v1/types.gen.go").
+		ExpectContent(resp, "out/versions/v1/types.gen.go").
 			ToContain("type Stable struct").
 			ToNotContain("v0.Stable")
 	})
@@ -3081,7 +3081,7 @@ var _ = Describe("Unversioned Consumers", func() {
 			ToContain(`service/channel"`, "servicechannel.Channel").
 			ToNotContain("types/v0")
 		// The versioned package itself still emits into its current directory.
-		ExpectContent(resp, "core/pkg/service/channel/types/v0/types.gen.go").
+		ExpectContent(resp, "core/pkg/service/channel/versions/v0/types.gen.go").
 			ToContain("type Channel struct")
 	})
 })

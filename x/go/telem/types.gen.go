@@ -11,58 +11,58 @@
 
 package telem
 
-import "github.com/synnaxlabs/x/telem/types"
+import "github.com/synnaxlabs/x/telem/versions"
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
 // (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency telemetry
 // timestamps.
-type TimeStamp = types.TimeStamp
+type TimeStamp = versions.TimeStamp
 
 // TimeSpan is a 64-bit signed integer representing a duration in nanoseconds. Used for
 // expressing time intervals, sampling periods, and durations throughout the telemetry
 // system.
-type TimeSpan = types.TimeSpan
+type TimeSpan = versions.TimeSpan
 
 // TimeRange is a time interval defined by a start and end timestamp. The range is
 // start-inclusive and end-exclusive, following standard interval conventions for
 // predictable boundary handling.
-type TimeRange = types.TimeRange
+type TimeRange = versions.TimeRange
 
 // Rate is a data sampling rate expressed in Hertz (Hz). Used to specify acquisition
 // frequencies and calculate sample counts over time intervals.
-type Rate = types.Rate
+type Rate = versions.Rate
 
 // Size is a byte measurement used for storage capacity and data volume representation.
 // Supports conversion to human-readable formats (B, kB, MB, GB, TB).
-type Size = types.Size
+type Size = versions.Size
 
 // Alignment is a 64-bit index for positioning samples within multi-array structures.
 // Packs a domain index (which array) and sample index (position within array) into a
 // single value for efficient multi-dimensional data access.
-type Alignment = types.Alignment
+type Alignment = versions.Alignment
 
 // DataType is a string identifier specifying the format of telemetry samples. Supports
 // fixed-density types (Float64, Int32, TimeStamp, etc.) with known byte sizes and
 // variable-density types (String, JSON, Bytes) for flexible data storage.
-type DataType = types.DataType
+type DataType = versions.DataType
 
 // TimestampFormat is the rendered form of a timestamp displayed alongside a sample.
-type TimestampFormat = types.TimestampFormat
+type TimestampFormat = versions.TimestampFormat
 
 const (
-	TimestampFormatISO         TimestampFormat = types.TimestampFormatISO
-	TimestampFormatISODate     TimestampFormat = types.TimestampFormatISODate
-	TimestampFormatTime        TimestampFormat = types.TimestampFormatTime
-	TimestampFormatPreciseTime TimestampFormat = types.TimestampFormatPreciseTime
-	TimestampFormatDate        TimestampFormat = types.TimestampFormatDate
-	TimestampFormatPreciseDate TimestampFormat = types.TimestampFormatPreciseDate
-	TimestampFormatDateTime    TimestampFormat = types.TimestampFormatDateTime
+	TimestampFormatISO         TimestampFormat = versions.TimestampFormatISO
+	TimestampFormatISODate     TimestampFormat = versions.TimestampFormatISODate
+	TimestampFormatTime        TimestampFormat = versions.TimestampFormatTime
+	TimestampFormatPreciseTime TimestampFormat = versions.TimestampFormatPreciseTime
+	TimestampFormatDate        TimestampFormat = versions.TimestampFormatDate
+	TimestampFormatPreciseDate TimestampFormat = versions.TimestampFormatPreciseDate
+	TimestampFormatDateTime    TimestampFormat = versions.TimestampFormatDateTime
 )
 
 // TimeZone is the time zone used when rendering timestamps.
-type TimeZone = types.TimeZone
+type TimeZone = versions.TimeZone
 
 const (
-	TimeZoneLocal TimeZone = types.TimeZoneLocal
-	TimeZoneUTC   TimeZone = types.TimeZoneUTC
+	TimeZoneLocal TimeZone = versions.TimeZoneLocal
+	TimeZoneUTC   TimeZone = versions.TimeZoneUTC
 )

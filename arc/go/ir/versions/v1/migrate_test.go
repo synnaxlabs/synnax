@@ -1,0 +1,45 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v1_test
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
+	v1 "github.com/synnaxlabs/arc/ir/versions/v1"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("MigrateEdge", func() {
+	It("Should carry an Edge's endpoints and kind", func(ctx SpecContext) {
+		migrated := MustSucceed(v1.MigrateEdge(ctx, v0.Edge{
+			Source: v0.Handle{Node: "a", Param: "out"},
+			Target: v0.Handle{Node: "b", Param: "in"},
+			Kind:   v0.EdgeKindContinuous,
+		}))
+		Expect(migrated.Source).To(Equal(v1.Handle{Node: "a", Param: "out"}))
+		Expect(migrated.Target).To(Equal(v1.Handle{Node: "b", Param: "in"}))
+		Expect(migrated.Kind).To(Equal(v1.EdgeKindContinuous))
+	})
+})
+
+var _ = Describe("MigrateIR", func() {
+	It("Should carry an IR's functions, nodes, and edges", func(ctx SpecContext) {
+		migrated := MustSucceed(v1.MigrateIR(ctx, v0.IR{
+			Functions: v0.Functions{{Key: "f"}},
+			Nodes:     v0.Nodes{{Key: "n"}},
+			Edges:     v0.Edges{{Kind: v0.EdgeKindContinuous}},
+		}))
+		Expect(migrated.Functions).To(HaveLen(1))
+		Expect(migrated.Functions[0].Key).To(Equal("f"))
+		Expect(migrated.Nodes).To(HaveLen(1))
+		Expect(migrated.Edges).To(HaveLen(1))
+	})
+})

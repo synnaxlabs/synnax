@@ -11,24 +11,24 @@
 
 package graph
 
-import "github.com/synnaxlabs/arc/graph/types"
+import "github.com/synnaxlabs/arc/graph/versions"
 
 // Node is a visual node in the Arc graph editor representing a function instantiation
 // with position data. The function type and input parameter values are stored in the
 // graph's inputs map, keyed by the node key.
-type Node = types.Node
+type Node = versions.Node
 
 // Nodes is a collection of visual nodes in an Arc graph.
-type Nodes = types.Nodes
+type Nodes = versions.Nodes
 
 // Edge is a dataflow connection between node parameters carrying a stable identifier.
 // The key persists across endpoint edits, distinguishing the editable graph edge from
 // the keyless ir.Edge consumed by the compiler.
-type Edge = types.Edge
+type Edge = versions.Edge
 
 // Edges is a collection of graph edges in an Arc graph.
-type Edges = types.Edges
+type Edges = versions.Edges
 
 // Graph is a visual dataflow graph representation combining IR elements with canvas
 // layout for the Arc graph editor.
-type Graph = types.Graph
+type Graph = versions.Graph

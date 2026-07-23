@@ -13,9 +13,9 @@ package ir
 
 import (
 	"github.com/antlr4-go/antlr/v4"
-	ir "github.com/synnaxlabs/arc/ir/types/v2"
+	ir "github.com/synnaxlabs/arc/ir/versions/v2"
 	"github.com/synnaxlabs/arc/symbol"
-	types "github.com/synnaxlabs/arc/types/types/v1"
+	types "github.com/synnaxlabs/arc/types/versions/v1"
 )
 
 // Edges is a collection of dataflow edges in an Arc graph.

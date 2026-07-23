@@ -11,13 +11,13 @@
 
 package control
 
-import "github.com/synnaxlabs/x/control/types"
+import "github.com/synnaxlabs/x/control/versions"
 
 // Concurrency defines whether a resource can have multiple subjects acting on it at
 // once.
-type Concurrency = types.Concurrency
+type Concurrency = versions.Concurrency
 
 const (
-	ConcurrencyExclusive Concurrency = types.ConcurrencyExclusive
-	ConcurrencyShared    Concurrency = types.ConcurrencyShared
+	ConcurrencyExclusive Concurrency = versions.ConcurrencyExclusive
+	ConcurrencyShared    Concurrency = versions.ConcurrencyShared
 )

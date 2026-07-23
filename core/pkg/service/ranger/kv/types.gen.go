@@ -11,8 +11,8 @@
 
 package kv
 
-import "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/types"
+import "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/versions"
 
 // Pair is a key-value metadata pair associated with a specific range, enabling
 // arbitrary metadata storage on time ranges.
-type Pair = types.Pair
+type Pair = versions.Pair

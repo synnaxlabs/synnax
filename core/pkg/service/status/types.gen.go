@@ -11,22 +11,22 @@
 
 package status
 
-import "github.com/synnaxlabs/synnax/pkg/service/status/types"
+import "github.com/synnaxlabs/synnax/pkg/service/status/versions"
 
 // Variant is the severity or type of a status message.
-type Variant = types.Variant
+type Variant = versions.Variant
 
 const (
-	VariantSuccess  Variant = types.VariantSuccess
-	VariantInfo     Variant = types.VariantInfo
-	VariantWarning  Variant = types.VariantWarning
-	VariantError    Variant = types.VariantError
-	VariantLoading  Variant = types.VariantLoading
-	VariantDisabled Variant = types.VariantDisabled
+	VariantSuccess  Variant = versions.VariantSuccess
+	VariantInfo     Variant = versions.VariantInfo
+	VariantWarning  Variant = versions.VariantWarning
+	VariantError    Variant = versions.VariantError
+	VariantLoading  Variant = versions.VariantLoading
+	VariantDisabled Variant = versions.VariantDisabled
 )
 
 // Status is a standardized message used to communicate state across the Synnax
 // platform. Statuses support different severity variants and can carry
 // component-specific details. A status is uniquely identified by a key and may carry a
 // human-readable name and labels for categorization and filtering.
-type Status[Details any] = types.Status[Details]
+type Status[Details any] = versions.Status[Details]

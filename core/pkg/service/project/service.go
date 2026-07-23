@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/project/types"
+	"github.com/synnaxlabs/synnax/pkg/service/project/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -77,8 +77,8 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Project]{
 		DB: cfg.DB,
-		Migrations: types.NewMigrations(
-			types.MigrationsConfig{Ontology: cfg.Ontology},
+		Migrations: versions.NewMigrations(
+			versions.MigrationsConfig{Ontology: cfg.Ontology},
 		),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

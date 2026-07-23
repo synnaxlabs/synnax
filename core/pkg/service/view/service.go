@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/view/types"
+	"github.com/synnaxlabs/synnax/pkg/service/view/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -92,7 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
-		Migrations:      types.Migrations,
+		Migrations:      versions.Migrations,
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

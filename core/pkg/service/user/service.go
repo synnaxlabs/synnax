@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/user/types"
+	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -130,7 +130,7 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
 		DB:              cfg.DB,
-		Migrations:      types.Migrations,
+		Migrations:      versions.Migrations,
 		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

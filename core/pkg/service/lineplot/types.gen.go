@@ -11,89 +11,89 @@
 
 package lineplot
 
-import "github.com/synnaxlabs/synnax/pkg/service/lineplot/types"
+import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = types.Key
+type Key = versions.Key
 
 // TickType selects how an axis renders its tick labels.
-type TickType = types.TickType
+type TickType = versions.TickType
 
 const (
-	TickTypeLinear TickType = types.TickTypeLinear
-	TickTypeTime   TickType = types.TickTypeTime
+	TickTypeLinear TickType = versions.TickTypeLinear
+	TickTypeTime   TickType = versions.TickTypeTime
 )
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
-type DownsampleMode = types.DownsampleMode
+type DownsampleMode = versions.DownsampleMode
 
 const (
-	DownsampleModeAverage  DownsampleMode = types.DownsampleModeAverage
-	DownsampleModeDecimate DownsampleMode = types.DownsampleModeDecimate
+	DownsampleModeAverage  DownsampleMode = versions.DownsampleModeAverage
+	DownsampleModeDecimate DownsampleMode = versions.DownsampleModeDecimate
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
-type XAxisKey = types.XAxisKey
+type XAxisKey = versions.XAxisKey
 
 const (
-	XAxisKeyX1 XAxisKey = types.XAxisKeyX1
-	XAxisKeyX2 XAxisKey = types.XAxisKeyX2
+	XAxisKeyX1 XAxisKey = versions.XAxisKeyX1
+	XAxisKeyX2 XAxisKey = versions.XAxisKeyX2
 )
 
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
-type YAxisKey = types.YAxisKey
+type YAxisKey = versions.YAxisKey
 
 const (
-	YAxisKeyY1 YAxisKey = types.YAxisKeyY1
-	YAxisKeyY2 YAxisKey = types.YAxisKeyY2
-	YAxisKeyY3 YAxisKey = types.YAxisKeyY3
-	YAxisKeyY4 YAxisKey = types.YAxisKeyY4
+	YAxisKeyY1 YAxisKey = versions.YAxisKeyY1
+	YAxisKeyY2 YAxisKey = versions.YAxisKeyY2
+	YAxisKeyY3 YAxisKey = versions.YAxisKeyY3
+	YAxisKeyY4 YAxisKey = versions.YAxisKeyY4
 )
 
 // AxisKey names one of the six fixed plot axes.
-type AxisKey = types.AxisKey
+type AxisKey = versions.AxisKey
 
 const (
-	AxisKeyX1 AxisKey = types.AxisKeyX1
-	AxisKeyX2 AxisKey = types.AxisKeyX2
-	AxisKeyY1 AxisKey = types.AxisKeyY1
-	AxisKeyY2 AxisKey = types.AxisKeyY2
-	AxisKeyY3 AxisKey = types.AxisKeyY3
-	AxisKeyY4 AxisKey = types.AxisKeyY4
+	AxisKeyX1 AxisKey = versions.AxisKeyX1
+	AxisKeyX2 AxisKey = versions.AxisKeyX2
+	AxisKeyY1 AxisKey = versions.AxisKeyY1
+	AxisKeyY2 AxisKey = versions.AxisKeyY2
+	AxisKeyY3 AxisKey = versions.AxisKeyY3
+	AxisKeyY4 AxisKey = versions.AxisKeyY4
 )
 
 // Title is the plot title configuration.
-type Title = types.Title
+type Title = versions.Title
 
 // Legend is the plot legend configuration.
-type Legend = types.Legend
+type Legend = versions.Legend
 
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
 // carry zero or more channels each.
-type Channels = types.Channels
+type Channels = versions.Channels
 
 // Ranges binds range keys to each x-axis.
-type Ranges = types.Ranges
+type Ranges = versions.Ranges
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
 // to the server; when true, Axis.bounds holds the user-set value.
-type ManualBounds = types.ManualBounds
+type ManualBounds = versions.ManualBounds
 
 // Axis is the configuration for a single plot axis.
-type Axis = types.Axis
+type Axis = versions.Axis
 
 // Axes bundles configuration for all six fixed plot axes.
-type Axes = types.Axes
+type Axes = versions.Axes
 
 // Line is the per-line styling and downsampling configuration.
-type Line = types.Line
+type Line = versions.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule = types.Rule
+type Rule = versions.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
-type LinePlot = types.LinePlot
+type LinePlot = versions.LinePlot

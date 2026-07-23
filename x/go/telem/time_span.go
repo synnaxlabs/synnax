@@ -9,7 +9,7 @@
 
 package telem
 
-import v0 "github.com/synnaxlabs/x/telem/types/v0"
+import v0 "github.com/synnaxlabs/x/telem/versions/v0"
 
 const (
 	// TimeSpanZero represents the zero value for a TimeSpan.

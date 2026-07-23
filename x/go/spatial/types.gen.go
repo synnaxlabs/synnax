@@ -11,60 +11,60 @@
 
 package spatial
 
-import "github.com/synnaxlabs/x/spatial/types"
+import "github.com/synnaxlabs/x/spatial/versions"
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
-type XY = types.XY
+type XY = versions.XY
 
 // Direction is a 2D axis direction.
-type Direction = types.Direction
+type Direction = versions.Direction
 
 const (
-	DirectionX Direction = types.DirectionX
-	DirectionY Direction = types.DirectionY
+	DirectionX Direction = versions.DirectionX
+	DirectionY Direction = versions.DirectionY
 )
 
 // XLocation is a horizontal-axis location at the left or right edge.
-type XLocation = types.XLocation
+type XLocation = versions.XLocation
 
 const (
-	XLocationLeft  XLocation = types.XLocationLeft
-	XLocationRight XLocation = types.XLocationRight
+	XLocationLeft  XLocation = versions.XLocationLeft
+	XLocationRight XLocation = versions.XLocationRight
 )
 
 // YLocation is a vertical-axis location at the top or bottom edge.
-type YLocation = types.YLocation
+type YLocation = versions.YLocation
 
 const (
-	YLocationTop    YLocation = types.YLocationTop
-	YLocationBottom YLocation = types.YLocationBottom
+	YLocationTop    YLocation = versions.YLocationTop
+	YLocationBottom YLocation = versions.YLocationBottom
 )
 
 // StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
 // decimal fraction of the container.
-type StickyUnit = types.StickyUnit
+type StickyUnit = versions.StickyUnit
 
 const (
-	StickyUnitPx      StickyUnit = types.StickyUnitPx
-	StickyUnitDecimal StickyUnit = types.StickyUnitDecimal
+	StickyUnitPx      StickyUnit = versions.StickyUnitPx
+	StickyUnitDecimal StickyUnit = versions.StickyUnitDecimal
 )
 
 // CornerLocation is an anchor corner for positioning.
-type CornerLocation = types.CornerLocation
+type CornerLocation = versions.CornerLocation
 
 // StickyUnits specifies the measurement units for sticky positioning.
-type StickyUnits = types.StickyUnits
+type StickyUnits = versions.StickyUnits
 
 // StickyXY is a position that can be anchored to different corners of a container with
 // configurable units (pixels or decimal fractions).
-type StickyXY = types.StickyXY
+type StickyXY = versions.StickyXY
 
 // Decimal is a normalized value in [0, 1] expressed as a decimal fraction of a whole,
 // such as a container's extent.
-type Decimal = types.Decimal
+type Decimal = versions.Decimal
 
 // Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
 // The TypeScript binding is generic over T so callers can express bounds over either
 // number or bigint values; other languages emit a concrete float64-based type.
-type Bounds = types.Bounds
+type Bounds = versions.Bounds

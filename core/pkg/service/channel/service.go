@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -152,7 +152,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Channel]{
 		DB:              cfg.DB,
-		Migrations:      types.Migrations,
+		Migrations:      versions.Migrations,
 		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

@@ -10,7 +10,7 @@
 package text
 
 import (
-	"github.com/synnaxlabs/arc/text/types"
+	"github.com/synnaxlabs/arc/text/versions"
 	"github.com/synnaxlabs/x/crdt"
 )
 
@@ -18,7 +18,7 @@ import (
 // document. The server never authors characters of its own (clients do), so the replica
 // only needs to be stable and distinct from the zero root sentinel; clients must choose
 // a different replica.
-const SeedReplica = types.SeedReplica
+const SeedReplica = versions.SeedReplica
 
 // Create builds a Document from raw source text, attributing every character to the
 // seed replica. It initializes the replicated document for an arc created or imported

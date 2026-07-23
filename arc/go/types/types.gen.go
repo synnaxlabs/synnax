@@ -11,67 +11,67 @@
 
 package types
 
-import "github.com/synnaxlabs/arc/types/types"
+import "github.com/synnaxlabs/arc/types/versions"
 
 // Kind is the type category for Arc's type system, including primitives, compound
 // types, and meta-types.
-type Kind = types.Kind
+type Kind = versions.Kind
 
 const (
-	KindInvalid                   Kind = types.KindInvalid
-	KindU8                        Kind = types.KindU8
-	KindU16                       Kind = types.KindU16
-	KindU32                       Kind = types.KindU32
-	KindU64                       Kind = types.KindU64
-	KindI8                        Kind = types.KindI8
-	KindI16                       Kind = types.KindI16
-	KindI32                       Kind = types.KindI32
-	KindI64                       Kind = types.KindI64
-	KindF32                       Kind = types.KindF32
-	KindF64                       Kind = types.KindF64
-	KindString                    Kind = types.KindString
-	KindChan                      Kind = types.KindChan
-	KindSeries                    Kind = types.KindSeries
-	KindVariable                  Kind = types.KindVariable
-	KindNumericConstant           Kind = types.KindNumericConstant
-	KindIntegerConstant           Kind = types.KindIntegerConstant
-	KindFloatConstant             Kind = types.KindFloatConstant
-	KindExactIntegerFloatConstant Kind = types.KindExactIntegerFloatConstant
-	KindFunction                  Kind = types.KindFunction
-	KindSequence                  Kind = types.KindSequence
-	KindStage                     Kind = types.KindStage
-	KindVarRef                    Kind = types.KindVarRef
+	KindInvalid                   Kind = versions.KindInvalid
+	KindU8                        Kind = versions.KindU8
+	KindU16                       Kind = versions.KindU16
+	KindU32                       Kind = versions.KindU32
+	KindU64                       Kind = versions.KindU64
+	KindI8                        Kind = versions.KindI8
+	KindI16                       Kind = versions.KindI16
+	KindI32                       Kind = versions.KindI32
+	KindI64                       Kind = versions.KindI64
+	KindF32                       Kind = versions.KindF32
+	KindF64                       Kind = versions.KindF64
+	KindString                    Kind = versions.KindString
+	KindChan                      Kind = versions.KindChan
+	KindSeries                    Kind = versions.KindSeries
+	KindVariable                  Kind = versions.KindVariable
+	KindNumericConstant           Kind = versions.KindNumericConstant
+	KindIntegerConstant           Kind = versions.KindIntegerConstant
+	KindFloatConstant             Kind = versions.KindFloatConstant
+	KindExactIntegerFloatConstant Kind = versions.KindExactIntegerFloatConstant
+	KindFunction                  Kind = versions.KindFunction
+	KindSequence                  Kind = versions.KindSequence
+	KindStage                     Kind = versions.KindStage
+	KindVarRef                    Kind = versions.KindVarRef
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.
-type ChanDirection = types.ChanDirection
+type ChanDirection = versions.ChanDirection
 
 const (
-	ChanDirectionNone  ChanDirection = types.ChanDirectionNone
-	ChanDirectionRead  ChanDirection = types.ChanDirectionRead
-	ChanDirectionWrite ChanDirection = types.ChanDirectionWrite
+	ChanDirectionNone  ChanDirection = versions.ChanDirectionNone
+	ChanDirectionRead  ChanDirection = versions.ChanDirectionRead
+	ChanDirectionWrite ChanDirection = versions.ChanDirectionWrite
 )
 
 // FunctionProperties contains common parameter definitions for function-like types.
-type FunctionProperties = types.FunctionProperties
+type FunctionProperties = versions.FunctionProperties
 
 // Type is a type in Arc's type system with optional element type for compounds,
 // physical units, and constraints.
-type Type = types.Type
+type Type = versions.Type
 
 // Param is a named, typed parameter with optional default value.
-type Param = types.Param
+type Param = versions.Param
 
 // Params is a collection of named, typed parameters for function inputs or outputs.
-type Params = types.Params
+type Params = versions.Params
 
 // Channels contains channel declarations for reading from and writing to Synnax
 // channels.
-type Channels = types.Channels
+type Channels = versions.Channels
 
 // Dimensions contains physical dimension exponents for dimensional analysis (SI base
 // quantities).
-type Dimensions = types.Dimensions
+type Dimensions = versions.Dimensions
 
 // Unit is a physical unit with dimensions and scale factor for unit-aware computation.
-type Unit = types.Unit
+type Unit = versions.Unit

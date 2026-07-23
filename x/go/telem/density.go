@@ -9,7 +9,7 @@
 
 package telem
 
-import v0 "github.com/synnaxlabs/x/telem/types/v0"
+import v0 "github.com/synnaxlabs/x/telem/versions/v0"
 
 // Density represents a density in bytes per value.
 type Density = v0.Density

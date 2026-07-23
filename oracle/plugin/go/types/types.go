@@ -81,7 +81,7 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 // Generate produces Go type definitions for structs, enums, and typedefs with @go flag.
 // Version-laid-out packages (@go version + a keyed struct) emit their types into the
-// current types/vN sub-package, with a root alias file re-exporting the surface. Types
+// current versions/vN sub-package, with a root alias file re-exporting the surface. Types
 // whose shape is unchanged from the predecessor version alias it instead of being
 // re-defined. Version-laid-out packages pin persisted references to their
 // dependencies' current version directories (they must stay importable from frozen
@@ -190,8 +190,8 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp.Files = append(resp.Files, aliasResp.Files...)
 	selectorGen := &framework.Generator{
 		Domain:          "go",
-		FilePattern:     "types/" + p.Options.FileNamePattern,
-		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, pkg: "types"},
+		FilePattern:     "versions/" + p.Options.FileNamePattern,
+		FileGenerator:   &aliasFileGenerator{pathMap: pathMap, pkg: "versions"},
 		PathFilter:      pathFilter,
 		MergeByName:     false,
 		CollectTypeDefs: true,
@@ -209,13 +209,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 // predecessor identifies the version package that a current version package's
 // unchanged types alias.
 type predecessor struct {
-	// path is the repo-relative predecessor package directory (…/types/vN-1).
+	// path is the repo-relative predecessor package directory (…/versions/vN-1).
 	path string
 	// aliased holds qualified names of types emitted as aliases.
 	aliased set.Set[string]
 }
 
-// predecessors maps each version-laid-out current output path (…/types/vN) to
+// predecessors maps each version-laid-out current output path (…/versions/vN) to
 // its predecessor alias split. Empty when no snapshots resolve a baseline.
 func predecessors(req *plugin.Request) (map[string]predecessor, error) {
 	split, err := versioning.AliasSplit(
@@ -362,7 +362,7 @@ type goFileGenerator struct {
 	// where transient declarations resolve against it (self path rewritten)
 	// so their dependency references track the latest version.
 	original *resolution.Table
-	// pathMap maps each version-laid-out root path to its current types/vN
+	// pathMap maps each version-laid-out root path to its current versions/vN
 	// sub-path.
 	pathMap map[string]string
 	// closure is the persisted closure of the whole table; declarations

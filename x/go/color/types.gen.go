@@ -11,7 +11,7 @@
 
 package color
 
-import "github.com/synnaxlabs/x/color/types"
+import "github.com/synnaxlabs/x/color/versions"
 
 // Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
-type Color = types.Color
+type Color = versions.Color

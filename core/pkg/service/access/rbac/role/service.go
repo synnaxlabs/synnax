@@ -14,7 +14,7 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/types"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/search"
@@ -78,7 +78,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Role]{
 		DB:              cfg.DB,
-		Migrations:      types.Migrations,
+		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

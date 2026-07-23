@@ -12,7 +12,7 @@
 package task
 
 import (
-	task "github.com/synnaxlabs/synnax/pkg/service/task/types/v1"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 

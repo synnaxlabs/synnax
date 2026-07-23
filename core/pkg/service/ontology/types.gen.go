@@ -11,36 +11,36 @@
 
 package ontology
 
-import "github.com/synnaxlabs/synnax/pkg/service/ontology/types"
+import "github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 
 // ResourceType is the type of the resource.
-type ResourceType = types.ResourceType
+type ResourceType = versions.ResourceType
 
 const (
-	ResourceTypeArc             ResourceType = types.ResourceTypeArc
-	ResourceTypeBuiltin         ResourceType = types.ResourceTypeBuiltin
-	ResourceTypeChannel         ResourceType = types.ResourceTypeChannel
-	ResourceTypeDevice          ResourceType = types.ResourceTypeDevice
-	ResourceTypeFramer          ResourceType = types.ResourceTypeFramer
-	ResourceTypeGroup           ResourceType = types.ResourceTypeGroup
-	ResourceTypeLabel           ResourceType = types.ResourceTypeLabel
-	ResourceTypeLineplot        ResourceType = types.ResourceTypeLineplot
-	ResourceTypeLog             ResourceType = types.ResourceTypeLog
-	ResourceTypeNode            ResourceType = types.ResourceTypeNode
-	ResourceTypePanel           ResourceType = types.ResourceTypePanel
-	ResourceTypePolicy          ResourceType = types.ResourceTypePolicy
-	ResourceTypeProject         ResourceType = types.ResourceTypeProject
-	ResourceTypeRack            ResourceType = types.ResourceTypeRack
-	ResourceTypeRange           ResourceType = types.ResourceTypeRange
-	ResourceTypeRangeAlias      ResourceType = types.ResourceTypeRangeAlias
-	ResourceTypeRole            ResourceType = types.ResourceTypeRole
-	ResourceTypeSchematic       ResourceType = types.ResourceTypeSchematic
-	ResourceTypeSchematicSymbol ResourceType = types.ResourceTypeSchematicSymbol
-	ResourceTypeStatus          ResourceType = types.ResourceTypeStatus
-	ResourceTypeTable           ResourceType = types.ResourceTypeTable
-	ResourceTypeTask            ResourceType = types.ResourceTypeTask
-	ResourceTypeUser            ResourceType = types.ResourceTypeUser
-	ResourceTypeView            ResourceType = types.ResourceTypeView
+	ResourceTypeArc             ResourceType = versions.ResourceTypeArc
+	ResourceTypeBuiltin         ResourceType = versions.ResourceTypeBuiltin
+	ResourceTypeChannel         ResourceType = versions.ResourceTypeChannel
+	ResourceTypeDevice          ResourceType = versions.ResourceTypeDevice
+	ResourceTypeFramer          ResourceType = versions.ResourceTypeFramer
+	ResourceTypeGroup           ResourceType = versions.ResourceTypeGroup
+	ResourceTypeLabel           ResourceType = versions.ResourceTypeLabel
+	ResourceTypeLineplot        ResourceType = versions.ResourceTypeLineplot
+	ResourceTypeLog             ResourceType = versions.ResourceTypeLog
+	ResourceTypeNode            ResourceType = versions.ResourceTypeNode
+	ResourceTypePanel           ResourceType = versions.ResourceTypePanel
+	ResourceTypePolicy          ResourceType = versions.ResourceTypePolicy
+	ResourceTypeProject         ResourceType = versions.ResourceTypeProject
+	ResourceTypeRack            ResourceType = versions.ResourceTypeRack
+	ResourceTypeRange           ResourceType = versions.ResourceTypeRange
+	ResourceTypeRangeAlias      ResourceType = versions.ResourceTypeRangeAlias
+	ResourceTypeRole            ResourceType = versions.ResourceTypeRole
+	ResourceTypeSchematic       ResourceType = versions.ResourceTypeSchematic
+	ResourceTypeSchematicSymbol ResourceType = versions.ResourceTypeSchematicSymbol
+	ResourceTypeStatus          ResourceType = versions.ResourceTypeStatus
+	ResourceTypeTable           ResourceType = versions.ResourceTypeTable
+	ResourceTypeTask            ResourceType = versions.ResourceTypeTask
+	ResourceTypeUser            ResourceType = versions.ResourceTypeUser
+	ResourceTypeView            ResourceType = versions.ResourceTypeView
 )
 
 // ID ID is a unique identifier for a Resource. An example:
@@ -51,4 +51,4 @@ const (
 // service to query for additional info on the Resource. Second, while a Key may be
 // unique for a particular resource (e.g. channel), it might not be unique across all
 // resources. We need something universally unique across the entire Synnax Core.
-type ID = types.ID
+type ID = versions.ID

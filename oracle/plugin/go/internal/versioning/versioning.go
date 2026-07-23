@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 // Package versioning resolves per-resource schema versions (@go version N) and
-// rewrites @go output paths so that versioned packages emit into types/vN/
+// rewrites @go output paths so that versioned packages emit into versions/vN/
 // sub-packages. Version-laid-out packages (those containing a gorp entry) emit
-// their current version into types/vN and re-export it from the package root;
+// their current version into versions/vN and re-export it from the package root;
 // value-type packages (no gorp entry) keep their current code at the root and
-// gain types/vN packages only for frozen historical shapes.
+// gain versions/vN packages only for frozen historical shapes.
 package versioning
 
 import (
@@ -54,9 +54,9 @@ func PreVersioning(table *resolution.Table) bool {
 // Dir returns the version sub-directory name for version n ("v3").
 func Dir(n int) string { return fmt.Sprintf("v%d", n) }
 
-// VersionedPath returns the types/vN sub-path of goPath for version n.
+// VersionedPath returns the versions/vN sub-path of goPath for version n.
 func VersionedPath(goPath string, n int) string {
-	return goPath + "/types/" + Dir(n)
+	return goPath + "/versions/" + Dir(n)
 }
 
 // PathVersions maps every @go output path in the table to its declared
@@ -99,7 +99,7 @@ func PathVersions(table *resolution.Table) (map[string]int, error) {
 }
 
 // EntryPaths returns the version-laid-out output paths: every path declaring
-// a @go version. These packages emit their current version into types/vN, so
+// a @go version. These packages emit their current version into versions/vN, so
 // dependents — current and frozen alike — pin an explicit version directory
 // for every persisted reference; only memory-only (marshal omit) references
 // track the root re-export. Declare @go version struct-level
@@ -109,7 +109,7 @@ func EntryPaths(table *resolution.Table) (map[string]int, error) {
 	return PathVersions(table)
 }
 
-// CurrentPathMap maps each version-laid-out path to its current types/vN
+// CurrentPathMap maps each version-laid-out path to its current versions/vN
 // sub-path.
 func CurrentPathMap(table *resolution.Table) (map[string]string, error) {
 	entries, err := EntryPaths(table)
@@ -124,7 +124,7 @@ func CurrentPathMap(table *resolution.Table) (map[string]string, error) {
 }
 
 // RewriteCurrent returns a table with every version-laid-out package's
-// @go output rewritten to its current types/vN sub-path, plus the applied
+// @go output rewritten to its current versions/vN sub-path, plus the applied
 // path map keyed by original path.
 func RewriteCurrent(table *resolution.Table) (*resolution.Table, map[string]string, error) {
 	pathMap, err := CurrentPathMap(table)

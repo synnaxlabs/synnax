@@ -594,7 +594,7 @@ func (c *collector) addImport(goPath string) importEntry {
 		return imp
 	}
 	// A sibling version of the same resource imports under its bare directory
-	// name, matching the hand-written migration convention (v0 "…/types/v0").
+	// name, matching the hand-written migration convention (v0 "…/versions/v0").
 	// Other resources import under their resource name, falling back to the
 	// versioned form only when two versions of one resource meet in a file.
 	alias := naming.DerivePackageAlias(goPath, c.pkg)

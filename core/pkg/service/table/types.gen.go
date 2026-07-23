@@ -11,21 +11,21 @@
 
 package table
 
-import "github.com/synnaxlabs/synnax/pkg/service/table/types"
+import "github.com/synnaxlabs/synnax/pkg/service/table/versions"
 
 // Key is a unique identifier for a table, represented as a UUID.
-type Key = types.Key
+type Key = versions.Key
 
 // Cell is a single cell in a table, identified by key and variant.
-type Cell = types.Cell
+type Cell = versions.Cell
 
 // Row is a single row in a table, with height and ordered cell keys.
-type Row = types.Row
+type Row = versions.Row
 
 // Column is a single column in a table, with width.
-type Column = types.Column
+type Column = versions.Column
 
 // Table is a tabular data display component for viewing structured telemetry data.
 // Tables support multiple columns, channel data sources, and customizable formatting
 // options.
-type Table = types.Table
+type Table = versions.Table

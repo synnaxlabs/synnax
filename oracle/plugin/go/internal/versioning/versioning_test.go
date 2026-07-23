@@ -88,7 +88,7 @@ var _ = Describe("Versioning", func() {
 	Describe("VersionedPath", func() {
 		It("Should append the types/vN sub-path", func() {
 			Expect(versioning.VersionedPath("core/out", 3)).To(
-				Equal("core/out/types/v3"))
+				Equal("core/out/versions/v3"))
 		})
 	})
 
@@ -234,9 +234,9 @@ var _ = Describe("Versioning", func() {
 			`
 			table := MustSucceed(analyze(ctx, source, "test", loader))
 			rewritten, pathMap := MustSucceed2(versioning.RewriteCurrent(table))
-			Expect(pathMap).To(Equal(map[string]string{"out": "out/types/v3"}))
+			Expect(pathMap).To(Equal(map[string]string{"out": "out/versions/v3"}))
 			entry := rewritten.MustGet("test.Entry")
-			Expect(output.GetPath(entry, "go")).To(Equal("out/types/v3"))
+			Expect(output.GetPath(entry, "go")).To(Equal("out/versions/v3"))
 			item := rewritten.MustGet("dep.Item")
 			Expect(output.GetPath(item, "go")).To(Equal("dep"))
 			Expect(output.GetPath(table.MustGet("test.Entry"), "go")).To(Equal("out"))

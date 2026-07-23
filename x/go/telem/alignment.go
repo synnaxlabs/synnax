@@ -9,7 +9,7 @@
 
 package telem
 
-import v0 "github.com/synnaxlabs/x/telem/types/v0"
+import v0 "github.com/synnaxlabs/x/telem/versions/v0"
 
 // MaxAlignment is the maximum possible value for an alignment.
 const MaxAlignment Alignment = v0.MaxAlignment

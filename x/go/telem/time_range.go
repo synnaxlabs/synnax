@@ -10,7 +10,7 @@
 package telem
 
 import (
-	v0 "github.com/synnaxlabs/x/telem/types/v0"
+	v0 "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/zyn"
 )
 

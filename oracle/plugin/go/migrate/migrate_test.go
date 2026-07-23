@@ -382,7 +382,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					}
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
-				auto := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				auto := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(auto).To(ContainSubstring("autoMigrateEntry"))
 				Expect(auto).NotTo(ContainSubstring("dep/types/"))
 			})
@@ -421,18 +421,18 @@ var _ = Describe("Go Migrate Plugin", func() {
 
 			It("Should not re-emit the outgoing version", func() {
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
 			})
 
 			It("Should synthesize a full-copy passthrough auto-migrate", func() {
-				autoCopy := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				autoCopy := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(autoCopy).To(ContainSubstring("func autoMigrateEntry"))
 				Expect(autoCopy).To(ContainSubstring("Name: old.Name"))
 			})
 
 			It("Should scaffold the developer transform template", func() {
-				tmpl := fileContent(resp, "out/types/v2/migrate.go")
+				tmpl := fileContent(resp, "out/versions/v2/migrate.go")
 				Expect(tmpl).To(ContainSubstring("package v2"))
 				Expect(tmpl).To(ContainSubstring("func migrateEntry"))
 				Expect(tmpl).To(ContainSubstring("autoMigrateEntry(ctx, old)"))
@@ -663,12 +663,12 @@ var _ = Describe("Go Migrate Plugin", func() {
 
 			It("Should not re-emit the outgoing version", func() {
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
 			})
 
 			It("Should generate auto-copy with error propagation", func() {
-				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				content := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("func autoMigrateEntry"))
 				Expect(content).NotTo(ContainSubstring("var _ = context.Background"))
 				Expect(content).NotTo(ContainSubstring(", _ :="))
@@ -680,7 +680,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 
 			It("Should generate developer transform template", func() {
-				content := fileContent(resp, "out/types/v2/migrate.go")
+				content := fileContent(resp, "out/versions/v2/migrate.go")
 				Expect(content).To(ContainSubstring("package v2"))
 				Expect(content).To(ContainSubstring("func migrateEntry"))
 				Expect(content).To(ContainSubstring("autoMigrateEntry"))
@@ -717,7 +717,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
 				autoCopy := fileContent(resp, "migrate_auto.gen.go")
 				Expect(autoCopy).To(ContainSubstring("autoMigrateEntry"))
@@ -757,7 +757,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
 					To(ContainSubstring("autoMigrateEntry"))
@@ -794,7 +794,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
 					To(ContainSubstring("autoMigrateEntry"))
@@ -829,7 +829,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
 					To(ContainSubstring("autoMigrateEntry"))
@@ -902,7 +902,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					}
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
-				transform := fileContent(resp, "out/types/v2/migrate.go")
+				transform := fileContent(resp, "out/versions/v2/migrate.go")
 				Expect(transform).To(ContainSubstring("func migrateEntry[Details any]"))
 				Expect(transform).To(ContainSubstring("old v1.Entry[Details]"))
 				Expect(transform).To(ContainSubstring(") (Entry[Details], error)"))
@@ -1292,11 +1292,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
-				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				content := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("Inner: old.Inner"))
-				Expect(content).NotTo(ContainSubstring("dep/types/v1"))
+				Expect(content).NotTo(ContainSubstring("dep/versions/v1"))
 			})
 		})
 
@@ -1343,18 +1343,18 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
-				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				content := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("Inner: old.Inner"))
-				Expect(content).NotTo(ContainSubstring("dep/types/v1"))
+				Expect(content).NotTo(ContainSubstring("dep/versions/v1"))
 			})
 		})
 
 		Context("helpers stay with the definer", func() {
 			It("Should leave helpers.go in the outgoing version package", func() {
 				tmpDir := GinkgoT().TempDir()
-				v1Dir := tmpDir + "/out/types/v1"
+				v1Dir := tmpDir + "/out/versions/v1"
 				Expect(os.MkdirAll(v1Dir, 0755)).To(Succeed())
 				helpers := "package v1\n\nfunc Helper() string { return \"h\" }\n"
 				Expect(os.WriteFile(v1Dir+"/helpers.go", []byte(helpers), 0644)).
@@ -1389,7 +1389,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				resp := MustSucceed(generate(
 					ctx, oldSchema, newSchema, "test", customLoader, p,
 				))
-				Expect(filePaths(resp)).NotTo(ContainElement("out/types/v2/helpers.go"))
+				Expect(filePaths(resp)).NotTo(ContainElement("out/versions/v2/helpers.go"))
 				Expect(resp.Deletions).To(BeEmpty())
 			})
 		})
@@ -1531,7 +1531,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
 					To(ContainSubstring("autoMigrateEntry"))
@@ -1723,9 +1723,9 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				Expect(fileContent(resp, "migrate.gen.go")).To(BeEmpty())
-				Expect(fileContent(resp, "out/types/v2/migrate_auto.gen.go")).
+				Expect(fileContent(resp, "out/versions/v2/migrate_auto.gen.go")).
 					NotTo(BeEmpty())
-				tmpl := fileContent(resp, "out/types/v2/migrate.go")
+				tmpl := fileContent(resp, "out/versions/v2/migrate.go")
 				Expect(tmpl).To(ContainSubstring("func migrateEntryA"))
 				Expect(tmpl).To(ContainSubstring("func migrateEntryB"))
 				Expect(strings.Count(tmpl, "package v2")).To(Equal(1))
@@ -1774,7 +1774,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					}
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
-				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				content := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("autoMigrateEntry"))
 				Expect(content).To(ContainSubstring("Label: old.Label"))
 				Expect(content).NotTo(ContainSubstring("autoMigrateLabel"))
@@ -1879,11 +1879,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 					}
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
-				tmpl := fileContent(resp, "out/types/v2/migrate.go")
+				tmpl := fileContent(resp, "out/versions/v2/migrate.go")
 				Expect(tmpl).To(ContainSubstring("func migrateEntry"))
 				Expect(tmpl).To(ContainSubstring("func migrateInner"))
 				Expect(tmpl).NotTo(ContainSubstring("func MigrateEntry"))
-				auto := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				auto := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(auto).To(ContainSubstring("migrateInner(ctx,"))
 			})
 		})
@@ -1917,12 +1917,12 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
-				auto := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				auto := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(auto).To(ContainSubstring("package v2"))
 				Expect(auto).To(ContainSubstring("autoMigrateEntry"))
-				tmpl := fileContent(resp, "out/types/v2/migrate.go")
+				tmpl := fileContent(resp, "out/versions/v2/migrate.go")
 				Expect(tmpl).To(ContainSubstring("func MigrateEntry"))
 			})
 		})
@@ -1946,9 +1946,9 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				for _, path := range filePaths(resp) {
-					Expect(path).To(HavePrefix("out/types/v2/"))
+					Expect(path).To(HavePrefix("out/versions/v2/"))
 				}
-				Expect(fileContent(resp, "out/types/v2/migrate_auto.gen.go")).
+				Expect(fileContent(resp, "out/versions/v2/migrate_auto.gen.go")).
 					To(ContainSubstring("autoMigrateEntry"))
 			})
 		})
@@ -2014,7 +2014,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 					RepoRoot:       loader.RepoRoot(),
 				}
 				resp := MustSucceed(p.Generate(req))
-				content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				content := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 				Expect(content).To(ContainSubstring("autoMigrateEntry"))
 				Expect(content).NotTo(ContainSubstring(`"github.com/synnaxlabs/synnax/ir"`))
 			})
@@ -2119,18 +2119,18 @@ var _ = Describe("Go Migrate Plugin", func() {
 		})
 
 		It("Should scaffold the dependency's own incoming version", func() {
-			tmpl := fileContent(resp, "dep/types/v2/migrate.go")
+			tmpl := fileContent(resp, "dep/versions/v2/migrate.go")
 			Expect(tmpl).To(ContainSubstring("package v2"))
 			Expect(tmpl).To(ContainSubstring("func MigrateItem"))
 			Expect(tmpl).To(ContainSubstring("autoMigrateItem"))
-			Expect(fileContent(resp, "dep/types/v2/migrate_auto.gen.go")).
+			Expect(fileContent(resp, "dep/versions/v2/migrate_auto.gen.go")).
 				NotTo(BeEmpty())
 		})
 
 		It("Should call the dependency's MigrateX at its incoming version", func() {
-			content := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+			content := fileContent(resp, "out/versions/v2/migrate_auto.gen.go")
 			Expect(content).To(ContainSubstring(".MigrateItem"))
-			Expect(content).To(ContainSubstring("dep/types/v2"))
+			Expect(content).To(ContainSubstring("dep/versions/v2"))
 			Expect(content).NotTo(ContainSubstring(".autoMigrateItem"))
 		})
 	})
@@ -2211,7 +2211,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				}
 			`
 			resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
-			content := fileContent(resp, "out/types/v2/migrate.go")
+			content := fileContent(resp, "out/versions/v2/migrate.go")
 			Expect(content).To(ContainSubstring("context.Context"))
 			Expect(content).NotTo(ContainSubstring("MigrationContext"))
 			Expect(content).To(ContainSubstring(`"context"`))

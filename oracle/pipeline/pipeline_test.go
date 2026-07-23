@@ -128,7 +128,7 @@ Grown struct {
 
 		var current string
 		for _, f := range result.Outputs["go/types"] {
-			if f.Path == "x/go/thing/types/v1/types.gen.go" {
+			if f.Path == "x/go/thing/versions/v1/types.gen.go" {
 				current = string(f.Content)
 			}
 		}

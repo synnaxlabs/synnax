@@ -11,7 +11,7 @@
 
 package spatial
 
-import spatial "github.com/synnaxlabs/x/spatial/types/v0"
+import spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
