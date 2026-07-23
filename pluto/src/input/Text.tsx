@@ -10,7 +10,7 @@
 import "@/input/Input.css";
 
 import { type status } from "@synnaxlabs/client";
-import { type ReactElement, type ReactNode, useRef, useState } from "react";
+import { type ReactElement, type ReactNode, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
@@ -148,6 +148,8 @@ export const Text = ({
 
   const combinedRef = useCombinedRefs(ref, internalRef);
 
+  const inputStyle = useMemo(() => ({ fontWeight: weight }), [weight]);
+
   const showPlaceholder =
     (value == null || value.length === 0) &&
     tempValue == null &&
@@ -240,7 +242,7 @@ export const Text = ({
         onBlur={handleBlur}
         disabled={disabled}
         placeholder={typeof placeholder === "string" ? placeholder : undefined}
-        style={{ fontWeight: weight }}
+        style={inputStyle}
         {...rest}
       />
       {endContent != null && (

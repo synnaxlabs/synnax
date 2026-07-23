@@ -43,8 +43,6 @@ const listItem = Component.renderProp(
   },
 );
 
-const DIALOG_STYLE = { minHeight: 200, minWidth: 400 };
-
 // getItem is a snapshot read, so the trigger would keep a stale name after a rename.
 // useItem subscribes to the list instead.
 const ActiveName = ({ itemKey }: { itemKey: project.Key }): string | null => {
@@ -92,7 +90,11 @@ export const Selector = (): ReactElement | null => {
           <Icon.Project key="project" />
           <ActiveName itemKey={activeKey} />
         </Dialog.Trigger>
-        <Dialog.Dialog style={DIALOG_STYLE} bordered={client == null} borderColor={6}>
+        <Dialog.Dialog
+          className={CSS.B("project-selector-dialog")}
+          bordered={client == null}
+          borderColor={6}
+        >
           <Flex.Box pack rounded>
             <Input.Text
               size="large"
@@ -110,7 +112,7 @@ export const Selector = (): ReactElement | null => {
                 retrieve((p) => ({ ...p, search: v }));
               }}
               full="x"
-              style={{ borderBottomLeftRadius: 0 }}
+              className={CSS.B("project-selector-search")}
               borderColor={6}
             />
             {hasCreatePermission && (

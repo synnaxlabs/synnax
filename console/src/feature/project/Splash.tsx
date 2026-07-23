@@ -121,7 +121,11 @@ export const Splash = (): ReactElement => {
         >
           {hasRetrievePermission && data.length > 0 && (
             <Flex.Box y className={CSS.BE("project-splash", "list")} bordered empty>
-              <Flex.Box align="center" justify="center" style={{ height: "6rem" }}>
+              <Flex.Box
+                align="center"
+                justify="center"
+                className={CSS.B("project-splash-list-header")}
+              >
                 <Text.Text level="h4" color={11} weight={450}>
                   Open a Project
                 </Text.Text>

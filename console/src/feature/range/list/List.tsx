@@ -28,6 +28,7 @@ import { type ReactElement, type ReactNode, useCallback, useState } from "react"
 import { ContextMenu } from "@/feature/range/list/ContextMenu";
 import { Item, type ItemProps } from "@/feature/range/list/Item";
 import { Filters, SelectFilters } from "@/feature/range/list/SelectFilters";
+import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Range } from "@/platform/range";
 
@@ -108,7 +109,7 @@ export const List = ({
           <Flex.Box
             x
             bordered
-            style={{ padding: "1.5rem" }}
+            className={CSS.B("range-list-search")}
             background={1}
             justify="between"
           >
@@ -132,7 +133,7 @@ export const List = ({
           <Flex.Box
             x
             bordered
-            style={{ padding: "1rem 2rem", borderTop: "none" }}
+            className={CSS.B("range-list-filters")}
             background={1}
             justify="between"
           >

@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/tree/item.css";
+
 import { ontology } from "@synnaxlabs/client";
 import { type Haul, Icon, List, Text, Tree as Base } from "@synnaxlabs/pluto";
 import { type FC, type ReactElement, useCallback } from "react";
 
+import { CSS } from "@/platform/css";
 import { type ContextMenu } from "@/platform/tree/types";
 
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
@@ -57,7 +60,7 @@ const DefaultRow = ({
       value={resource.name}
       onChange
       allowDoubleClick={false}
-      style={{ userSelect: "none", width: 0, flexGrow: 1 }}
+      className={CSS.BE("tree-item", "name")}
       overflow="ellipsis"
     />
   </Base.Item>

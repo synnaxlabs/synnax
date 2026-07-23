@@ -10,7 +10,7 @@
 import "@/schematic/node/general/button/button.css";
 import "@/schematic/node/general/select/select.css";
 
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type ReactElement, useMemo } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -27,8 +27,6 @@ interface RenderProps extends Omit<Config, "sink" | "variant"> {
   onChange: (key: string | null) => void;
   onSend?: (value: number) => void;
 }
-
-const RIGHT_HANDLE_STYLE: CSSProperties = { zIndex: 5 };
 
 export const Select = ({
   className,
@@ -47,11 +45,16 @@ export const Select = ({
     [options],
   );
   const matched = options.find((o) => o.key === value);
+  const style = useMemo(
+    () => ({ [CSS.var("symbol-color")]: symbolColorVar(color) }),
+    [color],
+  );
+  const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
   return (
     <Primitive.Div
       orientation={orientation}
       className={CSS(CSS.B("select-symbol"), CSS.B("symbol-colored"), className)}
-      style={{ [CSS.var("symbol-color")]: symbolColorVar(color) }}
+      style={style}
     >
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -67,7 +70,6 @@ export const Select = ({
           left={100}
           top={50}
           id="2"
-          style={RIGHT_HANDLE_STYLE}
         />
         <Handle.Handle
           location="top"
@@ -92,7 +94,7 @@ export const Select = ({
           disabled={disabled}
           resourceName="option"
           triggerProps={{ size }}
-          style={{ minWidth: inlineSize }}
+          style={triggerStyle}
         />
         {onSend != null && (
           <BaseButton.Button

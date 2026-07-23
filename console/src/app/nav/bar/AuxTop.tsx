@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/app/nav/bar/AuxTop.css";
+
 import { Logo } from "@synnaxlabs/media";
 import { Button, Icon, Nav, OS, Project as PProject, Text } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
@@ -71,7 +73,7 @@ export const AuxTop = (): ReactElement => {
           weight={500}
           color={10}
           data-tauri-drag-region
-          style={{ cursor: "default" }}
+          className={CSS.BE("aux-top", "title")}
         >
           {activeProject?.name}
         </Text.Text>

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/arc/list/List.css";
+
 import { type arc } from "@synnaxlabs/client";
 import {
   Flex,
@@ -21,6 +23,7 @@ import { useCallback, useState } from "react";
 
 import { Item, type ItemProps } from "@/feature/arc/list/Item";
 import { Arc } from "@/platform/arc";
+import { CSS } from "@/platform/css";
 
 export interface ListProps
   extends
@@ -65,12 +68,7 @@ export const List = ({
         onFetchMore={fetchMore}
       >
         {enableSearch && (
-          <Flex.Box
-            x
-            bordered
-            style={{ padding: "2rem", height: "fit-content" }}
-            background={1}
-          >
+          <Flex.Box x bordered className={CSS.BE("arc-list", "search")} background={1}>
             <Input.Text
               size="large"
               level="h4"

@@ -21,5 +21,8 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+        .console-input-file-path__icon {
+            color: var(--pluto-gray-l8);
+        }
     }
 }

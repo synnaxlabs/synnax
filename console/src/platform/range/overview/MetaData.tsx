@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/range/overview/MetaData.css";
+
 import { type ranger } from "@synnaxlabs/client";
 import {
   Button,
@@ -34,10 +36,7 @@ const ValueInput = ({ value, ...rest }: ValueInputProps): ReactElement => {
   return (
     <Input.Text
       value={value}
-      style={{
-        width: "unset",
-        flexGrow: 2,
-      }}
+      className={CSS.BE("range-metadata", "value-input")}
       selectOnFocus
       variant="shadow"
       resetOnBlurIfEmpty
@@ -124,7 +123,7 @@ const MetaDataListItem = ({
       <Form.Form<typeof Ranger.kvPairFormSchema> {...form}>
         {isCreate ? (
           <Form.TextField
-            style={{ flexBasis: "30%", width: 250 }}
+            className={CSS.BE("range-metadata", "key-cell")}
             path="key"
             inputProps={{
               ref: inputRef,
@@ -140,7 +139,7 @@ const MetaDataListItem = ({
             hideIfNull
           />
         ) : (
-          <Text.Text style={{ flexBasis: "30%", width: 250 }}>
+          <Text.Text className={CSS.BE("range-metadata", "key-cell")}>
             {initialValues?.key}
           </Text.Text>
         )}

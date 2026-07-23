@@ -320,14 +320,16 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           </Button.Button>
           <Text.Text
             level="small"
-            style={{ flexGrow: 1, paddingLeft: "1rem" }}
-            className={CSS.BE("calendar-header", "month")}
+            className={CSS(
+              CSS.BE("calendar-header", "month"),
+              CSS.B("datetime-calendar-header-label"),
+            )}
           >
             {MONTH_NAMES[month]}
           </Text.Text>
           <Button.Button
             onClick={() => handleMonthChange(month + 1)}
-            style={{ borderTopRightRadius: 0 }}
+            className={CSS.BM("datetime-calendar-header-btn", "next")}
             variant="outlined"
           >
             <Icon.Caret.Right />
@@ -337,14 +339,14 @@ const Calendar = ({ value, onChange }: CalendarProps): ReactElement => {
           <Button.Button onClick={() => handleYearChange(year - 1)} variant="outlined">
             <Icon.Caret.Left />
           </Button.Button>
-          <Text.Text level="small" style={{ flexGrow: 1, paddingLeft: "1rem" }}>
+          <Text.Text level="small" className={CSS.B("datetime-calendar-header-label")}>
             {year}
           </Text.Text>
           <Button.Button onClick={() => handleYearChange(year + 1)} variant="outlined">
             <Icon.Caret.Right />
           </Button.Button>
         </Flex.Box>
-        <Flex.Box x wrap gap="tiny" style={{ padding: "0.5rem", height: "100%" }}>
+        <Flex.Box x wrap gap="tiny" className={CSS.B("datetime-calendar-days")}>
           {Array.from({ length: daysInMonth(month, year) }).map((_, i) => (
             <Button.Button
               key={i}

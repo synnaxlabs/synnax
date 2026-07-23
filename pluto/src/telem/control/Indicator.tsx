@@ -10,7 +10,7 @@
 import "@/telem/control/Indicator.css";
 
 import { color, TimeStamp } from "@synnaxlabs/x";
-import { type PropsWithChildren, type ReactElement, useEffect } from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -59,17 +59,13 @@ export const Indicator = ({
     parsedColor = color.colorZ.parse(status.details.color);
   else if (colorVal != null && !color.isZero(colorVal)) parsedColor = colorVal;
   else parsedColor = "var(--pluto-gray-l10)";
+  const cssColor = color.cssString(parsedColor);
+  const style = useMemo(() => ({ [CSS.var("indicator-color")]: cssColor }), [cssColor]);
 
   return (
     <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
       <Text.Text>{status.message}</Text.Text>
-      <div
-        className={CSS.B("indicator")}
-        style={{
-          backgroundColor: color.cssString(parsedColor),
-          flexGrow: 1,
-        }}
-      />
+      <div className={CSS.B("indicator")} style={style} />
     </Tooltip.Dialog>
   );
 };

@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import "@/arc/graph/node/select/Select.css";
 
 import { Minimal } from "@/arc/graph/node/Base";
+import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-
-const ORANGE_HEX = color.construct("#FF8A00");
 
 export const Symbol = () => (
   <Minimal
@@ -24,21 +23,8 @@ export const Symbol = () => (
       { key: "false", Icon: Icon.False },
     ]}
   >
-    <Flex.Box
-      style={{
-        width: "5rem",
-        overflow: "hidden",
-      }}
-    >
-      <Icon.Select
-        style={{
-          width: "7rem",
-          height: "7rem",
-          color: color.cssString(ORANGE_HEX),
-          strokeWidth: "1px",
-          transform: "translateX(-20%)",
-        }}
-      />
+    <Flex.Box className={CSS.BE("arc", "select-icon-frame")}>
+      <Icon.Select className={CSS.BE("arc", "select-icon")} />
     </Flex.Box>
   </Minimal>
 );

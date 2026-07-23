@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/labjack/task/SelectOutputChannelType.css";
+
 import { Select } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 
 import { type OutputChannelType } from "@/feature/labjack/task/types";
+import { CSS } from "@/platform/css";
 
 export interface OutputChannelTypeEntry extends record.KeyedNamed<OutputChannelType> {}
 
@@ -23,7 +26,7 @@ export interface SelectOutputChannelTypeProps extends Omit<
 
 export const SelectOutputChannelType = (props: SelectOutputChannelTypeProps) => (
   <Select.Buttons {...props} keys={DATA}>
-    <Select.Button itemKey="AO" style={{ borderRadius: 0 }}>
+    <Select.Button itemKey="AO" className={CSS.BE("labjack-output-type", "ao")}>
       Analog
     </Select.Button>
     <Select.Button itemKey="DO">Digital</Select.Button>

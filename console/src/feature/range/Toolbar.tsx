@@ -150,12 +150,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
       </Flex.Box>
       <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
       {labels.length > 0 && (
-        <Flex.Box
-          x
-          gap="small"
-          wrap
-          style={{ overflowX: "auto", height: "fit-content" }}
-        >
+        <Flex.Box x gap="small" wrap className={CSS.B("range-list-item-labels")}>
           {labels.map((l) => (
             <Tag.Tag key={l.key} size="tiny" color={l.color}>
               {l.name}

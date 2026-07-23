@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/task/ParentRangeButton.css";
+
 import { ranger, task } from "@synnaxlabs/client";
 import { Button, Flex, type Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
+import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
 import { useKey } from "@/platform/task/useKey";
 
@@ -35,7 +38,7 @@ export const ParentRangeButton = () => {
       <Button.Button
         gap="small"
         onClick={handleClick}
-        style={{ padding: "1rem" }}
+        className={CSS.B("task-parent-range-button")}
         variant="text"
         weight={400}
       >

@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/task/views/ListAndDetailsChannelItem.css";
+
 import { type channel } from "@synnaxlabs/client";
 import { Flex, type List, Select, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type direction, type record } from "@synnaxlabs/x";
-import { cloneElement, type JSX } from "react";
+import { cloneElement, type CSSProperties, type JSX, useMemo } from "react";
 
+import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";
 import { EnableDisableButton } from "@/platform/task/EnableDisableButton";
 import { getChannelNameID } from "@/platform/task/getChannelNameID";
@@ -44,10 +47,10 @@ const getChannelNameProps = (
   level: "p",
   color: 9,
   weight: 450,
-  style: {
-    maxWidth: hasIcon ? 100 : 150,
-    flexGrow: 1,
-  },
+  className: CSS(
+    CSS.BE("channel-item", "name"),
+    hasIcon && CSS.BEM("channel-item", "name", "with-icon"),
+  ),
   overflow: "ellipsis",
 });
 
@@ -68,34 +71,30 @@ export const ListAndDetailsChannelItem = <K extends string>({
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
   const channelNameProps = getChannelNameProps(hasIcon);
+  const portStyle = useMemo<CSSProperties>(
+    () => ({ width: `${portMaxChars * 1.25}rem` }),
+    [portMaxChars],
+  );
   return (
     <Select.ListItem
       {...rest}
       justify="between"
       align="center"
-      style={{ padding: "1.25rem 2rem" }}
+      className={CSS.B("channel-item")}
     >
       <Flex.Box
         direction={nameDirection}
         gap="small"
         align={nameDirection === "x" ? "center" : "start"}
       >
-        <Text.Text
-          color={8}
-          weight={500}
-          style={{ width: `${portMaxChars * 1.25}rem` }}
-        >
+        <Text.Text color={8} weight={500} style={portStyle}>
           {port}
         </Text.Text>
         {hasIcon && (
           <Tooltip.Dialog>
             {icon.name}
             {cloneElement(icon.icon, {
-              style: {
-                height: "var(--pluto-p-size)",
-                fontSize: "var(--pluto-p-size)",
-                color: "var(--pluto-gray-l8)",
-              },
+              className: CSS.BE("channel-item", "icon"),
             })}
           </Tooltip.Dialog>
         )}

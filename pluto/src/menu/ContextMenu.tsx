@@ -10,7 +10,14 @@
 import "@/menu/ContextMenu.css";
 
 import { box, location, unique, xy } from "@synnaxlabs/x";
-import { type ReactNode, type RefCallback, useCallback, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type RefCallback,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { type RenderProp } from "@/component/renderProp";
@@ -173,12 +180,16 @@ const Internal = ({
   onClick,
   ...rest
 }: ContextMenuProps): ReactNode | null => {
+  const menuStyle = useMemo(
+    () => ({ ...xy.css(position), ...style }),
+    [position, style],
+  );
   if (!visible) return null;
   return createPortal(
     <Flex.Box
       className={CSS(CONTEXT_MENU_CLASS, CSS.bordered(), className)}
       ref={ref}
-      style={{ ...xy.css(position), ...style }}
+      style={menuStyle}
       onClick={(e) => {
         close();
         onClick?.(e);

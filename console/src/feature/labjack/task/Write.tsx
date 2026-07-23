@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/labjack/task/Write.css";
+
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
@@ -27,6 +29,7 @@ import {
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/labjack/task/types";
+import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -85,7 +88,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
               portType={type}
               allowNone={false}
               onClick={(e) => e.stopPropagation()}
-              style={{ width: 250 }}
+              className={CSS.BE("labjack-write", "port-select")}
             >
               <PForm.Field<OutputChannelType>
                 key="type"

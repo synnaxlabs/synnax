@@ -11,7 +11,6 @@ import "@/mosaic/Mosaic.css";
 
 import { box, type location, xy } from "@synnaxlabs/x";
 import {
-  type CSSProperties,
   type DragEventHandler,
   type ReactElement,
   useCallback,
@@ -26,14 +25,6 @@ import { useCombinedRefs } from "@/hooks";
 import { useContext } from "@/mosaic/Frame";
 import { filterTabCreateHaulItems, filterTabDropHaulItems } from "@/mosaic/haul";
 import { Tabs } from "@/tabs";
-
-const MASK_STYLE: Record<location.Location, CSSProperties> = {
-  top: { left: "0%", top: "0%", width: "100%", height: "50%" },
-  bottom: { left: "0%", top: "50%", width: "100%", height: "50%" },
-  left: { left: "0%", top: "0%", width: "50%", height: "100%" },
-  right: { left: "50%", top: "0%", width: "50%", height: "100%" },
-  center: { left: "0%", top: "0%", width: "100%", height: "100%" },
-};
 
 const crossHairA = (px: number): number => px;
 
@@ -177,7 +168,9 @@ export const Leaf = ({
     >
       {children}
       {mask != null && (
-        <div className={CSS.BE("mosaic", "mask")} style={MASK_STYLE[mask]} />
+        <div
+          className={CSS(CSS.BE("mosaic", "mask"), CSS.BEM("mosaic", "mask", mask))}
+        />
       )}
     </Flex.Box>
   );

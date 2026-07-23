@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/app/window/Primary.css";
+
 import { Access, Flex } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
@@ -18,6 +20,7 @@ import { Auth } from "@/feature/auth";
 import { Cluster } from "@/feature/cluster";
 import { Device } from "@/feature/device";
 import { Project } from "@/feature/project";
+import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
 import { Status } from "@/platform/status";
 
@@ -43,15 +46,10 @@ export const Primary = (): ReactElement => (
     <Auth.Guard>
       <Project.Guard>
         <Nav.Bar.Top />
-        <Flex.Box
-          x
-          gap="tiny"
-          grow
-          style={{ paddingRight: "1rem", paddingBottom: "1rem" }}
-        >
+        <Flex.Box x gap="tiny" grow className={CSS.BE("main", "content")}>
           <Nav.Bar.Left />
-          <Flex.Box gap="tiny" grow style={{ width: 0 }}>
-            <Flex.Box x gap="tiny" grow style={{ height: 0 }}>
+          <Flex.Box gap="tiny" grow className={CSS.BE("main", "column")}>
+            <Flex.Box x gap="tiny" grow className={CSS.BE("main", "row")}>
               <Nav.Drawer.Left />
               <Mosaic.Mosaic />
             </Flex.Box>

@@ -12,6 +12,8 @@
 .pluto-indicator {
     border-radius: var(--pluto-border-radius);
     cursor: pointer;
+    flex-grow: 1;
+    background-color: var(--pluto-indicator-color);
 }
 
 .pluto--direction-x > .pluto-indicator {

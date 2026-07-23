@@ -340,8 +340,7 @@ describe("Mosaic", () => {
       dragOver(strip(), 150, 16);
       const el = mask();
       expect(el).not.toBeNull();
-      expect(el?.style.width).toEqual("100%");
-      expect(el?.style.height).toEqual("100%");
+      expect(el?.className).toContain("pluto-mosaic__mask--center");
     });
 
     it("should ignore file drops when the frame has no onFileDrop", () => {
@@ -360,9 +359,7 @@ describe("Mosaic", () => {
       dragOver(leaf(), 40, 150);
       const el = mask();
       expect(el).not.toBeNull();
-      expect(el?.style.left).toEqual("0%");
-      expect(el?.style.width).toEqual("50%");
-      expect(el?.style.height).toEqual("100%");
+      expect(el?.className).toContain("pluto-mosaic__mask--left");
     });
 
     it("should swap the mask for the strip's insertion indicator over the strip", () => {

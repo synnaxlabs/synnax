@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/arc/editor/toolbar/text/Toolbar.css";
+
 import { arc } from "@synnaxlabs/client";
 import { Arc, Breadcrumb, Flex, Icon, Text } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { useExport } from "@/feature/arc/export";
 import { Cluster } from "@/platform/cluster";
+import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
 import { Toolbar as Base } from "@/platform/toolbar";
 
@@ -29,7 +32,7 @@ export const Toolbar = (): ReactElement => {
             {name}
           </Breadcrumb.Segment>
         </Breadcrumb.Breadcrumb>
-        <Flex.Box x align="center" empty style={{ height: "100%", width: 66 }}>
+        <Flex.Box x align="center" empty className={CSS.BE("arc-toolbar", "actions")}>
           <Export.ToolbarButton onExport={() => handleExport(key)} />
           <Cluster.CopyLinkToolbarButton name={name} ontologyID={arc.ontologyID(key)} />
         </Flex.Box>

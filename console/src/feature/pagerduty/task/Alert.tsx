@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/pagerduty/task/Alert.css";
+
 import { type rack, type status, type Synnax as Client } from "@synnaxlabs/client";
 import {
   Button,
@@ -36,6 +38,7 @@ import {
   ZERO_ALERT_PAYLOAD,
 } from "@/feature/pagerduty/task/types";
 import { ContextMenu } from "@/platform/context-menu";
+import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -54,7 +57,7 @@ const Properties = () => (
       path="config.routingKey"
       label="Routing key"
       grow
-      style={ROUTING_KEY_STYLE}
+      className={CSS.B("pagerduty-routing-key")}
     />
     <PForm.Field<number> path="rackKey" label="Connect from" grow>
       {selectRackRenderProp}
@@ -63,7 +66,6 @@ const Properties = () => (
   </Flex.Box>
 );
 
-const ROUTING_KEY_STYLE = { maxWidth: "70rem" };
 const ROUTING_KEY_INPUT_PROPS = {
   type: "password",
   placeholder: "R022XIJR9M266DX570EVE6EXP1AFBN6D",
@@ -84,7 +86,7 @@ interface AlertDetailsProps {
 const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
   const path = `config.alerts.${itemKey}`;
   return (
-    <Flex.Box grow style={DETAILS_STYLE} gap="small">
+    <Flex.Box grow className={CSS.B("pagerduty-alert-details")} gap="small">
       <Flex.Box x>
         <PForm.Field<string> path={`${path}.status`} label="Status" grow required>
           {selectStatusRenderProp}
@@ -125,9 +127,6 @@ const CLASS_INPUT_PROPS = { placeholder: "engine-failure" };
 const selectStatusRenderProp = Component.renderProp(
   (p: Omit<Status.SelectProps, "variant">) => <Status.Select {...p} />,
 );
-
-const DETAILS_STYLE = { padding: "2rem", overflowY: "auto" } as const;
-const LIST_STYLE = { width: "300px", flexShrink: 0, overflowY: "auto" } as const;
 
 interface EmptyActionContentProps {
   onAdd: () => void;
@@ -247,7 +246,7 @@ const Form: FC<Task.FormProps<AlertSchemas>> = () => {
 
   return (
     <Flex.Box x grow empty>
-      <Flex.Box direction="y" style={LIST_STYLE} empty>
+      <Flex.Box direction="y" className={CSS.B("pagerduty-alert-list")} empty>
         <Header.Header>
           <Header.Title weight={500} color={10}>
             Alerts
