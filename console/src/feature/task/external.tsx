@@ -17,28 +17,27 @@ import { Modbus } from "@/feature/modbus";
 import { NI } from "@/feature/ni";
 import { OPC } from "@/feature/opc";
 import { PagerDuty } from "@/feature/pagerduty";
-import { createLayout, retrieveAndPlaceLayout } from "@/feature/task/layouts";
-import { Selector } from "@/feature/task/Selector";
+import { Selector, SELECTOR_TAB_TYPE } from "@/feature/task/Selector";
+import { retrieveAndOpenTab } from "@/feature/task/tabs";
 import { getIcon, parseType } from "@/feature/task/types";
 import { type Command } from "@/platform/command";
 import { type Export } from "@/platform/export";
 import { type Import } from "@/platform/import";
-import { type Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 import { type Range } from "@/platform/range";
-import { Task } from "@/platform/task";
+import { type Task } from "@/platform/task";
 
-export * from "@/feature/task/layouts";
 export * from "@/feature/task/link";
 export * from "@/feature/task/notifications";
 export * from "@/feature/task/search";
 export * from "@/feature/task/Selector";
+export * from "@/feature/task/tabs";
 export * from "@/feature/task/Toolbar";
 export * from "@/feature/task/tree";
 export * from "@/feature/task/types";
-export * from "@/feature/task/useMosaicDrop";
 export * from "@/platform/task/external";
 
-export const REGISTRY: Task.Registry = { createLayout, getIcon, parseType };
+export const REGISTRY: Task.Registry = { getIcon, parseType };
 
 export const COMMANDS: Command.Command[] = [
   ...EtherCAT.Task.COMMANDS,
@@ -70,22 +69,22 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   ...PagerDuty.Task.FILE_INGESTERS,
 };
 
-export const LAYOUTS: Layout.Renderers = {
-  ...EtherCAT.Task.LAYOUTS,
-  ...HTTP.Task.LAYOUTS,
-  ...LabJack.Task.LAYOUTS,
-  ...Modbus.Task.LAYOUTS,
-  ...NI.Task.LAYOUTS,
-  ...OPC.Task.LAYOUTS,
-  ...PagerDuty.Task.LAYOUTS,
-  [Task.SELECTOR_LAYOUT_TYPE]: Selector,
+export const TABS: Panel.Tabs = {
+  [SELECTOR_TAB_TYPE]: Selector,
+  ...EtherCAT.Task.TABS,
+  ...HTTP.Task.TABS,
+  ...LabJack.Task.TABS,
+  ...Modbus.Task.TABS,
+  ...NI.Task.TABS,
+  ...OPC.Task.TABS,
+  ...PagerDuty.Task.TABS,
 };
 
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {
   task: {
     icon: <Icon.Task />,
-    onClick: async ({ id: { key } }, { client, placeLayout }) =>
-      await retrieveAndPlaceLayout(client, key, placeLayout),
+    onClick: async ({ id: { key } }, { client, openTab }) =>
+      await retrieveAndOpenTab(client, key, openTab),
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();
       await client.tasks.delete(key);

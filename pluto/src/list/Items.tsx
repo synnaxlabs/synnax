@@ -10,7 +10,7 @@
 import "@/list/Items.css";
 
 import { type record } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode } from "react";
+import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -47,12 +47,11 @@ const BaseItems = <
   const visibleData = getItems();
   let content = emptyContent;
   const hasItems = data.length > 0;
+  const totalSize = getTotalSize();
+  const virtualizerStyle = useMemo(() => ({ minHeight: totalSize }), [totalSize]);
   if (hasItems)
     content = (
-      <div
-        className={CSS.BE("list", "virtualizer")}
-        style={{ minHeight: getTotalSize() }}
-      >
+      <div className={CSS.BE("list", "virtualizer")} style={virtualizerStyle}>
         {visibleData.map(({ key, index, translate }) =>
           children({ key, index, itemKey: key, translate }),
         )}
@@ -70,6 +69,8 @@ const BaseItems = <
   if (itemHeight != null && displayItems != null && isFinite(displayItems) && hasItems)
     minHeight = Math.min(displayItems, visibleData.length) * itemHeight + 1;
 
+  const boxStyle = useMemo(() => ({ height: minHeight, ...style }), [minHeight, style]);
+
   const parsedDirection = Flex.parseDirection(direction, x, y);
   return (
     <Flex.Box
@@ -80,7 +81,7 @@ const BaseItems = <
         CSS.BE("list", "items"),
         !hasItems && CSS.BEM("list", "items", "empty"),
       )}
-      style={{ height: minHeight, ...style }}
+      style={boxStyle}
       full={parsedDirection}
       direction={parsedDirection}
       {...rest}

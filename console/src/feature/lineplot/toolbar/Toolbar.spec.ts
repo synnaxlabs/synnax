@@ -24,7 +24,7 @@ const renderToolbar = async (name = uniqueName("plot")) => ({
   name,
   ...(await renderLinePlot(LinePlot.Toolbar, {
     linePlot: { name },
-    preloadedState: (key) => createPreloadedState(key, name),
+    preloadedState: (key) => createPreloadedState(key),
   })),
 });
 
@@ -57,15 +57,12 @@ describe("lineplot/toolbar/Toolbar", () => {
   });
 
   it("renames the plot from the properties tab", async () => {
-    const { key, store } = await renderToolbar();
+    const { key, name } = await renderToolbar();
     fireEvent.click(await screen.findByText("Properties"));
     await screen.findByText("Show Title");
     const newName = uniqueName("renamed");
-    const input = screen.getByDisplayValue(
-      Session.Layout.select(store.getState(), key)?.name ?? "",
-    );
+    const input = await waitFor(() => screen.getByDisplayValue(name));
     fireEvent.change(input, { target: { value: newName } });
-    expect(Session.Layout.select(store.getState(), key)?.name).toBe(newName);
     expect(await screen.findByText(newName)).toBeDefined();
     await waitFor(async () => {
       const remote = await client.lineplots.retrieve({ key });

@@ -25,7 +25,6 @@ import {
 import { z } from "zod";
 
 import { type Import } from "@/platform/import";
-import { create, LAYOUT_TYPE } from "@/platform/schematic/layout";
 
 const STATE_MIGRATION_NAME = "schematic.state";
 
@@ -451,15 +450,15 @@ export const parseImport = (
 
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, projectKey },
+  { name, openTab, store, client, projectKey },
 ) => {
   if (!Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import schematics");
   if (client == null) throw new DisconnectedError();
-  const newPayload = parseImport(data, layout?.name);
+  const newPayload = parseImport(data, name);
   const created = await client.schematics.create(projectKey, newPayload);
-  const { key, name } = created;
+  const { key } = created;
   store.schematics.set(key, created);
-  placeLayout(create({ ...layout, key, name, type: LAYOUT_TYPE }));
+  openTab({ variant: "resource", resource: schematic.ontologyID(key) });
   return schematic.ontologyID(key);
 };

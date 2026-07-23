@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/labjack/task/Write.css";
+
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component, Flex, Form as PForm, Icon, List } from "@synnaxlabs/pluto";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
@@ -27,21 +29,16 @@ import {
   ZERO_OUTPUT_CHANNEL,
   ZERO_WRITE_PAYLOAD,
 } from "@/feature/labjack/task/types";
+import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.LabJack",
-};
-
-export const WriteSelectable = Selector.createSimpleItem({
   title: "LabJack Write Task",
   icon: <Icon.Logo.LabJack />,
-  layout: WRITE_LAYOUT,
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (
@@ -91,7 +88,7 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
               portType={type}
               allowNone={false}
               onClick={(e) => e.stopPropagation()}
-              style={{ width: 250 }}
+              className={CSS.BE("labjack-write", "port-select")}
             >
               <PForm.Field<OutputChannelType>
                 key="type"
@@ -175,7 +172,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
     [device],
   );
   return (
-    <Task.Layouts.List<OutputChannel>
+    <Task.Views.List<OutputChannel>
       createChannel={createChannel}
       listItem={listItem}
       contextMenuItems={Task.writeChannelContextMenuItems}

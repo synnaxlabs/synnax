@@ -30,7 +30,6 @@ var _ = Describe("Kind.String", func() {
 		Entry("KindSequence", symbol.KindSequence, "KindSequence"),
 		Entry("KindStage", symbol.KindStage, "KindStage"),
 		Entry("KindConstant", symbol.KindConstant, "KindConstant"),
-		Entry("KindGlobalConstant", symbol.KindGlobalConstant, "KindGlobalConstant"),
 		Entry("KindLoop", symbol.KindLoop, "KindLoop"),
 		Entry("KindLoopVariable", symbol.KindLoopVariable, "KindLoopVariable"),
 		Entry("KindModule", symbol.KindModule, "KindModule"),

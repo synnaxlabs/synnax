@@ -11,14 +11,13 @@ import { DisconnectedError, log } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 import { type Import } from "@/platform/import";
-import { Log } from "@/platform/log";
 
 // The Core owns log envelope decoding, legacy-version migration, file-name naming, and
 // project parenting, so the file's bytes are streamed up untouched and the log is
 // created under the project in a single network call.
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client, projectKey, fileName },
+  { openTab, store, client, projectKey, fileName },
 ) => {
   if (!Access.createGranted({ id: log.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import logs");
@@ -28,6 +27,6 @@ export const ingest: Import.FileIngester = async (
     fileName,
     project: projectKey,
   });
-  placeLayout(Log.create({ ...layout, key: id.key }));
+  openTab({ variant: "resource", resource: id });
   return id;
 };

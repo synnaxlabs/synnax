@@ -23,7 +23,7 @@ const renderRulesTab = async () => {
   const name = uniqueName("plot");
   const handle = await renderLinePlot(LinePlot.Toolbar, {
     linePlot: { name },
-    preloadedState: (key) => createPreloadedState(key, name),
+    preloadedState: (key) => createPreloadedState(key),
   });
   fireEvent.click(await screen.findByText("Rules"));
   await screen.findByText("No annotations added.");

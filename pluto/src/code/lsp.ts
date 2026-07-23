@@ -201,7 +201,7 @@ const CONNECTED_STATUS = (): status.Status =>
 const INACTIVE_STATUS = (): status.Status =>
   status.create({ variant: "disabled", message: "Language server inactive" });
 
-export interface UseLanguageServerArgs {
+export interface UseLanguageServerParams {
   /** monaco gates connection: the server only starts once monaco has initialized. */
   monaco: unknown;
   /** client is the cluster connection the server stream is opened against. */
@@ -224,7 +224,7 @@ export const useLanguageServer = ({
   languageID,
   open,
   onStatus,
-}: UseLanguageServerArgs): void => {
+}: UseLanguageServerParams): void => {
   const onStatusRef = useRef(onStatus);
   onStatusRef.current = onStatus;
   useEffect(() => {

@@ -79,16 +79,13 @@ export const Splash = (): ReactElement => {
       const p = getItem(key);
       if (p == null) throw new UnexpectedError(`Project ${key} not found`);
       dispatch(Session.Project.select(p.key));
-      dispatch(
-        Session.Layout.setProject({ slice: Session.Layout.migrateLayout(p.layout) }),
-      );
     },
     [dispatch, getItem],
   );
 
   const { form, save, variant } = PProject.useForm({
     query: {},
-    initialValues: { name: "", layout: Session.Layout.ZERO_SLICE_STATE },
+    initialValues: { name: "", layout: {} },
     afterSave: ({ value }) => {
       const { key } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
@@ -124,7 +121,11 @@ export const Splash = (): ReactElement => {
         >
           {hasRetrievePermission && data.length > 0 && (
             <Flex.Box y className={CSS.BE("project-splash", "list")} bordered empty>
-              <Flex.Box align="center" justify="center" style={{ height: "6rem" }}>
+              <Flex.Box
+                align="center"
+                justify="center"
+                className={CSS.B("project-splash-list-header")}
+              >
                 <Text.Text level="h4" color={11} weight={450}>
                   Open a Project
                 </Text.Text>

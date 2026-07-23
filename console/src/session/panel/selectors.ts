@@ -196,20 +196,24 @@ export const useGetTabIsFocused = (): ((
   );
 };
 
+/**
+ * @returns true if the given tab is rendered: it is one of its panel's selected tabs,
+ * or the focused one when the window is overlaid.
+ * @param key the panel to read. Defaults to the surrounding Panel scope, then to the
+ * window's selected panel.
+ * @param tabKey the tab to check. Defaults to the surrounding Tab scope. Returns false
+ * when no tab resolves.
+ */
 export const useSelectIsTabVisible = (
   key?: panel.Key,
   tabKey?: panel.TabKey,
 ): boolean => {
-  const resolvedPanel = Panel.useOptionalKey(key);
   const resolvedTab = Panel.useOptionalTabKey(tabKey);
-  return Select.useMemo(
-    (state: RequiredStoreState) => {
-      if (resolvedPanel == null || resolvedTab == null) return false;
-      const selected = selectSelectedTabs(state, resolvedPanel);
-      const isOverlaid = selectOverlaid(state);
-      if (isOverlaid) return selected.length > 0 && resolvedTab === selected[0];
-      return selected.includes(resolvedTab);
-    },
-    [resolvedPanel, resolvedTab],
-  );
+  // The exact selection, not the stored one: a leaf whose selected tab was never
+  // recorded still renders its first tab.
+  const selected = useSelectSelectedTabs(key);
+  const overlaid = useSelectOverlaid();
+  if (resolvedTab == null) return false;
+  if (overlaid) return selected[0] === resolvedTab;
+  return selected.includes(resolvedTab);
 };

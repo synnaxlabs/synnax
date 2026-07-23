@@ -7,14 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type task } from "@synnaxlabs/client";
 import { context, type Icon } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { type Session } from "@/session";
-
 export interface Registry {
-  createLayout: (t: task.Task) => Session.Layout.BaseState;
   getIcon: (type: string) => Icon.ReactElement;
   parseType: (type: string) => string;
 }

@@ -17,22 +17,14 @@ import { Session } from "@/session";
 export const useCreateModal = Modals.create(({ close }) => {
   const client = Synnax.use();
   const dispatch = Session.useDispatch();
-  const active = Session.Project.useSelectOptionalSelected();
 
   const { form, save, variant } = Project.useForm({
     query: {},
-    initialValues: {
-      name: "",
-      layout: Session.Layout.ZERO_SLICE_STATE,
-    },
+    initialValues: { name: "", layout: {} },
     afterSave: ({ value }) => {
-      const { key, layout } = value();
+      const { key } = value();
       if (key == null) throw new UnexpectedError("Project key is null");
       dispatch(Session.Project.select(key));
-      if (active != null)
-        dispatch(
-          Session.Layout.setProject({ slice: Session.Layout.migrateLayout(layout) }),
-        );
       close();
     },
   });

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/arc/editor/toolbar/graph/Properties.css";
+
 import { arc } from "@synnaxlabs/client";
 import {
   Arc,
@@ -21,6 +23,7 @@ import {
 import { box, deep, type direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useMemo } from "react";
 
+import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
 export const Properties = memo((): ReactElement | null => {
@@ -50,7 +53,7 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
     values: initialValues,
     sync: true,
     onChange: useCallback(
-      ({ values: config }: Form.OnChangeArgs<typeof Arc.Graph.Node.configZ>) =>
+      ({ values: config }: Form.OnChangeParams<typeof Arc.Graph.Node.configZ>) =>
         dispatch(arc.setNodeInputs({ key: nodeKey, inputs: deep.copy(config) })),
       [dispatch, nodeKey],
     ),
@@ -59,7 +62,7 @@ const IndividualConfig = ({ nodeKey }: IndividualConfigProps): ReactElement | nu
   const C = Arc.Graph.Node.REGISTRY[config.type];
   if (C == null) return null;
   return (
-    <Flex.Box style={{ height: "100%", padding: "2rem" }} y>
+    <Flex.Box className={CSS.BE("arc-properties", "individual")} y>
       <Form.Form<typeof Arc.Graph.Node.configZ> {...formMethods}>
         <C.Form {...formMethods} key={nodeKey} />
       </Form.Form>
@@ -113,7 +116,7 @@ const MultiConfig = ({ nodes }: MultiElementPropertiesProps): ReactElement => {
   };
 
   return (
-    <Flex.Box align="start" x style={{ padding: "2rem" }}>
+    <Flex.Box align="start" x className={CSS.BE("arc-properties", "multi")}>
       <Input.Item label="Align">
         <Flex.Box x>
           <Button.Button tooltip="Align nodes vertically" onClick={() => align("x")}>

@@ -15,11 +15,10 @@ import {
   type Synnax,
 } from "@synnaxlabs/client";
 import { array, type optional, primitive } from "@synnaxlabs/x";
-import { useCallback, useEffect } from "react";
+import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Label } from "@/label";
 import { type List } from "@/list";
 import { Ontology } from "@/ontology";
@@ -60,22 +59,33 @@ const BASE_QUERY: Partial<RetrieveQuery> = {
   includeLabels: true,
 };
 
-const retrieveSingle = async ({
+const retrieveCachedSingle = ({
   client,
   store,
   query: { key },
-}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>): ranger.Range | undefined => {
   const cached = store.ranges.get(key);
-  if (cached != null) {
-    const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
-    const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
-    const next: ranger.Payload = { ...cached.payload, labels };
-    if (parent != null) {
-      const cached = store.ranges.get(parent.key);
-      if (cached != null) next.parent = cached.payload;
-    }
-    return client.ranges.sugarOne(next);
+  if (cached == null) return undefined;
+  const labels = Label.retrieveCachedLabelsOf(store, ranger.ontologyID(key));
+  const parent = Ontology.retrieveCachedParentID(store, ranger.ontologyID(key));
+  const next: ranger.Payload = { ...cached.payload, labels };
+  if (parent != null) {
+    const cachedParent = store.ranges.get(parent.key);
+    if (cachedParent != null) next.parent = cachedParent.payload;
   }
+  return client.ranges.sugarOne(next);
+};
+
+const retrieveSingle = async (
+  params: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>,
+) => {
+  const cached = retrieveCachedSingle(params);
+  if (cached != null) return cached;
+  const {
+    client,
+    store,
+    query: { key },
+  } = params;
   const range = await client.ranges.retrieve({ ...BASE_QUERY, keys: [key] });
   const first = range[0];
   store.ranges.set(key, first);
@@ -411,24 +421,9 @@ export const {
 } = Flux.createRetrieve<RetrieveQuery, ranger.Range, FluxSubStore>({
   name: RESOURCE_NAME,
   retrieve: retrieveSingle,
+  retrieveCached: retrieveCachedSingle,
   mountListeners: mountRangeListeners,
 });
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, ranger.Range>, "onChange"> & {
-  onChange: (name: string) => void;
-}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback((result) => {
-      if (result.variant !== "success") return;
-      onChangeRef.current(result.data.name);
-    }, []),
-  });
-};
 
 export type RetrieveMultipleQuery = {
   keys: ranger.Key[];
@@ -675,8 +670,11 @@ export const useList = Flux.createList<
       return true;
     });
   },
-  retrieve: async ({ client, query }) =>
-    await client.ranges.retrieve({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query, store }) => {
+    const ranges = await client.ranges.retrieve({ ...BASE_QUERY, ...query });
+    store.ranges.set(ranges);
+    return ranges;
+  },
   retrieveByKey: async ({ key, ...rest }) =>
     await retrieveSingle({ ...rest, query: { key } }),
   mountListeners: ({
@@ -929,13 +927,13 @@ const requireRange = (store: FluxSubStore, key: ranger.Key): ranger.Range => {
   return rng;
 };
 
-export interface SelectKeyArgs {
+export interface SelectKeyParams {
   key: ranger.Key;
 }
 
 export const [useSelectName, useGetName] = Flux.createSelector<
   FluxSubStore,
-  SelectKeyArgs,
+  SelectKeyParams,
   string
 >({
   subscribe: (store, { key }, notify) => store.ranges.onSet(notify, key),

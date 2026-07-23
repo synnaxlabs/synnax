@@ -9,24 +9,14 @@
 
 import { table } from "@synnaxlabs/client";
 import { Access, Icon } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Selector } from "@/platform/selector";
 import { Table } from "@/platform/table";
 
-export const Selectable: Selector.Selectable = ({ layoutKey: key }) => {
-  const hasCreatePermission = Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
-  const create = Table.useCreate({});
-  const handleClick = useCallback(() => create({ key }), [create, key]);
-  if (!hasCreatePermission) return null;
-  return (
-    <Selector.Item
-      key={Table.LAYOUT_TYPE}
-      title="Table"
-      icon={<Icon.Table />}
-      onClick={handleClick}
-    />
-  );
-};
-Selectable.type = Table.LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID);
+export const Selectable = Selector.createSelectable({
+  type: table.TYPE_ONTOLOGY_ID.type,
+  title: "Table",
+  icon: <Icon.Table />,
+  useOnSelect: Table.useCreate,
+  useVisible: () => Access.useCreateGranted(table.TYPE_ONTOLOGY_ID),
+});

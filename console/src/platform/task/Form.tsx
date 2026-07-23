@@ -9,28 +9,30 @@
 
 import "@/platform/task/Form.css";
 
-import { type device, type rack, type Synnax, task } from "@synnaxlabs/client";
+import { type device, panel, type rack, type Synnax, task } from "@synnaxlabs/client";
 import {
   Device,
   Flex,
   type Flux,
   Form as PForm,
+  Icon,
   Input,
+  Panel as PlutoPanel,
   Task as PTask,
+  Text,
 } from "@synnaxlabs/pluto";
 import { id, primitive, TimeStamp } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
-import { type z } from "zod";
+import { type FC, useCallback, useEffect, useMemo, useRef } from "react";
+import { z } from "zod";
 
 import { CSS } from "@/platform/css";
-import { type Layout } from "@/platform/layout";
 import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
 import { useStatus } from "@/platform/task/useStatus";
 import { UtilityButtons } from "@/platform/task/UtilityButtons";
-import { Session } from "@/session";
 
 export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   (
@@ -40,31 +42,38 @@ export interface OnConfigure<Config extends z.ZodType = z.ZodType> {
   ): Promise<[z.infer<Config>, rack.Key]>;
 }
 
-export interface FormLayoutArgs {
-  deviceKey?: device.Key;
-  taskKey?: task.Key;
-  rackKey?: rack.Key;
-  config?: unknown;
-}
+export const formParamsZ = z.object({
+  deviceKey: z.string().optional(),
+  taskKey: z.string().optional(),
+  rackKey: z.number().optional(),
+  config: z.unknown().optional(),
+  // name is the draft task's semantic name, mirrored from the form's name field so the
+  // tab title reflects it before the task is persisted. Absent once taskKey is set: the
+  // name is then read from the cluster record.
+  name: z.string().optional(),
+});
 
-export interface getInitialValuesArgs {
+export interface FormViewParams extends z.infer<typeof formParamsZ> {}
+
+const useFormArgs = PlutoPanel.createSelectTabArgs(formParamsZ);
+
+export interface getInitialValuesParams {
   deviceKey?: device.Key;
   config?: unknown;
 }
 
 export interface GetInitialValues<S extends task.Schemas = task.Schemas> {
-  (args: getInitialValuesArgs): PTask.InitialValues<S>;
+  (params: getInitialValuesParams): PTask.InitialValues<S>;
 }
 
 export interface FormProps<
   S extends task.Schemas = task.Schemas,
 > extends PForm.UseReturn<PTask.FormSchema<S>> {
-  layoutKey: string;
   status: Flux.Result<undefined>["status"];
   onConfigure: () => void;
 }
 
-export interface WrapFormArgs<S extends task.Schemas = task.Schemas> {
+export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   Properties?: FC<{}>;
   Form: FC<FormProps<S>>;
   type: z.infer<S["type"]>;
@@ -82,15 +91,6 @@ export const useIsRunning = <Schema extends z.ZodType>(
 export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
-
-export interface Layout extends Session.Layout.BaseState<FormLayoutArgs> {}
-
-export const LAYOUT: Omit<Layout, "type"> = {
-  name: "Configure",
-  icon: "Task",
-  location: "mosaic",
-  args: {},
-};
 
 interface HeaderProps {
   isSnapshot: boolean;
@@ -120,26 +120,46 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   onConfigure,
   showHeader = true,
   showControls = true,
-}: WrapFormArgs<S>): Layout.Renderer => {
-  const Wrapper: Layout.Renderer = ({ layoutKey }) => {
-    const store = Session.useStore();
-    const { deviceKey, taskKey, rackKey, config } =
-      Session.Layout.selectArgs<FormLayoutArgs>(store.getState(), layoutKey);
-    const dispatch = Session.useDispatch();
-    const handleUnsavedChanges = useCallback(
-      (unsavedChanges: boolean) =>
-        dispatch(Session.Layout.setUnsavedChanges({ key: layoutKey, unsavedChanges })),
-      [dispatch, layoutKey],
-    );
-    const initialValues = {
-      ...getInitialValues({ deviceKey, config }),
-      key: taskKey,
-      rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
-    };
+}: WrapFormParams<S>): Panel.Tab => {
+  const defaultName = getInitialValues({}).name;
+  const useSyncName = (
+    form: PForm.ContextValue<PTask.FormSchema<S>>,
+    { deviceKey, taskKey, rackKey, config, name }: FormViewParams,
+  ): void => {
+    const { set } = form;
+    const setView = PlutoPanel.useSetCurrentTabView();
+    const formName = PForm.useFieldValue<string>("name", { ctx: form });
+    const prevName = useRef(name);
+    useEffect(() => {
+      if (taskKey != null) return;
+      const argsEdited = name !== prevName.current && name != null;
+      prevName.current = name;
+      if (formName === name) return;
+      if (argsEdited) set("name", name);
+      else
+        setView(
+          panel.viewZ.parse({
+            type,
+            args: { deviceKey, rackKey, config, name: formName },
+          }),
+        );
+    }, [taskKey, name, formName, deviceKey, rackKey, config, set, setView]);
+  };
+  const Content: Panel.Content = () => {
+    const { deviceKey, taskKey, rackKey, config, name } = useFormArgs();
+    const setView = PlutoPanel.useSetCurrentTabView();
+    const initialValues = useMemo(() => {
+      const base = getInitialValues({ deviceKey, config });
+      return {
+        ...base,
+        name: name ?? base.name,
+        key: taskKey,
+        rackKey: rackKey ?? (taskKey == null ? 0 : task.rackKey(taskKey)),
+      };
+    }, [deviceKey, config, name, taskKey, rackKey]);
     const confirm = Modals.useConfirm();
     const { form, status, save } = PTask.createForm({ schemas, initialValues })({
       query: { key: taskKey },
-      onHasTouched: handleUnsavedChanges,
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();
         const [newConfig, rackKey] = await onConfigure(client, config, name);
@@ -173,12 +193,10 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         form.set("status", status);
         return true;
       },
-      afterSave: ({ client, ...form }) => {
-        const { key, name } = form.value();
+      afterSave: (props) => {
+        const { key } = props.value();
         if (key == null) return;
-        dispatch(Session.Layout.rename({ key: layoutKey, name }));
-        dispatch(Session.Layout.setArgs({ key: layoutKey, args: { taskKey: key } }));
-        dispatch(Session.Layout.setAltKey({ key: layoutKey, altKey: key }));
+        setView(panel.viewZ.parse({ type, args: { taskKey: key } }));
       },
     });
     Device.useRetrieveEffect({
@@ -187,6 +205,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     });
 
     const isSnapshot = useIsSnapshot<PTask.FormSchema<S>>(form);
+    useSyncName(form, { deviceKey, taskKey, rackKey, config, name });
     return (
       <Flex.Box
         y
@@ -213,49 +232,63 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               grow
               empty
             >
-              <Form
-                layoutKey={layoutKey}
-                status={status}
-                onConfigure={save}
-                {...form}
-              />
+              <Form status={status} onConfigure={save} {...form} />
             </Flex.Box>
             {showControls && (
-              <Controls.Controls
-                layoutKey={layoutKey}
-                formStatus={status}
-                onConfigure={save}
-              />
+              <Controls.Controls formStatus={status} onConfigure={save} />
             )}
           </PForm.Form>
         </Flex.Box>
       </Flex.Box>
     );
   };
-  Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
-  Wrapper.useName = useName;
-  return Wrapper;
-};
-
-const useName: Layout.UseName = (layoutKey, onChange) => {
-  const args = Session.Layout.useSelectArgs<FormLayoutArgs>(layoutKey);
-  const taskKey = args?.taskKey;
-  const isPersisted = taskKey != null;
-  const { retrieve: baseRetrieve } = PTask.useRetrieveObservableName({
-    onChange,
-    addStatusOnFailure: false,
-  });
-  const { update } = PTask.useRename({
-    beforeUpdate: useCallback(() => isPersisted, [isPersisted]),
-  });
-  const onRename = useCallback(
-    (name: string) => {
-      if (taskKey != null) update({ key: taskKey, name });
-    },
-    [taskKey, update],
-  );
-  const retrieve = useCallback(() => {
-    if (taskKey != null) baseRetrieve({ key: taskKey });
-  }, [taskKey, baseRetrieve]);
-  return { retrieve, onRename };
+  Content.displayName = `Form(${Form.displayName ?? Form.name})`;
+  const RemoteName = ({ taskKey }: { taskKey: task.Key }) => {
+    const tabKey = PlutoPanel.useTabKey();
+    PTask.useEnsureRetrieved({ key: taskKey });
+    const name = PTask.useSelectName({ key: taskKey });
+    const { update } = PTask.useRename();
+    const handleChange = useCallback(
+      (name: string) => update({ key: taskKey, name }),
+      [taskKey, update],
+    );
+    return (
+      <>
+        <Icon.Task />
+        <Text.Editable
+          id={Panel.tabNameID(tabKey)}
+          value={name}
+          onChange={handleChange}
+        />
+      </>
+    );
+  };
+  const LocalName = () => {
+    const tabKey = PlutoPanel.useTabKey();
+    const { deviceKey, rackKey, config, name } = useFormArgs();
+    const setView = PlutoPanel.useSetCurrentTabView();
+    const handleChange = useCallback(
+      (name: string) =>
+        setView(
+          panel.viewZ.parse({ type, args: { deviceKey, rackKey, config, name } }),
+        ),
+      [deviceKey, rackKey, config, setView],
+    );
+    return (
+      <>
+        <Icon.Task />
+        <Text.Editable
+          id={Panel.tabNameID(tabKey)}
+          value={name ?? defaultName}
+          onChange={handleChange}
+        />
+      </>
+    );
+  };
+  const Name: Panel.TabName = () => {
+    const { taskKey } = useFormArgs();
+    if (taskKey != null) return <RemoteName taskKey={taskKey} />;
+    return <LocalName />;
+  };
+  return { Content, Name };
 };

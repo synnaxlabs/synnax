@@ -22,6 +22,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// readWriteChan builds the read+write channel type a bare channel alias carries.
+func readWriteChan(elem types.Type) types.Type {
+	t := types.Chan(elem)
+	t.ChanDirection = types.ChanDirectionRead | types.ChanDirectionWrite
+	return t
+}
+
 var _ = Describe("Statement", func() {
 	// Helper to set up function context for tests that need it
 	setupFunctionContext := func(ctx context.Context[parser.IBlockContext]) {
@@ -59,6 +66,29 @@ var _ = Describe("Statement", func() {
 				}),
 			)
 
+			DescribeTable("folds a default value from a literal initializer",
+				func(bCtx SpecContext, code string, expected any) {
+					stmt := MustSucceed(parser.ParseStatement(code))
+					ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+					statement.Analyze(ctx)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue())
+					sym := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
+					Expect(sym.DefaultValue).To(Equal(expected))
+				},
+				Entry("i8 positive", `x i8 := 7`, int8(7)),
+				Entry("i8 negative", `x i8 := -5`, int8(-5)),
+				Entry("i16 negative", `x i16 := -5`, int16(-5)),
+				Entry("i32 negative", `x i32 := -5`, int32(-5)),
+				Entry("i64 positive", `x i64 := 5`, int64(5)),
+				Entry("i64 negative", `x i64 := -5`, int64(-5)),
+				Entry("f32 negative", `x f32 := -2.5`, float32(-2.5)),
+				Entry("f64 positive", `x f64 := 2.5`, float64(2.5)),
+				Entry("f64 negative", `x f64 := -2.5`, float64(-2.5)),
+				Entry("i8 type minimum", `x i8 := -128`, int8(-128)),
+				Entry("i16 type minimum", `x i16 := -32768`, int16(-32768)),
+				Entry("i32 type minimum", `x i32 := -2147483648`, int32(-2147483648)),
+			)
+
 			It("should detect type mismatch between declaration and initializer", func(bCtx SpecContext) {
 				stmt := MustSucceed(parser.ParseStatement(`x i32 := "hello"`))
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
@@ -66,6 +96,14 @@ var _ = Describe("Statement", func() {
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot assign str to 'x' (type i32)"))
+			})
+
+			It("should reject a negative literal assigned to a string variable", func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement(`x str := -5`))
+				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("integer is not compatible with str"))
 			})
 
 			It("should detect duplicate variable declaration", func(bCtx SpecContext) {
@@ -77,7 +115,7 @@ var _ = Describe("Statement", func() {
 				statement.AnalyzeBlock(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing variable"))
 			})
 
 			It("should detect undefined variable in initializer", func(bCtx SpecContext) {
@@ -91,10 +129,20 @@ var _ = Describe("Statement", func() {
 		})
 
 		Context("stateful variables", func() {
-			It("should analyze a stateful variable with inferred type", func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement(`counter $= 0`))
+			analyzeInStage := func(
+				bCtx SpecContext, code string,
+			) context.Context[parser.IStatementContext] {
+				stmt := MustSucceed(parser.ParseStatement(code))
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+				ctx.Scope = MustSucceed(ctx.Scope.Add(bCtx, symbol.Symbol{
+					Name: "s1", Kind: symbol.KindStage,
+				}))
 				statement.Analyze(ctx)
+				return ctx
+			}
+
+			It("should analyze a stateful variable with inferred type", func(bCtx SpecContext) {
+				ctx := analyzeInStage(bCtx, `counter $= 0`)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "counter"))
@@ -105,13 +153,128 @@ var _ = Describe("Statement", func() {
 			})
 
 			It("should analyze stateful variable with explicit type", func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement(`total f32 $= 0.0`))
-				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
-				statement.Analyze(ctx)
+				ctx := analyzeInStage(bCtx, `total f32 $= 0.0`)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 				Expect(*ctx.Diagnostics).To(BeEmpty())
 				sym := MustSucceed(ctx.Scope.Resolve(ctx, "total"))
 				Expect(sym.Type).To(Equal(types.F32()))
+			})
+
+			It("rejects a stateful variable declared at the top level", func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement(`counter $= 0`))
+				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"stateful variables cannot be declared at the top level"))
+			})
+		})
+
+		Context("scoped declarations", func() {
+			// sensorChan lets reactive and alias declarations read a channel.
+			sensorChan := []symbol.Symbol{
+				{Kind: symbol.KindChannel, Name: "sensor", Type: types.Chan(types.F64())},
+			}
+			// Declarations go into a stage child; top-level statefuls are illegal.
+			declareIn := func(
+				bCtx SpecContext, root *symbol.Symbol, code string,
+			) context.Context[parser.IVariableDeclarationContext] {
+				stage := root.FindChild("body")
+				if stage == nil {
+					stage = MustSucceed(root.Add(bCtx, symbol.Symbol{
+						Name: "body", Kind: symbol.KindStage,
+					}))
+				}
+				stmt := MustSucceed(parser.ParseStatement(code))
+				ctx := context.NewRoot(bCtx, stmt.VariableDeclaration(), root)
+				ctx.Scope = stage
+				statement.AnalyzeVariableDeclaration(ctx)
+				return ctx
+			}
+
+			DescribeTable("classify the declared variable",
+				func(bCtx SpecContext, code, name string, classify func(*symbol.Symbol)) {
+					ctx := declareIn(bCtx, NewRoot(nil, sensorChan...), code)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+					classify(MustSucceed(ctx.Scope.Resolve(ctx, name)))
+				},
+				Entry("folded literal", "gain := 42.0", "gain", func(s *symbol.Symbol) {
+					Expect(s.IsLiteral()).To(BeTrue())
+					Expect(s.DefaultValue).ToNot(BeNil())
+				}),
+				Entry("computed literal", "scaled := 2 * 3", "scaled", func(s *symbol.Symbol) {
+					Expect(s.IsLiteral()).To(BeTrue())
+				}),
+				Entry("bare-channel alias", "alias := sensor", "alias", func(s *symbol.Symbol) {
+					Expect(s.IsChannelReadWrite()).To(BeTrue())
+					Expect(s.SourceID).ToNot(BeNil())
+				}),
+				Entry("reactive expression", "derived := sensor + 1", "derived", func(s *symbol.Symbol) {
+					Expect(s.IsReactive()).To(BeTrue())
+				}),
+				Entry("stateful literal", "counter $= 0", "counter", func(s *symbol.Symbol) {
+					Expect(s.Kind).To(Equal(symbol.KindStatefulVariable))
+					Expect(s.IsLiteral()).To(BeTrue())
+				}),
+			)
+
+			DescribeTable("reject an invalid stateful initializer",
+				func(bCtx SpecContext, code string) {
+					ctx := declareIn(bCtx, NewRoot(nil, sensorChan...), code)
+					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+					Expect((*ctx.Diagnostics)[0].Message).To(
+						ContainSubstring("cannot be assigned to stateful"))
+				},
+				Entry("bare channel", "bad $= sensor"),
+				Entry("channel-read expression", "bad $= sensor + 1"),
+			)
+
+			It("keeps a bare alias to a literal a literal", func(bCtx SpecContext) {
+				root := NewRoot(nil, sensorChan...)
+				declareIn(bCtx, root, "gain := 42.0")
+				ctx := declareIn(bCtx, root, "mirror := gain")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(MustSucceed(ctx.Scope.Resolve(ctx, "mirror")).IsLiteral()).To(BeTrue())
+			})
+
+			It("rejects a stateful bound to a ':=' variable", func(bCtx SpecContext) {
+				root := NewRoot(nil)
+				declareIn(bCtx, root, "s $= 0")
+				ctx := declareIn(bCtx, root, "x := s")
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(
+					ContainSubstring("stateful variables cannot be assigned"))
+			})
+
+			It("rejects a stateful initialized from a non-literal value", func(bCtx SpecContext) {
+				root := NewRoot(nil)
+				declareIn(bCtx, root, "base i64 := 5")
+				ctx := declareIn(bCtx, root, "total i64 $= base")
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(
+					ContainSubstring("must be a literal value"))
+			})
+
+			It("rejects a stateful initialized from a constant expression", func(bCtx SpecContext) {
+				root := NewRoot(nil)
+				ctx := declareIn(bCtx, root, "total i64 $= 2 + 3")
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(
+					ContainSubstring("must be a literal value"))
+			})
+
+			It("accepts a negated-literal stateful initializer", func(bCtx SpecContext) {
+				root := NewRoot(nil)
+				ctx := declareIn(bCtx, root, "total i64 $= -5")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			})
+
+			It("makes an explicitly-typed alias to a reactive variable reactive", func(bCtx SpecContext) {
+				root := NewRoot(nil, sensorChan...)
+				declareIn(bCtx, root, "derived := sensor + 1")
+				ctx := declareIn(bCtx, root, "mirror f64 := derived")
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				Expect(MustSucceed(ctx.Scope.Resolve(ctx, "mirror")).IsReactive()).To(BeTrue())
 			})
 		})
 	})
@@ -144,6 +307,163 @@ var _ = Describe("Statement", func() {
 				x = [1, 2]
 			}`, false, "type mismatch"),
 		)
+
+		It("validates an assignment through the exported entry point", func(bCtx SpecContext) {
+			root := NewRoot(nil)
+			stage := MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "s1", Kind: symbol.KindStage,
+			}))
+			decl := MustSucceed(parser.ParseStatement("x := 42"))
+			declCtx := context.NewRoot(bCtx, decl.VariableDeclaration(), root)
+			declCtx.Scope = stage
+			statement.AnalyzeVariableDeclaration(declCtx)
+			assign := MustSucceed(parser.ParseStatement("x = 99"))
+			ctx := context.NewRoot(bCtx, assign.Assignment(), root)
+			ctx.Scope = stage
+			statement.AnalyzeAssignment(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+	})
+
+	Describe("Reassignment and Rebind", func() {
+		channels := []symbol.Symbol{
+			{Kind: symbol.KindChannel, Name: "sensor", Type: types.Chan(types.F64())},
+			{Kind: symbol.KindChannel, Name: "backup", Type: types.Chan(types.F64())},
+			{Kind: symbol.KindChannel, Name: "wave", Type: types.Chan(types.Series(types.F64()))},
+		}
+		declareIn := func(bCtx SpecContext, root, scope *symbol.Symbol, code string) {
+			stmt := MustSucceed(parser.ParseStatement(code))
+			ctx := context.NewRoot(bCtx, stmt.VariableDeclaration(), root)
+			ctx.Scope = scope
+			statement.AnalyzeVariableDeclaration(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		}
+		assignIn := func(
+			bCtx SpecContext, root, scope *symbol.Symbol, code string,
+		) context.Context[parser.IAssignmentContext] {
+			stmt := MustSucceed(parser.ParseStatement(code))
+			ctx := context.NewRoot(bCtx, stmt.Assignment(), root)
+			ctx.Scope = scope
+			statement.AnalyzeAssignment(ctx)
+			return ctx
+		}
+		newStage := func(bCtx SpecContext, root *symbol.Symbol) *symbol.Symbol {
+			return MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "s1", Kind: symbol.KindStage,
+			}))
+		}
+
+		It("Should rebind a channel alias to a matching channel", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "a := sensor")
+			ctx := assignIn(bCtx, root, stage, "a = backup")
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			alias := MustSucceed(ctx.Scope.Resolve(ctx, "a"))
+			Expect(alias.Reassigned).To(BeTrue())
+			backup := MustSucceed(ctx.Scope.Resolve(ctx, "backup"))
+			Expect(alias.Channels.Read).To(HaveKeyWithValue(uint32(backup.ID), "backup"))
+			Expect(alias.Channels.Write).To(HaveKeyWithValue(uint32(backup.ID), "backup"))
+		})
+
+		It("Should reject rebinding an alias to a channel of another structure", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "a := sensor")
+			ctx := assignIn(bCtx, root, stage, "a = wave")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("type mismatch: cannot rebind"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "a")).Reassigned).To(BeFalse())
+		})
+
+		It("Should re-point a channel-read variable at a new derivation", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "x := sensor + 1")
+			ctx := assignIn(bCtx, root, stage, "x = sensor * 2")
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeTrue())
+		})
+
+		It("Should reject re-pointing a channel-read variable at another structure", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "x := sensor + 1")
+			ctx := assignIn(bCtx, root, stage, "x = [1.0, 2.0]")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("type mismatch: cannot reassign"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
+		})
+
+		It("Should reject re-pointing a channel-read variable at a constant", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "x := sensor + 1")
+			ctx := assignIn(bCtx, root, stage, "x = 5")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("from a constant value"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
+		})
+
+		It("Should reject re-pointing a channel-read variable at a cast constant", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "x := sensor + 1")
+			ctx := assignIn(bCtx, root, stage, "x = f32(5)")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("from a constant value"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
+		})
+
+		It("Should accept re-pointing a channel-read variable at a variable expression", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			stage := newStage(bCtx, root)
+			declareIn(bCtx, root, stage, "base := sensor + 1")
+			declareIn(bCtx, root, stage, "x := sensor + 2")
+			ctx := assignIn(bCtx, root, stage, "x = base + 1")
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeTrue())
+		})
+
+		It("Should reject reassigning a top-level variable", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declareIn(bCtx, root, root, "gain := 2")
+			stage := newStage(bCtx, root)
+			ctx := assignIn(bCtx, root, stage, "gain = 3")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("cannot reassign top-level variable 'gain'"))
+			ctx = assignIn(bCtx, root, stage, "gain += 1")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("cannot reassign top-level variable 'gain'"))
+		})
+
+		It("Should reject rebinding a top-level alias", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declareIn(bCtx, root, root, "a := sensor")
+			stage := newStage(bCtx, root)
+			ctx := assignIn(bCtx, root, stage, "a = backup")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("cannot rebind top-level variable 'a'"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "a")).Reassigned).To(BeFalse())
+		})
+
+		It("Should reject re-pointing a top-level channel-read variable", func(bCtx SpecContext) {
+			root := NewRoot(nil, channels...)
+			declareIn(bCtx, root, root, "x := sensor + 1")
+			stage := newStage(bCtx, root)
+			ctx := assignIn(bCtx, root, stage, "x = sensor * 2")
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(
+				ContainSubstring("cannot reassign top-level variable 'x'"))
+			Expect(MustSucceed(ctx.Scope.Resolve(ctx, "x")).Reassigned).To(BeFalse())
+		})
 	})
 
 	Describe("If Statement", func() {
@@ -292,14 +612,24 @@ var _ = Describe("Statement", func() {
 					varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
 					Expect(varScope.Type).To(Equal(expectedType))
 				},
-				Entry("f64 channel", "sensor", types.Chan(types.F64())),
-				Entry("i32 channel", "int_chan", types.Chan(types.I32())),
+				Entry("f64 channel", "sensor", readWriteChan(types.F64())),
+				Entry("i32 channel", "int_chan", readWriteChan(types.I32())),
 				Entry("i32 channel addition", "int_chan + 1", types.I32()),
 			)
+
+			It("should give a channel alias a source, not an internal channel", func(bCtx SpecContext) {
+				stmt := MustSucceed(parser.ParseStatement("current := sensor"))
+				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil, channels...))
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "current"))
+				Expect(varScope.IsChannelReadWrite()).To(BeTrue())
+				Expect(varScope.SourceID).ToNot(BeNil())
+			})
 		})
 
-		Context("channel alias assignment to scalar variables", func() {
-			DescribeTable("should accept valid channel alias to scalar assignments",
+		Context("channel read/write assignment to scalar variables", func() {
+			DescribeTable("should accept valid channel read/write to scalar assignments",
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot[parser.IBlockContext](bCtx, block, NewRoot(nil, channels...))
@@ -307,51 +637,51 @@ var _ = Describe("Statement", func() {
 					statement.AnalyzeBlock(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				},
-				Entry("chan f64 alias assigned to f64 scalar", `{
+				Entry("chan f64 channel read/write assigned to f64 scalar", `{
 					local_ref := sensor
 					value f64 := 0.0
 					value = local_ref
 				}`),
-				Entry("chan f64 alias assigned to stateful f64 scalar", `{
+				Entry("chan f64 channel read/write assigned to stateful f64 scalar", `{
 					local_ref := sensor
 					value f64 $= 0.0
 					value = local_ref
 				}`),
-				Entry("chan f64 alias assigned to inferred-type variable", `{
+				Entry("chan f64 channel read/write assigned to inferred-type variable", `{
 					local_ref := sensor
 					value := 0.0
 					value = local_ref
 				}`),
-				Entry("chan i32 alias assigned to i32 scalar", `{
+				Entry("chan i32 channel read/write assigned to i32 scalar", `{
 					local_ref := int_chan
 					value i32 := 0
 					value = local_ref
 				}`),
-				Entry("alias-to-alias preserves chan type", `{
+				Entry("read/write-to-read/write preserves chan type", `{
 					local_ref := sensor
 					other_ref := local_ref
 				}`),
-				Entry("chan alias in comparison", `{
+				Entry("chan channel read/write in comparison", `{
 					local_ref := sensor
 					x f64 := 0.0
 					if local_ref > 100.0 { x = 1.0 }
 				}`),
-				Entry("chan alias in arithmetic", `{
+				Entry("chan channel read/write in arithmetic", `{
 					local_ref := sensor
 					result f64 := local_ref + 1.0
 				}`),
-				Entry("chan alias written to channel target", `{
+				Entry("chan channel read/write written to channel target", `{
 					sensor_ref := sensor
 					output = sensor_ref
 				}`),
-				Entry("arithmetic expr of alias assigned to scalar", `{
+				Entry("arithmetic expr of channel read/write assigned to scalar", `{
 					local_ref := sensor
 					value f64 := 0.0
 					value = local_ref * 2.0
 				}`),
 			)
 
-			It("should reject type mismatch after unwrapping channel alias", func(bCtx SpecContext) {
+			It("should reject type mismatch after unwrapping channel read/write", func(bCtx SpecContext) {
 				block := MustSucceed(parser.ParseBlock(`{
 					local_ref := int_chan
 					value f64 := 0.0
@@ -365,8 +695,8 @@ var _ = Describe("Statement", func() {
 			})
 		})
 
-		Context("series literals with channel alias elements", func() {
-			DescribeTable("should accept valid series literals containing channel aliases",
+		Context("series literals with channel read/write elements", func() {
+			DescribeTable("should accept valid series literals containing channel read/write variables",
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot[parser.IBlockContext](bCtx, block, NewRoot(nil, channels...))
@@ -374,54 +704,54 @@ var _ = Describe("Statement", func() {
 					statement.AnalyzeBlock(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				},
-				Entry("channel alias then exact-integer float literal", `{
+				Entry("channel read/write then exact-integer float literal", `{
 					ref := sensor
 					x := [ref, 1.0]
 				}`),
-				Entry("exact-integer float literal then channel alias", `{
+				Entry("exact-integer float literal then channel read/write", `{
 					ref := sensor
 					x := [1.0, ref]
 				}`),
-				Entry("two channel aliases of same type", `{
+				Entry("two channel read/write variables of same type", `{
 					ref1 := sensor
 					ref2 := sensor
 					x := [ref1, ref2]
 				}`),
-				Entry("channel alias then int literal", `{
+				Entry("channel read/write then int literal", `{
 					ref := sensor
 					x := [ref, 1]
 				}`),
-				Entry("int literal then channel alias", `{
+				Entry("int literal then channel read/write", `{
 					ref := sensor
 					x := [1, ref]
 				}`),
-				Entry("channel alias with arithmetic", `{
+				Entry("channel read/write with arithmetic", `{
 					ref := sensor
 					x := [ref + 1.0, 2.0]
 				}`),
-				Entry("i32 channel alias then int literal", `{
+				Entry("i32 channel read/write then int literal", `{
 					ref := int_chan
 					x := [ref, 42]
 				}`),
-				Entry("int literal then i32 channel alias", `{
+				Entry("int literal then i32 channel read/write", `{
 					ref := int_chan
 					x := [42, ref]
 				}`),
-				Entry("channel alias then non-exact float literal", `{
+				Entry("channel read/write then non-exact float literal", `{
 					ref := sensor
 					x := [ref, 1.5]
 				}`),
-				Entry("non-exact float literal then channel alias", `{
+				Entry("non-exact float literal then channel read/write", `{
 					ref := sensor
 					x := [1.5, ref]
 				}`),
-				Entry("channel alias then pi-like float literal", `{
+				Entry("channel read/write then pi-like float literal", `{
 					ref := sensor
 					x := [ref, 3.14]
 				}`),
 			)
 
-			DescribeTable("should reject invalid series literals containing channel aliases",
+			DescribeTable("should reject invalid series literals containing channel read/write variables",
 				func(bCtx SpecContext, code string) {
 					block := MustSucceed(parser.ParseBlock(code))
 					ctx := context.NewRoot[parser.IBlockContext](bCtx, block, NewRoot(nil, channels...))
@@ -430,25 +760,25 @@ var _ = Describe("Statement", func() {
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("incompatible type"))
 				},
-				Entry("f64 channel alias then string literal", `{
+				Entry("f64 channel read/write then string literal", `{
 					ref := sensor
 					x := [ref, "hello"]
 				}`),
-				Entry("string literal then f64 channel alias", `{
+				Entry("string literal then f64 channel read/write", `{
 					ref := sensor
 					x := ["hello", ref]
 				}`),
-				Entry("f64 alias and i32 alias", `{
+				Entry("f64 channel read/write and i32 channel read/write", `{
 					f_ref := sensor
 					i_ref := int_chan
 					x := [f_ref, i_ref]
 				}`),
-				Entry("i32 alias and f64 alias", `{
+				Entry("i32 channel read/write and f64 channel read/write", `{
 					i_ref := int_chan
 					f_ref := sensor
 					x := [i_ref, f_ref]
 				}`),
-				Entry("non-exact float literal then i32 channel alias", `{
+				Entry("non-exact float literal then i32 channel read/write", `{
 					ref := int_chan
 					x := [1.5, ref]
 				}`),

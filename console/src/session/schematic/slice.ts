@@ -234,7 +234,7 @@ export const { actions, reducer } = createSlice({
 });
 
 export const {
-  create: internalCreate,
+  create,
   setSelected,
   setControlStatus,
   setControlAuthority,

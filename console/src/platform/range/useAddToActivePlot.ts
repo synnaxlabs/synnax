@@ -12,14 +12,14 @@ import { Ranger, Status, Synnax } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { LinePlot } from "@/platform/lineplot";
 import { Session } from "@/session";
 
 export const useAddToActivePlot = (): ((keys: string[]) => void) => {
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const store = Session.useStore();
+  const dispatch = Session.useDispatch();
   const client = Synnax.use();
+  const getFocusedKey = Session.LinePlot.useGetFocusedKey();
   const { retrieve } = Ranger.useRetrieveObservableMultiple({
     onChange: useCallback(
       ({ data, variant, status }) => {
@@ -27,14 +27,13 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           if (variant === "error") addStatus(status);
           return;
         }
-        const active = Session.Layout.selectActiveMosaicLayout(store.getState());
-        if (active == null || active.type !== LinePlot.LAYOUT_TYPE || client == null)
-          return;
-        store.dispatch(Session.Range.add(Session.Range.fromClient(data)));
+        const active = getFocusedKey();
+        if (active == null || client == null) return;
+        dispatch(Session.Range.add(Session.Range.fromClient(data)));
         handleError(
           () =>
             client.lineplots.dispatch(
-              active.key,
+              active,
               id.create(),
               data.map((range) =>
                 lineplot.addRange({ axisKey: "x1", range: range.key }),
@@ -43,7 +42,7 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
           "Failed to add ranges to plot",
         );
       },
-      [store, client, addStatus, handleError],
+      [dispatch, client, addStatus, handleError],
     ),
   });
   return useCallback((keys: string[]) => retrieve({ keys }), []);

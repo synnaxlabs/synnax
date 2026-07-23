@@ -34,17 +34,11 @@ import {
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.EtherCAT",
-};
-
-export const WriteSelectable = Selector.createSimpleItem({
   title: "EtherCAT Write Task",
   icon: <Icon.Logo.EtherCAT />,
-  layout: WRITE_LAYOUT,
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (
@@ -66,7 +60,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<OutputChannel>(path);
   return (
-    <Task.Layouts.ListAndDetailsChannelItem
+    <Task.Views.ListAndDetailsChannelItem
       {...props}
       port={getPortLabel(ch)}
       path={path}
@@ -85,7 +79,7 @@ const channelDetails = Component.renderProp(WriteChannelDetails);
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC<Task.FormProps<WriteSchemas>> = () => (
-  <Task.Layouts.ListAndDetails<OutputChannel>
+  <Task.Views.ListAndDetails<OutputChannel>
     listItem={listItem}
     details={channelDetails}
     createChannel={createOutputChannel}

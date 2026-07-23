@@ -11,6 +11,10 @@
 
 .console-task-toolbar {
     .pluto-list__item {
+        .console-task__status-indicator {
+            font-size: 2rem;
+            min-width: 2rem;
+        }
         .console-task__metadata {
             flex-shrink: 1;
             text-overflow: ellipsis;

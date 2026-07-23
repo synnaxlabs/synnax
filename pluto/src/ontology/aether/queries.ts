@@ -79,7 +79,8 @@ const RESOURCE_DELETE_LISTENER: flux.ChannelListener<
 > = {
   channel: ontology.RESOURCE_DELETE_CHANNEL_NAME,
   schema: ontology.idZ,
-  onChange: ({ store, changed }) => store.resources.delete(changed.key),
+  onChange: ({ store, changed }) =>
+    store.resources.delete(ontology.idToString(changed)),
 };
 
 export const RESOURCE_FLUX_STORE_CONFIG: flux.UnaryStoreConfig<FluxSubStore> = {

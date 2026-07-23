@@ -7,7 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/export/ToolbarButton.css";
+
 import { Button, Icon } from "@synnaxlabs/pluto";
+
+import { CSS } from "@/platform/css";
 
 export interface ToolbarButtonProps extends Omit<
   Button.ButtonProps,
@@ -22,7 +26,7 @@ export const ToolbarButton = ({ onExport, ...rest }: ToolbarButtonProps) => (
     sharp
     size="medium"
     variant="text"
-    style={{ height: "100%" }}
+    className={CSS.B("toolbar-button")}
     onClick={onExport}
     {...rest}
   >

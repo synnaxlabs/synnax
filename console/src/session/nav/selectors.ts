@@ -21,8 +21,7 @@ import { Select } from "@/session/select";
 
 interface RequiredStoreState extends StoreState, Drift.StoreState {}
 
-export const selectSliceState = (state: RequiredStoreState): SliceState =>
-  state[SLICE_NAME];
+const selectSliceState = (state: RequiredStoreState): SliceState => state[SLICE_NAME];
 
 export const selectWindowState = (state: RequiredStoreState) => {
   const windowKey = Drift.selectWindowKey(state);
@@ -46,7 +45,7 @@ const selectBottom = (state: RequiredStoreState): BottomState =>
 
 export const useSelectBottom = (): BottomState => Select.useMemo(selectBottom, []);
 
-export const selectBottomVisible = (state: RequiredStoreState): boolean =>
+const selectBottomVisible = (state: RequiredStoreState): boolean =>
   selectBottom(state).visible;
 
 export const useSelectBottomVisible = (): boolean =>

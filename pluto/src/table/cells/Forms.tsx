@@ -27,10 +27,8 @@ export interface FormProps {
   onVariantChange: (variant: Variant) => void;
 }
 
-const valueFormStyle = { padding: "2rem" };
-
 const ValueFormWrapper = (props: PropsWithChildren) => (
-  <Flex.Box {...props} style={valueFormStyle} y />
+  <Flex.Box {...props} className={CSS.B("table-cell-value-form")} y />
 );
 
 export const ValueForm = ({ onVariantChange }: FormProps) => (
@@ -88,10 +86,8 @@ export const ValueForm = ({ onVariantChange }: FormProps) => (
   </Tabs.Frame>
 );
 
-const textFormStyle = { padding: "2rem" };
-
 export const TextForm = ({ onVariantChange }: FormProps) => (
-  <Flex.Box x grow style={textFormStyle}>
+  <Flex.Box x grow className={CSS.B("table-cell-text-form")}>
     <Input.Item label="Variant" padHelpText={false}>
       <SelectVariant onChange={onVariantChange} value="text" />
     </Input.Item>

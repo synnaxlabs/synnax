@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { Dialog } from "@/dialog";
 
 interface Spec {
-  args: Dialog.PositionArgs;
+  params: Dialog.PositionParams;
   name?: string;
   expected: Dialog.PositionReturn;
 }
@@ -22,7 +22,7 @@ describe("position", () => {
   describe("dialog", () => {
     const CENTER: Spec = {
       name: "target in center, plenty of space, no preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -36,7 +36,7 @@ describe("position", () => {
 
     const TOP_LEFT: Spec = {
       name: "target in top left, plenty of space, no preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(0, 0, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -50,7 +50,7 @@ describe("position", () => {
 
     const BOTTOM_RIGHT: Spec = {
       name: "target in bottom right, plenty of space, no preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(90, 90, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -64,7 +64,7 @@ describe("position", () => {
 
     const BOTTOM_LEFT: Spec = {
       name: "target in bottom left, plenty of space, no preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(0, 90, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -78,7 +78,7 @@ describe("position", () => {
 
     const TOP_RIGHT: Spec = {
       name: "target in top right, plenty of space, no preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(90, 0, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -92,7 +92,7 @@ describe("position", () => {
 
     const CENTER_LEFT: Spec = {
       name: "target in center, plenty of space, preference for left side",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -110,7 +110,7 @@ describe("position", () => {
 
     const CENTER_BOTTOM_RIGHT: Spec = {
       name: "target in center, preference for bottom-right/top-left pairing",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -129,7 +129,7 @@ describe("position", () => {
     // Dialog larger than container
     const TOP_LEFT_LARGE: Spec = {
       name: "box in top left, preference for top-left/bottom-right pairing",
-      args: {
+      params: {
         container: box.construct(0, 0, 50, 50),
         target: box.construct(0, 0, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -147,7 +147,7 @@ describe("position", () => {
 
     const MULTIPLE_PREFER: Spec = {
       name: "multiple paired preferences",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -165,7 +165,7 @@ describe("position", () => {
 
     const DISABLED_LOCATIONS: Spec = {
       name: "disabled pairings forcing fallback",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -184,7 +184,7 @@ describe("position", () => {
 
     const PREFER_AND_DISABLE: Spec = {
       name: "preferences with both prefer and disable options",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -205,7 +205,7 @@ describe("position", () => {
 
     const DIALOG_PREFERENCES: Spec = {
       name: "paired preferences for dialog positioning",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -223,7 +223,7 @@ describe("position", () => {
 
     const BOTH_PREFERENCES: Spec = {
       name: "specific paired preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -241,7 +241,7 @@ describe("position", () => {
 
     const CONFLICTING_PREFERENCES: Spec = {
       name: "disabled preferences resolve to best available option",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -262,7 +262,7 @@ describe("position", () => {
 
     const PARTIAL_XY_PREFER: Spec = {
       name: "partial XY preferences (prefer left to right)",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -280,7 +280,7 @@ describe("position", () => {
 
     const PARTIAL_XY_DISABLE: Spec = {
       name: "partial XY disable (disable top target positions)",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -298,7 +298,7 @@ describe("position", () => {
 
     const CONSTRAINED_SPACE: Spec = {
       name: "constrained space with preferences forcing suboptimal positioning",
-      args: {
+      params: {
         container: box.construct(0, 0, 60, 60),
         target: box.construct(45, 45, 10, 10),
         dialog: box.construct(0, 0, 25, 25),
@@ -316,7 +316,7 @@ describe("position", () => {
 
     const EDGE_CASE_SINGLE_AXIS: Spec = {
       name: "single axis preference with disable",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -338,7 +338,7 @@ describe("position", () => {
 
     const LARGE_DIALOG: Spec = {
       name: "oversized dialog with preferences and constraints",
-      args: {
+      params: {
         container: box.construct(0, 0, 80, 80),
         target: box.construct(30, 30, 10, 10),
         dialog: box.construct(0, 0, 50, 30),
@@ -362,7 +362,7 @@ describe("position", () => {
 
     const INITIAL_LOCATION_SIMPLE: Spec = {
       name: "initial location preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -380,7 +380,7 @@ describe("position", () => {
 
     const INITIAL_LOCATION_PARTIAL: Spec = {
       name: "initial location with partial preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -398,7 +398,7 @@ describe("position", () => {
 
     const INITIAL_WITH_PREFER: Spec = {
       name: "initial location with prefer fallback",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 20, 20),
         dialog: box.construct(0, 0, 20, 20),
@@ -420,7 +420,7 @@ describe("position", () => {
 
     const INITIAL_CONSTRAINED: Spec = {
       name: "initial location constrained by container",
-      args: {
+      params: {
         container: box.construct(0, 0, 50, 50),
         target: box.construct(35, 35, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -438,7 +438,7 @@ describe("position", () => {
 
     const INITIAL_WITH_DISABLE: Spec = {
       name: "initial location with disabled options",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -459,7 +459,7 @@ describe("position", () => {
 
     const INITIAL_SINGLE_AXIS: Spec = {
       name: "initial location with single axis preference",
-      args: {
+      params: {
         container: box.construct(0, 0, 100, 100),
         target: box.construct(40, 40, 10, 10),
         dialog: box.construct(0, 0, 20, 20),
@@ -500,9 +500,9 @@ describe("position", () => {
       INITIAL_SINGLE_AXIS,
     ];
 
-    SPECS.forEach(({ name, args, expected }) =>
+    SPECS.forEach(({ name, params, expected }) =>
       it(`should position dialog correctly for ${name}`, () =>
-        expect(Dialog.position(args)).toEqual(expected)),
+        expect(Dialog.position(params)).toEqual(expected)),
     );
   });
 

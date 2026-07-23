@@ -10,7 +10,7 @@
 import { status } from "@synnaxlabs/client";
 import { Access, Icon, Status } from "@synnaxlabs/pluto";
 
-import { EXPLORER_LAYOUT } from "@/feature/status/Explorer";
+import { Explorer } from "@/feature/status/explorer";
 import { Command } from "@/platform/command";
 import { Status as PlatformStatus } from "@/platform/status";
 
@@ -26,7 +26,7 @@ const OpenExplorerCommand = Command.create({
   key: "open_status_explorer",
   name: "Open the Status Explorer",
   icon: <Icon.Explore />,
-  useOnSelect: Command.createPlacerUseOnSelect(EXPLORER_LAYOUT),
+  useOnSelect: Explorer.useOpenTab,
   useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
 });
 

@@ -51,9 +51,12 @@ type nodeImpl struct {
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
+	selIdx        int
 	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
+	chanInputs    []bool
+	varInputs     []bool
 	stringOutputs []bool
 	strings       *stlstrings.ProgramState
 }
@@ -86,6 +89,20 @@ func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error)
 
 func (n *nodeImpl) Init(node.Context) {}
 
+// dataFresh reports whether any input other than $sel has unconsumed data.
+func (n *nodeImpl) dataFresh() bool {
+	for i := range n.ir.Inputs {
+		if i == n.selIdx || n.ir.Inputs[i].Value != nil || n.chanInputs[i] ||
+			n.varInputs[i] {
+			continue
+		}
+		if n.InputFresh(i) {
+			return true
+		}
+	}
+	return false
+}
+
 func (n *nodeImpl) Next(ctx node.Context) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -100,14 +117,49 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		n.initialized = true
 	}
 
+	// A $sel-only change re-points without emitting; the value fires on the next input.
+	if n.selIdx >= 0 && !n.dataFresh() {
+		n.RefreshInputs()
+		return
+	}
+
 	if !n.RefreshInputs() {
 		return
+	}
+
+	// A KindChan param holds the key of the channel the body targets. The key
+	// is edge-fed and can rebind at runtime, so re-read the latest each pass.
+	for i := range n.ir.Inputs {
+		if !n.chanInputs[i] || n.ir.Inputs[i].Value != nil {
+			continue
+		}
+		t := n.RefInput(i)
+		if t.Len() == 0 {
+			return
+		}
+		n.params[i] = uint64(telem.ValueAt[uint32](t, -1))
+	}
+
+	// A var input references a variable's node; re-read the latest each pass.
+	for i := range n.ir.Inputs {
+		if !n.varInputs[i] {
+			continue
+		}
+		t := n.RefInput(i)
+		if t.Len() == 0 {
+			return
+		}
+		if n.stringInputs[i] {
+			n.params[i] = uint64(n.strings.Create(string(t.At(-1))))
+		} else {
+			n.params[i] = valueAt(t, int(t.Len()-1))
+		}
 	}
 
 	maxLength := int64(0)
 	longestInputIdx := -1
 	for i := range n.ir.Inputs {
-		if n.ir.Inputs[i].Value != nil {
+		if n.ir.Inputs[i].Value != nil || n.chanInputs[i] || n.varInputs[i] {
 			continue
 		}
 		dataLen := n.Input(i).Len()
@@ -147,7 +199,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	var alignmentSum telem.Alignment
 	var timeRange telem.TimeRange
 	for i := range n.ir.Inputs {
-		if n.ir.Inputs[i].Value != nil {
+		if n.ir.Inputs[i].Value != nil || n.chanInputs[i] || n.varInputs[i] {
 			continue
 		}
 		input := n.Input(i)
@@ -169,12 +221,14 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if longestInputIdx >= 0 {
 		longestInputTime = n.InputTime(longestInputIdx)
 	}
+	// Dispatcher drivers alternate; no input's time is honest, so stamp the clock.
+	clockStamp := longestInputIdx < 0 || n.selIdx >= 0
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
-			if n.ir.Inputs[j].Value != nil {
+			if n.ir.Inputs[j].Value != nil || n.chanInputs[j] || n.varInputs[j] {
 				continue
 			}
 			inputLen := n.Input(j).Len()
@@ -201,10 +255,10 @@ func (n *nodeImpl) Next(ctx node.Context) {
 			continue
 		}
 		var ts uint64
-		if longestInputIdx >= 0 {
-			ts = valueAt(longestInputTime, int(i))
-		} else {
+		if clockStamp {
 			ts = uint64(n.clock.Now())
+		} else {
+			ts = valueAt(longestInputTime, int(i))
 		}
 		for j, value := range res {
 			if value.Changed {

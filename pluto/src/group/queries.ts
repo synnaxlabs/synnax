@@ -56,7 +56,7 @@ export const retrieveSingle = async ({
   return group.groupZ.parse(res.data);
 };
 
-export interface CreateParams extends group.CreateArgs {}
+export interface CreateParams extends group.CreateParams {}
 
 export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, FluxSubStore>({
   name: RESOURCE_NAME,

@@ -17,7 +17,7 @@ import {
 } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
 
-interface OpenConfirmArgs {
+interface OpenConfirmParams {
   items: { name: string } | { name: string }[];
   type?: string;
   description?: string;
@@ -27,7 +27,7 @@ const openConfirm = async ({
   items,
   type = "Channel",
   description,
-}: OpenConfirmArgs): Promise<ModalOpenerHandle<Promise<boolean>>> =>
+}: OpenConfirmParams): Promise<ModalOpenerHandle<Promise<boolean>>> =>
   await renderModalOpener(() => Tree.useConfirmDelete({ type, description }), [items]);
 
 describe("useConfirmDelete", () => {

@@ -11,16 +11,17 @@ import {
   channel as channelClient,
   DataType,
   group,
+  lineplot,
   NotFoundError,
   ontology,
+  project,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { uuid } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { placeLayout } from "@/platform/layout/testutil";
-import { LinePlot } from "@/platform/lineplot";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
 import { createResource } from "@/platform/tree/testutil";
@@ -30,7 +31,12 @@ import {
   renderOntologyTree,
 } from "@/platform/tree/treeTestutil";
 import { Session } from "@/session";
-import { awaitTextEditingElement, commitTextEdit, uniqueName } from "@/testutil";
+import {
+  awaitTextEditingElement,
+  commitTextEdit,
+  resolveFocusedTab,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -94,7 +100,7 @@ describe("channel/ontology", () => {
   });
 
   describe("onSelect", () => {
-    it("creates a line plot for the selection when no plot is active", async () => {
+    it("creates a line plot for the selection when no plot is focused", async () => {
       const ch = await createChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
@@ -104,14 +110,15 @@ describe("channel/ontology", () => {
       const { store } = await renderChannelTree(root);
       store.dispatch(Session.Project.select(proj.key));
       fireEvent.doubleClick(await findTreeRow(ch.name));
-      await waitFor(() => {
-        const active = Session.Layout.selectActiveMosaicLayout(store.getState());
-        expect(active?.type).toBe(LinePlot.LAYOUT_TYPE);
-        expect(active?.name).toBe("Line Plot");
-      });
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.type).toBe("lineplot");
+      const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+      expect(plot.name).toBe("Line Plot");
+      expect(plot.channels.y1).toContain(ch.key);
     });
 
-    it("adds the selection to the active line plot", async () => {
+    it("adds the selection to the focused line plot", async () => {
       const ch = await createChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
@@ -122,7 +129,30 @@ describe("channel/ontology", () => {
       });
       const root = await createChannelGroup(ch);
       const { store } = await renderChannelTree(root);
-      placeLayout(store, plot.key, { type: LinePlot.LAYOUT_TYPE });
+      const tabKey = uuid.create();
+      const pan = await client.panels.create({
+        name: uniqueName("panel"),
+        parent: project.ontologyID(proj.key),
+        root: {
+          variant: "leaf",
+          tabs: [
+            {
+              variant: "resource",
+              key: tabKey,
+              resource: lineplot.ontologyID(plot.key),
+            },
+          ],
+        },
+      });
+      store.dispatch(Session.Project.select(proj.key));
+      store.dispatch(Session.Panel.select({ key: pan.key }));
+      store.dispatch(
+        Session.Panel.internalSelectTab({
+          key: pan.key,
+          tabKey,
+          otherTabKeys: [tabKey],
+        }),
+      );
       fireEvent.doubleClick(await findTreeRow(ch.name));
       await waitFor(async () => {
         const { channels } = await client.lineplots.retrieve({ key: plot.key });
@@ -130,7 +160,7 @@ describe("channel/ontology", () => {
       });
     });
 
-    it("does not create a plot for a virtual channel without an expression", async () => {
+    it("does not include a virtual channel without an expression in the created plot", async () => {
       const virtualCh = await createChannel({ isIndex: false, virtual: true });
       const realCh = await createChannel();
       const proj = await client.projects.create({
@@ -142,15 +172,10 @@ describe("channel/ontology", () => {
       store.dispatch(Session.Project.select(proj.key));
       fireEvent.doubleClick(await findTreeRow(virtualCh.name));
       fireEvent.doubleClick(await findTreeRow(realCh.name));
-      await waitFor(() =>
-        expect(Session.Layout.selectActiveMosaicLayout(store.getState())?.type).toBe(
-          LinePlot.LAYOUT_TYPE,
-        ),
-      );
-      const plots = Session.Layout.selectMany(store.getState()).filter(
-        (l) => l.type === LinePlot.LAYOUT_TYPE,
-      );
-      expect(plots).toHaveLength(1);
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      const plot = await client.lineplots.retrieve({ key: tab.resource.key });
+      expect(plot.channels.y1).toEqual([realCh.key]);
     });
   });
 

@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc } from "@synnaxlabs/pluto";
+import { Arc, Panel as PPanel } from "@synnaxlabs/pluto";
 
 import { Graph } from "@/feature/arc/editor/Graph";
 import { Text } from "@/feature/arc/editor/Text";
-import { Layout } from "@/platform/layout";
+import { type Panel } from "@/platform/panel";
 
-const Internal: Layout.Renderer = (props) => {
+const Internal = () => {
   const mode = Arc.useSelectMode();
-  const C = mode === "graph" ? Graph : Text;
-  return <C {...props} />;
+  return mode === "graph" ? <Graph /> : <Text />;
 };
 
-export const Editor: Layout.Renderer = (props) => (
-  <Arc.Suspended arcKey={props.layoutKey}>
-    <Internal {...props} />
-  </Arc.Suspended>
-);
-
-Editor.useName = Layout.createUseFluxName(Arc.useRename, Arc.useRetrieveObservableName);
+export const Editor: Panel.Content = () => {
+  const { key } = PPanel.useSelectTabResource();
+  return (
+    <Arc.Suspended arcKey={key}>
+      <Internal />
+    </Arc.Suspended>
+  );
+};

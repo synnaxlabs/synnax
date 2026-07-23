@@ -14,7 +14,7 @@ import { useCallback } from "react";
 import { type ContextMenuProps } from "@/platform/tree/types";
 import { useConfirmDelete } from "@/platform/tree/useConfirmDelete";
 
-export interface CreateUseDeleteArgs<K extends record.Key> {
+export interface CreateUseDeleteParams<K extends record.Key> {
   type: string;
   icon?: string;
   description?: string;
@@ -35,7 +35,7 @@ export const createUseDelete =
     convertKey,
     beforeUpdate,
     afterSuccess,
-  }: CreateUseDeleteArgs<K>): ((props: ContextMenuProps) => () => void) =>
+  }: CreateUseDeleteParams<K>): ((props: ContextMenuProps) => () => void) =>
   (props: ContextMenuProps) => {
     const {
       selection: { ids },

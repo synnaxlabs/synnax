@@ -165,6 +165,7 @@ Panel struct {
         target_tab  TabKey?
         index       int32?
         location    spatial.Location?
+        singleton   bool?
 
         @doc value """
             inserts a tab into a leaf at the given index, appending when index
@@ -176,7 +177,11 @@ Panel struct {
             location places the tab directly in the resolved leaf, equivalent
             to absent. Inserting a resource tab whose resource already backs
             a tab in the panel is a no-op: a resource may back at most one
-            tab per panel, and callers select the existing tab instead.
+            tab per panel, and callers select the existing tab instead. When
+            singleton is set and the tab is a view, the insert is a no-op if a
+            view of the same type already backs a tab in the panel: a singleton
+            view backs at most one tab per panel, and callers select the
+            existing tab instead.
         """
     }
 

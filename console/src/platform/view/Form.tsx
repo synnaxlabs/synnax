@@ -46,7 +46,7 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, Q extends 
   const { fetchMore, search } = List.usePager({
     // type assertion here to deal with the weird setter<Q, Partial<Q>> type that causes
     // typing issues.
-    retrieve: retrieve as List.UsePagerArgs["retrieve"],
+    retrieve: retrieve as List.UsePagerParams["retrieve"],
     pageSize: 50,
   });
   const updateQuery = useCallback(

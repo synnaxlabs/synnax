@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger, task } from "@synnaxlabs/client";
+import "@/platform/task/ParentRangeButton.css";
+
+import { ranger, task } from "@synnaxlabs/client";
 import { Button, Flex, type Flux, Icon, Ranger, Text } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
-import { Layout } from "@/platform/layout";
-import { Range } from "@/platform/range";
+import { CSS } from "@/platform/css";
+import { Panel } from "@/platform/panel";
 import { useKey } from "@/platform/task/useKey";
 
 export const ParentRangeButton = () => {
@@ -25,17 +27,18 @@ export const ParentRangeButton = () => {
       [],
     ),
   });
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   if (parent == null) return null;
   const { key, name } = parent;
-  const handleClick = () => placeLayout({ ...Range.OVERVIEW_LAYOUT, key, name });
+  const handleClick = () =>
+    openTab({ variant: "resource", resource: ranger.ontologyID(key) });
   return (
     <Flex.Box x align="center" gap="small">
       <Text.Text>Snapshotted to</Text.Text>
       <Button.Button
         gap="small"
         onClick={handleClick}
-        style={{ padding: "1rem" }}
+        className={CSS.B("task-parent-range-button")}
         variant="text"
         weight={400}
       >

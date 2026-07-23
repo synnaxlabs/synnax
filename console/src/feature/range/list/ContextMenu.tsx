@@ -13,9 +13,9 @@ import { Access, Divider, Icon, List, Menu, Ranger, Status } from "@synnaxlabs/p
 import { CreateChildRangeIcon } from "@/feature/range/ContextMenu";
 import { Cluster } from "@/platform/cluster";
 import { ContextMenu as Base } from "@/platform/context-menu";
-import { Layout } from "@/platform/layout";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
+import { Panel } from "@/platform/panel";
 import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
@@ -29,7 +29,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const openCreate = Range.useCreateModal();
   const favoriteKeys = Session.Range.useSelectKeys();
   const someAreFavorites = ranges.some((r) => favoriteKeys.includes(r.key));
@@ -55,7 +55,7 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
   const handleLink = Cluster.useCopyLinkToClipboard();
 
   const handleDetails = () => {
-    placeLayout({ ...Range.OVERVIEW_LAYOUT, name: ranges[0].name, key: ranges[0].key });
+    openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
   };
   const handleRename = () => {
     handleError(async () => {
@@ -74,7 +74,6 @@ export const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps) => {
       if (!confirmed) return;
       const keys = ranges.map((r) => r.key);
       dispatch(Session.Range.remove({ keys }));
-      dispatch(Session.Layout.remove({ keys }));
       del(keys);
     }, "Failed to delete range");
   };

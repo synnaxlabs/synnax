@@ -23,7 +23,7 @@ import {
   createState,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, waitForPlacedLayout } from "@/testutil";
+import { createConsoleWrapper, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -34,6 +34,11 @@ const renderContextMenuItems = async (configured: boolean) => {
     configured,
   });
   const { wrapper, store } = await createConsoleWrapper({ client });
+  const proj = await client.projects.create({
+    name: uniqueName("proj"),
+    layout: {},
+  });
+  store.dispatch(Session.Project.select(proj.key));
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
     selection: createSelection({ ids: [resource.id] }),
@@ -52,17 +57,25 @@ const renderContextMenuItems = async (configured: boolean) => {
 };
 
 describe("HTTP device ContextMenuItems", () => {
-  it("should place the read and write task layouts carrying the device key", async () => {
+  it("should open the read and write task views carrying the device key", async () => {
     const { store, deviceKey } = await renderContextMenuItems(true);
     fireEvent.click(await screen.findByText("Create read task"));
-    const readKey = await waitForPlacedLayout(store, HTTP.Task.READ_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), readKey)).toEqual({
-      deviceKey,
+    expect(await resolveFocusedTab(store, client)).toMatchObject({
+      variant: "view",
+      type: HTTP.Task.READ_TYPE,
+      args: { deviceKey },
     });
     fireEvent.click(screen.getByText("Create write task"));
-    const writeKey = await waitForPlacedLayout(store, HTTP.Task.WRITE_TYPE);
-    expect(Session.Layout.selectArgs(store.getState(), writeKey)).toEqual({
-      deviceKey,
+    expect(
+      await resolveFocusedTab(
+        store,
+        client,
+        (t) => t.variant === "view" && t.type === HTTP.Task.WRITE_TYPE,
+      ),
+    ).toMatchObject({
+      variant: "view",
+      type: HTTP.Task.WRITE_TYPE,
+      args: { deviceKey },
     });
   });
 

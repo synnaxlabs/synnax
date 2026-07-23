@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useCallback } from "react";
+import { useStore } from "react-redux";
+
 import {
   SLICE_NAME,
   type SliceState,
@@ -21,11 +24,21 @@ const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 export const useSelectSliceState = (): SliceState =>
   Select.useMemo((state: StoreState) => selectSliceState(state), []);
 
+export const useGetSliceState = (): (() => SliceState) => {
+  const store = useStore<StoreState>();
+  return useCallback(() => selectSliceState(store.getState()), [store]);
+};
+
 export const selectSelectedKey = (state: StoreState): string | undefined =>
   selectSliceState(state).selected;
 
 export const useSelectSelectedKey = (): string | undefined =>
   Select.useMemo((state: StoreState) => selectSelectedKey(state), []);
+
+export const useGetSelectedKey = (): (() => string | undefined) => {
+  const store = useStore<StoreState>();
+  return useCallback(() => selectSelectedKey(store.getState()), [store]);
+};
 
 export const selectState = (state: StoreState, key?: string): State | undefined => {
   const { ranges } = selectSliceState(state);
@@ -36,10 +49,12 @@ export const selectState = (state: StoreState, key?: string): State | undefined 
 export const useSelectState = (key?: string): State | undefined =>
   Select.useMemo((state: StoreState) => selectState(state, key), [key]);
 
-export const selectStatic = (
-  state: StoreState,
-  key?: string,
-): StaticState | undefined => {
+export const useGetState = (): ((key?: string) => State | undefined) => {
+  const store = useStore<StoreState>();
+  return useCallback((key?: string) => selectState(store.getState(), key), [store]);
+};
+
+const selectStatic = (state: StoreState, key?: string): StaticState | undefined => {
   const range = selectState(state, key);
   if (range?.variant !== "static") return undefined;
   return range;
@@ -63,7 +78,7 @@ export const selectKeys = (state: StoreState): string[] =>
 export const useSelectKeys = (): string[] =>
   Select.useMemo((state: StoreState) => selectKeys(state), []);
 
-export const selectStaticKeys = (state: StoreState): string[] =>
+const selectStaticKeys = (state: StoreState): string[] =>
   selectSliceState(state)
     .ranges.filter((r) => r.variant === "static")
     .map((r) => r.key);

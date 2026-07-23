@@ -17,7 +17,6 @@ import { array, compare, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
-import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
@@ -59,32 +58,12 @@ export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved }
   Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
     name: RESOURCE_NAME,
     retrieve: retrieveSingle,
+    retrieveCached: ({ store, query: { key } }) => store.schematics.get(key),
     mountListeners: ({ store, query: { key }, onChange }) =>
       store.schematics.onSet(onChange, key),
   });
 
-export interface useRetrieveObservableNameParams extends Omit<
-  Flux.UseRetrieveObservableParams<RetrieveQuery, schematic.Schematic>,
-  "onChange"
-> {
-  onChange: (name: string) => void;
-}
-
-export const useRetrieveObservableName = ({
-  onChange,
-  ...params
-}: useRetrieveObservableNameParams): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
-  const onChangeRef = useSyncedRef(onChange);
-  return useRetrieveObservable({
-    ...params,
-    onChange: useCallback(
-      (result) => result.variant === "success" && onChangeRef.current(result.data.name),
-      [],
-    ),
-  });
-};
-
-export interface SelectKeyArgs {
+export interface SelectKeyParams {
   key: schematic.Key;
 }
 
@@ -98,39 +77,39 @@ const requireSchematic = (
 };
 
 export const [useSelectAllNodes, useGetAllNodes] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Node[]>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, schematic.Node[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).nodes,
   }),
 );
 
 export const [useSelectAllEdges, useGetAllEdges] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, schematic.Edge[]>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, schematic.Edge[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).edges,
   }),
 );
 
-export interface SelectConfigArgs {
+export interface SelectConfigParams {
   key: schematic.Key;
   elKey: string;
 }
 
 export const [useSelectElementConfig, useGetElementConfig] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectConfigArgs, ElementConfig | undefined>({
+  Flux.createSelector<FluxSubStore, SelectConfigParams, ElementConfig | undefined>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, elKey }) =>
       requireSchematic(store, key).configs[elKey] as ElementConfig | undefined,
   }),
 );
 
-export interface SelectConfigsArgs {
+export interface SelectConfigsParams {
   key: schematic.Key;
   keys: string[];
 }
 
 export const [useSelectConfigs, useGetConfigs] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectConfigsArgs, Map<string, ElementConfig>>({
+  Flux.createSelector<FluxSubStore, SelectConfigsParams, Map<string, ElementConfig>>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, keys }) => {
       const result = new Map<string, ElementConfig>();
@@ -146,13 +125,13 @@ export const [useSelectConfigs, useGetConfigs] = Scope.bindSelector(
   }),
 );
 
-export interface SelectNodesArgs {
+export interface SelectNodesParams {
   key: schematic.Key;
   keys: string[];
 }
 
 export const [useSelectNodes, useGetNodes] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectNodesArgs, schematic.Node[]>({
+  Flux.createSelector<FluxSubStore, SelectNodesParams, schematic.Node[]>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key, keys }) => {
       const s = store.schematics.get(key);
@@ -164,19 +143,19 @@ export const [useSelectNodes, useGetNodes] = Scope.bindSelector(
   }),
 );
 
-export interface SelectFieldArgs {
+export interface SelectFieldParams {
   key: schematic.Key;
 }
 
 export const [useSelectSnapshot, useGetSnapshot] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectFieldArgs, boolean>({
+  Flux.createSelector<FluxSubStore, SelectFieldParams, boolean>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).snapshot,
   }),
 );
 
 export const [useSelectName, useGetName] = Scope.bindSelector(
-  Flux.createSelector<FluxSubStore, SelectKeyArgs, string>({
+  Flux.createSelector<FluxSubStore, SelectKeyParams, string>({
     subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
     select: (store, { key }) => requireSchematic(store, key).name,
   }),
@@ -199,7 +178,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
   },
 });
 
-export interface CopyParams extends schematic.CopyArgs {}
+export interface CopyParams extends schematic.CopyParams {}
 
 export const { useUpdate: useCopy } = Flux.createUpdate<
   CopyParams,
@@ -215,12 +194,12 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
   },
 });
 
-export interface UseCreateArgs extends schematic.New {
+export interface UseCreateParams extends schematic.New {
   project?: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
-  UseCreateArgs,
+  UseCreateParams,
   FluxSubStore,
   schematic.Schematic
 >({

@@ -15,6 +15,7 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
 import { type z } from "zod";
@@ -100,6 +101,8 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
 
     const font = Theming.useTypography(labelLevel).toString();
 
+    const axisStyle = useMemo(() => ({ ...style, ...gridStyle }), [style, gridStyle]);
+
     const prevLabelSize = useRef(0);
 
     useEffect(() => {
@@ -125,7 +128,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       <>
         <Flex.Box
           className={CSS(className, CSS.B("axis"), CSS.B(cssClass), CSS.loc(location))}
-          style={{ ...style, ...gridStyle }}
+          style={axisStyle}
           align="center"
           justify={location !== "left" ? "end" : "start"}
           direction={direction.swap(dir)}

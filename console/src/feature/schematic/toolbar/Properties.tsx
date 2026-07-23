@@ -78,7 +78,7 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement | null
     values: initialValues,
     sync: true,
     onChange: useCallback(
-      ({ values }: Form.OnChangeArgs<typeof Schematic.elementConfigZ>) =>
+      ({ values }: Form.OnChangeParams<typeof Schematic.elementConfigZ>) =>
         dispatch(schematic.setConfig({ key: elKey, config: deep.copy(values) })),
       [dispatch, elKey],
     ),
@@ -154,7 +154,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selected = Session.Schematic.useSelectSelected();
   const selectedNodes = Schematic.useSelectNodes({ keys: selected });
   const dispatch = Schematic.useSingleDispatch();
-  const store = Session.useStore();
+  const getViewport = Session.Schematic.useGetViewport();
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, schematic.Node>();
@@ -206,12 +206,8 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   };
 
   const getZoom = useCallback(
-    () =>
-      Session.Schematic.selectViewport({
-        state: store.getState(),
-        key: schematicKey,
-      }).zoom,
-    [schematicKey, store],
+    () => getViewport({ key: schematicKey }).zoom,
+    [schematicKey, getViewport],
   );
 
   const getLayoutsForAlignment = () => {
@@ -246,10 +242,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const zoom = Session.Schematic.selectViewport({
-      state: store.getState(),
-      key: schematicKey,
-    }).zoom;
+    const zoom = getViewport({ key: schematicKey }).zoom;
     const topOffsets = new Map<string, number>();
     const layouts = selected
       .map((nodeKey) => {

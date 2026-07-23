@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   type RetrieveParams,
   useStaticData,
-  type UseStaticDataArgs,
+  type UseStaticDataParams,
 } from "@/list/useStaticData";
 
 interface TestItem {
@@ -280,7 +280,7 @@ describe("useStaticData", () => {
   describe("edge cases", () => {
     it("should handle data updates", () => {
       const { result, rerender } = renderHook(
-        ({ data }: UseStaticDataArgs<string, TestItem>) =>
+        ({ data }: UseStaticDataParams<string, TestItem>) =>
           useStaticData<string, TestItem>({ data }),
         { initialProps: { data: mockData.slice(0, 2) } },
       );

@@ -40,15 +40,15 @@ const retrieveRequestZ = z.object({
   variants: z.string().array().optional(),
 });
 
-const singleRetrieveArgsZ = z
+const singleRetrieveParamsZ = z
   .object({ key: keyZ, includeLabels: z.boolean().optional() })
   .transform(({ key, includeLabels }) => ({ keys: [key], includeLabels }));
 
-const retrieveArgsZ = z.union([singleRetrieveArgsZ, retrieveRequestZ]);
+const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveArgs = z.input<typeof retrieveArgsZ>;
-export type SingleRetrieveArgs = z.input<typeof singleRetrieveArgsZ>;
-export type MultiRetrieveArgs = z.input<typeof retrieveRequestZ>;
+export type RetrieveParams = z.input<typeof retrieveParamsZ>;
+export type SingleRetrieveParams = z.input<typeof singleRetrieveParamsZ>;
+export type MultiRetrieveParams = z.input<typeof retrieveRequestZ>;
 
 const retrieveResponseZ = <DetailsSchema extends z.ZodType = z.ZodNever>(
   detailsSchema?: DetailsSchema,
@@ -72,21 +72,21 @@ export class Client {
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
-    args: SingleRetrieveArgs & { detailsSchema?: DetailsSchema },
+    params: SingleRetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema>>;
-  async retrieve(args: SingleRetrieveArgs): Promise<Status>;
-  async retrieve(args: MultiRetrieveArgs): Promise<Status[]>;
+  async retrieve(params: SingleRetrieveParams): Promise<Status>;
+  async retrieve(params: MultiRetrieveParams): Promise<Status[]>;
   async retrieve<DetailsSchema extends z.ZodType = z.ZodNever>(
-    args: RetrieveArgs & { detailsSchema?: DetailsSchema },
+    params: RetrieveParams & { detailsSchema?: DetailsSchema },
   ): Promise<Status<DetailsSchema> | Status<DetailsSchema>[]> {
-    const isSingle = "key" in args;
+    const isSingle = "key" in params;
     const res = await this.client.send(
       "/status/retrieve",
-      args,
-      retrieveArgsZ,
-      retrieveResponseZ<DetailsSchema>(args.detailsSchema),
+      params,
+      retrieveParamsZ,
+      retrieveResponseZ<DetailsSchema>(params.detailsSchema),
     );
-    checkForMultipleOrNoResults("Status", args, res.statuses, isSingle);
+    checkForMultipleOrNoResults("Status", params, res.statuses, isSingle);
     const statuses = res.statuses as Status<DetailsSchema>[];
     return isSingle ? statuses[0] : statuses;
   }

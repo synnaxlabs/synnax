@@ -12,7 +12,7 @@ import z from "zod/v4";
 
 import { type Spec } from "@/arc/graph/node/types/spec";
 
-export interface OperatorArgs<T extends string> {
+export interface OperatorParams<T extends string> {
   // key is the function type (e.g. "add", "gt").
   key: T;
   name: string;
@@ -28,7 +28,7 @@ export const createOperator = <T extends string>({
   key,
   name,
   Symbol,
-}: OperatorArgs<T>) => {
+}: OperatorParams<T>) => {
   const configZ = z.object({ type: z.literal(key) });
   type Config = z.infer<typeof configZ>;
   const spec: Spec<T, Config> = {

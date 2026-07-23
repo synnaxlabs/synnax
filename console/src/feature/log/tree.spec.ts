@@ -10,14 +10,13 @@
 import { log, NotFoundError, project } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { Log } from "@/feature/log";
 import { findModalButton, renderTreeContextMenu } from "@/platform/tree/menuTestutil";
 import { createResource } from "@/platform/tree/testutil";
 import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
-import { Session } from "@/session";
-import { assertDefined, uniqueName } from "@/testutil";
+import { assertDefined, resolveFocusedTab, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -49,19 +48,16 @@ describe("log ontology service", () => {
     expect(screen.getByText("Copy properties")).toBeTruthy();
   });
 
-  it("should delete the log, its layout, and its session state", async () => {
+  it("should delete the log from the cluster after confirmation", async () => {
     const l = await createLog();
-    const removeLayout = vi.fn();
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [logResource(l.key, l.name)],
-      baseOverrides: { removeLayout },
     });
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${l.name}?`);
     fireEvent.click(findModalButton("Delete"));
-    await waitFor(() => expect(removeLayout).toHaveBeenCalledWith(l.key));
     await waitFor(async () => {
       await expect(client.logs.retrieve({ key: l.key })).rejects.toSatisfy((e) =>
         NotFoundError.matches(e),
@@ -81,9 +77,9 @@ describe("log ontology service", () => {
       items: Log.TREE_ITEMS,
     });
     fireEvent.doubleClick(await findTreeRow(l.name));
-    await waitFor(() =>
-      expect(Session.Layout.select(store.getState(), l.key)?.name).toBe(l.name),
-    );
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.key).toBe(l.key);
   });
 
   it("should haul a mosaic tab creation item", () => {

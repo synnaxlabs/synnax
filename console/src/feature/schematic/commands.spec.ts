@@ -14,7 +14,7 @@ import { renderPalette } from "@/feature/command/testutil";
 import { Schematic } from "@/feature/schematic";
 import { client, testProjectKey } from "@/feature/schematic/testutil";
 import { Session } from "@/session";
-import { renderHookWithConsole, stubGeometry, waitForPlacedLayout } from "@/testutil";
+import { renderHookWithConsole, resolveFocusedTab, stubGeometry } from "@/testutil";
 
 stubGeometry();
 
@@ -41,10 +41,10 @@ describe("Schematic Commands", () => {
     });
     await openCommandPalette();
     await selectCommand("Create a schematic");
-    const placedKey = await waitForPlacedLayout(store, "schematic");
-    await waitFor(async () => {
-      const created = await client.schematics.retrieve({ key: placedKey });
-      expect(created.name).toBe("Schematic");
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource")
+      throw new Error("focused tab is not a schematic resource");
+    const created = await client.schematics.retrieve({ key: tab.resource.key });
+    expect(created.name).toBe("Schematic");
   });
 });
