@@ -57,7 +57,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.Ok()).To(BeFalse())
 			Expect(diag.String()).To(ContainSubstring("declare it per type"))
 		})
 

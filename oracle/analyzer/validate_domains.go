@@ -106,7 +106,7 @@ func validateFileVersion(c *analysisCtx) {
 		return
 	}
 	if _, has := dom.Expressions.Find("version"); has {
-		d := diagnostics.Warningf(nil,
+		d := diagnostics.Errorf(nil,
 			"%s declares @go version file-level; declare it per type instead",
 			c.namespace,
 		)

@@ -43,8 +43,8 @@ var _ = Describe("Versioning", func() {
 		It("Should return the declared @go version", func(ctx SpecContext) {
 			source := `
 				@go output "out"
-				@go version 3
 				Entry struct {
+				    @go version 3
 					key uuid @key
 					name string
 				}
@@ -96,16 +96,16 @@ var _ = Describe("Versioning", func() {
 		It("Should map each versioned output path to its version", func(ctx SpecContext) {
 			loader.Add("schemas/dep.oracle", `
 				@go output "dep"
-				@go version 5
 				Item struct {
+				    @go version 5
 					key uuid @key
 				}
 			`)
 			source := `
 				import "schemas/dep"
 				@go output "out"
-				@go version 3
 				Entry struct {
+				    @go version 3
 					key uuid @key
 					item dep.Item
 				}
@@ -129,8 +129,8 @@ var _ = Describe("Versioning", func() {
 		It("Should error on a negative version", func(ctx SpecContext) {
 			source := `
 				@go output "out"
-				@go version -1
 				Entry struct {
+					@go version -1
 					key uuid @key
 				}
 			`
@@ -142,16 +142,16 @@ var _ = Describe("Versioning", func() {
 		It("Should error on conflicting versions at one path", func(ctx SpecContext) {
 			loader.Add("schemas/dep.oracle", `
 				@go output "out"
-				@go version 2
 				Item struct {
+				    @go version 2
 					key uuid @key
 				}
 			`)
 			source := `
 				import "schemas/dep"
 				@go output "out"
-				@go version 1
 				Entry struct {
+				    @go version 1
 					key uuid @key
 					item dep.Item
 				}
@@ -179,8 +179,8 @@ var _ = Describe("Versioning", func() {
 		It("Should include versioned paths containing a keyed struct", func(ctx SpecContext) {
 			source := `
 				@go output "out"
-				@go version 3
 				Entry struct {
+				    @go version 3
 					key uuid @key
 					name string
 					@go marshal
@@ -193,8 +193,8 @@ var _ = Describe("Versioning", func() {
 		It("Should include versioned paths with no keyed struct", func(ctx SpecContext) {
 			source := `
 				@go output "out"
-				@go version 3
 				Value struct {
+				    @go version 3
 					name string
 				}
 			`
@@ -225,8 +225,8 @@ var _ = Describe("Versioning", func() {
 			source := `
 				import "schemas/dep"
 				@go output "out"
-				@go version 3
 				Entry struct {
+				    @go version 3
 					key uuid @key
 					item dep.Item
 					@go marshal
@@ -271,23 +271,38 @@ var _ = Describe("AliasSplit", func() {
 	It("Should use the latest snapshot declaring the predecessor version", func(ctx SpecContext) {
 		liveTable := MustSucceed(analyze(ctx, `
 			@go output "out"
-			@go version 2
-			Stable struct { name string }
-			Grown  struct { value int32  extra string }
+			Stable struct {
+			    @go version 2
+			    name string
+			}
+			Grown  struct {
+			    @go version 2
+			    value int32  extra string
+			}
 		`, "test", loader))
 		snapshots := map[int]string{
 			// v56 already declares the current version and cannot anchor.
 			56: `
 				@go output "out"
-				@go version 2
-				Stable struct { name string }
-				Grown  struct { value int32  extra string }
+				Stable struct {
+				    @go version 2
+				    name string
+				}
+				Grown  struct {
+				    @go version 2
+				    value int32  extra string
+				}
 			`,
 			55: `
 				@go output "out"
-				@go version 1
-				Stable struct { name string }
-				Grown  struct { value int32 }
+				Stable struct {
+				    @go version 1
+				    name string
+				}
+				Grown  struct {
+				    @go version 1
+				    value int32
+				}
 			`,
 		}
 		split := MustSucceed(versioning.AliasSplit(
@@ -311,8 +326,10 @@ var _ = Describe("AliasSplit", func() {
 	It("Should return nothing when no snapshot declares the predecessor", func(ctx SpecContext) {
 		liveTable := MustSucceed(analyze(ctx, `
 			@go output "out"
-			@go version 2
-			Stable struct { name string }
+			Stable struct {
+			    @go version 2
+			    name string
+			}
 		`, "test", loader))
 		split := MustSucceed(versioning.AliasSplit(
 			liveTable, 56,
@@ -324,16 +341,20 @@ var _ = Describe("AliasSplit", func() {
 	It("Should return nothing for paths at version zero", func(ctx SpecContext) {
 		liveTable := MustSucceed(analyze(ctx, `
 			@go output "out"
-			@go version 0
-			Stable struct { name string }
+			Stable struct {
+			    @go version 0
+			    name string
+			}
 		`, "test", loader))
 		split := MustSucceed(versioning.AliasSplit(
 			liveTable, 56,
 			func(version int) (*resolution.Table, error) {
 				return analyzeTable(ctx, `
 					@go output "out"
-					@go version 0
-					Stable struct { name string }
+					Stable struct {
+					    @go version 0
+					    name string
+					}
 				`), nil
 			},
 		))

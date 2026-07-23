@@ -1890,8 +1890,8 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should emit a types/ selector alias file", func(ctx SpecContext) {
 				source := `
 					@go output "out"
-					@go version 3
 					Entry struct {
+					    @go version 3
 						key uuid @key
 						@go marshal
 						name string
@@ -1910,9 +1910,9 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should emit types into types/vN with a root alias file", func(ctx SpecContext) {
 				source := `
 					@go output "out"
-					@go version 3
 
 					Entry struct {
+					    @go version 3
 						key uuid @key
 						@go marshal
 						name string
@@ -1938,14 +1938,15 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should render and transpose enum value docs", func(ctx SpecContext) {
 				source := `
 					@go output "out"
-					@go version 1
 
 					Color enum {
+					    @go version 1
 						red = "red" { @doc value "is the color of fire." }
 						blue = "blue"
 					}
 
 					Entry struct {
+					    @go version 1
 						key uuid @key
 						@go marshal
 						color Color
@@ -1963,14 +1964,15 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should re-export enum members as consts", func(ctx SpecContext) {
 				source := `
 					@go output "out"
-					@go version 1
 
 					Color enum {
+					    @go version 1
 						red = "red"
 						blue = "blue"
 					}
 
 					Entry struct {
+					    @go version 1
 						key uuid @key
 						@go marshal
 						color Color
@@ -1989,9 +1991,9 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should pin persisted cross-package references to the dependency version directory", func(ctx SpecContext) {
 				loader.Add("schemas/status.oracle", `
 					@go output "core/status"
-					@go version 1
 
 					Status struct {
+					    @go version 1
 						key uuid @key
 						@go marshal
 						message string
@@ -2001,9 +2003,9 @@ var _ = Describe("Go Types Plugin", func() {
 					import "schemas/status"
 
 					@go output "core/rack"
-					@go version 2
 
 					Rack struct {
+					    @go version 2
 						key uuid @key
 						@go marshal
 						embedded status.Status
@@ -2019,9 +2021,9 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should resolve omitted fields and transient declarations against the latest version", func(ctx SpecContext) {
 				loader.Add("schemas/status.oracle", `
 					@go output "core/status"
-					@go version 1
 
 					Status struct {
+					    @go version 1
 						key uuid @key
 						@go marshal
 						message string
@@ -2031,11 +2033,13 @@ var _ = Describe("Go Types Plugin", func() {
 					import "schemas/status"
 
 					@go output "core/rack"
-					@go version 2
 
-					Alias = status.Status
+					Alias = status.Status {
+					    @go version 2
+					}
 
 					Rack struct {
+					    @go version 2
 						key uuid @key
 						@go marshal
 						status Alias? {
@@ -2059,13 +2063,14 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should re-declare type params on generic aliases", func(ctx SpecContext) {
 				source := `
 					@go output "out"
-					@go version 0
 
 					Status struct<D extends record> {
+					    @go version 0
 						details D
 					}
 
 					Entry struct {
+					    @go version 0
 						key uuid @key
 						@go marshal
 						status Status<record>
@@ -2083,17 +2088,19 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should re-export union variants and discriminators", func(ctx SpecContext) {
 				source := `
 					@go output "out"
-					@go version 2
 
 					LinearScale struct {
+					    @go version 2
 						slope float64
 					}
 
 					Scale union on type {
+					    @go version 2
 						linear LinearScale
 					}
 
 					Entry struct {
+					    @go version 2
 						key uuid @key
 						@go marshal
 						scale Scale
@@ -2114,9 +2121,9 @@ var _ = Describe("Go Types Plugin", func() {
 			It("Should pin cross-references between laid-out packages", func(ctx SpecContext) {
 				loader.Add("schemas/b.oracle", `
 					@go output "b"
-					@go version 5
 
 					Item struct {
+					    @go version 5
 						key uuid @key
 						@go marshal
 						name string
@@ -2126,9 +2133,9 @@ var _ = Describe("Go Types Plugin", func() {
 					import "schemas/b"
 
 					@go output "a"
-					@go version 2
 
 					Entry struct {
+					    @go version 2
 						key uuid @key
 						@go marshal
 						item b.Item
@@ -2155,9 +2162,9 @@ var _ = Describe("Go Types Plugin", func() {
 					import "schemas/c"
 
 					@go output "a"
-					@go version 2
 
 					Entry struct {
+					    @go version 2
 						key uuid @key
 						@go marshal
 						detail c.Detail
@@ -2603,33 +2610,47 @@ var _ = Describe("Predecessor Aliasing", func() {
 
 	const oldSource = `
 		@go output "out"
-		@go version 0
 		Mode enum {
+		    @go version 0
 			active = "active"
 			paused = "paused"
 		}
 		Stable struct {
+		    @go version 0
 			name string
 			mode Mode
 		}
-		Leaf struct { value int32 }
-		Holder struct { leaf Leaf }
+		Leaf struct {
+		    @go version 0
+		    value int32
+		}
+		Holder struct {
+		    @go version 0
+		    leaf Leaf
+		}
 	`
 
 	It("Should alias unchanged types to the predecessor version", func(ctx SpecContext) {
 		resp := generateWithBaseline(ctx, oldSource, `
 			@go output "out"
-			@go version 1
 			Mode enum {
+			    @go version 1
 				active = "active"
 				paused = "paused"
 			}
 			Stable struct {
+			    @go version 1
 				name string
 				mode Mode
 			}
-			Leaf struct { value int32  extra string }
-			Holder struct { leaf Leaf }
+			Leaf struct {
+			    @go version 1
+			    value int32  extra string
+			}
+			Holder struct {
+			    @go version 1
+			    leaf Leaf
+			}
 		`)
 		ExpectContent(resp, "out/types/v1/types.gen.go").
 			ToBeValidGoSource().
@@ -2646,17 +2667,24 @@ var _ = Describe("Predecessor Aliasing", func() {
 	It("Should re-define types whose referenced types changed shape", func(ctx SpecContext) {
 		resp := generateWithBaseline(ctx, oldSource, `
 			@go output "out"
-			@go version 1
 			Mode enum {
+			    @go version 1
 				active = "active"
 				paused = "paused"
 			}
 			Stable struct {
+			    @go version 1
 				name string
 				mode Mode
 			}
-			Leaf struct { value int32  extra string }
-			Holder struct { leaf Leaf }
+			Leaf struct {
+			    @go version 1
+			    value int32  extra string
+			}
+			Holder struct {
+			    @go version 1
+			    leaf Leaf
+			}
 		`)
 		ExpectContent(resp, "out/types/v1/types.gen.go").
 			ToContain("type Holder struct").
@@ -2666,17 +2694,24 @@ var _ = Describe("Predecessor Aliasing", func() {
 	It("Should re-declare enum consts beside an aliased enum", func(ctx SpecContext) {
 		resp := generateWithBaseline(ctx, oldSource, `
 			@go output "out"
-			@go version 1
 			Mode enum {
+			    @go version 1
 				active = "active"
 				paused = "paused"
 			}
 			Stable struct {
+			    @go version 1
 				name string
 				mode Mode
 			}
-			Leaf struct { value int32  extra string }
-			Holder struct { leaf Leaf }
+			Leaf struct {
+			    @go version 1
+			    value int32  extra string
+			}
+			Holder struct {
+			    @go version 1
+			    leaf Leaf
+			}
 		`)
 		ExpectContent(resp, "out/types/v1/types.gen.go").
 			ToContain(
@@ -2690,18 +2725,28 @@ var _ = Describe("Predecessor Aliasing", func() {
 	It("Should define brand-new types at the current version", func(ctx SpecContext) {
 		resp := generateWithBaseline(ctx, oldSource, `
 			@go output "out"
-			@go version 1
 			Mode enum {
+			    @go version 1
 				active = "active"
 				paused = "paused"
 			}
 			Stable struct {
+			    @go version 1
 				name string
 				mode Mode
 			}
-			Leaf struct { value int32  extra string }
-			Holder struct { leaf Leaf }
-			Fresh struct { label string }
+			Leaf struct {
+			    @go version 1
+			    value int32  extra string
+			}
+			Holder struct {
+			    @go version 1
+			    leaf Leaf
+			}
+			Fresh struct {
+			    @go version 1
+			    label string
+			}
 		`)
 		ExpectContent(resp, "out/types/v1/types.gen.go").
 			ToContain("type Fresh struct").
@@ -2714,8 +2759,10 @@ var _ = Describe("Predecessor Aliasing", func() {
 			Stable struct { name string }
 		`, `
 			@go output "out"
-			@go version 1
-			Stable struct { name string }
+			Stable struct {
+			    @go version 1
+			    name string
+			}
 		`)
 		ExpectContent(resp, "out/types/v1/types.gen.go").
 			ToContain("type Stable struct").
@@ -2725,8 +2772,10 @@ var _ = Describe("Predecessor Aliasing", func() {
 	It("Should define everything when no snapshots exist", func(ctx SpecContext) {
 		req := MustGenerateRequest(ctx, `
 			@go output "out"
-			@go version 1
-			Stable struct { name string }
+			Stable struct {
+			    @go version 1
+			    name string
+			}
 		`, "test", loader)
 		resp := MustSucceed(goPlugin.Generate(req))
 		ExpectContent(resp, "out/types/v1/types.gen.go").
@@ -2737,14 +2786,24 @@ var _ = Describe("Predecessor Aliasing", func() {
 	It("Should alias generic structs with their type parameters", func(ctx SpecContext) {
 		resp := generateWithBaseline(ctx, `
 			@go output "out"
-			@go version 0
-			Box struct<Details?> { details Details? }
-			Leaf struct { value int32 }
+			Box struct<Details?> {
+			    @go version 0
+			    details Details?
+			}
+			Leaf struct {
+			    @go version 0
+			    value int32
+			}
 		`, `
 			@go output "out"
-			@go version 1
-			Box struct<Details?> { details Details? }
-			Leaf struct { value int32  extra string }
+			Box struct<Details?> {
+			    @go version 1
+			    details Details?
+			}
+			Leaf struct {
+			    @go version 1
+			    value int32  extra string
+			}
 		`)
 		ExpectContent(resp, "out/types/v1/types.gen.go").
 			ToBeValidGoSource().
@@ -2754,17 +2813,24 @@ var _ = Describe("Predecessor Aliasing", func() {
 	It("Should keep the root re-export pointing at the current version", func(ctx SpecContext) {
 		resp := generateWithBaseline(ctx, oldSource, `
 			@go output "out"
-			@go version 1
 			Mode enum {
+			    @go version 1
 				active = "active"
 				paused = "paused"
 			}
 			Stable struct {
+			    @go version 1
 				name string
 				mode Mode
 			}
-			Leaf struct { value int32  extra string }
-			Holder struct { leaf Leaf }
+			Leaf struct {
+			    @go version 1
+			    value int32  extra string
+			}
+			Holder struct {
+			    @go version 1
+			    leaf Leaf
+			}
 		`)
 		ExpectContent(resp, "out/types.gen.go").
 			ToContain("type Stable = types.Stable", "type Leaf = types.Leaf")
@@ -2799,31 +2865,45 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 
 	const oldSource = `
 		@go output "out"
-		@go version 0
 		Mode enum {
+		    @go version 0
 			active = "active"
 			paused = "paused"
 		}
 		Stable struct {
+		    @go version 0
 			name string
 			mode Mode
 		}
-		Leaf struct { value int32 }
-		Holder struct { leaf Leaf }
+		Leaf struct {
+		    @go version 0
+		    value int32
+		}
+		Holder struct {
+		    @go version 0
+		    leaf Leaf
+		}
 	`
 	const newSource = `
 		@go output "out"
-		@go version 1
 		Mode enum {
+		    @go version 1
 			active = "active"
 			paused = "paused"
 		}
 		Stable struct {
+		    @go version 1
 			name string
 			mode Mode
 		}
-		Leaf struct { value int32  extra string }
-		Holder struct { leaf Leaf }
+		Leaf struct {
+		    @go version 1
+		    value int32  extra string
+		}
+		Holder struct {
+		    @go version 1
+		    leaf Leaf
+		}
 	`
 
 	It("Should alias types whose declarations match the frozen predecessor", func(ctx SpecContext) {
@@ -2888,9 +2968,11 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 		), 0644)).To(Succeed())
 		resp := MustGenerate(ctx, `
 			@go output "out"
-			@go version 1
-			Key uint64 {}
+			Key uint64 {
+			    @go version 1
+			}
 			Entry struct {
+			    @go version 1
 				key  Key {@key}
 				name string
 			}
@@ -2903,21 +2985,27 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 	It("Should ignore doc-comment differences in the frozen file", func(ctx SpecContext) {
 		freeze(ctx, `
 			@go output "out"
-			@go version 0
 			Stable struct {
+			    @go version 0
 				name string
 				@doc value "is the old wording of the doc."
 			}
-			Leaf struct { value int32 }
+			Leaf struct {
+			    @go version 0
+			    value int32
+			}
 		`, "out/types/v0/types.gen.go")
 		resp := MustGenerate(ctx, `
 			@go output "out"
-			@go version 1
 			Stable struct {
+			    @go version 1
 				name string
 				@doc value "is entirely new wording for the same shape."
 			}
-			Leaf struct { value int32  extra string }
+			Leaf struct {
+			    @go version 1
+			    value int32  extra string
+			}
 		`, "test", loader, goPlugin)
 		ExpectContent(resp, "out/types/v1/types.gen.go").
 			ToContain("type Stable = v0.Stable")
@@ -2941,9 +3029,11 @@ var _ = Describe("Frozen Predecessor Baseline", func() {
 		), 0644)).To(Succeed())
 		resp := MustGenerate(ctx, `
 			@go output "out"
-			@go version 2
-			Key uint64 {}
+			Key uint64 {
+			    @go version 2
+			}
 			Entry struct {
+			    @go version 2
 				key  Key {@key}
 				name string
 				note string
@@ -2967,9 +3057,11 @@ var _ = Describe("Unversioned Consumers", func() {
 		loader := NewMockFileLoader()
 		loader.Add("schemas/chan", `
 			@go output "core/pkg/service/channel"
-			@go version 0
-			Key = uint32
+			Key = uint32 {
+			    @go version 0
+			}
 			Channel struct {
+			    @go version 0
 				key  Key {@key}
 				name string
 			}

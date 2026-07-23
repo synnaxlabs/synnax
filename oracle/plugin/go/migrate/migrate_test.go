@@ -108,9 +108,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate no files when schemas are identical", func() {
 				schema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -134,9 +136,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						email string
@@ -152,9 +156,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate no files with no old resolutions", func() {
 				schema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -169,9 +175,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should error when the shape changed without a version bump", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -179,9 +187,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						age int32
@@ -197,9 +207,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should not require a bump when a new type is added", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -207,14 +219,17 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
 					}
 					Format enum {
+					    @go version 1
 						iso  = "ISO"
 						date = "date"
 					}
@@ -226,23 +241,28 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should error when a type is removed without a version bump", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
 					}
 					Format enum {
+					    @go version 1
 						iso  = "ISO"
 						date = "date"
 					}
 				`
 				newSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -257,9 +277,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should error when the version jumps by more than one", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -267,9 +289,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 3
-					Key = uuid
+					Key = uuid {
+					    @go version 3
+					}
 					Entry struct {
+					    @go version 3
 						key Key {@key}
 						name string
 						age int32
@@ -283,9 +307,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should error when the version decreases", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						name string
 						@go migrate
@@ -293,9 +319,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -329,9 +357,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				oldSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key        {@key}
 						inner dep.Inner
 						@go migrate
@@ -340,9 +370,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				newSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key        {@key}
 						inner dep.Inner
 						label string
@@ -362,9 +394,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			BeforeEach(func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -372,9 +406,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						name string
 						@go migrate
@@ -407,9 +443,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should skip auto-copying fields whose union-ness changed", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						configs map<string, record>
 						@go migrate
@@ -417,13 +455,19 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					TankConfig struct { width float64 }
+					Key = uuid {
+					    @go version 2
+					}
+					TankConfig struct {
+					    @go version 2
+					    width float64
+					}
 					ElementConfig union on variant {
+					    @go version 2
 						tank TankConfig
 					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						configs map<string, ElementConfig>
 						@go migrate
@@ -439,10 +483,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate no files when a string enum value is removed", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Mode enum { a = "a"  b = "b"  c = "c" }
+					Key = uuid {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = "a"  b = "b"  c = "c"
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						mode Mode
 						@go migrate
@@ -450,10 +499,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Mode enum { a = "a"  b = "b" }
+					Key = uuid {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = "a"  b = "b"
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						mode Mode
 						@go migrate
@@ -466,10 +520,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate no files when a string enum value is added", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Mode enum { a = "a"  b = "b" }
+					Key = uuid {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = "a"  b = "b"
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						mode Mode
 						@go migrate
@@ -477,10 +536,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Mode enum { a = "a"  b = "b"  c = "c" }
+					Key = uuid {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = "a"  b = "b"  c = "c"
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						mode Mode
 						@go migrate
@@ -493,10 +557,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate no files when an int enum value is added", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Mode enum { a = 1  b = 2 }
+					Key = uuid {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = 1  b = 2
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						mode Mode
 						@go migrate
@@ -504,10 +573,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Mode enum { a = 1  b = 2  c = 3 }
+					Key = uuid {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = 1  b = 2  c = 3
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						mode Mode
 						@go migrate
@@ -520,10 +594,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should freeze when an int enum renumbers an existing name", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Mode enum { a = 1  b = 2 }
+					Key = uuid {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = 1  b = 2
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						mode Mode
 						@go migrate
@@ -531,10 +610,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Mode enum { a = 1  b = 3 }
+					Key = uuid {
+					    @go version 2
+					}
+					Mode enum {
+					    @go version 2
+					    a = 1  b = 3
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						mode Mode
 						@go migrate
@@ -551,9 +635,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			BeforeEach(func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -561,9 +647,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						name string
 						age int32
@@ -604,9 +692,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate migration for removed field", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						age int32
@@ -615,9 +705,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						name string
 						@go migrate
@@ -637,9 +729,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate a migration when @go marshal omit is added to a field", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						transient string
@@ -648,9 +742,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						name string
 						transient string {
@@ -670,9 +766,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate a migration when @go marshal omit is removed", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						transient string {
@@ -683,9 +781,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						name string
 						transient string
@@ -703,9 +803,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should migrate when json_only is added to a type-param field", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct<Details? = record> {
+					    @go version 1
 						key Key {@key}
 						details Details?
 						@go migrate
@@ -713,9 +815,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct<Details? = record> {
+					    @go version 2
 						key Key {@key}
 						details Details? {
 							@go marshal json_only
@@ -736,9 +840,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should emit type-param decoration on a generic autoMigrate", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = string
+					Key = string {
+					    @go version 1
+					}
 					Entry struct<Details?> {
+					    @go version 1
 						key Key {@key}
 						name string
 						details Details?
@@ -747,9 +853,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = string
+					Key = string {
+					    @go version 2
+					}
 					Entry struct<Details?> {
+					    @go version 2
 						key Key {@key}
 						name string
 						description string
@@ -768,9 +876,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should emit type-param decoration on the Migrate developer template", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = string
+					Key = string {
+					    @go version 1
+					}
 					Entry struct<Details?> {
+					    @go version 1
 						key Key {@key}
 						name string
 						details Details?
@@ -779,9 +889,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = string
+					Key = string {
+					    @go version 2
+					}
 					Entry struct<Details?> {
+					    @go version 2
 						key Key {@key}
 						name string
 						description string
@@ -800,10 +912,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should omit defaulted type params from the function signature", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = string
-					Mode enum {a = "a"  b = "b"}
+					Key = string {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = "a"  b = "b"
+					}
 					Entry struct<Details?, M extends Mode = Mode> {
+					    @go version 1
 						key Key {@key}
 						name string
 						mode M
@@ -813,10 +930,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = string
-					Mode enum {a = "a"  b = "b"}
+					Key = string {
+					    @go version 2
+					}
+					Mode enum {
+					    @go version 2
+					    a = "a"  b = "b"
+					}
 					Entry struct<Details?, M extends Mode = Mode> {
+					    @go version 2
 						key Key {@key}
 						name string
 						description string
@@ -835,10 +957,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should substitute defaulted type params in field conversions", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = string
-					Mode enum {a = "a"  b = "b"}
+					Key = string {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    a = "a"  b = "b"
+					}
 					Entry struct<Details?, M extends Mode = Mode> {
+					    @go version 1
 						key Key {@key}
 						mode M
 						details Details?
@@ -847,10 +974,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = string
-					Mode enum {a = "a"  b = "b"}
+					Key = string {
+					    @go version 2
+					}
+					Mode enum {
+					    @go version 2
+					    a = "a"  b = "b"
+					}
 					Entry struct<Details?, M extends Mode = Mode> {
+					    @go version 2
 						key Key {@key}
 						name string
 						mode M
@@ -869,10 +1001,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate nil-check preamble for optional", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Inner struct { value int32 }
+					Key = uuid {
+					    @go version 1
+					}
+					Inner struct {
+					    @go version 1
+					    value int32
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						inner Inner?
 						@go migrate
@@ -880,10 +1017,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Inner struct { value int32  count int32 }
+					Key = uuid {
+					    @go version 2
+					}
+					Inner struct {
+					    @go version 2
+					    value int32  count int32
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						inner Inner?
 						@go migrate
@@ -900,10 +1042,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should escape Go reserved words in preamble variable names", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					TypeInfo struct { kind int32 }
+					Key = uuid {
+					    @go version 1
+					}
+					TypeInfo struct {
+					    @go version 1
+					    kind int32
+					}
 					Entry struct {
+					    @go version 1
 						key Key  {@key}
 						type TypeInfo
 						@go migrate
@@ -911,10 +1058,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					TypeInfo struct { kind int32  extra string }
+					Key = uuid {
+					    @go version 2
+					}
+					TypeInfo struct {
+					    @go version 2
+					    kind int32  extra string
+					}
 					Entry struct {
+					    @go version 2
 						key Key  {@key}
 						type TypeInfo
 						@go migrate
@@ -932,10 +1084,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate loop preamble for arrays of Oracle element types", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Item struct { name string }
+					Key = uuid {
+					    @go version 1
+					}
+					Item struct {
+					    @go version 1
+					    name string
+					}
 					Entry struct {
+					    @go version 1
 						key Key    {@key}
 						items Item[]
 						@go migrate
@@ -943,10 +1100,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Item struct { name string  count int32 }
+					Key = uuid {
+					    @go version 2
+					}
+					Item struct {
+					    @go version 2
+					    name string  count int32
+					}
 					Entry struct {
+					    @go version 2
 						key Key    {@key}
 						items Item[]
 						@go migrate
@@ -964,11 +1126,18 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate slice function for alias array types", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Item struct { name string }
-					Items Item[]
+					Key = uuid {
+					    @go version 1
+					}
+					Item struct {
+					    @go version 1
+					    name string
+					}
+					Items Item[] {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key    {@key}
 						items Items
 						@go migrate
@@ -976,11 +1145,18 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Item struct { name string  priority int32 }
-					Items Item[]
+					Key = uuid {
+					    @go version 2
+					}
+					Item struct {
+					    @go version 2
+					    name string  priority int32
+					}
+					Items Item[] {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key    {@key}
 						items Items
 						@go migrate
@@ -997,10 +1173,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should use type casts for unchanged structs with only builtins", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Pos struct { x float64  y float64 }
+					Key = uuid {
+					    @go version 1
+					}
+					Pos struct {
+					    @go version 1
+					    x float64  y float64
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						pos Pos
 						name string
@@ -1009,10 +1190,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Pos struct { x float64  y float64 }
+					Key = uuid {
+					    @go version 2
+					}
+					Pos struct {
+					    @go version 2
+					    x float64  y float64
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						pos Pos
 						name string
@@ -1030,10 +1216,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should assign unchanged enum fields directly", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Mode enum { text = "text"  graph = "graph" }
+					Key = uuid {
+					    @go version 1
+					}
+					Mode enum {
+					    @go version 1
+					    text = "text"  graph = "graph"
+					}
 					Entry struct {
+					    @go version 1
 						key Key  {@key}
 						mode Mode
 						@go migrate
@@ -1041,10 +1232,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Mode enum { text = "text"  graph = "graph" }
+					Key = uuid {
+					    @go version 2
+					}
+					Mode enum {
+					    @go version 2
+					    text = "text"  graph = "graph"
+					}
 					Entry struct {
+					    @go version 2
 						key Key  {@key}
 						mode Mode
 						label string
@@ -1062,15 +1258,19 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should copy the unchanged dep field without importing it", func() {
 				loader.Add("schemas/dep", `
 					@go output "dep"
-					@go version 1
-					Inner struct { value int32 }
+					Inner struct {
+					    @go version 1
+					    value int32
+					}
 				`)
 				oldSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key        {@key}
 						inner dep.Inner
 						@go migrate
@@ -1079,9 +1279,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				newSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key        {@key}
 						inner dep.Inner
 						label string
@@ -1102,9 +1304,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should copy the unchanged dep field without importing it", func() {
 				loader.Add("schemas/dep", `
 					@go output "dep"
-					@go version 1
-					DepKey = uuid
+					DepKey = uuid {
+					    @go version 1
+					}
 					Inner struct {
+					    @go version 1
 						key DepKey {@key}
 						value int32
 						@go marshal
@@ -1113,9 +1317,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				oldSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key        {@key}
 						inner dep.Inner
 						@go migrate
@@ -1124,9 +1330,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				newSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key        {@key}
 						inner dep.Inner
 						label string
@@ -1154,9 +1362,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go migrate
@@ -1164,9 +1374,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						name string
 						age int32
@@ -1186,20 +1398,30 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should handle embedded struct migration", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Base struct { name string }
+					Key = uuid {
+					    @go version 1
+					}
+					Base struct {
+					    @go version 1
+					    name string
+					}
 					Entry struct extends Base {
+					    @go version 1
 						key Key {@key}
 						@go migrate
 					}
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Base struct { name string  label string }
+					Key = uuid {
+					    @go version 2
+					}
+					Base struct {
+					    @go version 2
+					    name string  label string
+					}
 					Entry struct extends Base {
+					    @go version 2
 						key Key {@key}
 						@go migrate
 					}
@@ -1215,9 +1437,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should use _ for context when not needed", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key   {@key}
 						name string
 						@go migrate
@@ -1225,9 +1449,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key   {@key}
 						name string
 						age int32
@@ -1245,9 +1471,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should handle self-referential types without infinite loop", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Node struct {
+					    @go version 1
 						key Key       {@key}
 						value int32
 						child Node?
@@ -1256,9 +1484,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Node struct {
+					    @go version 2
 						key Key       {@key}
 						value int32
 						child Node?
@@ -1277,9 +1507,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should detect when a field type changes", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key    {@key}
 						value int32
 						@go migrate
@@ -1287,9 +1519,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key    {@key}
 						value float64
 						@go migrate
@@ -1308,9 +1542,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should detect when field becomes optional", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key    {@key}
 						name string
 						@go migrate
@@ -1318,9 +1554,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key    {@key}
 						name string?
 						@go migrate
@@ -1335,9 +1573,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should handle map fields as direct copies", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key              {@key}
 						tags map<string, string>
 						@go migrate
@@ -1345,9 +1585,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key              {@key}
 						tags map<string, string>
 						label string
@@ -1364,9 +1606,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should handle map fields with Oracle value types", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key                    {@key}
 						channels map<uint32, string>
 						@go migrate
@@ -1374,9 +1618,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key                    {@key}
 						channels map<uint32, string>
 						label string
@@ -1393,10 +1639,14 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should use type cast for distinct types wrapping primitives", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Color string
+					Key = uuid {
+					    @go version 1
+					}
+					Color string {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key    {@key}
 						color Color
 						@go migrate
@@ -1404,10 +1654,14 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Color string
+					Key = uuid {
+					    @go version 2
+					}
+					Color string {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key    {@key}
 						color Color
 						label string
@@ -1425,15 +1679,20 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate a single migrate.go for multiple @go migrate types", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					KeyA = uuid
+					KeyA = uuid {
+					    @go version 1
+					}
 					EntryA struct {
+					    @go version 1
 						key KeyA {@key}
 						name string
 						@go migrate
 					}
-					KeyB = uuid
+					KeyB = uuid {
+					    @go version 1
+					}
 					EntryB struct {
+					    @go version 1
 						key KeyB {@key}
 						value int32
 						@go migrate
@@ -1441,16 +1700,21 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					KeyA = uuid
+					KeyA = uuid {
+					    @go version 2
+					}
 					EntryA struct {
+					    @go version 2
 						key KeyA {@key}
 						name string
 						age int32
 						@go migrate
 					}
-					KeyB = uuid
+					KeyB = uuid {
+					    @go version 2
+					}
 					EntryB struct {
+					    @go version 2
 						key KeyB {@key}
 						value int32
 						label string
@@ -1473,9 +1737,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should copy unchanged external Oracle types directly", func() {
 				loader.Add("schemas/dep", `
 					@go output "dep"
-					@go version 1
-					Color string
+					Color string {
+					    @go version 1
+					}
 					Label struct {
+					    @go version 1
 						name string
 						color Color
 					}
@@ -1483,9 +1749,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				oldSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key           {@key}
 						label dep.Label
 						@go migrate
@@ -1494,9 +1762,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				newSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key           {@key}
 						label dep.Label
 						extra string
@@ -1516,11 +1786,19 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should propagate changes through multiple nesting levels", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Leaf struct { value int32 }
-					Branch struct { leaf Leaf }
+					Key = uuid {
+					    @go version 1
+					}
+					Leaf struct {
+					    @go version 1
+					    value int32
+					}
+					Branch struct {
+					    @go version 1
+					    leaf Leaf
+					}
 					Entry struct {
+					    @go version 1
 						key Key       {@key}
 						branch Branch
 						@go migrate
@@ -1528,11 +1806,19 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Leaf struct { value int32  extra string }
-					Branch struct { leaf Leaf }
+					Key = uuid {
+					    @go version 2
+					}
+					Leaf struct {
+					    @go version 2
+					    value int32  extra string
+					}
+					Branch struct {
+					    @go version 2
+					    leaf Leaf
+					}
 					Entry struct {
+					    @go version 2
 						key Key       {@key}
 						branch Branch
 						@go migrate
@@ -1550,16 +1836,23 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should unexport entry and locally consumed wrappers, keeping externally referenced ones exported", func() {
 				loader.Add("schemas/dep", `
 					@go output "dep"
-					@go version 1
-					Item struct { name string }
+					Item struct {
+					    @go version 1
+					    name string
+					}
 				`)
 				oldSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 1
-					Key = uuid
-					Inner struct { value int32 }
+					Key = uuid {
+					    @go version 1
+					}
+					Inner struct {
+					    @go version 1
+					    value int32
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						inner Inner
 						item dep.Item
@@ -1569,10 +1862,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 				newSchema := `
 					import "schemas/dep"
 					@go output "out"
-					@go version 2
-					Key = uuid
-					Inner struct { value int32  extra string }
+					Key = uuid {
+					    @go version 2
+					}
+					Inner struct {
+					    @go version 2
+					    value int32  extra string
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						inner Inner
 						item dep.Item
@@ -1594,9 +1892,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should scaffold dep-style without a frozen re-emission", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key {@key}
 						name string
 						@go marshal
@@ -1604,9 +1904,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key {@key}
 						name string
 						age int32
@@ -1629,15 +1931,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should scaffold value-type paths standalone", func() {
 				oldSchema := `
 					@go output "out"
-					@go version 1
 					Entry struct {
+					    @go version 1
 						name string
 					}
 				`
 				newSchema := `
 					@go output "out"
-					@go version 2
 					Entry struct {
+					    @go version 2
 						name string
 						age int32
 					}
@@ -1655,23 +1957,35 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should not import the live package for a changed external field", func() {
 				oldIR := `
 					@go output "ir"
-					@go version 1
-					Leaf struct { value int32 }
-					IR struct { leaf Leaf }
+					Leaf struct {
+					    @go version 1
+					    value int32
+					}
+					IR struct {
+					    @go version 1
+					    leaf Leaf
+					}
 				`
 				newIR := `
 					@go output "ir"
-					@go version 2
-					Leaf struct { value int32  extra string }
-					IR struct { leaf Leaf }
+					Leaf struct {
+					    @go version 2
+					    value int32  extra string
+					}
+					IR struct {
+					    @go version 2
+					    leaf Leaf
+					}
 				`
 				loader.Add("schemas/ir", oldIR)
 				oldSchema := `
 					import "schemas/ir"
 					@go output "out"
-					@go version 1
-					Key = uuid
+					Key = uuid {
+					    @go version 1
+					}
 					Entry struct {
+					    @go version 1
 						key Key  {@key}
 						ir ir.IR
 						@go migrate
@@ -1680,9 +1994,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 				newSchema := `
 					import "schemas/ir"
 					@go output "out"
-					@go version 2
-					Key = uuid
+					Key = uuid {
+					    @go version 2
+					}
 					Entry struct {
+					    @go version 2
 						key Key  {@key}
 						ir ir.IR
 						label string
@@ -1709,10 +2025,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 		It("Should generate auto-copy functions with context and error propagation", func() {
 			oldSchema := `
 				@go output "out"
-				@go version 1
-				Key = uuid
-				Inner struct { value int32 }
+				Key = uuid {
+				    @go version 1
+				}
+				Inner struct {
+				    @go version 1
+				    value int32
+				}
 				Entry struct {
+				    @go version 1
 					key Key     {@key}
 					inner Inner
 					@go migrate
@@ -1720,10 +2041,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			newSchema := `
 				@go output "out"
-				@go version 2
-				Key = uuid
-				Inner struct { value int32  extra string }
+				Key = uuid {
+				    @go version 2
+				}
+				Inner struct {
+				    @go version 2
+				    value int32  extra string
+				}
 				Entry struct {
+				    @go version 2
 					key Key     {@key}
 					inner Inner
 					@go migrate
@@ -1743,15 +2069,19 @@ var _ = Describe("Go Migrate Plugin", func() {
 		BeforeEach(func() {
 			loader.Add("schemas/dep", `
 				@go output "dep"
-				@go version 1
-				Item struct { name string }
+				Item struct {
+				    @go version 1
+				    name string
+				}
 			`)
 			oldSchema := `
 				import "schemas/dep"
 				@go output "out"
-				@go version 1
-				Key = uuid
+				Key = uuid {
+				    @go version 1
+				}
 				Entry struct {
+				    @go version 1
 					key Key       {@key}
 					item dep.Item
 					@go migrate
@@ -1760,9 +2090,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			newSchema := `
 				import "schemas/dep"
 				@go output "out"
-				@go version 2
-				Key = uuid
+				Key = uuid {
+				    @go version 2
+				}
 				Entry struct {
+				    @go version 2
 					key Key       {@key}
 					item dep.Item
 					label string
@@ -1772,8 +2104,10 @@ var _ = Describe("Go Migrate Plugin", func() {
 			oldTable := MustSucceed(analyze(ctx, oldSchema, "test", loader))
 			loader.Add("schemas/dep", `
 				@go output "dep"
-				@go version 2
-				Item struct { name string  priority int32 }
+				Item struct {
+				    @go version 2
+				    name string  priority int32
+				}
 			`)
 			newTable := MustSucceed(analyze(ctx, newSchema, "test", loader))
 			req := &plugin.Request{
@@ -1805,13 +2139,18 @@ var _ = Describe("Go Migrate Plugin", func() {
 		It("Should migrate alias-to-slice elements instead of casting", func() {
 			oldSchema := `
 				@go output "out"
-				@go version 1
-				Key = uuid
+				Key = uuid {
+				    @go version 1
+				}
 				Member struct {
+				    @go version 1
 					node string
 				}
-				Members = Member[]
+				Members = Member[] {
+				    @go version 1
+				}
 				Scope struct {
+				    @go version 1
 					key Key {@key}
 					strata Members[]
 					@go migrate
@@ -1819,14 +2158,19 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			newSchema := `
 				@go output "out"
-				@go version 2
-				Key = uuid
+				Key = uuid {
+				    @go version 2
+				}
 				Member struct {
+				    @go version 2
 					node string
 					weight int32
 				}
-				Members = Member[]
+				Members = Member[] {
+				    @go version 2
+				}
 				Scope struct {
+				    @go version 2
 					key Key {@key}
 					strata Members[]
 					@go migrate
@@ -1843,9 +2187,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 		It("Should use context.Context in developer transform template", func() {
 			oldSchema := `
 				@go output "out"
-				@go version 1
-				Key = uuid
+				Key = uuid {
+				    @go version 1
+				}
 				Entry struct {
+				    @go version 1
 					key Key {@key}
 					name string
 					@go migrate
@@ -1853,9 +2199,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			newSchema := `
 				@go output "out"
-				@go version 2
-				Key = uuid
+				Key = uuid {
+				    @go version 2
+				}
 				Entry struct {
+				    @go version 2
 					key Key {@key}
 					name string
 					age int32
@@ -1872,10 +2220,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 		It("Should pass ctx to nested autoMigrate calls", func() {
 			oldSchema := `
 				@go output "out"
-				@go version 1
-				Key = uuid
-				Inner struct { value int32 }
+				Key = uuid {
+				    @go version 1
+				}
+				Inner struct {
+				    @go version 1
+				    value int32
+				}
 				Entry struct {
+				    @go version 1
 					key Key     {@key}
 					inner Inner
 					@go migrate
@@ -1883,10 +2236,15 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			newSchema := `
 				@go output "out"
-				@go version 2
-				Key = uuid
-				Inner struct { value int32  extra string }
+				Key = uuid {
+				    @go version 2
+				}
+				Inner struct {
+				    @go version 2
+				    value int32  extra string
+				}
 				Entry struct {
+				    @go version 2
 					key Key     {@key}
 					inner Inner
 					@go migrate
@@ -1901,9 +2259,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 		It("Should not reference gorp in auto-copy imports", func() {
 			oldSchema := `
 				@go output "out"
-				@go version 1
-				Key = uuid
+				Key = uuid {
+				    @go version 1
+				}
 				Entry struct {
+				    @go version 1
 					key Key {@key}
 					name string
 					@go migrate
@@ -1911,9 +2271,11 @@ var _ = Describe("Go Migrate Plugin", func() {
 			`
 			newSchema := `
 				@go output "out"
-				@go version 2
-				Key = uuid
+				Key = uuid {
+				    @go version 2
+				}
 				Entry struct {
+				    @go version 2
 					key Key {@key}
 					name string
 					age int32

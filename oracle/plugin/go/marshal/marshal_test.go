@@ -1148,10 +1148,10 @@ var _ = Describe("Version-Laid-Out Packages", func() {
 	It("Should emit the codec and its test into types/vN", func() {
 		source := `
 			@go output "out"
-			@go version 3
 			@pb
 
 			Entry struct {
+			    @go version 3
 				key uuid @key
 				name string
 				@go marshal
@@ -1407,9 +1407,12 @@ var _ = Describe("Predecessor Aliasing", func() {
 		loader := NewMockFileLoader()
 		oldSource := `
 			@go output "out"
-			@go version 0
-			Inner struct { value int32 }
+			Inner struct {
+			    @go version 0
+			    value int32
+			}
 			Entry struct {
+			    @go version 0
 				name string
 				inner Inner
 				@go marshal
@@ -1417,9 +1420,12 @@ var _ = Describe("Predecessor Aliasing", func() {
 		`
 		newSource := `
 			@go output "out"
-			@go version 1
-			Inner struct { value int32 }
+			Inner struct {
+			    @go version 1
+			    value int32
+			}
 			Entry struct {
+			    @go version 1
 				name string
 				label string
 				inner Inner

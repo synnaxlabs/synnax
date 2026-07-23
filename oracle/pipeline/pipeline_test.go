@@ -92,11 +92,12 @@ Thing struct {
 	It("supplies snapshots so versioned packages alias their predecessor", func(ctx SpecContext) {
 		writeSchema("thing", `
 @go output "x/go/thing"
-@go version 1
 Stable struct {
+    @go version 1
     name string
 }
 Grown struct {
+    @go version 1
     value int32
     extra string
 }
@@ -105,11 +106,12 @@ Grown struct {
 		Expect(os.MkdirAll(snapDir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(snapDir, "thing.oracle"), []byte(`
 @go output "x/go/thing"
-@go version 0
 Stable struct {
+    @go version 0
     name string
 }
 Grown struct {
+    @go version 0
     value int32
 }
 `), 0644)).To(Succeed())
