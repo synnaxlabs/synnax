@@ -33,7 +33,7 @@ import { z } from "zod";
 
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { type Panel } from "@/platform/panel";
+import { Panel } from "@/platform/panel";
 import { Controls } from "@/platform/task/controls";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
@@ -254,6 +254,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   };
   Content.displayName = `Form(${Form.displayName ?? Form.name})`;
   const RemoteName = ({ taskKey }: { taskKey: task.Key }) => {
+    const tabKey = PlutoPanel.useTabKey();
     PTask.useEnsureRetrieved({ key: taskKey });
     const name = PTask.useSelectName({ key: taskKey });
     const { update } = PTask.useRename();
@@ -264,11 +265,16 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     return (
       <>
         <Icon.Task />
-        <Text.Editable value={name} onChange={handleChange} />
+        <Text.Editable
+          id={Panel.tabNameID(tabKey)}
+          value={name}
+          onChange={handleChange}
+        />
       </>
     );
   };
   const LocalName = () => {
+    const tabKey = PlutoPanel.useTabKey();
     const { deviceKey, rackKey, config, name } = useFormArgs();
     const setView = PlutoPanel.useSetCurrentTabView();
     const handleChange = useCallback(
@@ -281,7 +287,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     return (
       <>
         <Icon.Task />
-        <Text.Editable value={name ?? defaultName} onChange={handleChange} />
+        <Text.Editable
+          id={Panel.tabNameID(tabKey)}
+          value={name ?? defaultName}
+          onChange={handleChange}
+        />
       </>
     );
   };

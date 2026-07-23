@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel, type Synnax } from "@synnaxlabs/client";
+import { type panel, type project, type Synnax } from "@synnaxlabs/client";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { Session } from "@/session";
 import { createConsoleWrapper, type TestStore, uniqueName } from "@/testutil";
 
 /** Persists a panel with the given tree to the cluster. */
@@ -32,23 +33,31 @@ export interface PanelWrapperParams {
   store?: TestStore;
   panelKey?: panel.Key;
   tabKey?: panel.TabKey;
+  /** Project selected in the session. Created on the cluster when omitted. */
+  project?: project.Key;
 }
 
 /**
- * Builds a console wrapper nested in the Panel (and optional Tab) scope. The flux store
- * is shared across every mount of the returned wrapper, so callers prime a panel into
- * the cache with {@link primePanel} before rendering scope-reading components.
+ * Builds a console wrapper nested in the Panel (and optional Tab) scope, with a project
+ * selected so panel creation can parent to it. The flux store is shared across every
+ * mount of the returned wrapper, so callers prime a panel into the cache with
+ * {@link primePanel} before rendering scope-reading components.
  */
 export const createPanelWrapper = async ({
   client,
   store,
   panelKey,
   tabKey,
+  project,
 }: PanelWrapperParams): Promise<{ wrapper: FC<PropsWithChildren>; store: TestStore }> => {
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
     store,
   });
+  const projectKey =
+    project ??
+    (await client.projects.create({ name: uniqueName("project"), layout: {} })).key;
+  resolvedStore.dispatch(Session.Project.select(projectKey));
   const wrapper = ({ children }: PropsWithChildren): ReactElement => {
     let inner: ReactNode = children;
     if (tabKey != null)

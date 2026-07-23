@@ -20,7 +20,7 @@ import { Range } from "@/platform/range";
 export const Overview: Panel.Content = () => {
   const { key } = PlutoPanel.useSelectTabResource();
   return (
-    <Flex.Box y className={CSS.BE("range", "overview")} gap="large">
+    <Flex.Box key={key} y className={CSS.BE("range", "overview")} gap="large">
       <Range.Details rangeKey={key} />
       <ChildRanges rangeKey={key} />
       <Range.MetaData rangeKey={key} />
