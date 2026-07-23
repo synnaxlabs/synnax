@@ -25,9 +25,7 @@ func (f Function) Type() types.Type {
 }
 
 // String returns the string representation of the function.
-func (f Function) String() string {
-	return f.stringWithPrefix("")
-}
+func (f Function) String() string { return f.stringWithPrefix("") }
 
 // stringWithPrefix returns the string representation with tree formatting.
 func (f Function) stringWithPrefix(prefix string) string {
@@ -66,8 +64,8 @@ func (f Function) stringWithPrefix(prefix string) string {
 	return b.String()
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
+// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go
+// field names and new lowercase msgpack tag names for backward compatibility.
 func (f *Function) DecodeMsgpack(dec *msgpack.Decoder) error {
 	type alias Function
 	raw, err := dec.DecodeRaw()
