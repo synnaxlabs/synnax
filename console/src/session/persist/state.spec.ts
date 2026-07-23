@@ -14,288 +14,295 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Persist } from "@/session/persist";
 
 interface MockState {
-  mock: { value: string };
+  cluster: { selected?: string };
+  project: { selected?: string };
+  work: { value: string; transient?: string };
 }
 
 const ZERO_MOCK_STATE: MockState = {
-  mock: { value: "0.0.0" },
+  cluster: {},
+  project: {},
+  work: { value: "0.0.0", transient: "zero" },
 };
 
-// A minimal engine double matching the shape Persist.middleware consumes.
-const createEngine = () => ({
-  persist: vi.fn().mockResolvedValue(undefined),
-  revert: vi.fn().mockResolvedValue(undefined),
-  clear: vi.fn().mockResolvedValue(undefined),
-  initialState: undefined as MockState | undefined,
+const LEVELS: Persist.Levels<MockState> = {
+  l0: ["cluster"],
+  l1: ["project"],
+  l2: ["work"],
+};
+
+const getContext = (state: MockState): Persist.Context => ({
+  cluster: state.cluster.selected,
+  project: state.project.selected,
 });
 
-// Drives an action straight through the middleware chain, capturing what next saw.
-const drive = (
-  engine: ReturnType<typeof createEngine>,
-  state: MockState,
-  action: { type: string },
-  debounce = TimeSpan.ZERO,
-) => {
-  const next = vi.fn((a: unknown) => a);
-  const store: MiddlewareAPI = { getState: () => state, dispatch: vi.fn() };
-  const result = Persist.middleware<MockState>(engine, debounce)(store)(next)(action);
-  return { next, result };
+const CTX: Persist.Context = { cluster: "c1", project: "p1" };
+
+const STATE: MockState = {
+  cluster: { selected: "c1" },
+  project: { selected: "p1" },
+  work: { value: "16.2.0", transient: "drag" },
 };
 
+const openEngine = async (
+  store: kv.MockAsync,
+  overrides: Partial<Persist.Config<MockState>> = {},
+) =>
+  await Persist.open<MockState>({
+    initial: ZERO_MOCK_STATE,
+    levels: LEVELS,
+    getContext,
+    openKV: () => store,
+    ...overrides,
+  });
+
 describe("Persist", () => {
-  describe("migration from v1 to v2", () => {
-    it("should open a blank v2 store if the v1 store is empty", async () => {
-      const v1Store = new kv.MockAsync();
-      const v2Store = new kv.MockAsync();
-      const openKV = (path: string): Persist.SugaredKV => {
-        if (path === Persist.V1_STORE_PATH) return v1Store;
-        if (path === Persist.V2_STORE_PATH) return v2Store;
-        throw new Error(`Unknown path: ${path}`);
-      };
-      const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
-      await expect(v1Store.length()).resolves.toBe(0);
-      await expect(v2Store.length()).resolves.toBe(1);
-      expect(engine.initialState).toEqual(ZERO_MOCK_STATE);
-    });
-    it("should migrate a v1 store to a v2 store", async () => {
-      const v1Store = new kv.MockAsync();
-      const v2Store = new kv.MockAsync();
-      const version = 12;
-      const persistedStateKey = Persist.persistedStateKey(version);
-      await v1Store.set(Persist.DB_VERSION_KEY, { version });
-      const persistedState = {
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-          value: "16.2.0",
-        },
-      };
-      await v1Store.set(persistedStateKey, persistedState);
-      const openKV = (path: string): Persist.SugaredKV => {
-        if (path === Persist.V1_STORE_PATH) return v1Store;
-        if (path === Persist.V2_STORE_PATH) return v2Store;
-        throw new Error(`Unknown path: ${path}`);
-      };
-      await expect(v1Store.length()).resolves.toBe(2);
-      const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
-      // Expect the v1 store to be cleared out.
-      await expect(v1Store.length()).resolves.toBe(0);
-      await expect(v2Store.length()).resolves.toBe(2);
-      expect(engine.initialState).toEqual({
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-          value: "16.2.0",
-        },
-      });
-      const expectedPersistedStateKey = Persist.persistedStateKey(1);
-      await expect(v2Store.get(expectedPersistedStateKey)).resolves.toEqual(
-        persistedState,
-      );
-      await expect(v2Store.get(Persist.DB_VERSION_KEY)).resolves.toEqual({
-        version: 1,
-      });
-    });
-  });
-
   describe("engine.persist", () => {
-    it("should correctly persist state", async () => {
+    it("should write each partition under its own versioned keys", async () => {
       const store = new kv.MockAsync();
-      const engine = await Persist.open({
-        openKV: () => store,
-        initial: ZERO_MOCK_STATE,
-      });
-      const state = {
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-          value: "16.2.0",
-        },
-      };
-      await engine.persist(state);
-      await expect(store.get(Persist.DB_VERSION_KEY)).resolves.toEqual({
-        version: 1,
-      });
-      await expect(store.get(Persist.persistedStateKey(1))).resolves.toEqual(state);
+      const engine = await openEngine(store);
+      await engine.persist(STATE, CTX);
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l0PartitionBase(), 1)),
+      ).resolves.toEqual({ cluster: { selected: "c1" } });
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l1PartitionBase("c1"), 1)),
+      ).resolves.toEqual({ project: { selected: "p1" } });
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l2PartitionBase("c1", "p1"), 1)),
+      ).resolves.toEqual({ work: STATE.work });
+      await expect(
+        store.get(Persist.partitionVersionKey(Persist.l0PartitionBase())),
+      ).resolves.toEqual({ version: 1 });
     });
-    it("should maintain a maximum history of 4", async () => {
-      const store = new kv.MockAsync();
-      const openKV = () => store;
-      const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
-      for (let i = 0; i < 10; i++)
-        await engine.persist({
-          mock: {
-            ...ZERO_MOCK_STATE.mock,
-            value: `16.2.${i}`,
-          },
-        });
 
-      await expect(store.length()).resolves.toBe(5);
-      // Open the engine again to make sure the initial state is correct
-      const engine2 = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
-      expect(engine2.initialState).toEqual({
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-          value: "16.2.9",
-        },
-      });
-    });
-    it("should correctly revert state", async () => {
+    it("should skip L1 and L2 when no cluster is in context", async () => {
       const store = new kv.MockAsync();
-      const engine = await Persist.open({
-        openKV: () => store,
-        initial: ZERO_MOCK_STATE,
-      });
-      const state = {
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-          value: "16.2.0",
-        },
-      };
-      await engine.persist(state);
-      await engine.revert();
-      const engine2 = await Persist.open({
-        openKV: () => store,
-        initial: ZERO_MOCK_STATE,
-      });
-      expect(engine2.initialState).toEqual(ZERO_MOCK_STATE);
+      const engine = await openEngine(store);
+      await engine.persist(STATE, {});
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l0PartitionBase(), 1)),
+      ).resolves.toEqual({ cluster: { selected: "c1" } });
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l1PartitionBase("c1"), 1)),
+      ).resolves.toBeNull();
     });
-    it("should correctly revert the state when it has multiple versions", async () => {
+
+    it("should skip L2 when no project is in context", async () => {
+      const store = new kv.MockAsync();
+      const engine = await openEngine(store);
+      await engine.persist(STATE, { cluster: "c1" });
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l1PartitionBase("c1"), 1)),
+      ).resolves.toEqual({ project: { selected: "p1" } });
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l2PartitionBase("c1", "p1"), 1)),
+      ).resolves.toBeNull();
+    });
+
+    it("should maintain a bounded history ring per partition", async () => {
       const store = new kv.MockAsync();
       const openKV = () => store;
-      const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
-      const state = {
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-          value: "16.2.0",
-        },
-      };
-      await engine.persist(state);
-      const state2 = {
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-          value: "16.2.1",
-        },
-      };
-      await engine.persist(state2);
-      await engine.revert();
-      const engine2 = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
-      expect(engine2.initialState).toEqual(state);
+      const engine = await openEngine(store, { openKV });
+      for (let i = 0; i < 10; i++)
+        await engine.persist({ ...STATE, work: { value: `16.2.${i}` } }, CTX);
+      // 4 ring entries + 1 version pointer for each of the three partitions.
+      await expect(store.length()).resolves.toBe(15);
+      const engine2 = await openEngine(store, { openKV });
+      expect(engine2.initialState?.work.value).toEqual("16.2.9");
     });
   });
-  describe("engine.clear", () => {
-    it("should correctly clear the store", async () => {
+
+  describe("engine.revert", () => {
+    it("should step every active partition back one version", async () => {
       const store = new kv.MockAsync();
-      const openKV = () => store;
-      const engine = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
-      await engine.persist({
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-          value: "16.2.0",
-        },
-      });
+      const engine = await openEngine(store);
+      await engine.persist(STATE, CTX);
+      await engine.persist({ ...STATE, work: { value: "16.2.1" } }, CTX);
+      await engine.revert(CTX);
+      const engine2 = await openEngine(store);
+      expect(engine2.initialState?.work.value).toEqual("16.2.0");
+    });
+
+    it("should fall back to the initial state when reverting past the first version", async () => {
+      const store = new kv.MockAsync();
+      const engine = await openEngine(store);
+      await engine.persist(STATE, CTX);
+      await engine.revert(CTX);
+      const engine2 = await openEngine(store);
+      expect(engine2.initialState?.work.value).toEqual(ZERO_MOCK_STATE.work.value);
+    });
+  });
+
+  describe("engine.clear", () => {
+    it("should clear the entire store", async () => {
+      const store = new kv.MockAsync();
+      const engine = await openEngine(store);
+      await engine.persist(STATE, CTX);
       await engine.clear();
-      await expect(store.length()).resolves.toBe(1);
-      await expect(store.get(Persist.DB_VERSION_KEY)).resolves.toEqual({
-        version: 0,
-      });
-      await expect(store.get(Persist.persistedStateKey(1))).resolves.toBeNull();
-      const engine2 = await Persist.open({ openKV, initial: ZERO_MOCK_STATE });
+      await expect(store.length()).resolves.toBe(0);
+      const engine2 = await openEngine(store);
       expect(engine2.initialState).toEqual(ZERO_MOCK_STATE);
+    });
+  });
+
+  describe("startup composition", () => {
+    it("should compose L0, the selected cluster's L1, and its project's L2", async () => {
+      const store = new kv.MockAsync();
+      const engine = await openEngine(store);
+      await engine.persist(STATE, CTX);
+      const engine2 = await openEngine(store);
+      expect(engine2.initialState).toEqual({
+        ...STATE,
+        work: { ...STATE.work, transient: STATE.work.transient },
+      });
+      expect(engine2.context).toEqual(CTX);
+    });
+
+    it("should stop at L0 when no cluster was selected", async () => {
+      const store = new kv.MockAsync();
+      const engine = await openEngine(store);
+      await engine.persist({ ...STATE, cluster: {} }, { cluster: "c1", project: "p1" });
+      const engine2 = await openEngine(store);
+      expect(engine2.initialState?.project).toEqual(ZERO_MOCK_STATE.project);
+      expect(engine2.initialState?.work).toEqual(ZERO_MOCK_STATE.work);
+    });
+  });
+
+  describe("engine.loadSwap", () => {
+    it("should load the target cluster's L1 and the L2 its project points at", async () => {
+      const store = new kv.MockAsync();
+      const engine = await openEngine(store);
+      await engine.persist(
+        {
+          cluster: { selected: "c2" },
+          project: { selected: "p2" },
+          work: { value: "c2-work" },
+        },
+        { cluster: "c2", project: "p2" },
+      );
+      const loaded = await engine.loadSwap(STATE, { cluster: "c2" }, true);
+      expect(loaded.project?.selected).toEqual("p2");
+      expect(loaded.work?.value).toEqual("c2-work");
+    });
+
+    it("should return zero slices for a never-visited context", async () => {
+      const store = new kv.MockAsync();
+      const engine = await openEngine(store);
+      const loaded = await engine.loadSwap(STATE, { cluster: "fresh" }, true);
+      expect(loaded.project).toEqual(ZERO_MOCK_STATE.project);
+      expect(loaded.work).toEqual(ZERO_MOCK_STATE.work);
+    });
+
+    it("should swap only L2 when the cluster is unchanged", async () => {
+      const store = new kv.MockAsync();
+      const engine = await openEngine(store);
+      await engine.persist(
+        { ...STATE, project: { selected: "p2" }, work: { value: "p2-work" } },
+        { cluster: "c1", project: "p2" },
+      );
+      const loaded = await engine.loadSwap(
+        STATE,
+        { cluster: "c1", project: "p2" },
+        false,
+      );
+      expect(loaded.project).toBeUndefined();
+      expect(loaded.work?.value).toEqual("p2-work");
     });
   });
 
   describe("exclude", () => {
-    it("should correctly exclude keys from the state", async () => {
-      type State = MockState & { a: number; b: number; c: number };
-      const state: State = {
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-        },
-        a: 1,
-        b: 2,
-        c: 3,
-      };
+    it("should strip excluded deep keys from writes and restore their defaults on load", async () => {
       const store = new kv.MockAsync();
-      const v = await Persist.open<State>({
-        exclude: ["a"],
-        initial: state,
-        openKV: () => store,
+      const openKV = () => store;
+      const exclude: Persist.Config<MockState>["exclude"] = ["work.transient"];
+      const engine = await openEngine(store, { openKV, exclude });
+      await engine.persist(STATE, CTX);
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l2PartitionBase("c1", "p1"), 1)),
+      ).resolves.toEqual({ work: { value: "16.2.0" } });
+      const engine2 = await openEngine(store, { openKV, exclude });
+      expect(engine2.initialState?.work).toEqual({
+        value: "16.2.0",
+        transient: "zero",
       });
-      await v.persist(state);
-      await expect(store.get(Persist.persistedStateKey(1))).resolves.toEqual({
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-        },
-        b: 2,
-        c: 3,
+    });
+
+    it("should apply a function exclude to transform the persisted state", async () => {
+      const store = new kv.MockAsync();
+      const stripWork = (s: MockState): MockState => ({
+        ...s,
+        work: { value: "" },
       });
+      const engine = await openEngine(store, { exclude: [stripWork] });
+      await engine.persist(STATE, CTX);
+      await expect(
+        store.get(Persist.partitionStateKey(Persist.l2PartitionBase("c1", "p1"), 1)),
+      ).resolves.toEqual({ work: { value: "" } });
     });
   });
 
-  describe("migrator", () => {
-    it("should correctly apply a migration function to the state", async () => {
-      type State = { a: number; b: number; c: number } & MockState;
-      const state: State = {
-        mock: {
-          ...ZERO_MOCK_STATE.mock,
-        },
-        a: 1,
-        b: 2,
-        c: 3,
-      };
+  describe("migrators", () => {
+    it("should apply a slice migrator as its partition loads", async () => {
       const store = new kv.MockAsync();
-      const engine1 = await Persist.open({ initial: state, openKV: () => store });
-      await engine1.persist(state);
-      const migrator = (state: State) => ({ ...state, c: 5 });
-      await Persist.open({ initial: state, migrator, openKV: () => store });
-      await expect(store.length()).resolves.toBe(3);
-      await expect(store.get(Persist.persistedStateKey(2))).resolves.toEqual({
-        ...state,
-        c: 5,
+      const engine = await openEngine(store);
+      await engine.persist(STATE, CTX);
+      const engine2 = await openEngine(store, {
+        migrators: {
+          work: (raw) => ({ ...(raw as MockState["work"]), value: "migrated" }),
+        },
       });
+      expect(engine2.initialState?.work.value).toEqual("migrated");
     });
 
-    it("should fall back to the initial state when the migrator throws", async () => {
+    it("should fall back to the slice's initial state when its migrator throws", async () => {
       const store = new kv.MockAsync();
-      const engine1 = await Persist.open({
-        initial: ZERO_MOCK_STATE,
-        openKV: () => store,
-      });
-      await engine1.persist({ mock: { value: "1.2.3" } });
+      const engine = await openEngine(store);
+      await engine.persist(STATE, CTX);
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const migrator = () => {
-        throw new Error("migration failed");
-      };
-      const engine2 = await Persist.open({
-        initial: ZERO_MOCK_STATE,
-        migrator,
-        openKV: () => store,
+      const engine2 = await openEngine(store, {
+        migrators: {
+          work: () => {
+            throw new Error("migration failed");
+          },
+        },
       });
-      expect(engine2.initialState).toEqual(ZERO_MOCK_STATE);
+      expect(engine2.initialState?.work).toEqual(ZERO_MOCK_STATE.work);
+      expect(engine2.initialState?.cluster).toEqual(STATE.cluster);
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
-    });
-  });
-
-  describe("exclude function", () => {
-    it("should apply a function exclude to transform the persisted state", async () => {
-      type State = MockState & { secret: string };
-      const state: State = { mock: { ...ZERO_MOCK_STATE.mock }, secret: "hunter2" };
-      const store = new kv.MockAsync();
-      const stripSecret = (s: State): State => ({ ...s, secret: "" });
-      const engine = await Persist.open<State>({
-        exclude: [stripSecret],
-        initial: state,
-        openKV: () => store,
-      });
-      await engine.persist(state);
-      await expect(store.get(Persist.persistedStateKey(1))).resolves.toEqual({
-        mock: { ...ZERO_MOCK_STATE.mock },
-        secret: "",
-      });
     });
   });
 });
 
 describe("Persist.middleware", () => {
+  const createEngine = (): Persist.Engine<MockState> => ({
+    context: {},
+    initialState: undefined,
+    persist: vi.fn().mockResolvedValue(undefined),
+    loadSwap: vi.fn().mockResolvedValue({ work: { value: "swapped" } }),
+    revert: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined),
+  });
+
+  // Drives an action straight through the middleware chain, capturing what next saw.
+  const drive = (
+    engine: Persist.Engine<MockState>,
+    state: MockState,
+    action: { type: string },
+    debounceInterval = TimeSpan.ZERO,
+  ) => {
+    const next = vi.fn((a: unknown) => a);
+    const dispatch = vi.fn();
+    const store: MiddlewareAPI = { getState: () => state, dispatch };
+    const result = Persist.middleware<MockState>({
+      engine,
+      getContext,
+      debounceInterval,
+    })(store)(next)(action);
+    return { next, dispatch, result };
+  };
+
   it("should pass the action through to next and return its result", () => {
     const engine = createEngine();
     const action = { type: "any/action" };
@@ -304,11 +311,10 @@ describe("Persist.middleware", () => {
     expect(result).toBe(action);
   });
 
-  it("should persist the current store state after a normal action", () => {
+  it("should persist the current store state under the current context", () => {
     const engine = createEngine();
-    const state: MockState = { mock: { value: "9.9.9" } };
-    drive(engine, state, { type: "any/action" });
-    expect(engine.persist).toHaveBeenCalledWith(state);
+    drive(engine, ZERO_MOCK_STATE, { type: "any/action" });
+    expect(engine.persist).toHaveBeenCalledWith(ZERO_MOCK_STATE, {});
     expect(engine.revert).not.toHaveBeenCalled();
     expect(engine.clear).not.toHaveBeenCalled();
   });
@@ -333,17 +339,114 @@ describe("Persist.middleware", () => {
     errorSpy.mockRestore();
   });
 
+  it("should flush the old context, load the target, and dispatch hydrate on a context switch", async () => {
+    const engine = createEngine();
+    const { dispatch } = drive(engine, STATE, { type: "cluster/select" });
+    expect(engine.persist).toHaveBeenCalledWith(STATE, {});
+    await vi.waitFor(() => {
+      expect(engine.loadSwap).toHaveBeenCalledWith(STATE, CTX, true);
+      expect(dispatch).toHaveBeenCalledWith(
+        Persist.hydrate({ work: { value: "swapped" } }),
+      );
+    });
+  });
+
+  it("should swap only L2 when the project changes within the same cluster", async () => {
+    const engine = createEngine();
+    engine.context = { cluster: "c1", project: "p0" };
+    drive(engine, STATE, { type: "project/select" });
+    await vi.waitFor(() => {
+      expect(engine.loadSwap).toHaveBeenCalledWith(STATE, CTX, false);
+    });
+  });
+
+  it("should let onSwap rewrite the loaded slices before hydrating", async () => {
+    const engine = createEngine();
+    const next = vi.fn((a: unknown) => a);
+    const dispatch = vi.fn();
+    const store: MiddlewareAPI = { getState: () => STATE, dispatch };
+    Persist.middleware<MockState>({
+      engine,
+      getContext,
+      debounceInterval: TimeSpan.ZERO,
+      onSwap: (loaded) => ({ ...loaded, work: { value: "rewritten" } }),
+    })(store)(next)({ type: "cluster/select" });
+    await vi.waitFor(() => {
+      expect(dispatch).toHaveBeenCalledWith(
+        Persist.hydrate({ work: { value: "rewritten" } }),
+      );
+    });
+  });
+
+  it("should discard a stale swap when a newer context switch supersedes it", async () => {
+    const engine = createEngine();
+    let releaseStale: (() => void) | undefined;
+    const staleGate = new Promise<void>((resolve) => (releaseStale = resolve));
+    engine.loadSwap = vi.fn(async (_state, context: Persist.Context) => {
+      if (context.project == null) {
+        await staleGate;
+        return { project: {}, work: { value: "stale" } };
+      }
+      return { work: { value: "fresh" } };
+    });
+    const next = vi.fn((a: unknown) => a);
+    const dispatch = vi.fn();
+    let state: MockState = {
+      cluster: { selected: "c1" },
+      project: {},
+      work: { value: "w" },
+    };
+    const store: MiddlewareAPI = { getState: () => state, dispatch };
+    const mw = Persist.middleware<MockState>({
+      engine,
+      getContext,
+      debounceInterval: TimeSpan.ZERO,
+    })(store)(next);
+    mw({ type: "cluster/select" });
+    await vi.waitFor(() => expect(engine.loadSwap).toHaveBeenCalledTimes(1));
+    state = { ...state, project: { selected: "p1" } };
+    mw({ type: "project/select" });
+    await vi.waitFor(() => {
+      expect(dispatch).toHaveBeenCalledWith(
+        Persist.hydrate({ work: { value: "fresh" } }),
+      );
+    });
+    releaseStale?.();
+    await vi.waitFor(() => expect(engine.loadSwap).toHaveBeenCalledTimes(2));
+    // The slow cluster swap resolved last; hydrating it would wipe the newer
+    // project selection with its stale project slice.
+    expect(dispatch).toHaveBeenCalledOnce();
+  });
+
+  it("should adopt the hydrated context instead of re-swapping on hydrate", () => {
+    const engine = createEngine();
+    const next = vi.fn((a: unknown) => a);
+    const dispatch = vi.fn();
+    const store: MiddlewareAPI = { getState: () => STATE, dispatch };
+    const mw = Persist.middleware<MockState>({
+      engine,
+      getContext,
+      debounceInterval: TimeSpan.ZERO,
+    })(store)(next);
+    mw(Persist.hydrate({ work: STATE.work }));
+    expect(engine.loadSwap).not.toHaveBeenCalled();
+    expect(engine.persist).toHaveBeenCalledWith(STATE, CTX);
+  });
+
   it("should coalesce rapid dispatches into a single persist when debounced", () => {
     vi.useFakeTimers();
     try {
       const engine = createEngine();
-      const state: MockState = { mock: { value: "1.0.0" } };
       const next = vi.fn((a: unknown) => a);
-      const store: MiddlewareAPI = { getState: () => state, dispatch: vi.fn() };
-      const dispatch = Persist.middleware<MockState>(
+      const store: MiddlewareAPI = {
+        getState: () => ZERO_MOCK_STATE,
+        dispatch: vi.fn(),
+      };
+      const dispatch = Persist.middleware<MockState>({
         engine,
-        TimeSpan.milliseconds(250),
-      )(store)(next);
+        getContext,
+        debounceInterval: TimeSpan.milliseconds(250),
+      })(store)(next);
       dispatch({ type: "a" });
       dispatch({ type: "b" });
       dispatch({ type: "c" });
@@ -357,7 +460,7 @@ describe("Persist.middleware", () => {
 });
 
 describe("Persist.hardClearAndReload", () => {
-  const V2_PREFIX = `${Persist.V2_STORE_PATH}:`;
+  const PREFIX = `${Persist.STORE_PATH}:`;
   let errorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
@@ -372,20 +475,14 @@ describe("Persist.hardClearAndReload", () => {
     localStorage.clear();
   });
 
-  it("should clear the persisted store scoped to the v2 path", async () => {
-    localStorage.setItem(`${V2_PREFIX}console-version`, JSON.stringify({ version: 1 }));
-    localStorage.setItem(
-      `${V2_PREFIX}${Persist.persistedStateKey(1)}`,
-      JSON.stringify(ZERO_MOCK_STATE),
-    );
+  it("should clear the persisted store scoped to the store path", async () => {
+    const versionKey = Persist.partitionVersionKey(Persist.l0PartitionBase());
+    localStorage.setItem(`${PREFIX}${versionKey}`, JSON.stringify({ version: 1 }));
     localStorage.setItem("unrelated:key", "keep-me");
     Persist.hardClearAndReload();
     await vi.waitFor(() => {
-      expect(localStorage.getItem(`${V2_PREFIX}console-version`)).toBeNull();
+      expect(localStorage.getItem(`${PREFIX}${versionKey}`)).toBeNull();
     });
-    expect(
-      localStorage.getItem(`${V2_PREFIX}${Persist.persistedStateKey(1)}`),
-    ).toBeNull();
     expect(localStorage.getItem("unrelated:key")).toBe("keep-me");
   });
 });

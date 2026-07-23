@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -106,8 +108,11 @@ func (s *Service) Retrieve(
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
+	// Missing keys are omitted from the result, not an error, so callers can
+	// existence-check cached keys in bulk.
 	if err := s.internal.NewRetrieve().
-		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil); err != nil {
+		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).
+		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

@@ -82,7 +82,10 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = cache.createTable<Key, Table>({ name: "tables" });
+    const store = cache.createTable<Key, Table>({
+      name: "tables",
+      refetch: async (keys) => await this.execRetrieve({ keys }),
+    });
     const dispatcher = new actions.Controller<Key, Table, Action>({
       store,
       onError: cache.onError,
@@ -262,6 +265,13 @@ export class Client extends query.Retriever<
         ),
     );
     this.store.delete(keysArr);
+  }
+
+  /** Subscribes to every table delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   private async execRetrieve(

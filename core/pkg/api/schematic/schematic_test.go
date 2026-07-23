@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -36,6 +37,27 @@ func createSchematic(ctx context.Context, name string) schematic.Schematic {
 	Expect(schematicSvc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
 	return s
 }
+
+var _ = Describe("Service.Retrieve", func() {
+	It("Should omit missing keys from a multi-key retrieve instead of failing", func(ctx SpecContext) {
+		s := createSchematic(ctx, "partial-survivor")
+		missing := uuid.New()
+		grantOn(ctx, user.OntologyID(author.Key), access.ActionRetrieve,
+			schematic.OntologyID(s.Key), schematic.OntologyID(missing))
+		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+			Keys: []schematic.Key{s.Key, missing},
+		}))
+		Expect(res.Schematics).To(HaveLen(1))
+		Expect(res.Schematics[0].Key).To(Equal(s.Key))
+	})
+
+	It("Should return an empty result when every requested key is missing", func(ctx SpecContext) {
+		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+			Keys: []schematic.Key{uuid.New()},
+		}))
+		Expect(res.Schematics).To(BeEmpty())
+	})
+})
 
 var _ = Describe("Service.Dispatch", func() {
 	Describe("access control", func() {

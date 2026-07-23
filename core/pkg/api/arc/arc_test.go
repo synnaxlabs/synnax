@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // scopedAction is a short local alias for the Arc action envelope.
@@ -35,6 +36,25 @@ func createArc(ctx context.Context, name string) arc.Arc {
 	Expect(arcSvc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 	return a
 }
+
+var _ = Describe("Service.Retrieve", func() {
+	It("Should omit missing keys from a multi-key retrieve instead of failing", func(ctx SpecContext) {
+		a := createArc(ctx, "partial-survivor")
+		grantOn(ctx, user.OntologyID(author.Key), access.ActionRetrieve, arc.OntologyID(a.Key))
+		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+			Keys: []arc.Key{a.Key, uuid.New()},
+		}))
+		Expect(res.Arcs).To(HaveLen(1))
+		Expect(res.Arcs[0].Key).To(Equal(a.Key))
+	})
+
+	It("Should return an empty result when every requested key is missing", func(ctx SpecContext) {
+		res := MustSucceed(apiSvc.Retrieve(authedCtx(ctx, author), RetrieveRequest{
+			Keys: []arc.Key{uuid.New()},
+		}))
+		Expect(res.Arcs).To(BeEmpty())
+	})
+})
 
 var _ = Describe("Service.Dispatch", func() {
 	Describe("access control", func() {

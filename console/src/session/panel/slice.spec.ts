@@ -240,6 +240,47 @@ describe("Panel Slice", () => {
     });
   });
 
+  describe("purge", () => {
+    it("should drop the panel's state and selection in every window", () => {
+      const state = run(
+        Panel.select({ key: PANEL }),
+        Panel.internalSelectTab({ key: PANEL, tabKey: TAB, otherTabKeys: [TAB] }),
+        Panel.internalSelectTab({
+          windowKey: "other",
+          key: PANEL,
+          tabKey: TAB,
+          otherTabKeys: [TAB],
+        }),
+        Panel.purge(PANEL),
+      );
+      expect(Panel.selectSelected(state)).toBeUndefined();
+      Object.values(state[Panel.SLICE_NAME].windows).forEach((win) => {
+        expect(win.panels[PANEL]).toBeUndefined();
+      });
+    });
+
+    it("should leave other panels and their selections untouched", () => {
+      const state = run(
+        Panel.select({ key: OTHER_PANEL }),
+        Panel.internalSelectTab({
+          key: OTHER_PANEL,
+          tabKey: OTHER_TAB,
+          otherTabKeys: [OTHER_TAB],
+        }),
+        Panel.internalSelectTab({
+          windowKey: "other",
+          key: PANEL,
+          tabKey: TAB,
+          otherTabKeys: [TAB],
+        }),
+        Panel.purge([PANEL]),
+      );
+      expect(Panel.selectSelected(state)).toEqual(OTHER_PANEL);
+      expect(Panel.selectSelectedTabs(state, OTHER_PANEL)).toEqual([OTHER_TAB]);
+      expect(state[Panel.SLICE_NAME].windows.other.panels[PANEL]).toBeUndefined();
+    });
+  });
+
   describe("reset", () => {
     it("should drop every window's panel session state", () => {
       const state = run(

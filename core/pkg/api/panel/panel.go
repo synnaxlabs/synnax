@@ -21,7 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 // Service is the API-layer panel service. It enforces access control and routes
@@ -111,7 +113,9 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	err = q.Entries(&res.Panels).Exec(ctx, nil)
+	// Missing keys are omitted from the result, not an error, so callers can
+	// existence-check cached keys in bulk.
+	err = errors.Skip(q.Entries(&res.Panels).Exec(ctx, nil), query.ErrNotFound)
 	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,

@@ -96,7 +96,10 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = cache.createTable<Key, Schematic>({ name: "schematics" });
+    const store = cache.createTable<Key, Schematic>({
+      name: "schematics",
+      refetch: async (keys) => await this.execRetrieve({ keys }),
+    });
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
       store,
       onError: cache.onError,
@@ -275,6 +278,13 @@ export class Client extends query.Retriever<
         ),
     );
     this.store.delete(keysArr);
+  }
+
+  /** Subscribes to every schematic delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   async copy(params: CopyParams): Promise<Schematic> {

@@ -9,4 +9,5 @@
 
 export * from "@/session/range/selectors";
 export * from "@/session/range/slice";
+export * from "@/session/range/synchronizer";
 export * from "@/session/range/translate";

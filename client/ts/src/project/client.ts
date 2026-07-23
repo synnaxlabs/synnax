@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, primitive, record } from "@synnaxlabs/x";
+import { array, caseconv, type destructor, primitive, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -185,6 +185,13 @@ export class Client extends query.Retriever<
         ),
     );
     this.store.delete(keysArr);
+  }
+
+  /** Subscribes to every project delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   // Undefined fields are dropped: the server keeps prior values for them.

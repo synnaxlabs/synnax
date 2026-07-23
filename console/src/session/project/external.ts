@@ -9,3 +9,4 @@
 
 export * from "@/session/project/selectors";
 export * from "@/session/project/slice";
+export * from "@/session/project/synchronizer";

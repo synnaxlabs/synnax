@@ -15,6 +15,7 @@ import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
+import { Ontology } from "@/ontology";
 import { Panel } from "@/panel";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -1524,7 +1525,7 @@ describe("Panel queries", () => {
     });
   });
 
-  describe("useCloseDeletedResourceTabs", () => {
+  describe("useCloseResourceTabs", () => {
     const createLabel = async (): Promise<ontology.ID> => {
       const created = await client.labels.create({
         name: `label-${uuid.create()}`,
@@ -1547,7 +1548,36 @@ describe("Panel queries", () => {
         });
       });
 
-    it("closes a resource tab when its resource is deleted", async () => {
+    it("closes tabs for the given resources and leaves others open", async () => {
+      const created = await createPanel();
+      const [doomed, survivor] = [await createLabel(), await createLabel()];
+      const [doomedTab, survivorTab] = [
+        newResourceTab(doomed),
+        newResourceTab(survivor),
+      ];
+      const { result } = await loadAndUse(created.key, () => ({
+        retrieve: Panel.useRetrieve({ key: created.key }),
+        dispatch: Panel.useDispatch(),
+      }));
+      await insert(result.current.dispatch, created.key, doomedTab, survivorTab);
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
+          doomedTab.key,
+          survivorTab.key,
+        ]),
+      );
+
+      const close = renderHook(() => Panel.useCloseResourceTabs(), { wrapper });
+      act(() => close.result.current(doomed));
+
+      await waitFor(() =>
+        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
+          survivorTab.key,
+        ]),
+      );
+    });
+
+    it("leaves tabs open when a resource is deleted remotely", async () => {
       const created = await createPanel();
       const resource = await createLabel();
       const tab = newResourceTab(resource);
@@ -1560,39 +1590,20 @@ describe("Panel queries", () => {
         expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]),
       );
 
-      renderHook(() => Panel.useCloseDeletedResourceTabs(), { wrapper });
+      const deleted: string[] = [];
+      renderHook(
+        () => {
+          Panel.useCloseResourceTabs();
+          Ontology.useResourceDeleteSynchronizer((id) => deleted.push(id.key));
+        },
+        { wrapper },
+      );
       await act(async () => {
-        await client.labels.delete(resource.key);
+        await writer.labels.delete(resource.key);
       });
 
-      await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([]),
-      );
-    });
-
-    it("leaves tabs backing other resources open", async () => {
-      const created = await createPanel();
-      const [doomed, survivor] = [await createLabel(), await createLabel()];
-      const [doomedTab, survivorTab] = [
-        newResourceTab(doomed),
-        newResourceTab(survivor),
-      ];
-      const { result } = await loadAndUse(created.key, () => ({
-        retrieve: Panel.useRetrieve({ key: created.key }),
-        dispatch: Panel.useDispatch(),
-      }));
-      await insert(result.current.dispatch, created.key, doomedTab, survivorTab);
-
-      renderHook(() => Panel.useCloseDeletedResourceTabs(), { wrapper });
-      await act(async () => {
-        await client.labels.delete(doomed.key);
-      });
-
-      await waitFor(() =>
-        expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([
-          survivorTab.key,
-        ]),
-      );
+      await waitFor(() => expect(deleted).toContain(resource.key));
+      expect(leafTabKeys(result.current.retrieve.data?.root)).toEqual([tab.key]);
     });
   });
 });

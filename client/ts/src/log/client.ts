@@ -75,7 +75,10 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     ontologyStores: ontology.Stores,
   ) {
-    const store = cache.createTable<Key, Log>({ name: "logs" });
+    const store = cache.createTable<Key, Log>({
+      name: "logs",
+      refetch: async (keys) => await this.execRetrieve({ keys }),
+    });
     const dispatcher = new actions.Controller<Key, Log, Action>({
       store,
       onError: cache.onError,
@@ -248,6 +251,13 @@ export class Client extends query.Retriever<
       async () =>
         await this.client.send("/log/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
     );
+  }
+
+  /** Subscribes to every log delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   private async execRetrieve(

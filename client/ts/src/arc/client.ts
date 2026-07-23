@@ -179,7 +179,10 @@ export class Client extends query.Retriever<
     cache: query.Cache,
     statusStore: query.Table<status.Key, status.Status>,
   ) {
-    const store = cache.createTable<Key, Arc>({ name: "arcs" });
+    const store = cache.createTable<Key, Arc>({
+      name: "arcs",
+      refetch: async (keys) => await this.execRetrieve({ keys }),
+    });
     const dispatcher = new actions.Controller<Key, Arc, Action>({
       store,
       onError: cache.onError,
@@ -365,6 +368,13 @@ export class Client extends query.Retriever<
       async () =>
         await this.client.send("/arc/delete", { keys: keysArr }, deleteReqZ, emptyResZ),
     );
+  }
+
+  /** Subscribes to every arc delete delivered to the cache. */
+  onDelete(handler: (key: Key) => void): destructor.Destructor {
+    return this.store.subscribe((event) => {
+      if (event.variant === "delete") handler(event.key);
+    });
   }
 
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {

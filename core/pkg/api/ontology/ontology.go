@@ -64,7 +64,7 @@ func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var resources []ontology.Resource
+	resources := make([]ontology.Resource, 0)
 	if req.SearchTerm != "" {
 		ids, err := s.search.Search(ctx, search.Request{Term: req.SearchTerm})
 		if err != nil {
@@ -99,7 +99,13 @@ func (s *Service) Retrieve(
 		if req.Offset > 0 {
 			q = q.Offset(req.Offset)
 		}
-		if err := q.Entries(&resources).Exec(ctx, nil); err != nil {
+		// Missing IDs are omitted from the result, not an error, so callers
+		// can existence-check resources in bulk.
+		err := q.Entries(&resources).Exec(ctx, nil)
+		if len(req.IDs) > 0 {
+			err = errors.Skip(err, query.ErrNotFound)
+		}
+		if err != nil {
 			return RetrieveResponse{}, err
 		}
 	}

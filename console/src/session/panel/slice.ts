@@ -10,7 +10,7 @@
 import { createSlice, type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { panel } from "@synnaxlabs/client";
 import { Panel } from "@synnaxlabs/pluto";
-import { type require } from "@synnaxlabs/x";
+import { array, type require } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 import z from "zod";
@@ -56,6 +56,8 @@ export interface PanelKeyPayload extends Window.OptionalKeyParams {
 export interface TabAndPanelKeyPayload extends PanelKeyPayload {
   tabKey: string;
 }
+
+export type PurgePayload = panel.Key | panel.Key[];
 
 interface SelectTabPayload extends TabAndPanelKeyPayload {
   otherTabKeys: panel.TabKey[];
@@ -119,6 +121,16 @@ const { actions, reducer } = createSlice({
     stopOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.isOverlaid = false;
     }),
+    // purge drops all state for panels deleted from the cluster, across every
+    // window. remove is the per-window close; purge is the repair path.
+    purge: (state, { payload: keys }: PayloadAction<PurgePayload>) => {
+      const purged = array.toArray(keys);
+      Object.values(state.windows).forEach((win) => {
+        purged.forEach((key) => delete win.panels[key]);
+        if (win.selected != null && purged.includes(win.selected))
+          win.selected = undefined;
+      });
+    },
     reset: () => ZERO_SLICE_STATE,
   },
 });
@@ -130,12 +142,14 @@ const {
   selectTab: internalSelectTab,
   startOverlaying,
   stopOverlaying,
+  purge,
   reset,
 } = actions;
 
 export {
   clearSelected,
   internalSelectTab,
+  purge,
   reducer,
   remove,
   reset,

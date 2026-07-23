@@ -20,7 +20,6 @@ import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
-import { Ontology } from "@/ontology";
 import { Scope, TabScope } from "@/panel/scope";
 import { Synnax } from "@/synnax";
 
@@ -479,24 +478,26 @@ export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
 export const useUndo = Scope.bindHook(useUndoBase);
 export const useRedo = Scope.bindHook(useRedoBase);
 
-// useCloseDeletedResourceTabs removes any resource-backed tab whose resource has
-// been deleted, across every cached panel. A resource left as a tombstone would
-// render "Not found" indefinitely, so its tab is closed with the resource.
-// removeTab on an absent tab is a no-op, so redundant firings across windows are
-// harmless.
-export const useCloseDeletedResourceTabs = (): void => {
+// useCloseResourceTabs returns a callback closing every tab that displays one of
+// the given resources, across every cached panel. Delete flows call it so the
+// deleting console closes its own tabs while remote consoles tombstone theirs.
+// removeTab on an absent tab is a no-op, so redundant calls are harmless.
+export const useCloseResourceTabs = (): ((
+  ids: ontology.ID | ontology.ID[],
+) => void) => {
   const client = Synnax.use();
   const { dispatch } = useDispatch();
-  Ontology.useResourceDeleteSynchronizer(
-    useCallback(
-      (id) =>
-        client?.panels.listCached().forEach((p) => {
-          const tab = panel.findTabByResource(p.root, id);
-          if (tab != null)
-            dispatch({ key: p.key, actions: panel.removeTab({ key: tab.key }) });
-        }),
-      [client, dispatch],
-    ),
+  return useCallback(
+    (ids: ontology.ID | ontology.ID[]) =>
+      client?.panels.listCached().forEach((p) => {
+        const actions = array
+          .toArray(ids)
+          .map((id) => panel.findTabByResource(p.root, id))
+          .filter((tab) => tab != null)
+          .map((tab) => panel.removeTab({ key: tab.key }));
+        if (actions.length > 0) dispatch({ key: p.key, actions });
+      }),
+    [client, dispatch],
   );
 };
 

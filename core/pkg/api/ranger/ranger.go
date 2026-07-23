@@ -141,7 +141,9 @@ func (s *Service) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	if err := q.Exec(ctx, nil); err != nil {
+	// Missing keys are omitted from the result, not an error, so callers can
+	// existence-check cached keys in bulk.
+	if err := q.Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return RetrieveResponse{}, err
 	}
 	var err error

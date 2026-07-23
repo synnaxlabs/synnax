@@ -22,7 +22,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -134,7 +136,13 @@ func (s *Service) Retrieve(
 		q = q.Where(task.MatchRacks(req.Rack))
 	}
 	var res RetrieveResponse
-	if err := q.Entries(&res.Tasks).Exec(ctx, nil); err != nil {
+	// Missing keys are omitted from the result, not an error, so callers can
+	// existence-check cached keys in bulk.
+	err := q.Entries(&res.Tasks).Exec(ctx, nil)
+	if hasKeys {
+		err = errors.Skip(err, query.ErrNotFound)
+	}
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
 

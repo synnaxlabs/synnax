@@ -20,7 +20,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/query"
 )
 
 type Service struct {
@@ -114,7 +116,10 @@ func (s *Service) Retrieve(
 		if len(req.Names) != 0 {
 			q = q.Where(label.MatchNames(req.Names...))
 		}
-		if err := q.Entries(&res.Labels).Exec(ctx, nil); err != nil {
+		// Missing keys are omitted from the result, not an error, so callers
+		// can existence-check cached keys in bulk.
+		if err := q.Entries(&res.Labels).
+			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 			return RetrieveResponse{}, err
 		}
 	}

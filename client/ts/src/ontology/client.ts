@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { deep, type destructor, primitive, strings } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { QueryError } from "@/errors";
+import { NotFoundError } from "@/errors";
 import {
   type ID,
   idsEqual,
@@ -272,7 +272,7 @@ export class Client extends query.Retriever<
    * @param options.excludeFieldData - Whether to exclude the field data of the resource
    * in the results.
    * @returns The resource with the given ID.
-   * @throws {QueryError} If no resource is found with the given ID.
+   * @throws {NotFoundError} If no resource is found with the given ID.
    */
   async retrieve(id: ID, options?: RetrieveOptions): Promise<Resource>;
 
@@ -284,7 +284,7 @@ export class Client extends query.Retriever<
    * @param options.excludeFieldData - Whether to exclude the field data of the
    * resources in the results.
    * @returns The resources with the given IDs.
-   * @throws {QueryError} If no resource is found with any of the given IDs.
+   * @throws {NotFoundError} If no resource is found with any of the given IDs.
    */
   async retrieve(ids: ID[], options?: RetrieveOptions): Promise<Resource[]>;
 
@@ -302,7 +302,7 @@ export class Client extends query.Retriever<
     const resources = await this.routeRetrieve({ ids: parsedIDs, ...options });
     if (Array.isArray(ids)) return resources;
     if (resources.length === 0)
-      throw new QueryError(
+      throw new NotFoundError(
         `No resource found with ID ${strings.naturalLanguageJoin(
           parsedIDs.map((id) => idToString(id)),
         )}`,
@@ -494,7 +494,7 @@ export class Client extends query.Retriever<
   private async fetchSingle(query: string): Promise<Resource> {
     const resources = await this.execRetrieve({ ids: [idZ.parse(query)] });
     if (resources.length === 0)
-      throw new QueryError(`No resource found with ID ${query}`);
+      throw new NotFoundError(`No resource found with ID ${query}`);
     this.writeResources(resources);
     return resources[0];
   }

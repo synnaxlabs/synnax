@@ -1106,7 +1106,13 @@ describe("queries", () => {
         });
 
         const key = result.current.form.get<device.Key>("key").value;
-        const retrieved = await client.devices.retrieve({ key });
+        // parent and status are cache enrichments whose presence depends on
+        // which relationship queries have already run; don't pin them.
+        const {
+          parent: _parent,
+          status: _status,
+          ...retrieved
+        } = await client.devices.retrieve({ key });
         expect(retrieved).toEqual({
           key,
           name: "Test Form Device",
@@ -1116,8 +1122,6 @@ describe("queries", () => {
           rack: rack.key,
           configured: true,
           properties: {},
-          status: undefined,
-          parent: undefined,
         });
       });
 

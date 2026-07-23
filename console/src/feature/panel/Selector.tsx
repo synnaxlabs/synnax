@@ -37,6 +37,7 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Tree.useConfirmDelete({ type: "Panel" });
+  const dispatch = useDispatch();
   const { update: del } = Panel.useDelete({
     beforeUpdate: useCallback(
       async ({ data }: Flux.BeforeUpdateParams<panel.Key | panel.Key[]>) => {
@@ -44,9 +45,10 @@ const ContextMenu = ({ keys, panels }: ContextMenuProps): ReactElement | null =>
         if (panelKeys.length === 0) return false;
         const selected = panels.filter(({ key }) => panelKeys.includes(key));
         if (!(await confirm(selected))) return false;
+        dispatch(Session.Panel.purge(panelKeys));
         return data;
       },
-      [panels, confirm],
+      [panels, confirm, dispatch],
     ),
   });
   if (keys.length === 0) return null;
