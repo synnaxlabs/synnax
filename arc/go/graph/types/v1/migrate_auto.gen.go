@@ -17,12 +17,12 @@ import (
 	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/graph/types/v0"
 	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
-	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
+	ir "github.com/synnaxlabs/arc/ir/types/v1"
 )
 
 func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
-	edges, err := lo.MapErr(old.Edges, func(v irv0.Edge, _ int) (irv1.Edge, error) {
-		return irv1.MigrateEdge(ctx, v)
+	edges, err := lo.MapErr(old.Edges, func(v irv0.Edge, _ int) (ir.Edge, error) {
+		return ir.MigrateEdge(ctx, v)
 	})
 	if err != nil {
 		return Graph{}, err
