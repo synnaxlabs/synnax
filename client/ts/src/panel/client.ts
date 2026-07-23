@@ -28,6 +28,7 @@ import {
   ontologyID,
   type Panel,
   panelZ,
+  TYPE_ONTOLOGY_ID,
 } from "@/panel/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -36,6 +37,7 @@ export const DELETE_CHANNEL_NAME = "sy_panel_delete";
 
 const retrieveReqZ = z.object({
   keys: keyZ.array().optional(),
+  parent: ontology.idZ.optional(),
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),
@@ -50,6 +52,13 @@ const emptyResZ = z.object({});
 
 /** Query fields only the server can evaluate. */
 const SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
+
+const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
+  ontology.matchRelationship(rel, {
+    from: parent,
+    type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+    to: { type: TYPE_ONTOLOGY_ID.type },
+  });
 
 /**
  * Client-side matching for a request: exact for key sets. Server-computed
@@ -73,10 +82,12 @@ export class Client extends cache.Reader<
   private readonly client: UnaryClient;
   private readonly store: cache.Table<Key, Panel>;
   private readonly dispatcher: actions.Controller<Key, Panel, Action>;
+  private readonly ontologyClient: ontology.Client;
   private readonly ontology: ontology.Stores;
 
   constructor(
     client: UnaryClient,
+    ontologyClient: ontology.Client,
     engine: cache.Cache,
     ontologyStores: ontology.Stores,
   ) {
@@ -111,17 +122,44 @@ export class Client extends cache.Reader<
         table: store,
         fetch: async (query) => (await this.fetchRequest(query)).map((p) => p.key),
         compose: (records) => records,
-        matches: (panel, query) => requestFilter(query)(panel),
+        matches: (panel, query) =>
+          requestFilter(query)(panel) &&
+          (query.parent == null || this.isCachedChild(query.parent, panel.key)),
         serverFields: SERVER_FIELDS,
+        watch: [
+          cache.watch(ontologyStores.relationships, (event, query: RetrieveRequest) => {
+            if (query.parent == null) return null;
+            const rel =
+              event.variant === "set"
+                ? event.value
+                : ontology.relationshipZ.parse(event.key);
+            if (!isChildOf(rel, query.parent)) return null;
+            return [rel.to.key];
+          }),
+        ],
+        hydrate: async (keys) => {
+          this.store.setIfAbsent(await this.execRetrieve({ keys }));
+        },
       }),
       isSingle: (params) => typeof params === "string",
       normalizeSingle: (key) => key,
       normalizeRequest: toRequest,
     });
     this.client = client;
+    this.ontologyClient = ontologyClient;
     this.ontology = ontologyStores;
     this.store = store;
     this.dispatcher = dispatcher;
+  }
+
+  private isCachedChild(parent: ontology.ID, key: Key): boolean {
+    return this.ontology.relationships.has(
+      ontology.relationshipToString({
+        from: parent,
+        type: ontology.PARENT_OF_RELATIONSHIP_TYPE,
+        to: ontologyID(key),
+      }),
+    );
   }
 
   async create(panel: New, opts?: cache.WriteOptions<Panel[]>): Promise<Panel>;
@@ -278,8 +316,19 @@ export class Client extends cache.Reader<
     return panels[0];
   }
 
+  // Parent queries resolve membership through the ontology graph, then fetch
+  // the member panels; the panel retrieve endpoint knows nothing of parents.
   private async fetchRequest(query: RetrieveRequest): Promise<Panel[]> {
-    const panels = await this.execRetrieve(query);
+    const { parent, ...rest } = query;
+    if (parent != null) {
+      const children = await this.ontologyClient.retrieveChildren(parent, {
+        types: [TYPE_ONTOLOGY_ID.type],
+      });
+      const keys = children.map(({ id }) => id.key);
+      if (keys.length === 0) return [];
+      rest.keys = keys;
+    }
+    const panels = await this.execRetrieve(rest);
     this.store.setIfAbsent(panels);
     return panels;
   }

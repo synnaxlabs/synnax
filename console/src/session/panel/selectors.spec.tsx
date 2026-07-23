@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { panel, type Synnax } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Drift } from "@synnaxlabs/drift";
 import { Panel as Pluto } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -100,6 +102,7 @@ describe("panel selectors", () => {
   interface SetupOptions {
     scope?: string;
     tabScope?: string;
+    client?: Synnax | null;
   }
 
   // setup mounts the reactive hooks in the production-shaped console stack: the full
@@ -108,8 +111,8 @@ describe("panel selectors", () => {
   // useSelectSelection returns the stored selection unresolved - the wiring under test
   // is the scope, window-default, and overlaid/focused/visible resolution the console
   // selectors layer on top.
-  const setup = async ({ scope, tabScope }: SetupOptions = {}) => {
-    const { wrapper: Console, store } = await createConsoleWrapper({ client: null });
+  const setup = async ({ scope, tabScope, client = null }: SetupOptions = {}) => {
+    const { wrapper: Console, store } = await createConsoleWrapper({ client });
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
       let node: ReactNode = children;
       if (tabScope != null)
@@ -407,6 +410,27 @@ describe("panel selectors", () => {
       });
       expect(result.current.scoped).toBe(true);
       expect(result.current.foreign).toBe(false);
+    });
+
+    // Regression: the check read the stored selection, so a leaf whose tab was never
+    // explicitly selected rendered nothing.
+    it("should show a leaf's first tab when the stored selection names another panel's tab", async () => {
+      const client = createTestClient();
+      const { Wrapper, store } = await setup({ client });
+      const { result } = renderHook(() => Panel.useSelectIsTabVisible(PANEL, TAB), {
+        wrapper: Wrapper,
+      });
+      await act(async () => {
+        await client.panels.create(
+          panel.panelZ.parse({
+            key: PANEL,
+            name: "panel",
+            root: { variant: "leaf", tabs: [{ variant: "view", key: TAB, type: "t" }] },
+          }),
+        );
+        selectTab(store, PANEL, OTHER_TAB);
+      });
+      expect(result.current).toBe(true);
     });
   });
 

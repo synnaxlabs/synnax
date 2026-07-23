@@ -291,7 +291,12 @@ export default class Synnax extends framer.Client {
       ontologyStores,
     );
     this.lineplots = new lineplot.Client(this.transport.unary, engine, ontologyStores);
-    this.panels = new panel.Client(this.transport.unary, engine, ontologyStores);
+    this.panels = new panel.Client(
+      this.transport.unary,
+      this.ontology,
+      engine,
+      ontologyStores,
+    );
     this.logs = new log.Client(this.transport.unary, engine, ontologyStores);
     this.tables = new table.Client(this.transport.unary, engine, ontologyStores);
     this.groups = new group.Client(

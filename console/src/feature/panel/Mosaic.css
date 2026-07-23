@@ -9,8 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-panel_tab {
+.console-panel__tab {
     animation: none !important;
+}
+
+.console-panel__tab-content {
+    position: relative;
+    min-height: 0;
 }
 
 /* The focus bar stays mounted while unfocused (unmounting it remounts the tab's

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type project, schematic } from "@synnaxlabs/client";
+import { type panel, type project, schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
@@ -18,9 +18,10 @@ import { Session } from "@/session";
 
 export interface UseCreateProps {
   project?: project.Key;
+  tabKey?: panel.TabKey;
 }
 
-export const useCreate = ({ project }: UseCreateProps = {}): ((
+export const useCreate = ({ project, tabKey }: UseCreateProps = {}): ((
   params?: Partial<schematic.New>,
 ) => void) => {
   const getActiveProject = Session.Project.useGetSelected();
@@ -32,7 +33,11 @@ export const useCreate = ({ project }: UseCreateProps = {}): ((
       project ??= getActiveProject();
       maybeChangeProject(project);
       dispatch(Session.Schematic.create({ key, editable: true }));
-      openTab({ variant: "resource", resource: schematic.ontologyID(key) });
+      openTab({
+        variant: "resource",
+        resource: schematic.ontologyID(key),
+        key: tabKey,
+      });
     },
   });
   return useCallback(

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { panel } from "@synnaxlabs/client";
+import { panel, ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { uuid } from "@synnaxlabs/x";
@@ -110,7 +110,32 @@ describe("Panel.useOpenTab", () => {
       expect(panel.findTab(selectedDoc.root, newTabKey)).toBeUndefined();
     });
 
-    it("replaces the surrounding tab in place when the params omit a key", async () => {
+    it("focuses the existing tab when the resource already backs one", async () => {
+      const seedTabKey = uuid.create();
+      const resource = ranger.ontologyID(uuid.create());
+      const existing = await createServerPanel(client, {
+        variant: "leaf",
+        tabs: [{ variant: "resource", key: seedTabKey, resource }],
+      });
+      const { wrapper, store } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current({ variant: "resource", key: uuid.create(), resource });
+      });
+      await waitFor(() =>
+        expect(
+          Session.Panel.selectSelectedTabs(store.getState(), existing.key)[0],
+        ).toBe(seedTabKey),
+      );
+      const doc = await client.panels.retrieve(existing.key);
+      expect(leafTabs(doc.root)).toHaveLength(1);
+    });
+
+    it("opens a new tab beside the surrounding one when the params omit a key", async () => {
       const seedTabKey = uuid.create();
       const existing = await createServerPanel(client, viewLeaf(seedTabKey, "seed"));
       const { wrapper } = await createPanelWrapper({
@@ -121,7 +146,35 @@ describe("Panel.useOpenTab", () => {
       await primePanel(wrapper, existing.key);
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
       await act(async () => {
-        result.current({ variant: "view", type: "replaced", args: {} });
+        result.current({ variant: "view", type: "added", args: {} });
+      });
+      await waitFor(async () => {
+        const doc = await client.panels.retrieve(existing.key);
+        expect(leafTabs(doc.root)).toHaveLength(2);
+      });
+      const doc = await client.panels.retrieve(existing.key);
+      const seed = panel.findTab(doc.root, seedTabKey);
+      if (seed == null || seed.variant !== "view") throw new Error("seed tab missing");
+      expect(seed.type).toBe("seed");
+    });
+
+    it("replaces the tab in place when the params carry that tab's key", async () => {
+      const seedTabKey = uuid.create();
+      const existing = await createServerPanel(client, viewLeaf(seedTabKey, "seed"));
+      const { wrapper } = await createPanelWrapper({
+        client,
+        panelKey: existing.key,
+        tabKey: seedTabKey,
+      });
+      await primePanel(wrapper, existing.key);
+      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
+      await act(async () => {
+        result.current({
+          variant: "view",
+          key: seedTabKey,
+          type: "replaced",
+          args: {},
+        });
       });
       await waitFor(async () => {
         const doc = await client.panels.retrieve(existing.key);
@@ -132,29 +185,6 @@ describe("Panel.useOpenTab", () => {
       });
       const doc = await client.panels.retrieve(existing.key);
       expect(leafTabs(doc.root)).toHaveLength(1);
-    });
-
-    it("adds a new tab when the params carry a key inside a tab scope", async () => {
-      const seedTabKey = uuid.create();
-      const existing = await createServerPanel(client, viewLeaf(seedTabKey, "seed"));
-      const { wrapper } = await createPanelWrapper({
-        client,
-        panelKey: existing.key,
-        tabKey: seedTabKey,
-      });
-      await primePanel(wrapper, existing.key);
-      const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
-      const explicitKey = uuid.create();
-      await act(async () => {
-        result.current({ variant: "view", key: explicitKey, type: "added", args: {} });
-      });
-      await waitFor(async () => {
-        const doc = await client.panels.retrieve(existing.key);
-        expect(panel.findTab(doc.root, explicitKey)).toBeDefined();
-      });
-      const doc = await client.panels.retrieve(existing.key);
-      expect(panel.findTab(doc.root, seedTabKey)).toBeDefined();
-      expect(leafTabs(doc.root)).toHaveLength(2);
     });
   });
 

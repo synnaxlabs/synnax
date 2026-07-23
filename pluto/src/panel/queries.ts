@@ -11,6 +11,7 @@ import {
   NotFoundError,
   type ontology,
   panel,
+  project,
   type Synnax as Client,
   UnexpectedError,
 } from "@synnaxlabs/client";
@@ -34,6 +35,23 @@ export const { useRetrieve, useEnsureRetrieved, useRetrieveEffect } =
       client.panels.onChange(key, handler),
     getCached: ({ client, query: { key } }) => client.panels.getCached(key),
   });
+
+export type RetrieveByProjectQuery = { project: project.Key };
+
+// A panel's parent lives in the ontology graph and is absent from the panel record, so
+// membership is resolved through the project's children.
+export const { useRetrieve: useRetrieveByProject } = Flux.createRetrieve<
+  RetrieveByProjectQuery,
+  panel.Panel[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { project: projectKey } }) =>
+    await client.panels.retrieve({ parent: project.ontologyID(projectKey) }),
+  subscribe: ({ client, query: { project: projectKey } }, handler) =>
+    client.panels.onChange({ parent: project.ontologyID(projectKey) }, handler),
+  getCached: ({ client, query: { project: projectKey } }) =>
+    client.panels.getCached({ parent: project.ontologyID(projectKey) }),
+});
 
 export interface SelectKeyParams {
   key: panel.Key;

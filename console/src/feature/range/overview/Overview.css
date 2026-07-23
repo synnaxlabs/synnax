@@ -26,9 +26,10 @@
 .console-range__overview {
     container-type: size;
     height: 100%;
-    padding: 5rem;
+    width: 100%;
     max-width: 1050px;
-    margin: 0 auto;
+    align-self: center;
+    padding: 5rem;
     overflow-y: auto;
 }
 
