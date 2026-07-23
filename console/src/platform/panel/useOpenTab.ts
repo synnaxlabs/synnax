@@ -13,7 +13,15 @@ import { useCallback } from "react";
 
 import { Session } from "@/session";
 
-export type OpenTab = (params: panel.NewTab) => void;
+export interface OpenTabOptions {
+  /**
+   * When set and the tab is a view, an existing view of the same type is focused
+   * instead of opening a duplicate, making the view a per-panel singleton.
+   */
+  singleton?: boolean;
+}
+
+export type OpenTab = (params: panel.NewTab, options?: OpenTabOptions) => void;
 
 export const useOpenTab = (): OpenTab => {
   const dispatchSession = Session.useDispatch();
@@ -27,13 +35,17 @@ export const useOpenTab = (): OpenTab => {
   // insertIntoExisting adds the tab to a panel that is already on the cluster
   // (the scoped parent or the selected panel), so a remote dispatch is correct.
   const insertIntoExisting = useCallback(
-    (panelKey: panel.Key, params: panel.NewTab) => {
+    (panelKey: panel.Key, params: panel.NewTab, singleton?: boolean) => {
       const tab: panel.Tab = panel.tabZ.parse({ ...params });
       if (tab.variant === "resource") {
         const existing = panel.findTabByResource(
           getRoot({ key: panelKey }),
           tab.resource,
         );
+        if (existing != null) return selectTab(existing.key, panelKey);
+      }
+      if (tab.variant === "view" && singleton) {
+        const existing = panel.findTabByType(getRoot({ key: panelKey }), tab.type);
         if (existing != null) return selectTab(existing.key, panelKey);
       }
       // A keyless tab opens beside the current one, but only when that tab lives in
@@ -44,8 +56,8 @@ export const useOpenTab = (): OpenTab => {
         parentTabKey != null &&
         panel.findTab(getRoot({ key: panelKey }), parentTabKey) != null;
       const action = besideCurrent
-        ? panel.insertTab({ tab, targetTab: parentTabKey })
-        : panel.insertTab({ tab });
+        ? panel.insertTab({ tab, targetTab: parentTabKey, singleton })
+        : panel.insertTab({ tab, singleton });
       dispatch({ key: panelKey, actions: [action] });
       selectTab(tab.key, panelKey);
     },
@@ -67,9 +79,10 @@ export const useOpenTab = (): OpenTab => {
     ),
   });
   return useCallback(
-    (params: panel.NewTab) => {
+    (params: panel.NewTab, options?: OpenTabOptions) => {
       const panelKey = parentPanelKey ?? getSelected();
-      if (panelKey != null) return insertIntoExisting(panelKey, params);
+      if (panelKey != null)
+        return insertIntoExisting(panelKey, params, options?.singleton);
       // No panel to insert into: seed the tab into the new panel's initial root
       // so the create persists both in a single request. This avoids a second
       // remote dispatch that would race the create and fail with "panel not
