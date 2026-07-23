@@ -11,6 +11,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Auth } from "@/feature/auth";
+import { Cluster } from "@/feature/cluster";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import {
@@ -95,12 +96,13 @@ describe("auth guard", () => {
     expect(cluster?.username).toBe("synnax");
   });
 
-  it("should take over with credential re-entry when credentials are rejected", async () => {
+  it("should return to the login surface when credentials are rejected", async () => {
     pinLocationOrigin("http://localhost:9090");
     const { wrapper, store } = await createSessionConsoleWrapper({ client: null });
     render(
       <Auth.Guard>
         <Auth.ConnectionGuard>
+          <Cluster.ConnectionBadge />
           <span>authenticated content</span>
         </Auth.ConnectionGuard>
       </Auth.Guard>,
@@ -110,8 +112,17 @@ describe("auth guard", () => {
     await waitFor(() =>
       expect(Session.Cluster.selectSelectedKey(store.getState())).toBeDefined(),
     );
+    const key = Session.Cluster.selectSelectedKey(store.getState());
     expect(await screen.findByText(/invalid credentials/i)).toBeTruthy();
-    expect(screen.getAllByText("Sign In").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Log In").length).toBeGreaterThan(0);
     expect(screen.queryByText("authenticated content")).toBeNull();
+    submitCredentials("synnax", "seldon");
+    await waitFor(
+      () => expect(document.querySelector(".pluto--status-success")).toBeTruthy(),
+      { timeout: 10000 },
+    );
+    expect(screen.getByText("authenticated content")).toBeTruthy();
+    expect(screen.queryByText(/invalid credentials/i)).toBeNull();
+    expect(Session.Cluster.selectSelectedKey(store.getState())).toBe(key);
   });
 });

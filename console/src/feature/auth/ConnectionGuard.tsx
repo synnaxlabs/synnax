@@ -22,7 +22,7 @@ import {
   useState,
 } from "react";
 
-import { CredentialsForm } from "@/feature/auth/CredentialsForm";
+import { Login } from "@/feature/auth/Login";
 import { LoginNav } from "@/feature/auth/LoginNav";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
@@ -33,19 +33,30 @@ export interface ConnectionGuardProps extends PropsWithChildren {
   nav?: boolean;
 }
 
-const takesOver = ({ variant, reason, epoch }: connection.State): boolean => {
-  if (variant === "error" && reason === "auth") return true;
-  return (
-    epoch === 0 &&
-    (variant === "loading" || (variant === "error" && reason === "unreachable"))
-  );
+/** How long a cold connect may stay in loading before the takeover mounts. */
+const GRACE = TimeSpan.milliseconds(500);
+
+/** True once active has been continuously true for the given delay. */
+const useDelayedTrue = (active: boolean, delay: TimeSpan): boolean => {
+  const [delayed, setDelayed] = useState(false);
+  useEffect(() => {
+    if (!active) {
+      setDelayed(false);
+      return;
+    }
+    const timeout = setTimeout(() => setDelayed(true), delay.milliseconds);
+    return () => clearTimeout(timeout);
+  }, [active, delay.milliseconds]);
+  return delayed;
 };
 
 /**
- * Blacks out the workspace with a full-screen connection surface while the
- * active cluster has never been reached this session (cold) and the connection
- * is still coming up or has failed, or whenever credentials are rejected.
- * Warm unreachable degradation renders children intact.
+ * Blacks out the workspace while the active cluster is unusable. Rejected
+ * credentials return to the login surface at any warmth; a cluster that has
+ * never been reached this session (cold) shows a connecting takeover while
+ * coming up or retrying. A fast connect never flashes the takeover: cold
+ * loading renders children until it has persisted past a grace period. Warm
+ * unreachable degradation renders children intact.
  */
 export const ConnectionGuard = ({
   children,
@@ -53,8 +64,15 @@ export const ConnectionGuard = ({
 }: ConnectionGuardProps): ReactNode => {
   const client = Synnax.use();
   const state = Synnax.useConnectionState();
-  if (client == null || !takesOver(state)) return children;
-  return <Takeover client={client} state={state} nav={nav} />;
+  const coldLoading = state.epoch === 0 && state.variant === "loading";
+  const graceElapsed = useDelayedTrue(coldLoading, GRACE);
+  if (client == null) return children;
+  if (state.variant === "error" && state.reason === "auth") return <Login nav={nav} />;
+  const coldUnreachable =
+    state.epoch === 0 && state.variant === "error" && state.reason === "unreachable";
+  if (coldUnreachable || (coldLoading && graceElapsed))
+    return <Takeover client={client} state={state} nav={nav} />;
+  return children;
 };
 
 interface RetryStatusProps {
@@ -98,94 +116,6 @@ const Takeover = ({ client, state, nav }: TakeoverProps): ReactElement => {
     [dispatch],
   );
 
-  const isAuth = state.variant === "error" && state.reason === "auth";
-
-  let body: ReactElement;
-  if (isAuth)
-    body = (
-      <Flex.Box
-        pack
-        x
-        className={CSS(CSS.BE("login", "container"), CSS.M("narrow"))}
-        grow={false}
-        rounded={1.5}
-        background={0}
-      >
-        <Flex.Box
-          y
-          gap="huge"
-          className={CSS.BE("login", "form")}
-          bordered
-          grow
-          shrink={false}
-        >
-          <Status.Summary variant="error" message={state.message} />
-          <CredentialsForm />
-        </Flex.Box>
-      </Flex.Box>
-    );
-  else
-    body = (
-      <Flex.Box
-        pack
-        x
-        className={CSS.BE("login", "container")}
-        grow={false}
-        rounded={1.5}
-        background={0}
-      >
-        <Cluster.List
-          className={CSS.BE("login", "list")}
-          value={activeKey ?? undefined}
-          onChange={handleSelect}
-        />
-        <Flex.Box
-          y
-          gap="huge"
-          className={CSS.BE("login", "form")}
-          bordered
-          grow
-          shrink={false}
-          align="center"
-          justify="center"
-        >
-          <Flex.Box y gap="small" align="center">
-            <Text.Text level="h2" color={11} weight={450}>
-              {cluster?.name ?? "Cluster"}
-            </Text.Text>
-            {cluster != null && (
-              <Text.Text color={9}>
-                {cluster.host}:{cluster.port}
-              </Text.Text>
-            )}
-          </Flex.Box>
-          <Flex.Box y gap="small" align="center">
-            <Status.Summary variant={state.variant} message={state.message} />
-            {state.retry != null && <RetryStatus retry={state.retry} />}
-          </Flex.Box>
-          <Flex.Box x gap="small" align="center">
-            <Button.Button
-              variant="filled"
-              onClick={() => client.connection.retryNow()}
-            >
-              Retry Now
-            </Button.Button>
-            {activeKey != null && (
-              <Button.Button
-                variant="outlined"
-                onClick={() => openConnect({ clusterKey: activeKey })}
-              >
-                Edit Connection
-              </Button.Button>
-            )}
-            <Button.Button variant="outlined" onClick={logout}>
-              Log Out
-            </Button.Button>
-          </Flex.Box>
-        </Flex.Box>
-      </Flex.Box>
-    );
-
   return (
     <Flex.Box y empty className={CSS.B("login")}>
       {nav && <LoginNav />}
@@ -204,12 +134,64 @@ const Takeover = ({ client, state, nav }: TakeoverProps): ReactElement => {
           className={CSS.BE("login", "logo")}
           data-tauri-drag-region
         />
-        {body}
-        {isAuth && (
-          <Button.Button variant="text" onClick={logout}>
-            Log Out
-          </Button.Button>
-        )}
+        <Flex.Box
+          pack
+          x
+          className={CSS.BE("login", "container")}
+          grow={false}
+          rounded={1.5}
+          background={0}
+        >
+          <Cluster.List
+            className={CSS.BE("login", "list")}
+            value={activeKey ?? undefined}
+            onChange={handleSelect}
+          />
+          <Flex.Box
+            y
+            gap="huge"
+            className={CSS.BE("login", "form")}
+            bordered
+            grow
+            shrink={false}
+            align="center"
+            justify="center"
+          >
+            <Flex.Box y gap="small" align="center">
+              <Text.Text level="h2" color={11} weight={450}>
+                {cluster?.name ?? "Cluster"}
+              </Text.Text>
+              {cluster != null && (
+                <Text.Text color={9}>
+                  {cluster.host}:{cluster.port}
+                </Text.Text>
+              )}
+            </Flex.Box>
+            <Flex.Box y gap="small" align="center">
+              <Status.Summary variant={state.variant} message={state.message} />
+              {state.retry != null && <RetryStatus retry={state.retry} />}
+            </Flex.Box>
+            <Flex.Box x gap="small" align="center">
+              <Button.Button
+                variant="filled"
+                onClick={() => client.connection.retryNow()}
+              >
+                Retry Now
+              </Button.Button>
+              {activeKey != null && (
+                <Button.Button
+                  variant="outlined"
+                  onClick={() => openConnect({ clusterKey: activeKey })}
+                >
+                  Edit Connection
+                </Button.Button>
+              )}
+              <Button.Button variant="outlined" onClick={logout}>
+                Log Out
+              </Button.Button>
+            </Flex.Box>
+          </Flex.Box>
+        </Flex.Box>
       </Flex.Box>
     </Flex.Box>
   );

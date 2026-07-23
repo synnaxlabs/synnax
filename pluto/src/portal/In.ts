@@ -10,7 +10,6 @@
 import { type ReactElement, type ReactNode, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { useSyncedRef } from "@/hooks";
 import { useContext } from "@/portal/Context";
 
 export interface InProps {
@@ -19,12 +18,6 @@ export interface InProps {
    * host it. Must be unique within the enclosing Context.
    */
   itemKey: string;
-  /**
-   * onClick is invoked with itemKey when the content is clicked. Clicks inside
-   * portaled content bubble through the React tree of the In, not the DOM tree
-   * of the hosting Out, so the handler is bound natively on the element itself.
-   */
-  onClick?: (key: string) => void;
   /** children renders the content registered under itemKey. */
   children: ReactNode;
 }
@@ -46,16 +39,12 @@ const createDetachedElement = (): HTMLElement => {
  * recreated when its host changes, the content keeps its state (DOM, WebGL
  * contexts) across moves.
  */
-export const In = ({ itemKey, onClick, children }: InProps): ReactElement => {
+export const In = ({ itemKey, children }: InProps): ReactElement => {
   const registry = useContext("Portal.In");
   const [el] = useState(createDetachedElement);
-  const onClickRef = useSyncedRef(onClick);
   useLayoutEffect(() => {
-    const handleClick = (): void => onClickRef.current?.(itemKey);
-    el.addEventListener("click", handleClick);
     registry.register(itemKey, el);
     return () => {
-      el.removeEventListener("click", handleClick);
       registry.unregister(itemKey);
       el.remove();
     };

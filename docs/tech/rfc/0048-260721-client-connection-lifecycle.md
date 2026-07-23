@@ -318,6 +318,12 @@ connection, and navigation back to cluster selection and login, plus log out. Th
 takeover is keyed on warmth, not startup: if a persisted record cache later lands
 (Linear-style local bootstrap), the takeover simply becomes rare, with no redesign.
 
+The takeover earns its mount: cold `loading` renders the workspace until it has
+persisted past a 500ms grace period (the Suspense delayed-fallback heuristic), so a fast
+connect resolves the workspace's own loading placeholders with no surface swap at all.
+`error(unreachable)` shows the takeover immediately: escalation itself takes seconds, so
+grace has always elapsed.
+
 **Warm + unreachable -> passive.** Cached data keeps rendering; nothing unmounts. The
 existing connection badge renders the variant and message directly, and the provider's
 status toasts announce transitions; no separate banner exists (a second surface saying
@@ -325,15 +331,17 @@ what the badge already says is noise, and retry is automatic). Reconciliation on
 recovery never re-suspends views (RFC 0046, diff-not-nuke). Per-widget telemetry
 staleness is out of scope here (section 7).
 
-**`error(auth)` -> credential re-entry, blocking at any warmth.** The takeover surface
-swaps its body for a credential form for the selected cluster; one surface, variants
-keyed by the typed reason. Auth failure blocks even warm sessions: the user must act and
+**`error(auth)` -> back to the login surface, blocking at any warmth.** Rejected
+credentials return the user to `Login` itself: cluster list, credential form, and the
+live connection status. Auth failure blocks even warm sessions: the user must act and
 nothing new can load, so blocking is honest (Figma and Notion block the same way on
-session expiry). No session state is touched until re-auth succeeds, so the workspace
-returns exactly as it was; re-auth transitions the machine `error(auth) -> loading`.
-Today's `Login.tsx` throwaway-client flow collapses into this surface: logging in and
-recovering from auth failure are the same form pointed at the same machine. The auth
-guard's role narrows to intent (no cluster selected -> login).
+session expiry). Submitting stays intent-only: the same `Session.Cluster.set` dispatch
+as initial login, targeting the active session key, so the provider swaps in a client
+with the new credentials and the workspace returns exactly as it was. Because a
+same-credentials resubmit changes no params (and the machine parks on auth errors), the
+submit also nudges `client.reauthenticate` when targeting the active cluster. Logging in
+and recovering from auth failure are literally the same component; the auth guard's role
+narrows to intent (no cluster selected -> login).
 
 ## 5.5 - Kill list
 

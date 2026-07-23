@@ -10,31 +10,70 @@
 import "@/feature/auth/Login.css";
 
 import { Logo } from "@synnaxlabs/media";
-import { Button, Flex, Form, Text } from "@synnaxlabs/pluto";
+import {
+  Button,
+  Flex,
+  Form,
+  type Input,
+  Status,
+  Synnax,
+  Text,
+  type Triggers,
+} from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
+import { z } from "zod";
 
-import {
-  credentialsZ,
-  PASSWORD_INPUT_PROPS,
-  SIGN_IN_TRIGGER,
-  USERNAME_INPUT_PROPS,
-} from "@/feature/auth/CredentialsForm";
 import { LoginNav } from "@/feature/auth/LoginNav";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
-export const Login = (): ReactElement => {
+const LOG_IN_TRIGGER: Triggers.Trigger = ["Enter"];
+
+const credentialsZ = z.object({
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
+});
+
+const USERNAME_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "synnax",
+  autoFocus: true,
+  size: "large",
+};
+
+const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
+  placeholder: "seldon",
+  type: "password",
+  size: "large",
+};
+
+export interface LoginProps {
+  /** Renders the window nav chrome above the surface. Off in child windows. */
+  nav?: boolean;
+}
+
+/**
+ * Full-screen login surface: cluster selection plus credential entry. Serves
+ * both initial login (no session selected) and credential re-entry when the
+ * active cluster rejects auth, in which case the live connection status is
+ * shown and submitting for the active cluster resumes its connection.
+ */
+export const Login = ({ nav = true }: LoginProps): ReactElement => {
+  const client = Synnax.use();
+  const connState = Synnax.useConnectionState();
   const servingCluster = Cluster.detectConnection();
   const clusters = Session.Cluster.useSelectMany();
-  const [selectedKey, setSelectedKey] = useState<string | undefined>(clusters[0]?.key);
+  const activeKey = Session.Cluster.useSelectSelectedKey();
+  const [selectedKey, setSelectedKey] = useState<string | undefined>(
+    activeKey ?? clusters[0]?.key,
+  );
   const selectedCluster = Session.Cluster.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
-    values: { username: "", password: "" },
+    values: { username: selectedCluster?.username ?? "", password: "" },
   });
 
   const handleSubmit = (): void => {
@@ -44,7 +83,10 @@ export const Login = (): ReactElement => {
     const key =
       servingCluster == null && selectedCluster != null
         ? selectedCluster.key
-        : uuid.create();
+        : (activeKey ?? uuid.create());
+    // A same-credentials resubmit leaves the connection params untouched, so the
+    // provider never swaps the client; nudge the existing one to reconnect.
+    if (client != null && key === activeKey) client.reauthenticate(credentials);
     dispatch(Session.Cluster.set({ ...clusterToConnect, key, ...credentials }));
     dispatch(Session.Cluster.select(key));
   };
@@ -52,15 +94,16 @@ export const Login = (): ReactElement => {
   const handleSelectedClusterChange = useCallback(
     (key?: string) => {
       if (key == null) return;
-      methods.reset();
+      const next = clusters.find((c) => c.key === key);
+      methods.reset({ username: next?.username ?? "", password: "" });
       setSelectedKey(key);
     },
-    [methods],
+    [methods, clusters],
   );
 
   return (
     <Flex.Box y empty className={CSS.B("login")}>
-      <LoginNav />
+      {nav && <LoginNav />}
       <Flex.Box
         y
         align="center"
@@ -111,14 +154,26 @@ export const Login = (): ReactElement => {
                   <Form.TextField path="username" inputProps={USERNAME_INPUT_PROPS} />
                   <Form.TextField path="password" inputProps={PASSWORD_INPUT_PROPS} />
                 </Flex.Box>
-                <Button.Button
-                  onClick={handleSubmit}
-                  trigger={SIGN_IN_TRIGGER}
-                  variant="filled"
-                  size="large"
-                >
-                  Log In
-                </Button.Button>
+                <Flex.Box gap="small" align="center">
+                  {client != null && (
+                    <Flex.Box className={CSS.BE("login", "status")}>
+                      {connState.message !== "" && (
+                        <Status.Summary
+                          variant={connState.variant}
+                          message={connState.message}
+                        />
+                      )}
+                    </Flex.Box>
+                  )}
+                  <Button.Button
+                    onClick={handleSubmit}
+                    trigger={LOG_IN_TRIGGER}
+                    variant="filled"
+                    size="large"
+                  >
+                    Log In
+                  </Button.Button>
+                </Flex.Box>
               </Flex.Box>
             </Form.Form>
           </Flex.Box>

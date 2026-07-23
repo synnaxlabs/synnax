@@ -20,6 +20,7 @@ import {
   findNode,
   findTab,
   findTabByResource,
+  findTabByType,
   firstLeafPath,
   ROOT_NODE_KEY,
   tabLeafPath,
@@ -157,10 +158,16 @@ const handlers: Handlers = {
   // key is absent is inserted at the resolved destination. Inserting a resource
   // tab whose resource already backs a different tab is a no-op: a resource may
   // back at most one tab per panel, and callers select the existing tab instead.
+  // With singleton set, inserting a view is likewise a no-op when a view of the
+  // same type already backs a tab in the panel.
   insertTab: (state, payload) => {
     const { tab } = payload;
     if (tab.variant === "resource") {
       const existing = findTabByResource(state.root, tab.resource);
+      if (existing != null && existing.key !== tab.key) return NO_OP;
+    }
+    if (payload.singleton && tab.variant === "view") {
+      const existing = findTabByType(state.root, tab.type);
       if (existing != null && existing.key !== tab.key) return NO_OP;
     }
     const placementGiven =
