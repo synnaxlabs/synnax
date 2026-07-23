@@ -11,6 +11,7 @@ package driver_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -112,12 +113,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 type mockFactory struct {
 	configureFunc func(context.Context, task.Task) (driver.Task, error)
 	name          string
+	// startPending records the startPending value passed to ConfigureTask per task.
+	startPending sync.Map
 }
 
 func (f *mockFactory) ConfigureTask(
 	ctx context.Context,
 	t task.Task,
+	startPending bool,
 ) (driver.Task, error) {
+	f.startPending.Store(t.Key, startPending)
 	if f.configureFunc != nil {
 		return f.configureFunc(ctx, t)
 	}

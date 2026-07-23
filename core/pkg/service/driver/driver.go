@@ -239,7 +239,7 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	recorded := d.mu.hashes[cmd.Task]
 	d.mu.RUnlock()
 	if !ok || recorded != tsk.ConfigHash {
-		if err := d.configure(ctx, tsk); err != nil {
+		if err := d.configure(ctx, tsk, true); err != nil {
 			d.cfg.L.Error("failed to configure task",
 				zap.Stringer("task", tsk),
 				zap.Error(err),
@@ -341,7 +341,7 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	for _, t := range tasks {
 		sCtx.Go(
 			func(ctx context.Context) error {
-				if err := d.configure(ctx, t); err != nil {
+				if err := d.configure(ctx, t, false); err != nil {
 					d.cfg.L.Error("failed to configure task",
 						zap.Stringer("task", t),
 						zap.Error(err),
@@ -357,7 +357,7 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	}
 }
 
-func (d *Driver) configure(ctx context.Context, t task.Task) error {
+func (d *Driver) configure(ctx context.Context, t task.Task, startPending bool) error {
 	d.mu.Lock()
 	existing, hadExisting := d.mu.tasks[t.Key]
 	delete(d.mu.tasks, t.Key)
@@ -380,7 +380,7 @@ func (d *Driver) configure(ctx context.Context, t task.Task) error {
 
 	sCtx.Go(func(ctx context.Context) error {
 		for _, f := range d.cfg.Factories {
-			newTask, err := f.ConfigureTask(ctx, t)
+			newTask, err := f.ConfigureTask(ctx, t, startPending)
 			if errors.Is(err, ErrTaskNotHandled) {
 				continue
 			}

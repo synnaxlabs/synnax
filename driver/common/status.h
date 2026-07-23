@@ -12,6 +12,8 @@
 #include <deque>
 #include <unordered_map>
 
+#include "glog/logging.h"
+
 #include "driver/common/common.h"
 #include "driver/task/task.h"
 
@@ -193,12 +195,15 @@ private:
 };
 
 /// @brief a utility function that appropriately handles configuration errors and
-/// communicates them back to Synnax in the standard format.
+/// communicates them back to Synnax in the standard format. When no start command
+/// is pending (boot) and the config does not request auto-start, no status is
+/// written: failures are logged, not reported.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     std::pair<common::ConfigureResult, x::errors::Error> res
 ) {
+    const bool start_pending = !ctx->pending_cmd(task.key).empty();
     synnax::task::Status status;
     status.key = synnax::task::status_key(task);
     status.name = task.name;
@@ -207,18 +212,24 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     if (res.second) {
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = res.second.message();
-    } else {
-        status.variant = synnax::status::VARIANT_SUCCESS;
-        if (!res.first.auto_start) { status.message = "Task configured successfully"; }
+        if (start_pending || res.first.auto_start)
+            ctx->set_status(status);
+        else
+            LOG(WARNING) << "[driver] failed to configure task " << task.name << ": "
+                         << res.second;
+        return {std::move(res.first.task), true};
     }
+    status.variant = synnax::status::VARIANT_SUCCESS;
     if (res.first.auto_start) {
         synnax::task::Command start_cmd{
             .task = task.key,
             .type = START_CMD_TYPE,
         };
         res.first.task->exec(start_cmd);
-    } else
+    } else if (start_pending) {
+        status.message = "Task configured successfully";
         ctx->set_status(status);
+    }
     return {std::move(res.first.task), true};
 }
 }

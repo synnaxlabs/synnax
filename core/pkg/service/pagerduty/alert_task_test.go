@@ -117,7 +117,7 @@ var _ = Describe("AlertTask", func() {
 			Type:   pd.AlertTaskType,
 			Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 		}
-		tsk := MustSucceed(factory.ConfigureTask(ctx, t))
+		tsk := MustSucceed(factory.ConfigureTask(ctx, t, true))
 		Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 		return tsk
 	}
@@ -161,7 +161,7 @@ var _ = Describe("AlertTask", func() {
 					Type:   pd.AlertTaskType,
 					Config: MustSucceed(cfg.MsgpackEncodedJSON()),
 				}
-				tsk := MustSucceed(factory.ConfigureTask(ctx, t))
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, true))
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
 				err := tsk.Exec(ctx, task.Command{Type: "restart"})
 				Expect(err).To(MatchError(driver.ErrUnsupportedCommand))

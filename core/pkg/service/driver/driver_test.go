@@ -764,6 +764,69 @@ var _ = Describe("Driver", func() {
 				return ok1 && ok2
 			}).Should(BeTrue())
 		})
+
+		It("should configure with startPending true on a start command", func(ctx SpecContext) {
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+			openDriver(ctx, factory)
+			time.Sleep(50 * time.Millisecond)
+
+			t := newTask(embeddedRackKey(ctx))
+			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
+			Eventually(func() bool {
+				pending, ok := factory.startPending.Load(t.Key)
+				return ok && pending == true
+			}).Should(BeTrue())
+		})
+
+		It("should configure with startPending false at boot", func(ctx SpecContext) {
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+			d1 := MustSucceed(driver.Open(ctx, driver.Config{
+				DB:        node.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
+			}))
+			rackKey := embeddedRackKey(ctx)
+			t := newTask(rackKey)
+			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			Expect(d1.Close()).To(Succeed())
+
+			MustOpen(driver.Open(ctx, driver.Config{
+				DB:        node.DB,
+				Rack:      rackService,
+				Task:      taskService,
+				Framer:    framerSvc,
+				Channel:   channelSvc,
+				Status:    statusSvc,
+				Factories: []driver.Factory{factory},
+				Host:      hostProvider,
+			}))
+			Eventually(func() bool {
+				pending, ok := factory.startPending.Load(t.Key)
+				return ok && pending == false
+			}).Should(BeTrue())
+		})
 	})
 
 	Describe("Close", func() {

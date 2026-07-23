@@ -178,7 +178,7 @@ var _ = Describe("Task", Ordered, func() {
 			Type:   arctask.Type,
 			Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 		}
-		return MustSucceed(factory.ConfigureTask(ctx, svcTask))
+		return MustSucceed(factory.ConfigureTask(ctx, svcTask, true))
 	}
 
 	simpleGraph := func(chKey channel.Key) graph.Graph {
@@ -282,7 +282,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   "not-arc",
 				Config: map[string]any{},
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
 				To(MatchError(driver.ErrTaskNotHandled))
 		})
 
@@ -306,7 +306,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
 				To(HaveOccurred())
 		})
 
@@ -323,7 +323,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
 				To(MatchError(query.ErrNotFound))
 		})
 
@@ -341,7 +341,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
 				To(HaveOccurred())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -366,7 +366,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			Expect(factory.ConfigureTask(ctx, svcTask)).Error().
+			Expect(factory.ConfigureTask(ctx, svcTask, true)).Error().
 				To(MatchError(query.ErrNotFound))
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
@@ -392,7 +392,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			t := MustSucceed(
 				newGraphFactory(simpleGraph(ch.Key())).
-					ConfigureTask(ctx, svcTask),
+					ConfigureTask(ctx, svcTask, true),
 			)
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
@@ -423,7 +423,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			t := MustSucceed(newGraphFactory(
 				simpleGraph(ch.Key())).
-				ConfigureTask(ctx, svcTask))
+				ConfigureTask(ctx, svcTask, true))
 			Expect(t).ToNot(BeNil())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 			var stat task.Status
@@ -453,13 +453,139 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			t := MustSucceed(newGraphFactory(
 				simpleGraph(ch.Key())).
-				ConfigureTask(ctx, svcTask))
+				ConfigureTask(ctx, svcTask, true))
 			Expect(t).ToNot(BeNil())
 			Expect(t.Stop(false)).To(Succeed())
 			var stat task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
 				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
 				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Message).To(Equal("Task started successfully"))
+			Expect(stat.Details.Running).To(BeTrue())
+		})
+
+		It("Should not write a status when config is invalid at boot", func(ctx SpecContext) {
+			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				Channel:    channelSvc,
+				Framer:     framerSvc,
+				Status:     statusSvc,
+				GetProgram: func(context.Context, uuid.UUID) (svcarc.Arc, error) { return svcarc.Arc{}, nil },
+				Ranger:     rangerSvc,
+			}))
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-boot-invalid-config",
+				Type:   arctask.Type,
+				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
+			}
+			Expect(factory.ConfigureTask(ctx, svcTask, false)).Error().
+				To(HaveOccurred())
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should not write a status when GetProgram fails at boot", func(ctx SpecContext) {
+			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				Channel:    channelSvc,
+				Framer:     framerSvc,
+				Status:     statusSvc,
+				GetProgram: moduleNotFoundGetter,
+				Ranger:     rangerSvc,
+			}))
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-boot-module-not-found",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			Expect(factory.ConfigureTask(ctx, svcTask, false)).Error().
+				To(MatchError(query.ErrNotFound))
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should write an error status when GetProgram fails at boot with auto-start", func(ctx SpecContext) {
+			factory := MustSucceed(arctask.NewFactory(arctask.FactoryConfig{
+				Channel:    channelSvc,
+				Framer:     framerSvc,
+				Status:     statusSvc,
+				GetProgram: moduleNotFoundGetter,
+				Ranger:     rangerSvc,
+			}))
+			svcTask := task.Task{
+				Key:  uuid.New(),
+				Name: "test-boot-auto-start-failure",
+				Type: arctask.Type,
+				Config: configToMap(arctask.Config{
+					ArcKey:    uuid.New(),
+					AutoStart: true,
+				}),
+			}
+			Expect(factory.ConfigureTask(ctx, svcTask, false)).Error().
+				To(MatchError(query.ErrNotFound))
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("error"))
+			Expect(stat.Message).To(ContainSubstring("not found"))
+			Expect(stat.Details.Running).To(BeFalse())
+		})
+
+		It("Should not write a status when configured successfully at boot", func(ctx SpecContext) {
+			ch := &channel.Channel{
+				Name:     "boot_silent_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-boot-silent-success",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			t := MustSucceed(newGraphFactory(
+				simpleGraph(ch.Key())).
+				ConfigureTask(ctx, svcTask, false))
+			Expect(t).ToNot(BeNil())
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Entry(&stat).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should auto-start at boot when auto_start is true", func(ctx SpecContext) {
+			ch := &channel.Channel{
+				Name:     "boot_auto_start_test_ch_" + uuid.NewString()[:8],
+				Virtual:  true,
+				DataType: telem.Float32T,
+			}
+			Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+			svcTask := task.Task{
+				Key:  uuid.New(),
+				Name: "test-boot-auto-start",
+				Type: arctask.Type,
+				Config: configToMap(arctask.Config{
+					ArcKey:    uuid.New(),
+					AutoStart: true,
+				}),
+			}
+			t := MustSucceed(newGraphFactory(
+				simpleGraph(ch.Key())).
+				ConfigureTask(ctx, svcTask, false))
+			Expect(t).ToNot(BeNil())
+			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+			var stat task.Status
+			Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(svcTask.Key).String())).
+				Entry(&stat).Exec(ctx, nil)).To(Succeed())
+			Expect(stat.Variant).To(BeEquivalentTo("success"))
 			Expect(stat.Message).To(Equal("Task started successfully"))
 			Expect(stat.Details.Running).To(BeTrue())
 		})
@@ -580,7 +706,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			Expect(newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask)).
+			Expect(newGraphFactory(badNodeGraph).ConfigureTask(ctx, svcTask, true)).
 				Error().To(MatchError(ContainSubstring("undefined symbol")))
 		})
 	})
@@ -684,7 +810,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
+			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, true))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
@@ -757,7 +883,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			t := MustSucceed(newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask))
+			t := MustSucceed(newGraphFactory(reportGraph).ConfigureTask(ctx, svcTask, true))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 
@@ -1540,7 +1666,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
+			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, true))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 			defer func() {
 				Expect(t.Stop(true)).To(Succeed())
@@ -1661,7 +1787,7 @@ var _ = Describe("Task", Ordered, func() {
 				Type:   arctask.Type,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
-			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask))
+			t := MustSucceed(newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, true))
 
 			responses, closeStreamer := openTestStreamer(ctx, channel.Keys{outputCh.Key()}, 5)
 			defer closeStreamer()
