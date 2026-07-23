@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import tempfile
+from typing import Any
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -259,7 +260,7 @@ class Project(ConsoleCase):
         with open(os.path.join(self._export_dir, "PANELS.json"), "r") as f:
             panels = json.load(f)
 
-        def collect_types(node: dict, out: list[str]) -> None:
+        def collect_types(node: dict[str, Any], out: list[str]) -> None:
             if node["variant"] == "leaf":
                 out.extend(
                     tab["resource"]["type"]
