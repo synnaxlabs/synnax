@@ -40,7 +40,7 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
     [fluxStore, client],
   );
   const handleError = Status.useErrorHandler();
-  const openTab = Panel.useOpenTab({ forceNewTab: true });
+  const openTab = Panel.useOpenTab();
 
   return useCallback(
     (nodeId: string, dblClick: boolean) => {

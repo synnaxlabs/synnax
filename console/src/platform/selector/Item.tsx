@@ -9,7 +9,11 @@
 
 import { Button, type Icon } from "@synnaxlabs/pluto";
 
-import { type Selectable } from "@/platform/selector/Selector";
+import {
+  type OnSelectArgs,
+  type Selectable,
+  type SelectableProps,
+} from "@/platform/selector/Selector";
 
 export interface ItemProps extends Omit<Button.ButtonProps, "children"> {
   title: string;
@@ -27,7 +31,7 @@ export interface CreateSelectableConfig {
   type: string;
   title: string;
   icon: Icon.ReactElement;
-  useOnSelect: () => () => void;
+  useOnSelect: (args?: OnSelectArgs) => () => void;
   useVisible?: () => boolean;
 }
 
@@ -38,9 +42,9 @@ export const createSelectable = ({
   useOnSelect,
   useVisible,
 }: CreateSelectableConfig): Selectable => {
-  const C: Selectable = () => {
+  const C: Selectable = ({ tabKey }: SelectableProps) => {
     const visible = useVisible?.() ?? true;
-    const onSelect = useOnSelect();
+    const onSelect = useOnSelect({ tabKey });
     if (!visible) return null;
     return <Item title={title} icon={icon} onClick={() => onSelect()} />;
   };

@@ -15,16 +15,7 @@ import { Session } from "@/session";
 
 export type OpenTab = (params: panel.NewTab) => void;
 
-export interface UseOpenTabParams {
-  /**
-   * forceNewTab opens content in a fresh tab even when invoked from within an
-   * existing tab, instead of navigating the current tab in place. A tab already
-   * showing the resource is still focused rather than duplicated.
-   */
-  forceNewTab?: boolean;
-}
-
-export const useOpenTab = ({ forceNewTab = false }: UseOpenTabParams = {}): OpenTab => {
+export const useOpenTab = (): OpenTab => {
   const dispatchSession = Session.useDispatch();
   const { dispatch } = Panel.useDispatch();
   const selectTab = Session.Panel.useSelectTab();
@@ -37,12 +28,7 @@ export const useOpenTab = ({ forceNewTab = false }: UseOpenTabParams = {}): Open
   // (the scoped parent or the selected panel), so a remote dispatch is correct.
   const insertIntoExisting = useCallback(
     (panelKey: panel.Key, params: panel.NewTab) => {
-      // Inheriting parentTabKey navigates the current tab in place; omitting it mints
-      // a fresh key so the tab lands beside the originating one instead.
-      const key = forceNewTab ? undefined : parentTabKey;
-      const tab: panel.Tab = panel.tabZ.parse({ key, ...params });
-      // A resource backs at most one tab per panel, so inserting a second one is a
-      // no-op on the tree. Focus the tab already showing the resource instead.
+      const tab: panel.Tab = panel.tabZ.parse({ ...params });
       if (tab.variant === "resource") {
         const existing = panel.findTabByResource(
           getRoot({ key: panelKey }),
@@ -50,13 +36,20 @@ export const useOpenTab = ({ forceNewTab = false }: UseOpenTabParams = {}): Open
         );
         if (existing != null) return selectTab(existing.key, panelKey);
       }
-      const action = forceNewTab
+      // A keyless tab opens beside the current one, but only when that tab lives in
+      // this panel; otherwise its leaf can't be resolved and the insert would no-op,
+      // so fall back to the first leaf.
+      const besideCurrent =
+        params.key == null &&
+        parentTabKey != null &&
+        panel.findTab(getRoot({ key: panelKey }), parentTabKey) != null;
+      const action = besideCurrent
         ? panel.insertTab({ tab, targetTab: parentTabKey })
         : panel.insertTab({ tab });
       dispatch({ key: panelKey, actions: [action] });
       selectTab(tab.key, panelKey);
     },
-    [forceNewTab, parentTabKey, getRoot, dispatch, selectTab],
+    [parentTabKey, getRoot, dispatch, selectTab],
   );
   const { update: createPanel } = Panel.useCreate({
     afterOptimistic: useCallback(
@@ -81,24 +74,13 @@ export const useOpenTab = ({ forceNewTab = false }: UseOpenTabParams = {}): Open
       // so the create persists both in a single request. This avoids a second
       // remote dispatch that would race the create and fail with "panel not
       // found", while the local store update keeps focus optimistic.
-      const tab: panel.Tab = panel.tabZ.parse({
-        key: forceNewTab ? undefined : parentTabKey,
-        ...params,
-      });
+      const tab: panel.Tab = panel.tabZ.parse({ ...params });
       createPanel({
         name: "New Panel",
         root: { variant: "leaf", tabs: [tab] },
         parent: project.ontologyID(getSelectedProject()),
       });
     },
-    [
-      forceNewTab,
-      parentPanelKey,
-      parentTabKey,
-      getSelected,
-      getSelectedProject,
-      insertIntoExisting,
-      createPanel,
-    ],
+    [parentPanelKey, getSelected, getSelectedProject, insertIntoExisting, createPanel],
   );
 };
