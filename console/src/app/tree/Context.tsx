@@ -18,6 +18,7 @@ import { Label } from "@/feature/label";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { Node } from "@/feature/node";
+import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
 import { Range } from "@/feature/range";
@@ -38,6 +39,7 @@ const TREE_ITEMS: Tree.Items = {
   ...LinePlot.TREE_ITEMS,
   ...Log.TREE_ITEMS,
   ...Node.TREE_ITEMS,
+  ...Panel.TREE_ITEMS,
   ...Project.TREE_ITEMS,
   ...Rack.TREE_ITEMS,
   ...Range.TREE_ITEMS,

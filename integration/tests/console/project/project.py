@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import tempfile
+from typing import Any
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -253,9 +254,27 @@ class Project(ConsoleCase):
         for p in EXPECTED_PAGES:
             self.console.layout.close_tab(p)
 
-        with open(os.path.join(self._export_dir, "LAYOUT.json"), "r") as f:
-            layout_data = json.load(f)
-        layouts = {l["name"]: l["type"] for l in layout_data["layouts"].values()}
+        # PANELS.json holds the project's panel documents. Page names live on the
+        # resources themselves, so the panel trees are checked for the resource types
+        # and the per-page component files carry the names.
+        with open(os.path.join(self._export_dir, "PANELS.json"), "r") as f:
+            panels = json.load(f)
+
+        def collect_types(node: dict[str, Any], out: list[str]) -> None:
+            if node["variant"] == "leaf":
+                out.extend(
+                    tab["resource"]["type"]
+                    for tab in node["tabs"]
+                    if tab["variant"] == "resource"
+                )
+                return
+            collect_types(node["first"], out)
+            collect_types(node["last"], out)
+
+        exported_types: list[str] = []
+        for panel in panels:
+            collect_types(panel["root"], exported_types)
+
         expected = {
             "Metrics Plot": "lineplot",
             "Metrics Schematic": "schematic",
@@ -263,10 +282,9 @@ class Project(ConsoleCase):
             "Metrics Table": "table",
         }
         for page_name, page_type in expected.items():
-            assert page_name in layouts, f"Export should contain layout '{page_name}'"
-            assert layouts[page_name] == page_type, (
-                f"Layout '{page_name}' should be type {page_type}, got "
-                f"{layouts[page_name]}"
+            assert page_type in exported_types, (
+                f"Export should contain a {page_type} tab for '{page_name}', "
+                f"got {exported_types}"
             )
             assert os.path.exists(
                 os.path.join(self._export_dir, f"{page_name}.json")

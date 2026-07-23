@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/range/list/List.css";
+
 import { type ranger } from "@synnaxlabs/client";
 import {
   Dialog,
@@ -20,6 +22,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 
+import { CSS } from "@/platform/css";
 import { Label } from "@/platform/label";
 
 export interface SelectFiltersProps {
@@ -55,7 +58,7 @@ export const SelectFilters = ({ request, onRequestChange }: SelectFiltersProps) 
     </Dialog.Trigger>
     <Dialog.Dialog
       background={1}
-      style={{ padding: "1rem" }}
+      className={CSS.B("range-select-filters-dialog")}
       borderColor={5}
       pack={false}
     >
@@ -78,7 +81,7 @@ const HasLabelsFilter = ({ request }: HasLabelsFilterProps) => {
         el="span"
         bordered
         size="small"
-        style={{ padding: "0 1rem", boxShadow: "var(--pluto-shadow-v1)" }}
+        className={CSS.B("range-has-labels-filter")}
         background={0}
         borderColor={5}
         level="small"

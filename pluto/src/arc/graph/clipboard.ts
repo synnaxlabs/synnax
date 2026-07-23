@@ -18,7 +18,7 @@ import { Diagram } from "@/vis/diagram";
 // the clipboard without it.
 const MIME = "web application/synnax-arc+json";
 
-export interface UseClipboardArgs {
+export interface UseClipboardParams {
   key: arc.Key;
   selected?: string[];
   onPaste?: (newKeys: string[]) => void;
@@ -28,7 +28,7 @@ export const useClipboard = ({
   key,
   selected,
   onPaste,
-}: UseClipboardArgs): Diagram.UseClipboardReturn => {
+}: UseClipboardParams): Diagram.UseClipboardReturn => {
   const { dispatch } = useDispatch();
   const store = Flux.useStore<FluxSubStore>();
   const adapter: Diagram.ClipboardAdapter<arc.graph.Node, arc.graph.Edge> = {

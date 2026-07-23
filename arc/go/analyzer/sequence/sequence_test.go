@@ -189,7 +189,7 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage step1 {
 					}
 				}
-			`, "conflicts with existing symbol"),
+			`, "conflicts with existing sequence"),
 			Entry("duplicate stage names within sequence", `
 				sequence main {
 					stage step1 {
@@ -197,7 +197,316 @@ var _ = Describe("Sequence Analyzer", func() {
 					stage step1 {
 					}
 				}
-			`, "conflicts with existing symbol"),
+			`, "conflicts with existing stage"),
+		)
+	})
+
+	Describe("Scoped Variables", func() {
+		DescribeTable("Valid",
+			analyzeAndExpectSuccess,
+			Entry("variable declared in a sequence body", `
+				sequence main {
+					counter := 0
+					stage s1 {
+					}
+				}
+			`),
+			Entry("reassigning a literal variable in a stage", `
+				sequence main {
+					counter := 0
+					stage s1 {
+						counter = 1
+					}
+				}
+			`),
+			Entry("reassigning a literal variable in a sequence body", `
+				sequence main {
+					counter := 0
+					counter = 1
+					stage s1 {
+					}
+				}
+			`),
+			Entry("re-expressing a channel-read variable in a sequence body", `
+				sequence main {
+					r := pressure + 1
+					r = pressure + 2
+					stage s1 {
+					}
+				}
+			`),
+			Entry("re-expressing a channel-read variable in a stage", `
+				sequence main {
+					r := pressure + 1
+					stage s1 {
+						r = pressure + 2
+					}
+				}
+			`),
+			Entry("nested stage reads a variable from the enclosing sequence", `
+				sequence main {
+					counter := 0
+					stage s1 {
+						doubled := counter
+					}
+				}
+			`),
+			Entry("channel read/write declared in a sequence body", `
+				sequence main {
+					p := pressure
+					stage s1 {
+					}
+				}
+			`),
+			Entry("rebinding a channel read/write to a same-type channel in a sequence body", `
+				sequence main {
+					p := pressure
+					p = valve_cmd
+					stage s1 {
+					}
+				}
+			`),
+			Entry("nested sequence reads a variable from the enclosing sequence", `
+				sequence main {
+					counter := 0
+					sequence inner {
+						doubled := counter
+						stage s1 {
+						}
+					}
+				}
+			`),
+			Entry("a sequence using a top-level variable declared before it", `
+				greeting := "hi"
+				sequence main {
+					message := greeting
+					stage s1 {
+					}
+				}
+			`),
+		)
+
+		DescribeTable("Invalid",
+			func(bCtx SpecContext, source, expectedError string) {
+				Expect(analyzeAndExpectError(bCtx, source)).To(ContainSubstring(expectedError))
+			},
+			Entry("shadowing a variable inherited from the enclosing sequence", `
+				sequence main {
+					counter := 0
+					stage s1 {
+						counter := 1
+					}
+				}
+			`, "conflicts with existing variable"),
+			Entry("referencing a variable declared in a sibling stage", `
+				sequence main {
+					stage s1 {
+						x := 1
+					}
+					stage s2 {
+						y := x
+					}
+				}
+			`, "undefined symbol: x"),
+			Entry("using a variable before it is declared in the same scope", `
+				sequence main {
+					stage s1 {
+						a := b
+						b := 0
+					}
+				}
+			`, "undefined symbol: b"),
+			Entry("a stage using a sequence variable declared after the stage", `
+				sequence main {
+					stage s1 {
+						a := counter
+					}
+					counter := 0
+				}
+			`, "undefined symbol: counter"),
+			Entry("shadowing an inherited variable in a nested sequence", `
+				sequence main {
+					counter := 0
+					sequence inner {
+						counter := 1
+						stage s1 {
+						}
+					}
+				}
+			`, "conflicts with existing variable"),
+			Entry("referencing a variable declared in a sibling sequence", `
+				sequence a {
+					x := 1
+					stage s1 {
+					}
+				}
+				sequence b {
+					y := x
+					stage s1 {
+					}
+				}
+			`, "undefined symbol: x"),
+			Entry("rebinding a channel read/write to a different-type channel", `
+				sequence main {
+					p := pressure
+					p = start_cmd
+					stage s1 {
+					}
+				}
+			`, "cannot rebind channel read/write variable p"),
+			Entry("reassigning a variable that was never declared", `
+				sequence main {
+					stage s1 {
+						missing = 1
+					}
+				}
+			`, "undefined symbol: missing"),
+			Entry("using a variable before it is declared in a sequence body", `
+				sequence main {
+					a := b
+					b := 0
+					stage s1 {
+					}
+				}
+			`, "undefined symbol: b"),
+			Entry("a nested sequence using an enclosing variable declared after it", `
+				sequence main {
+					sequence inner {
+						a := counter
+						stage s1 {
+						}
+					}
+					counter := 0
+				}
+			`, "undefined symbol: counter"),
+			Entry("a sequence using a top-level variable declared after it", `
+				sequence main {
+					message := greeting
+					stage s1 {
+					}
+				}
+				greeting := "hi"
+			`, "undefined symbol: greeting"),
+			Entry("compound assignment to a scoped variable is unsupported", `
+				sequence main {
+					level f64 := 0
+					level += 1
+					stage s1 {
+					}
+				}
+			`, "compound and indexed assignment"),
+			Entry("reassigning a bare channel with '='", `
+				sequence main {
+					stage s1 {
+						pressure = 1.0
+					}
+				}
+			`, "cannot use '='"),
+			Entry("rebinding a channel read/write to a literal", `
+				sequence main {
+					p := pressure
+					p = 5.0
+					stage s1 {
+					}
+				}
+			`, "the right-hand side must be a channel"),
+			Entry("rebinding a channel read/write to a value variable", `
+				sequence main {
+					p := pressure
+					level f64 := 0
+					p = level
+					stage s1 {
+					}
+				}
+			`, "the right-hand side must be a channel"),
+			Entry("rebinding a channel read/write to an undefined name", `
+				sequence main {
+					p := pressure
+					p = mystery
+					stage s1 {
+					}
+				}
+			`, "the right-hand side must be a channel"),
+		)
+	})
+
+	Describe("Variables And Aliases In Flows", func() {
+		DescribeTable("Valid",
+			analyzeAndExpectSuccess,
+			Entry("channel read/write drives a transition condition", `
+				sequence main {
+					p := pressure
+					stage s1 {
+						p > 0.0 => s2
+					}
+					stage s2 {
+					}
+				}
+			`),
+			Entry("value variable is the sink of a flow", `
+				sequence main {
+					level f64 := 0
+					stage s1 {
+						pressure -> level
+					}
+				}
+			`),
+			Entry("value variable is a standalone flow source", `
+				sequence main {
+					level f64 := 0
+					stage s1 {
+						level -> valve_cmd
+					}
+				}
+			`),
+			Entry("channel read/write is a flow source", `
+				sequence main {
+					p := pressure
+					stage s1 {
+						p -> valve_cmd
+					}
+				}
+			`),
+			Entry("rebinding a channel read/write to a same-type channel", `
+				sequence main {
+					p := pressure
+					p = valve_cmd
+					stage s1 {
+					}
+				}
+			`),
+			Entry("value variable read in a transition condition", `
+				sequence main {
+					threshold f64 := 10
+					stage s1 {
+						pressure > threshold => s2
+					}
+					stage s2 {
+					}
+				}
+			`),
+		)
+
+		DescribeTable("Invalid",
+			func(bCtx SpecContext, source, expectedError string) {
+				Expect(analyzeAndExpectError(bCtx, source)).To(ContainSubstring(expectedError))
+			},
+			Entry("type mismatch feeding an expression into a variable sink", `
+				sequence main {
+					level f64 := 0
+					stage s1 {
+						"hello" -> level
+					}
+				}
+			`, "does not match"),
+			Entry("writing a flow into a reactive variable", `
+				sequence main {
+					r := pressure + 1
+					stage s1 {
+						pressure -> r
+					}
+				}
+			`, "read-only"),
 		)
 	})
 

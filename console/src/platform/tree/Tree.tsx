@@ -37,7 +37,8 @@ import {
 } from "react";
 import { useStore } from "react-redux";
 
-import { Layout } from "@/platform/layout";
+import { ContextMenu } from "@/platform/context-menu";
+import { Panel } from "@/platform/panel";
 import { DefaultContextMenu } from "@/platform/tree/DefaultContextMenu";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { MultipleSelectionContextMenu } from "@/platform/tree/MultipleSelectionContextMenu";
@@ -66,6 +67,12 @@ const [Context, useContext] = context.create<ContextValue>({
   displayName: "Tree.Context",
   providerName: "Tree.Tree",
 });
+
+const FallbackContextMenu = (): ReactElement => (
+  <ContextMenu.Menu>
+    <ContextMenu.ReloadConsoleItem />
+  </ContextMenu.Menu>
+);
 
 const itemRenderProp = Component.renderProp(
   ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
@@ -317,8 +324,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     [expand, contract, setLoading, handleError, setResource, nodesRef, setNodes],
   );
 
-  const placeLayout = Layout.usePlacer();
-  const removeLayout = Layout.useRemover();
+  const openTab = Panel.useOpenTab();
   const addStatus = Status.useAdder();
   const store = useStore<State, Action>();
 
@@ -328,12 +334,11 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
     (client: Client): BaseProps => ({
       client,
       store,
-      placeLayout,
-      removeLayout,
+      openTab,
       addStatus,
       handleError,
     }),
-    [store, placeLayout, removeLayout, addStatus, handleError],
+    [store, openTab, addStatus, handleError],
   );
 
   const handleDrop = useCallback(
@@ -392,7 +397,7 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps) => {
-      if (client == null) return <Layout.DefaultContextMenu />;
+      if (client == null) return <FallbackContextMenu />;
       if (keys.length === 0)
         return <DefaultContextMenu root={root} state={getState()} />;
       const rightClickedButNotSelected = keys.find(
@@ -440,9 +445,9 @@ const Internal = ({ root, emptyContent }: InternalProps): ReactElement => {
       if (!allSameType) return <MultipleSelectionContextMenu {...props} />;
 
       const M = resolveItem(firstID.type).ContextMenu;
-      return M == null ? <Layout.DefaultContextMenu /> : <M {...props} />;
+      return M == null ? <FallbackContextMenu /> : <M {...props} />;
     },
-    [client, setNodes, resolveItem, placeLayout, removeLayout, nodesRef, setSelected],
+    [client, setNodes, resolveItem, openTab, nodesRef, setSelected],
   );
   const menuProps = Menu.useContextMenu();
   const contextValue = useMemo(

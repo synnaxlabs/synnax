@@ -12,8 +12,9 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { describe, expect, it, vi } from "vitest";
 
 import { Arc } from "@/feature/arc";
-import { type Layout } from "@/platform/layout";
-import { createGrantedFluxStore, createTestFluxStore, uniqueName } from "@/testutil";
+import { createFileIngesterContext } from "@/platform/import/testutil";
+import { type Panel } from "@/platform/panel";
+import { createGrantedFluxStore, uniqueName } from "@/testutil";
 
 const LATEST_VERSION = "3.0.0";
 
@@ -165,26 +166,19 @@ describe("arc import", () => {
   describe("ingest", () => {
     const client = createTestClient();
 
-    it("should create the arc on the cluster and place its editor layout", async () => {
+    it("should create the arc on the cluster and open it as a tab", async () => {
       const store = await createGrantedFluxStore(
         client,
         arc.TYPE_ONTOLOGY_ID,
         "update",
       );
-      const placeLayout = vi.fn<Layout.Placer>();
+      const openTab = vi.fn<Panel.OpenTab>();
       const name = uniqueName("imported");
       const id = await Arc.ingest(
         v1State({ n1: { key: "channel.read", channel: 1 } }),
-        {
-          layout: { name },
-          placeLayout,
-          store,
-          client,
-          projectKey: "project-1",
-          fileName: "test.json",
-        },
+        createFileIngesterContext({ name, openTab, store, client }),
       );
-      expect(placeLayout).toHaveBeenCalledTimes(1);
+      expect(openTab).toHaveBeenCalledTimes(1);
       if (id == null) throw new Error("ingest returned no ontology id");
       const created = await client.arcs.retrieve({ key: id.key });
       expect(created.name).toBe(name);
@@ -192,16 +186,11 @@ describe("arc import", () => {
     });
 
     it("should reject the import when the permission cache has no grant", async () => {
-      const store = createTestFluxStore(null);
       await expect(
-        Arc.ingest(v1State({}), {
-          layout: { name: "denied" },
-          placeLayout: vi.fn<Layout.Placer>(),
-          store,
-          client: null,
-          projectKey: "project-1",
-          fileName: "test.json",
-        }),
+        Arc.ingest(
+          v1State({}),
+          createFileIngesterContext({ name: "denied", client: null }),
+        ),
       ).rejects.toThrow("You do not have permission to import Arc automations");
     });
   });

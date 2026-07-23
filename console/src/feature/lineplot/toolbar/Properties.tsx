@@ -10,26 +10,20 @@
 import { lineplot } from "@synnaxlabs/client";
 import { Flex, Input, LinePlot } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
 
 export const Properties = (): ReactElement => {
   const key = LinePlot.useKey();
   const title = LinePlot.useSelectTitle();
   const legend = LinePlot.useSelectLegend();
   const name = LinePlot.useSelectName();
-  const reduxDispatch = useDispatch();
   const dispatch = LinePlot.useSingleDispatch();
   const { update: rename } = LinePlot.useRename({});
 
   const handleTitleRename = useCallback(
-    (name: string): void => {
-      reduxDispatch(Session.Layout.rename({ key, name }));
-      rename({ key, name });
-    },
-    [reduxDispatch, rename],
+    (name: string): void => rename({ key, name }),
+    [rename, key],
   );
 
   const handleTitleVisibilityChange = useCallback(

@@ -385,6 +385,146 @@ var _ = Describe("Constant", func() {
 		})
 	})
 
+	Describe("Var-bound value", func() {
+		var factory node.Factory
+		BeforeEach(func() {
+			factory = constant.NewHost()
+		})
+
+		// build wires a constant whose value input references variable node "v"
+		// and gives it an inbound trigger edge so it re-emits on every Next.
+		build := func(valueType types.Type, initial any) (node.Config, *node.ProgramState) {
+			v := ir.Node{
+				Key:     "v",
+				Type:    "variable",
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: valueType}},
+			}
+			n := ir.Node{
+				Key:  "n",
+				Type: "constant",
+				Inputs: types.Params{{
+					Name:  "value",
+					Type:  types.VarRef(valueType, "v"),
+					Value: initial,
+				}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: valueType}},
+			}
+			edges := ir.Edges{{
+				Source: ir.Handle{Node: "up", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "n", Param: ir.DefaultInputParam},
+			}}
+			state := node.New(ir.IR{Nodes: ir.Nodes{v, n}, Edges: edges})
+			cfg := node.Config{
+				Node:    n,
+				State:   state.Node("n"),
+				Program: program.Program{IR: ir.IR{Edges: edges}},
+			}
+			return cfg, state
+		}
+		next := func(ctx SpecContext, n node.Node) {
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
+		}
+
+		It("Should emit the declared initial before any variable write", func(ctx SpecContext) {
+			cfg, state := build(types.I64(), int64(42))
+			n := MustSucceed(factory.Create(ctx, cfg))
+			next(ctx, n)
+			out := state.Node("n").Output(0)
+			Expect(out.Len()).To(Equal(int64(1)))
+			Expect(telem.ValueAt[int64](*out, 0)).To(Equal(int64(42)))
+		})
+
+		It("Should emit the live value after a variable write", func(ctx SpecContext) {
+			cfg, state := build(types.I64(), int64(42))
+			n := MustSucceed(factory.Create(ctx, cfg))
+			*state.Node("v").Output(0) = telem.NewSeriesV[int64](7)
+			next(ctx, n)
+			out := state.Node("n").Output(0)
+			Expect(out.Len()).To(Equal(int64(1)))
+			Expect(telem.ValueAt[int64](*out, 0)).To(Equal(int64(7)))
+			Expect(out.DataType).To(Equal(telem.Int64T))
+		})
+
+		It("Should track successive variable writes", func(ctx SpecContext) {
+			cfg, state := build(types.I64(), int64(42))
+			n := MustSucceed(factory.Create(ctx, cfg))
+			*state.Node("v").Output(0) = telem.NewSeriesV[int64](7)
+			next(ctx, n)
+			Expect(telem.ValueAt[int64](*state.Node("n").Output(0), 0)).
+				To(Equal(int64(7)))
+			*state.Node("v").Output(0) = telem.NewSeriesV[int64](9)
+			next(ctx, n)
+			Expect(telem.ValueAt[int64](*state.Node("n").Output(0), 0)).
+				To(Equal(int64(9)))
+		})
+
+		It("Should emit only the latest sample of the variable's series", func(ctx SpecContext) {
+			cfg, state := build(types.I64(), int64(42))
+			n := MustSucceed(factory.Create(ctx, cfg))
+			*state.Node("v").Output(0) = telem.NewSeriesV[int64](1, 2, 3)
+			next(ctx, n)
+			out := state.Node("n").Output(0)
+			Expect(out.Len()).To(Equal(int64(1)))
+			Expect(telem.ValueAt[int64](*out, 0)).To(Equal(int64(3)))
+		})
+
+		It("Should emit the declared string initial before any write", func(ctx SpecContext) {
+			cfg, state := build(types.String(), "hello")
+			n := MustSucceed(factory.Create(ctx, cfg))
+			next(ctx, n)
+			out := state.Node("n").Output(0)
+			Expect(out.Len()).To(Equal(int64(1)))
+			Expect(string(out.At(-1))).To(Equal("hello"))
+		})
+
+		It("Should emit the live string after a write", func(ctx SpecContext) {
+			cfg, state := build(types.String(), "hello")
+			n := MustSucceed(factory.Create(ctx, cfg))
+			*state.Node("v").Output(0) = telem.NewSeriesV[string]("goodbye")
+			next(ctx, n)
+			out := state.Node("n").Output(0)
+			Expect(out.Len()).To(Equal(int64(1)))
+			Expect(string(out.At(-1))).To(Equal("goodbye"))
+			Expect(out.DataType).To(Equal(telem.StringT))
+		})
+
+		It("Should emit only the latest string sample", func(ctx SpecContext) {
+			cfg, state := build(types.String(), "hello")
+			n := MustSucceed(factory.Create(ctx, cfg))
+			*state.Node("v").Output(0) = telem.NewSeriesV[string]("a", "b")
+			next(ctx, n)
+			out := state.Node("n").Output(0)
+			Expect(out.Len()).To(Equal(int64(1)))
+			Expect(string(out.At(-1))).To(Equal("b"))
+		})
+
+		It("Should emit a live float value from raw sample bytes", func(ctx SpecContext) {
+			cfg, state := build(types.F64(), 1.5)
+			n := MustSucceed(factory.Create(ctx, cfg))
+			*state.Node("v").Output(0) = telem.NewSeriesV[float64](2.5)
+			next(ctx, n)
+			out := state.Node("n").Output(0)
+			Expect(telem.ValueAt[float64](*out, 0)).To(Equal(2.5))
+		})
+
+		It("Should re-emit on every trigger, tracking the variable", func(ctx SpecContext) {
+			cfg, state := build(types.I64(), int64(42))
+			n := MustSucceed(factory.Create(ctx, cfg))
+			var marked []int
+			mark := node.Context{Context: ctx, MarkChanged: func(i int) {
+				marked = append(marked, i)
+			}}
+			n.Next(mark)
+			Expect(telem.ValueAt[int64](*state.Node("n").Output(0), 0)).
+				To(Equal(int64(42)))
+			*state.Node("v").Output(0) = telem.NewSeriesV[int64](7)
+			n.Next(mark)
+			Expect(telem.ValueAt[int64](*state.Node("n").Output(0), 0)).
+				To(Equal(int64(7)))
+			Expect(marked).To(HaveLen(2))
+		})
+	})
+
 	Describe("Symbols", func() {
 		It("Should expose constant symbol", func() {
 			var sym *symbol.Symbol

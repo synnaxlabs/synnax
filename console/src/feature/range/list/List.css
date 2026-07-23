@@ -16,3 +16,21 @@
         }
     }
 }
+
+.console-range-list-search {
+    padding: 1.5rem;
+}
+
+.console-range-list-filters {
+    padding: 1rem 2rem;
+    border-top: none;
+}
+
+.console-range-select-filters-dialog {
+    padding: 1rem;
+}
+
+.console-range-has-labels-filter {
+    padding: 0 1rem;
+    box-shadow: var(--pluto-shadow-v1);
+}

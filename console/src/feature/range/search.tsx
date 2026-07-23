@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
+import { type ontology, ranger } from "@synnaxlabs/client";
 import { Icon, List, Status, Synnax, Telem, Text } from "@synnaxlabs/pluto";
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 
-import { Layout } from "@/platform/layout";
 import { Palette } from "@/platform/palette";
-import { Range } from "@/platform/range";
+import { Panel } from "@/platform/panel";
 import { type Search } from "@/platform/search";
 import { Session } from "@/session";
 
@@ -21,7 +20,7 @@ const SearchListItem: Search.ListItem = (props) => {
   const resource = List.useItem<string, ontology.Resource>(props.itemKey);
   const client = Synnax.use();
   const store = Session.useStore();
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   const handleSelect = () => {
     const name = resource?.name ?? "range";
@@ -30,8 +29,7 @@ const SearchListItem: Search.ListItem = (props) => {
       const { id } = resource;
       const ranges = await client.ranges.retrieve([id.key]);
       store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
-      const first = ranges[0];
-      placeLayout({ ...Range.OVERVIEW_LAYOUT, name: first.name, key: first.key });
+      openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
     }, `Failed to select ${name}`);
   };
   if (resource == null) return null;

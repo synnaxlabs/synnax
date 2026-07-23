@@ -1572,6 +1572,593 @@ var _ = Describe("ProgramState", func() {
 			n := s.Node("target")
 			Expect(func() { n.Reset() }).ToNot(Panic())
 		})
+
+		It("Should re-arm literal-valued inputs so the node re-runs", func(ctx SpecContext) {
+			g := graph.Graph{
+				Functions: []ir.Function{{
+					Key: "generator",
+					Inputs: types.Params{
+						{Name: "start", Type: types.I64(), Value: int64(42)},
+					},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+				}},
+				Nodes:  []graph.Node{{Key: "generator"}},
+				Inputs: map[string]msgpack.EncodedJSON{"generator": {"type": "generator"}},
+			}
+			prog, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			n := node.New(prog).Node("generator")
+			Expect(n.RefreshInputs()).To(BeTrue())
+			Expect(n.RefreshInputs()).To(BeFalse())
+			n.Reset()
+			Expect(n.RefreshInputs()).To(BeTrue())
+		})
+
+		It("Should not re-arm a consumed variable register read", func(ctx SpecContext) {
+			g := graph.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "variable",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+					},
+					{
+						Key:    "dst",
+						Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
+					},
+				},
+				Nodes: []graph.Node{{Key: "v"}, {Key: "reader"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"v":      {"type": "variable"},
+					"reader": {"type": "dst"},
+				},
+				Edges: graph.Edges{{Edge: ir.Edge{
+					Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "reader", Param: ir.DefaultInputParam},
+				}}},
+			}
+			prog, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			s := node.New(prog)
+			v, reader := s.Node("v"), s.Node("reader")
+			*v.Output(0) = telem.NewSeriesV[int32](1)
+			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(reader.RefreshInputs()).To(BeTrue())
+			reader.Reset()
+			Expect(reader.RefreshInputs()).To(BeFalse())
+			*v.Output(0) = telem.NewSeriesV[int32](2)
+			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+			Expect(reader.RefreshInputs()).To(BeTrue())
+		})
+
+		It("Should re-arm a self-write feeder only on Reset", func(ctx SpecContext) {
+			// A reader writing back into its source variable is a cycle the
+			// analyzer rejects, so build the IR directly.
+			inter := ir.IR{
+				Nodes: ir.Nodes{
+					{
+						Key:  "v",
+						Type: "variable",
+						Inputs: types.Params{
+							{Name: ir.DefaultInputParam, Type: types.I32()},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
+					},
+					{
+						Key:  "reader",
+						Type: "f",
+						Inputs: types.Params{
+							{Name: ir.DefaultInputParam, Type: types.I32()},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.I32()},
+						},
+					},
+				},
+				Edges: ir.Edges{
+					{
+						Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "reader", Param: ir.DefaultInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "reader", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "v", Param: ir.DefaultInputParam},
+					},
+				},
+			}
+			s := node.New(inter)
+			v, reader := s.Node("v"), s.Node("reader")
+			*v.Output(0) = telem.NewSeriesV[int32](1)
+			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(reader.RefreshInputs()).To(BeTrue())
+			*v.Output(0) = telem.NewSeriesV[int32](2)
+			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+			Expect(reader.RefreshInputs()).To(BeFalse())
+			reader.Reset()
+			Expect(reader.RefreshInputs()).To(BeTrue())
+		})
+
+		It("Should absorb a derived variable's pending data so only later values fire", func(ctx SpecContext) {
+			g := graph.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "feeder",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+					},
+					{
+						Key:     "variable",
+						Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+					},
+					{
+						Key:    "dst",
+						Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
+					},
+				},
+				Nodes: []graph.Node{{Key: "feeder"}, {Key: "v"}, {Key: "reader"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"feeder": {"type": "feeder"},
+					"v":      {"type": "variable"},
+					"reader": {"type": "dst"},
+				},
+				Edges: graph.Edges{
+					{Edge: ir.Edge{
+						Source: ir.Handle{Node: "feeder", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "v", Param: ir.DefaultInputParam},
+					}},
+					{Edge: ir.Edge{
+						Source: ir.Handle{Node: "v", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "reader", Param: ir.DefaultInputParam},
+					}},
+				},
+			}
+			prog, diagnostics := graph.Analyze(ctx, g, nil)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			s := node.New(prog)
+			v, reader := s.Node("v"), s.Node("reader")
+			*v.Output(0) = telem.NewSeriesV[int32](1)
+			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			reader.Reset()
+			Expect(reader.RefreshInputs()).To(BeFalse())
+			*v.Output(0) = telem.NewSeriesV[int32](2)
+			*v.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+			Expect(reader.RefreshInputs()).To(BeTrue())
+		})
 	})
 
+	Describe("New", func() {
+		It("Should initialize output storage with the declared data types", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			src := s.Node("src")
+			Expect(src.Output(0).DataType).To(Equal(telem.Int32T))
+			Expect(src.Output(0).Len()).To(BeZero())
+			Expect(src.OutputTime(0).DataType).To(Equal(telem.TimeStampT))
+		})
+	})
+
+	Describe("Input and InputTime", func() {
+		It("Should expose the aligned data and time after a refresh", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](3)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](3)))
+			Expect(dst.InputTime(0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(10)))
+		})
+	})
+
+	Describe("RefSourced and RefInput", func() {
+		It("Should report an edge-fed reference input as sourced", func(ctx SpecContext) {
+			s := newRefState(ctx)
+			Expect(s.Node("reader").RefSourced(0)).To(BeTrue())
+		})
+
+		It("Should return the source series for an edge-fed reference input", func(ctx SpecContext) {
+			s := newRefState(ctx)
+			reg, reader := s.Node("reg"), s.Node("reader")
+			*reg.Output(0) = telem.NewSeriesV[uint32](7)
+			Expect(reader.RefInput(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](7)))
+		})
+
+		It("Should report an unedged reference input as unsourced", func(ctx SpecContext) {
+			inter := ir.IR{Nodes: ir.Nodes{{
+				Key:  "reader",
+				Type: "reader",
+				Inputs: types.Params{
+					{Name: "channel", Type: types.Chan(types.F32())},
+				},
+			}}}
+			reader := node.New(inter).Node("reader")
+			Expect(reader.RefSourced(0)).To(BeFalse())
+			Expect(reader.RefInput(0).Len()).To(BeZero())
+		})
+
+		It("Should report false for data inputs and out-of-range indexes", func(ctx SpecContext) {
+			s := newRefState(ctx)
+			reader := s.Node("reader")
+			Expect(reader.RefSourced(1)).To(BeFalse())
+			Expect(reader.RefSourced(-1)).To(BeFalse())
+			Expect(reader.RefSourced(9)).To(BeFalse())
+			Expect(reader.RefInput(1).Len()).To(BeZero())
+			Expect(reader.RefInput(9).Len()).To(BeZero())
+		})
+	})
+
+	Describe("AbsorbInputs", func() {
+		It("Should mark inputs consumed at the current source timestamp", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			dst.AbsorbInputs()
+			Expect(dst.RefreshInputs()).To(BeFalse())
+			*src.Output(0) = telem.NewSeriesV[int32](2)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+		})
+
+		It("Should still fire for data arriving after an empty absorb", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			dst.AbsorbInputs()
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(dst.RefreshInputs()).To(BeTrue())
+		})
+
+		It("Should mark every data input consumed", func(ctx SpecContext) {
+			s := newPairState(ctx)
+			a, b, target := s.Node("a"), s.Node("b"), s.Node("target")
+			*a.Output(0) = telem.NewSeriesV[int32](1)
+			*a.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			*b.Output(0) = telem.NewSeriesV[int32](2)
+			*b.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+			target.AbsorbInputs()
+			Expect(target.RefreshInputs()).To(BeFalse())
+			*a.Output(0) = telem.NewSeriesV[int32](3)
+			*a.OutputTime(0) = telem.NewSeriesSecondsTSV(30)
+			Expect(target.RefreshInputs()).To(BeTrue())
+		})
+	})
+
+	Describe("ConsumeInput", func() {
+		It("Should return unconsumed data and mark it consumed", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(MustBeOk(dst.ConsumeInput(0))).
+				To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+			_, ok := dst.ConsumeInput(0)
+			Expect(ok).To(BeFalse())
+			*src.Output(0) = telem.NewSeriesV[int32](2)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+			Expect(MustBeOk(dst.ConsumeInput(0))).
+				To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+		})
+
+		It("Should leave nothing for RefreshInputs after consuming", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			src, dst := s.Node("src"), s.Node("dst")
+			*src.Output(0) = telem.NewSeriesV[int32](1)
+			*src.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			Expect(MustBeOk(dst.ConsumeInput(0))).
+				To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+			Expect(dst.RefreshInputs()).To(BeFalse())
+		})
+
+		It("Should return false when the input has no data", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			_, ok := s.Node("dst").ConsumeInput(0)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should return false for an out-of-range index", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			dst := s.Node("dst")
+			_, ok := dst.ConsumeInput(-1)
+			Expect(ok).To(BeFalse())
+			_, ok = dst.ConsumeInput(9)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should return false for a reference input", func(ctx SpecContext) {
+			s := newRefState(ctx)
+			reg, reader := s.Node("reg"), s.Node("reader")
+			*reg.Output(0) = telem.NewSeriesV[uint32](7)
+			_, ok := reader.ConsumeInput(0)
+			Expect(ok).To(BeFalse())
+		})
+	})
+
+	Describe("LastChanged", func() {
+		It("Should return the most recently changed input and consume it", func(ctx SpecContext) {
+			s := newPairState(ctx)
+			a, b, target := s.Node("a"), s.Node("b"), s.Node("target")
+			*a.Output(0) = telem.NewSeriesV[int32](1)
+			*a.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			*b.Output(0) = telem.NewSeriesV[int32](2)
+			*b.OutputTime(0) = telem.NewSeriesSecondsTSV(20)
+			Expect(MustBeOk(target.LastChanged())).
+				To(telem.MatchSeries(telem.NewSeriesV[int32](2)))
+			Expect(MustBeOk(target.LastChanged())).
+				To(telem.MatchSeries(telem.NewSeriesV[int32](1)))
+			_, ok := target.LastChanged()
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should return false when no input has data", func(ctx SpecContext) {
+			s := newPairState(ctx)
+			_, ok := s.Node("target").LastChanged()
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should skip reference inputs", func(ctx SpecContext) {
+			s := newRefState(ctx)
+			reg, reader := s.Node("reg"), s.Node("reader")
+			*reg.Output(0) = telem.NewSeriesV[uint32](7)
+			*reg.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
+			// Only the defaulted data input is eligible; the reference never is.
+			Expect(MustBeOk(reader.LastChanged())).
+				To(telem.MatchSeries(telem.NewSeriesV[float32](0)))
+			_, ok := reader.LastChanged()
+			Expect(ok).To(BeFalse())
+		})
+	})
+
+	Describe("InitInput", func() {
+		It("Should populate the input's source so the node fires", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			dst := s.Node("dst")
+			dst.InitInput(0, telem.NewSeriesV[int32](7), telem.NewSeriesSecondsTSV(5))
+			Expect(dst.RefreshInputs()).To(BeTrue())
+			Expect(dst.Input(0)).To(telem.MatchSeries(telem.NewSeriesV[int32](7)))
+		})
+
+		It("Should ignore an out-of-range index", func(ctx SpecContext) {
+			s := newLinkedState(ctx)
+			dst := s.Node("dst")
+			Expect(func() {
+				dst.InitInput(9, telem.NewSeriesV[int32](7), telem.NewSeriesSecondsTSV(5))
+			}).ToNot(Panic())
+		})
+	})
+
+	Describe("StringInput", func() {
+		// build wires consumer c with a var-bound "tag" (variable node v) and a
+		// literal "plain".
+		build := func() *node.ProgramState {
+			v := ir.Node{Key: "v", Type: "variable", Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.String()},
+			}}
+			c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+				{Name: "tag", Type: types.VarRef(types.String(), "v"), Value: "init"},
+				{Name: "plain", Type: types.String(), Value: "cfg"},
+			}}
+			return node.New(ir.IR{Nodes: ir.Nodes{v, c}})
+		}
+
+		It("Should return the referenced variable's latest value", func() {
+			s := build()
+			*s.Node("v").Output(0) = telem.NewSeriesV("first", "live")
+			Expect(s.Node("c").StringInput("tag")).To(Equal("live"))
+		})
+
+		It("Should read the declared initial before any write", func() {
+			Expect(build().Node("c").StringInput("tag")).To(Equal("init"))
+		})
+
+		It("Should return a literal param's configured value", func() {
+			Expect(build().Node("c").StringInput("plain")).To(Equal("cfg"))
+		})
+
+		It("Should return empty for an unknown input", func() {
+			Expect(build().Node("c").StringInput("nope")).To(BeEmpty())
+		})
+	})
+
+	Describe("NumericInput", func() {
+		// build wires consumer c with a var-bound "gain" (variable node v) and a
+		// literal "offset".
+		build := func() *node.ProgramState {
+			v := ir.Node{Key: "v", Type: "variable", Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.U8()},
+			}}
+			c := ir.Node{Key: "c", Type: "consumer", Inputs: types.Params{
+				{Name: "gain", Type: types.VarRef(types.U8(), "v"), Value: uint8(5)},
+				{Name: "offset", Type: types.U8(), Value: uint8(9)},
+			}}
+			return node.New(ir.IR{Nodes: ir.Nodes{v, c}})
+		}
+
+		It("Should return the referenced variable's latest value", func() {
+			s := build()
+			*s.Node("v").Output(0) = telem.NewSeriesV[uint8](3, 7)
+			Expect(node.NumericInput[uint8](s.Node("c"), "gain")).To(Equal(uint8(7)))
+		})
+
+		It("Should read the declared initial before any write", func() {
+			Expect(node.NumericInput[uint8](build().Node("c"), "gain")).
+				To(Equal(uint8(5)))
+		})
+
+		It("Should return a literal param's configured value", func() {
+			Expect(node.NumericInput[uint8](build().Node("c"), "offset")).
+				To(Equal(uint8(9)))
+		})
+
+		It("Should return zero for an unknown input", func() {
+			Expect(node.NumericInput[uint8](build().Node("c"), "nope")).To(BeZero())
+		})
+	})
+
+})
+
+// newLinkedState builds src (i32 output) -> dst (i32 input) and returns the state.
+func newLinkedState(ctx SpecContext) *node.ProgramState {
+	g := graph.Graph{
+		Functions: []ir.Function{
+			{
+				Key:     "src",
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+			},
+			{
+				Key:    "dst",
+				Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.I32()}},
+			},
+		},
+		Nodes:  []graph.Node{{Key: "src"}, {Key: "dst"}},
+		Inputs: map[string]msgpack.EncodedJSON{"src": {"type": "src"}, "dst": {"type": "dst"}},
+		Edges: graph.Edges{{Edge: ir.Edge{
+			Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+			Target: ir.Handle{Node: "dst", Param: ir.DefaultInputParam},
+		}}},
+	}
+	prog, diagnostics := graph.Analyze(ctx, g, nil)
+	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+	return node.New(prog)
+}
+
+// newPairState builds a and b (i32 outputs) -> target (two i32 inputs).
+func newPairState(ctx SpecContext) *node.ProgramState {
+	g := graph.Graph{
+		Functions: []ir.Function{
+			{
+				Key:     "a",
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+			},
+			{
+				Key:     "b",
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+			},
+			{
+				Key: "target",
+				Inputs: types.Params{
+					{Name: ir.LHSInputParam, Type: types.I32()},
+					{Name: ir.RHSInputParam, Type: types.I32()},
+				},
+			},
+		},
+		Nodes: []graph.Node{{Key: "a"}, {Key: "b"}, {Key: "target"}},
+		Inputs: map[string]msgpack.EncodedJSON{
+			"a": {"type": "a"}, "b": {"type": "b"}, "target": {"type": "target"},
+		},
+		Edges: graph.Edges{
+			{Edge: ir.Edge{
+				Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "target", Param: ir.LHSInputParam},
+			}},
+			{Edge: ir.Edge{
+				Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "target", Param: ir.RHSInputParam},
+			}},
+		},
+	}
+	prog, diagnostics := graph.Analyze(ctx, g, nil)
+	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+	return node.New(prog)
+}
+
+// newRefState builds reader with a chan-typed reference input edge-fed from reg's
+// chan-typed output.
+func newRefState(ctx SpecContext) *node.ProgramState {
+	g := graph.Graph{
+		Functions: []ir.Function{
+			{
+				Key: "reg",
+				Outputs: types.Params{
+					{Name: ir.DefaultOutputParam, Type: types.Chan(types.F32())},
+				},
+			},
+			{
+				Key: "reader",
+				Inputs: types.Params{
+					{Name: "channel", Type: types.Chan(types.F32())},
+					{Name: "data", Type: types.F32(), Value: float32(0)},
+				},
+			},
+		},
+		Nodes: []graph.Node{{Key: "reg"}, {Key: "reader"}},
+		Inputs: map[string]msgpack.EncodedJSON{
+			"reg": {"type": "reg"}, "reader": {"type": "reader"},
+		},
+	}
+	g.Edges = graph.Edges{{Edge: ir.Edge{
+		Source: ir.Handle{Node: "reg", Param: ir.DefaultOutputParam},
+		Target: ir.Handle{Node: "reader", Param: "channel"},
+	}}}
+	prog, diagnostics := graph.Analyze(ctx, g, nil)
+	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+	return node.New(prog)
+}
+
+var _ = Describe("Gating and Absorb Edge Cases", func() {
+	It("Should gate a value-fed node on an edge into an undeclared param", func(ctx SpecContext) {
+		prog := ir.IR{
+			Nodes: ir.Nodes{
+				{
+					Key:     "trigger",
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+				},
+				{
+					Key:     "target",
+					Inputs:  types.Params{{Name: "value", Type: types.I64(), Value: int64(5)}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+				},
+			},
+			Edges: ir.Edges{{
+				Source: ir.Handle{Node: "trigger", Param: ir.DefaultOutputParam},
+				Target: ir.Handle{Node: "target", Param: ir.DefaultInputParam},
+			}},
+		}
+		s := node.New(prog)
+		target := s.Node("target")
+		Expect(target.RefreshInputs()).To(BeFalse(),
+			"the gate has no data yet, so the node must not fire")
+		trigger := s.Node("trigger")
+		*trigger.Output(0) = telem.NewSeriesV[uint8](1)
+		*trigger.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
+		Expect(target.RefreshInputs()).To(BeTrue())
+		Expect(target.RefreshInputs()).To(BeFalse())
+	})
+
+	It("Should skip reference and unsourced inputs when absorbing", func(ctx SpecContext) {
+		prog := ir.IR{
+			Nodes: ir.Nodes{
+				{
+					Key:     "bind",
+					Type:    "variable",
+					Inputs:  types.Params{{Name: "f0", Type: types.U32(), Value: uint32(7)}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Chan(types.F32())}},
+				},
+				{
+					Key:  "reader",
+					Type: "on",
+					Inputs: types.Params{
+						{Name: "channel", Type: types.Chan(types.F32()), Value: uint32(7)},
+					},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+				},
+			},
+			Edges: ir.Edges{
+				{
+					Source: ir.Handle{Node: "bind", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "reader", Param: "channel"},
+				},
+				{
+					Source: ir.Handle{Node: "ghost", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "reader", Param: "gate"},
+				},
+			},
+		}
+		s := node.New(prog)
+		reader := s.Node("reader")
+		*s.Node("bind").Output(0) = telem.NewSeriesV[uint32](9)
+		reader.AbsorbInputs()
+		Expect(reader.RefSourced(0)).To(BeTrue())
+		Expect(telem.ValueAt[uint32](reader.RefInput(0), -1)).To(Equal(uint32(9)))
+	})
 })

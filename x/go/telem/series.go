@@ -329,6 +329,15 @@ func (s Series) DeepCopy() Series {
 	}
 }
 
+// CopyFrom copies src into s, reusing s's buffer capacity to avoid allocation.
+// Holders on emit hot paths should prefer this over DeepCopy (SY-4506).
+func (s *Series) CopyFrom(src Series) {
+	s.TimeRange = src.TimeRange
+	s.Alignment = src.Alignment
+	s.DataType = src.DataType
+	s.Data = append(s.Data[:0], src.Data...)
+}
+
 // DataString returns a string representation of the data in a series.
 func (s Series) DataString() string {
 	if s.Len() == 0 {

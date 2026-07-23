@@ -77,7 +77,7 @@ export const createExecutingHandleError =
     })();
   };
 
-export interface CreateSelectionArgs {
+export interface CreateSelectionParams {
   ids: ontology.ID[];
   rootID?: ontology.ID;
   parentID?: ontology.ID;
@@ -88,20 +88,20 @@ export const createSelection = ({
   ids,
   rootID = ontology.ROOT_ID,
   parentID = rootID,
-}: CreateSelectionArgs): Tree.ContextMenuProps["selection"] => ({
+}: CreateSelectionParams): Tree.ContextMenuProps["selection"] => ({
   ids: array.toArray(ids),
   rootID,
   parentID,
 });
 
-export interface CreateBasePropsArgs {
+export interface CreateBasePropsParams {
   client: Synnax;
   store: Session.Store;
   overrides?: Partial<Tree.BaseProps>;
 }
 
 /**
- * Builds {@link Tree.BaseProps} with the given client and store. The layout and
+ * Builds {@link Tree.BaseProps} with the given client and store. The tab and
  * status callbacks default to no-ops; pass overrides (e.g. injected vi.fn() spies) to
  * observe them.
  */
@@ -109,11 +109,10 @@ export const createBaseProps = ({
   client,
   store,
   overrides = {},
-}: CreateBasePropsArgs): Tree.BaseProps => ({
+}: CreateBasePropsParams): Tree.BaseProps => ({
   client,
   store,
-  placeLayout: () => ({ windowKey: "", key: "" }),
-  removeLayout: () => undefined,
+  openTab: () => undefined,
   addStatus: () => undefined,
   handleError: () => undefined,
   ...overrides,

@@ -14,3 +14,7 @@
     height: 100%;
     overflow-y: auto;
 }
+
+.console-schematic-missing-symbol-select-group {
+    max-width: 60rem;
+}

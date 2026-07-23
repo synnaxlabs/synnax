@@ -152,7 +152,7 @@ export interface UseObservableUpdate<
   SubStore extends base.Store = {},
 > {
   (
-    args: UseObservableUpdateParams<
+    params: UseObservableUpdateParams<
       Input,
       Output,
       StatusDetails,
@@ -170,7 +170,7 @@ export interface UseUpdate<
   SubStore extends base.Store = {},
 > {
   (
-    args?: UseDirectUpdateParams<
+    params?: UseDirectUpdateParams<
       Input,
       Output,
       StatusDetails,

@@ -53,3 +53,13 @@
         }
     }
 }
+
+.console-arc-toolbar__actions {
+    height: 100%;
+    width: 66px;
+}
+
+.console-arc-toolbar__tabs {
+    border-bottom: none;
+    width: 180px;
+}

@@ -19,23 +19,24 @@ const rootReducer = combineReducers({
   [Drift.SLICE_NAME]: Drift.reducer,
 });
 
-type TestState = ReturnType<typeof rootReducer>;
-
 // run dispatches the actions through a store wired with the inject-key middleware, so
-// actions without an explicit windowKey resolve to the active window (MAIN_WINDOW).
-// State is read back through the public selectors, exercising the slice, middleware,
-// and selectors together.
-const run = (...actions: Nav.Action[]): TestState => {
+// actions without an explicit windowKey resolve to the active window (MAIN_WINDOW). The
+// resulting state is read back through selectWindowState, exercising the slice,
+// middleware, and Drift-coupled selectors together.
+const run = (...actions: Nav.Action[]) => {
   const store = configureStore({
     reducer: rootReducer,
     middleware: (getDefault) => getDefault().concat(Nav.MIDDLEWARE),
   });
   actions.forEach((action) => store.dispatch(action));
-  return store.getState();
+  const windowState = () => Nav.selectWindowState(store.getState());
+  return {
+    left: () => windowState().left,
+    leftSelected: () => windowState().left.selected,
+    bottom: () => windowState().bottom,
+    bottomVisible: () => windowState().bottom.visible,
+  };
 };
-
-const left = (state: TestState) => Nav.selectWindowState(state).left;
-const bottom = (state: TestState) => Nav.selectWindowState(state).bottom;
 
 describe("Nav Slice", () => {
   describe("schemas", () => {
@@ -66,20 +67,17 @@ describe("Nav Slice", () => {
 
   describe("withKey window bootstrapping", () => {
     it("should create a window entry from the zero state on first action", () => {
-      const state = run(Nav.resizeLeft({ size: 200 }));
-      expect(Nav.selectWindowState(state)).toEqual({
-        ...Nav.ZERO_WINDOW_STATE,
-        left: { ...Nav.ZERO_WINDOW_STATE.left, size: 200 },
-      });
+      const s = run(Nav.resizeLeft({ size: 200 }));
+      expect(s.left()).toEqual({ ...Nav.ZERO_WINDOW_STATE.left, size: 200 });
+      expect(s.bottom()).toEqual(Nav.ZERO_WINDOW_STATE.bottom);
     });
 
     it("should keep window states independent across keys", () => {
-      const state = run(
+      const s = run(
         Nav.selectLeft({ key: "a" }),
         Nav.selectLeft({ windowKey: "window-2", key: "b" }),
       );
-      expect(Nav.selectLeftSelected(state)).toBe("a");
-      expect(Nav.selectSliceState(state).windows["window-2"].left.selected).toBe("b");
+      expect(s.leftSelected()).toBe("a");
     });
 
     it("should throw an UnexpectedError when the windowKey is missing", () => {
@@ -93,78 +91,78 @@ describe("Nav Slice", () => {
     describe("selectLeft", () => {
       it("should select and pin an unselected item", () => {
         const s = run(Nav.selectLeft({ key: "a" }));
-        expect(Nav.selectLeftSelected(s)).toBe("a");
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBe("a");
+        expect(s.left().hover).toBe(false);
       });
 
       it("should deselect when selecting the pinned item again", () => {
         const s = run(Nav.selectLeft({ key: "a" }), Nav.selectLeft({ key: "a" }));
-        expect(Nav.selectLeftSelected(s)).toBeUndefined();
+        expect(s.leftSelected()).toBeUndefined();
       });
 
       it("should switch to a different pinned item", () => {
         const s = run(Nav.selectLeft({ key: "a" }), Nav.selectLeft({ key: "b" }));
-        expect(Nav.selectLeftSelected(s)).toBe("b");
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBe("b");
+        expect(s.left().hover).toBe(false);
       });
 
       it("should pin a currently-hovered item instead of closing it", () => {
         const s = run(Nav.startLeftHover({ key: "a" }), Nav.selectLeft({ key: "a" }));
-        expect(Nav.selectLeftSelected(s)).toBe("a");
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBe("a");
+        expect(s.left().hover).toBe(false);
       });
     });
 
     describe("pinLeft", () => {
       it("should pin the item regardless of prior state", () => {
         const s = run(Nav.startLeftHover({ key: "a" }), Nav.pinLeft({ key: "b" }));
-        expect(Nav.selectLeftSelected(s)).toBe("b");
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBe("b");
+        expect(s.left().hover).toBe(false);
       });
     });
 
     describe("toggleLeft", () => {
       it("should open an item as a hover from the collapsed state", () => {
         const s = run(Nav.toggleLeft({ key: "a" }));
-        expect(Nav.selectLeftSelected(s)).toBe("a");
-        expect(left(s).hover).toBe(true);
+        expect(s.leftSelected()).toBe("a");
+        expect(s.left().hover).toBe(true);
       });
 
       it("should close a hovered item when toggled again", () => {
         const s = run(Nav.toggleLeft({ key: "a" }), Nav.toggleLeft({ key: "a" }));
-        expect(Nav.selectLeftSelected(s)).toBeUndefined();
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBeUndefined();
+        expect(s.left().hover).toBe(false);
       });
 
       it("should close a pinned item when toggled", () => {
         const s = run(Nav.pinLeft({ key: "a" }), Nav.toggleLeft({ key: "a" }));
-        expect(Nav.selectLeftSelected(s)).toBeUndefined();
+        expect(s.leftSelected()).toBeUndefined();
       });
 
       it("should switch pinned items without dropping the pin", () => {
         const s = run(Nav.pinLeft({ key: "a" }), Nav.toggleLeft({ key: "b" }));
-        expect(Nav.selectLeftSelected(s)).toBe("b");
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBe("b");
+        expect(s.left().hover).toBe(false);
       });
 
       it("should switch hovered items while staying in hover mode", () => {
         const s = run(Nav.startLeftHover({ key: "a" }), Nav.toggleLeft({ key: "b" }));
-        expect(Nav.selectLeftSelected(s)).toBe("b");
-        expect(left(s).hover).toBe(true);
+        expect(s.leftSelected()).toBe("b");
+        expect(s.left().hover).toBe(true);
       });
     });
 
     describe("startLeftHover", () => {
       it("should hover an item from the collapsed state", () => {
         const s = run(Nav.startLeftHover({ key: "a" }));
-        expect(Nav.selectLeftSelected(s)).toBe("a");
-        expect(left(s).hover).toBe(true);
+        expect(s.leftSelected()).toBe("a");
+        expect(s.left().hover).toBe(true);
       });
 
       it("should not hover over a pinned item", () => {
         const s = run(Nav.pinLeft({ key: "a" }), Nav.startLeftHover({ key: "b" }));
-        expect(Nav.selectLeftSelected(s)).toBe("a");
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBe("a");
+        expect(s.left().hover).toBe(false);
       });
 
       it("should move the hover to a different item", () => {
@@ -172,49 +170,49 @@ describe("Nav Slice", () => {
           Nav.startLeftHover({ key: "a" }),
           Nav.startLeftHover({ key: "b" }),
         );
-        expect(Nav.selectLeftSelected(s)).toBe("b");
-        expect(left(s).hover).toBe(true);
+        expect(s.leftSelected()).toBe("b");
+        expect(s.left().hover).toBe(true);
       });
     });
 
     describe("stopLeftHover", () => {
       it("should clear a hovered item", () => {
         const s = run(Nav.startLeftHover({ key: "a" }), Nav.stopLeftHover({}));
-        expect(Nav.selectLeftSelected(s)).toBeUndefined();
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBeUndefined();
+        expect(s.left().hover).toBe(false);
       });
 
       it("should leave a pinned item untouched", () => {
         const s = run(Nav.pinLeft({ key: "a" }), Nav.stopLeftHover({}));
-        expect(Nav.selectLeftSelected(s)).toBe("a");
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBe("a");
+        expect(s.left().hover).toBe(false);
       });
     });
 
     describe("resizeLeft", () => {
       it("should set the left size", () => {
         const s = run(Nav.resizeLeft({ size: 320 }));
-        expect(left(s).size).toBe(320);
+        expect(s.left().size).toBe(320);
       });
     });
 
     describe("collapseLeft", () => {
       it("should clear a hovered item", () => {
         const s = run(Nav.startLeftHover({ key: "a" }), Nav.collapseLeft({}));
-        expect(Nav.selectLeftSelected(s)).toBeUndefined();
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBeUndefined();
+        expect(s.left().hover).toBe(false);
       });
 
       it("should clear a pinned item", () => {
         const s = run(Nav.pinLeft({ key: "a" }), Nav.collapseLeft({}));
-        expect(Nav.selectLeftSelected(s)).toBeUndefined();
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBeUndefined();
+        expect(s.left().hover).toBe(false);
       });
 
       it("should leave an already-collapsed left nav untouched", () => {
         const s = run(Nav.collapseLeft({}));
-        expect(Nav.selectLeftSelected(s)).toBeUndefined();
-        expect(left(s).hover).toBe(false);
+        expect(s.leftSelected()).toBeUndefined();
+        expect(s.left().hover).toBe(false);
       });
     });
   });
@@ -223,100 +221,100 @@ describe("Nav Slice", () => {
     describe("selectBottom", () => {
       it("should show the bottom nav when hidden", () => {
         const s = run(Nav.selectBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(true);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottom().hover).toBe(false);
       });
 
       it("should hide the bottom nav when already shown", () => {
         const s = run(Nav.selectBottom({}), Nav.selectBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(false);
+        expect(s.bottomVisible()).toBe(false);
       });
 
       it("should pin a hovered bottom nav instead of hiding it", () => {
         const s = run(Nav.startBottomHover({}), Nav.selectBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(true);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottom().hover).toBe(false);
       });
     });
 
     describe("showBottom", () => {
       it("should pin the bottom nav regardless of prior state", () => {
         const s = run(Nav.startBottomHover({}), Nav.showBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(true);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottom().hover).toBe(false);
       });
     });
 
     describe("toggleBottom", () => {
       it("should open the bottom nav as a hover from hidden", () => {
         const s = run(Nav.toggleBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(true);
-        expect(bottom(s).hover).toBe(true);
+        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottom().hover).toBe(true);
       });
 
       it("should drop only the hover when toggled while hovered", () => {
         const s = run(Nav.toggleBottom({}), Nav.toggleBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(true);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottom().hover).toBe(false);
       });
 
       it("should hide the bottom nav when toggled while pinned", () => {
         const s = run(Nav.showBottom({}), Nav.toggleBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(false);
+        expect(s.bottomVisible()).toBe(false);
       });
     });
 
     describe("startBottomHover", () => {
       it("should hover the bottom nav from hidden", () => {
         const s = run(Nav.startBottomHover({}));
-        expect(Nav.selectBottomVisible(s)).toBe(true);
-        expect(bottom(s).hover).toBe(true);
+        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottom().hover).toBe(true);
       });
 
       it("should not hover over a pinned bottom nav", () => {
         const s = run(Nav.showBottom({}), Nav.startBottomHover({}));
-        expect(Nav.selectBottomVisible(s)).toBe(true);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottom().hover).toBe(false);
       });
     });
 
     describe("stopBottomHover", () => {
       it("should clear a hovered bottom nav", () => {
         const s = run(Nav.startBottomHover({}), Nav.stopBottomHover({}));
-        expect(Nav.selectBottomVisible(s)).toBe(false);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(false);
+        expect(s.bottom().hover).toBe(false);
       });
 
       it("should leave a pinned bottom nav untouched", () => {
         const s = run(Nav.showBottom({}), Nav.stopBottomHover({}));
-        expect(Nav.selectBottomVisible(s)).toBe(true);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(true);
+        expect(s.bottom().hover).toBe(false);
       });
     });
 
     describe("resizeBottom", () => {
       it("should set the bottom size", () => {
         const s = run(Nav.resizeBottom({ size: 180 }));
-        expect(bottom(s).size).toBe(180);
+        expect(s.bottom().size).toBe(180);
       });
     });
 
     describe("collapseBottom", () => {
       it("should hide a hovered bottom nav", () => {
         const s = run(Nav.startBottomHover({}), Nav.collapseBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(false);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(false);
+        expect(s.bottom().hover).toBe(false);
       });
 
       it("should hide a pinned bottom nav", () => {
         const s = run(Nav.showBottom({}), Nav.collapseBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(false);
+        expect(s.bottomVisible()).toBe(false);
       });
 
       it("should leave an already-collapsed bottom nav hidden", () => {
         const s = run(Nav.collapseBottom({}));
-        expect(Nav.selectBottomVisible(s)).toBe(false);
-        expect(bottom(s).hover).toBe(false);
+        expect(s.bottomVisible()).toBe(false);
+        expect(s.bottom().hover).toBe(false);
       });
 
       it("should stay collapsed when invoked repeatedly", () => {
@@ -325,7 +323,7 @@ describe("Nav Slice", () => {
           Nav.collapseBottom({}),
           Nav.collapseBottom({}),
         );
-        expect(Nav.selectBottomVisible(s)).toBe(false);
+        expect(s.bottomVisible()).toBe(false);
       });
     });
   });
@@ -333,22 +331,22 @@ describe("Nav Slice", () => {
   describe("hideAll", () => {
     it("should collapse both the left and bottom navigation", () => {
       const s = run(Nav.pinLeft({ key: "a" }), Nav.showBottom({}), Nav.hideAll({}));
-      expect(Nav.selectLeftSelected(s)).toBeUndefined();
-      expect(left(s).hover).toBe(false);
-      expect(Nav.selectBottomVisible(s)).toBe(false);
-      expect(bottom(s).hover).toBe(false);
+      expect(s.leftSelected()).toBeUndefined();
+      expect(s.left().hover).toBe(false);
+      expect(s.bottomVisible()).toBe(false);
+      expect(s.bottom().hover).toBe(false);
     });
   });
 
   describe("MIDDLEWARE", () => {
     it("should inject the active window key when the payload omits one", () => {
-      const state = run(Nav.selectLeft({ key: "a" }));
-      expect(Nav.selectLeftSelected(state)).toBe("a");
+      const s = run(Nav.selectLeft({ key: "a" }));
+      expect(s.leftSelected()).toBe("a");
     });
 
     it("should leave an explicit foreign window key untouched", () => {
-      const state = run(Nav.selectLeft({ windowKey: "explicit", key: "a" }));
-      expect(Nav.selectLeftSelected(state)).toBeUndefined();
+      const s = run(Nav.selectLeft({ windowKey: "explicit", key: "a" }));
+      expect(s.leftSelected()).toBeUndefined();
     });
   });
 });

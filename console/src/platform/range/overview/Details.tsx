@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/range/overview/Details.css";
+
 import { ranger } from "@synnaxlabs/client";
 import {
   Button,
@@ -26,9 +28,8 @@ import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { CSV } from "@/platform/csv";
 import { Label } from "@/platform/label";
-import { Layout } from "@/platform/layout";
+import { Panel } from "@/platform/panel";
 import { FavoriteButton } from "@/platform/range/FavoriteButton";
-import { OVERVIEW_LAYOUT } from "@/platform/range/overview/layout";
 
 interface ParentRangeButtonProps {
   rangeKey: string;
@@ -38,7 +39,7 @@ const ParentRangeButton = ({
   rangeKey,
 }: ParentRangeButtonProps): ReactElement | null => {
   const res = Ranger.useRetrieveParent({ id: ranger.ontologyID(rangeKey) });
-  const placeLayout = Layout.usePlacer();
+  const openTab = Panel.useOpenTab();
   if (res.variant !== "success" || res.data == null) return null;
   const parent = res.data;
   const Icon = Ranger.STAGE_ICONS[Ranger.getStage(parent.timeRange)];
@@ -52,9 +53,9 @@ const ParentRangeButton = ({
         variant="text"
         weight={400}
         gap="small"
-        style={{ padding: "1rem" }}
+        className={CSS.BE("range-overview", "parent-button")}
         onClick={() =>
-          placeLayout({ ...OVERVIEW_LAYOUT, key: parent.key, name: parent.name })
+          openTab({ variant: "resource", resource: ranger.ontologyID(parent.key) })
         }
       >
         <Icon />
@@ -137,7 +138,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             />
             <ParentRangeButton rangeKey={rangeKey} />
           </Flex.Box>
-          <Flex.Box x style={{ height: "fit-content" }} gap="small">
+          <Flex.Box x className={CSS.BE("range-overview", "actions")} gap="small">
             <Button.Copy
               text={getPythonCode}
               tooltip={`Copy Python code to retrieve ${name}`}
@@ -196,7 +197,10 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Input.DateTime level="h4" variant="text" onlyChangeOnBlur {...p} />
             )}
           </Form.Field>
-          <Icon.Arrow.Right style={{ width: "3rem", height: "3rem" }} color={9} />
+          <Icon.Arrow.Right
+            className={CSS.BE("range-overview", "arrow-icon")}
+            color={9}
+          />
           <Form.Field<number> padHelpText={false} path="timeRange.end" label="To">
             {(p) => (
               <Input.DateTime onlyChangeOnBlur level="h4" variant="text" {...p} />
@@ -219,7 +223,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               <Label.SelectMultiple
                 zIndex={100}
                 variant="floating"
-                style={{ width: "fit-content" }}
+                className={CSS.BE("range-overview", "labels-select")}
                 {...p}
               />
             )}

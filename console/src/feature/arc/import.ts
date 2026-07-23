@@ -12,7 +12,6 @@ import { Access, Diagram } from "@synnaxlabs/pluto";
 import { dimensions, migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Arc } from "@/platform/arc";
 import { type Import } from "@/platform/import";
 
 const STATE_MIGRATION_NAME = "arc.state";
@@ -302,14 +301,14 @@ export const parseImport = (data: unknown, fallbackName?: string): arc.New => {
 
 export const ingest: Import.FileIngester = async (
   data,
-  { layout, placeLayout, store, client },
+  { name, openTab, store, client },
 ) => {
   if (!Access.updateGranted({ id: arc.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import Arc automations");
   if (client == null) throw new DisconnectedError();
-  const newPayload = parseImport(data, layout?.name);
+  const newPayload = parseImport(data, name);
   const created = await client.arcs.create(newPayload);
   store.arcs.set(created.key, created);
-  placeLayout(Arc.create({ ...layout, key: created.key, name: created.name }));
+  openTab({ variant: "resource", resource: arc.ontologyID(created.key) });
   return arc.ontologyID(created.key);
 };

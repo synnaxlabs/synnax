@@ -52,7 +52,7 @@ const INITIAL_VALUES: Device = {
 const beforeValidate = ({
   get,
   set,
-}: Flux.BeforeValidateArgs<
+}: Flux.BeforeValidateParams<
   PDevice.RetrieveQuery,
   typeof PDevice.formSchema,
   PDevice.FluxSubStore
@@ -168,7 +168,7 @@ export const useConnectModal = Modals.create<PlatformDevice.ConnectParams>(
   },
 );
 
-const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "modbus" };
+const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "modbus" };
 
 const selectRackRenderProp = Component.renderProp(
   (props: Pick<Rack.SelectSingleProps, "value" | "onChange">) => (

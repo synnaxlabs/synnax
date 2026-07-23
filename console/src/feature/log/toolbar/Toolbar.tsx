@@ -10,7 +10,7 @@
 import "@/feature/log/toolbar/Toolbar.css";
 
 import { log } from "@synnaxlabs/client";
-import { Flex, Icon, Log, Tabs } from "@synnaxlabs/pluto";
+import { Flex, Icon, Log, Panel as PPanel, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 
 import { useExport } from "@/feature/log/export";
@@ -19,6 +19,7 @@ import { Properties } from "@/feature/log/toolbar/Properties";
 import { Cluster } from "@/platform/cluster";
 import { CSS } from "@/platform/css";
 import { Export } from "@/platform/export";
+import { type Panel } from "@/platform/panel";
 import { Toolbar as Base } from "@/platform/toolbar";
 import { Session } from "@/session";
 
@@ -69,12 +70,11 @@ const Internal = (): ReactElement => {
   );
 };
 
-export interface ToolbarProps {
-  layoutKey: string;
-}
-
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => (
-  <Log.Suspended logKey={layoutKey}>
-    <Internal />
-  </Log.Suspended>
-);
+export const Toolbar: Panel.Toolbar = () => {
+  const { key } = PPanel.useSelectTabResource();
+  return (
+    <Log.Suspended logKey={key}>
+      <Internal />
+    </Log.Suspended>
+  );
+};

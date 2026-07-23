@@ -131,6 +131,12 @@ func TimeSpan() Type {
 // Series returns a series/array type wrapping the given value type.
 func Series(valueType Type) Type { return Type{Kind: KindSeries, Elem: &valueType} }
 
+// VarRef returns a variable-reference type. Name holds the key of the
+// variable's node; the variable's values have valueType.
+func VarRef(valueType Type, nodeKey string) Type {
+	return Type{Kind: KindVarRef, Elem: &valueType, Name: nodeKey}
+}
+
 // Variable returns a generic type parameter with optional constraint.
 func Variable(name string, constraint *Type) Type {
 	return Type{Kind: KindVariable, Name: name, Constraint: constraint}
@@ -171,7 +177,7 @@ func Equal(t Type, v Type) bool {
 	if t.Kind != v.Kind {
 		return false
 	}
-	if t.Kind == KindChan || t.Kind == KindSeries {
+	if t.Kind == KindChan || t.Kind == KindSeries || t.Kind == KindVarRef {
 		if t.Elem == nil && v.Elem == nil {
 			return true
 		}

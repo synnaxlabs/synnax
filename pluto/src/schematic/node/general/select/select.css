@@ -37,4 +37,8 @@
         color: var(--pluto-gray-l9);
         fill: currentcolor;
     }
+
+    .pluto-handle__2 {
+        z-index: 5;
+    }
 }

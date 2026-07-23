@@ -40,6 +40,7 @@ const (
 	KindFunction                  Kind = v1.KindFunction
 	KindSequence                  Kind = v1.KindSequence
 	KindStage                     Kind = v1.KindStage
+	KindVarRef                    Kind = v1.KindVarRef
 )
 
 // ChanDirection indicates read/write direction for channel-typed parameters.

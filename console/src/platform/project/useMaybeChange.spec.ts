@@ -7,87 +7,56 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type project, type Synnax } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeAll, describe, expect, it } from "vitest";
+import { act } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 
 import { Project } from "@/platform/project";
-import { createActiveState, createSavedLayout } from "@/platform/project/testutil";
 import { Session } from "@/session";
-import { createConsoleWrapper, renderHookWithConsole } from "@/testutil";
-
-const client: Synnax = createTestClient();
+import { renderHookWithConsole } from "@/testutil";
 
 describe("Project.useMaybeChange", () => {
-  let target: project.Project;
-  const layoutKey = id.create();
-
-  beforeAll(async () => {
-    target = await client.projects.create({
-      name: `proj-${id.create()}`,
-      layout: createSavedLayout(layoutKey),
-    });
-  });
-
-  it("switches the active project and loads its saved layout", async () => {
-    const active = await client.projects.create({
-      name: `proj-${id.create()}`,
-      layout: Session.Layout.ZERO_SLICE_STATE,
-    });
-    const { wrapper, store } = await createConsoleWrapper({
-      client,
-      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(active) },
-    });
-    const { result } = renderHook(() => Project.useMaybeChange(), { wrapper });
-
-    await act(async () => {
-      await result.current(target.key);
-    });
-
-    await waitFor(() =>
-      expect(Session.Project.selectSelected(store.getState())).toBe(target.key),
+  it("switches the active project to the given key", async () => {
+    const active = id.create();
+    const target = id.create();
+    const { result, store } = await renderHookWithConsole(
+      () => Project.useMaybeChange(),
+      {
+        preloadedState: {
+          [Session.Project.SLICE_NAME]: {
+            ...Session.Project.ZERO_SLICE_STATE,
+            selected: active,
+          },
+        },
+      },
     );
-    const placed = Session.Layout.select(store.getState(), layoutKey);
-    expect(placed?.name).toBe("Operator");
+
+    act(() => {
+      result.current(target);
+    });
+
+    expect(Session.Project.selectSelected(store.getState())).toBe(target);
   });
 
   it("does nothing when the target is already the active project", async () => {
-    const { wrapper, store } = await createConsoleWrapper({
-      client,
-      preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(target) },
-    });
-    const { result } = renderHook(() => Project.useMaybeChange(), { wrapper });
-    const before = Session.Layout.selectSliceState(store.getState());
-
-    await act(async () => {
-      await result.current(target.key);
-    });
-
-    expect(Session.Project.selectSelected(store.getState())).toBe(target.key);
-    expect(Session.Layout.selectSliceState(store.getState())).toEqual(before);
-  });
-
-  it("throws a DisconnectedError when there is no connected client", async () => {
-    const { result } = await renderHookWithConsole(() => Project.useMaybeChange(), {
-      client: null,
-      preloadedState: {
-        [Session.Project.SLICE_NAME]: {
-          ...Session.Project.ZERO_SLICE_STATE,
-          selected: id.create(),
+    const active = id.create();
+    const { result, store } = await renderHookWithConsole(
+      () => Project.useMaybeChange(),
+      {
+        preloadedState: {
+          [Session.Project.SLICE_NAME]: {
+            ...Session.Project.ZERO_SLICE_STATE,
+            selected: active,
+          },
         },
       },
+    );
+    const before = store.getState();
+
+    act(() => {
+      result.current(active);
     });
 
-    let err: unknown;
-    await act(async () => {
-      try {
-        await result.current(target.key);
-      } catch (e) {
-        err = e;
-      }
-    });
-    expect(DisconnectedError.matches(err)).toBe(true);
+    expect(store.getState()).toBe(before);
   });
 });

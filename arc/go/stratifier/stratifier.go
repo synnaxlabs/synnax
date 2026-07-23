@@ -35,7 +35,33 @@ func Stratify(
 	if prog == nil || prog.Root.IsZero() {
 		return diag
 	}
-	return stratifyScope(&prog.Root, prog.Edges, diag)
+	// Variables hold state like channels do: reads see the held value with no
+	// same-pass ordering, and write-read feedback must not stratify as a cycle.
+	vars := set.New[string]()
+	consts := set.New[string]()
+	for _, n := range prog.Nodes {
+		switch n.Type {
+		case "variable", "stateful_variable":
+			vars.Add(n.Key)
+		case "constant":
+			consts.Add(n.Key)
+		}
+	}
+	ordering := make([]ir.Edge, 0, len(prog.Edges))
+	for _, e := range prog.Edges {
+		if !vars.Contains(e.Source.Node) && !vars.Contains(e.Target.Node) {
+			ordering = append(ordering, e)
+		}
+	}
+	// Stratum 0 dispatch is unconditional and a constant emits whenever
+	// dispatched, so an edge-fed constant is floored at stratum 1.
+	bumped := set.New[string]()
+	for _, e := range prog.Edges {
+		if consts.Contains(e.Target.Node) {
+			bumped.Add(e.Target.Node)
+		}
+	}
+	return stratifyScope(&prog.Root, ordering, bumped, diag)
 }
 
 // stratifyScope dispatches on a scope's mode: parallel scopes are re-stratified
@@ -44,15 +70,16 @@ func Stratify(
 func stratifyScope(
 	s *ir.Scope,
 	edges []ir.Edge,
+	bumped set.Set[string],
 	diag *diagnostics.Diagnostics,
 ) *diagnostics.Diagnostics {
 	switch s.Mode {
 	case ir.ScopeModeParallel:
-		return stratifyParallel(s, edges, diag)
+		return stratifyParallel(s, edges, bumped, diag)
 	case ir.ScopeModeSequential:
 		for i := range s.Steps {
 			if s.Steps[i].Scope != nil {
-				if d := stratifyScope(s.Steps[i].Scope, edges, diag); d != nil && !d.Ok() {
+				if d := stratifyScope(s.Steps[i].Scope, edges, bumped, diag); d != nil && !d.Ok() {
 					return d
 				}
 			}
@@ -67,6 +94,7 @@ func stratifyScope(
 func stratifyParallel(
 	s *ir.Scope,
 	edges []ir.Edge,
+	bumped set.Set[string],
 	diag *diagnostics.Diagnostics,
 ) *diagnostics.Diagnostics {
 	// Flatten the pre-existing membership. The analyzer populates a single
@@ -97,6 +125,11 @@ func stratifyParallel(
 	// len(members) passes over the constraint set; a failure to converge
 	// indicates a cycle.
 	stratum := make([]int, len(members))
+	for i, m := range members {
+		if m.NodeKey != nil && bumped.Contains(*m.NodeKey) {
+			stratum[i] = 1
+		}
+	}
 	maxPasses := len(members) + 1
 	for pass := 0; pass <= maxPasses; pass++ {
 		changed := false
@@ -150,9 +183,11 @@ func stratifyParallel(
 	for i, m := range members {
 		buckets[stratum[i]] = append(buckets[stratum[i]], m)
 	}
+	// Stratum 0 stays even when empty: the scheduler dispatches index 0
+	// unconditionally, so floored members must not slide back into it.
 	dense := buckets[:0]
-	for _, b := range buckets {
-		if len(b) > 0 {
+	for i, b := range buckets {
+		if len(b) > 0 || i == 0 {
 			dense = append(dense, b)
 		}
 	}
@@ -164,7 +199,7 @@ func stratifyParallel(
 	for si := range s.Strata {
 		for mi := range s.Strata[si] {
 			if s.Strata[si][mi].Scope != nil {
-				if d := stratifyScope(s.Strata[si][mi].Scope, edges, diag); d != nil && !d.Ok() {
+				if d := stratifyScope(s.Strata[si][mi].Scope, edges, bumped, diag); d != nil && !d.Ok() {
 					return d
 				}
 			}

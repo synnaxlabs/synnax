@@ -19,7 +19,7 @@ import { Diagram } from "@/vis/diagram";
 // the clipboard without it.
 const MIME = "web application/synnax-schematic+json";
 
-export interface UseClipboardArgs {
+export interface UseClipboardParams {
   selected?: string[];
   onPaste?: (newKeys: string[]) => void;
 }
@@ -27,7 +27,7 @@ export interface UseClipboardArgs {
 export const useClipboard = ({
   selected,
   onPaste,
-}: UseClipboardArgs): Diagram.UseClipboardReturn => {
+}: UseClipboardParams): Diagram.UseClipboardReturn => {
   const key = useKey();
   const dispatch = useSingleDispatch();
   const store = Flux.useStore<FluxSubStore>();

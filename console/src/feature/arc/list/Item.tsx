@@ -28,7 +28,7 @@ export interface ItemProps extends List.ItemProps<arc.Key> {
 export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
   const arc = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const { onSelect, selected, ...selectProps } = Select.useItemState(itemKey);
+  const { onSelect, selected, hovered } = Select.useItemState(itemKey);
   const initialValues = useMemo(() => {
     if (arc == null) return undefined;
     return {
@@ -53,7 +53,7 @@ export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) =
   return (
     <List.Item
       {...props}
-      {...selectProps}
+      hovered={hovered}
       selected={selected}
       rounded={!selected}
       onSelect={onSelect}

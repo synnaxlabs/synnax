@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { NI } from "@/feature/ni";
 import { Session } from "@/session";
-import { stubGeometry } from "@/testutil";
+import { resolveFocusedTab, stubGeometry, uniqueName } from "@/testutil";
 
 stubGeometry();
 
@@ -37,20 +37,20 @@ describe("NI.Task Commands", () => {
       await waitFor(() => expect(document.body.textContent).toContain(name));
   });
 
-  it("should place the analog read layout when its command is selected", async () => {
+  it("should open the analog read view when its command is selected", async () => {
+    const proj = await client.projects.create({
+      name: uniqueName("proj"),
+      layout: {},
+    });
     const { store, openCommandPalette, selectCommand } = await renderPalette({
       commands: NI.Task.COMMANDS,
       client,
     });
+    store.dispatch(Session.Project.select(proj.key));
     await openCommandPalette("Analog Read");
     await selectCommand("Create an NI Analog Read Task");
-    await waitFor(() => {
-      const placed = Session.Layout.selectByFilter(
-        store.getState(),
-        (l) => l.type === NI.Task.ANALOG_READ_TYPE,
-      );
-      if (placed == null) throw new Error("analog read layout not placed");
-      expect(placed.name).toBe(NI.Task.ZERO_ANALOG_READ_PAYLOAD.name);
-    });
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "view") throw new Error("expected a view tab");
+    expect(tab.type).toBe(NI.Task.ANALOG_READ_TYPE);
   });
 });

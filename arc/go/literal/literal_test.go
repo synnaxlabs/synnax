@@ -423,24 +423,24 @@ var _ = Describe("Literal Parser", func() {
 
 	Describe("Negate", func() {
 		DescribeTable("should negate numeric values",
-			func(input any, expected any) {
-				Expect(literal.Negate(input)).To(Equal(expected))
+			func(text string, target types.Type, expected any) {
+				parsed := MustSucceed(literal.ParseConst(MustSucceed(parser.ParseExpression(text)), target))
+				Expect(parsed.Value).To(Equal(expected))
 			},
-			Entry("int8", int8(42), int8(-42)),
-			Entry("int16", int16(1000), int16(-1000)),
-			Entry("int32", int32(100000), int32(-100000)),
-			Entry("int64", int64(5000000000), int64(-5000000000)),
-			Entry("float32", float32(3.14), float32(-3.14)),
-			Entry("float64", float64(2.718), float64(-2.718)),
-			Entry("TimeSpan", telem.Second, -telem.Second),
-			Entry("negative int64 becomes positive", int64(-42), int64(42)),
-			Entry("negative float64 becomes positive", float64(-1.5), float64(1.5)),
-			Entry("zero int64", int64(0), int64(0)),
-			Entry("zero float64", float64(0), float64(0)),
+			Entry("int8", "-42", types.I8(), int8(-42)),
+			Entry("int16", "-1000", types.I16(), int16(-1000)),
+			Entry("int32", "-100000", types.I32(), int32(-100000)),
+			Entry("int64", "-5000000000", types.I64(), int64(-5000000000)),
+			Entry("float32", "-3.14", types.F32(), float32(-3.14)),
+			Entry("float64", "-2.718", types.F64(), float64(-2.718)),
+			Entry("TimeSpan", "-1s", types.I64(), -telem.Second),
+			Entry("zero int64", "-0", types.I64(), int64(0)),
+			Entry("zero float64", "-0.0", types.F64(), float64(0)),
 		)
 
 		It("Should return non-numeric types unchanged", func() {
-			Expect(literal.Negate("hello")).To(Equal("hello"))
+			parsed := MustSucceed(literal.ParseConst(MustSucceed(parser.ParseExpression(`"hello"`)), types.String()))
+			Expect(parsed.Value).To(Equal("hello"))
 		})
 	})
 
@@ -457,6 +457,42 @@ var _ = Describe("Literal Parser", func() {
 			Entry("near-integer within tolerance", 5.0+1e-12, true),
 			Entry("near-zero within tolerance", 1e-12, true),
 			Entry("near-zero outside tolerance", 1e-6, false),
+		)
+	})
+
+	Describe("ParseConst", func() {
+		parse := func(text string, target types.Type) (literal.ParsedValue, error) {
+			return literal.ParseConst(MustSucceed(parser.ParseExpression(text)), target)
+		}
+
+		DescribeTable("parses a bare or single-negated literal to a range-checked value",
+			func(text string, target types.Type, expected any) {
+				parsed := MustSucceed(parse(text, target))
+				Expect(parsed.Value).To(Equal(expected))
+			},
+			Entry("bare positive integer", "5", types.I64(), int64(5)),
+			Entry("bare string", `"hi"`, types.String(), "hi"),
+			Entry("negated integer", "-5", types.I64(), int64(-5)),
+			Entry("i8 type minimum", "-128", types.I8(), int8(-128)),
+			Entry("i16 type minimum", "-32768", types.I16(), int16(-32768)),
+			Entry("i32 type minimum", "-2147483648", types.I32(), int32(-2147483648)),
+			Entry("negated float", "-2.5", types.F64(), float64(-2.5)),
+			Entry("negated float narrowed to f32", "-2.5", types.F32(), float32(-2.5)),
+			Entry("bare time unit boxes TimeSpan", "5s", types.I64(), telem.Second*5),
+			Entry("negated time unit boxes TimeSpan", "-5s", types.I64(), telem.Second*-5),
+			Entry("negated nanoseconds box TimeSpan", "-54ns", types.I64(), telem.Nanosecond*-54),
+		)
+
+		DescribeTable("rejects a non-constant or out-of-range value",
+			func(text string, target types.Type, errSubstring string) {
+				Expect(parse(text, target)).Error().To(MatchError(ContainSubstring(errSubstring)))
+			},
+			Entry("identifier", "x", types.I64(), "not a compile-time constant"),
+			Entry("multi-term expression", "2 + 3", types.I64(), "not a compile-time constant"),
+			Entry("function call", "foo()", types.I64(), "not a compile-time constant"),
+			Entry("power expression", "2 ^ 3", types.I64(), "not a compile-time constant"),
+			Entry("negative into unsigned", "-5", types.U8(), "out of range for u8"),
+			Entry("negated magnitude overflow", "-200", types.I8(), "out of range for i8"),
 		)
 	})
 })

@@ -13,19 +13,14 @@ import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/platform/arc";
-import { renderArc } from "@/platform/arc/testutil";
-import { Session } from "@/session";
+import { client, renderArc } from "@/platform/arc/testutil";
+import { selectTestProject } from "@/testutil";
 
 const Harness = (): ReactElement => {
   const create = Arc.useCreate();
   return <button onClick={() => create()}>open</button>;
 };
 Harness.displayName = "Harness";
-
-const findArcLayout = (store: Session.Store, name: string) =>
-  Object.values(store.getState()[Session.Layout.SLICE_NAME].layouts).find(
-    (l) => l.type === Arc.LAYOUT_TYPE && l.name === name,
-  );
 
 describe("arc useCreate", () => {
   it("should open the create modal with a disabled Create button", async () => {
@@ -38,9 +33,10 @@ describe("arc useCreate", () => {
     expect(create.className).toContain("pluto--disabled");
   });
 
-  it("should create the arc and place its layout after the modal is completed", async () => {
+  it("should create the arc on the server after the modal completes", async () => {
     const name = id.create();
     const { store } = await renderArc(<Harness />);
+    await selectTestProject(store, client);
     fireEvent.click(screen.getByRole("button", { name: "open" }));
 
     const input = await screen.findByPlaceholderText("Automation Name");
@@ -52,13 +48,7 @@ describe("arc useCreate", () => {
       fireEvent.click(create);
     });
 
-    const layout = await waitFor(() => {
-      const placed = findArcLayout(store, name);
-      if (placed == null) throw new Error(`no arc layout named ${name}`);
-      return placed;
-    });
-    expect(
-      Session.Arc.selectState({ state: store.getState(), key: layout.key }),
-    ).toEqual(Session.Arc.ZERO_STATE);
+    const retrieved = await waitFor(async () => await client.arcs.retrieve({ name }));
+    expect(retrieved.name).toBe(name);
   });
 });

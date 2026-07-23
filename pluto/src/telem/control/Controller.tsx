@@ -76,7 +76,7 @@ export const Controller = ({
   );
   return (
     <Context value={value}>
-      <Aether.Composite path={path}>{children}</Aether.Composite>;
+      <Aether.Composite path={path}>{children}</Aether.Composite>
     </Context>
   );
 };

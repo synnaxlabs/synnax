@@ -234,6 +234,27 @@ func findTabByResource(root Node, resource ontology.ID) (Tab, bool) {
 	}
 }
 
+// findTabByType walks the tree to find the tab whose view variant carries the
+// given type. Returns the tab and ok=true when present.
+func findTabByType(root Node, viewType string) (Tab, bool) {
+	switch v := root.Variant.(type) {
+	case NodeLeaf:
+		for _, t := range v.Tabs {
+			if view, ok := t.Variant.(TabView); ok && view.Type == viewType {
+				return t, true
+			}
+		}
+		return Tab{}, false
+	case NodeSplit:
+		if t, ok := findTabByType(v.First, viewType); ok {
+			return t, true
+		}
+		return findTabByType(v.Last, viewType)
+	default:
+		return Tab{}, false
+	}
+}
+
 // firstLeafPath returns the path-derived key of the first leaf in traversal
 // order (first child before last). ok is false only for a tree containing no
 // leaf, which cannot occur for a well-formed tree.

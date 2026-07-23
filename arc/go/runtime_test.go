@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
+	"github.com/synnaxlabs/arc/stl/variable"
 	"github.com/synnaxlabs/arc/stl/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -88,6 +89,7 @@ func newRuntimeHarness(
 		timeMod,
 		selector.NewHost(),
 		constant.NewHost(),
+		variable.NewHost(),
 		stlop.NewHost(),
 		stable.NewHost(),
 		control.NewHost(authorityState),

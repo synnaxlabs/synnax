@@ -61,6 +61,13 @@ interface SelectTabPayload extends TabAndPanelKeyPayload {
   otherTabKeys: panel.TabKey[];
 }
 
+// Overlaying shows the panel's focused tab, so naming a tab moves it to the head of
+// the selection. The panel key defaults to the window's selected panel.
+export interface StartOverlayingPayload extends Window.OptionalKeyParams {
+  key?: panel.Key;
+  tabKey?: panel.TabKey;
+}
+
 const withWindowKey = Window.createWithKeyHandler(windowStateZ);
 
 const withSelectedState = <Payload extends PanelKeyPayload>(
@@ -101,9 +108,14 @@ const { actions, reducer } = createSlice({
         ];
       },
     ),
-    startOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
-      win.isOverlaid = true;
-    }),
+    startOverlaying: withWindowKey<StartOverlayingPayload, SliceState>(
+      (win, { payload: { key = win.selected, tabKey } }) => {
+        win.isOverlaid = true;
+        if (tabKey == null || key == null) return;
+        const pan = (win.panels[key] ??= stateZ.parse({}));
+        pan.selectedTabs = [tabKey, ...pan.selectedTabs.filter((k) => k !== tabKey)];
+      },
+    ),
     stopOverlaying: withWindowKey<Window.OptionalKeyParams, SliceState>((win) => {
       win.isOverlaid = false;
     }),

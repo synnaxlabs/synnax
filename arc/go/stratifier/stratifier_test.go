@@ -462,3 +462,148 @@ var _ = Describe("Stratify", func() {
 		})
 	})
 })
+
+var _ = Describe("Constant dispatch floor", func() {
+	// typedProgram builds a parallel always-live root over typed nodes, so
+	// variable/constant handling is exercised (programOf drops Type).
+	typedProgram := func(nodes []ir.Node, members []ir.Member, edges []ir.Edge) ir.IR {
+		root := ir.Scope{
+			Mode:     ir.ScopeModeParallel,
+			Liveness: ir.LivenessAlways,
+		}
+		if len(members) > 0 {
+			root.Strata = []ir.Members{members}
+		}
+		return ir.IR{Nodes: nodes, Edges: edges, Root: root}
+	}
+	typed := func(key, typ string) ir.Node { return ir.Node{Key: key, Type: typ} }
+
+	It("Should floor an edge-fed constant behind its variable source", func(ctx SpecContext) {
+		root := run(ctx, typedProgram(
+			[]ir.Node{typed("v", "variable"), typed("c", "constant"), typed("w", "")},
+			[]ir.Member{ir.NodeMember("v"), ir.NodeMember("c"), ir.NodeMember("w")},
+			[]ir.Edge{edge("v", "c"), edge("c", "w")},
+		))
+		Expect(stratumOf(root, "v")).To(Equal(0))
+		Expect(stratumOf(root, "c")).To(Equal(1))
+		Expect(stratumOf(root, "w")).To(Equal(2))
+	})
+
+	It("Should floor an edge-fed constant behind a stateful variable", func(ctx SpecContext) {
+		root := run(ctx, typedProgram(
+			[]ir.Node{typed("sv", "stateful_variable"), typed("c", "constant")},
+			[]ir.Member{ir.NodeMember("sv"), ir.NodeMember("c")},
+			[]ir.Edge{edge("sv", "c")},
+		))
+		Expect(stratumOf(root, "sv")).To(Equal(0))
+		Expect(stratumOf(root, "c")).To(Equal(1))
+	})
+
+	It("Should keep an entry constant in stratum zero", func(ctx SpecContext) {
+		root := run(ctx, typedProgram(
+			[]ir.Node{typed("c", "constant")},
+			[]ir.Member{ir.NodeMember("c")},
+			nil,
+		))
+		Expect(stratumOf(root, "c")).To(Equal(0))
+	})
+
+	It("Should keep a variable-fed poller in stratum zero", func(ctx SpecContext) {
+		root := run(ctx, typedProgram(
+			[]ir.Node{typed("v", "variable"), typed("w", "")},
+			[]ir.Member{ir.NodeMember("v"), ir.NodeMember("w")},
+			[]ir.Edge{edge("v", "w")},
+		))
+		Expect(stratumOf(root, "v")).To(Equal(0))
+		Expect(stratumOf(root, "w")).To(Equal(0))
+	})
+
+	It("Should not order a write into a variable", func(ctx SpecContext) {
+		root := run(ctx, typedProgram(
+			[]ir.Node{typed("f", ""), typed("v", "variable")},
+			[]ir.Member{ir.NodeMember("f"), ir.NodeMember("v")},
+			[]ir.Edge{edge("f", "v")},
+		))
+		Expect(stratumOf(root, "f")).To(Equal(0))
+		Expect(stratumOf(root, "v")).To(Equal(0))
+	})
+
+	It("Should not report a cycle for read-write feedback through a variable", func(ctx SpecContext) {
+		root := run(ctx, typedProgram(
+			[]ir.Node{typed("v", "variable"), typed("c", "constant")},
+			[]ir.Member{ir.NodeMember("v"), ir.NodeMember("c")},
+			[]ir.Edge{edge("v", "c"), edge("c", "v")},
+		))
+		Expect(stratumOf(root, "c")).To(Equal(1))
+	})
+
+	It("Should floor a constant fed by a variable across a scope boundary", func(ctx SpecContext) {
+		stage := ir.Scope{
+			Key:      "stage",
+			Mode:     ir.ScopeModeParallel,
+			Liveness: ir.LivenessGated,
+			Strata: []ir.Members{{
+				ir.NodeMember("c"),
+				ir.NodeMember("w"),
+			}},
+		}
+		root := run(ctx, typedProgram(
+			[]ir.Node{typed("v", "variable"), typed("c", "constant"), typed("w", "")},
+			[]ir.Member{ir.NodeMember("v"), ir.ScopeMember(stage)},
+			[]ir.Edge{edge("v", "c"), edge("c", "w")},
+		))
+		inner := stratumOf(root, "stage")
+		Expect(inner).To(BeNumerically(">=", 0))
+		var stageScope *ir.Scope
+		for _, stratum := range root.Strata {
+			for _, m := range stratum {
+				if m.Scope != nil {
+					stageScope = m.Scope
+				}
+			}
+		}
+		Expect(stageScope).ToNot(BeNil())
+		Expect(stratumOf(*stageScope, "c")).To(Equal(1))
+		Expect(stratumOf(*stageScope, "w")).To(Equal(2))
+	})
+
+	It("Should floor a constant fed by a timer across a scope boundary", func(ctx SpecContext) {
+		stage := ir.Scope{
+			Key:      "stage",
+			Mode:     ir.ScopeModeParallel,
+			Liveness: ir.LivenessGated,
+			Strata:   []ir.Members{{ir.NodeMember("c")}},
+		}
+		root := run(ctx, typedProgram(
+			[]ir.Node{typed("timer", ""), typed("c", "constant")},
+			[]ir.Member{ir.NodeMember("timer"), ir.ScopeMember(stage)},
+			[]ir.Edge{edge("timer", "c")},
+		))
+		var stageScope *ir.Scope
+		for _, stratum := range root.Strata {
+			for _, m := range stratum {
+				if m.Scope != nil {
+					stageScope = m.Scope
+				}
+			}
+		}
+		Expect(stageScope).ToNot(BeNil())
+		Expect(stratumOf(*stageScope, "c")).To(Equal(1))
+	})
+
+	It("Should stack same-scope ordering on top of the floor", func(ctx SpecContext) {
+		root := run(ctx, typedProgram(
+			[]ir.Node{
+				typed("src", ""), typed("mid", ""),
+				typed("c", "constant"), typed("w", ""),
+			},
+			[]ir.Member{
+				ir.NodeMember("src"), ir.NodeMember("mid"),
+				ir.NodeMember("c"), ir.NodeMember("w"),
+			},
+			[]ir.Edge{edge("src", "mid"), edge("mid", "c"), edge("c", "w")},
+		))
+		Expect(stratumOf(root, "c")).To(Equal(2))
+		Expect(stratumOf(root, "w")).To(Equal(3))
+	})
+})

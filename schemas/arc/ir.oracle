@@ -127,8 +127,10 @@ Scope struct {
     }
     strata      Members[]    {
         @doc value """
-            contains stratified execution layers for parallel scopes. Empty
-            for sequential scopes. Stratum N depends only on strata 0 to N-1.
+            contains stratified execution layers for parallel scopes. On
+            sequential scopes, strata hold variable nodes that run every
+            pass alongside the active step. Stratum N depends only on
+            strata 0 to N-1.
         """
     }
     steps       Members      {

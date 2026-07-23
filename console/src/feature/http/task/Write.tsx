@@ -51,17 +51,11 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const WRITE_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const WriteSelectable = Selector.createSelectable({
   type: WRITE_TYPE,
-  name: ZERO_WRITE_PAYLOAD.name,
-  icon: "Logo.HTTP",
-};
-
-export const WriteSelectable = Selector.createSimpleItem({
   title: "HTTP Write Task",
   icon: <Icon.Logo.HTTP />,
-  layout: WRITE_LAYOUT,
+  useOnSelect: Task.createOpenTab(WRITE_TYPE),
 });
 
 const Properties = () => (
@@ -590,7 +584,7 @@ const Form: FC<Task.FormProps<WriteSchemas>> = () => {
       </Flex.Box>
       <Divider.Divider y />
       <Flex.Box y grow empty>
-        <Task.Layouts.DetailsHeader
+        <Task.Views.DetailsHeader
           path={
             selectedEndpoints.length > 0
               ? `config.endpoints.${selectedEndpoints[0]}`

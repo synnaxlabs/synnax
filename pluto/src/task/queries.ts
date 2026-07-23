@@ -132,7 +132,17 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
     },
   });
 
-export const { useRetrieve, useRetrieveObservable } = createRetrieve();
+export const { useRetrieve, useRetrieveObservable, useEnsureRetrieved } =
+  createRetrieve();
+
+export const [useSelectName, useGetName] = Flux.createSelector<
+  FluxSubStore,
+  { key: task.Key },
+  string
+>({
+  subscribe: (store, { key }, notify) => store.tasks.onSet(notify, key),
+  select: (store, { key }) => store.tasks.get(key)?.name ?? "Task",
+});
 
 export const useRetrieveObservableName = ({
   onChange,
@@ -365,11 +375,11 @@ export const { useUpdate: useCreateSnapshot } = Flux.createUpdate<
   },
 });
 
-export interface UseRenameArgs extends Pick<task.Payload, "key" | "name"> {}
+export interface UseRenameParams extends Pick<task.Payload, "key" | "name"> {}
 
 export const rename = async (
-  params: Flux.UpdateParams<UseRenameArgs, FluxSubStore>,
-): Promise<UseRenameArgs> => {
+  params: Flux.UpdateParams<UseRenameParams, FluxSubStore>,
+): Promise<UseRenameParams> => {
   const {
     client,
     data,
@@ -391,7 +401,10 @@ export const rename = async (
   return data;
 };
 
-export const { useUpdate: useRename } = Flux.createUpdate<UseRenameArgs, FluxSubStore>({
+export const { useUpdate: useRename } = Flux.createUpdate<
+  UseRenameParams,
+  FluxSubStore
+>({
   name: RESOURCE_NAME,
   verbs: Flux.RENAME_VERBS,
   update: rename,

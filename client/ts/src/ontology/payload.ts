@@ -106,7 +106,7 @@ export const relationshipToString = (relationship: Relationship) =>
 
 export const PARENT_OF_RELATIONSHIP_TYPE = "parent";
 
-export interface MatchRelationshipArgs {
+export interface MatchRelationshipParams {
   from?: Partial<ID>;
   type: string;
   to?: Partial<ID>;
@@ -114,7 +114,7 @@ export interface MatchRelationshipArgs {
 
 export const matchRelationship = (
   relationship: Relationship,
-  match: MatchRelationshipArgs,
+  match: MatchRelationshipParams,
 ) => {
   if (match.type != null && match.type !== relationship.type) return false;
   if (match.from?.type != null && match.from.type !== relationship.from.type)

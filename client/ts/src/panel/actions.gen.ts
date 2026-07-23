@@ -34,7 +34,10 @@ export type RenamePayload = z.infer<typeof renamePayloadZ>;
  * that location and the tab is inserted into the new empty leaf; a center location
  * places the tab directly in the resolved leaf, equivalent to absent. Inserting a
  * resource tab whose resource already backs a tab in the panel is a no-op: a resource
- * may back at most one tab per panel, and callers select the existing tab instead.
+ * may back at most one tab per panel, and callers select the existing tab instead. When
+ * singleton is set and the tab is a view, the insert is a no-op if a view of the same
+ * type already backs a tab in the panel: a singleton view backs at most one tab per
+ * panel, and callers select the existing tab instead.
  */
 export const insertTabPayloadZ = z.object({
   tab: tabZ,
@@ -42,6 +45,7 @@ export const insertTabPayloadZ = z.object({
   targetTab: tabKeyZ.optional(),
   index: z.int32().optional(),
   location: spatial.locationZ.optional(),
+  singleton: z.boolean().optional(),
 });
 
 export type InsertTabPayload = z.infer<typeof insertTabPayloadZ>;

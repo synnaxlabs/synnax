@@ -20,12 +20,10 @@ import {
   Schematic,
   Text,
 } from "@synnaxlabs/pluto";
-import React, { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState } from "react";
 
 import { Edit } from "@/feature/schematic/symbol/edit";
 import { CSS } from "@/platform/css";
-
-const SELECT_GROUP_STYLE: React.CSSProperties = { maxWidth: "60rem" };
 
 export const MissingForm = (): ReactElement => {
   const form = Form.useContext();
@@ -73,7 +71,7 @@ export const MissingForm = (): ReactElement => {
               value={createGroupKey}
               onChange={setCreateGroupKey}
               initialQuery={{ parent: group.ontologyID(symbolGroup.data.key) }}
-              style={SELECT_GROUP_STYLE}
+              className={CSS.B("schematic-missing-symbol-select-group")}
               grow
             />
           )}

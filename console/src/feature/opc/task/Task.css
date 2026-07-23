@@ -20,3 +20,23 @@
         }
     }
 }
+
+.console-opc-task-header {
+    height: 4.5rem;
+    flex-shrink: 0;
+    flex-grow: 0;
+}
+
+.console-opc-task-empty-text {
+    display: inline-block;
+    max-width: 300px;
+}
+
+.console-opc-task-variable-icon {
+    font-size: 2.5rem;
+    transform: translateY(0.5rem);
+}
+
+.console-opc-array-size-field {
+    width: 100px;
+}

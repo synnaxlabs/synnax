@@ -120,8 +120,8 @@ const createStoreConfig = <T>(
 });
 
 const createStreamerArgs = (
-  overrides?: Partial<flux.StreamerArgs<flux.Store>>,
-): flux.StreamerArgs<flux.Store> => ({
+  overrides?: Partial<flux.StreamerParams<flux.Store>>,
+): flux.StreamerParams<flux.Store> => ({
   handleError: createBasicErrorHandler(),
   storeConfig: { labels: { listeners: [] } },
   client: createTestClient(),

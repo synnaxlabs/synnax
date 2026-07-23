@@ -190,7 +190,7 @@ export const Browser = ({ device }: BrowserProps) => {
   else if (initialLoading)
     content = (
       <Flex.Box center>
-        <Icon.Loading style={{ fontSize: "5rem" }} color={7} />
+        <Icon.Loading className={CSS.BE("opc-browser", "loading-icon")} color={7} />
       </Flex.Box>
     );
   else

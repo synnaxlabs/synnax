@@ -26,13 +26,13 @@ export interface EnabledState {
   allDisabled: boolean;
 }
 
-export interface SelectEnabledStateArgs {
+export interface SelectEnabledStateParams {
   keys: device.Key[];
 }
 
 export const [useSelectEnabledState] = Flux.createSelector<
   Device.FluxSubStore,
-  SelectEnabledStateArgs,
+  SelectEnabledStateParams,
   EnabledState,
   SlaveDevice[]
 >({

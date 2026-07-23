@@ -53,7 +53,7 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 	}
 	return Type{
 		FunctionProperties: functionProperties,
-		Kind:               old.Kind,
+		Kind:               Kind(old.Kind),
 		Name:               old.Name,
 		Elem:               elem,
 		Unit:               old.Unit,

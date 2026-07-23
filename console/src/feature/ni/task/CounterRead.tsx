@@ -33,17 +33,11 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const COUNTER_READ_LAYOUT: Task.Layout = {
-  ...Task.LAYOUT,
+export const CounterReadSelectable = Selector.createSelectable({
   type: COUNTER_READ_TYPE,
-  name: ZERO_COUNTER_READ_PAYLOAD.name,
-  icon: "Logo.NI",
-};
-
-export const CounterReadSelectable = Selector.createSimpleItem({
   title: "NI Counter Read Task",
   icon: <Icon.Logo.NI />,
-  layout: COUNTER_READ_LAYOUT,
+  useOnSelect: Task.createOpenTab(COUNTER_READ_TYPE),
 });
 
 const Properties = () => (
@@ -70,7 +64,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const canTare = enabled && isRunning;
   const Icon = CI_CHANNEL_TYPE_ICONS[type];
   return (
-    <Task.Layouts.ListAndDetailsChannelItem
+    <Task.Views.ListAndDetailsChannelItem
       {...rest}
       port={port}
       canTare={canTare}
@@ -84,7 +78,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   );
 };
 
-const ChannelDetails = ({ path }: Task.Layouts.DetailsProps) => {
+const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
   const type = PForm.useFieldValue<CIChannelType>(`${path}.type`);
   return (
     <>
@@ -105,7 +99,7 @@ const Form: FC<Task.FormProps<CounterReadSchemas>> = () => {
     [tare],
   );
   return (
-    <Task.Layouts.ListAndDetails<CIChannel>
+    <Task.Views.ListAndDetails<CIChannel>
       listItem={listItem}
       details={channelDetails}
       createChannel={createCIChannel}

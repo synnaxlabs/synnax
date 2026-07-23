@@ -36,7 +36,7 @@ const channelNameSort = (a: string, b: string) => {
  *
  * @template ScopedStore - The type of the store
  */
-export interface StreamerArgs<ScopedStore extends Store> {
+export interface StreamerParams<ScopedStore extends Store> {
   /** Function to handle errors that occur during streaming */
   handleError: Status.AsyncErrorHandler;
   /** Configuration defining store structure and listeners */
@@ -63,7 +63,7 @@ export const openStreamer = async <ScopedStore extends Store>({
   handleError,
   client,
   store,
-}: StreamerArgs<ScopedStore>): Promise<destructor.Async> => {
+}: StreamerParams<ScopedStore>): Promise<destructor.Async> => {
   const configValues = Object.values(storeConfig);
   const channels = unique.unique(
     configValues.flatMap(({ listeners }) => listeners.map(({ channel }) => channel)),

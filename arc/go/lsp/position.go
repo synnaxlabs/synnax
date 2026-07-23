@@ -40,7 +40,7 @@ func findScopeRecursive(scope *symbol.Symbol, line, col int, deepest **symbol.Sy
 	if scope == nil {
 		return
 	}
-	if scope.AST != nil {
+	if scope.AST != nil && !scope.Internal {
 		start := scope.AST.GetStart()
 		stop := scope.AST.GetStop()
 		if start != nil && stop != nil && isPositionInTokenRange(line, col, start, stop) {

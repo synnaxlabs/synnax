@@ -103,6 +103,11 @@ func (t Type) String() string {
 			return "series " + t.Elem.String()
 		}
 		return "series <invalid>"
+	case KindVarRef:
+		if t.Elem != nil {
+			return "var " + t.Elem.String()
+		}
+		return "var <invalid>"
 	case KindVariable:
 		if t.Constraint != nil {
 			return t.Constraint.String()

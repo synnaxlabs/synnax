@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/arc/graph/node/source/Source.css";
+
 import { Base } from "@/arc/graph/node/Base";
 import { type Config } from "@/arc/graph/node/source/config";
 import { type types } from "@/arc/graph/node/types";
 import { Channel } from "@/channel";
+import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 
@@ -33,7 +36,7 @@ export const Symbol = ({ config: { channel } }: SymbolProps) => {
         level="p"
         weight={500}
         color={10}
-        style={{ maxWidth: 100 }}
+        className={CSS.BE("arc", "source-label")}
         overflow="ellipsis"
       >
         {name}

@@ -398,6 +398,52 @@ func main() {
 			Expect(hover.Contents.Value).To(ContainSubstring("Persists across executions"))
 		})
 
+		It("should provide hover for a channel read/write alias", func(ctx SpecContext) {
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil, symbol.Symbol{
+						Name: "sensorData", Type: types.Chan(types.F64()),
+						Kind: symbol.KindChannel,
+					})
+				},
+			})
+			OpenArcDocument(server, ctx, uri, "cpu := sensorData\n")
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 1}, // c|pu
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### cpu"))
+			Expect(hover.Contents.Value).To(ContainSubstring("chan read/write f64"))
+		})
+
+		It("should provide hover for a reactive variable", func(ctx SpecContext) {
+			server, uri = SetupTestServer(lsp.Config{
+				NewRoot: func() *symbol.Symbol {
+					return NewRoot(nil, symbol.Symbol{
+						Name: "sensorData", Type: types.Chan(types.F64()),
+						Kind: symbol.KindChannel,
+					})
+				},
+			})
+			OpenArcDocument(server, ctx, uri, "rate := sensorData + 1.0\n")
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 1}, // r|ate
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### rate"))
+			Expect(hover.Contents.Value).To(ContainSubstring("chan read f64"))
+		})
+
 		It("should provide hover for function parameters", func(ctx SpecContext) {
 			content := `func multiply(x f64, y f64) f64 {
     return x * y

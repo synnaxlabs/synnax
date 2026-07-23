@@ -175,30 +175,10 @@ area := distance ^ 2 // f64 m^2 (literal exponent required)
 
 ## Variables
 
-### Constants
-
-Top-level declarations using `:=` are compile-time constants. Values are inlined at each
-reference site with no runtime overhead.
-
-```
-GlobalConstant ::= Identifier ':=' Literal
-                 | Identifier Type ':=' Literal
-```
-
-Only literal values are allowed (no expressions). Constants can be used in expressions
-and as function input values.
-
-```arc
-MAX_PRESSURE := 500.0 // f64 constant
-SAMPLE_COUNT := 100 // i64 constant
-TIMEOUT := 30s // with unit suffix
-SCALE f32 := 2.5 // explicit type
-
-pressure > MAX_PRESSURE -> alarm{}
-sensor -> scale{gain=SCALE} -> output
-```
-
-### Declaration and Assignment
+A variable names a value. `:=` declares a variable; `$=` declares a stateful variable.
+Variables are valid at the top level and inside functions, sequences, and stages. A
+top-level variable is immutable: it cannot be reassigned, rebound, or written by a flow,
+and cannot be stateful.
 
 ```
 LocalVariable ::= Identifier ':=' Expression
@@ -210,8 +190,18 @@ StatefulVariable ::= Identifier '$=' Expression
 Assignment ::= Identifier '=' Expression
 ```
 
-**Local variables** (`:=`) inside functions reset on each invocation. **Stateful
-variables** (`$=`) persist across function invocations.
+A variable's kind is inferred from its initializer:
+
+- **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
+  into its declaring scope. `$=` makes a literal stateful, keeping its value across
+  entries; only literals can be stateful.
+- **Channel read**: a read-only expression over one or more channels
+  (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
+  the variable updates and every flow that reads it re-runs with the new value. A flow
+  write is rejected; reassigning with `=` rebinds the expression rather than replacing a
+  value.
+- **Channel read/write**: a bare channel reference (`c := valve_cmd`). Reads and writes
+  the channel; `=` rebinds it to another channel of the same type.
 
 ```arc
 count := 0 // local
@@ -229,8 +219,10 @@ ratio /= 4 // ratio = ratio / 4
 remainder %= 3 // remainder = remainder % 3
 ```
 
-**Rules**: Variables are function-scoped. No shadowing of global names. Declaration once
-per scope. Type inference from initial value.
+**Rules**: Variables are scoped to the block that declares them (a function, sequence,
+stage, or the top level) and are usable only after their declaration. No shadowing of
+names in an enclosing scope. Declaration once per scope. Type inference from the
+initializer.
 
 ## Operators
 
@@ -418,6 +410,8 @@ func counter() i64 {
 }
 ```
 
+A `$=` initializer must be a literal value; only literal variables can be stateful.
+
 ### Channel Operations in Functions
 
 Functions can read from and write to channels:
@@ -493,7 +487,7 @@ RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
 RoutingEntry ::= Identifier ':' FlowNode ('->' FlowNode)* (':' Identifier)?
 
-FlowNode ::= Identifier           // channel, stage, or sequence name
+FlowNode ::= Identifier           // channel, variable, stage, or sequence name
            | FunctionInvocation   // func{...}
            | Expression           // inline computation
            | 'next'               // next stage (sequences only)
@@ -541,8 +535,9 @@ Map multiple sources to named input parameters:
 
 ### Expressions in Flows
 
-Inline expressions act as implicit functions. Expressions can reference global-scope
-identifiers (channels), literals, and function calls—but not function-local variables.
+Inline expressions act as implicit functions. Expressions can reference identifiers in
+scope (channels, variables), literals, and function calls, but not function-local
+variables.
 
 ```arc
 temperature > 100 -> alarm{} // comparison
@@ -652,10 +647,11 @@ stage is active.
 
 When entering a stage:
 
-1. All stateful nodes in the stage are reset
+1. Local variables (`:=`) reset to their initial values; stateful variables (`$=`) keep
+   their state
 2. Reactive flows start fresh
 
-Stages are stateless between entries—no implicit memory of previous time in the stage.
+Aside from stateful variables (`$=`), a stage keeps no memory between entries.
 
 ### Cross-Sequence Transitions
 

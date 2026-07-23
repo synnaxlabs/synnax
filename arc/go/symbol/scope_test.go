@@ -13,6 +13,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -31,6 +32,17 @@ var _ = Describe("Scope", func() {
 			ch := symbol.Symbol{Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8())}
 			s := symbol.NewRoot(StaticResolver{ch}, nil)
 			Expect(MustSucceed(s.Resolve(bCtx, "ch")).Name).To(Equal("ch"))
+		})
+
+		It("Should resolve lexically through a resolver set after construction", func(bCtx SpecContext) {
+			enc := symbol.NewRoot(nil, nil)
+			MustSucceed(enc.Add(bCtx, symbol.Symbol{
+				Name: "shared", Kind: symbol.KindVariable, Type: types.I32(),
+			}))
+			fn := symbol.NewRoot(nil, nil)
+			fn.SetLexicalResolver(enc)
+			Expect(MustSucceed(fn.Resolve(bCtx, "shared")).Name).To(Equal("shared"))
+			Expect(MustSucceed(fn.Search(bCtx, "shared"))).ToNot(BeEmpty())
 		})
 	})
 
@@ -228,6 +240,34 @@ var _ = Describe("Scope", func() {
 			rootScope := symbol.NewRoot(nil, nil)
 			found := rootScope.FindChild("nonexistent")
 			Expect(found).To(BeNil())
+		})
+	})
+
+	Describe("Children", func() {
+		It("Should return the directly contained symbols", func(bCtx SpecContext) {
+			rootScope := symbol.NewRoot(nil, nil)
+			a := MustSucceed(rootScope.Add(
+				bCtx,
+				symbol.Symbol{Name: "a", Kind: symbol.KindVariable, Type: types.I32()},
+			))
+			b := MustSucceed(rootScope.Add(
+				bCtx,
+				symbol.Symbol{Name: "b", Kind: symbol.KindVariable, Type: types.I32()},
+			))
+			Expect(rootScope.Children()).To(Equal([]*symbol.Symbol{a, b}))
+		})
+
+		It("Should delegate a module alias to its target's children", func() {
+			member := &symbol.Symbol{Name: "abs", Kind: symbol.KindFunction}
+			module := (&symbol.Symbol{Name: "math", Kind: symbol.KindModule}).
+				AddChild(member)
+			alias := &symbol.Symbol{Kind: symbol.KindModuleAlias, Target: module}
+			Expect(alias.Children()).To(Equal([]*symbol.Symbol{member}))
+		})
+
+		It("Should return the alias's own children when Target is nil", func() {
+			alias := &symbol.Symbol{Kind: symbol.KindModuleAlias}
+			Expect(alias.Children()).To(BeEmpty())
 		})
 	})
 
@@ -548,6 +588,21 @@ var _ = Describe("Scope", func() {
 			scopes := MustSucceed(rootScope.Search(bCtx, "xyz"))
 			Expect(scopes).To(BeEmpty())
 		})
+		It("Should fuzzy-match a term within edit distance two", func(bCtx SpecContext) {
+			rootScope := symbol.NewRoot(nil, nil)
+			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "valve", Kind: symbol.KindVariable, Type: types.I32()}))
+			Expect(scope).ToNot(BeNil())
+			scopes := MustSucceed(rootScope.Search(bCtx, "vlve"))
+			Expect(scopes).To(HaveLen(1))
+			Expect(scopes[0].Name).To(Equal("valve"))
+		})
+		It("Should not fuzzy-match a term of two characters or fewer", func(bCtx SpecContext) {
+			rootScope := symbol.NewRoot(nil, nil)
+			scope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "ab", Kind: symbol.KindVariable, Type: types.I32()}))
+			Expect(scope).ToNot(BeNil())
+			scopes := MustSucceed(rootScope.Search(bCtx, "ba"))
+			Expect(scopes).To(BeEmpty())
+		})
 		It("Should return all symbols for empty prefix", func(bCtx SpecContext) {
 			rootScope := symbol.NewRoot(nil, nil)
 			fooScope := MustSucceed(rootScope.Add(bCtx, symbol.Symbol{Name: "foo", Kind: symbol.KindVariable, Type: types.I32()}))
@@ -797,4 +852,32 @@ var _ = Describe("Scope", func() {
 			})
 		})
 	})
+})
+
+var _ = Describe("Name conflicts", func() {
+	// A conflict message names the kind of the symbol already holding the name,
+	// exercising Kind.noun for each kind.
+	DescribeTable("Should name the colliding symbol's kind",
+		func(bCtx SpecContext, kind symbol.Kind, noun string) {
+			ast := MustSucceed(parser.ParseStatement("x := 1"))
+			root := symbol.NewRoot(nil, nil)
+			MustSucceed(root.Add(bCtx, symbol.Symbol{
+				Name: "dup", Kind: kind, Type: types.I32(), AST: ast,
+			}))
+			Expect(root.Add(bCtx, symbol.Symbol{
+				Name: "dup", Kind: symbol.KindVariable, Type: types.I32(), AST: ast,
+			})).Error().To(MatchError(ContainSubstring("conflicts with existing " + noun)))
+		},
+		Entry("variable", symbol.KindVariable, "variable"),
+		Entry("stateful variable", symbol.KindStatefulVariable, "variable"),
+		Entry("channel", symbol.KindChannel, "channel"),
+		Entry("function", symbol.KindFunction, "function"),
+		Entry("input parameter", symbol.KindInput, "input parameter"),
+		Entry("output parameter", symbol.KindOutput, "output parameter"),
+		Entry("sequence", symbol.KindSequence, "sequence"),
+		Entry("stage", symbol.KindStage, "stage"),
+		Entry("constant", symbol.KindConstant, "constant"),
+		Entry("module alias", symbol.KindModuleAlias, "import"),
+		Entry("block falls back to symbol", symbol.KindBlock, "symbol"),
+	)
 })
