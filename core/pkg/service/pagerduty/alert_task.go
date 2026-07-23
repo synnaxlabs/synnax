@@ -106,7 +106,7 @@ func (t *alertTask) Exec(ctx context.Context, cmd task.Command) error {
 	case "start":
 		return t.start(ctx)
 	case "stop":
-		return t.stop(ctx)
+		return t.stop(ctx, true)
 	default:
 		return driver.ErrUnsupportedCommand
 	}
@@ -127,14 +127,18 @@ func (t *alertTask) start(ctx context.Context) error {
 	return nil
 }
 
-func (t *alertTask) Stop() error { return t.stop(context.TODO()) }
+func (t *alertTask) Stop(sendStatus bool) error {
+	return t.stop(context.TODO(), sendStatus)
+}
 
-func (t *alertTask) stop(ctx context.Context) error {
+func (t *alertTask) stop(ctx context.Context, sendStatus bool) error {
 	if t.disconnect != nil {
 		t.disconnect()
 		t.disconnect = nil
 	}
-	t.updateStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
+	if sendStatus {
+		t.updateStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
+	}
 	return nil
 }
 

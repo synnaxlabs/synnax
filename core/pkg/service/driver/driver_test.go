@@ -207,7 +207,7 @@ var _ = Describe("Driver", func() {
 					}
 					return &mockTask{
 						key: t.Key,
-						stopFunc: func() error {
+						stopFunc: func(bool) error {
 							if t.Key == taskKey.Load() {
 								stopCount.Add(1)
 							}
@@ -311,9 +311,10 @@ var _ = Describe("Driver", func() {
 
 		It("should stop the live instance when a started task moves to another rack", func(ctx SpecContext) {
 			var (
-				stopped   atomic.Bool
-				execCount atomic.Int32
-				taskKey   atomic.Value
+				stopped         atomic.Bool
+				stoppedSilently atomic.Bool
+				execCount       atomic.Int32
+				taskKey         atomic.Value
 			)
 			factory := &mockFactory{
 				name: "test",
@@ -327,8 +328,9 @@ var _ = Describe("Driver", func() {
 							execCount.Add(1)
 							return nil
 						},
-						stopFunc: func() error {
+						stopFunc: func(sendStatus bool) error {
 							if t.Key == taskKey.Load() {
+								stoppedSilently.Store(!sendStatus)
 								stopped.Store(true)
 							}
 							return nil
@@ -354,6 +356,7 @@ var _ = Describe("Driver", func() {
 			// teardown signal for the instance it still holds.
 			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})
 			Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
+			Expect(stoppedSilently.Load()).To(BeTrue())
 		})
 
 		It("should ignore start commands for snapshot tasks", func(ctx SpecContext) {
@@ -397,7 +400,7 @@ var _ = Describe("Driver", func() {
 					}
 					return &mockTask{
 						key: t.Key,
-						stopFunc: func() error {
+						stopFunc: func(bool) error {
 							if t.Key == taskKey.Load() {
 								stopped.Store(true)
 							}
@@ -438,7 +441,7 @@ var _ = Describe("Driver", func() {
 					}
 					return &mockTask{
 						key: t.Key,
-						stopFunc: func() error {
+						stopFunc: func(bool) error {
 							if t.Key == taskKey.Load() {
 								stopCalled.Store(true)
 							}
@@ -667,7 +670,7 @@ var _ = Describe("Driver", func() {
 					configCount.Add(1)
 					return &mockTask{
 						key: t.Key,
-						stopFunc: func() error {
+						stopFunc: func(bool) error {
 							if t.Key == taskKey.Load() {
 								stopCalled.Store(true)
 							}
@@ -787,7 +790,7 @@ var _ = Describe("Driver", func() {
 					}
 					return &mockTask{
 						key: t.Key,
-						stopFunc: func() error {
+						stopFunc: func(bool) error {
 							if _, isTestTask := testTaskKeys.Load(t.Key); isTestTask {
 								stopCount.Add(1)
 							}
@@ -844,7 +847,7 @@ var _ = Describe("Driver", func() {
 					}
 					return &mockTask{
 						key: t.Key,
-						stopFunc: func() error {
+						stopFunc: func(bool) error {
 							if t.Key == taskKey.Load() {
 								stopCalled.Store(true)
 							}

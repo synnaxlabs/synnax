@@ -414,26 +414,36 @@ TEST_F(TaskManagerTest, Delete) {
     ASSERT_EQ(s.details.task, task.key);
 }
 
-TEST_F(TaskManagerTest, RackMoveStopsLiveInstance) {
-    start_manager(std::make_unique<EchoTaskFactory>());
+TEST_F(TaskManagerTest, RackMoveStopsLiveInstanceSilently) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
     auto task = synnax::task::Task{
         .rack = rack.key,
         .name = "t",
-        .type = "echo",
+        .type = "tracking",
     };
     ASSERT_NIL(rack.tasks.create(task));
-    send_start(client, task);
-    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.message == "configured";
-    });
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    auto state = f->task_states[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
     task.rack = other.key;
     ASSERT_NIL(other.tasks.create(task));
-    send_start(client, task);
-    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
-        return s.message == "stopped";
-    });
-    ASSERT_EQ(s.details.task, task.key);
+    // The redeploy start lands on the new rack; here it silently frees the
+    // instance this driver still holds.
+    send_start(client, task, "s2");
+    EVENTUALLY([&] { return state->stopped.load(); }, [] { return "not stopped"; });
+    ASSERT_TRUE(state->stop_will_reconfigure.load());
 }
 
 TEST_F(TaskManagerTest, Command) {

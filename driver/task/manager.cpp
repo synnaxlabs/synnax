@@ -206,8 +206,7 @@ void Manager::process_start(const synnax::task::Command &cmd) {
             VLOG(1) << "ignoring start for task " << tsk;
             return;
         }
-        LOG(INFO) << "stopping task moved to another rack " << tsk;
-        this->op_queue.push_back(Op{Op::Type::REMOVE, cmd.task, {}, {}});
+        this->op_queue.push_back(Op{Op::Type::RELEASE, cmd.task, {}, {}});
         this->cv.notify_one();
         return;
     }
@@ -432,6 +431,15 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) cons
             if (entry->task == nullptr) return;
             LOG(INFO) << "deleting task " << entry->task->name();
             entry->task->stop(false);
+            entry->task = nullptr;
+            break;
+        }
+        case Op::Type::RELEASE: {
+            this->deploys_->remove(op.task_key);
+            if (entry->task == nullptr) return;
+            LOG(INFO) << "releasing task moved to another rack: "
+                      << entry->task->name();
+            entry->task->stop(true);
             entry->task = nullptr;
             break;
         }

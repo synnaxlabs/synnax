@@ -368,8 +368,10 @@ private:
 
     /// @brief an operation to be executed by a worker.
     struct Op {
-        /// @brief types of operations that can be queued.
-        enum class Type { CONFIGURE, COMMAND, SHUTDOWN, REMOVE };
+        /// @brief types of operations that can be queued. RELEASE frees the live
+        /// instance without a terminal status: a successor on another rack owns
+        /// status reporting.
+        enum class Type { CONFIGURE, COMMAND, SHUTDOWN, REMOVE, RELEASE };
         Type type;
         synnax::task::Key task_key;
         synnax::task::Task task;

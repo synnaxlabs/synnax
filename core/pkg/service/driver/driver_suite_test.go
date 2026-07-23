@@ -129,7 +129,7 @@ func (f *mockFactory) Name() string { return f.name }
 // mockTask is a test implementation of driver.Task.
 type mockTask struct {
 	execFunc func(context.Context, task.Command) error
-	stopFunc func() error
+	stopFunc func(sendStatus bool) error
 	key      task.Key
 }
 
@@ -140,9 +140,9 @@ func (t *mockTask) Exec(ctx context.Context, cmd task.Command) error {
 	return nil
 }
 
-func (t *mockTask) Stop() error {
+func (t *mockTask) Stop(sendStatus bool) error {
 	if t.stopFunc != nil {
-		return t.stopFunc()
+		return t.stopFunc(sendStatus)
 	}
 	return nil
 }
