@@ -80,7 +80,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			continue
 		}
 
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") || omit.IsType(entry, "go") {
 			continue
 		}
 
@@ -100,7 +100,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") || omit.IsType(entry, "go") {
 			continue
 		}
 
@@ -131,7 +131,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		if outputPath == "" {
 			continue
 		}
-		if omit.IsType(entry, "pb") {
+		if omit.IsSkipped(entry, "pb") || omit.IsType(entry, "go") {
 			continue
 		}
 		if req.RepoRoot != "" {
@@ -154,7 +154,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	// schema fails to compile against its missing import.
 	enumOnlyNamespace := make(map[string]string)
 	for _, e := range req.Resolutions.EnumTypes() {
-		if omit.IsType(e, "pb") {
+		if omit.IsSkipped(e, "pb") || omit.IsType(e, "go") {
 			continue
 		}
 		outputPath := enum.FindPBOutputPath(e, req.Resolutions)
@@ -277,7 +277,7 @@ func (p *Plugin) generateFile(
 	data.parentAlias = parentAlias
 
 	for _, s := range structs {
-		if omit.IsType(s, "pb") {
+		if omit.IsSkipped(s, "pb") || omit.IsType(s, "go") {
 			continue
 		}
 		form, ok := s.Form.(resolution.StructForm)
@@ -357,7 +357,7 @@ func (p *Plugin) generateFile(
 
 	for i := range enums {
 		e := enums[i]
-		if omit.IsType(e, "pb") {
+		if omit.IsSkipped(e, "pb") || omit.IsType(e, "go") {
 			continue
 		}
 		enumPBPath := output.GetPBPath(e)
@@ -384,7 +384,7 @@ func (p *Plugin) generateFile(
 	}
 
 	for _, td := range typeDefs {
-		if omit.IsType(td, "pb") {
+		if omit.IsSkipped(td, "pb") || omit.IsType(td, "go") {
 			continue
 		}
 		form, ok := td.Form.(resolution.DistinctForm)

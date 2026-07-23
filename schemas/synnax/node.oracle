@@ -19,5 +19,5 @@ Key uint12 {
         cluster. Assigned dynamically when nodes join via distributed counter. Range:
         0-4095, where 4095 is reserved for 'free' and 1 for the bootstrapper.
     """
-    @go omit
+    @go hand
 }

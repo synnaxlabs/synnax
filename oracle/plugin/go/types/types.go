@@ -539,7 +539,7 @@ func generateGoFile(
 
 	var predAlias string
 	for _, d := range orderDecls(table, typeDefs, enums, structs, unions) {
-		if omit.IsType(d.typ, "go") {
+		if omit.IsSkipped(d.typ, "go") {
 			continue
 		}
 		if d.kind == declEnum && d.typ.Namespace != namespace {

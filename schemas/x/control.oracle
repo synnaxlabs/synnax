@@ -89,7 +89,7 @@ Transfer struct<R extends comparable> {
     If both From and To are nil, no transfer occurred. If both From and To are not nil,
     and From.Subject != To.Subject, a transfer occurred.
     """
-    @ts omit
+    @ts hand
 }
 
 Update struct<R extends comparable> {
@@ -98,5 +98,5 @@ Update struct<R extends comparable> {
     }
 
     @doc value "represents a batch of control transfers that occurred atomically."
-    @ts omit
+    @ts hand
 }

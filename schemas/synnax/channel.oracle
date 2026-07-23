@@ -24,7 +24,7 @@ Key uint32 {
         assignment while maintaining global uniqueness.
     """
     @go output    "core/pkg/service/channel"
-    @go omit
+    @go hand
     @ts to_number
 }
 
@@ -35,7 +35,7 @@ LocalKey uint20 {
         Key.
     """
     @go output "core/pkg/service/channel"
-    @go omit
+    @go hand
     @py omit
     @cpp omit
 }
@@ -160,9 +160,9 @@ Channel struct {
     @retrieve key  "Key"
     @search
     @ontology type "channel"
-    @py omit
-    @ts omit
-    @cpp omit
+    @py hand
+    @ts hand
+    @cpp hand
     @pb
 }
 

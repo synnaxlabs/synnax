@@ -74,7 +74,7 @@ func (g PersistenceGate) Run(_ context.Context, p *pipeline.Result, _ Env) GateR
 		})
 	}
 	for _, t := range p.Resolutions.Types {
-		if omit.IsType(t, "go") || output.GetPath(t, "go") == "" {
+		if omit.IsSkipped(t, "go") || output.GetPath(t, "go") == "" {
 			continue
 		}
 		versioned := domain.HasExprFromType(t, "go", "version")

@@ -1160,7 +1160,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToNotContain(`#include "client/cpp/ontology/json.gen.h"`)
 			})
 
-			It("Should include types.gen.h for references into packages with only omitted structs", func(ctx SpecContext) {
+			It("Should include types.gen.h for references into packages with only hand-written structs", func(ctx SpecContext) {
 				loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 					@pb output "x/go/telem/pb"
@@ -1169,7 +1169,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						start uint64
 						end   uint64
 
-						@cpp omit
+						@cpp hand
 					}
 				`)
 
@@ -1215,7 +1215,7 @@ var _ = Describe("C++ PB Plugin", func() {
 					ToNotContain(`#include "client/cpp/ontology/json.gen.h"`)
 			})
 
-			It("Should include types.gen.h for references into packages with only omitted structs", func(ctx SpecContext) {
+			It("Should include types.gen.h for references into packages with only hand-written structs", func(ctx SpecContext) {
 				loader.Add("schemas/telem", `
 					@cpp output "x/cpp/telem"
 					@pb output "x/go/telem/pb"
@@ -1224,7 +1224,7 @@ var _ = Describe("C++ PB Plugin", func() {
 						start uint64
 						end   uint64
 
-						@cpp omit
+						@cpp hand
 					}
 				`)
 

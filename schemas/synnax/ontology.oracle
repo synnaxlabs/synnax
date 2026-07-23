@@ -44,10 +44,10 @@ ResourceType enum {
 }
 
 RelationshipType string {
-    @go omit
-    @ts omit
+    @go hand
+    @ts hand
     @cpp omit
-    @py omit
+    @py hand
 }
 
 ID struct {
@@ -75,9 +75,9 @@ ID struct {
        unique for a particular resource (e.g. channel), it might not be unique across all
        resources. We need something universally unique across the entire Synnax Core.
     """
-    @ts omit
-    @cpp omit
-    @py omit
+    @ts hand
+    @cpp hand
+    @py hand
 }
 
 Resource struct {
@@ -97,12 +97,11 @@ Resource struct {
         is a resource in the ontology system with its identifier, name, and
         optional metadata.
     """
-    @go omit
+    @go hand
     @go marshal
-    @ts omit
-    @go omit
+    @ts hand
     @cpp omit
-    @py omit
+    @py hand
     @pb omit
 }
 
@@ -121,11 +120,10 @@ Relationship struct {
         is a directional relationship between two resources in the ontology
         system.
     """
-    @go omit
+    @go hand
     @go marshal
-    @ts omit
-    @go omit
+    @ts hand
     @cpp omit
-    @py omit
+    @py hand
     @pb omit
 }

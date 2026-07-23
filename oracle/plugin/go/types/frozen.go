@@ -59,7 +59,7 @@ func frozenAliasSplit(
 	var entries []entry
 	ownerToQualified := make(map[string]string)
 	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
-		if omit.IsType(d.typ, "go") {
+		if omit.IsSkipped(d.typ, "go") {
 			continue
 		}
 		if d.kind == declEnum && d.typ.Namespace != ctx.Namespace {

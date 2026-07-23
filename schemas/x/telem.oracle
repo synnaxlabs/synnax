@@ -20,9 +20,9 @@ TimeStamp int64 {
         (1970-01-01 00:00:00 UTC). Provides nanosecond precision for high-frequency
         telemetry timestamps.
     """
-    @ts omit
-    @cpp omit
-    @py omit
+    @ts hand
+    @cpp hand
+    @py hand
 }
 
 TimeSpan int64 {
@@ -32,9 +32,9 @@ TimeSpan int64 {
         for expressing time intervals, sampling periods, and durations throughout
         the telemetry system.
     """
-    @ts omit
-    @cpp omit
-    @py omit
+    @ts hand
+    @cpp hand
+    @py hand
 }
 
 TimeRange struct {
@@ -51,16 +51,16 @@ TimeRange struct {
         start-inclusive and end-exclusive, following standard interval conventions
         for predictable boundary handling.
     """
-    @ts omit
-    @cpp omit
-    @py omit
+    @ts hand
+    @cpp hand
+    @py hand
     @go marshal
 }
 
 TimeRangeBounded = TimeRange {
     @doc value "is a TimeRange alias used for type-safety in contexts requiring bounded time ranges."
     @go omit
-    @ts omit
+    @ts hand
     @cpp omit
     @py omit
 }
@@ -71,9 +71,9 @@ Rate float64 {
         is a data sampling rate expressed in Hertz (Hz). Used to specify
         acquisition frequencies and calculate sample counts over time intervals.
     """
-    @ts omit
-    @cpp omit
-    @py omit
+    @ts hand
+    @cpp hand
+    @py hand
 }
 
 Size int64 {
@@ -83,9 +83,9 @@ Size int64 {
         representation. Supports conversion to human-readable formats (B, kB,
         MB, GB, TB).
     """
-    @ts omit
-    @cpp omit
-    @py omit
+    @ts hand
+    @cpp hand
+    @py hand
 }
 
 Alignment uint64 {
@@ -95,9 +95,9 @@ Alignment uint64 {
         Packs a domain index (which array) and sample index (position within
         array) into a single value for efficient multi-dimensional data access.
     """
-    @ts omit
-    @cpp omit
-    @py omit
+    @ts hand
+    @cpp hand
+    @py hand
 }
 
 DataType string {
@@ -108,9 +108,9 @@ DataType string {
         known byte sizes and variable-density types (String, JSON, Bytes) for
         flexible data storage.
     """
-    @ts omit
-    @cpp omit
-    @py omit
+    @ts hand
+    @cpp hand
+    @py hand
 }
 
 TimestampFormat enum {

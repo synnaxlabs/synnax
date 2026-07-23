@@ -1261,11 +1261,11 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
-		Context("@go omit enum handling", func() {
-			It("Should use hand-written enum value format when @go omit", func(ctx SpecContext) {
+		Context("@go hand enum handling", func() {
+			It("Should generate against hand-written enum values when @go hand", func(ctx SpecContext) {
 				source := `
 					@go output "core/status"
-					@go omit
+					@go hand
 					@pb
 
 					Status enum {
@@ -1283,6 +1283,30 @@ var _ = Describe("Go PB Plugin", func() {
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("status.StatusActive").
 					ToContain("status.StatusInactive")
+			})
+		})
+
+		Context("@go omit handling", func() {
+			It("Should generate no translator for a type omitted in Go", func(ctx SpecContext) {
+				source := `
+					@go output "core/status"
+					@pb
+
+					Status enum {
+						@go omit
+						active = 0
+						inactive = 1
+					}
+
+					Task struct {
+						key uuid
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("func TaskToPB").
+					ToNotContain("Status")
 			})
 		})
 

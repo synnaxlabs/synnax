@@ -81,6 +81,7 @@ func Analyze(
 		return nil, diag
 	}
 	detectRecursiveTypes(table)
+	validateDomainOmits(table, diag)
 	return table, diag
 }
 
@@ -112,6 +113,7 @@ func AnalyzeSource(
 		return nil, diag
 	}
 	detectRecursiveTypes(table)
+	validateDomainOmits(table, diag)
 	return table, diag
 }
 
@@ -213,6 +215,7 @@ func analyze(c *analysisCtx) {
 		typ := &types[i]
 		resolveTypeRefs(c, typ)
 	}
+	validateDeadOutputs(c, types)
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {

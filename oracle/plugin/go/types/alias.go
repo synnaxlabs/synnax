@@ -108,7 +108,7 @@ func (g *aliasFileGenerator) GenerateFile(ctx *framework.GenerateContext) (strin
 	}
 
 	for _, d := range orderDecls(ctx.Table, ctx.TypeDefs, ctx.Enums, ctx.Structs, ctx.Unions) {
-		if omit.IsType(d.typ, "go") {
+		if omit.IsSkipped(d.typ, "go") {
 			continue
 		}
 		// Transient types generate real declarations at the package root

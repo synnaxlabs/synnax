@@ -48,6 +48,15 @@ or generator logic and schemas disagree.
   when another versioned schema embeds the type; unexported when only the package's own
   gorp wiring or auto-copies call it.
 
+## Omit vs Hand
+
+- `@<lang> omit`: the type does not exist in that language. References to it from
+  generating types are analyzer errors; a language output whose types are all omitted is
+  an analyzer error (remove the output).
+- `@<lang> hand`: the type exists, hand-written at the declared output path. No
+  declaration is generated, but references resolve to it, pb translators generate
+  against it, and it anchors the language output.
+
 ## Rules
 
 - Never hand-edit generated output — edit the schema, then sync (see Sync Workflow).

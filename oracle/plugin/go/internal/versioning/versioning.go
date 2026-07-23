@@ -154,7 +154,7 @@ func RewriteOutputPaths(table *resolution.Table, pathMap map[string]string) *res
 		// Omitted types carry no generated declaration; their hand-written
 		// homes follow the version layout (per-version alias files), so their
 		// references keep tracking the version directory.
-		if _, versioned := Version(typ); !versioned && !omit.IsType(typ, "go") {
+		if _, versioned := Version(typ); !versioned && !omit.IsHand(typ, "go") {
 			needsRewrite = false
 		}
 		if !needsRewrite {

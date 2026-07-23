@@ -78,7 +78,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						type string
 						key string
 
-						@go omit
+						@go hand
 					}
 
 					Outer struct {
@@ -351,7 +351,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 						key  string
 						type string
 
-						@go omit
+						@go hand
 					}
 
 					Nodes = Node[]
@@ -403,7 +403,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 					Details struct {
 						reason string
 
-						@go omit
+						@go hand
 					}
 
 					MyWrapper = Wrapper<Details>
@@ -620,7 +620,7 @@ var _ = Describe("Go Marshal Plugin", func() {
 
 					Inner struct {
 						name string
-						@go omit
+						@go hand
 					}
 
 					Test struct {
