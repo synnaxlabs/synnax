@@ -398,7 +398,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should scaffold the developer transform template", func() {
 				tmpl := fileContent(resp, "out/types/v2/migrate.go")
 				Expect(tmpl).To(ContainSubstring("package v2"))
-				Expect(tmpl).To(ContainSubstring("func MigrateEntry"))
+				Expect(tmpl).To(ContainSubstring("func migrateEntry"))
 				Expect(tmpl).To(ContainSubstring("autoMigrateEntry(ctx, old)"))
 			})
 		})
@@ -594,7 +594,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 			It("Should generate developer transform template", func() {
 				content := fileContent(resp, "out/types/v2/migrate.go")
 				Expect(content).To(ContainSubstring("package v2"))
-				Expect(content).To(ContainSubstring("func MigrateEntry"))
+				Expect(content).To(ContainSubstring("func migrateEntry"))
 				Expect(content).To(ContainSubstring("autoMigrateEntry"))
 				Expect(content).To(ContainSubstring("Edit this file"))
 			})
@@ -791,7 +791,7 @@ var _ = Describe("Go Migrate Plugin", func() {
 				`
 				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
 				transform := fileContent(resp, "out/types/v2/migrate.go")
-				Expect(transform).To(ContainSubstring("func MigrateEntry[Details any]"))
+				Expect(transform).To(ContainSubstring("func migrateEntry[Details any]"))
 				Expect(transform).To(ContainSubstring("old v1.Entry[Details]"))
 				Expect(transform).To(ContainSubstring(") (Entry[Details], error)"))
 				Expect(transform).To(ContainSubstring("autoMigrateEntry[Details](ctx, old)"))
@@ -1462,8 +1462,8 @@ var _ = Describe("Go Migrate Plugin", func() {
 				Expect(fileContent(resp, "out/types/v2/migrate_auto.gen.go")).
 					NotTo(BeEmpty())
 				tmpl := fileContent(resp, "out/types/v2/migrate.go")
-				Expect(tmpl).To(ContainSubstring("func MigrateEntryA"))
-				Expect(tmpl).To(ContainSubstring("func MigrateEntryB"))
+				Expect(tmpl).To(ContainSubstring("func migrateEntryA"))
+				Expect(tmpl).To(ContainSubstring("func migrateEntryB"))
 				Expect(strings.Count(tmpl, "package v2")).To(Equal(1))
 				Expect(strings.Count(tmpl, "Edit this file")).To(Equal(1))
 			})
@@ -1543,6 +1543,50 @@ var _ = Describe("Go Migrate Plugin", func() {
 				Expect(content).To(ContainSubstring("autoMigrateEntry"))
 				Expect(content).To(ContainSubstring("autoMigrateBranch"))
 				Expect(content).To(ContainSubstring("autoMigrateLeaf"))
+			})
+		})
+
+		Context("wrapper visibility", func() {
+			It("Should unexport entry and locally consumed wrappers, keeping externally referenced ones exported", func() {
+				loader.Add("schemas/dep", `
+					@go output "dep"
+					@go version 1
+					Item struct { name string }
+				`)
+				oldSchema := `
+					import "schemas/dep"
+					@go output "out"
+					@go version 1
+					Key = uuid
+					Inner struct { value int32 }
+					Entry struct {
+						key Key {@key}
+						inner Inner
+						item dep.Item
+						@go migrate
+					}
+				`
+				newSchema := `
+					import "schemas/dep"
+					@go output "out"
+					@go version 2
+					Key = uuid
+					Inner struct { value int32  extra string }
+					Entry struct {
+						key Key {@key}
+						inner Inner
+						item dep.Item
+						name string
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p))
+				tmpl := fileContent(resp, "out/types/v2/migrate.go")
+				Expect(tmpl).To(ContainSubstring("func migrateEntry"))
+				Expect(tmpl).To(ContainSubstring("func migrateInner"))
+				Expect(tmpl).NotTo(ContainSubstring("func MigrateEntry"))
+				auto := fileContent(resp, "out/types/v2/migrate_auto.gen.go")
+				Expect(auto).To(ContainSubstring("migrateInner(ctx,"))
 			})
 		})
 

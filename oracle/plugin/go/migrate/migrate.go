@@ -280,6 +280,7 @@ func (g *generation) scaffoldIncoming(
 			break
 		}
 	}
+	wrappers := wrapperNames(diff, rewrittenOld, g.rewrittenNew)
 	if !hasMigrateEntry {
 		// Paths without @go migrate entries (value types, hand-migrated
 		// resources) get dep-style scaffolding: per-type Migrate wrappers over
@@ -287,14 +288,16 @@ func (g *generation) scaffoldIncoming(
 		if !needsAutoMigrate(oldEntryTypes, diff) {
 			return nil
 		}
-		return g.generateDepMigration(newDir, newPath, oldEntryTypes, diff, rewrittenOld)
+		return g.generateDepMigration(
+			newDir, newPath, oldEntryTypes, diff, rewrittenOld, wrappers,
+		)
 	}
 
 	if needsAutoMigrate(oldEntryTypes, diff) {
 		autoCopyContent, err := generateAutoCopy(
 			newDir, newPath, g.req.RepoRoot,
 			oldEntryTypes, diff, rewrittenOld, g.rewrittenNew,
-			false,
+			false, wrappers,
 		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate auto-copy for %s", newPath)
@@ -333,8 +336,10 @@ func (g *generation) scaffoldIncoming(
 		if sf, ok := newType.Form.(resolution.StructForm); ok {
 			tparams = sf.TypeParams
 		}
+		goName := naming.GetGoName(newType)
 		tc, err := renderTransformTemplate(
-			newDir, naming.GetGoName(newType), b.NewVersion, oldAlias, oldImport, tparams,
+			newDir, goName, wrapperNameFor(wrappers, newType.QualifiedName, goName),
+			b.NewVersion, oldAlias, oldImport, tparams,
 			buf.Len() > 0,
 		)
 		if err != nil {
@@ -357,8 +362,10 @@ func (g *generation) scaffoldIncoming(
 		if !isStruct {
 			continue
 		}
+		goName := naming.GetGoName(newType)
 		tc, err := renderTransformTemplate(
-			newDir, naming.GetGoName(newType), b.NewVersion, oldAlias, oldImport,
+			newDir, goName, wrapperNameFor(wrappers, newType.QualifiedName, goName),
+			b.NewVersion, oldAlias, oldImport,
 			sf.TypeParams, buf.Len() > 0,
 		)
 		if err != nil {
@@ -379,11 +386,12 @@ func (g *generation) generateDepMigration(
 	types []resolution.Type,
 	diff map[string]schemadiff.TypeDiff,
 	rewrittenOld *resolution.Table,
+	wrappers map[string]string,
 ) error {
 	autoCopyContent, err := generateAutoCopy(
 		versionDir, mirroredPath, g.req.RepoRoot,
 		types, diff, rewrittenOld, g.rewrittenNew,
-		true,
+		true, wrappers,
 	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate auto-copy for %s", mirroredPath)
@@ -400,7 +408,7 @@ func (g *generation) generateDepMigration(
 		return nil
 	}
 	tc, err := renderTypeMigrateTemplate(
-		versionDir, mirroredPath, types, diff, g.rewrittenNew, g.req.RepoRoot,
+		versionDir, mirroredPath, types, diff, g.rewrittenNew, g.req.RepoRoot, wrappers,
 	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate type migrate template for %s", mirroredPath)
@@ -428,14 +436,14 @@ import (
 	{{.VersionDir}} "{{.MigrationsImport}}"
 )
 {{end}}
-// Migrate{{.GoName}} lifts a {{.VersionDir}} {{.GoName}} into the current shape.
-func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}{{.TypeParamsRef}}) ({{.GoName}}{{.TypeParamsRef}}, error) {
+// {{.FuncName}} lifts a {{.VersionDir}} {{.GoName}} into the current shape.
+func {{.FuncName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}{{.TypeParamsRef}}) ({{.GoName}}{{.TypeParamsRef}}, error) {
 	return autoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
 }
 `))
 
 func renderTransformTemplate(
-	pkg, goName string,
+	pkg, goName, funcName string,
 	version int,
 	vDir, migrationsImport string,
 	tparams []resolution.TypeParam,
@@ -443,13 +451,14 @@ func renderTransformTemplate(
 ) ([]byte, error) {
 	var buf bytes.Buffer
 	err := transformTmpl.Execute(&buf, struct {
-		Package, GoName, VersionDir, MigrationsImport string
-		TypeParamsDecl, TypeParamsRef                 string
-		Version                                       int
-		Continuation                                  bool
+		Package, GoName, FuncName, VersionDir, MigrationsImport string
+		TypeParamsDecl, TypeParamsRef                           string
+		Version                                                 int
+		Continuation                                            bool
 	}{
 		Package:          pkg,
 		GoName:           goName,
+		FuncName:         funcName,
 		VersionDir:       vDir,
 		MigrationsImport: migrationsImport,
 		TypeParamsDecl:   formatTypeParamsDecl(tparams),
@@ -475,8 +484,8 @@ import (
 {{- end}}
 )
 {{range .Functions}}
-// Migrate{{.GoName}} lifts a {{.OldTypeName}} into the current shape.
-func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
+// {{.FuncName}} lifts a {{.OldTypeName}} into the current shape.
+func {{.FuncName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
 	migrated, err := autoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
 	if err != nil {
 		return {{.NewTypeName}}{}, err
@@ -495,11 +504,12 @@ func renderTypeMigrateTemplate(
 	diff map[string]schemadiff.TypeDiff,
 	newTable *resolution.Table,
 	repoRoot string,
+	wrappers map[string]string,
 ) ([]byte, error) {
 	type tmplFunc struct {
-		GoName, OldTypeName, NewTypeName string
-		TypeParamsDecl, TypeParamsRef    string
-		NewFields                        []string
+		GoName, FuncName, OldTypeName, NewTypeName string
+		TypeParamsDecl, TypeParamsRef              string
+		NewFields                                  []string
 	}
 	type tmplData struct {
 		Package   string
@@ -543,8 +553,13 @@ func renderTypeMigrateTemplate(
 			}
 		}
 		tref := formatTypeParamsRef(sf.TypeParams)
+		funcName := "Migrate" + goName
+		if n, ok := wrappers[typ.QualifiedName]; ok {
+			funcName = n
+		}
 		data.Functions = append(data.Functions, tmplFunc{
 			GoName:         goName,
+			FuncName:       funcName,
 			OldTypeName:    goName + tref,
 			NewTypeName:    newTypeName + tref,
 			TypeParamsDecl: formatTypeParamsDecl(sf.TypeParams),

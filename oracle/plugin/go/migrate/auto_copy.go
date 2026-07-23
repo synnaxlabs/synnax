@@ -40,12 +40,13 @@ func generateAutoCopy(
 	diff map[string]schemadiff.TypeDiff,
 	oldTable, newTable *resolution.Table,
 	skipEntries bool,
+	wrappers map[string]string,
 ) ([]byte, error) {
 	c := &collector{
 		pkg: pkg, outputPath: outputPath, repoRoot: repoRoot,
 		diff: diff, oldTable: oldTable, newTable: newTable,
 		imports: make(map[string]importEntry), generated: make(set.Set[string]),
-		skipEntries: skipEntries,
+		skipEntries: skipEntries, wrappers: wrappers,
 	}
 	data := c.collect(types)
 	if len(data.Funcs) == 0 {
@@ -197,6 +198,9 @@ type collector struct {
 	pending                   []resolution.Type
 	funcs                     []funcData
 	skipEntries               bool
+	// wrappers maps qualified type names to their developer-wrapper names,
+	// deciding exported vs unexported routing (see wrapperNames).
+	wrappers map[string]string
 	// usesLo marks that an emitted function body calls a samber/lo helper.
 	usesLo bool
 }
@@ -536,11 +540,14 @@ func (c *collector) requireFunc(typ resolution.Type) string {
 		if !c.generated.Contains(typ.QualifiedName) {
 			c.pending = append(c.pending, typ)
 		}
-		// Every changed struct gets a public MigrateX wrapper in the developer
-		// template; route local references through it so hand-written fixups
-		// in the wrapper apply to nested occurrences too.
+		// Every changed struct gets a MigrateX/migrateX wrapper in the
+		// developer template; route local references through it so
+		// hand-written fixups in the wrapper apply to nested occurrences too.
 		if td, ok := c.diff[typ.QualifiedName]; ok && td.Kind == schemadiff.TypeChanged {
 			if _, isStruct := typ.Form.(resolution.StructForm); isStruct {
+				if n, ok := c.wrappers[typ.QualifiedName]; ok {
+					return n
+				}
 				return "Migrate" + goName
 			}
 		}
