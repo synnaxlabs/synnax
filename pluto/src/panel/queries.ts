@@ -20,7 +20,9 @@ import { useCallback, useMemo } from "react";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
+import { Ontology } from "@/ontology";
 import { Scope, TabScope } from "@/panel/scope";
+import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "panel";
 const PLURAL_RESOURCE_NAME = "panels";
@@ -476,6 +478,27 @@ export const {
 export const useSingleDispatch = Scope.bindHook(useSingleDispatchBase);
 export const useUndo = Scope.bindHook(useUndoBase);
 export const useRedo = Scope.bindHook(useRedoBase);
+
+// useCloseDeletedResourceTabs removes any resource-backed tab whose resource has
+// been deleted, across every cached panel. A resource left as a tombstone would
+// render "Not found" indefinitely, so its tab is closed with the resource.
+// removeTab on an absent tab is a no-op, so redundant firings across windows are
+// harmless.
+export const useCloseDeletedResourceTabs = (): void => {
+  const client = Synnax.use();
+  const { dispatch } = useDispatch();
+  Ontology.useResourceDeleteSynchronizer(
+    useCallback(
+      (id) =>
+        client?.panels.listCached().forEach((p) => {
+          const tab = panel.findTabByResource(p.root, id);
+          if (tab != null)
+            dispatch({ key: p.key, actions: panel.removeTab({ key: tab.key }) });
+        }),
+      [client, dispatch],
+    ),
+  );
+};
 
 // useSetCurrentTabResource swaps the current tab's content to the given resource,
 // clearing any view. The selector flow uses this to fill the tab in place once the

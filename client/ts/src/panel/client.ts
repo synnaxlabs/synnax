@@ -152,6 +152,11 @@ export class Client extends cache.Reader<
     this.dispatcher = dispatcher;
   }
 
+  /** All panels currently in the cache. */
+  listCached(): Panel[] {
+    return this.store.list();
+  }
+
   private isCachedChild(parent: ontology.ID, key: Key): boolean {
     return this.ontology.relationships.has(
       ontology.relationshipToString({
