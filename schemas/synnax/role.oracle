@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output  "client/ts/src/access/role"
-@py output  "client/py/synnax/access/role"
-@go output  "core/pkg/service/access/rbac/role"
-@go version 0
+@ts output "client/ts/src/access/role"
+@py output "client/py/synnax/access/role"
+@go output "core/pkg/service/access/rbac/role"
 
 Key = uuid {
-    @doc value "is a unique identifier for a role, represented as a UUID."
+    @go version 0
+    @doc value  "is a unique identifier for a role, represented as a UUID."
 }
 
 Role struct {
@@ -41,6 +41,7 @@ Role struct {
         @filter
     }
 
+    @go version    0
     @doc value     """
         is a named collection of policies that can be assigned to users, enabling
         group-based permission management. Roles define what actions users can

@@ -11,7 +11,6 @@
 @go output  "x/go/control"
 @ts output  "x/ts/src/control"
 @cpp output "x/cpp/control"
-@pb
 
 Authority uint8 {
     @doc value """
@@ -27,6 +26,7 @@ Concurrency enum {
 
     @go version 0
     @doc value  "defines whether a resource can have multiple subjects acting on it at once."
+    @pb
 }
 
 Subject struct {
@@ -47,6 +47,7 @@ Subject struct {
         is an entity that can hold control authority over a resource. Typically
         represents a user, process, or service.
     """
+    @pb
 }
 
 State struct<R> {
@@ -67,7 +68,6 @@ State struct<R> {
         capturing who controls what and with how much authority.
     """
     @ts concrete_types
-    @pb omit
 }
 
 Transfer struct<R extends comparable> {
@@ -91,7 +91,6 @@ Transfer struct<R extends comparable> {
     and From.Subject != To.Subject, a transfer occurred.
     """
     @ts hand
-    @pb omit
 }
 
 Update struct<R extends comparable> {
@@ -101,5 +100,4 @@ Update struct<R extends comparable> {
 
     @doc value "represents a batch of control transfers that occurred atomically."
     @ts hand
-    @pb omit
 }

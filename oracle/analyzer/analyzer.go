@@ -216,6 +216,7 @@ func analyze(c *analysisCtx) {
 		resolveTypeRefs(c, typ)
 	}
 	validateDeadOutputs(c, types)
+	validateFileVersion(c)
 	for _, typ := range types {
 		for i, t := range c.table.Types {
 			if t.QualifiedName == typ.QualifiedName {

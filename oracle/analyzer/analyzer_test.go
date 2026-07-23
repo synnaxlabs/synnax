@@ -47,6 +47,33 @@ var _ = Describe("Analyzer", func() {
 		loader = NewMockFileLoader()
 	})
 
+	Describe("File-level version", func() {
+		It("Should error when @go version is declared file-level", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				@go version 0
+				Entry struct {
+					value int32
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("declare it per type"))
+		})
+
+		It("Should accept struct-level @go version", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Entry struct {
+					value int32
+					@go version 0
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+		})
+	})
+
 	Describe("Domain omission", func() {
 		It("Should error when a generating type references an omitted type", func(ctx SpecContext) {
 			source := `

@@ -32,10 +32,11 @@ or generator logic and schemas disagree.
   peers are never version-skewed, and there are no unvalidated caches.
 - **Never version derived artifacts** (compiled output like arc `Program`). On mismatch
   they are recomputed from their versioned sources, not migrated.
-- `@go version` is type-granular: declare it struct-level on persisted types
-  (channel-style). Unversioned siblings are transient — they generate real declarations
-  at the package root (`transient.gen.go`) instead of riding the types/vN layout, and
-  their shape changes never force a version bump.
+- `@go version` is type-granular and must be declared per type, never file-level (the
+  analyzer warns): declare it struct-level on persisted types (channel-style).
+  Unversioned siblings are transient — they generate real declarations at the package
+  root (`transient.gen.go`) instead of riding the types/vN layout, and their shape
+  changes never force a version bump.
 - Two classes must stay versioned despite being unpersisted: types referenced by a
   versioned sibling (even via `@go marshal omit` fields — their Go home cannot leave the
   package without an import cycle; the persistence gate exempts these), and types whose
@@ -47,6 +48,12 @@ or generator logic and schemas disagree.
 - Migrate wrapper visibility follows consumption (see `plugin/go/migrate`): exported
   when another versioned schema embeds the type; unexported when only the package's own
   gorp wiring or auto-copies call it.
+
+## Tag Minimization
+
+Prefer the tagging that minimizes total tag count. When only a few types in a file need
+a domain (@pb on control.Subject), tag those types and omit the file-level declaration;
+when most types need it, declare it file-level and omit the exceptions.
 
 ## Omit vs Hand
 

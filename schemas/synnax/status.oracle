@@ -13,7 +13,6 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/status"
 @py output  "client/py/synnax/status"
 @go output  "core/pkg/service/status"
-@go version 1
 @cpp output "client/cpp/status"
 @pb
 
@@ -25,6 +24,7 @@ Variant enum {
     loading  = "loading"
     disabled = "disabled"
 
+    @go version  1
     @doc value   "is the severity or type of a status message."
     @ts literals
 }
@@ -61,6 +61,7 @@ Status struct<Details?, V extends Variant = Variant> {
         @go marshal omit
     }
 
+    @go version        1
     @doc value         """
         is a standardized message used to communicate state across the Synnax
         platform. Statuses support different severity variants and can carry

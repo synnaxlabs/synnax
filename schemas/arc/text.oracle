@@ -12,7 +12,6 @@ import "schemas/x/crdt"
 @ts output  "client/ts/src/arc/text"
 @py output  "client/py/synnax/arc/text"
 @go output  "arc/go/text"
-@go version 1
 @cpp output "arc/cpp/text"
 @pb
 
@@ -24,7 +23,8 @@ Document struct {
         @doc value "are the operations that tombstone deleted characters."
     }
 
-    @doc value """
+    @go version 1
+    @doc value  """
         is the conflict-free replicated representation of the text: the operations that
         reconstruct it when applied to an empty replica. It is the durable source of
         truth from which raw is materialized.
@@ -43,6 +43,7 @@ Text struct {
         @doc value  "is the materialized Arc source code, derived from doc and not persisted."
     }
 
+    @go version 1
     @doc value  "is text-based Arc source code with optional parsed AST for compilation."
     @go fields  "AST parser.IProgramContext `json:\"-\"`"
     @go imports "github.com/synnaxlabs/arc/parser"

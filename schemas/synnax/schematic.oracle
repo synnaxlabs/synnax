@@ -9,12 +9,12 @@
 
 import "schemas/x/spatial"
 
-@ts output  "client/ts/src/schematic"
-@go output  "core/pkg/service/schematic"
-@go version 7
+@ts output "client/ts/src/schematic"
+@go output "core/pkg/service/schematic"
 
 Key = uuid {
-    @doc value "is a unique identifier for a schematic, represented as a UUID."
+    @go version 7
+    @doc value  "is a unique identifier for a schematic, represented as a UUID."
 }
 
 Node struct {
@@ -32,7 +32,8 @@ Node struct {
         """
     }
 
-    @doc value "is a diagram node representing a symbol in the schematic."
+    @go version 7
+    @doc value  "is a diagram node representing a symbol in the schematic."
 }
 
 Handle struct {
@@ -43,7 +44,8 @@ Handle struct {
         @doc value "is the connection point identifier on the node."
     }
 
-    @doc value """
+    @go version 7
+    @doc value  """
         is a reference to a specific connection point on a specific node.
         For schematics, param is the symbol handle key (e.g. inlet, outlet).
     """
@@ -60,7 +62,8 @@ Edge struct {
         @doc value "is the target endpoint of the edge."
     }
 
-    @doc value "is a connection between two nodes in the schematic."
+    @go version 7
+    @doc value  "is a connection between two nodes in the schematic."
 }
 
 Schematic struct {
@@ -155,6 +158,7 @@ Schematic struct {
         """
     }
 
+    @go version    7
     @doc value     """
         is a visual diagram editor component for drawing system schematics,
         control flows, and process diagrams. Schematics support interactive

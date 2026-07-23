@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-@ts output  "client/ts/src/user"
-@py output  "client/py/synnax/user"
-@go output  "core/pkg/service/user"
-@go version 0
+@ts output "client/ts/src/user"
+@py output "client/py/synnax/user"
+@go output "core/pkg/service/user"
 
 Key = uuid {
-    @doc value "is a unique identifier for a user, represented as a UUID."
+    @go version 0
+    @doc value  "is a unique identifier for a user, represented as a UUID."
 }
 
 User struct {
@@ -41,6 +41,7 @@ User struct {
         @filter
     }
 
+    @go version    0
     @doc value     """
         is an account entity representing a person accessing the Synnax system.
         Users can have roles assigned for permission management.
@@ -61,6 +62,7 @@ New struct extends User {
     first_name?
     last_name?
 
+    @go version   0
     @doc value    "contains parameters for creating a new user."
     @ts use_input
     @go omit

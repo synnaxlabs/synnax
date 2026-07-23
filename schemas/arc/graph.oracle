@@ -13,7 +13,6 @@ import "schemas/x/spatial"
 @ts output  "client/ts/src/arc/graph"
 @py output  "client/py/synnax/arc/graph"
 @go output  "arc/go/graph"
-@go version 2
 @cpp output "arc/cpp/graph"
 @pb
 
@@ -25,7 +24,8 @@ Node struct {
         @doc value "is the canvas position (x, y) for visual layout."
     }
 
-    @doc value """
+    @go version 2
+    @doc value  """
         is a visual node in the Arc graph editor representing a function
         instantiation with position data. The function type and input
         parameter values are stored in the graph's inputs map, keyed by the
@@ -34,7 +34,8 @@ Node struct {
 }
 
 Nodes Node[] {
-    @doc value "is a collection of visual nodes in an Arc graph."
+    @go version 2
+    @doc value  "is a collection of visual nodes in an Arc graph."
 }
 
 Edge struct extends ir.Edge {
@@ -42,7 +43,8 @@ Edge struct extends ir.Edge {
         @doc value "is the stable identifier for this edge within the graph."
     }
 
-    @doc value """
+    @go version 2
+    @doc value  """
         is a dataflow connection between node parameters carrying a stable
         identifier. The key persists across endpoint edits, distinguishing the
         editable graph edge from the keyless ir.Edge consumed by the compiler.
@@ -50,7 +52,8 @@ Edge struct extends ir.Edge {
 }
 
 Edges Edge[] {
-    @doc value "is a collection of graph edges in an Arc graph."
+    @go version 2
+    @doc value  "is a collection of graph edges in an Arc graph."
 }
 
 Graph struct {
@@ -73,7 +76,8 @@ Graph struct {
         @ts preserve_case
     }
 
-    @doc value """
+    @go version 2
+    @doc value  """
         is a visual dataflow graph representation combining IR elements with
         canvas layout for the Arc graph editor.
     """

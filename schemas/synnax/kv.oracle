@@ -9,9 +9,8 @@
 
 import "schemas/synnax/ranger"
 
-@go output  "core/pkg/service/ranger/kv"
-@go version 0
-@ts output  "client/ts/src/range/kv"
+@go output "core/pkg/service/ranger/kv"
+@ts output "client/ts/src/range/kv"
 @pb
 
 Pair struct {
@@ -25,6 +24,7 @@ Pair struct {
         @doc value "is the metadata value stored as a string for flexibility."
     }
 
+    @go version 0
     @doc value  """
         is a key-value metadata pair associated with a specific range, enabling
         arbitrary metadata storage on time ranges.

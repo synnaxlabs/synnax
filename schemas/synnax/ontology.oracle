@@ -10,9 +10,7 @@
 @ts output  "client/ts/src/ontology"
 @py output  "client/py/synnax/ontology"
 @go output  "core/pkg/service/ontology"
-@go version 0
 @cpp output "client/cpp/ontology"
-@pb
 
 ResourceType enum {
     arc              = "arc"
@@ -40,10 +38,12 @@ ResourceType enum {
     user             = "user"
     view             = "view"
 
-    @doc value "is the type of the resource."
+    @go version 0
+    @doc value  "is the type of the resource."
 }
 
 RelationshipType string {
+    @go version 0
     @go hand
     @ts hand
     @cpp omit
@@ -62,7 +62,8 @@ ID struct {
         @doc value "is the unique key identifying the resource within its type."
     }
 
-    @doc value """
+    @go version 0
+    @doc value  """
        ID is a unique identifier for a Resource. An example:
 
        userID := ID{
@@ -78,6 +79,7 @@ ID struct {
     @ts hand
     @cpp hand
     @py hand
+    @pb
 }
 
 Resource struct {
@@ -93,6 +95,7 @@ Resource struct {
         @go marshal omit
     }
 
+    @go version 0
     @doc value  """
         is a resource in the ontology system with its identifier, name, and
         optional metadata.
@@ -102,7 +105,6 @@ Resource struct {
     @ts hand
     @cpp omit
     @py hand
-    @pb omit
 }
 
 Relationship struct {
@@ -116,6 +118,7 @@ Relationship struct {
         @doc value "is the target resource of the relationship."
     }
 
+    @go version 0
     @doc value  """
         is a directional relationship between two resources in the ontology
         system.
@@ -125,5 +128,4 @@ Relationship struct {
     @ts hand
     @cpp omit
     @py hand
-    @pb omit
 }

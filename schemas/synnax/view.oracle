@@ -10,12 +10,12 @@
 @ts output  "client/ts/src/view"
 @py output  "client/py/synnax/view"
 @go output  "core/pkg/service/view"
-@go version 0
 @cpp output "client/cpp/view"
 @pb
 
 Key = uuid {
-    @doc value "is a unique identifier for a saved view configuration."
+    @go version 0
+    @doc value  "is a unique identifier for a saved view configuration."
 }
 
 View struct {
@@ -39,6 +39,7 @@ View struct {
         """
     }
 
+    @go version    0
     @doc value     """
         is a persisted view configuration storing visualization settings and
         query parameters for line plots, tables, schematics, and other view

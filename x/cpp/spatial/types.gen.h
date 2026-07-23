@@ -136,12 +136,6 @@ struct Bounds {
 
     static Bounds parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::Bounds;
-    [[nodiscard]] std::pair<::x::spatial::pb::Bounds, x::errors::Error>
-    to_proto() const;
-    static std::pair<Bounds, x::errors::Error>
-    from_proto(const ::x::spatial::pb::Bounds &pb);
 };
 
 /// @brief Viewport is the camera state of a viewport.
@@ -153,12 +147,6 @@ struct Viewport {
 
     static Viewport parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::Viewport;
-    [[nodiscard]] std::pair<::x::spatial::pb::Viewport, x::errors::Error>
-    to_proto() const;
-    static std::pair<Viewport, x::errors::Error>
-    from_proto(const ::x::spatial::pb::Viewport &pb);
 };
 
 /// @brief CornerLocation is an anchor corner for positioning.
@@ -170,12 +158,6 @@ struct CornerLocation {
 
     static CornerLocation parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::CornerLocation;
-    [[nodiscard]] std::pair<::x::spatial::pb::CornerLocation, x::errors::Error>
-    to_proto() const;
-    static std::pair<CornerLocation, x::errors::Error>
-    from_proto(const ::x::spatial::pb::CornerLocation &pb);
 };
 
 /// @brief StickyUnits specifies the measurement units for sticky positioning.
@@ -187,12 +169,6 @@ struct StickyUnits {
 
     static StickyUnits parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::StickyUnits;
-    [[nodiscard]] std::pair<::x::spatial::pb::StickyUnits, x::errors::Error>
-    to_proto() const;
-    static std::pair<StickyUnits, x::errors::Error>
-    from_proto(const ::x::spatial::pb::StickyUnits &pb);
 };
 
 /// @brief StickyXY is a position that can be anchored to different corners of a
@@ -209,11 +185,5 @@ struct StickyXY {
 
     static StickyXY parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::x::spatial::pb::StickyXY;
-    [[nodiscard]] std::pair<::x::spatial::pb::StickyXY, x::errors::Error>
-    to_proto() const;
-    static std::pair<StickyXY, x::errors::Error>
-    from_proto(const ::x::spatial::pb::StickyXY &pb);
 };
 }

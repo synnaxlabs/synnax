@@ -11,7 +11,6 @@
 @py output  "x/py/x/spatial"
 @cpp output "x/cpp/spatial"
 @go output  "x/go/spatial"
-@pb
 
 OuterLocation enum {
     top    = "top"
@@ -38,6 +37,7 @@ XY struct {
         is a 2D coordinate point with x and y values. Used for positioning
         elements in two-dimensional space.
     """
+    @pb
 }
 
 Direction enum {
@@ -54,6 +54,7 @@ XLocation enum {
 
     @go version 0
     @doc value  "is a horizontal-axis location at the left or right edge."
+    @pb
 }
 
 YLocation enum {
@@ -129,7 +130,6 @@ Dimensions struct {
     }
 
     @go omit
-    @pb omit
     @doc value "is a 2D size with width and height values."
 }
 
@@ -149,7 +149,6 @@ AngularDirection enum {
     counterclockwise = "counterclockwise"
 
     @go omit
-    @pb omit
     @doc value "is a rotational direction in 2D space."
 }
 
@@ -157,7 +156,6 @@ CenterLocation enum {
     center = "center"
 
     @go omit
-    @pb omit
     @doc value "is a location at the center of a container."
 }
 
@@ -180,7 +178,6 @@ Alignment enum {
     end    = "end"
 
     @go omit
-    @pb omit
     @doc value """
         is a positioning indicator for aligning content along an axis within a
         container.
@@ -199,7 +196,6 @@ Dimension enum {
     height = "height"
 
     @go omit
-    @pb omit
     @doc value "is the name of a 2D size axis."
 }
 
@@ -208,7 +204,6 @@ SignedDimension enum {
     signedHeight = "signedHeight"
 
     @go omit
-    @pb omit
     @doc value "is the name of a 2D signed size axis."
 }
 
@@ -221,7 +216,6 @@ SignedDimensions struct {
     }
 
     @go omit
-    @pb omit
     @doc value """
         is a 2D size whose width and height components carry sign, allowing
         negative values to express direction.
@@ -237,7 +231,6 @@ ClientXY struct {
     }
 
     @go omit
-    @pb omit
     @doc value """
         is a 2D coordinate point expressed in client (viewport) space, matching
         the shape of DOM mouse events.

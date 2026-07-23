@@ -97,6 +97,24 @@ func fieldEscapesLang(f resolution.Field, lang string) bool {
 	return false
 }
 
+// validateFileVersion errors when @go version is declared file-level.
+// Versioned-ness is a per-type property (it tracks persistence), so the
+// declaration must sit on each type it applies to.
+func validateFileVersion(c *analysisCtx) {
+	dom, ok := c.fileDomains["go"]
+	if !ok {
+		return
+	}
+	if _, has := dom.Expressions.Find("version"); has {
+		d := diagnostics.Warningf(nil,
+			"%s declares @go version file-level; declare it per type instead",
+			c.namespace,
+		)
+		d.File = c.filePath
+		c.diag.Add(d)
+	}
+}
+
 // validateDeadOutputs errors when a file declares a language output that
 // nothing uses: every type omits the language and none is hand-written.
 func validateDeadOutputs(
