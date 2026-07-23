@@ -5015,6 +5015,163 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	// A reactive read variable heads a chain; each source sample must fire
+	// the chain exactly once.
+	Describe("Reactive read chain cadence", func() {
+		It("fires once per source sample", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"src_ch":  {types.F32(), 360},
+				"out_str": {types.String(), 361},
+			})
+			h := newRuntimeHarness(ctx, `
+    v := src_ch - f32(1)
+    v -> "tick" -> out_str`, resolver,
+				channels.Digest{Key: 360, DataType: telem.Float32T},
+				channels.Digest{Key: 361, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(360, telem.NewSeriesV[float32](2.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(countOf(out, 361, "tick")).To(Equal(1),
+				"one sample must fire the chain exactly once")
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 361, "tick")).To(Equal(0),
+				"idle cycles must not re-fire the chain")
+			h.Ingest(360, telem.NewSeriesV[float32](3.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 361, "tick")).To(Equal(1),
+				"the next sample must fire the chain exactly once")
+		})
+
+		It("keeps the cadence when an unrelated timer chain adds cycles", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"src_ch":  {types.F32(), 362},
+				"out_str": {types.String(), 363},
+				"beat_ch": {types.U8(), 364},
+			})
+			h := newRuntimeHarness(ctx, `
+    v := src_ch - f32(1)
+    v -> "tick" -> out_str
+    interval{50ms} -> beat_ch`, resolver,
+				channels.Digest{Key: 362, DataType: telem.Float32T},
+				channels.Digest{Key: 363, DataType: telem.StringT},
+				channels.Digest{Key: 364, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			h.Ingest(362, telem.NewSeriesV[float32](2.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			advance(h, ctx, 60*telem.Millisecond)
+			advance(h, ctx, 120*telem.Millisecond)
+			advance(h, ctx, 180*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 364)).To(Equal(uint8(1)),
+				"the timer chain must be adding cycles")
+			Expect(countOf(out, 363, "tick")).To(Equal(1),
+				"timer cycles must not re-fire the reactive chain")
+		})
+
+		It("fires once per distinct sample", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"src_ch":  {types.F32(), 365},
+				"out_str": {types.String(), 366},
+			})
+			h := newRuntimeHarness(ctx, `
+    v := src_ch - f32(1)
+    v -> "tick" -> out_str`, resolver,
+				channels.Digest{Key: 365, DataType: telem.Float32T},
+				channels.Digest{Key: 366, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			for _, sample := range []float32{2.5, 3.5, 4.5} {
+				h.Ingest(365, telem.NewSeriesV[float32](sample))
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+			}
+			out, _ := h.Flush()
+			Expect(countOf(out, 366, "tick")).To(Equal(3))
+		})
+
+		It("does not re-fire on a recomputed identical value", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"src_ch":  {types.F32(), 367},
+				"out_str": {types.String(), 368},
+			})
+			h := newRuntimeHarness(ctx, `
+    v := src_ch - f32(1)
+    v -> "tick" -> out_str`, resolver,
+				channels.Digest{Key: 367, DataType: telem.Float32T},
+				channels.Digest{Key: 368, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(367, telem.NewSeriesV[float32](2.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(countOf(out, 368, "tick")).To(Equal(1))
+			h.Ingest(367, telem.NewSeriesV[float32](2.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 368, "tick")).To(Equal(0),
+				"an unchanged derivation value is not an event")
+		})
+
+		It("fires once per sample when the chain lives in a stage", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 369},
+				"src_ch":    {types.F32(), 370},
+				"out_str":   {types.String(), 371},
+			})
+			h := newRuntimeHarness(ctx, `
+    sequence main {
+        v := src_ch - f32(1)
+        stage s1 {
+            v -> "tick" -> out_str
+        }
+    }
+    start_cmd => main`, resolver,
+				channels.Digest{Key: 369, DataType: telem.Uint8T},
+				channels.Digest{Key: 370, DataType: telem.Float32T},
+				channels.Digest{Key: 371, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 369)
+			h.Ingest(370, telem.NewSeriesV[float32](2.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ := h.Flush()
+			Expect(countOf(out, 371, "tick")).To(Equal(1),
+				"one sample must fire the staged chain exactly once")
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 371, "tick")).To(Equal(0),
+				"idle cycles must not re-fire the staged chain")
+			h.Ingest(370, telem.NewSeriesV[float32](3.5))
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			out, _ = h.Flush()
+			Expect(countOf(out, 371, "tick")).To(Equal(1))
+		})
+	})
+
 	// A one-shot entry drives a func whose output rebinds a variable;
 	// the loopback must not re-fire the chain.
 	Describe("Variable capture dispatch", func() {
