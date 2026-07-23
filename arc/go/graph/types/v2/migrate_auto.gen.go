@@ -15,35 +15,32 @@ import (
 	"context"
 
 	uuid "github.com/google/uuid"
+	"github.com/samber/lo"
 	v1 "github.com/synnaxlabs/arc/graph/types/v1"
 	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
 	ir "github.com/synnaxlabs/arc/ir/types/v2"
 	msgpack "github.com/synnaxlabs/x/encoding/msgpack"
-	spatial "github.com/synnaxlabs/x/spatial"
 	"maps"
 )
 
 func autoMigrateGraph(ctx context.Context, old v1.Graph) (Graph, error) {
-	functions := make(ir.Functions, len(old.Functions))
-	for i, v := range old.Functions {
-		var err error
-		if functions[i], err = ir.MigrateFunction(ctx, v); err != nil {
-			return Graph{}, err
-		}
+	functions, err := lo.MapErr(old.Functions, func(v irv1.Function, _ int) (ir.Function, error) {
+		return ir.MigrateFunction(ctx, v)
+	})
+	if err != nil {
+		return Graph{}, err
 	}
-	edges := make(Edges, len(old.Edges))
-	for i, v := range old.Edges {
-		var err error
-		if edges[i], err = MigrateEdge(ctx, v); err != nil {
-			return Graph{}, err
-		}
+	edges, err := lo.MapErr(old.Edges, func(v irv1.Edge, _ int) (Edge, error) {
+		return MigrateEdge(ctx, v)
+	})
+	if err != nil {
+		return Graph{}, err
 	}
-	nodes := make(Nodes, len(old.Nodes))
-	for i, v := range old.Nodes {
-		var err error
-		if nodes[i], err = MigrateNode(ctx, v); err != nil {
-			return Graph{}, err
-		}
+	nodes, err := lo.MapErr(old.Nodes, func(v v1.Node, _ int) (Node, error) {
+		return MigrateNode(ctx, v)
+	})
+	if err != nil {
+		return Graph{}, err
 	}
 	inputs := make(map[string]msgpack.EncodedJSON, len(old.Nodes))
 	for _, v := range old.Nodes {
@@ -67,6 +64,6 @@ func autoMigrateEdge(_ context.Context, old irv1.Edge) (Edge, error) {
 func autoMigrateNode(_ context.Context, old v1.Node) (Node, error) {
 	return Node{
 		Key:      old.Key,
-		Position: spatial.XY(old.Position),
+		Position: old.Position,
 	}, nil
 }

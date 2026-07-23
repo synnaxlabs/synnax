@@ -14,6 +14,7 @@ package v1
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/types/types/v0"
 )
 
@@ -62,19 +63,17 @@ func autoMigrateType(ctx context.Context, old v0.Type) (Type, error) {
 }
 
 func autoMigrateFunctionProperties(ctx context.Context, old v0.FunctionProperties) (FunctionProperties, error) {
-	inputs := make(Params, len(old.Inputs))
-	for i, v := range old.Inputs {
-		var err error
-		if inputs[i], err = MigrateParam(ctx, v); err != nil {
-			return FunctionProperties{}, err
-		}
+	inputs, err := lo.MapErr(old.Inputs, func(v v0.Param, _ int) (Param, error) {
+		return MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return FunctionProperties{}, err
 	}
-	outputs := make(Params, len(old.Outputs))
-	for i, v := range old.Outputs {
-		var err error
-		if outputs[i], err = MigrateParam(ctx, v); err != nil {
-			return FunctionProperties{}, err
-		}
+	outputs, err := lo.MapErr(old.Outputs, func(v v0.Param, _ int) (Param, error) {
+		return MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return FunctionProperties{}, err
 	}
 	return FunctionProperties{
 		Inputs:  inputs,

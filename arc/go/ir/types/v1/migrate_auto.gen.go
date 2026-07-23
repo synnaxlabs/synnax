@@ -14,6 +14,7 @@ package v1
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/ir/types/v0"
 )
 
@@ -26,12 +27,11 @@ func autoMigrateEdge(_ context.Context, old v0.Edge) (Edge, error) {
 }
 
 func autoMigrateIR(ctx context.Context, old v0.IR) (IR, error) {
-	edges := make(Edges, len(old.Edges))
-	for i, v := range old.Edges {
-		var err error
-		if edges[i], err = MigrateEdge(ctx, v); err != nil {
-			return IR{}, err
-		}
+	edges, err := lo.MapErr(old.Edges, func(v v0.Edge, _ int) (Edge, error) {
+		return MigrateEdge(ctx, v)
+	})
+	if err != nil {
+		return IR{}, err
 	}
 	return IR{
 		Functions:   old.Functions,

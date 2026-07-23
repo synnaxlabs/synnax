@@ -14,17 +14,18 @@ package v1
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v0 "github.com/synnaxlabs/arc/graph/types/v0"
+	irv0 "github.com/synnaxlabs/arc/ir/types/v0"
 	irv1 "github.com/synnaxlabs/arc/ir/types/v1"
 )
 
 func autoMigrateGraph(ctx context.Context, old v0.Graph) (Graph, error) {
-	edges := make(irv1.Edges, len(old.Edges))
-	for i, v := range old.Edges {
-		var err error
-		if edges[i], err = irv1.MigrateEdge(ctx, v); err != nil {
-			return Graph{}, err
-		}
+	edges, err := lo.MapErr(old.Edges, func(v irv0.Edge, _ int) (irv1.Edge, error) {
+		return irv1.MigrateEdge(ctx, v)
+	})
+	if err != nil {
+		return Graph{}, err
 	}
 	return Graph{
 		Viewport:  old.Viewport,

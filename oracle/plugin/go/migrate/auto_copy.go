@@ -82,6 +82,8 @@ type funcData struct {
 	Preamble       []step
 	Fields         []field
 	SliceElemExpr  string
+	SliceOldElem   string
+	SliceNewElem   string
 	SliceHasErr    bool
 }
 
@@ -92,6 +94,8 @@ type step struct {
 	Call     string
 	Type     string
 	ElemExpr string
+	OldElem  string
+	NewElem  string
 }
 
 type field struct {
@@ -117,7 +121,7 @@ import (
 {{- if .Imports}}
 {{end}}
 {{- range .Imports}}
-	{{.Alias}} "{{.Path}}"
+	{{if .Alias}}{{.Alias}} {{end}}"{{.Path}}"
 {{- end}}
 )
 {{range $fn := .Funcs}}
@@ -127,18 +131,15 @@ func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 }
 {{else if eq $fn.Kind "slice"}}
 func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
-	result := make({{$fn.NewTypeName}}, len(old))
-	for i, v := range old {
 {{- if $fn.SliceHasErr}}
-		var err error
-		if result[i], err = {{$fn.SliceElemExpr}}; err != nil {
-			return nil, err
-		}
+	return lo.MapErr(old, func(v {{$fn.SliceOldElem}}, _ int) ({{$fn.SliceNewElem}}, error) {
+		return {{$fn.SliceElemExpr}}
+	})
 {{- else}}
-		result[i] = {{$fn.SliceElemExpr}}
+	return lo.Map(old, func(v {{$fn.SliceOldElem}}, _ int) {{$fn.SliceNewElem}} {
+		return {{$fn.SliceElemExpr}}
+	}), nil
 {{- end}}
-	}
-	return result, nil
 }
 {{else if eq $fn.Kind "struct"}}
 func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
@@ -164,18 +165,16 @@ func autoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{el
 		{{.VarName}} = &v
 	}
 {{- else if eq .Kind "sliceMigrate"}}
-	{{.VarName}} := make({{.Type}}, len({{.Accessor}}))
-	for i, v := range {{.Accessor}} {
-		var err error
-		if {{.VarName}}[i], err = {{.ElemExpr}}; err != nil {
-			return {{$fn.ZeroValue}}, err
-		}
+	{{.VarName}}, err := lo.MapErr({{.Accessor}}, func(v {{.OldElem}}, _ int) ({{.NewElem}}, error) {
+		return {{.ElemExpr}}
+	})
+	if err != nil {
+		return {{$fn.ZeroValue}}, err
 	}
 {{- else if eq .Kind "sliceCast"}}
-	{{.VarName}} := make({{.Type}}, len({{.Accessor}}))
-	for i, v := range {{.Accessor}} {
-		{{.VarName}}[i] = {{.ElemExpr}}
-	}
+	{{.VarName}} := lo.Map({{.Accessor}}, func(v {{.OldElem}}, _ int) {{.NewElem}} {
+		return {{.ElemExpr}}
+	})
 {{- end}}
 {{- end}}
 	return {{$fn.NewTypeName}}{
@@ -198,6 +197,8 @@ type collector struct {
 	pending                   []resolution.Type
 	funcs                     []funcData
 	skipEntries               bool
+	// usesLo marks that an emitted function body calls a samber/lo helper.
+	usesLo bool
 }
 
 func (c *collector) collect(types []resolution.Type) fileData {
@@ -215,6 +216,9 @@ func (c *collector) collect(types []resolution.Type) fileData {
 		typ := c.pending[0]
 		c.pending = c.pending[1:]
 		c.ensureFunc(typ)
+	}
+	if c.usesLo {
+		c.imports["github.com/samber/lo"] = importEntry{Path: "github.com/samber/lo"}
 	}
 	// context renders as its own standard-library group in the template;
 	// every function signature includes context.Context.
@@ -412,16 +416,22 @@ func (c *collector) sliceFunc(
 		}
 	}
 	if needsMigration || c.hasOracleDefinedFields(elemResolved) {
+		c.usesLo = true
 		return funcData{
 			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
 			Kind: "slice", UsesCtx: true, SliceHasErr: true,
 			SliceElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
+			SliceOldElem:  c.resolveTypeName(elemResolved, c.oldTable),
+			SliceNewElem:  c.resolveNewTypeName(elemResolved),
 		}
 	}
 	if c.isOracleDefined(elemResolved) {
+		c.usesLo = true
 		return funcData{
 			GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName,
 			Kind: "slice", SliceElemExpr: c.resolveNewTypeName(elemResolved) + "(v)",
+			SliceOldElem: c.resolveTypeName(elemResolved, c.oldTable),
+			SliceNewElem: c.resolveNewTypeName(elemResolved),
 		}
 	}
 	return funcData{GoName: goName, OldTypeName: oldTypeName, NewTypeName: newTypeName, Kind: "cast"}
@@ -438,12 +448,12 @@ func (c *collector) classifyField(
 	}
 	if bgf, ok := resolved.Form.(resolution.BuiltinGenericForm); ok {
 		if bgf.Name == "Array" && len(ref.TypeArgs) > 0 {
-			return c.classifySlice(ref.TypeArgs[0], accessor, goName, nil)
+			return c.classifySlice(ref.TypeArgs[0], accessor, goName)
 		}
 		return classification{inline: accessor}
 	}
 	if elemRef, ok := arrayBaseRef(resolved); ok {
-		return c.classifySlice(elemRef, accessor, goName, &resolved)
+		return c.classifySlice(elemRef, accessor, goName)
 	}
 	if !c.isOracleDefined(resolved) {
 		return classification{inline: accessor}
@@ -470,7 +480,7 @@ func (c *collector) classifyField(
 }
 
 func (c *collector) classifySlice(
-	elemRef resolution.TypeRef, accessor, goName string, named *resolution.Type,
+	elemRef resolution.TypeRef, accessor, goName string,
 ) classification {
 	elemResolved, ok := c.resolveRef(elemRef)
 	if !ok {
@@ -483,13 +493,12 @@ func (c *collector) classifySlice(
 		return classification{inline: accessor}
 	}
 	varName := naming.LowerFirst(goName)
-	sliceType := "[]" + c.resolveNewTypeName(elemResolved)
-	if named != nil {
-		sliceType = c.resolveNewTypeName(*named)
-	}
+	c.usesLo = true
 	return classification{needsPreamble: true, usesCtx: true, step: step{
 		Kind: "sliceMigrate", VarName: varName, Accessor: accessor,
-		Type: sliceType, ElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
+		ElemExpr: c.requireFunc(elemResolved) + "(ctx, v)",
+		OldElem:  c.resolveTypeName(elemResolved, c.oldTable),
+		NewElem:  c.resolveNewTypeName(elemResolved),
 	}}
 }
 

@@ -14,24 +14,24 @@ package v2
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v1 "github.com/synnaxlabs/arc/ir/types/v1"
+	typesv0 "github.com/synnaxlabs/arc/types/types/v0"
 	types "github.com/synnaxlabs/arc/types/types/v1"
 )
 
 func autoMigrateFunction(ctx context.Context, old v1.Function) (Function, error) {
-	inputs := make(types.Params, len(old.Inputs))
-	for i, v := range old.Inputs {
-		var err error
-		if inputs[i], err = types.MigrateParam(ctx, v); err != nil {
-			return Function{}, err
-		}
+	inputs, err := lo.MapErr(old.Inputs, func(v typesv0.Param, _ int) (types.Param, error) {
+		return types.MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return Function{}, err
 	}
-	outputs := make(types.Params, len(old.Outputs))
-	for i, v := range old.Outputs {
-		var err error
-		if outputs[i], err = types.MigrateParam(ctx, v); err != nil {
-			return Function{}, err
-		}
+	outputs, err := lo.MapErr(old.Outputs, func(v typesv0.Param, _ int) (types.Param, error) {
+		return types.MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return Function{}, err
 	}
 	return Function{
 		Key:      old.Key,
@@ -43,19 +43,17 @@ func autoMigrateFunction(ctx context.Context, old v1.Function) (Function, error)
 }
 
 func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
-	functions := make(Functions, len(old.Functions))
-	for i, v := range old.Functions {
-		var err error
-		if functions[i], err = MigrateFunction(ctx, v); err != nil {
-			return IR{}, err
-		}
+	functions, err := lo.MapErr(old.Functions, func(v v1.Function, _ int) (Function, error) {
+		return MigrateFunction(ctx, v)
+	})
+	if err != nil {
+		return IR{}, err
 	}
-	nodes := make(Nodes, len(old.Nodes))
-	for i, v := range old.Nodes {
-		var err error
-		if nodes[i], err = MigrateNode(ctx, v); err != nil {
-			return IR{}, err
-		}
+	nodes, err := lo.MapErr(old.Nodes, func(v v1.Node, _ int) (Node, error) {
+		return MigrateNode(ctx, v)
+	})
+	if err != nil {
+		return IR{}, err
 	}
 	return IR{
 		Functions:   functions,
@@ -67,19 +65,17 @@ func autoMigrateIR(ctx context.Context, old v1.IR) (IR, error) {
 }
 
 func autoMigrateNode(ctx context.Context, old v1.Node) (Node, error) {
-	inputs := make(types.Params, len(old.Inputs))
-	for i, v := range old.Inputs {
-		var err error
-		if inputs[i], err = types.MigrateParam(ctx, v); err != nil {
-			return Node{}, err
-		}
+	inputs, err := lo.MapErr(old.Inputs, func(v typesv0.Param, _ int) (types.Param, error) {
+		return types.MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return Node{}, err
 	}
-	outputs := make(types.Params, len(old.Outputs))
-	for i, v := range old.Outputs {
-		var err error
-		if outputs[i], err = types.MigrateParam(ctx, v); err != nil {
-			return Node{}, err
-		}
+	outputs, err := lo.MapErr(old.Outputs, func(v typesv0.Param, _ int) (types.Param, error) {
+		return types.MigrateParam(ctx, v)
+	})
+	if err != nil {
+		return Node{}, err
 	}
 	return Node{
 		Key:      old.Key,
