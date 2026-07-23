@@ -15,8 +15,8 @@ import (
 	v1 "github.com/synnaxlabs/arc/program/types/v1"
 )
 
-// MigrateProgram lifts a v1 program into the current shape; arc's generated
-// migrations consume it cross-package.
+// MigrateProgram lifts a v1 program into the current shape; Arc's generated migrations
+// consume it cross-package.
 func MigrateProgram(ctx context.Context, old v1.Program) (Program, error) {
 	return autoMigrateProgram(ctx, old)
 }
