@@ -305,6 +305,43 @@ describe("reduceAll", () => {
       expect(next).toBe(prev);
     });
 
+    it("should no-op when a singleton view of the same type already exists", () => {
+      const prev = state({ variant: "leaf", tabs: [viewTab(a, "range_explorer")] });
+      const { next } = panel.reduceAll(prev, [
+        panel.insertTab({ tab: viewTab(b, "range_explorer"), singleton: true }),
+      ]);
+      expect(next).toBe(prev);
+    });
+
+    it("should dedupe a singleton view across a split", () => {
+      const prev = state(
+        split("x", 0.5, leaf(a), {
+          variant: "leaf",
+          tabs: [viewTab(b, "range_explorer")],
+        }),
+      );
+      const { next } = panel.reduceAll(prev, [
+        panel.insertTab({ tab: viewTab(c, "range_explorer"), singleton: true }),
+      ]);
+      expect(next).toBe(prev);
+    });
+
+    it("should insert a singleton view when no view of that type exists", () => {
+      const { next } = panel.reduceAll(
+        state({ variant: "leaf", tabs: [viewTab(a, "docs")] }),
+        [panel.insertTab({ tab: viewTab(b, "range_explorer"), singleton: true })],
+      );
+      expect(tabKeys(next.root)).toEqual([a, b]);
+    });
+
+    it("should allow a duplicate view type when singleton is unset", () => {
+      const { next } = panel.reduceAll(
+        state({ variant: "leaf", tabs: [viewTab(a, "range_explorer")] }),
+        [panel.insertTab({ tab: viewTab(b, "range_explorer") })],
+      );
+      expect(tabKeys(next.root)).toEqual([a, b]);
+    });
+
     it("should relocate an existing tab and refresh its content when a placement is given", () => {
       const { next } = panel.reduceAll(state(leaf(a, b)), [
         panel.insertTab({
