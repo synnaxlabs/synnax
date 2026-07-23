@@ -220,7 +220,17 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 		}
 		return
 	}
-	if tsk.Rack != d.rack.Key || tsk.Snapshot {
+	if tsk.Snapshot {
+		return
+	}
+	if tsk.Rack != d.rack.Key {
+		// The task moved racks: the start deploys it on the new rack, and doubles
+		// as the teardown signal for the instance this driver still holds.
+		if d.release(cmd.Task) {
+			d.cfg.L.Info("stopped task moved to another rack",
+				zap.Stringer("task", cmd.Task),
+			)
+		}
 		return
 	}
 	d.mu.RLock()
@@ -389,22 +399,30 @@ func (d *Driver) configure(ctx context.Context, t task.Task) error {
 }
 
 func (d *Driver) delete(key task.Key) {
+	if d.release(key) {
+		d.cfg.L.Info("deleted task", zap.Stringer("task", key))
+	}
+}
+
+// release stops and forgets the live instance for key, reporting whether one
+// existed.
+func (d *Driver) release(key task.Key) bool {
 	d.mu.Lock()
 	t, ok := d.mu.tasks[key]
 	delete(d.mu.tasks, key)
 	delete(d.mu.hashes, key)
 	d.mu.Unlock()
 	if !ok {
-		return
+		return false
 	}
 	if err := t.Stop(); err != nil {
 		d.cfg.L.Error(
-			"failed to stop task during deletion",
+			"failed to stop task",
 			zap.Stringer("task", key),
 			zap.Error(err),
 		)
 	}
-	d.cfg.L.Info("deleted task", zap.Stringer("task", key))
+	return true
 }
 
 func (d *Driver) Close() error {

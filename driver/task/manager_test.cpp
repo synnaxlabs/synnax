@@ -414,6 +414,28 @@ TEST_F(TaskManagerTest, Delete) {
     ASSERT_EQ(s.details.task, task.key);
 }
 
+TEST_F(TaskManagerTest, RackMoveStopsLiveInstance) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = "echo",
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "configured";
+    });
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    task.rack = other.key;
+    ASSERT_NIL(other.tasks.create(task));
+    send_start(client, task);
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "stopped";
+    });
+    ASSERT_EQ(s.details.task, task.key);
+}
+
 TEST_F(TaskManagerTest, Command) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{

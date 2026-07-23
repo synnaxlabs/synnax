@@ -194,11 +194,23 @@ void Manager::process_start(const synnax::task::Command &cmd) {
         LOG(WARNING) << "failed to retrieve task for start: " << err;
         return;
     }
-    if (tsk.rack != this->rack.key || tsk.snapshot) {
-        VLOG(1) << "ignoring start for task " << tsk;
+    if (tsk.snapshot) {
+        VLOG(1) << "ignoring start for snapshot task " << tsk;
         return;
     }
     std::lock_guard<std::mutex> lock(this->mu);
+    if (tsk.rack != this->rack.key) {
+        // The task moved racks: the start deploys it on the new rack, and doubles
+        // as the teardown signal for the instance this driver still holds.
+        if (this->entries.find(cmd.task) == this->entries.end()) {
+            VLOG(1) << "ignoring start for task " << tsk;
+            return;
+        }
+        LOG(INFO) << "stopping task moved to another rack " << tsk;
+        this->op_queue.push_back(Op{Op::Type::REMOVE, cmd.task, {}, {}});
+        this->cv.notify_one();
+        return;
+    }
     if (!this->entries[cmd.task]) this->entries[cmd.task] = std::make_shared<Entry>();
     if (this->deploys_->hash(cmd.task) == tsk.config_hash) {
         VLOG(1) << "queuing start for live task " << tsk;

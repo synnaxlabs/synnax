@@ -213,7 +213,9 @@ Command routing follows the same broadcast shape on `sy_task_cmd`, with a two-pa
 driver-side predicate:
 
 - `start`: execute when the task's rack matches this driver, building the instance if
-  none exists.
+  none exists. When the rack names a different driver but this driver still holds a live
+  instance for the key, the start is a teardown signal: stop and free that instance
+  (section 3.8).
 - Every other command type (`stop`, scan, connection tests, custom types): execute when
   this driver holds a live instance for the key, regardless of the task's current rack.
 
@@ -232,9 +234,9 @@ drifted = task.config_hash != status.details.config_hash
 ```
 
 The driver reports its rack in status details alongside the hash, and the Console shows
-the same redeploy control as for config drift. Redeploy sends `start`: the old driver
-holds an instance whose task now names a different rack, so it stops and frees it (the
-non-start predicate above), while the new driver builds from the task and runs. The two
+the same redeploy control as for config drift. Redeploy sends `start`: the new driver
+builds from the task and runs, while the old driver, holding a live instance whose task
+now names a different rack, stops and frees it (the teardown clause in 3.7). The two
 drivers are not serialized, so both instances may briefly exist; channel write authority
 arbitrates during the window (open question, section 9).
 

@@ -309,6 +309,53 @@ var _ = Describe("Driver", func() {
 			Consistently(func() int32 { return configuredCount.Load() }).Should(Equal(countAfterOpen))
 		})
 
+		It("should stop the live instance when a started task moves to another rack", func(ctx SpecContext) {
+			var (
+				stopped   atomic.Bool
+				execCount atomic.Int32
+				taskKey   atomic.Value
+			)
+			factory := &mockFactory{
+				name: "test",
+				configureFunc: func(
+					_ context.Context,
+					t task.Task,
+				) (driver.Task, error) {
+					return &mockTask{
+						key: t.Key,
+						execFunc: func(context.Context, task.Command) error {
+							execCount.Add(1)
+							return nil
+						},
+						stopFunc: func() error {
+							if t.Key == taskKey.Load() {
+								stopped.Store(true)
+							}
+							return nil
+						},
+					}, nil
+				},
+			}
+			openDriver(ctx, factory)
+			time.Sleep(50 * time.Millisecond)
+
+			t := newTask(embeddedRackKey(ctx))
+			taskKey.Store(t.Key)
+			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-1"})
+			Eventually(func() int32 { return execCount.Load() }).Should(Equal(int32(1)))
+
+			otherRack := rack.Rack{Name: "Move Target Rack"}
+			Expect(rackService.NewWriter(nil).Create(ctx, &otherRack)).To(Succeed())
+			t.Rack = otherRack.Key
+			Expect(taskWriter.Create(ctx, &t)).To(Succeed())
+
+			// The redeploy start lands on the new rack; for this driver it is the
+			// teardown signal for the instance it still holds.
+			writeCommand(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})
+			Eventually(func() bool { return stopped.Load() }).Should(BeTrue())
+		})
+
 		It("should ignore start commands for snapshot tasks", func(ctx SpecContext) {
 			var configuredCount atomic.Int32
 			factory := &mockFactory{
