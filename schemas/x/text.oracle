@@ -10,7 +10,6 @@
 @ts output  "x/ts/src/text"
 @go output  "x/go/text"
 @go version 0
-@pb
 
 Level enum {
     h1    = "h1"
